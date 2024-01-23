@@ -181,7 +181,7 @@ We welcome contributions to the Doku project. Please refer to [CONTRIBUTING](CON
 
 ## License
 
-Doku is available under the [GPL-3.0](LICENSE).
+Doku is available under the [Apache-2.0 license](LICENSE).
 
 ## Support
 
