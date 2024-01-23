@@ -1,0 +1,71 @@
+---
+title: What is Doku?
+description: 'Monitor and evalute your LLM Applications'
+---
+
+Doku is an open-source observability tool engineered for Large Language Models (LLMs). Designed for ease of integration into existing LLM applications, Doku offers unparalleled insights into usage, performance, and overhead—allowing you to analyze, optimize, and scale your AI applications and LLM usage effectively.
+
+Whether you're working with OpenAI, Cohere, or Anthropic, It tracks all your LLM requests transparently and conveys the insights needed to make data-driven decisions. From monitoring usage and understanding latencies to managing costs and collaborating effortlessly, Doku grants you the lens to view your models in high definition.
+
+## How it works
+
+<Frame>
+  <img src="https://raw.githubusercontent.com/dokulabs/.github/main/profile/assets/banner.gif" />
+</Frame>
+### Application Integration with Two Lines of Code
+Start by incorporating the DokuMetry SDK into your application. With SDKs tailored for both Python and NodeJS, Doku fits into your tech stack with minimal changes. Just a **two lines** of code is all it takes to begin:
+
+For Python and NodeJS projects, just import the DokuMetry SDK and initialize it as follows:
+  <CodeGroup>
+  ```python python
+  import dokumetry
+  dokumetry.init(llm=co, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+  ```
+
+  ```javascript NodeJS
+  import DokuMetry from 'dokumetry';
+  DokuMetry.init({llm: openai, dokuURL: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+  ```
+  </CodeGroup>
+Find detailed instructions at the [DokuMetry SDK Documentation](/0.0.4/dokumetry/introduction).
+
+### The Doku Ingester: Your Data Processing Workhorse
+
+Upon SDK setup, data from your LLM operations is automatically collected. The DokuMetry SDKs transmit this usage data over HTTP in the background to the [Doku Ingester](https://github.com/dokulabs/ingester/).
+
+The ingester is the core engine where the magic happens:
+- **Data Collection**: Effortlessly captures live data from your LLM interactions without complicating your existing codebase.
+- **Cost Analysis**: Enriches your data with cost considerations, providing a financial perspective to your analytics.
+- **Secure Storage**: All processed information is securely stored in TimescaleDB, providing you with a scalable, time-series database that can handle large volumes of observability data.
+
+You have the choice to set up a fresh TimescaleDB instance or connect Doku to your existing one. Whichever path you choose, your data resides within your control, reinforcing your data security and operational compliance.
+
+## Features
+Leveraging Doku, you can get:
+
+- **In-depth LLM Monitoring**: Track every request to LLM platforms like OpenAI with precision, ensuring comprehensive visibility over your model's interactions.
+- **Granular Usage Insights of your LLM Applications**: Assess your LLM's performance and costs with fine-grained control, breaking down metrics by environment (such as staging or production) or application, to optimize for efficiency and scalability.
+- **Connect to Observability Platforms**: Export LLM Observablity data and insights from Doku to popular observability platforms such as Grafana Cloud or Datadog.
+- **Team-centric Workflow**: Enhance team collaboration with seamless data sharing capabilities, creating an integrated environment for observability-driven teamwork.
+
+## Supported LLM Platforms
+<CardGroup cols={3}>
+<Card title="OpenAI">
+</Card>
+<Card title="Cohere">
+</Card>
+<Card title="Anthropic">
+</Card>
+</CardGroup>
+
+## Getting Started
+Select from the following guides to learn more about how to use Doku:
+
+<CardGroup cols={2}>
+<Card title="Quickstart" href="/0.0.4/quickstart" icon='bolt'>
+Get Started with monitoring your LLM Applications in 3 simple steps
+</Card>
+<Card title="Integrations" href="/0.0.4/integrations/intro" icon='connectdevelop'>
+Connect to your existing Observablity Platform
+</Card>
+</CardGroup>
