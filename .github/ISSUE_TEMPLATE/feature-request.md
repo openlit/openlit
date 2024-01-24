@@ -2,19 +2,22 @@
 name: Feature Request
 about: Suggest an idea for this project
 title: ''
-labels: 'feature :rocket:, Up for Grab! :raised_hand:'
+labels: ":rocket: Feature"
 assignees: ''
 
 ---
 
-### Is your feature request related to a problem? Please describe.
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+### 🚀 What's the Problem?
+Tell us what's not working right or what's getting in your way.
 
-### Describe the solution you'd like
-A clear and concise description of what you want to happen.
+### 💡 Your Dream Solution
+Tell us what you wish for, with as much detail as you like.
 
-### Describe alternatives you've considered
-A clear and concise description of any alternative solutions or features you've considered.
+### 🤔 Seen anything similar?
+Share other things you've tried or seen that are close to what you're thinking.
 
-### Additional context
-Add any other context or screenshots about the feature request here.
+### 🖼️ Pictures or Drawings
+Share any picture or drawing that shows your idea if you have.
+
+### 👐 Want to Help Make It Happen?
+- [ ] Yes, I'd like to volunteer and help out with this!
