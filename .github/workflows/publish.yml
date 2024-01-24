@@ -103,14 +103,14 @@ jobs:
         go-version: '1.21.5'
 
     - name: Build package for ${{ matrix.platform.os }}-${{ matrix.platform.arch }}
-      working-directory: ./src
+      working-directory: ./src/ingester
       run: env GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} go build -o ingester-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
 
     - name: Upload binaries to release
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: src/ingester-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+        file: src/ingester/ingester-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
         asset_name: ingester-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
         tag: ${{ needs.ingester-docker.outputs.version }}
         overwrite: true
