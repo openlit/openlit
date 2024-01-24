@@ -6,13 +6,8 @@ on:
   pull_request:
     branches: [ "main" ]
 
-defaults:
-  run:
-    working-directory: src
-
 jobs:
-
-  build:
+  ingester:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -23,9 +18,11 @@ jobs:
         go-version: '1.21.1'
     
     - name: Build
+      working-directory: ./src/ingester
       run: go build -v ./...
     
     - name: Code Format Check (gofmt)
+      working-directory: ./src/ingester
       run: |
         if [ -n "$(gofmt -l .)" ]; then
           echo "Go code is not formatted:"
@@ -34,4 +31,5 @@ jobs:
         fi
     
     - name: Test
+      working-directory: ./src/ingester
       run: go test -v ./...
