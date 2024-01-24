@@ -1,12 +1,7 @@
 # Doku Ingester
 [![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
 [![License](https://img.shields.io/github/license/dokulabs/doku?label=license&logo=github&color=f80&logoColor=fff%22%20alt=%22License)](https://github.com/dokulabs/doku/blob/main/LICENSE)
-[![Ingester Version](https://img.shields.io/github/tag/dokulabs/ingester.svg?&label=Version)](https://github.com/dokulabs/ingester/tags)
-[![GitHub Last Commit](https://img.shields.io/github/last-commit/dokulabs/ingester)](https://github.com/dokulabs/ingester/pulse)
-[![GitHub Contributors](https://img.shields.io/github/contributors/dokulabs/ingester)](https://github.com/dokulabs/ingester/graphs/contributors)
-
-[![Tests](https://github.com/dokulabs/ingester/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/dokulabs/ingester/actions/workflows/tests.yml)
-[![CodeQL](https://github.com/dokulabs/ingester/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/dokulabs/ingester/actions/workflows/github-code-scanning/codeql)
+[![Ingester Version](https://img.shields.io/github/tag/dokulabs/ingester.svg?&label=Version)](https://github.com/dokulabs/doku/tags)
 
 Doku Ingester is an integral part of Doku's LLM Observability tools, facilitating real-time data ingestion from `dokumetry` [Python](https://github.com/dokulabs/dokumetry-python) and [Node](https://github.com/dokulabs/dokumetry-node) SDKs for Large Language Models (LLM) analytics. It ensures the secure collection of telemetry data, enabling insights on usage patterns, performance metrics, and cost management for LLMs.
 
@@ -37,8 +32,8 @@ docker run -d -p 9044:9044 --name doku_ingester doku-ingester --config <path-to-
 
 ```bash
 # Clone the repository and use `src` directory
-git clone https://github.com/dokulabs/ingester.git
-cd src
+git clone https://github.com/dokulabs/doku.git
+cd src/ingester
 
 # Build the Go Package
 go build -o doku-ingester .
