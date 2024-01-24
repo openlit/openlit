@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "versions": ["0.0.4", "0.0.3"],
+  "versions": ["0.0.1"],
   "name": "Doku",
   "logo": {
     "dark": "/logo/dark.png",
@@ -45,55 +45,55 @@
     {
       "group": "Get Started",
       "pages": [
-        "0.0.4/introduction",
-        "0.0.4/quickstart",
-        "0.0.4/installation",
-        "0.0.4/configuration"
+        "0.0.1/introduction",
+        "0.0.1/quickstart",
+        "0.0.1/installation",
+        "0.0.1/configuration"
       ],
-      "version": "0.0.4"
+      "version": "0.0.1"
     },
     {
       "group": "DokuMetry",
-      "version": "0.0.4",
+      "version": "0.0.1",
       "pages": [
-        "0.0.4/dokumetry/introduction",
+        "0.0.1/dokumetry/introduction",
         {
           "group": "Python",
-          "version": "0.0.4",
+          "version": "0.0.1",
           "icon": "python",
           "pages": [
-            "0.0.4/dokumetry/python/intro",
+            "0.0.1/dokumetry/python/introduction",
             {
               "group": "Examples",
-              "version": "0.0.4",
+              "version": "0.0.1",
               "pages": [
                 {
                   "group": "OpenAI",
-                  "version": "0.0.4",
+                  "version": "0.0.1",
                   "pages": [
-                    "0.0.4/dokumetry/python/examples/openai/chat",
-                    "0.0.4/dokumetry/python/examples/openai/image",
-                    "0.0.4/dokumetry/python/examples/openai/embeddings",
-                    "0.0.4/dokumetry/python/examples/openai/audio",
-                    "0.0.4/dokumetry/python/examples/openai/fine-tuning",
-                    "0.0.4/dokumetry/python/examples/openai/completions"
+                    "0.0.1/dokumetry/python/examples/openai/chat",
+                    "0.0.1/dokumetry/python/examples/openai/image",
+                    "0.0.1/dokumetry/python/examples/openai/embeddings",
+                    "0.0.1/dokumetry/python/examples/openai/audio",
+                    "0.0.1/dokumetry/python/examples/openai/fine-tuning",
+                    "0.0.1/dokumetry/python/examples/openai/completions"
                   ]
                 },
                 {
                   "group": "Cohere",
-                  "version": "0.0.4",
+                  "version": "0.0.1",
                   "pages": [
-                    "0.0.4/dokumetry/python/examples/cohere/chat",
-                    "0.0.4/dokumetry/python/examples/cohere/generate",
-                    "0.0.4/dokumetry/python/examples/cohere/co-summarize",
-                    "0.0.4/dokumetry/python/examples/cohere/embed"
+                    "0.0.1/dokumetry/python/examples/cohere/chat",
+                    "0.0.1/dokumetry/python/examples/cohere/generate",
+                    "0.0.1/dokumetry/python/examples/cohere/co-summarize",
+                    "0.0.1/dokumetry/python/examples/cohere/embed"
                   ]
                 },
                 {
                   "group": "Anthropic",
-                  "version": "0.0.4",
+                  "version": "0.0.1",
                   "pages": [
-                    "0.0.4/dokumetry/python/examples/anthropic/anthropic-completions"
+                    "0.0.1/dokumetry/python/examples/anthropic/anthropic-completions"
                   ]
                 }
               ]
@@ -102,41 +102,41 @@
         },
         {
           "group": "NodeJS",
-          "version": "0.0.4",
+          "version": "0.0.1",
           "icon": "node-js",
           "pages": [
-            "0.0.4/dokumetry/node/introduction",
+            "0.0.1/dokumetry/node/introduction",
             {
               "group": "Examples",
-              "version": "0.0.4",
+              "version": "0.0.1",
               "pages": [
                 {
                   "group": "OpenAI",
-                  "version": "0.0.4",
+                  "version": "0.0.1",
                   "pages": [
-                    "0.0.4/dokumetry/node/examples/openai/chat",
-                    "0.0.4/dokumetry/node/examples/openai/image",
-                    "0.0.4/dokumetry/node/examples/openai/embeddings",
-                    "0.0.4/dokumetry/node/examples/openai/audio",
-                    "0.0.4/dokumetry/node/examples/openai/fine-tuning",
-                    "0.0.4/dokumetry/node/examples/openai/chatCompletions"
+                    "0.0.1/dokumetry/node/examples/openai/chat",
+                    "0.0.1/dokumetry/node/examples/openai/image",
+                    "0.0.1/dokumetry/node/examples/openai/embeddings",
+                    "0.0.1/dokumetry/node/examples/openai/audio",
+                    "0.0.1/dokumetry/node/examples/openai/fine-tuning",
+                    "0.0.1/dokumetry/node/examples/openai/chatCompletions"
                   ]
                 },
                 {
                   "group": "Cohere",
-                  "version": "0.0.4",
+                  "version": "0.0.1",
                   "pages": [
-                    "0.0.4/dokumetry/node/examples/cohere/chat",
-                    "0.0.4/dokumetry/node/examples/cohere/generate",
-                    "0.0.4/dokumetry/node/examples/cohere/summarize",
-                    "0.0.4/dokumetry/node/examples/cohere/embed"
+                    "0.0.1/dokumetry/node/examples/cohere/chat",
+                    "0.0.1/dokumetry/node/examples/cohere/generate",
+                    "0.0.1/dokumetry/node/examples/cohere/summarize",
+                    "0.0.1/dokumetry/node/examples/cohere/embed"
                   ]
                 },
                 {
                   "group": "Anthropic",
-                  "version": "0.0.4",
+                  "version": "0.0.1",
                   "pages": [
-                    "0.0.4/dokumetry/node/examples/anthropic/anthropic-completions"
+                    "0.0.1/dokumetry/node/examples/anthropic/anthropic-completions"
                   ]
                 }
               ]
@@ -148,159 +148,29 @@
     {
       "group": "Integrations",
       "pages": [
-        "0.0.4/integrations/intro",
-        "0.0.4/integrations/grafanacloud",
-        "0.0.4/integrations/datadog",
-        "0.0.4/integrations/new-relic"
+        "0.0.1/integrations/intro",
+        "0.0.1/integrations/grafanacloud",
+        "0.0.1/integrations/datadog",
+        "0.0.1/integrations/new-relic"
       ],
-      "version": "0.0.4"
+      "version": "0.0.1"
     },
     {
       "group": "API Reference",
       "pages": [
-        "0.0.4/api-reference/introduction",
+        "0.0.1/api-reference/introduction",
         {
           "group": "API Keys",
           "icon": "key",
           "pages": [
-            "0.0.4/api-reference/endpoint/api-keys/create",
-            "0.0.4/api-reference/endpoint/api-keys/get",
-            "0.0.4/api-reference/endpoint/api-keys/delete"
+            "0.0.1/api-reference/endpoint/api-keys/create",
+            "0.0.1/api-reference/endpoint/api-keys/get",
+            "0.0.1/api-reference/endpoint/api-keys/delete"
           ],
-          "version": "0.0.4"
+          "version": "0.0.1"
         }
       ],
-      "version": "0.0.4"
-    },
-    {
-      "group": "Get Started",
-      "pages": [
-        "0.0.3/introduction",
-        "0.0.3/quickstart",
-        "0.0.3/installation",
-        "0.0.3/configuration"
-      ],
-      "version": "0.0.3"
-    },
-    {
-      "group": "DokuMetry",
-      "version": "0.0.3",
-      "pages": [
-        "0.0.3/dokumetry/introduction",
-        {
-          "group": "Python",
-          "version": "0.0.3",
-          "icon": "python",
-          "pages": [
-            "0.0.3/dokumetry/python/intro",
-            {
-              "group": "Examples",
-              "version": "0.0.3",
-              "pages": [
-                {
-                  "group": "OpenAI",
-                  "version": "0.0.3",
-                  "pages": [
-                    "0.0.3/dokumetry/python/examples/openai/chat",
-                    "0.0.3/dokumetry/python/examples/openai/image",
-                    "0.0.3/dokumetry/python/examples/openai/embeddings",
-                    "0.0.3/dokumetry/python/examples/openai/audio",
-                    "0.0.3/dokumetry/python/examples/openai/fine-tuning",
-                    "0.0.3/dokumetry/python/examples/openai/chatCompletions"
-                  ]
-                },
-                {
-                  "group": "Cohere",
-                  "version": "0.0.3",
-                  "pages": [
-                    "0.0.3/dokumetry/python/examples/cohere/chat",
-                    "0.0.3/dokumetry/python/examples/cohere/generate",
-                    "0.0.3/dokumetry/python/examples/cohere/summarize",
-                    "0.0.3/dokumetry/python/examples/cohere/embed"
-                  ]
-                },
-                {
-                  "group": "Anthropic",
-                  "version": "0.0.3",
-                  "pages": [
-                    "0.0.3/dokumetry/python/examples/anthropic/completions"
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "group": "NodeJS",
-          "version": "0.0.3",
-          "icon": "node-js",
-          "pages": [
-            "0.0.3/dokumetry/node/introduction",
-            {
-              "group": "Examples",
-              "version": "0.0.3",
-              "pages": [
-                {
-                  "group": "OpenAI",
-                  "version": "0.0.3",
-                  "pages": [
-                    "0.0.3/dokumetry/node/examples/openai/chat",
-                    "0.0.3/dokumetry/node/examples/openai/image",
-                    "0.0.3/dokumetry/node/examples/openai/embeddings",
-                    "0.0.3/dokumetry/node/examples/openai/audio",
-                    "0.0.3/dokumetry/node/examples/openai/fine-tuning",
-                    "0.0.3/dokumetry/node/examples/openai/completions"
-                  ]
-                },
-                {
-                  "group": "Cohere",
-                  "version": "0.0.3",
-                  "pages": [
-                    "0.0.3/dokumetry/node/examples/cohere/chat",
-                    "0.0.3/dokumetry/node/examples/cohere/generate",
-                    "0.0.3/dokumetry/node/examples/cohere/summarize",
-                    "0.0.3/dokumetry/node/examples/cohere/co-embed"
-                  ]
-                },
-                {
-                  "group": "Anthropic",
-                  "version": "0.0.3",
-                  "pages": [
-                    "0.0.3/dokumetry/node/examples/anthropic/completions"
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "group": "Integrations",
-      "pages": [
-        "0.0.3/integrations/introduction",
-        "0.0.3/integrations/grafanacloud",
-        "0.0.3/integrations/datadog",
-        "0.0.3/integrations/new-relic"
-      ],
-      "version": "0.0.3"
-    },
-    {
-      "group": "API Reference",
-      "pages": [
-        "0.0.3/api-reference/introduction",
-        {
-          "group": "API Keys",
-          "icon": "key",
-          "pages": [
-            "0.0.3/api-reference/endpoint/api-keys/create",
-            "0.0.3/api-reference/endpoint/api-keys/get",
-            "0.0.3/api-reference/endpoint/api-keys/delete"
-          ],
-          "version": "0.0.3"
-        }
-      ],
-      "version": "0.0.3"
+      "version": "0.0.1"
     }
   ],
   "footerSocials": {

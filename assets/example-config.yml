@@ -4,7 +4,7 @@ ingesterPort: 9044                            # Port to run the Ingestion Server
 pricingInfo:
   # localFile:
   #   path: "/assets/pricing.json" # Path to local JSON file with LLM Pricing data
-  url: "https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json" # URL to download Pricing data file
+  url: "https://raw.githubusercontent.com/dokulabs/doku/main/assets/pricing.json" # URL to download Pricing data file
 
 # Configuration for the Doku Backend Database (TimescaleDB)
 dbConfig:
