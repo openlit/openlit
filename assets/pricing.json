@@ -1,0 +1,145 @@
+{
+    "embeddings": {
+        "text-embedding-ada-002": 0.0001,
+        "ada": 0.0001,
+        "text-ada-001": 0.0001,
+        "embed-english-v3.0": 0.0001,
+        "embed-multilingual-v3.0": 0.0001,
+        "embed-english-light-v3.0": 0.0001,
+        "embed-multilingual-light-v3.0": 0.0001,
+        "embed-english-v2.0": 0.0001,
+        "embed-english-light-v2.0": 0.0001,
+        "embed-multilingual-v2.0": 0.0001
+    },
+    "images": {
+        "dall-e-3": {
+            "standard": {
+                "1024x1024": 0.040,
+                "1024x1792": 0.020,
+                "1792x1024": 0.080
+            },
+            "hd": {
+                "1024x1024": 0.080,
+                "1024x1792": 0.120,
+                "1792x1024": 0.120
+            }
+        },
+        "dall-e-2": {
+            "standard": {
+                "1024x1024": 0.020,
+                "512x512": 0.018,
+                "256x256": 0.016
+            }
+        }
+    },
+    "audio": {
+        "tts-1" : 0.015,
+        "tts-1-hd": 0.030
+    },
+    "chat": {
+        "ada": {
+            "promptPrice": 0.0004,
+            "completionPrice": 0.0004
+        },
+        "text-ada-001": {
+            "promptPrice": 0.0004,
+            "completionPrice": 0.0004
+        },
+        "babbage": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0005
+        },
+        "babbage-002": {
+            "promptPrice": 0.0004,
+            "completionPrice": 0.0004
+        },
+        "text-babbage-001": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0005
+        },
+        "curie": {
+            "promptPrice": 0.0020,
+            "completionPrice": 0.0020
+        },
+        "text-curie-001": {
+            "promptPrice": 0.0020,
+            "completionPrice": 0.0020
+        },
+        "davinci": {
+            "promptPrice": 0.0200,
+            "completionPrice": 0.0200
+        },
+        "davinci-002": {
+            "promptPrice": 0.0020,
+            "completionPrice": 0.0020
+        },
+        "text-davinci-001": {
+            "promptPrice": 0.0200,
+            "completionPrice": 0.0200
+        },
+        "text-davinci-002": {
+            "promptPrice": 0.0200,
+            "completionPrice": 0.0200
+        },
+        "text-davinci-003": {
+            "promptPrice": 0.0200,
+            "completionPrice": 0.0200
+        },
+        "gpt-3.5-turbo": {
+            "promptPrice": 0.0010,
+            "completionPrice": 0.0020
+        },
+        "gpt-3.5-turbo-instruct": {
+            "promptPrice": 0.0015,
+            "completionPrice": 0.0020
+        },
+        "gpt-4": {
+            "promptPrice": 0.03,
+            "completionPrice": 0.06
+        },
+        "gpt-4-32k": {
+            "promptPrice": 0.06,
+            "completionPrice": 0.12
+        },
+        "gpt-4-1106-preview": {
+            "promptPrice": 0.01,
+            "completionPrice": 0.03
+        },
+        "gpt-4-preview": {
+            "promptPrice": 0.01,
+            "completionPrice": 0.03
+        },
+        "gpt-4-1106-vision-preview": {
+            "promptPrice": 0.01,
+            "completionPrice": 0.03
+        },
+        "gpt-4-vision-preview": {
+            "promptPrice": 0.01,
+            "completionPrice": 0.03
+        },
+        "claude-instant-1": {
+            "promptPrice": 0.00163,
+            "completionPrice": 0.00551
+        },
+        "claude-2": {
+            "promptPrice": 0.01102,
+            "completionPrice": 0.03268
+        },
+        "command": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
+        },
+        "command-nightly": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
+        },
+        "command-light": {
+            "promptPrice": 0.0003,
+            "completionPrice": 0.0006
+        },
+        "command-light-nightly": {
+            "promptPrice": 0.0003,
+            "completionPrice": 0.0006
+        }
+    }
+}
