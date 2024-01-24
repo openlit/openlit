@@ -8,20 +8,20 @@ assignees: ''
 ---
 
 ### 🐛 What's Going Wrong?
-_Explain the bug. Tell us what's happening that shouldn't be._
+Explain the bug. Tell us what's happening that shouldn't be.
 
 ### 🕵️ Steps to Reproduce
-_To see the bug, what should we do?_
+To see the bug, what should we do?
 1. Start at '...'
 2. Click '...'
 3. Look for '...'
 4. Oops, there's the issue!
 
 ### 🎯 What Did You Expect?
-_Describe what you thought would happen._
+Describe what you thought would happen.
 
 ### 📸 Any Screenshots?
-_Pictures can say a thousand words and can be super helpful!_
+Pictures can say a thousand words and can be super helpful!
 
 ### 💻 Your Setup
 - Doku Version: [e.g., 0.0.4]
@@ -30,4 +30,7 @@ _Pictures can say a thousand words and can be super helpful!_
 - Deployment Method: [Helm, Linux, Windows, Doker]
 
 ### 📝 Additional Notes
-_Got more to say? Tell us here._
+Got more to say? Tell us here.
+
+### 👐 Want to Help Make It Happen?
+- [ ] Yes, I'd like to volunteer and help out with this!
