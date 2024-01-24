@@ -2,36 +2,32 @@
 name: Bug
 about: Create a report to help us improve
 title: ''
-labels: ''
+labels: ":bug: Bug, :raised_hand: Up for Grabs"
 assignees: ''
 
 ---
 
-### Describe the bug
-A clear and concise description of what the bug is.
+### 🐛 What's Going Wrong?
+_Explain the bug. Tell us what's happening that shouldn't be._
 
-### Steps to Reproduce
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+### 🕵️ Steps to Reproduce
+_To see the bug, what should we do?_
+1. Start at '...'
+2. Click '...'
+3. Look for '...'
+4. Oops, there's the issue!
 
-### Expected behavior
-A clear and concise description of what you expected to happen.
+### 🎯 What Did You Expect?
+_Describe what you thought would happen._
 
-### Screenshots
-If applicable, add screenshots to help explain your problem.
+### 📸 Any Screenshots?
+_Pictures can say a thousand words and can be super helpful!_
 
-### Desktop (please complete the following information)
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+### 💻 Your Setup
+- Doku Version: [e.g., 0.0.4]
+- DokuMetry SDK: [Python or NodeJS]
+- DokuMetry SDK Version: [e.g., 0.0.3]
+- Deployment Method: [Helm, Linux, Windows, Doker]
 
-### Smartphone (please complete the following information)
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
-
-### Additional context
-Add any other context about the problem here.
+### 📝 Additional Notes
+_Got more to say? Tell us here._
