@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  docker:
+  ingester-docker:
     runs-on: ubuntu-latest
     outputs: 
       version: ${{ steps.set-version-output.outputs.version }}
@@ -60,7 +60,8 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
-          context: .
+          context: ./src/ingester/
+          file: ./src/ingester/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -77,9 +78,9 @@ jobs:
         id: set-version-output
         run: echo "::set-output name=version::${{ env.DOCKER_METADATA_OUTPUT_VERSION }}"
   
-  binaries:
+  ingester-binaries:
     name: Publish binaries
-    needs: docker
+    needs: ingester-docker
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -110,5 +111,5 @@ jobs:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: src/ingester-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
         asset_name: ingester-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
-        tag: ${{ needs.docker.outputs.version }}
+        tag: ${{ needs.ingester-docker.outputs.version }}
         overwrite: true
