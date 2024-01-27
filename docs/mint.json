@@ -173,6 +173,11 @@
       "version": "0.0.1"
     }
   ],
+  "analytics": {
+    "ga4": {
+        "measurementId": "G-E98B3GELQ9"
+    }
+  },
   "footerSocials": {
     "github": "https://github.com/dokulabs/",
     "slack": "https://dokulabs.slack.com"
