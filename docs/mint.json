@@ -3,8 +3,8 @@
   "versions": ["0.0.1"],
   "name": "Doku",
   "logo": {
-    "dark": "/logo/dark.png",
-    "light": "/logo/light.png"
+    "dark": "https://github.com/dokulabs/.github/blob/main/profile/assets/dark-bg-with-text-logo.jpg?raw=true",
+    "light": "https://github.com/dokulabs/.github/blob/main/profile/assets/light-bg-with-text-logo.jpg?raw=true"
   },
   "favicon": "favicon.png",
   "colors": {
