@@ -1,16 +1,53 @@
+import { getToken } from "next-auth/jwt";
 import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
 export default withAuth(
-	// `withAuth` augments your `Request` with the user's token.
-	function middleware() {},
+	async function middleware(req) {
+		const token = await getToken({ req });
+		const isAuth = !!token;
+		const isAuthPage =
+			req.nextUrl.pathname.startsWith("/login") ||
+			req.nextUrl.pathname.startsWith("/register");
+		const isApiPage = req.nextUrl.pathname.startsWith("/api");
+
+		if (isAuthPage) {
+			if (isAuth) {
+				return NextResponse.redirect(new URL("/dashboard", req.url));
+			}
+
+			return null;
+		}
+
+		if (isApiPage) {
+			if (isAuth) {
+				return NextResponse.next();
+			}
+		}
+
+		if (!isAuth) {
+			let from = req.nextUrl.pathname;
+			if (req.nextUrl.search) {
+				from += req.nextUrl.search;
+			}
+
+			return NextResponse.redirect(
+				new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
+			);
+		}
+	},
 	{
 		callbacks: {
-			authorized: ({ token }) => !!token?.id,
+			authorized() {
+				// This is a work-around for handling redirect on auth pages.
+				// We return true here so that the middleware function above
+				// is always called.
+				return true;
+			},
 		},
 	}
 );
 
-// See "Matching Paths" below to learn more
 export const config = {
-	matcher: "/dashboard",
+	matcher: ["/api/:path*", "/dashboard/:path*", "/login", "/register"],
 };

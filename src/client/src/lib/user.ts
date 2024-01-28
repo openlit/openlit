@@ -64,16 +64,14 @@ export const createNewUser = async (
 	let createdUser = await prisma.user.create({
 		data: {
 			email,
-			password,
+			password: hash,
 		},
 	});
 
-	console.log("register createdUser ", createdUser);
 	if (createdUser?.id) {
 		// @ts-expect-error
 		return exclude(createdUser, options?.selectPassword && []);
 	}
 
-	console.log("register error");
 	throw new Error("Cannot create a user!");
 };
