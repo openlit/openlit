@@ -75,3 +75,18 @@ export const createNewUser = async (
 
 	throw new Error("Cannot create a user!");
 };
+
+export const updateUser = async ({
+	data,
+	where,
+}: {
+	data: any;
+	where: any;
+}) => {
+	if (!where || !Object.keys(where).length)
+		throw new Error("No where clause defined");
+	return await prisma.user.update({
+		where,
+		data,
+	});
+};
