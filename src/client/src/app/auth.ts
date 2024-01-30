@@ -4,7 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
 import asaw from "@/utils/asaw";
-import { createNewUser, getUserByEmail } from "@/lib/user";
+import { createNewUser, getUserByEmail, updateUser } from "@/lib/user";
 import { compare } from "bcrypt-ts";
 
 const prisma = new PrismaClient();
@@ -29,21 +29,22 @@ export const authOptions = {
 				return false;
 			}
 			if (account?.provider === "google") {
-				const userExists = await prisma.user.findUnique({
-					where: { email: user.email },
-					select: { name: true },
-				});
+				const [, existingUser] = await asaw(
+					getUserByEmail({ email: user.email })
+				);
 				// if the user already exists via email,
 				// update the user with their name and image from Google
-				if (userExists && !userExists.name) {
-					await prisma.user.update({
-						where: { email: user.email },
-						data: {
-							name: profile?.name,
-							// @ts-ignore - this is a bug in the types, `picture` is a valid on the `Profile` type
-							image: profile?.picture,
-						},
-					});
+				if (existingUser && !existingUser.name) {
+					await asaw(
+						updateUser({
+							where: { email: user.email },
+							data: {
+								name: profile?.name,
+								// @ts-ignore - this is a bug in the types, `picture` is a valid on the `Profile` type
+								image: profile?.picture,
+							},
+						})
+					);
 				}
 			}
 
