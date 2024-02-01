@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"time"
 	"ingester/config"
 	"ingester/cost"
 	"ingester/obsPlatform"
@@ -62,7 +63,22 @@ type DatabaseConfig struct {
 
 // PingDB attempts to ping the database to check if it's alive.
 func PingDB() error {
-	return db.Ping()
+	var attempt int
+    retryDelay := 15 * time.Second
+
+    for attempt < 5 {
+        attempt++
+        err := db.Ping()
+        if err == nil {
+            log.Info().Msg("Successfully connected to the database")
+            return nil
+        }
+
+        log.Warn().Err(err).Msgf("Failed to connect to the database on attempt %d, retrying in %s", attempt, retryDelay)
+        time.Sleep(retryDelay)
+    }
+
+    return fmt.Errorf("Failed to connect to the database after %d attempts", attempt)
 }
 
 // GenerateSecureRandomKey should generate a secure random string to be used as an API key.
@@ -197,7 +213,7 @@ func initializeDB() error {
 			return
 		}
 
-		dbErr = db.Ping()
+		dbErr = PingDB()
 		if dbErr != nil {
 			return
 		}
