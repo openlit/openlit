@@ -22,7 +22,7 @@ const RequestsPerTime = () => {
 
 	useEffect(() => {
 		if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
-	}, [filter]);
+	}, [filter, fetchData]);
 
 	return (
 		<Card heading="Requests per time" containerClass="rounded-lg">

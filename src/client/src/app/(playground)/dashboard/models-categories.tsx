@@ -40,7 +40,7 @@ const PieChartCard = memo(
 
 		useEffect(() => {
 			if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
-		}, [filter]);
+		}, [filter, fetchData]);
 
 		return (
 			<Card containerClass={containerClass} heading={heading}>
