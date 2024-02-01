@@ -4,7 +4,7 @@ import Card from "@/components/common/card";
 import { getData } from "@/utils/api";
 import { LineChart } from "@tremor/react";
 
-export default function () {
+export default function RequestsPerTime () {
 	const [filter] = useFilter();
 
 	const [data, setData] = useState<Array<any>>([]);

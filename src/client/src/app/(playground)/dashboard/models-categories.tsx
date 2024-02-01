@@ -61,6 +61,8 @@ const PieChartCard = memo(
 	}
 );
 
+PieChartCard.displayName = "PieChartCard";
+
 export default function ModelsCategories() {
 	return (
 		<div className="flex w-full gap-6">

@@ -42,7 +42,9 @@ const StatCard = memo(
 	}
 );
 
-const NumberStats = () => {
+StatCard.displayName = "StatCard";
+
+function NumberStats (){
 	return (
 		<div className="flex mb-4">
 			<StatCard
@@ -73,4 +75,4 @@ const NumberStats = () => {
 	);
 };
 
-export default memo(NumberStats);
+export default NumberStats;
