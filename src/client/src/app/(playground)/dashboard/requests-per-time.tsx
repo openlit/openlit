@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useFilter } from "../filter-context";
 import Card from "@/components/common/card";
 import { getData } from "@/utils/api";
@@ -8,7 +8,7 @@ const RequestsPerTime = () => {
 	const [filter] = useFilter();
 
 	const [data, setData] = useState<Array<any>>([]);
-	const fetchData = async () => {
+	const fetchData = useCallback(async () => {
 		const res = await getData({
 			body: JSON.stringify({
 				timeLimit: filter.timeLimit,
@@ -18,7 +18,7 @@ const RequestsPerTime = () => {
 		});
 
 		setData(res?.data || []);
-	};
+	}, [filter]);
 
 	useEffect(() => {
 		if (filter.timeLimit.start && filter.timeLimit.end) fetchData();

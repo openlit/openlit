@@ -1,6 +1,6 @@
 import { getData } from "@/utils/api";
 import { useFilter } from "../filter-context";
-import { memo, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { round } from "lodash";
 import Card from "@/components/common/card";
 
@@ -16,7 +16,7 @@ const StatCard = memo(
 		const [filter] = useFilter();
 		const [data, setData] = useState<Record<any, any>>();
 
-		const fetchData = async () => {
+		const fetchData = useCallback(async () => {
 			const res = await getData({
 				body: JSON.stringify({
 					timeLimit: filter.timeLimit,
@@ -26,7 +26,7 @@ const StatCard = memo(
 			});
 
 			setData(res?.data?.[0] || {});
-		};
+		}, [filter]);
 
 		useEffect(() => {
 			if (filter.timeLimit.start && filter.timeLimit.end) fetchData();

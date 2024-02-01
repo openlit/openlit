@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { useFilter } from "../filter-context";
 import Card from "@/components/common/card";
 import { DonutChart } from "@tremor/react";
@@ -26,7 +26,7 @@ const PieChartCard = memo(
 		const [filter] = useFilter();
 		const [data, setData] = useState<any[]>([]);
 
-		const fetchData = async () => {
+		const fetchData = useCallback(async () => {
 			const res = await getData({
 				body: JSON.stringify({
 					timeLimit: filter.timeLimit,
@@ -36,7 +36,7 @@ const PieChartCard = memo(
 			});
 
 			setData(res?.data || []);
-		};
+		}, [filter]);
 
 		useEffect(() => {
 			if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
