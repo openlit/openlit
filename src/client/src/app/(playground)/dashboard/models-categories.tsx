@@ -36,7 +36,7 @@ const PieChartCard = memo(
 			});
 
 			setData(res?.data || []);
-		}, [filter]);
+		}, [filter, url]);
 
 		useEffect(() => {
 			if (filter.timeLimit.start && filter.timeLimit.end) fetchData();

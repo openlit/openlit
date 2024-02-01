@@ -26,7 +26,7 @@ const StatCard = memo(
 			});
 
 			setData(res?.data?.[0] || {});
-		}, [filter]);
+		}, [filter, url]);
 
 		useEffect(() => {
 			if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
