@@ -61,7 +61,7 @@ const PieChartCard = memo(
 	}
 );
 
-const ModelsCategories = () => {
+export default function ModelsCategories() {
 	return (
 		<div className="flex w-full gap-6">
 			<PieChartCard
@@ -80,6 +80,4 @@ const ModelsCategories = () => {
 			/>
 		</div>
 	);
-};
-
-export default ModelsCategories;
+}
