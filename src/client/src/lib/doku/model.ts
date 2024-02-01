@@ -8,7 +8,7 @@ export async function getTopModels(params: ModelDokuParams) {
 	const { start, end } = params.timeLimit;
 
 	const query = `
-    SELECT model, CAST(COUNT(model) AS DECIMAL) AS model_count
+    SELECT model, CAST(COUNT(model) AS INTEGER) AS model_count
     FROM ${TABLE_NAME} 
     WHERE time >= '${start}' AND time <= '${end}'
     GROUP BY model
