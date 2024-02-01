@@ -1,4 +1,6 @@
-import PlaygroundSidebar from "@/components/common/playground-sidebar";
+import Sidebar from "@/components/(playground)/sidebar";
+import { FilterProvider } from "./filter-context";
+import Header from "@/components/(playground)/header";
 
 export default function PlaygroundLayout({
 	children, // will be a page or nested layout
@@ -7,12 +9,13 @@ export default function PlaygroundLayout({
 }) {
 	return (
 		<div className="h-screen w-screen overflow-hidden flex">
-			<PlaygroundSidebar />
-			<main className="p-2 w-full h-full">
-				<div className="p-4 w-full h-full rounded dark:bg-gray-700 overflow-auto">
+			<Sidebar />
+			<FilterProvider>
+				<main className="flex flex-col p-3 w-full h-full">
+					<Header />
 					{children}
-				</div>
-			</main>
+				</main>
+			</FilterProvider>
 		</div>
 	);
 }

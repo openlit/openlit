@@ -1,5 +1,5 @@
 import { DokuParams } from "@/lib/doku/common";
-import { getResultGenerationByCategories } from "@/lib/doku/generation";
+import { getResultGenerationByCategories } from "@/lib/doku/category";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,

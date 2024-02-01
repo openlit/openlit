@@ -1,5 +1,4 @@
 import asaw from "@/utils/asaw";
-import { Flex } from "@tremor/react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -65,12 +64,12 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 
 	return (
 		<div className="flex h-screen w-screen items-center justify-center">
-			<div className="z-10 w-full max-w-md overflow-hidden rounded-2xl dark:text-gray-200 shadow-xl bg-gray-900">
+			<div className="z-10 w-full max-w-md overflow-hidden rounded-2xl shadow-xl">
 				<div className="flex flex-col items-center justify-center space-y-3 px-4 py-6 pt-8 text-center sm:px-16">
 					<h3 className="text-xl font-semibold">
 						{type === "login" ? "Sign In" : "Sign Up"}
 					</h3>
-					<p className="text-sm text-gray-500">
+					<p className="text-sm">
 						{type === "login"
 							? "Use your email and password to sign in"
 							: "Create an account to enter"}
@@ -81,11 +80,8 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					action={type === "login" ? login : register}
 					className="flex flex-col space-y-4 px-4 py-8 sm:px-16 text-gray-900"
 				>
-					<Flex flexDirection="col" className="w-full" alignItems="start">
-						<label
-							htmlFor="email"
-							className="block text-xs dark:text-gray-200 uppercase"
-						>
+					<div className="flex flex-col w-full items-start">
+						<label htmlFor="email" className="block text-xs uppercase">
 							Email Address
 						</label>
 						<input
@@ -97,8 +93,8 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 							required
 							className="mt-1 block w-full appearance-none border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-black focus:outline-none focus:ring-black sm:text-sm"
 						/>
-					</Flex>
-					<Flex flexDirection="col" className="w-full" alignItems="start">
+					</div>
+					<div className="flex flex-col w-full items-start">
 						<label
 							htmlFor="password"
 							className="block text-xs dark:text-gray-200 uppercase"
@@ -113,19 +109,13 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 							required
 							className="mt-1 block w-full appearance-none border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-black focus:outline-none focus:ring-black sm:text-sm"
 						/>
-					</Flex>
+					</div>
 					{type === "login" ? (
-						<button
-							type="submit"
-							className="dark:text-gray-200 bg-gray-600 p-3"
-						>
+						<button type="submit" className="p-3">
 							Sign in
 						</button>
 					) : (
-						<button
-							type="submit"
-							className="dark:text-gray-200 bg-gray-600 p-3"
-						>
+						<button type="submit" className="p-3">
 							Sign Up
 						</button>
 					)}

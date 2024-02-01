@@ -10,7 +10,7 @@ export const validateMetricsRequestType = {
 	AVERAGE_REQUEST_COST: "AVERAGE_REQUEST_COST",
 	// Model
 	TOP_MODELS: "TOP_MODELS",
-	// Generation
+	// Category
 	GENERATION_BY_CATEGORY: "GENERATION_BY_CATEGORY",
 };
 
@@ -19,6 +19,7 @@ export const validateMetricsRequest = (
 	type: ValueOf<typeof validateMetricsRequestType>
 ): { success: boolean; err?: string } => {
 	switch (type) {
+		// Request
 		case validateMetricsRequestType.REQUEST_PER_TIME:
 		case validateMetricsRequestType.TOTAL_REQUESTS:
 		case validateMetricsRequestType.AVERAGE_REQUEST_DURATION:
@@ -29,6 +30,7 @@ export const validateMetricsRequest = (
 				};
 			}
 			break;
+		// Cost
 		case validateMetricsRequestType.TOTAL_COST:
 		case validateMetricsRequestType.AVERAGE_REQUEST_COST:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
@@ -38,6 +40,7 @@ export const validateMetricsRequest = (
 				};
 			}
 			break;
+		// Model
 		case validateMetricsRequestType.TOP_MODELS:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
 				return {
@@ -52,6 +55,7 @@ export const validateMetricsRequest = (
 				};
 			}
 			break;
+		// Category
 		case validateMetricsRequestType.GENERATION_BY_CATEGORY:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
 				return {
