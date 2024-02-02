@@ -3,7 +3,8 @@
 import { signOut } from "next-auth/react";
 import { ReactElement } from "react";
 import {
-	ArrowLeftEndOnRectangleIcon,
+	ArrowLeftCircleIcon,
+	CircleStackIcon,
 	HomeModernIcon,
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
@@ -17,7 +18,8 @@ type SidebarItem = {
 	onClick?: any;
 };
 
-const ICON_CLASSES = "flex-shrink-0 w-6 h-6 transition duration-75 transition duration-75";
+const ICON_CLASSES =
+	"flex-shrink-0 w-6 h-6 transition duration-75 transition duration-75";
 
 const SIDEBAR_ITEMS = [
 	{
@@ -26,7 +28,12 @@ const SIDEBAR_ITEMS = [
 		link: "/dashboard",
 	},
 	{
-		icon: <ArrowLeftEndOnRectangleIcon className={ICON_CLASSES} />,
+		icon: <CircleStackIcon className={ICON_CLASSES} />,
+		text: "Requests",
+		link: "/requests",
+	},
+	{
+		icon: <ArrowLeftCircleIcon className={ICON_CLASSES} />,
 		text: "Signout",
 		onClick: signOut,
 	},

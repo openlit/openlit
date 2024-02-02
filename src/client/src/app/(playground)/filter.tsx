@@ -3,7 +3,7 @@ import {
 	DEFAULT_TIME_RANGE,
 	TIME_RANGE_TYPE,
 	useFilter,
-} from "../filter-context";
+} from "./filter-context";
 
 const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 	TIME_RANGE_TYPE

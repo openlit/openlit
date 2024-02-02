@@ -1,5 +1,5 @@
 "use client";
-import Filter from "./filter";
+import Filter from "../filter";
 import ModelsCategories from "./models-categories";
 import NumberStats from "./number-stats";
 import RequestsPerTime from "./requests-per-time";
