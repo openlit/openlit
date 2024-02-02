@@ -25,6 +25,7 @@ var (
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
+		"apiID",
 		"environment",
 		"endpoint",
 		"sourceLanguage",
@@ -115,6 +116,8 @@ func getCreateDataTableSQL(tableName string) string {
 	return fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		time TIMESTAMPTZ NOT NULL,
+		id BIGSERIAL PRIMARY KEY,
+		apiID TEXT NOT NULL,
 		name VARCHAR(10) NOT NULL,
 		environment VARCHAR(50) NOT NULL,
 		endpoint VARCHAR(50) NOT NULL,
@@ -263,11 +266,12 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 	go obsPlatform.SendToPlatform(data)
 
 	// Define the SQL query for data insertion
-	query := fmt.Sprintf("INSERT INTO %s (time, name, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobId, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)", dbConfig.DataTableName)
+	query := fmt.Sprintf("INSERT INTO %s (time, apiID, name, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobId, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)", dbConfig.DataTableName)
 
 	// Execute the SQL query
 	_, err := db.Exec(query,
 		data["name"],
+		data["apiID"],
 		data["environment"],
 		data["endpoint"],
 		data["sourceLanguage"],
