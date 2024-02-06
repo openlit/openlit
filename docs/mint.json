@@ -149,6 +149,7 @@
       "group": "Integrations",
       "pages": [
         "0.0.1/integrations/intro",
+        "0.0.1/integrations/grafanaoss",
         "0.0.1/integrations/grafanacloud",
         "0.0.1/integrations/datadog",
         "0.0.1/integrations/new-relic"

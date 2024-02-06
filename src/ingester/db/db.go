@@ -115,6 +115,7 @@ func getCreateDataTableSQL(tableName string) string {
 	return fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		time TIMESTAMPTZ NOT NULL,
+		id BIGSERIAL,
 		name VARCHAR(10) NOT NULL,
 		environment VARCHAR(50) NOT NULL,
 		endpoint VARCHAR(50) NOT NULL,
