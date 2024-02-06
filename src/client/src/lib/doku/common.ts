@@ -11,8 +11,21 @@ export interface DokuParams {
 	timeLimit: TimeLimit;
 }
 
+export type DokuRequestParams = DokuParams & {
+	config?: {
+		endpoints?: boolean;
+		maxUsageCost?: boolean;
+		models?: boolean;
+		totalRows?: boolean;
+	};
+	offset?: number;
+	limit?: number;
+};
+
 const prisma = new PrismaClient();
-export async function dataCollector(query: string) {
+
+export type DataCollectorType = { err?: unknown; data: unknown };
+export async function dataCollector(query: string): Promise<DataCollectorType> {
 	try {
 		const response = await prisma.$queryRaw`${Prisma.raw(query)}`;
 		return { data: response };

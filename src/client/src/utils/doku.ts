@@ -5,6 +5,7 @@ export const validateMetricsRequestType = {
 	REQUEST_PER_TIME: "REQUEST_PER_TIME",
 	TOTAL_REQUESTS: "TOTAL_REQUESTS",
 	AVERAGE_REQUEST_DURATION: "AVERAGE_REQUEST_DURATION",
+	GET_ALL: "GET_ALL",
 	// Cost
 	TOTAL_COST: "TOTAL_COST",
 	AVERAGE_REQUEST_COST: "AVERAGE_REQUEST_COST",
@@ -23,6 +24,14 @@ export const validateMetricsRequest = (
 		case validateMetricsRequestType.REQUEST_PER_TIME:
 		case validateMetricsRequestType.TOTAL_REQUESTS:
 		case validateMetricsRequestType.AVERAGE_REQUEST_DURATION:
+			if (!params.timeLimit?.start || !params.timeLimit?.end) {
+				return {
+					success: false,
+					err: "Start date or End date missing!",
+				};
+			}
+			break;
+		case validateMetricsRequestType.GET_ALL:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
 				return {
 					success: false,

@@ -19,10 +19,12 @@ export interface FilterType {
 		end?: Date;
 		type: keyof typeof TIME_RANGE_TYPE;
 	};
+	limit: number;
+	offset: number;
 }
 
 const FilterContext = createContext<
-	[FilterType, (key: string, value: string) => void] | undefined
+	[FilterType, (key: string, value: any) => void] | undefined
 >(undefined);
 
 function getTimeLimitObject(value: string, keyPrefix: string) {
@@ -53,22 +55,28 @@ const INITIAL_FILTER: FilterType = {
 		type: DEFAULT_TIME_RANGE,
 		...getTimeLimitObject(DEFAULT_TIME_RANGE, ""),
 	},
+	limit: 10,
+	offset: 0,
 };
 
 export function FilterProvider({ children }: { children: ReactNode }) {
 	const [filter, setFilter] = useState(INITIAL_FILTER);
-	const updateFilter = (key: string, value: string) => {
+	const updateFilter = (key: string, value: any) => {
 		let object = {};
 		switch (key) {
 			case "timeLimit.type":
 				object = getTimeLimitObject(value, "timeLimit.");
-				set(object, key, value);
-
+				break;
+			case "limit":
+				set(object, "offset", 0);
+				break;
+			case "offset":
 				break;
 			default:
 				break;
 		}
 
+		set(object, key, value);
 		setFilter((e) => merge({}, e, object));
 	};
 

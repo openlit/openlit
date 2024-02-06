@@ -11,7 +11,7 @@ export default function PlaygroundLayout({
 		<div className="h-screen w-screen overflow-hidden flex">
 			<Sidebar />
 			<FilterProvider>
-				<main className="flex flex-col p-3 w-full h-full">
+				<main className="flex flex-col p-3 w-full h-full overflow-hidden">
 					<Header />
 					{children}
 				</main>
