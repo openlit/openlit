@@ -9,6 +9,8 @@ export async function POST(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit;
 	const config = formData.config || {};
+	const limit = formData.limit || 10;
+	const offset = formData.offset || 0;
 
 	const params: DokuRequestParams = {
 		timeLimit: {
@@ -16,6 +18,8 @@ export async function POST(request: Request) {
 			end: timeLimit.end,
 		},
 		config,
+		limit,
+		offset,
 	};
 
 	const validationParam = validateMetricsRequest(

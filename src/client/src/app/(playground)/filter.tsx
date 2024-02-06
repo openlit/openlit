@@ -24,7 +24,7 @@ const Filter = () => {
 	};
 
 	return (
-		<div className="flex mb-2 p-2">
+		<div className="flex p-2">
 			<TabGroup
 				onIndexChange={handleChange}
 				defaultIndex={DEFAULT_CHECKED_INDEX}
