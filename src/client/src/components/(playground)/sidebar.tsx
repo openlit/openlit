@@ -6,6 +6,7 @@ import {
 	ArrowLeftCircleIcon,
 	CircleStackIcon,
 	HomeModernIcon,
+	KeyIcon,
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -31,6 +32,11 @@ const SIDEBAR_ITEMS = [
 		icon: <CircleStackIcon className={ICON_CLASSES} />,
 		text: "Requests",
 		link: "/requests",
+	},
+	{
+		icon: <KeyIcon className={ICON_CLASSES} />,
+		text: "API keys",
+		link: "/api-keys",
 	},
 	{
 		icon: <ArrowLeftCircleIcon className={ICON_CLASSES} />,

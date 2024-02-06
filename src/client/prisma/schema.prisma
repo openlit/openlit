@@ -11,6 +11,8 @@ model apikey {
   id      Int    @id @default(autoincrement())
   api_key String @unique @db.VarChar(255)
   name    String @db.VarChar(50)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([api_key], map: "idx_api_key")
 }
