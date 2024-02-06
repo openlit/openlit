@@ -2,14 +2,16 @@
 import AddAPIKeyModal from "@/components/(playground)/add-api-key-modal";
 import ConfirmationModal from "@/components/common/confirmation-modal";
 import { deleteData, getData } from "@/utils/api";
-import { TrashIcon } from "@heroicons/react/24/outline";
+import { DocumentDuplicateIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { PlusIcon } from "@heroicons/react/24/solid";
-import { useCallback, useEffect, useState } from "react";
+import copy from "copy-to-clipboard";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 function ManageKeys() {
 	const [data, setData] = useState<Array<any>>([]);
 	const [selectedKey, setSelectedKey] = useState<any>();
 	const [creating, setCreating] = useState<boolean>(false);
+	const newCreatedKey = useRef<any>();
 	const fetchData = useCallback(async () => {
 		const res = await getData({
 			method: "GET",
@@ -35,17 +37,21 @@ function ManageKeys() {
 	const handleNo = () => setSelectedKey(null);
 
 	const handleYesCreation = async (name: string) => {
-		await getData({
+		const res = await getData({
 			url: `/api/api-key`,
 			method: "POST",
 			body: JSON.stringify({ name }),
 		});
+
+		newCreatedKey.current = res;
 
 		setCreating(false);
 		fetchData();
 	};
 
 	const handleNoCreation = () => setCreating(false);
+
+	const copyAPIKey = () => copy(newCreatedKey.current?.api_key);
 
 	return (
 		<>
@@ -61,7 +67,15 @@ function ManageKeys() {
 					{data.map((item) => (
 						<tr className="border-b" key={item.id}>
 							<td className="px-6 py-3 w-1/3 font-medium ">{item.name}</td>
-							<td className="px-6 py-3 w-1/3">{item.api_key}</td>
+							<td className="px-6 py-3 w-1/3">
+								{item.api_key}
+								{newCreatedKey.current?.id === item.id && (
+									<DocumentDuplicateIcon
+										className="w-4 ml-1 inline cursor-pointer"
+										onClick={copyAPIKey}
+									/>
+								)}
+							</td>
 							<td className="px-6 py-3 w-1/3">
 								<TrashIcon
 									className="w-4 cursor-pointer"
@@ -98,7 +112,9 @@ export default function APIKeys() {
 		<div className="flex flex-col grow w-full h-full rounded overflow-hidden p-2 text-sm">
 			<p>
 				Welcome to the API Key Management page. Here, you can view, generate,
-				and manage API keys for seamless integration with our services.
+				and manage API keys for seamless integration with our services. Please
+				note that we do not display your secret API keys again after you
+				generate them.
 			</p>
 			<ul className="list-disc list-inside mt-2">
 				<li>
