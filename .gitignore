@@ -1,3 +1,4 @@
 node_modules
 test.py
 test.go
+.DS_Store
