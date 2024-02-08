@@ -3,6 +3,11 @@ title: 'Grafana OSS'
 description: 'Connect Doku to Grafana OSS'
 ---
 
+<Frame>
+  <img src="https://github.com/dokulabs/doku/blob/grafana-cloud/docs/images/grafana-dashboard-1.jpg?raw=true"  />
+  <img src="https://github.com/dokulabs/doku/blob/grafana-cloud/docs/images/grafana-dashboard-3.jpg?raw=true" />
+</Frame>
+
 You can add the Doku's backend storage database (`TimescaleDB`) as a datasource in Grafana.
 
 ## Steps
@@ -51,7 +56,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
     "id": 3,
     "links": [
         {
-        "icon": "book",
+        "icon": "info",
         "tags": [],
         "targetBlank": true,
         "title": "Doku Documentation",
@@ -76,18 +81,6 @@ Grafana will attempt to connect to the database using the provided settings. If 
         "tooltip": "",
         "type": "link",
         "url": "https://github.com/dokulabs/"
-        },
-        {
-        "asDropdown": false,
-        "icon": "external link",
-        "includeVars": false,
-        "keepTime": false,
-        "tags": [],
-        "targetBlank": false,
-        "title": "New link",
-        "tooltip": "",
-        "type": "dashboards",
-        "url": ""
         }
     ],
     "liveNow": false,
@@ -172,6 +165,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel shows the total number of requests sent to Large Language Models (LLM) Platforms in the selected time interval.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -264,6 +258,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel shows the average time taken to process each request by the Large Language Models (LLM), offering a snapshot of system performance and efficiency.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -356,6 +351,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel shows the average count of Total tokens used per LLM request",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -448,6 +444,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel shows the average cost incurred per request to the LLM, helping monitor and optimize budget allocation for LLM usage.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -540,6 +537,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel shows the total cost on LLM requests over the selected period.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -628,6 +626,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel shows the count of API requests made to LLMs over the selected time.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -783,6 +782,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel illustrates the distribution of LLM requests across different usage categories: Chat Generations, Embeddings, Image Generations, Audio Generations, and Fine Tuning. It visualizes the relative volume of requests, helping to identify which types of operations are most frequently performed and providing insights into usage patterns by category.\n\n",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -868,6 +868,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "Displays the cost breakdown by provider (OpenAI, Cohere, Anthropic) for LLM requests, offering insights into financial deployment across different services.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -954,6 +955,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel presents a pie chart detailing the distribution of expenses for LLM requests by various applications. It shows how budget allocations are consumed by different applications, enabling a deeper understanding of cost drivers and facilitating cost optimization efforts.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -1041,6 +1043,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "Visualizes the allocation of LLM request expenses across different environments, such as development, staging, and production. This breakdown helps in tracking and managing costs with respect to operational environments.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -1128,6 +1131,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel shows the average count of Prompt tokens used per LLM request",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -1138,7 +1142,8 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                 },
                 {
                     "color": "red",
@@ -1156,7 +1161,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "x": 0,
             "y": 21
         },
-        "id": 7,
+        "id": 9,
         "options": {
             "colorMode": "background",
             "graphMode": "area",
@@ -1182,7 +1187,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(completiontokens) FROM doku WHERE \n  $__timeFilter(\"time\")",
+            "rawSql": "SELECT AVG(prompttokens) FROM doku WHERE \n  $__timeFilter(\"time\")",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1190,7 +1195,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
                     "name": "AVG",
                     "parameters": [
                     {
-                        "name": "completiontokens",
+                        "name": "prompttokens",
                         "type": "functionParameter"
                     }
                     ],
@@ -1210,7 +1215,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "table": "doku"
             }
         ],
-        "title": "Avg Completion Tokens / Request",
+        "title": "Avg Prompt Tokens / Request",
         "type": "stat"
         },
         {
@@ -1218,6 +1223,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "Provides a time-series analysis of token consumption for LLM requests, highlighting trends in usage intensity and complexity over time.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -1265,7 +1271,8 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                 },
                 {
                     "color": "red",
@@ -1371,6 +1378,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "This panel shows the average count of Completion tokens used per LLM request",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -1381,7 +1389,8 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                 },
                 {
                     "color": "red",
@@ -1399,7 +1408,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "x": 0,
             "y": 24
         },
-        "id": 9,
+        "id": 7,
         "options": {
             "colorMode": "background",
             "graphMode": "area",
@@ -1425,7 +1434,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(prompttokens) FROM doku WHERE \n  $__timeFilter(\"time\")",
+            "rawSql": "SELECT AVG(completiontokens) FROM doku WHERE \n  $__timeFilter(\"time\")",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1433,7 +1442,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
                     "name": "AVG",
                     "parameters": [
                     {
-                        "name": "prompttokens",
+                        "name": "completiontokens",
                         "type": "functionParameter"
                     }
                     ],
@@ -1453,7 +1462,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "table": "doku"
             }
         ],
-        "title": "Avg Prompt Tokens / Request",
+        "title": "Avg Completion Tokens / Request",
         "type": "stat"
         },
         {
@@ -1461,6 +1470,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "Displays the frequency of model usage over time, identifying the most utilised models and showcasing usage trends across different periods",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -1472,7 +1482,8 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                 },
                 {
                     "color": "red",
@@ -1546,7 +1557,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "table": "doku"
             }
         ],
-        "title": "Top used models",
+        "title": "Top models by usage",
         "type": "bargauge"
         },
         {
@@ -1554,6 +1565,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "Breaks down token usage across different LLM models, offering insights into which models are driving the highest token consumption.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -1596,7 +1608,8 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                 },
                 {
                     "color": "red",
@@ -1671,6 +1684,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "type": "grafana-postgresql-datasource",
             "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
         },
+        "description": "Table showing prompts and responses along with their associated costs and token usage.",
         "fieldConfig": {
             "defaults": {
             "color": {
@@ -1690,7 +1704,8 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                 },
                 {
                     "color": "red",
@@ -1785,6 +1800,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "table": "doku"
             }
         ],
+        "title": "User Activity",
         "transparent": true,
         "type": "table"
         }
@@ -1801,14 +1817,14 @@ Grafana will attempt to connect to the database using the provided settings. If 
         "list": []
     },
     "time": {
-        "from": "now-24h",
+        "from": "now-7d",
         "to": "now"
     },
     "timepicker": {},
     "timezone": "",
     "title": "LLM Monitoring",
     "uid": "cd0a92bf-7abe-427b-8e65-c61049be328e",
-    "version": 4,
+    "version": 7,
     "weekStart": ""
     }
     ```
