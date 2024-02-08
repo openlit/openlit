@@ -4,8 +4,8 @@ description: 'Connect Doku to Grafana OSS'
 ---
 
 <Frame>
-  <img src="https://github.com/dokulabs/doku/blob/grafana-cloud/docs/images/grafana-dashboard-1.jpg?raw=true"  />
-  <img src="https://github.com/dokulabs/doku/blob/grafana-cloud/docs/images/grafana-dashboard-3.jpg?raw=true" />
+  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/grafana-dashboard-1.jpg?raw=true"  />
+  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/grafana-dashboard-3.jpg?raw=true" />
 </Frame>
 
 You can add the Doku's backend storage database (`TimescaleDB`) as a datasource in Grafana.
@@ -53,7 +53,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
     "editable": true,
     "fiscalYearStartMonth": 0,
     "graphTooltip": 0,
-    "id": 3,
+    "id": 8,
     "links": [
         {
         "icon": "info",
@@ -88,7 +88,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "gridPos": {
             "h": 4,
@@ -113,7 +113,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "gridPos": {
             "h": 4,
@@ -138,7 +138,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "gridPos": {
             "h": 4,
@@ -163,7 +163,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel shows the total number of requests sent to Large Language Models (LLM) Platforms in the selected time interval.",
         "fieldConfig": {
@@ -216,12 +216,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT count(*) FROM DOKU\nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT count(*) FROM DOKU_DATA\nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -256,7 +256,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel shows the average time taken to process each request by the Large Language Models (LLM), offering a snapshot of system performance and efficiency.",
         "fieldConfig": {
@@ -309,12 +309,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(requestduration) FROM doku\nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT AVG(requestduration) FROM DOKU_DATA\nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -349,7 +349,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel shows the average count of Total tokens used per LLM request",
         "fieldConfig": {
@@ -402,12 +402,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(totaltokens) FROM doku\nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT AVG(totaltokens) FROM DOKU_DATA\nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -442,7 +442,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel shows the average cost incurred per request to the LLM, helping monitor and optimize budget allocation for LLM usage.",
         "fieldConfig": {
@@ -495,12 +495,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(usagecost) FROM doku \nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT AVG(usagecost) FROM DOKU_DATA \nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -535,7 +535,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel shows the total cost on LLM requests over the selected period.",
         "fieldConfig": {
@@ -584,12 +584,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT SUM(usagecost) FROM doku\nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT SUM(usagecost) FROM DOKU_DATA\nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -624,7 +624,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel shows the count of API requests made to LLMs over the selected time.",
         "fieldConfig": {
@@ -711,12 +711,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "time_series",
             "rawQuery": true,
-            "rawSql": "SELECT\n  DATE_TRUNC('day', \"time\") AS \"time\",\n  COUNT(endpoint) AS total_requests\nFROM \n  doku\nWHERE\n  $__timeFilter(\"time\")\nGROUP BY \n  DATE_TRUNC('day', \"time\")\nORDER BY \n  \"time\";",
+            "rawSql": "SELECT\n  DATE_TRUNC('day', \"time\") AS \"time\",\n  COUNT(endpoint) AS total_requests\nFROM \n  DOKU_DATA\nWHERE\n  $__timeFilter(\"time\")\nGROUP BY \n  DATE_TRUNC('day', \"time\")\nORDER BY \n  \"time\";",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -780,7 +780,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel illustrates the distribution of LLM requests across different usage categories: Chat Generations, Embeddings, Image Generations, Audio Generations, and Fine Tuning. It visualizes the relative volume of requests, helping to identify which types of operations are most frequently performed and providing insights into usage patterns by category.\n\n",
         "fieldConfig": {
@@ -833,12 +833,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT \n    category,\n    CAST(COUNT(*) AS INTEGER) AS Requests,\n    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage\n    FROM \n        (\n            SELECT \n                CASE\n                  WHEN endpoint LIKE 'openai.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE 'openai.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'anthropic.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.summarize%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.generate%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE '%embed%' THEN 'Embeddings'\n                  WHEN endpoint LIKE 'openai.images%' THEN 'Image'\n                  WHEN endpoint LIKE 'openai.audio%' THEN 'Audio'\n                  WHEN endpoint LIKE 'openai.fine_tuning%' THEN 'Fine Tuning'\n                END AS category,\n                endpoint\n            FROM doku\n            WHERE $__timeFilter(time)\n        ) AS subquery\n    GROUP BY category",
+            "rawSql": "SELECT \n    category,\n    CAST(COUNT(*) AS INTEGER) AS Requests,\n    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage\n    FROM \n        (\n            SELECT \n                CASE\n                  WHEN endpoint LIKE 'openai.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE 'openai.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'anthropic.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.summarize%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.generate%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE '%embed%' THEN 'Embeddings'\n                  WHEN endpoint LIKE 'openai.images%' THEN 'Image'\n                  WHEN endpoint LIKE 'openai.audio%' THEN 'Audio'\n                  WHEN endpoint LIKE 'openai.fine_tuning%' THEN 'Fine Tuning'\n                END AS category,\n                endpoint\n            FROM DOKU_DATA\n            WHERE $__timeFilter(time)\n        ) AS subquery\n    GROUP BY category",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -866,7 +866,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "Displays the cost breakdown by provider (OpenAI, Cohere, Anthropic) for LLM requests, offering insights into financial deployment across different services.",
         "fieldConfig": {
@@ -920,12 +920,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT\n  CASE\n    WHEN endpoint LIKE 'openai.%' THEN 'OpenAI'\n    WHEN endpoint LIKE 'cohere.%' THEN 'Cohere'\n    WHEN endpoint LIKE 'anthropic.%' THEN 'Anthropic'\n  END AS provider,\n  SUM(usageCost) AS total_cost\nFROM\n  doku\nWHERE $__timeFilter(time)\nGROUP BY\n  provider\nORDER BY\n  total_cost DESC;",
+            "rawSql": "SELECT\n  CASE\n    WHEN endpoint LIKE 'openai.%' THEN 'OpenAI'\n    WHEN endpoint LIKE 'cohere.%' THEN 'Cohere'\n    WHEN endpoint LIKE 'anthropic.%' THEN 'Anthropic'\n  END AS provider,\n  SUM(usageCost) AS total_cost\nFROM\n  DOKU_DATA\nWHERE $__timeFilter(time)\nGROUP BY\n  provider\nORDER BY\n  total_cost DESC;",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -953,7 +953,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel presents a pie chart detailing the distribution of expenses for LLM requests by various applications. It shows how budget allocations are consumed by different applications, enabling a deeper understanding of cost drivers and facilitating cost optimization efforts.",
         "fieldConfig": {
@@ -1008,12 +1008,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "    SELECT\n      applicationName,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      doku\n    WHERE $__timeFilter(time)\n    GROUP BY\n      applicationName\n    ORDER BY\n      \"usageCost\" DESC",
+            "rawSql": "    SELECT\n      applicationName,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      DOKU_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY\n      applicationName\n    ORDER BY\n      \"usageCost\" DESC",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1041,7 +1041,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "Visualizes the allocation of LLM request expenses across different environments, such as development, staging, and production. This breakdown helps in tracking and managing costs with respect to operational environments.",
         "fieldConfig": {
@@ -1096,12 +1096,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "    SELECT\n      environment,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      doku\n    WHERE $__timeFilter(time)\n    GROUP BY\n      environment\n    ORDER BY\n      \"usageCost\" DESC",
+            "rawSql": "    SELECT\n      environment,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      DOKU_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY\n      environment\n    ORDER BY\n      \"usageCost\" DESC",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1129,7 +1129,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel shows the average count of Prompt tokens used per LLM request",
         "fieldConfig": {
@@ -1142,8 +1142,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                 },
                 {
                     "color": "red",
@@ -1182,12 +1181,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(prompttokens) FROM doku WHERE \n  $__timeFilter(\"time\")",
+            "rawSql": "SELECT AVG(prompttokens) FROM DOKU_DATA WHERE \n  $__timeFilter(\"time\")",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1221,7 +1220,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "Provides a time-series analysis of token consumption for LLM requests, highlighting trends in usage intensity and complexity over time.",
         "fieldConfig": {
@@ -1271,8 +1270,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                 },
                 {
                     "color": "red",
@@ -1307,12 +1305,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "time_series",
             "rawQuery": true,
-            "rawSql": "SELECT prompttokens AS \"Prompt Tokens\", \"time\" AS \"time\", completiontokens AS \"Completion Tokens\", totaltokens AS \"Total Tokens\" FROM doku",
+            "rawSql": "SELECT prompttokens AS \"Prompt Tokens\", \"time\" AS \"time\", completiontokens AS \"Completion Tokens\", totaltokens AS \"Total Tokens\" FROM DOKU_DATA",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1376,7 +1374,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "This panel shows the average count of Completion tokens used per LLM request",
         "fieldConfig": {
@@ -1389,8 +1387,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                 },
                 {
                     "color": "red",
@@ -1429,12 +1426,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(completiontokens) FROM doku WHERE \n  $__timeFilter(\"time\")",
+            "rawSql": "SELECT AVG(completiontokens) FROM DOKU_DATA WHERE \n  $__timeFilter(\"time\")",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1468,7 +1465,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "Displays the frequency of model usage over time, identifying the most utilised models and showcasing usage trends across different periods",
         "fieldConfig": {
@@ -1482,8 +1479,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                 },
                 {
                     "color": "red",
@@ -1525,12 +1521,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT \n  model,\n  total_count,\n  percentage_usage\nFROM \n  (\n    SELECT \n      model,\n      COUNT(*) AS total_count,\n      ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage_usage\n    FROM \n      doku\n    WHERE $__timeFilter(time)\n    GROUP BY \n      model\n    ORDER BY \n      percentage_usage DESC\n  ) sub\nLIMIT 5;",
+            "rawSql": "SELECT \n  model,\n  total_count,\n  percentage_usage\nFROM \n  (\n    SELECT \n      model,\n      COUNT(*) AS total_count,\n      ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage_usage\n    FROM \n      DOKU_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY \n      model\n    ORDER BY \n      percentage_usage DESC\n  ) sub\nLIMIT 5;",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1563,7 +1559,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "Breaks down token usage across different LLM models, offering insights into which models are driving the highest token consumption.",
         "fieldConfig": {
@@ -1608,8 +1604,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                 },
                 {
                     "color": "red",
@@ -1644,12 +1639,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "time_series",
             "rawQuery": true,
-            "rawSql": "SELECT \n  DATE_TRUNC('day', \"time\") AS \"time\",\n  model,\n  COUNT(*) AS \"Model:\"\nFROM \n  doku\nWHERE \n  $__timeFilter(\"time\")\nGROUP BY \n  1, model\nORDER BY \n  \"time\" ASC, model;",
+            "rawSql": "SELECT \n  DATE_TRUNC('day', \"time\") AS \"time\",\n  model,\n  COUNT(*) AS \"Model:\"\nFROM \n  DOKU_DATA\nWHERE \n  $__timeFilter(\"time\")\nGROUP BY \n  1, model\nORDER BY \n  \"time\" ASC, model;",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1682,7 +1677,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
         {
         "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+            "uid": "${datasource}"
         },
         "description": "Table showing prompts and responses along with their associated costs and token usage.",
         "fieldConfig": {
@@ -1704,8 +1699,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
                 "mode": "absolute",
                 "steps": [
                 {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                 },
                 {
                     "color": "red",
@@ -1741,12 +1735,12 @@ Grafana will attempt to connect to the database using the provided settings. If 
             {
             "datasource": {
                 "type": "grafana-postgresql-datasource",
-                "uid": "dbed68e2-974f-495c-9ed1-86b2e33253c1"
+                "uid": "${datasource}"
             },
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT \"time\", applicationName, model, prompt, response, usageCost FROM doku WHERE $__timeFilter(time)",
+            "rawSql": "SELECT \"time\", applicationName, model, prompt, response, usageCost FROM DOKU_DATA WHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1814,7 +1808,27 @@ Grafana will attempt to connect to the database using the provided settings. If 
         "Anthropic"
     ],
     "templating": {
-        "list": []
+        "list": [
+        {
+            "current": {
+            "selected": true,
+            "text": "grafana-postgresql-datasource",
+            "value": "dbd38750-cf8a-4f35-a031-af943c441f1d"
+            },
+            "hide": 0,
+            "includeAll": false,
+            "label": "Datasource",
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "grafana-postgresql-datasource",
+            "queryValue": "",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+        }
+        ]
     },
     "time": {
         "from": "now-7d",
@@ -1822,9 +1836,9 @@ Grafana will attempt to connect to the database using the provided settings. If 
     },
     "timepicker": {},
     "timezone": "",
-    "title": "LLM Monitoring",
-    "uid": "cd0a92bf-7abe-427b-8e65-c61049be328e",
-    "version": 7,
+    "title": "Doku - LLM Monitoring",
+    "uid": "doku-llm-monitoring",
+    "version": 1,
     "weekStart": ""
     }
     ```
