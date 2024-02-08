@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
 	title: "Doku | Open Source Observability for LLMs",
 	description:
-		"Doku: Open-source observability tool for Large Language Models (LLMs). Easily integrate for unparalleled insights into usage, performance, and overhead. Analyze, optimize, and scale your AI applications with precision.",
+		"Open-source tool for tracking and analyzing usage patterns of Large Language Models (LLMs).",
 };
 
 export default function RootLayout({
