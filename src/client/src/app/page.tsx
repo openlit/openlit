@@ -1,4 +1,5 @@
 import { ArrowRightIcon } from "@heroicons/react/24/solid";
+import { Metadata } from "next";
 import Image from "next/image";
 
 export default function Home() {
@@ -11,7 +12,7 @@ export default function Home() {
 						className="flex items-center font-medium text-gray-900 lg:w-auto lg:items-center lg:justify-center md:mb-0 shrink-0"
 					>
 						<span className="mx-auto text-xl font-black leading-none text-gray-900 select-none">
-							Dokulabs
+							Doku
 						</span>
 					</a>
 
