@@ -18,16 +18,14 @@ type Configuration struct {
 		URL string `yaml:"url"`
 	} `yaml:"pricingInfo"`
 	DBConfig struct {
-		DBName          string `yaml:"name"`
-		DBUser          string `yaml:"username"`
-		DBPassword      string `yaml:"password"`
-		DBHost          string `yaml:"host"`
-		DBPort          string `yaml:"port"`
-		DBSSLMode       string `yaml:"sslMode"`
-		MaxOpenConns    int    `yaml:"maxOpenConns"`
-		MaxIdleConns    int    `yaml:"maxIdleConns"`
-		DataTableName   string `yaml:"dataTable"`
-		APIKeyTableName string `yaml:"apiKeyTable"`
+		DBName       string `yaml:"name"`
+		DBUser       string `yaml:"username"`
+		DBPassword   string `yaml:"password"`
+		DBHost       string `yaml:"host"`
+		DBPort       string `yaml:"port"`
+		DBSSLMode    string `yaml:"sslMode"`
+		MaxOpenConns int    `yaml:"maxOpenConns"`
+		MaxIdleConns int    `yaml:"maxIdleConns"`
 	} `yaml:"dbConfig"`
 	ObservabilityPlatform struct {
 		Enabled      bool `yaml:"enabled"`
