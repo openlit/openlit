@@ -181,6 +181,7 @@
   },
   "footerSocials": {
     "github": "https://github.com/dokulabs/",
-    "slack": "https://dokulabs.slack.com"
+    "slack": "https://dokulabs.slack.com",
+    "twitter": "https://twitter.com/doku_labs"
   }
 }
