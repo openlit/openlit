@@ -18,11 +18,11 @@ import (
 )
 
 var (
-	once                sync.Once          // once is used to ensure that the database is initialized only once
-	db                  *sql.DB            // db holds the database connection
-	dbConfig            DatabaseConfig     // dbConfig holds the database configuration
-	doku_llm_data_table = "DOKU_TEST_DA" // doku_llm_data_table holds the name of the data table
-	doku_apikeys_table  = "DOKU_TEST_KE" // doku_apikeys_table holds the name of the API keys table
+	once                sync.Once         // once is used to ensure that the database is initialized only once
+	db                  *sql.DB           // db holds the database connection
+	dbConfig            DatabaseConfig    // dbConfig holds the database configuration
+	doku_llm_data_table = "DOKU_LLM_DATA" // doku_llm_data_table holds the name of the data table
+	doku_apikeys_table  = "DOKU_APIKEYS"  // doku_apikeys_table holds the name of the API keys table
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
