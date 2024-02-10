@@ -115,6 +115,7 @@ func getCreateDataTableSQL(tableName string) string {
 	CREATE TABLE IF NOT EXISTS %s (
 		time TIMESTAMPTZ NOT NULL,
 		id UUID DEFAULT gen_random_uuid(),
+		llm_req_id VARCHAR(50) NOT NULL,
 		name VARCHAR(10) NOT NULL,
 		environment VARCHAR(50) NOT NULL,
 		endpoint VARCHAR(50) NOT NULL,
@@ -269,11 +270,12 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 	go obsPlatform.SendToPlatform(data)
 
 	// Define the SQL query for data insertion
-	query := fmt.Sprintf("INSERT INTO %s (time, name, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobId, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)", "DOKU_LLM_DATA")
+	query := fmt.Sprintf("INSERT INTO %s (time, llm_req_id, name, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobId, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)", "DOKU_LLM_DATA")
 
 	// Execute the SQL query
 	_, err := db.Exec(query,
 		data["name"],
+		data["llmReqId"],
 		data["environment"],
 		data["endpoint"],
 		data["sourceLanguage"],
