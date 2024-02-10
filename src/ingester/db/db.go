@@ -159,7 +159,7 @@ func tableExists(db *sql.DB, tableName string) (bool, error) {
 }
 
 // createTable creates a table in the database if it doesn't exist.
-func createTable(db *sql.DB, tableName string) error {
+func createTable(db *sql.DB, tableName string, retentionPeriod string) error {
 	var createTableSQL string
 	if tableName == "DOKU_APIKEYS" {
 		createTableSQL = getCreateAPIKeysTableSQL(tableName)
@@ -194,6 +194,12 @@ func createTable(db *sql.DB, tableName string) error {
 				return fmt.Errorf("Error creating hypertable: %w", err)
 			}
 			log.Info().Msgf("Table '%s' converted to a Hypertable", tableName)
+			query := fmt.Sprintf("SELECT add_retention_policy('%s', INTERVAL '%s')", tableName, retentionPeriod)
+			_, err = db.Exec(query)
+			if err != nil {
+				return fmt.Errorf("Error adding data retention policy: %w", err)
+			}
+			log.Info().Msgf("Added data retention policy of '%s' to '%s' ", retentionPeriod, tableName)
 		}
 	} else {
 		log.Info().Msgf("Table '%s' already exists in the database", tableName)
@@ -321,13 +327,13 @@ func Init(cfg config.Configuration) error {
 	// Create the DATA and API keys table if it doesn't exist.
 	log.Info().Msgf("Creating '%s' and '%s' tables in the database if they don't exist", "DOKU_APIKEYS", "DOKU_LLM_DATA")
 
-	err = createTable(db, "DOKU_APIKEYS")
+	err = createTable(db, "DOKU_APIKEYS", cfg.RentionPeriod)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error creating table %s", "DOKU_APIKEYS")
 		return err
 	}
 
-	err = createTable(db, "DOKU_LLM_DATA")
+	err = createTable(db, "DOKU_LLM_DATA", cfg.RentionPeriod)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error creating table %s", "DOKU_APIKEYS")
 		return err
