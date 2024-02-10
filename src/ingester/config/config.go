@@ -10,8 +10,9 @@ import (
 )
 
 type Configuration struct {
-	IngesterPort string `yaml:"ingesterPort"`
-	PricingInfo  struct {
+	IngesterPort  string `yaml:"ingesterPort"`
+	RentionPeriod string `yaml:"RetentionPeriod"`
+	PricingInfo   struct {
 		LocalFile struct {
 			Path string `yaml:"path"`
 		} `yaml:"localFile"`
@@ -52,6 +53,9 @@ type Configuration struct {
 func validateConfig(cfg *Configuration) error {
 	if _, err := strconv.Atoi(cfg.IngesterPort); err != nil {
 		return fmt.Errorf("Ingester Port is not defined")
+	}
+	if _, err := strconv.Atoi(cfg.RentionPeriod); err != nil {
+		cfg.RentionPeriod = "6 months"
 	}
 
 	// Check if at least one PricingInfo configuration is set.
