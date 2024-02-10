@@ -113,7 +113,7 @@ func getCreateDataTableSQL(tableName string) string {
 	return fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		time TIMESTAMPTZ NOT NULL,
-		id BIGSERIAL,
+		id UUID DEFAULT gen_random_uuid(),
 		name VARCHAR(10) NOT NULL,
 		environment VARCHAR(50) NOT NULL,
 		endpoint VARCHAR(50) NOT NULL,
@@ -160,9 +160,9 @@ func tableExists(db *sql.DB, tableName string) (bool, error) {
 // createTable creates a table in the database if it doesn't exist.
 func createTable(db *sql.DB, tableName string) error {
 	var createTableSQL string
-	if tableName == "DOKU_API_KEYS" {
+	if tableName == "DOKU_APIKEYS" {
 		createTableSQL = getCreateAPIKeysTableSQL(tableName)
-	} else if tableName == "DOKU_DATA" {
+	} else if tableName == "DOKU_LLM_DATA" {
 		createTableSQL = getCreateDataTableSQL(tableName)
 	}
 
@@ -177,7 +177,7 @@ func createTable(db *sql.DB, tableName string) error {
 		}
 		log.Info().Msgf("Table '%s' created in the database", tableName)
 
-		if tableName == "DOKU_API_KEYS" {
+		if tableName == "DOKU_APIKEYS" {
 			createIndexSQL := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_api_key ON %s (api_key);", tableName)
 			_, err = db.Exec(createIndexSQL)
 			if err != nil {
@@ -187,7 +187,7 @@ func createTable(db *sql.DB, tableName string) error {
 		}
 
 		// If the table to create is the data table, convert it into a hypertable
-		if tableName == "DOKU_DATA" {
+		if tableName == "DOKU_LLM_DATA" {
 			_, err := db.Exec("SELECT create_hypertable($1, 'time')", tableName)
 			if err != nil {
 				return fmt.Errorf("Error creating hypertable: %w", err)
@@ -262,7 +262,7 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 	go obsPlatform.SendToPlatform(data)
 
 	// Define the SQL query for data insertion
-	query := fmt.Sprintf("INSERT INTO %s (time, name, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobId, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)", "DOKU_DATA")
+	query := fmt.Sprintf("INSERT INTO %s (time, name, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobId, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)", "DOKU_LLM_DATA")
 
 	// Execute the SQL query
 	_, err := db.Exec(query,
@@ -318,17 +318,17 @@ func Init(cfg config.Configuration) error {
 	}
 
 	// Create the DATA and API keys table if it doesn't exist.
-	log.Info().Msgf("Creating '%s' and '%s' tables in the database if they don't exist", "DOKU_API_KEYS", "DOKU_DATA")
+	log.Info().Msgf("Creating '%s' and '%s' tables in the database if they don't exist", "DOKU_APIKEYS", "DOKU_LLM_DATA")
 
-	err = createTable(db, "DOKU_API_KEYS")
+	err = createTable(db, "DOKU_APIKEYS")
 	if err != nil {
-		log.Error().Err(err).Msgf("Error creating table %s", "DOKU_API_KEYS")
+		log.Error().Err(err).Msgf("Error creating table %s", "DOKU_APIKEYS")
 		return err
 	}
 
-	err = createTable(db, "DOKU_DATA")
+	err = createTable(db, "DOKU_LLM_DATA")
 	if err != nil {
-		log.Error().Err(err).Msgf("Error creating table %s", "DOKU_API_KEYS")
+		log.Error().Err(err).Msgf("Error creating table %s", "DOKU_APIKEYS")
 		return err
 	}
 	return nil
@@ -347,7 +347,7 @@ func PerformDatabaseInsertion(data map[string]interface{}) (string, int) {
 func CheckAPIKey(apiKey string) (string, error) {
 	var name string
 
-	query := fmt.Sprintf("SELECT name FROM %s WHERE api_key = $1", "DOKU_API_KEYS")
+	query := fmt.Sprintf("SELECT name FROM %s WHERE api_key = $1", "DOKU_APIKEYS")
 	err := db.QueryRow(query, apiKey).Scan(&name)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -362,7 +362,7 @@ func CheckAPIKey(apiKey string) (string, error) {
 func GenerateAPIKey(existingAPIKey, name string) (string, error) {
 	// If there are any existing API keys, authenticate the provided API key before proceeding
 	var count int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", "DOKU_API_KEYS")
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", "DOKU_APIKEYS")
 	err := db.QueryRow(countQuery).Scan(&count)
 	if err != nil {
 		log.Error().Err(err).Msg("Error checking API key table")
@@ -386,7 +386,7 @@ func GenerateAPIKey(existingAPIKey, name string) (string, error) {
 	newAPIKey, _ := generateSecureRandomKey()
 
 	// Insert the new API key into the database
-	insertQuery := fmt.Sprintf("INSERT INTO %s (api_key, name) VALUES ($1, $2)", "DOKU_API_KEYS")
+	insertQuery := fmt.Sprintf("INSERT INTO %s (api_key, name) VALUES ($1, $2)", "DOKU_APIKEYS")
 	_, err = db.Exec(insertQuery, newAPIKey, name)
 	if err != nil {
 		log.Error().Err(err).Msg("Error inserting the new API key in the database")
@@ -408,7 +408,7 @@ func GetAPIKeyForName(existingAPIKey, name string) (string, error) {
 
 	// Retrieve the API key for the given name
 	var apiKey string
-	query := fmt.Sprintf("SELECT api_key FROM %s WHERE name = $1", "DOKU_API_KEYS")
+	query := fmt.Sprintf("SELECT api_key FROM %s WHERE name = $1", "DOKU_APIKEYS")
 	err = db.QueryRow(query, name).Scan(&apiKey)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -439,7 +439,7 @@ func DeleteAPIKey(existingAPIKey, name string) error {
 
 	// Delete the API key from the database
 	log.Info().Msgf("Deleting API Key with the name '%s' from the database", name)
-	query := fmt.Sprintf("DELETE FROM %s WHERE api_key = $1", "DOKU_API_KEYS")
+	query := fmt.Sprintf("DELETE FROM %s WHERE api_key = $1", "DOKU_APIKEYS")
 	_, err = db.Exec(query, apiKey)
 	if err != nil {
 		log.Error().Err(err).Msg("Error deleting API key")
