@@ -43,7 +43,6 @@ var (
 		"revisedPrompt",
 		"image",
 		"audioVoice",
-		"finetuneJobId",
 		"finetuneJobStatus",
 	}
 )
@@ -135,7 +134,6 @@ func getCreateDataTableSQL(tableName string) string {
 		revisedPrompt TEXT,
 		image TEXT,
 		audioVoice TEXT,
-		finetuneJobId TEXT,
 		finetuneJobStatus TEXT
 	);`, tableName)
 }
@@ -271,7 +269,7 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 	go obsPlatform.SendToPlatform(data)
 
 	// Define the SQL query for data insertion
-	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, name, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobId, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)", "DOKU_LLM_DATA")
+	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, name, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)", "DOKU_LLM_DATA")
 
 	// Execute the SQL query
 	_, err := db.Exec(query,
@@ -294,7 +292,6 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 		data["revisedPrompt"],
 		data["image"],
 		data["audioVoice"],
-		data["finetuneJobId"],
 		data["finetuneJobStatus"],
 	)
 	if err != nil {

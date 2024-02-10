@@ -238,8 +238,8 @@ func configureNewRelicData(data map[string]interface{}) {
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finetuneJobId": "%v"}
-				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finetuneJobId"]),
+					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v"}
+				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
 		}
 		// Join the individual metric strings into a comma-separated string and enclose in a JSON array.
 		jsonData := fmt.Sprintf(`[{"metrics": [%s]}]`, strings.Join(jsonMetrics, ","))

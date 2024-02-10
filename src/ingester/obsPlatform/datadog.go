@@ -193,8 +193,8 @@ func configureDataDogData(data map[string]interface{}) {
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
 				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finetuneJobId:%v"]
-			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finetuneJobId"]),
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v"]
+			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
 		}
 
 		metrics := fmt.Sprintf(`{"series": [%s]}`, strings.Join(metricStrings, ","))
