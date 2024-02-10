@@ -104,7 +104,8 @@ func getCreateAPIKeysTableSQL(tableName string) string {
 	CREATE TABLE IF NOT EXISTS %s (
 		id SERIAL PRIMARY KEY,
 		api_key VARCHAR(255) NOT NULL UNIQUE,
-		name VARCHAR(50) NOT NULL
+		name VARCHAR(50) NOT NULL,
+		created_at TIMESTAMPTZ DEFAULT NOW()
 	);`, tableName)
 }
 
