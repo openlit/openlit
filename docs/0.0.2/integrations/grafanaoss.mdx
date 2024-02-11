@@ -221,7 +221,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT count(*) FROM DOKU_DATA\nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT count(*) FROM DOKU_LLM_DATA\nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -314,7 +314,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(requestduration) FROM DOKU_DATA\nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT AVG(requestduration) FROM DOKU_LLM_DATA\nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -407,7 +407,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(totaltokens) FROM DOKU_DATA\nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT AVG(totaltokens) FROM DOKU_LLM_DATA\nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -500,7 +500,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(usagecost) FROM DOKU_DATA \nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT AVG(usagecost) FROM DOKU_LLM_DATA \nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -589,7 +589,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT SUM(usagecost) FROM DOKU_DATA\nWHERE $__timeFilter(time)",
+            "rawSql": "SELECT SUM(usagecost) FROM DOKU_LLM_DATA\nWHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -716,7 +716,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "time_series",
             "rawQuery": true,
-            "rawSql": "SELECT\n  DATE_TRUNC('day', \"time\") AS \"time\",\n  COUNT(endpoint) AS total_requests\nFROM \n  DOKU_DATA\nWHERE\n  $__timeFilter(\"time\")\nGROUP BY \n  DATE_TRUNC('day', \"time\")\nORDER BY \n  \"time\";",
+            "rawSql": "SELECT\n  DATE_TRUNC('day', \"time\") AS \"time\",\n  COUNT(endpoint) AS total_requests\nFROM \n  DOKU_LLM_DATA\nWHERE\n  $__timeFilter(\"time\")\nGROUP BY \n  DATE_TRUNC('day', \"time\")\nORDER BY \n  \"time\";",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -838,7 +838,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT \n    category,\n    CAST(COUNT(*) AS INTEGER) AS Requests,\n    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage\n    FROM \n        (\n            SELECT \n                CASE\n                  WHEN endpoint LIKE 'openai.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE 'openai.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'anthropic.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.summarize%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.generate%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE '%embed%' THEN 'Embeddings'\n                  WHEN endpoint LIKE 'openai.images%' THEN 'Image'\n                  WHEN endpoint LIKE 'openai.audio%' THEN 'Audio'\n                  WHEN endpoint LIKE 'openai.fine_tuning%' THEN 'Fine Tuning'\n                END AS category,\n                endpoint\n            FROM DOKU_DATA\n            WHERE $__timeFilter(time)\n        ) AS subquery\n    GROUP BY category",
+            "rawSql": "SELECT \n    category,\n    CAST(COUNT(*) AS INTEGER) AS Requests,\n    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage\n    FROM \n        (\n            SELECT \n                CASE\n                  WHEN endpoint LIKE 'openai.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE 'openai.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'anthropic.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.summarize%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.generate%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE '%embed%' THEN 'Embeddings'\n                  WHEN endpoint LIKE 'openai.images%' THEN 'Image'\n                  WHEN endpoint LIKE 'openai.audio%' THEN 'Audio'\n                  WHEN endpoint LIKE 'openai.fine_tuning%' THEN 'Fine Tuning'\n                END AS category,\n                endpoint\n            FROM DOKU_LLM_DATA\n            WHERE $__timeFilter(time)\n        ) AS subquery\n    GROUP BY category",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -925,7 +925,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT\n  CASE\n    WHEN endpoint LIKE 'openai.%' THEN 'OpenAI'\n    WHEN endpoint LIKE 'cohere.%' THEN 'Cohere'\n    WHEN endpoint LIKE 'anthropic.%' THEN 'Anthropic'\n  END AS provider,\n  SUM(usageCost) AS total_cost\nFROM\n  DOKU_DATA\nWHERE $__timeFilter(time)\nGROUP BY\n  provider\nORDER BY\n  total_cost DESC;",
+            "rawSql": "SELECT\n  CASE\n    WHEN endpoint LIKE 'openai.%' THEN 'OpenAI'\n    WHEN endpoint LIKE 'cohere.%' THEN 'Cohere'\n    WHEN endpoint LIKE 'anthropic.%' THEN 'Anthropic'\n  END AS provider,\n  SUM(usageCost) AS total_cost\nFROM\n  DOKU_LLM_DATA\nWHERE $__timeFilter(time)\nGROUP BY\n  provider\nORDER BY\n  total_cost DESC;",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1013,7 +1013,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "    SELECT\n      applicationName,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      DOKU_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY\n      applicationName\n    ORDER BY\n      \"usageCost\" DESC",
+            "rawSql": "    SELECT\n      applicationName,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      DOKU_LLM_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY\n      applicationName\n    ORDER BY\n      \"usageCost\" DESC",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1101,7 +1101,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "    SELECT\n      environment,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      DOKU_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY\n      environment\n    ORDER BY\n      \"usageCost\" DESC",
+            "rawSql": "    SELECT\n      environment,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      DOKU_LLM_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY\n      environment\n    ORDER BY\n      \"usageCost\" DESC",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1186,7 +1186,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(prompttokens) FROM DOKU_DATA WHERE \n  $__timeFilter(\"time\")",
+            "rawSql": "SELECT AVG(prompttokens) FROM DOKU_LLM_DATA WHERE \n  $__timeFilter(\"time\")",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1310,7 +1310,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "time_series",
             "rawQuery": true,
-            "rawSql": "SELECT prompttokens AS \"Prompt Tokens\", \"time\" AS \"time\", completiontokens AS \"Completion Tokens\", totaltokens AS \"Total Tokens\" FROM DOKU_DATA",
+            "rawSql": "SELECT prompttokens AS \"Prompt Tokens\", \"time\" AS \"time\", completiontokens AS \"Completion Tokens\", totaltokens AS \"Total Tokens\" FROM DOKU_LLM_DATA",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1431,7 +1431,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT AVG(completiontokens) FROM DOKU_DATA WHERE \n  $__timeFilter(\"time\")",
+            "rawSql": "SELECT AVG(completiontokens) FROM DOKU_LLM_DATA WHERE \n  $__timeFilter(\"time\")",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1526,7 +1526,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT \n  model,\n  total_count,\n  percentage_usage\nFROM \n  (\n    SELECT \n      model,\n      COUNT(*) AS total_count,\n      ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage_usage\n    FROM \n      DOKU_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY \n      model\n    ORDER BY \n      percentage_usage DESC\n  ) sub\nLIMIT 5;",
+            "rawSql": "SELECT \n  model,\n  total_count,\n  percentage_usage\nFROM \n  (\n    SELECT \n      model,\n      COUNT(*) AS total_count,\n      ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage_usage\n    FROM \n      DOKU_LLM_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY \n      model\n    ORDER BY \n      percentage_usage DESC\n  ) sub\nLIMIT 5;",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1644,7 +1644,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "time_series",
             "rawQuery": true,
-            "rawSql": "SELECT \n  DATE_TRUNC('day', \"time\") AS \"time\",\n  model,\n  COUNT(*) AS \"Model:\"\nFROM \n  DOKU_DATA\nWHERE \n  $__timeFilter(\"time\")\nGROUP BY \n  1, model\nORDER BY \n  \"time\" ASC, model;",
+            "rawSql": "SELECT \n  DATE_TRUNC('day', \"time\") AS \"time\",\n  model,\n  COUNT(*) AS \"Model:\"\nFROM \n  DOKU_LLM_DATA\nWHERE \n  $__timeFilter(\"time\")\nGROUP BY \n  1, model\nORDER BY \n  \"time\" ASC, model;",
             "refId": "A",
             "sql": {
                 "columns": [
@@ -1740,7 +1740,7 @@ Grafana will attempt to connect to the database using the provided settings. If 
             "editorMode": "code",
             "format": "table",
             "rawQuery": true,
-            "rawSql": "SELECT \"time\", applicationName, model, prompt, response, usageCost FROM DOKU_DATA WHERE $__timeFilter(time)",
+            "rawSql": "SELECT \"time\", applicationName, model, prompt, response, usageCost FROM DOKU_LLM_DATA WHERE $__timeFilter(time)",
             "refId": "A",
             "sql": {
                 "columns": [
