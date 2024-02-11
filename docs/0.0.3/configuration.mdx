@@ -10,12 +10,21 @@ For ease of use and clarity, we recommend naming the configuration file `doku.ym
 
 ## Properties
 
-<ResponseField name="ingester_port" type="String">
+<ResponseField name="ingesterPort" type="String">
   The `ingesterPort` specifies the network port that the Ingestion Server will listen to for incoming data. You can set this to any available port on your system.
 
 **Example**:
 ```yaml
 ingesterPort: 9044
+```
+</ResponseField>
+
+<ResponseField name="retentionPeriod" type="String">
+  The `retentionPeriod` specifies the time interval before the LLM Monitoring data is removed.
+
+**Example**:
+```yaml
+retentionPeriod: "6 months"
 ```
 </ResponseField>
 
@@ -205,6 +214,8 @@ Ensure that the file is correctly formatted in YAML and all necessary fields are
 
 ```yaml doku.yml
 ingesterPort: 9044                            # Port to run the Ingestion Server on, Example: 9044
+
+retentionPeriod: "6 months"                   # Retention Period for the LLM Data, Example: "24 hours", "7 days", "6 months"
 
 # Comment out either 'localFile' or 'url' to use only one at a time.  
 pricingInfo:
