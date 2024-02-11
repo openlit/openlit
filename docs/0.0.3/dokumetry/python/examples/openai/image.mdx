@@ -1,0 +1,40 @@
+---
+title: 'Image'
+description: 'Monitor OpenAI Image API usage'
+---
+
+## Create Image
+
+```python
+from openai import OpenAI
+import dokumetry
+
+client = OpenAI()
+
+# Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+client.images.generate(
+  model="dall-e-3",
+  prompt="A cute baby sea otter",
+  n=1,
+  size="1024x1024"
+)
+```
+
+## Create Image Variation
+```python
+from openai import OpenAI
+import dokumetry
+
+client = OpenAI()
+
+# Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+response = client.images.create_variation(
+  image=open("image_edit_original.png", "rb"),
+  n=2,
+  size="1024x1024"
+)
+```
