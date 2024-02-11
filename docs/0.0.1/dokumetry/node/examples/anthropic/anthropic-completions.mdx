@@ -14,7 +14,7 @@ const anthropic = new Anthropic({
 });
 
 // Pass the above `anthropic` object along with your DOKU URL and API key and this will make sure that all Anthropic calls are automatically tracked.
-DokuMetry.init({llm: anthropic, dokuURL: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
 async function main() {
   const completion = await anthropic.completions.create({

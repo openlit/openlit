@@ -12,7 +12,7 @@ import DokuMetry from 'dokumetry';
 const openai = new OpenAI();
 
 // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-DokuMetry.init({llm: openai, dokuURL: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
 async function main() {
   const embedding = await openai.embeddings.create({
