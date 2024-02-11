@@ -27,7 +27,7 @@ Pictures can say a thousand words and can be super helpful!
 - Doku Version: [e.g., 0.0.1]
 - DokuMetry SDK: [Python or NodeJS]
 - DokuMetry SDK Version: [e.g., 0.0.3]
-- Deployment Method: [Helm, Linux, Windows, Doker]
+- Deployment Method: [Helm, Linux, Windows, Docker]
 
 ### 📝 Additional Notes
 Got more to say? Tell us here.

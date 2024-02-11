@@ -103,7 +103,7 @@ func generateSecureRandomKey() (string, error) {
 func getCreateAPIKeysTableSQL(tableName string) string {
 	return fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
-		id SERIAL PRIMARY KEY,
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		api_key VARCHAR(255) NOT NULL UNIQUE,
 		name VARCHAR(50) NOT NULL,
 		created_at TIMESTAMPTZ DEFAULT NOW()
