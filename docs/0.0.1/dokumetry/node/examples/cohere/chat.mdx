@@ -7,25 +7,28 @@ description: 'Monitor Cohere Chat API usage'
 <CodeGroup>
 
 ```javascript No Streaming
-const { CohereClient } = require("cohere-ai");
+import { CohereClient } from "cohere-ai";
 import DokuMetry from 'dokumetry';
 
 const cohere = new CohereClient({
     token: "<<apiKey>>",
 });
 
-// Pass the above `cohere` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
-DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+(async () => {
+    // Pass the above `cohere` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
+    DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
-const response = await cohere.chat({
-        message: 'Say this is a test',
-        model: 'command',
-      });
-console.log(response)
+    const response = await cohere.chat({
+            message: 'Say this is a test',
+            model: 'command',
+        });
+
+    console.log(response)
+})();
 ```
 
 ```javascript Streaming
-const { CohereClient } = require("cohere-ai");
+import { CohereClient } from "cohere-ai";
 import DokuMetry from 'dokumetry';
 
 const cohere = new CohereClient({
