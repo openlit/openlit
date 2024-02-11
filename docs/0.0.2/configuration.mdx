@@ -1,0 +1,248 @@
+---
+title: 'Configuration'
+description: 'Configuring Options for Doku'
+icon: 'sliders'
+---
+
+This document outlines the various options available for configuring Doku.
+For ease of use and clarity, we recommend naming the configuration file `doku.yml`
+
+
+## Properties
+
+<ResponseField name="ingester_port" type="String">
+  The `ingesterPort` specifies the network port that the Ingestion Server will listen to for incoming data. You can set this to any available port on your system.
+
+**Example**:
+```yaml
+ingesterPort: 9044
+```
+</ResponseField>
+
+### Pricing Information Source
+
+Doku supports using either a local file or a URL to retrieve LLM Pricing data. Comment out the option you do not wish to use.
+<Info>
+We strongly recommend using the `url` method with the value set as `https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json`. 
+
+This ensures that you automatically retrieve the latest pricing information upon each startup, as the developers at Doku consistently refresh the pricing file with current data from OpenAI, Cohere and Anthropic.
+</Info>
+
+<ResponseField name="local_file" type="Object">
+  Local File containing the Pricing Information JSON
+  <Expandable title="properties">
+    <ResponseField name="path" type="String">
+      Specify the local file system path to a JSON file containing the LLM Pricing data.
+    </ResponseField>
+  </Expandable>
+  
+  **Example**:
+  ```yaml
+  pricingInfo:
+    localFile:
+      path: "/assets/pricing.json"
+  ```
+</ResponseField>
+
+<ResponseField name="url" type="String">
+  Provide the URL where the pricing data JSON file can be downloaded. Ensure the given URL is accessible.
+  
+  **Example**:
+  ```yaml
+  pricingInfo:
+    url: "https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json"
+  ```
+</ResponseField>
+
+
+### Database Configuration
+
+<ResponseField name="dbConfig" type="Object">
+  Configure the database connection details to connect Doku with TimescaleDB (or another Postgres compatible DB).
+  <Expandable title="properties">
+    <ResponseField name="name" type="String">
+      Database name.
+    </ResponseField>
+    <ResponseField name="username" type="String">
+      The username for the database.
+    </ResponseField>
+    <ResponseField name="password" type="String">
+      The password for the database.
+    </ResponseField>
+    <ResponseField name="host" type="String">
+      Host address for the database.
+    </ResponseField>
+    <ResponseField name="port" type="String">
+      Network port for the database connection.
+    </ResponseField>
+    <ResponseField name="sslMode" type="String">
+      The SSL mode for the database connection (e.g., "require" if SSL is needed).
+    </ResponseField>
+    <ResponseField name="maxOpenConns" type="String">
+      Maximum number of concurrent open database connections.
+    </ResponseField>
+    <ResponseField name="maxIdleConns" type="String">
+      Maximum number of idle database connections.
+    </ResponseField>
+    <ResponseField name="dataTable" type="String">
+      Name of the table to store LLM Data.
+    </ResponseField>
+    <ResponseField name="apiKeyTable" type="String">
+      Name of the table to store API Keys.
+    </ResponseField>
+  </Expandable>
+  
+  **Example**:
+  ```yaml
+  dbConfig:
+    name: "mydatabase"
+    username: "myusername"
+    password: "mypassword"
+    host: "mydbhost.example.com"
+    port: 5432
+    sslMode: "require"
+    maxOpenConns: 15
+    maxIdleConns: 10
+    dataTable: "llm_data"
+    apiKeyTable: "api_keys"
+  ```
+</ResponseField>
+
+
+### Observability Platform Configuration
+
+<ResponseField name="observabilityPlatform" type="Object">
+  Choose the external platform you wish to use for exporting observability data from Doku and set `enabled` to `true`. Fill in the required fields for the chosen platform. Only one platform can be selected at a time.
+
+  The following sections show example configurations for different platforms - Grafana Cloud, New Relic, and DataDog. You will need to uncomment the applicable section and provide necessary credentials such as URLs, User IDs, and API Keys corresponding to your account on the observability platform.
+  <Expandable title="properties">
+    <ResponseField name="enabled" type="boolean">
+      Boolean parameter to configure external Observability Platform
+    </ResponseField>
+    <ResponseField name="grafanaCloud" type="Object">
+      Configuration for connecting Doku with Grafana Cloud.
+      <Expandable title="properties">
+        <ResponseField name="promUrl" type="String">
+          URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance.
+        </ResponseField>
+        <ResponseField name="promUsername" type="String">
+          Prometheus User ID of the Grafana Cloud Prometheus Instance.
+        </ResponseField>
+        <ResponseField name="lokiUrl" type="String">
+          URL of the Loki Push URL of the Grafana Cloud Loki Instance.
+        </ResponseField>
+        <ResponseField name="lokiUsername" type="String">
+          Loki Username of the Grafana Cloud Loki Instance.
+        </ResponseField>
+        <ResponseField name="accessToken" type="String">
+          Access Token of the Grafana Cloud Instance.
+        </ResponseField>
+        **Example**:
+        ```yaml
+        observabilityPlatform:
+          enabled: true
+          grafanaCloud:
+            promUrl: "https://your-grafana-prometheus-url"
+            promUsername: "your-prom-user-id"
+            lokiUrl: "https://your-grafana-loki-url"
+            lokiUsername: "your-loki-user-id"
+            accessToken: "your-grafana-cloud-access-token"
+        ```
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="datadog" type="Object">
+      Configuration for connecting Doku with DataDog.
+      <Expandable title="properties">
+        <ResponseField name="metricsUrl" type="String">
+          URL to the DataDog Metrics API.
+        </ResponseField>
+        <ResponseField name="logsUrl" type="String">
+          URL to the DataDog Logs API.
+        </ResponseField>
+        <ResponseField name="apiKey" type="String">
+          API Key of the DataDog Account.
+        </ResponseField>
+        **Example**:
+        ```yaml
+        observabilityPlatform:
+          enabled: true
+          datadog:
+            metricsUrl: "https://api.datadoghq.com/api/v1/series"        
+            logsUrl: "https://http.logs.datadoghq.com/api/v2/logs"       
+            apiKey: "datadog-api-key"
+        ```
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="newRelic" type="Object">
+      Configuration for connecting Doku with New Relic.
+      <Expandable title="properties">
+        <ResponseField name="metricsUrl" type="String">
+          URL to the New Relic Metric API.
+        </ResponseField>
+        <ResponseField name="logsUrl" type="String">
+          URL to the New Relic Log API.
+        </ResponseField>
+        <ResponseField name="apiKey" type="String">
+          Ingest API Key of the New Relic Account.
+        </ResponseField>
+        **Example**:
+        ```yaml
+        observabilityPlatform:
+          enabled: true
+          newRelic:
+            metricsUrl: "https://metric-api.newrelic.com/metric/v1"        
+            logsUrl: "https://log-api.newrelic.com/log/v1"       
+            apiKey: "newrelic-api-key"
+        ```
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+Ensure that the file is correctly formatted in YAML and all necessary fields are populated based on your deployment needs. Save the file and restart the Doku service to apply the new configuration.
+
+## Example Configuration File
+
+```yaml doku.yml
+ingesterPort: 9044                            # Port to run the Ingestion Server on, Example: 9044
+
+# Comment out either 'localFile' or 'url' to use only one at a time.  
+pricingInfo:
+  # localFile:
+  #   path: "/assets/pricing.json" # Path to local JSON file with LLM Pricing data
+  url: "https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json" # URL to download Pricing data file
+
+# Configuration for the Doku Backend Database (TimescaleDB)
+dbConfig:
+  name: "DBNAME"                              # Name of the database, Example: "postgres"
+  username: "USERNAME"                        # Username to connect to the database, Example: "admin"
+  password: "PASSWORD"                        # Password to connect to the database, Example: "DOKU"
+  host: "HOSTURL"                             # Hostname of the database, Example: "174.21.1.2"
+  port: DBPORT                                # Port of the database, Example: 5432
+  sslMode: SSLMODE                            # SSL Mode of the database, Example: "require"
+  maxOpenConns: MAXOPENCONNS                  # Maximum number of open connections to the database, Example: 15
+  maxIdleConns: MAXOPENCONNS                  # Maximum number of idle connections to the database, Example: 15
+  dataTable: DATATABLE                        # Name of the table to store LLM Data, Example: "DOKU"
+  apiKeyTable: APIKEYTABLE                    # Name of the table to store API Keys, Example: "APIKEYS"
+
+# Configure Platform to export LLM Observability Data from Doku
+# Only one platform can be enabled at a time, To enable a platform, set enabled to true and fill in the required fields for that platform.
+observabilityPlatform:
+  enabled: false                                                 # Enable or Disable the Observability Platform, Example: true
+  # grafanaCloud:
+  #   promUrl: "influx-line-proxy-url"                           # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance
+  #   promUsername: "prometheus-userid"                          # Prometheus User ID of the Grafana Cloud Prometheus Instance
+  #   lokiUrl: "loki-push-url"                                   # URL to the Loki Push URL of the Grafana Cloud Loki Instance
+  #   lokiUsername: "loki-username"                              # Loki Username of the Grafana Cloud Loki Instance
+  #   accessToken: "grafana-cloud-access-token"                  # Access Token of the Grafana Cloud Instance
+
+  # newRelic:
+  #   metricsUrl: "https://metric-api.newrelic.com/metric/v1"    # URL to the New Relic Metric API
+  #   logsUrl: "https://log-api.newrelic.com/log/v1"             # URL to the New Relic Log API
+  #   key: "newrelic-api-key"                                    # Ingest API Key of the New Relic Account
+
+  # datadog:
+  #   metricsUrl: "https://api.datadoghq.com/api/v1/series"        # URL to the DataDog Metrics API
+  #   logsUrl: "https://http.logs.datadoghq.com/api/v2/logs"       # URL to the DataDog Logs API
+  #   apiKey: "datadog-api-key"                                    # API Key of the DataDog Account
+```
