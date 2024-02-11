@@ -179,7 +179,7 @@
         "0.0.2/introduction",
         "0.0.2/quickstart",
         "0.0.2/installation",
-        "0.0.2/configuration"
+        "0.0.2/configure"
       ],
       "version": "0.0.2"
     },
@@ -296,7 +296,7 @@
           "icon": "key",
           "pages": [
             "0.0.2/api-reference/endpoint/api-keys/create",
-            "0.0.2/api-reference/endpoint/api-keys/get",
+            "0.0.2/api-reference/endpoint/api-keys/Get",
             "0.0.2/api-reference/endpoint/api-keys/delete"
           ],
           "version": "0.0.2"
