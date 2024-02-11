@@ -1,5 +1,7 @@
 ingesterPort: 9044                            # Port to run the Ingestion Server on, Example: 9044
 
+retentionPeriod: "6 months"                  # Retention Period for the LLM Data, Example: "24 hours", "7 days", "6 months"
+
 # Comment out either 'localFile' or 'url' to use only one at a time.  
 pricingInfo:
   # localFile:
@@ -16,8 +18,6 @@ dbConfig:
   sslMode: SSLMODE                            # SSL Mode of the database, Example: "require"
   maxOpenConns: MAXOPENCONNS                  # Maximum number of open connections to the database, Example: 15
   maxIdleConns: MAXOPENCONNS                  # Maximum number of idle connections to the database, Example: 15
-  dataTable: DATATABLE                        # Name of the table to store LLM Data, Example: "DOKU"
-  apiKeyTable: APIKEYTABLE                    # Name of the table to store API Keys, Example: "APIKEYS"
 
 # Configure Platform to export LLM Observability Data from Doku
 # Only one platform can be enabled at a time, To enable a platform, set enabled to true and fill in the required fields for that platform.

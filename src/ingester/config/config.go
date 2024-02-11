@@ -11,7 +11,7 @@ import (
 
 type Configuration struct {
 	IngesterPort  string `yaml:"ingesterPort"`
-	RentionPeriod string `yaml:"RetentionPeriod"`
+	RentionPeriod string `yaml:"retentionPeriod"`
 	PricingInfo   struct {
 		LocalFile struct {
 			Path string `yaml:"path"`
