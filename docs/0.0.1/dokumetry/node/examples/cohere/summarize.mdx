@@ -13,10 +13,10 @@ const cohere = new CohereClient({
     token: "<<apiKey>>",
 });
 
-// Pass the above `cohere` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
-DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
-
 (async () => {
+  // Pass the above `cohere` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
+  DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
   const summarize = await cohere.summarize({
       text: "Ice cream is a sweetened frozen food typically eaten as a snack or dessert. "
           + "It may be made from milk or cream and is flavoured with a sweetener, "
