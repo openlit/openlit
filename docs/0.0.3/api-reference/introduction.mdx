@@ -1,0 +1,25 @@
+---
+title: 'Introduction'
+description: 'OpenAPI specification for API Endpoints in Doku'
+---
+
+<Card
+  title="API Keys Endpoints"
+  icon="key"
+  href="/0.0.3/api-reference/endpoint/api-keys/create"
+>
+  View the documentation for API Keys
+</Card>
+
+## Authentication
+
+All API endpoints are authenticated using Authetication Header.
+
+```json
+Authorization: <api-key>
+```
+
+<Info>
+For your initial API call, Authorization header can be set to "".
+Store the provided API key securely; it will be required to pass the generated and a valid API Key in Authorization header for subsequent API calls.
+</Info>

@@ -1,0 +1,32 @@
+---
+title: 'Audio'
+description: 'Monitor OpenAI Audio API usage'
+---
+
+## Create Speech
+
+```javascript
+import fs from "fs";
+import path from "path";
+import OpenAI from "openai";
+import DokuMetry from 'dokumetry';
+
+const openai = new OpenAI();
+
+// Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+const speechFile = path.resolve("./speech.mp3");
+
+async function main() {
+  const mp3 = await openai.audio.speech.create({
+    model: "tts-1",
+    voice: "alloy",
+    input: "Today is a wonderful day to build something people love!",
+  });
+  console.log(speechFile);
+  const buffer = Buffer.from(await mp3.arrayBuffer());
+  await fs.promises.writeFile(speechFile, buffer);
+}
+main();
+```

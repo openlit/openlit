@@ -1,0 +1,119 @@
+---
+title: 'Introduction'
+description: 'Monitor your Python LLM Application with DokuMetry'
+---
+
+DokuMetry Python SDK is the official library from Doku to send LLM usage data from your Python application to Doku.
+
+## Installation
+``` shell shell
+pip install dokumetry
+```
+
+## Usage
+
+### OpenAI
+
+``` python openai.py
+from openai import OpenAI
+import dokumetry
+
+client = OpenAI(
+    api_key="YOUR_OPENAI_KEY"
+)
+
+# Pass the above `client` object along with your Doku URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+chat_completion = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "What is LLM Observability",
+        }
+    ],
+    model="gpt-3.5-turbo",
+)
+```
+
+The following OpenAI Endpoints are supported for monitoring with DokuMetry
+
+- [Chat completions](/0.0.3/dokumetry/python/examples/openai/chat)
+- [Image Create](/0.0.3/dokumetry/python/examples/openai/image#create-image) and [Image Variations](/0.0.3/dokumetry/python/examples/openai/image#create-image-variation)
+- [Audio Speech Create](/0.0.3/dokumetry/python/examples/openai/audio)
+- [Embeddings](/0.0.3/dokumetry/python/examples/openai/embeddings)
+- [Fine Tunings](/0.0.3/dokumetry/python/examples/openai/fine-tuning)
+- [Completions](/0.0.3/dokumetry/python/examples/openai/completions)
+
+### Cohere
+
+```python cohere.py
+import cohere
+import dokumetry
+
+# initialize the Cohere Client with an API Key
+co = cohere.Client('YOUR_API_KEY')
+
+# Pass the above `co` object along with your Doku URL and API key and this will make sure that all Cohere calls are automatically tracked.
+dokumetry.init(llm=co, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+# generate a prediction for a prompt
+prediction = co.chat(message='What is LLM Observability?', model='command')
+
+# print the predicted text
+print(f'Chatbot: {prediction.text}')
+```
+
+The following Cohere Endpoints are supported for monitoring with DokuMetry
+
+- [Chat](/0.0.3/dokumetry/python/examples/cohere/chat)
+- [Generate](/0.0.3/dokumetry/python/examples/cohere/generate)
+- [Summarize](/0.0.3/dokumetry/python/examples/cohere/co-summarize)
+- [Embed](/0.0.3/dokumetry/python/examples/cohere/embed)
+
+### Anthropic
+
+```python anthropic.py
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+import dokumetry
+
+anthropic = Anthropic(
+    # defaults to os.environ.get("ANTHROPIC_API_KEY")
+    api_key="my api key",
+)
+
+# Pass the above `anthropic` object along with your Doku URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+dokumetry.init(llm=anthropic, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+completion = anthropic.completions.create(
+    model="claude-2",
+    max_tokens_to_sample=300,
+    prompt=f"{HUMAN_PROMPT} What is LLM Observability?{AI_PROMPT}",
+)
+print(completion.completion)
+```
+
+The following Anthropic Endpoints are supported for monitoring with DokuMetry
+
+- [Completions](/0.0.3/dokumetry/python/examples/anthropic/anthropic-completions.mdx)
+
+## Parameters
+
+| Parameter         | Description                                               | Required      |
+|-------------------|-----------------------------------------------------------|---------------|
+| llm               | Language Learning Model (LLM) Object to track             | Yes           |
+| doku_url          | URL of your Doku Instance                                 | Yes           |
+| api_key           | Your Doku API key                                         | Yes           |
+| environment       | Custom environment tag to include in your metrics         | Optional      |
+| application_name  | Custom application name tag for your metrics              | Optional      |
+| skip_resp         | Skip response from the Doku Ingester for faster execution | Optional      |
+
+## Advanced Usage
+When using DokuMetry in Production environments, It is recommened to set `skip_resp = true` for faster porcessing. 
+
+To filter your LLM Usage according application or the environment, set the `application` and `environment` paramaters with the actual values.
+
+## Requirements
+Python >= 3.7 is supported.
+
+If you are interested in other runtime environments, please open or upvote an issue on [GitHub](https://github.com/dokulabs/doku/issues).
