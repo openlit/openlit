@@ -144,7 +144,7 @@ func DataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var err error
-	data["name"], err = auth.AuthenticateRequest(getAuthKey(r))
+	_, err = auth.AuthenticateRequest(getAuthKey(r))
 	if err != nil {
 		handleAPIKeyErrors(w, err, "")
 		return

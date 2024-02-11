@@ -103,7 +103,7 @@ func configureGrafanaCloudData(data map[string]interface{}) {
 		}
 	} else if data["endpoint"] == "openai.fine_tuning" {
 		metrics := []string{
-			fmt.Sprintf(`doku_llm,environment=%v,endpoint=%v,applicationName=%v,source=%v,model=%v,finetuneJobId=%v,platform=%v,generation=%v requestDuration=%v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finetuneJobId"], platform, call_type, data["requestDuration"]),
+			fmt.Sprintf(`doku_llm,environment=%v,endpoint=%v,applicationName=%v,source=%v,model=%v,platform=%v,generation=%v requestDuration=%v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"]),
 		}
 		var metricsBody = []byte(strings.Join(metrics, "\n"))
 		authHeader := fmt.Sprintf("Bearer %v:%v", grafanaPromUsername, grafanaAccessToken)
