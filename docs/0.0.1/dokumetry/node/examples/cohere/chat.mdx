@@ -19,9 +19,9 @@ const cohere = new CohereClient({
     DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     const response = await cohere.chat({
-            message: 'Say this is a test',
-            model: 'command',
-        });
+        message: 'Say this is a test',
+        model: 'command',
+    });
 
     console.log(response)
 })();
