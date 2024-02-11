@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "versions": ["0.0.1"],
+  "versions": ["0.0.2", "0.0.1"],
   "name": "Doku",
   "logo": {
     "dark": "https://github.com/dokulabs/.github/blob/main/profile/assets/dark-bg-with-text-logo.jpg?raw=true",
@@ -45,7 +45,138 @@
     {
       "group": "Get Started",
       "pages": [
-        "0.0.1/introduction",
+        "0.0.2/introduction",
+        "0.0.2/quickstart",
+        "0.0.2/installation",
+        "0.0.2/configuration"
+      ],
+      "version": "0.0.2"
+    },
+    {
+      "group": "DokuMetry",
+      "version": "0.0.2",
+      "pages": [
+        "0.0.2/dokumetry/introduction",
+        {
+          "group": "Python",
+          "version": "0.0.2",
+          "icon": "python",
+          "pages": [
+            "0.0.2/dokumetry/python/introduction",
+            {
+              "group": "Examples",
+              "version": "0.0.2",
+              "pages": [
+                {
+                  "group": "OpenAI",
+                  "version": "0.0.2",
+                  "pages": [
+                    "0.0.2/dokumetry/python/examples/openai/chat",
+                    "0.0.2/dokumetry/python/examples/openai/image",
+                    "0.0.2/dokumetry/python/examples/openai/embeddings",
+                    "0.0.2/dokumetry/python/examples/openai/audio",
+                    "0.0.2/dokumetry/python/examples/openai/fine-tuning",
+                    "0.0.2/dokumetry/python/examples/openai/completions"
+                  ]
+                },
+                {
+                  "group": "Cohere",
+                  "version": "0.0.2",
+                  "pages": [
+                    "0.0.2/dokumetry/python/examples/cohere/chat",
+                    "0.0.2/dokumetry/python/examples/cohere/generate",
+                    "0.0.2/dokumetry/python/examples/cohere/co-summarize",
+                    "0.0.2/dokumetry/python/examples/cohere/embed"
+                  ]
+                },
+                {
+                  "group": "Anthropic",
+                  "version": "0.0.2",
+                  "pages": [
+                    "0.0.2/dokumetry/python/examples/anthropic/anthropic-completions"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "group": "NodeJS",
+          "version": "0.0.2",
+          "icon": "node-js",
+          "pages": [
+            "0.0.2/dokumetry/node/introduction",
+            {
+              "group": "Examples",
+              "version": "0.0.2",
+              "pages": [
+                {
+                  "group": "OpenAI",
+                  "version": "0.0.2",
+                  "pages": [
+                    "0.0.2/dokumetry/node/examples/openai/chat",
+                    "0.0.2/dokumetry/node/examples/openai/image",
+                    "0.0.2/dokumetry/node/examples/openai/embeddings",
+                    "0.0.2/dokumetry/node/examples/openai/audio",
+                    "0.0.2/dokumetry/node/examples/openai/fine-tuning",
+                    "0.0.2/dokumetry/node/examples/openai/chatCompletions"
+                  ]
+                },
+                {
+                  "group": "Cohere",
+                  "version": "0.0.2",
+                  "pages": [
+                    "0.0.2/dokumetry/node/examples/cohere/chat",
+                    "0.0.2/dokumetry/node/examples/cohere/generate",
+                    "0.0.2/dokumetry/node/examples/cohere/summarize",
+                    "0.0.2/dokumetry/node/examples/cohere/embed"
+                  ]
+                },
+                {
+                  "group": "Anthropic",
+                  "version": "0.0.2",
+                  "pages": [
+                    "0.0.2/dokumetry/node/examples/anthropic/anthropic-completions"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "Integrations",
+      "pages": [
+        "0.0.2/integrations/intro",
+        "0.0.2/integrations/grafanaoss",
+        "0.0.2/integrations/grafanacloud",
+        "0.0.2/integrations/datadog",
+        "0.0.2/integrations/new-relic"
+      ],
+      "version": "0.0.2"
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "0.0.2/api-reference/introduction",
+        {
+          "group": "API Keys",
+          "icon": "key",
+          "pages": [
+            "0.0.2/api-reference/endpoint/api-keys/create",
+            "0.0.2/api-reference/endpoint/api-keys/get",
+            "0.0.2/api-reference/endpoint/api-keys/delete"
+          ],
+          "version": "0.0.2"
+        }
+      ],
+      "version": "0.0.2"
+    },
+    {
+      "group": "Get Started",
+      "pages": [
+        "0.0.1/intro",
         "0.0.1/quickstart",
         "0.0.1/installation",
         "0.0.1/configuration"
@@ -105,7 +236,7 @@
           "version": "0.0.1",
           "icon": "node-js",
           "pages": [
-            "0.0.1/dokumetry/node/introduction",
+            "0.0.1/dokumetry/node/intro",
             {
               "group": "Examples",
               "version": "0.0.1",
