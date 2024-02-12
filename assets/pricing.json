@@ -1,7 +1,10 @@
 {
     "embeddings": {
         "text-embedding-ada-002": 0.0001,
+        "text-embedding-3-small": 0.00002,
+        "text-embedding-3-large": 0.00013,
         "ada": 0.0001,
+        "ada-v2": 0.00010,
         "text-ada-001": 0.0001,
         "embed-english-v3.0": 0.0001,
         "embed-multilingual-v3.0": 0.0001,
@@ -86,12 +89,16 @@
             "completionPrice": 0.0200
         },
         "gpt-3.5-turbo": {
-            "promptPrice": 0.0010,
-            "completionPrice": 0.0020
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
         },
         "gpt-3.5-turbo-instruct": {
             "promptPrice": 0.0015,
             "completionPrice": 0.0020
+        },
+        "gpt-3.5-turbo-0125": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
         },
         "gpt-4": {
             "promptPrice": 0.03,
@@ -102,6 +109,10 @@
             "completionPrice": 0.12
         },
         "gpt-4-1106-preview": {
+            "promptPrice": 0.01,
+            "completionPrice": 0.03
+        },
+        "gpt-4-0125-preview": {
             "promptPrice": 0.01,
             "completionPrice": 0.03
         },
