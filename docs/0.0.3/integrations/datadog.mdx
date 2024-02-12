@@ -8,7 +8,7 @@ Doku can automatically send LLM usage data from Doku to DataDog using the [Submi
 Add the following to your doku configuration file(`doku.yml`).
 
 ```yaml doku.yml
-observabilityPlatform:
+connections:
   enabled: true                                 # Enable or Disable the Observability Platform, Example: true
     datadog:
       metricsUrl: <your-datadog-metrics-url>    # URL to the DataDog Metrics API

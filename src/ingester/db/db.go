@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"ingester/config"
+	"ingester/connections"
 	"ingester/cost"
-	"ingester/obsPlatform"
 	"net/http"
 	"sync"
 	"time"
@@ -266,7 +266,7 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 		}
 	}
 
-	go obsPlatform.SendToPlatform(data)
+	go connections.SendToPlatform(data)
 
 	// Define the SQL query for data insertion
 	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)", doku_llm_data_table)

@@ -20,8 +20,10 @@ ingesterPort: 9044
 </ResponseField>
 
 ### Pricing Information Source
+<ResponseField name="pricingInfo" type="Object">
+  Doku supports using either a local file or a URL to retrieve LLM Pricing data. Comment out the option you do not wish to use.
+</ResponseField>
 
-Doku supports using either a local file or a URL to retrieve LLM Pricing data. Comment out the option you do not wish to use.
 <Info>
 We strongly recommend using the `url` method with the value set as `https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json`. 
 
@@ -111,7 +113,7 @@ This ensures that you automatically retrieve the latest pricing information upon
 
 ### Observability Platform Configuration
 
-<ResponseField name="observabilityPlatform" type="Object">
+<ResponseField name="connections" type="Object">
   Choose the external platform you wish to use for exporting observability data from Doku and set `enabled` to `true`. Fill in the required fields for the chosen platform. Only one platform can be selected at a time.
 
   The following sections show example configurations for different platforms - Grafana Cloud, New Relic, and DataDog. You will need to uncomment the applicable section and provide necessary credentials such as URLs, User IDs, and API Keys corresponding to your account on the observability platform.
@@ -139,7 +141,7 @@ This ensures that you automatically retrieve the latest pricing information upon
         </ResponseField>
         **Example**:
         ```yaml
-        observabilityPlatform:
+        connections:
           enabled: true
           grafanaCloud:
             promUrl: "https://your-grafana-prometheus-url"
@@ -164,7 +166,7 @@ This ensures that you automatically retrieve the latest pricing information upon
         </ResponseField>
         **Example**:
         ```yaml
-        observabilityPlatform:
+        connections:
           enabled: true
           datadog:
             metricsUrl: "https://api.datadoghq.com/api/v1/series"        
@@ -187,7 +189,7 @@ This ensures that you automatically retrieve the latest pricing information upon
         </ResponseField>
         **Example**:
         ```yaml
-        observabilityPlatform:
+        connections:
           enabled: true
           newRelic:
             metricsUrl: "https://metric-api.newrelic.com/metric/v1"        
@@ -227,7 +229,7 @@ dbConfig:
 
 # Configure Platform to export LLM Observability Data from Doku
 # Only one platform can be enabled at a time, To enable a platform, set enabled to true and fill in the required fields for that platform.
-observabilityPlatform:
+connections:
   enabled: false                                                 # Enable or Disable the Observability Platform, Example: true
   # grafanaCloud:
   #   promUrl: "influx-line-proxy-url"                           # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance
