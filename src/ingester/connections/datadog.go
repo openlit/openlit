@@ -1,4 +1,4 @@
-package obsPlatform
+package connections
 
 import (
 	"bytes"
