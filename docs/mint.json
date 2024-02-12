@@ -146,13 +146,13 @@
       ]
     },
     {
-      "group": "Integrations",
+      "group": "Connections",
       "pages": [
-        "0.0.3/integrations/intro",
-        "0.0.3/integrations/grafanaoss",
-        "0.0.3/integrations/grafanacloud",
-        "0.0.3/integrations/datadog",
-        "0.0.3/integrations/new-relic"
+        "0.0.3/connections/intro",
+        "0.0.3/connections/grafanaoss",
+        "0.0.3/connections/grafanacloud",
+        "0.0.3/connections/datadog",
+        "0.0.3/connections/new-relic"
       ],
       "version": "0.0.3"
     },
@@ -277,13 +277,13 @@
       ]
     },
     {
-      "group": "Integrations",
+      "group": "Connections",
       "pages": [
-        "0.0.2/integrations/intro",
-        "0.0.2/integrations/grafanaoss",
-        "0.0.2/integrations/grafanacloud",
-        "0.0.2/integrations/datadog",
-        "0.0.2/integrations/new-relic"
+        "0.0.2/connections/intro",
+        "0.0.2/connections/grafanaoss",
+        "0.0.2/connections/grafanacloud",
+        "0.0.2/connections/datadog",
+        "0.0.2/connections/new-relic"
       ],
       "version": "0.0.2"
     },
@@ -408,13 +408,13 @@
       ]
     },
     {
-      "group": "Integrations",
+      "group": "Connections",
       "pages": [
-        "0.0.1/integrations/intro",
-        "0.0.1/integrations/grafanaoss",
-        "0.0.1/integrations/grafanacloud",
-        "0.0.1/integrations/datadog",
-        "0.0.1/integrations/new-relic"
+        "0.0.1/connections/intro",
+        "0.0.1/connections/grafanaoss",
+        "0.0.1/connections/grafanacloud",
+        "0.0.1/connections/datadog",
+        "0.0.1/connections/new-relic"
       ],
       "version": "0.0.1"
     },
