@@ -10,25 +10,25 @@ pricingInfo:
 
 # Configuration for the Doku Backend Database (TimescaleDB)
 dbConfig:
-  name: "postgres"                              # Name of the database, Example: "postgres"
-  username: "admin"                        # Username to connect to the database, Example: "admin"
-  password: "DOKU"                        # Password to connect to the database, Example: "DOKU"
-  host: "174.138.122.39"                             # Hostname of the database, Example: "174.21.1.2"
-  port: 5432                                # Port of the database, Example: 5432
-  sslMode: "require"                            # SSL Mode of the database, Example: "require"
-  maxOpenConns: 15                  # Maximum number of open connections to the database, Example: 15
-  maxIdleConns: 5                  # Maximum number of idle connections to the database, Example: 15
+  name: "DBNAME"                              # Name of the database, Example: "postgres"
+  username: "USERNAME"                        # Username to connect to the database, Example: "admin"
+  password: "PASSWORD"                        # Password to connect to the database, Example: "DOKU"
+  host: "HOSTURL"                             # Hostname of the database, Example: "174.21.1.2"
+  port: DBPORT                                # Port of the database, Example: 5432
+  sslMode: SSLMODE                            # SSL Mode of the database, Example: "require"
+  maxOpenConns: MAXOPENCONNS                  # Maximum number of open connections to the database, Example: 15
+  maxIdleConns: MAXOPENCONNS                  # Maximum number of idle connections to the database, Example: 15
 
 # Configure Platform to export LLM Observability Data from Doku
 # Only one platform can be enabled at a time, To enable a platform, set enabled to true and fill in the required fields for that platform.
 connections:
-  enabled: true                                                 # Enable or Disable the Observability Platform, Example: true
-  grafanaCloud:
-    promUrl: "https://influx-prod-13-prod-us-east-0.grafana.net/api/v1/push/influx/write"                           # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance
-    promUsername: "1410587"                          # Prometheus User ID of the Grafana Cloud Prometheus Instance
-    lokiUrl: "https://logs-prod-006.grafana.net/loki/api/v1/push"                                   # URL to the Loki Push URL of the Grafana Cloud Loki Instance
-    lokiUsername: "804284"                              # Loki Username of the Grafana Cloud Loki Instance
-    accessToken: "glc_eyJvIjoiNjUyOTkyIiwibiI6ImFuc2libGUtY29sbGVjdGlvbi1hbnNpYmxlIiwiayI6InBLM0kyaFVCN1A3NkRRZ2VoRzR0ODAxOCIsIm0iOnsiciI6InVzIn19"                  # Access Token of the Grafana Cloud Instance
+  enabled: false                                                 # Enable or Disable the Observability Platform, Example: true
+  # grafanaCloud:
+  #   promUrl: "influx-line-proxy-url"                           # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance
+  #   promUsername: "prometheus-userid"                          # Prometheus User ID of the Grafana Cloud Prometheus Instance
+  #   lokiUrl: "loki-push-url"                                   # URL to the Loki Push URL of the Grafana Cloud Loki Instance
+  #   lokiUsername: "loki-username"                              # Loki Username of the Grafana Cloud Loki Instance
+  #   accessToken: "grafana-cloud-access-token"                  # Access Token of the Grafana Cloud Instance
 
   # newRelic:
   #   metricsUrl: "https://metric-api.newrelic.com/metric/v1"    # URL to the New Relic Metric API
