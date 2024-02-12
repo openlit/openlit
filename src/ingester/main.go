@@ -9,16 +9,16 @@ import (
 	"syscall"
 	"time"
 
-	"ingester/api"
-	"ingester/auth"
-	"ingester/config"
-	"ingester/cost"
-	"ingester/db"
-	"ingester/connections"
 	"github.com/common-nighthawk/go-figure"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"ingester/api"
+	"ingester/auth"
+	"ingester/config"
+	"ingester/connections"
+	"ingester/cost"
+	"ingester/db"
 )
 
 func waitForShutdown(server *http.Server) {
