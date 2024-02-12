@@ -1,0 +1,17 @@
+---
+title: 'DataDog'
+description: 'Connect Doku to DataDog'
+---
+
+Doku can automatically send LLM usage data from Doku to DataDog using the [Submit Metrics API](https://docs.datadoghq.com/api/latest/metrics/#submit-metrics) and [Send Logs API](https://docs.datadoghq.com/api/latest/logs/#send-logs)
+
+Add the following to your doku configuration file(`doku.yml`).
+
+```yaml doku.yml
+connections:
+  enabled: true                                 # Enable or Disable the Observability Platform, Example: true
+    datadog:
+      metricsUrl: <your-datadog-metrics-url>    # URL to the DataDog Metrics API
+      logsUrl: <your-datadog-logs-url>          # URL to the DataDog Logs API
+      apiKey: <your-datadog-api-key>            # API Key of the DataDog Account
+```
