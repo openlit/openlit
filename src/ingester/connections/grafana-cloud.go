@@ -1,13 +1,14 @@
-package obsPlatform
+package connections
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 func configureGrafanaCloudData(data map[string]interface{}) {

@@ -21,7 +21,7 @@ dbConfig:
 
 # Configure Platform to export LLM Observability Data from Doku
 # Only one platform can be enabled at a time, To enable a platform, set enabled to true and fill in the required fields for that platform.
-observabilityPlatform:
+connections:
   enabled: false                                                 # Enable or Disable the Observability Platform, Example: true
   # grafanaCloud:
   #   promUrl: "influx-line-proxy-url"                           # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance

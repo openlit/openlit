@@ -28,7 +28,7 @@ type Configuration struct {
 		MaxOpenConns int    `yaml:"maxOpenConns"`
 		MaxIdleConns int    `yaml:"maxIdleConns"`
 	} `yaml:"dbConfig"`
-	ObservabilityPlatform struct {
+	Connections struct {
 		Enabled      bool `yaml:"enabled"`
 		GrafanaCloud struct {
 			PromURL      string `yaml:"promUrl"`
@@ -47,7 +47,7 @@ type Configuration struct {
 			LogsURL    string `yaml:"logsUrl"`
 			APIKey     string `yaml:"apiKey"`
 		} `yaml:"datadog"`
-	} `yaml:"observabilityPlatform"`
+	} `yaml:"connections"`
 }
 
 func validateConfig(cfg *Configuration) error {
@@ -86,16 +86,16 @@ func validateConfig(cfg *Configuration) error {
 		log.Info().Msg("dbConfig.username is now set")
 	}
 
-	if cfg.ObservabilityPlatform.Enabled {
+	if cfg.Connections.Enabled {
 		definedConfigs := 0
 
-		if cfg.ObservabilityPlatform.GrafanaCloud.PromURL != "" {
+		if cfg.Connections.GrafanaCloud.PromURL != "" {
 			definedConfigs++
 		}
-		if cfg.ObservabilityPlatform.NewRelic.Key != "" {
+		if cfg.Connections.NewRelic.Key != "" {
 			definedConfigs++
 		}
-		if cfg.ObservabilityPlatform.DataDog.APIKey != "" {
+		if cfg.Connections.DataDog.APIKey != "" {
 			definedConfigs++
 		}
 
