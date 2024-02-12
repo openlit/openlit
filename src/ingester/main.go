@@ -14,8 +14,7 @@ import (
 	"ingester/config"
 	"ingester/cost"
 	"ingester/db"
-	"ingester/obsPlatform"
-
+	"ingester/connections"
 	"github.com/common-nighthawk/go-figure"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
@@ -84,13 +83,13 @@ func main() {
 	log.Info().Msg("Successfully initialized connection to the backend database")
 
 	// Initialize observability platform if configured
-	if cfg.ObservabilityPlatform.Enabled == true {
+	if cfg.Connections.Enabled == true {
 		log.Info().Msg("Initializing for your Observability Platform")
-		err := obsPlatform.Init(*cfg)
+		err := connections.Init(*cfg)
 		if err != nil {
 			log.Fatal().Msg("Exiting due to error in initializing for your Observability Platform")
 		}
-		log.Info().Msgf("Setup complete for sending data to %s", obsPlatform.ObservabilityPlatform)
+		log.Info().Msg("Setup complete for sending data to your Observability Platform")
 	}
 
 	// Cache eviction setup for the authentication process

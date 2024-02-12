@@ -1,4 +1,4 @@
-package obsPlatform
+package connections
 
 import (
 	"ingester/config"
@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	ObservabilityPlatform string       // ObservabilityPlatform contains the information on the platform in use.
-	httpClient            *http.Client // httpClient is the HTTP client used to send data to the Observability Platform.
-	platform, call_type   string       // platform is the platform used to send data to the Observability Platform.
-	endpointTypeMapping   = map[string]string{
+	Connections         string       // Connections contains the information on the platform in use.
+	httpClient          *http.Client // httpClient is the HTTP client used to send data to the Observability Platform.
+	platform, call_type string       // platform is the platform used to send data to the Observability Platform.
+	endpointTypeMapping = map[string]string{
 		"openai.chat.completions":         "Chat",
 		"openai.completions":              "Chat",
 		"cohere.generate":                 "Chat",
@@ -65,20 +65,20 @@ func normalizeString(s string) string {
 
 func Init(cfg config.Configuration) error {
 	httpClient = &http.Client{Timeout: 5 * time.Second}
-	if cfg.ObservabilityPlatform.GrafanaCloud.LokiURL != "" {
-		grafanaPromUrl = cfg.ObservabilityPlatform.GrafanaCloud.PromURL
-		grafanaPromUsername = cfg.ObservabilityPlatform.GrafanaCloud.PromUsername
-		grafanaLokiUrl = cfg.ObservabilityPlatform.GrafanaCloud.LokiURL
-		grafanaLokiUsername = cfg.ObservabilityPlatform.GrafanaCloud.LokiUsername
-		grafanaAccessToken = cfg.ObservabilityPlatform.GrafanaCloud.AccessToken
-	} else if cfg.ObservabilityPlatform.NewRelic.Key != "" {
-		newRelicLicenseKey = cfg.ObservabilityPlatform.NewRelic.Key
-		newRelicMetricsUrl = cfg.ObservabilityPlatform.NewRelic.MetricsURL
-		newRelicLogsUrl = cfg.ObservabilityPlatform.NewRelic.LogsURL
-	} else if cfg.ObservabilityPlatform.DataDog.APIKey != "" {
-		dataDogMetricsUrl = cfg.ObservabilityPlatform.DataDog.MetricsURL
-		dataDogLogsUrl = cfg.ObservabilityPlatform.DataDog.LogsURL
-		dataDogAPIKey = cfg.ObservabilityPlatform.DataDog.APIKey
+	if cfg.Connections.GrafanaCloud.LokiURL != "" {
+		grafanaPromUrl = cfg.Connections.GrafanaCloud.PromURL
+		grafanaPromUsername = cfg.Connections.GrafanaCloud.PromUsername
+		grafanaLokiUrl = cfg.Connections.GrafanaCloud.LokiURL
+		grafanaLokiUsername = cfg.Connections.GrafanaCloud.LokiUsername
+		grafanaAccessToken = cfg.Connections.GrafanaCloud.AccessToken
+	} else if cfg.Connections.NewRelic.Key != "" {
+		newRelicLicenseKey = cfg.Connections.NewRelic.Key
+		newRelicMetricsUrl = cfg.Connections.NewRelic.MetricsURL
+		newRelicLogsUrl = cfg.Connections.NewRelic.LogsURL
+	} else if cfg.Connections.DataDog.APIKey != "" {
+		dataDogMetricsUrl = cfg.Connections.DataDog.MetricsURL
+		dataDogLogsUrl = cfg.Connections.DataDog.LogsURL
+		dataDogAPIKey = cfg.Connections.DataDog.APIKey
 	}
 	return nil
 }
