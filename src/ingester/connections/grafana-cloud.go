@@ -28,7 +28,6 @@ func configureGrafanaCloudData(data map[string]interface{}) {
 	if !found {
 		call_type = "Unknown"
 	}
-	fmt.Println("Platform: ", call_type)
 
 	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.completions" {
 		if data["finishReason"] == nil {
