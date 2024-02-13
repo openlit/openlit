@@ -96,6 +96,12 @@ This ensures that you automatically retrieve the latest pricing information upon
     <ResponseField name="maxIdleConns" type="String">
       Maximum number of idle database connections.
     </ResponseField>
+    <ResponseField name="dataTable" type="String">
+      Name of the table to store LLM Data.
+    </ResponseField>
+    <ResponseField name="apiKeyTable" type="String">
+      Name of the table to store API Keys.
+    </ResponseField>
   </Expandable>
   
   **Example**:
@@ -117,7 +123,7 @@ This ensures that you automatically retrieve the latest pricing information upon
 
 ### Connections Configuration
 
-<ResponseField name="observabilityPlatform" type="Object">
+<ResponseField name="connections" type="Object">
   Choose the external platform you wish to use for exporting observability data from Doku and set `enabled` to `true`. Fill in the required fields for the chosen platform. Only one platform can be selected at a time.
 
   The following sections show example configurations for different platforms - Grafana Cloud, New Relic, and DataDog. You will need to uncomment the applicable section and provide necessary credentials such as URLs, User IDs, and API Keys corresponding to your account on the observability platform.
@@ -145,7 +151,7 @@ This ensures that you automatically retrieve the latest pricing information upon
         </ResponseField>
         **Example**:
         ```yaml
-        observabilityPlatform:
+        connections:
           enabled: true
           grafanaCloud:
             promUrl: "https://your-grafana-prometheus-url"
@@ -170,7 +176,7 @@ This ensures that you automatically retrieve the latest pricing information upon
         </ResponseField>
         **Example**:
         ```yaml
-        observabilityPlatform:
+        connections:
           enabled: true
           datadog:
             metricsUrl: "https://api.datadoghq.com/api/v1/series"        
@@ -193,7 +199,7 @@ This ensures that you automatically retrieve the latest pricing information upon
         </ResponseField>
         **Example**:
         ```yaml
-        observabilityPlatform:
+        connections:
           enabled: true
           newRelic:
             metricsUrl: "https://metric-api.newrelic.com/metric/v1"        
@@ -230,10 +236,12 @@ dbConfig:
   sslMode: SSLMODE                            # SSL Mode of the database, Example: "require"
   maxOpenConns: MAXOPENCONNS                  # Maximum number of open connections to the database, Example: 15
   maxIdleConns: MAXOPENCONNS                  # Maximum number of idle connections to the database, Example: 15
+  dataTable: DATATABLE                        # Name of the table to store LLM Data, Example: "DOKU"
+  apiKeyTable: APIKEYTABLE                    # Name of the table to store API Keys, Example: "APIKEYS"
 
 # Configure Platform to export LLM Observability Data from Doku
 # Only one platform can be enabled at a time, To enable a platform, set enabled to true and fill in the required fields for that platform.
-observabilityPlatform:
+connections:
   enabled: false                                                 # Enable or Disable the Observability Platform, Example: true
   # grafanaCloud:
   #   promUrl: "influx-line-proxy-url"                           # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance

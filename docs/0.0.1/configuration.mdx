@@ -113,7 +113,7 @@ This ensures that you automatically retrieve the latest pricing information upon
 
 ### Observability Platform Configuration
 
-<ResponseField name="connections" type="Object">
+<ResponseField name="observabilityPlatform" type="Object">
   Choose the external platform you wish to use for exporting observability data from Doku and set `enabled` to `true`. Fill in the required fields for the chosen platform. Only one platform can be selected at a time.
 
   The following sections show example configurations for different platforms - Grafana Cloud, New Relic, and DataDog. You will need to uncomment the applicable section and provide necessary credentials such as URLs, User IDs, and API Keys corresponding to your account on the observability platform.
@@ -141,7 +141,7 @@ This ensures that you automatically retrieve the latest pricing information upon
         </ResponseField>
         **Example**:
         ```yaml
-        connections:
+        observabilityPlatform:
           enabled: true
           grafanaCloud:
             promUrl: "https://your-grafana-prometheus-url"
@@ -166,7 +166,7 @@ This ensures that you automatically retrieve the latest pricing information upon
         </ResponseField>
         **Example**:
         ```yaml
-        connections:
+        observabilityPlatform:
           enabled: true
           datadog:
             metricsUrl: "https://api.datadoghq.com/api/v1/series"        
@@ -189,7 +189,7 @@ This ensures that you automatically retrieve the latest pricing information upon
         </ResponseField>
         **Example**:
         ```yaml
-        connections:
+        observabilityPlatform:
           enabled: true
           newRelic:
             metricsUrl: "https://metric-api.newrelic.com/metric/v1"        
@@ -229,7 +229,7 @@ dbConfig:
 
 # Configure Platform to export LLM Observability Data from Doku
 # Only one platform can be enabled at a time, To enable a platform, set enabled to true and fill in the required fields for that platform.
-connections:
+observabilityPlatform:
   enabled: false                                                 # Enable or Disable the Observability Platform, Example: true
   # grafanaCloud:
   #   promUrl: "influx-line-proxy-url"                           # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance

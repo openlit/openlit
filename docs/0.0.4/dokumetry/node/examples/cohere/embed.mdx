@@ -1,0 +1,27 @@
+---
+title: 'Embed'
+description: 'Monitor Cohere Embed API usage'
+---
+
+## Embed
+
+```javascript
+import { CohereClient } from "cohere-ai";
+import DokuMetry from 'dokumetry';
+
+const cohere = new CohereClient({
+    token: "<<apiKey>>",
+});
+
+(async () => {
+  // Pass the above `cohere` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
+  DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+  const embed = await cohere.embed({
+      texts: ["hello", "goodbye"],
+      model: "embed-english-v3.0",
+      inputType: "classification",
+  });
+  console.log(embed);
+})();
+```

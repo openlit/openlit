@@ -1,0 +1,23 @@
+---
+title: 'Embed'
+description: 'Monitor Cohere Embed API usage'
+---
+
+## Embed
+
+```python
+import cohere
+import dokumetry
+
+co = cohere.Client('<<apiKey>>')
+
+# Pass the above `co` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
+dokumetry.init(llm=co, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+response = co.embed(
+  texts=['hello', 'goodbye'],
+  model='embed-english-v3.0',
+  input_type='classification'
+)
+print(response)
+```
