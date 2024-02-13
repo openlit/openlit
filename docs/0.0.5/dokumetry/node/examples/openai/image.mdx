@@ -1,0 +1,44 @@
+---
+title: 'Image'
+description: 'Monitor OpenAI Image API usage'
+---
+
+## Create Image
+
+```javascript
+import OpenAI from "openai";
+import DokuMetry from 'dokumetry';
+
+const openai = new OpenAI();
+
+// Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+async function main() {
+  const image = await openai.images.generate({ model: "dall-e-3", prompt: "A cute baby sea otter" });
+
+  console.log(image.data);
+}
+main();
+```
+
+## Create Image Variation
+```javascript
+import fs from "fs";
+import OpenAI from "openai";
+import DokuMetry from 'dokumetry';
+
+const openai = new OpenAI();
+
+// Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+async function main() {
+  const image = await openai.images.createVariation({
+    image: fs.createReadStream("otter.png"),
+  });
+
+  console.log(image.data);
+}
+main();
+```

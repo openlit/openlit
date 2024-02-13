@@ -1,0 +1,27 @@
+---
+title: 'Completions'
+description: 'Monitor Anthropic Completions API Usage'
+---
+
+## Completions
+
+```javascript
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+import dokumetry
+
+anthropic = Anthropic(
+    # defaults to os.environ.get("ANTHROPIC_API_KEY")
+    api_key="my_api_key",
+)
+
+# Pass the above `anthropic` object along with your DOKU URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+dokumetry.init(llm=anthropic, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+completion = anthropic.completions.create(
+    model="claude-2",
+    max_tokens_to_sample=300,
+    prompt=f"{HUMAN_PROMPT} Hello, Claude{AI_PROMPT}",
+)
+print(completion.completion)
+```
+
