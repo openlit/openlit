@@ -15,6 +15,20 @@ func configureNewRelicData(data map[string]interface{}) {
 	// The current time for the timestamp field.
 	currentTime := strconv.FormatInt(time.Now().Unix(), 10)
 
+	// Extract the platform from the endpoint string
+	endpointParts := strings.Split(data["endpoint"].(string), ".")
+	if len(endpointParts) > 0 {
+		platform = endpointParts[0] // The first part of the endpoint string is the platform.
+	} else {
+		platform = "Unknown" // If the endpoint string is not in the expected format, set the platform to "unknown".
+	}
+
+	// Determine the type based on the endpoint by consulting the mapping.
+	call_type, found := endpointTypeMapping[data["endpoint"].(string)]
+	if !found {
+		call_type = "Unknown"
+	}
+
 	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.completions" {
 		if data["finishReason"] == nil {
 			data["finishReason"] = "null"
@@ -26,36 +40,36 @@ func configureNewRelicData(data map[string]interface{}) {
 			"type": "gauge",
 			"value": %f,
 			"timestamp": %s,
-			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v"}
-		}`, data["completionTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+		}`, data["completionTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 			fmt.Sprintf(`{
 			"name": "doku.LLM.Prompt.Tokens",
 			"type": "gauge",
 			"value": %f,
 			"timestamp": %s,
-			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v"}
-		}`, data["promptTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+		}`, data["promptTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 			fmt.Sprintf(`{
 			"name": "doku.LLM.Total.Tokens",
 			"type": "gauge",
 			"value": %f,
 			"timestamp": %s,
-			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v"}
-		}`, data["totalTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+		}`, data["totalTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 			fmt.Sprintf(`{
 			"name": "doku.LLM.Request.Duration",
 			"type": "gauge",
 			"value": %v,
 			"timestamp": %s,
-			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v"}
-		}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+		}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 			fmt.Sprintf(`{
 			"name": "doku.LLM.Usage.Cost",
 			"type": "gauge",
 			"value": %v,
 			"timestamp": %s,
-			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v"}
-		}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+			"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "finishReason": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+		}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 		}
 
 		// Join the individual metric strings into a comma-separated string and enclose in a JSON array.
@@ -77,9 +91,12 @@ func configureNewRelicData(data map[string]interface{}) {
 					"applicationName": "%v",
 					"source": "%v",
 					"model": "%v",
-					"type": "response"
+					"type": "response",
+					"platform": "%v",
+					"generation": "%v",
+					"job.name": "doku"
 				}
-			}`, currentTime, normalizeString(data["response"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]), // Assuming 'response' is present in data and is a string.
+			}`, currentTime, normalizeString(data["response"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type), // Assuming 'response' is present in data and is a string.
 
 			fmt.Sprintf(`{
 				"timestamp": %s,
@@ -90,9 +107,12 @@ func configureNewRelicData(data map[string]interface{}) {
 					"applicationName": "%v",
 					"source": "%v",
 					"model": "%v",
-					"type": "prompt"
+					"type": "prompt",
+					"platform": "%v",
+					"generation": "%v",
+					"job.name": "doku"
 				}
-			}`, currentTime, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]), // Assuming 'prompt' is present in data and is a string.
+			}`, currentTime, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type), // Assuming 'prompt' is present in data and is a string.
 		}
 
 		// Combine the individual log entries into a full JSON payload
@@ -111,29 +131,29 @@ func configureNewRelicData(data map[string]interface{}) {
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": { "environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v"}
-				}`, data["promptTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"attributes": { "environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["promptTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"name": "doku.LLM.Total.Tokens",
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v"}
-				}`, data["totalTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["totalTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"name": "doku.LLM.Request.Duration",
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": { "environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v"}
-				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"attributes": { "environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"name": "doku.LLM.Usage.Cost",
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": { "environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v"}
-				}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"attributes": { "environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 			}
 
 			// Join the individual metric strings into a comma-separated string and enclose in a JSON array.
@@ -155,9 +175,12 @@ func configureNewRelicData(data map[string]interface{}) {
 						"applicationName": "%v",
 						"source": "%v",
 						"model": "%v",
-						"type": "prompt"
+						"type": "prompt",
+						"platform": "%v",
+						"generation": "%v",
+						"job.name": "doku"
 					}
-				}`, currentTime, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+				}`, currentTime, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type), // Assuming 'prompt' is present in data and is a string.
 			}
 			// Combine the individual log entries into a full JSON payload
 			jsonData = fmt.Sprintf(`[{"logs": [%s]}]`, strings.Join(logs, ","))
@@ -173,22 +196,22 @@ func configureNewRelicData(data map[string]interface{}) {
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v"}
-				}`, data["promptTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["promptTokens"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"name": "doku.LLM.Request.Duration",
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v"}
-				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"name": "doku.LLM.Usage.Cost",
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v"}
-				}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 			}
 
 			// Join the individual metric strings into a comma-separated string and enclose in a JSON array.
@@ -210,7 +233,10 @@ func configureNewRelicData(data map[string]interface{}) {
 						"applicationName": "%v",
 						"source": "%v",
 						"model": "%v",
-						"type": "prompt"
+						"type": "prompt",
+						"platform": "%v",
+						"generation": "%v",
+						"job.name": "doku"
 					}
 				}`,
 					currentTime,
@@ -219,7 +245,9 @@ func configureNewRelicData(data map[string]interface{}) {
 					data["endpoint"],
 					data["applicationName"],
 					data["sourceLanguage"],
-					data["model"]),
+					data["model"],
+					platform,
+					call_type),
 			}
 
 			// Combine the individual log entries into a full JSON payload
@@ -238,8 +266,8 @@ func configureNewRelicData(data map[string]interface{}) {
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v"}
-				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 		}
 		// Join the individual metric strings into a comma-separated string and enclose in a JSON array.
 		jsonData := fmt.Sprintf(`[{"metrics": [%s]}]`, strings.Join(jsonMetrics, ","))
@@ -262,9 +290,12 @@ func configureNewRelicData(data map[string]interface{}) {
 						"source": "%v",
 						"model": "%v",
 						"imageSize": "%v",
-						"imageQuality": "%v"
+						"imageQuality": "%v",
+						"platform": "%v", 
+						"generation": "%v",
+						"job.name": "doku"
 					}
-				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"]),
+				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"], platform, call_type),
 			fmt.Sprintf(`{
 					"name": "doku.LLM.Usage.Cost",
 					"type": "gauge",
@@ -277,9 +308,12 @@ func configureNewRelicData(data map[string]interface{}) {
 						"source": "%v",
 						"model": "%v",
 						"imageSize": "%v",
-						"imageQuality": "%v"
+						"imageQuality": "%v",
+						"platform": "%v", 
+						"generation": "%v",
+						"job.name": "doku"
 					}
-				}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"]),
+				}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"], platform, call_type),
 		}
 
 		// Join the individual metric strings into a comma-separated string and enclose in a JSON array.
@@ -312,9 +346,12 @@ func configureNewRelicData(data map[string]interface{}) {
 					"applicationName": "%v",
 					"source": "%v",
 					"model": "%v",
-					"type": "prompt"
+					"type": "prompt",
+					"platform": "%v",
+					"generation": "%v",
+					"job.name": "doku"
 				}
-			}`, currentTime, promptMessage, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]))
+			}`, currentTime, promptMessage, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type))
 		}
 
 		// Build the image log
@@ -327,9 +364,12 @@ func configureNewRelicData(data map[string]interface{}) {
 				"applicationName": "%v",
 				"source": "%v",
 				"model": "%v",
-				"type": "image"
+				"type": "image",
+				"platform": "%v",
+				"generation": "%v",
+				"job.name": "doku"
 			}
-		}`, currentTime, data["image"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]))
+		}`, currentTime, data["image"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type))
 
 		// Combine the individual log entries into a full JSON payload
 		jsonData = fmt.Sprintf(`[{"logs": [%s]}]`, strings.Join(logs, ","))
@@ -346,15 +386,15 @@ func configureNewRelicData(data map[string]interface{}) {
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "audioVoice": "%v"}
-				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["audioVoice"]),
+					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "audioVoice": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["requestDuration"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["audioVoice"], platform, call_type),
 			fmt.Sprintf(`{
 					"name": "doku_llm.UsageCost",
 					"type": "gauge",
 					"value": %v,
 					"timestamp": %s,
-					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "audioVoice": "%v"}
-				}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["audioVoice"]),
+					"attributes": {"environment": "%v", "endpoint": "%v", "applicationName": "%v", "source": "%v", "model": "%v", "audioVoice": "%v", "platform": "%v", "generation": "%v", "job.name": "doku"}
+				}`, data["usageCost"], currentTime, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["audioVoice"], platform, call_type),
 		}
 
 		// Join the individual metric strings into a comma-separated string and enclose in a JSON array.
@@ -376,9 +416,12 @@ func configureNewRelicData(data map[string]interface{}) {
 					"applicationName": "%v",
 					"source": "%v",
 					"model": "%v",
-					"type": "prompt"
+					"type": "prompt",
+					"platform": "%v",
+					"generation": "%v",
+					"job.name": "doku"
 				}
-			}`, currentTime, data["prompt"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+			}`, currentTime, data["prompt"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 		}
 
 		// Combine the individual log entries into a full JSON payload
