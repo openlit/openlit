@@ -24,45 +24,180 @@ func configureSignozData(data map[string]interface{}) {
 		call_type = "Unknown"
 	}
 
-	// Create JSON body using fmt.Sprintf and the data1 map
-	jsonBody := fmt.Sprintf(`[
-		{
-			"trace_id": "",
-			"span_id": "",
-			"severity_text": "INFO",
-			"severity_number": 0,
-			"attributes": {
-				"platform": "%v",
-				"generation": "%v",
-				"applicationName": "%v",
-				"sourceLanguage": "%v",
-				"endpoint": "%v",
-				"model": "%v",
-				"usageCost": %v,
-				"promptTokens": %v,
-				"completionTokens": %v,
-				"requestDuration": %v,
-				"totalTokens": %v,
-				"finishReason": "%v",
-				"imageSize" : "%v",
-				"revisedPrompt": "%v",
-				"image" : "%v",
-				"audioVoice" : "%v",
-				"finetuneJobStatus": "%v",
-				"response": "%v"
-			},
-			"resources": {
-				"job": "doku",
-				"environment": "%v"
-			},
-			"body": "%v"
+	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.completions" {
+		if data["finishReason"] == nil {
+			data["finishReason"] = "null"
 		}
-	]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"], data["promptTokens"], data["completionTokens"], data["requestDuration"], data["totalTokens"], data["finishReason"], data["imageSize"], data["revisedPrompt"], data["image"], data["audioVoice"], data["finetuneJobStatus"],normalizeString(data["response"].(string)), data["environment"], normalizeString(data["prompt"].(string)))
 
-	// Send the data to Signoz
-	err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
-	if err != nil {
-		log.Error().Err(err).Msgf("Error sending Metrics to SigNoz")
+		jsonBody := fmt.Sprintf(`[
+			{
+				"trace_id": "",
+				"span_id": "",
+				"severity_text": "INFO",
+				"severity_number": 0,
+				"attributes": {
+					"platform": "%v",
+					"generation": "%v",
+					"applicationName": "%v",
+					"sourceLanguage": "%v",
+					"endpoint": "%v",
+					"model": "%v",
+					"usageCost": %v,
+					"promptTokens": %v,
+					"completionTokens": %v,
+					"requestDuration": %v,
+					"totalTokens": %v,
+					"finishReason": "%v",
+					"response": "%v"
+				},
+				"resources": {
+					"job": "doku",
+					"environment": "%v"
+				},
+				"body": "%v"
+			}
+		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"], data["promptTokens"], data["completionTokens"], data["requestDuration"], data["totalTokens"], data["finishReason"],normalizeString(data["response"].(string)), data["environment"], normalizeString(data["prompt"].(string)))
+
+		// Send the data to Signoz
+		err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
+		if err != nil {
+			log.Error().Err(err).Msgf("Error sending Metrics to SigNoz")
+		}
+	}  else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" {
+		jsonBody := fmt.Sprintf(`[
+			{
+				"trace_id": "",
+				"span_id": "",
+				"severity_text": "INFO",
+				"severity_number": 0,
+				"attributes": {
+					"platform": "%v",
+					"generation": "%v",
+					"applicationName": "%v",
+					"sourceLanguage": "%v",
+					"endpoint": "%v",
+					"model": "%v",
+					"usageCost": %v,
+					"promptTokens": %v,
+					"requestDuration": %v,
+					"totalTokens": %v
+				},
+				"resources": {
+					"job": "doku",
+					"environment": "%v"
+				},
+				"body": "%v"
+			}
+		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"], data["promptTokens"], data["requestDuration"], data["totalTokens"], data["environment"], normalizeString(data["prompt"].(string)))
+
+		// Send the data to Signoz
+		err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
+		if err != nil {
+			log.Error().Err(err).Msgf("Error sending Metrics to SigNoz")
+		}
+	} else if data["endpoint"] == "openai.fine_tuning" {
+		jsonBody := fmt.Sprintf(`[
+			{
+				"trace_id": "",
+				"span_id": "",
+				"severity_text": "INFO",
+				"severity_number": 0,
+				"attributes": {
+					"platform": "%v",
+					"generation": "%v",
+					"applicationName": "%v",
+					"sourceLanguage": "%v",
+					"endpoint": "%v",
+					"model": "%v",
+					"requestDuration": %v,
+					"fineTuneJobStatus": "%v"
+				},
+				"resources": {
+					"job": "doku",
+					"environment": "%v"
+				},
+				"body": "%v"
+			}
+		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["requestDuration"], data["finetuneJobStatus"],data["environment"], normalizeString(data["prompt"].(string)))
+
+		// Send the data to Signoz
+		err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
+		if err != nil {
+			log.Error().Err(err).Msgf("Error sending Metrics to SigNoz")
+		}
+	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" {
+		var promptMessage string
+		if data["model"] == "dall-e-2" {
+			// Assuming data["prompt"] exists and is a string
+			promptMessage = normalizeString(data["prompt"].(string))
+		} else {
+			// Assuming data["revisedPrompt"] exists and is a string
+			promptMessage = normalizeString(data["revisedPrompt"].(string))
+		}
+		
+		jsonBody := fmt.Sprintf(`[
+			{
+				"trace_id": "",
+				"span_id": "",
+				"severity_text": "INFO",
+				"severity_number": 0,
+				"attributes": {
+					"platform": "%v",
+					"generation": "%v",
+					"applicationName": "%v",
+					"sourceLanguage": "%v",
+					"endpoint": "%v",
+					"model": "%v",
+					"usageCost": %v,
+					"requestDuration": %v,
+					"imageSize": "%v",
+					"imageQuality": "%v",
+					"image": "%v"
+				},
+				"resources": {
+					"job": "doku",
+					"environment": "%v"
+				},
+				"body": "%v"
+			}
+		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"],data["requestDuration"], data["imageSize"], data["imageQuality"], data["image"], data["environment"], promptMessage)
+
+		// Send the data to Signoz
+		err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
+		if err != nil {
+			log.Error().Err(err).Msgf("Error sending Metrics to SigNoz")
+		}
+	} else if data["endpoint"] == "openai.audio.speech.create" {
+		jsonBody := fmt.Sprintf(`[
+			{
+				"trace_id": "",
+				"span_id": "",
+				"severity_text": "INFO",
+				"severity_number": 0,
+				"attributes": {
+					"platform": "%v",
+					"generation": "%v",
+					"applicationName": "%v",
+					"sourceLanguage": "%v",
+					"endpoint": "%v",
+					"model": "%v",
+					"usageCost": %v,
+					"requestDuration": %v,
+					"audioVoice": "%v"
+				},
+				"resources": {
+					"job": "doku",
+					"environment": "%v"
+				},
+				"body": "%v"
+			}
+		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"],data["requestDuration"], data["audioVoice"], data["environment"], normalizeString(data["prompt"].(string)))
+
+		// Send the data to Signoz
+		err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
+		if err != nil {
+			log.Error().Err(err).Msgf("Error sending Metrics to SigNoz")
+		}
 	}
 }
 
