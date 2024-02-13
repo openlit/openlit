@@ -33,7 +33,7 @@ func configureSignozData(data map[string]interface{}) {
 			"severity_number": 0,
 			"attributes": {
 				"platform": "%v",
-				"callType": "%v",
+				"generation": "%v",
 				"applicationName": "%v",
 				"sourceLanguage": "%v",
 				"endpoint": "%v",
