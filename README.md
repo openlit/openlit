@@ -25,7 +25,7 @@ Leveraging Doku, you can get:
 
 - 🕵️ **In-depth LLM Monitoring**: Track every request to LLM platforms like OpenAI with precision, ensuring comprehensive visibility over your model's interactions.
 - 🎛️ **Granular Usage Insights of your LLM Applications**: Assess your LLM's performance and costs with fine-grained control, breaking down metrics by environment (such as staging or production) or application, to optimize for efficiency and scalability.
-- 📈 **Connect to Observability Platforms**: Export LLM Observablity data and insights from Doku to popular observability platforms such as Grafana Cloud or Datadog.
+- 📈 **Connect to Observability Platforms**: Export LLM Observablity data and insights from Doku to popular observability platforms such as Grafana OSS, Grafana Cloud, Datadog and New Relic.
 - 👥 **Team-centric Workflow**: Enhance team collaboration with seamless data sharing capabilities, creating an integrated environment for observability-driven teamwork.
 
 ## Supported LLMs:
