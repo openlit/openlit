@@ -92,6 +92,6 @@ func SendToPlatform(data map[string]interface{}) {
 	} else if dataDogMetricsUrl != "" {
 		configureDataDogData(data)
 	} else {
-		log.Info().Msg("No Observability Platform configured")
+		log.Info().Msg("No 'Connections' configured")
 	}
 }
