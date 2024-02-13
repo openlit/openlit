@@ -89,5 +89,5 @@ func SendToPlatform(data map[string]interface{}) {
 		configureNewRelicData(data)
 	} else if dataDogMetricsUrl != "" {
 		configureDataDogData(data)
-	} 
+	}
 }
