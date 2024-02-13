@@ -69,7 +69,6 @@ func PingDB() error {
 		attempt++
 		err := db.Ping()
 		if err == nil {
-			log.Info().Msg("Successfully connected to the database")
 			return nil
 		}
 
@@ -223,6 +222,7 @@ func initializeDB() error {
 		if dbErr != nil {
 			return
 		}
+		log.Info().Msg("Successfully connected to the database")
 
 		db.SetMaxOpenConns(dbConfig.MaxOpenConns)
 		db.SetMaxIdleConns(dbConfig.MaxIdleConns)

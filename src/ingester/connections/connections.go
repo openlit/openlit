@@ -6,8 +6,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -91,7 +89,5 @@ func SendToPlatform(data map[string]interface{}) {
 		configureNewRelicData(data)
 	} else if dataDogMetricsUrl != "" {
 		configureDataDogData(data)
-	} else {
-		log.Info().Msg("No Observability Platform configured")
 	}
 }
