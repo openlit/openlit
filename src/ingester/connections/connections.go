@@ -37,6 +37,8 @@ var (
 	dataDogMetricsUrl   string // dataDogMetricsUrl is the URL used to send data to DataDog.
 	dataDogLogsUrl      string // dataDogLogsUrl is the URL used to send logs to DataDog.
 	dataDogAPIKey       string // dataDogAPIKey is the API key used to send data to DataDog.
+	signozUrl           string // signozUrl is the URL used to send data to Signoz.
+	signozAPIKey        string // signozAPIKey is the API key used to send data to Signoz.
 )
 
 func normalizeString(s string) string {
@@ -77,6 +79,9 @@ func Init(cfg config.Configuration) error {
 		dataDogMetricsUrl = cfg.Connections.DataDog.MetricsURL
 		dataDogLogsUrl = cfg.Connections.DataDog.LogsURL
 		dataDogAPIKey = cfg.Connections.DataDog.APIKey
+	} else if cfg.Connections.Signoz.APIKey != "" {
+		signozUrl = cfg.Connections.Signoz.URL
+		signozAPIKey = cfg.Connections.Signoz.APIKey
 	}
 	return nil
 }
@@ -89,5 +94,7 @@ func SendToPlatform(data map[string]interface{}) {
 		configureNewRelicData(data)
 	} else if dataDogMetricsUrl != "" {
 		configureDataDogData(data)
+	} else if signozUrl != "" {
+		configureSignozData(data)
 	}
 }

@@ -47,6 +47,10 @@ type Configuration struct {
 			LogsURL    string `yaml:"logsUrl"`
 			APIKey     string `yaml:"apiKey"`
 		} `yaml:"datadog"`
+		Signoz struct {
+			URL        string `yaml:"url"`
+			APIKey     string `yaml:"apiKey"`
+		} `yaml:"signoz"`
 	} `yaml:"connections"`
 }
 
@@ -96,6 +100,9 @@ func validateConfig(cfg *Configuration) error {
 			definedConfigs++
 		}
 		if cfg.Connections.DataDog.APIKey != "" {
+			definedConfigs++
+		}
+		if cfg.Connections.Signoz.APIKey != "" {
 			definedConfigs++
 		}
 
