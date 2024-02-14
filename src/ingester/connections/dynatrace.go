@@ -3,10 +3,10 @@ package connections
 import (
 	"bytes"
 	"fmt"
+	"github.com/rs/zerolog/log"
+	"io"
 	"net/http"
 	"strings"
-	"io"
-	"github.com/rs/zerolog/log"
 )
 
 func configureDynatraceData(data map[string]interface{}) {
@@ -28,13 +28,13 @@ func configureDynatraceData(data map[string]interface{}) {
 		if data["finishReason"] == nil {
 			data["finishReason"] = "null"
 		}
-		
+
 		// Building the data string by concatenating sprintf calls for each metric
 		metrics := fmt.Sprintf(`doku.llm.total.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",finish_reason="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["totalTokens"]) + "\n" +
-		fmt.Sprintf(`doku.llm.completion.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",finish_reason="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["completionTokens"]) + "\n" +
-		fmt.Sprintf(`doku.llm.prompt.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",finish_reason="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["promptTokens"]) + "\n" +
-		fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",finish_reason="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["usageCost"]) + "\n" +
-		fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",finish_reason="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["requestDuration"])
+			fmt.Sprintf(`doku.llm.completion.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",finish_reason="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["completionTokens"]) + "\n" +
+			fmt.Sprintf(`doku.llm.prompt.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",finish_reason="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["promptTokens"]) + "\n" +
+			fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",finish_reason="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["usageCost"]) + "\n" +
+			fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",finish_reason="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["requestDuration"])
 
 		err := sendTelemetryDynatrace(metrics, dynatraceAPIKey, dynatraceMetricsUrl, "text/plain", "POST")
 		if err != nil {
@@ -79,9 +79,9 @@ func configureDynatraceData(data map[string]interface{}) {
 		if data["endpoint"] == "openai.embeddings" {
 			// Building the data string by concatenating sprintf calls for each metric
 			metrics := fmt.Sprintf(`doku.llm.total.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["totalTokens"]) + "\n" +
-			fmt.Sprintf(`doku.llm.prompt.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["promptTokens"]) + "\n" +
-			fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["usageCost"]) + "\n" +
-			fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"])
+				fmt.Sprintf(`doku.llm.prompt.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["promptTokens"]) + "\n" +
+				fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["usageCost"]) + "\n" +
+				fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"])
 
 			err := sendTelemetryDynatrace(metrics, dynatraceAPIKey, dynatraceMetricsUrl, "text/plain", "POST")
 			if err != nil {
@@ -112,8 +112,8 @@ func configureDynatraceData(data map[string]interface{}) {
 		} else {
 			// Building the data string by concatenating sprintf calls for each metric
 			metrics := fmt.Sprintf(`doku.llm.prompt.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["promptTokens"]) + "\n" +
-			fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["usageCost"]) + "\n" +
-			fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"])
+				fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["usageCost"]) + "\n" +
+				fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"])
 
 			err := sendTelemetryDynatrace(metrics, dynatraceAPIKey, dynatraceMetricsUrl, "text/plain", "POST")
 			if err != nil {
@@ -144,7 +144,7 @@ func configureDynatraceData(data map[string]interface{}) {
 		}
 	} else if data["endpoint"] == "openai.fine_tuning" {
 		// Building the data string by concatenating sprintf calls for each metric
-		metrics :=  fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"])
+		metrics := fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"])
 
 		err := sendTelemetryDynatrace(metrics, dynatraceAPIKey, dynatraceMetricsUrl, "text/plain", "POST")
 		if err != nil {
@@ -152,8 +152,8 @@ func configureDynatraceData(data map[string]interface{}) {
 		}
 	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" {
 		// Building the data string by concatenating sprintf calls for each metric
-		metrics := fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"])+"\n" +
-		fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["usageCost"])
+		metrics := fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"]) + "\n" +
+			fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["usageCost"])
 
 		err := sendTelemetryDynatrace(metrics, dynatraceAPIKey, dynatraceMetricsUrl, "text/plain", "POST")
 		if err != nil {
@@ -211,9 +211,8 @@ func configureDynatraceData(data map[string]interface{}) {
 		}
 	} else if data["endpoint"] == "openai.audio.speech.create" {
 		// Building the data string by concatenating sprintf calls for each metric
-		metrics := fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"])+"\n" +
-		fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["usageCost"])
-
+		metrics := fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"]) + "\n" +
+			fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["usageCost"])
 
 		err := sendTelemetryDynatrace(metrics, dynatraceAPIKey, dynatraceMetricsUrl, "text/plain", "POST")
 		if err != nil {
@@ -245,7 +244,7 @@ func configureDynatraceData(data map[string]interface{}) {
 	}
 }
 
-func sendTelemetryDynatrace(telemetryData, apiKey string, url string, contentType string,requestType string) error {
+func sendTelemetryDynatrace(telemetryData, apiKey string, url string, contentType string, requestType string) error {
 	// Create a new request using http
 	req, err := http.NewRequest(requestType, url, bytes.NewBuffer([]byte(telemetryData)))
 	if err != nil {
@@ -253,7 +252,7 @@ func sendTelemetryDynatrace(telemetryData, apiKey string, url string, contentTyp
 	}
 
 	// Add headers to the request
-	req.Header.Add("Authorization", "Api-Token " + apiKey)
+	req.Header.Add("Authorization", "Api-Token "+apiKey)
 	req.Header.Add("Content-Type", contentType)
 
 	// Send the request via a client

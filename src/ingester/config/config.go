@@ -48,8 +48,8 @@ type Configuration struct {
 			APIKey     string `yaml:"apiKey"`
 		} `yaml:"datadog"`
 		Signoz struct {
-			URL        string `yaml:"url"`
-			APIKey     string `yaml:"apiKey"`
+			URL    string `yaml:"url"`
+			APIKey string `yaml:"apiKey"`
 		} `yaml:"signoz"`
 		Dynatrace struct {
 			MetricsURL string `yaml:"metricsUrl"`

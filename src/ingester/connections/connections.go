@@ -40,7 +40,7 @@ var (
 	signozUrl           string // signozUrl is the URL used to send data to Signoz.
 	signozAPIKey        string // signozAPIKey is the API key used to send data to Signoz.
 	dynatraceMetricsUrl string // dynatraceMetricsUrl is the URL used to send data to Dynatrace.
-	dynatraceLogsUrl	string // dynatraceLogsUrl is the URL used to send logs to Dynatrace.
+	dynatraceLogsUrl    string // dynatraceLogsUrl is the URL used to send logs to Dynatrace.
 	dynatraceAPIKey     string // dynatraceAPIKey is the API key used to send data to Dynatrace.
 )
 

@@ -56,14 +56,14 @@ func configureSignozData(data map[string]interface{}) {
 				},
 				"body": "%v"
 			}
-		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"], data["promptTokens"], data["completionTokens"], data["requestDuration"], data["totalTokens"], data["finishReason"],normalizeString(data["response"].(string)), data["environment"], normalizeString(data["prompt"].(string)))
+		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"], data["promptTokens"], data["completionTokens"], data["requestDuration"], data["totalTokens"], data["finishReason"], normalizeString(data["response"].(string)), data["environment"], normalizeString(data["prompt"].(string)))
 
 		// Send the data to Signoz
 		err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
 		if err != nil {
 			log.Error().Err(err).Msgf("Error sending Metrics to SigNoz")
 		}
-	}  else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" {
+	} else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" {
 		jsonBody := fmt.Sprintf(`[
 			{
 				"trace_id": "",
@@ -118,7 +118,7 @@ func configureSignozData(data map[string]interface{}) {
 				},
 				"body": "%v"
 			}
-		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["requestDuration"], data["finetuneJobStatus"],data["environment"], normalizeString(data["prompt"].(string)))
+		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["requestDuration"], data["finetuneJobStatus"], data["environment"], normalizeString(data["prompt"].(string)))
 
 		// Send the data to Signoz
 		err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
@@ -134,7 +134,7 @@ func configureSignozData(data map[string]interface{}) {
 			// Assuming data["revisedPrompt"] exists and is a string
 			promptMessage = normalizeString(data["revisedPrompt"].(string))
 		}
-		
+
 		jsonBody := fmt.Sprintf(`[
 			{
 				"trace_id": "",
@@ -160,7 +160,7 @@ func configureSignozData(data map[string]interface{}) {
 				},
 				"body": "%v"
 			}
-		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"],data["requestDuration"], data["imageSize"], data["imageQuality"], data["image"], data["environment"], promptMessage)
+		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"], data["requestDuration"], data["imageSize"], data["imageQuality"], data["image"], data["environment"], promptMessage)
 
 		// Send the data to Signoz
 		err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
@@ -191,7 +191,7 @@ func configureSignozData(data map[string]interface{}) {
 				},
 				"body": "%v"
 			}
-		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"],data["requestDuration"], data["audioVoice"], data["environment"], normalizeString(data["prompt"].(string)))
+		]`, platform, call_type, data["applicationName"], data["sourceLanguage"], data["endpoint"], data["model"], data["usageCost"], data["requestDuration"], data["audioVoice"], data["environment"], normalizeString(data["prompt"].(string)))
 
 		// Send the data to Signoz
 		err := sendTelemetrySignoz(jsonBody, signozAPIKey, signozUrl, "POST")
@@ -203,14 +203,14 @@ func configureSignozData(data map[string]interface{}) {
 
 func sendTelemetrySignoz(telemetryData, apiKey string, url string, requestType string) error {
 	// Create a new request using http
-    req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(telemetryData)))
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(telemetryData)))
 	if err != nil {
 		return fmt.Errorf("Error creating request")
 	}
 
 	// Add headers to the request
 	req.Header.Add("Content-Type", "application/json")
-    req.Header.Add("signoz-access-token", apiKey)
+	req.Header.Add("signoz-access-token", apiKey)
 
 	// Send the request via a client
 	resp, err := httpClient.Do(req)
