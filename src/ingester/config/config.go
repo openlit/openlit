@@ -51,6 +51,11 @@ type Configuration struct {
 			URL        string `yaml:"url"`
 			APIKey     string `yaml:"apiKey"`
 		} `yaml:"signoz"`
+		Dynatrace struct {
+			MetricsURL string `yaml:"metricsUrl"`
+			LogsURL    string `yaml:"logsUrl"`
+			APIKey     string `yaml:"apiKey"`
+		} `yaml:"dynatrace"`
 	} `yaml:"connections"`
 }
 
@@ -103,6 +108,9 @@ func validateConfig(cfg *Configuration) error {
 			definedConfigs++
 		}
 		if cfg.Connections.Signoz.APIKey != "" {
+			definedConfigs++
+		}
+		if cfg.Connections.Dynatrace.APIKey != "" {
 			definedConfigs++
 		}
 

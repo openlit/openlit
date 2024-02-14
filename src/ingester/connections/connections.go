@@ -39,6 +39,9 @@ var (
 	dataDogAPIKey       string // dataDogAPIKey is the API key used to send data to DataDog.
 	signozUrl           string // signozUrl is the URL used to send data to Signoz.
 	signozAPIKey        string // signozAPIKey is the API key used to send data to Signoz.
+	dynatraceMetricsUrl string // dynatraceMetricsUrl is the URL used to send data to Dynatrace.
+	dynatraceLogsUrl	string // dynatraceLogsUrl is the URL used to send logs to Dynatrace.
+	dynatraceAPIKey     string // dynatraceAPIKey is the API key used to send data to Dynatrace.
 )
 
 func normalizeString(s string) string {
@@ -82,6 +85,10 @@ func Init(cfg config.Configuration) error {
 	} else if cfg.Connections.Signoz.APIKey != "" {
 		signozUrl = cfg.Connections.Signoz.URL
 		signozAPIKey = cfg.Connections.Signoz.APIKey
+	} else if cfg.Connections.Dynatrace.APIKey != "" {
+		dynatraceMetricsUrl = cfg.Connections.Dynatrace.MetricsURL
+		dynatraceLogsUrl = cfg.Connections.Dynatrace.LogsURL
+		dynatraceAPIKey = cfg.Connections.Dynatrace.APIKey
 	}
 	return nil
 }
@@ -96,5 +103,7 @@ func SendToPlatform(data map[string]interface{}) {
 		configureDataDogData(data)
 	} else if signozUrl != "" {
 		configureSignozData(data)
+	} else if dynatraceMetricsUrl != "" {
+		configureDynatraceData(data)
 	}
 }

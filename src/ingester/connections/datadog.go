@@ -332,7 +332,6 @@ func sendTelemetryDataDog(telemetryData, headerKey string, url string, requestTy
 	req.Header.Set("DD-API-KEY", headerKey)
 
 	// Send the request via a client
-	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("Error sending request to %v", url)
