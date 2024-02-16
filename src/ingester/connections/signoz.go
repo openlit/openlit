@@ -9,7 +9,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func configureSignozData(data map[string]interface{}) {
+func configureSignozData(data map[string]interface{}, config ConnectionConfig) {
+	signozUrl := config.LogsUrl
+	signozAPIKey := config.ApiKey
+
+	var platform string
+
 	// Extract the platform from the endpoint string
 	endpointParts := strings.Split(data["endpoint"].(string), ".")
 	if len(endpointParts) > 0 {
@@ -205,7 +210,7 @@ func sendTelemetrySignoz(telemetryData, apiKey string, url string, requestType s
 	// Create a new request using http
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(telemetryData)))
 	if err != nil {
-		return fmt.Errorf("Error creating request")
+		return fmt.Errorf("error creating request")
 	}
 
 	// Add headers to the request
@@ -215,11 +220,11 @@ func sendTelemetrySignoz(telemetryData, apiKey string, url string, requestType s
 	// Send the request via a client
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error sending request to %v", url)
+		return fmt.Errorf("error sending request to %v", url)
 	} else if resp.StatusCode == 404 {
-		return fmt.Errorf("Provided URL %v is not valid", url)
+		return fmt.Errorf("provided URL %v is not valid", url)
 	} else if resp.StatusCode == 403 {
-		return fmt.Errorf("Provided credentials are not valid")
+		return fmt.Errorf("provided credentials are not valid")
 	}
 
 	defer resp.Body.Close()

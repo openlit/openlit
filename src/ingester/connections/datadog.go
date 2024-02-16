@@ -10,8 +10,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func configureDataDogData(data map[string]interface{}) {
+func configureDataDogData(data map[string]interface{}, config ConnectionConfig) {
+	dataDogMetricsUrl := config.MetricsUrl
+	dataDogLogsUrl := config.LogsUrl
+	dataDogAPIKey := config.ApiKey
+
 	currentTime := time.Now().Unix()
+	var platform string
 
 	// Extract the platform from the endpoint string
 	endpointParts := strings.Split(data["endpoint"].(string), ".")
@@ -323,7 +328,7 @@ func sendTelemetryDataDog(telemetryData, headerKey string, url string, requestTy
 	// Create a new request using http
 	req, err := http.NewRequest(requestType, url, bytes.NewBuffer([]byte(telemetryData)))
 	if err != nil {
-		return fmt.Errorf("Error creating request")
+		return fmt.Errorf("error creating request")
 	}
 
 	// Add headers to the request
@@ -334,11 +339,11 @@ func sendTelemetryDataDog(telemetryData, headerKey string, url string, requestTy
 	// Send the request via a client
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error sending request to %v", url)
+		return fmt.Errorf("error sending request to %v", url)
 	} else if resp.StatusCode == 404 {
-		return fmt.Errorf("Provided URL %v is not valid", url)
+		return fmt.Errorf("provided URL %v is not valid", url)
 	} else if resp.StatusCode == 403 {
-		return fmt.Errorf("Provided credentials are not valid")
+		return fmt.Errorf("provided credentials are not valid")
 	}
 
 	defer resp.Body.Close()

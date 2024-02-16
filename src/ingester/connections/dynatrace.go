@@ -9,7 +9,12 @@ import (
 	"strings"
 )
 
-func configureDynatraceData(data map[string]interface{}) {
+func configureDynatraceData(data map[string]interface{}, config ConnectionConfig) {
+	dynatraceMetricsUrl := config.MetricsUrl
+	dynatraceLogsUrl := config.LogsUrl
+	dynatraceAPIKey := config.ApiKey
+
+	var platform string
 	// Extract the platform from the endpoint string
 	endpointParts := strings.Split(data["endpoint"].(string), ".")
 	if len(endpointParts) > 0 {
@@ -248,7 +253,7 @@ func sendTelemetryDynatrace(telemetryData, apiKey string, url string, contentTyp
 	// Create a new request using http
 	req, err := http.NewRequest(requestType, url, bytes.NewBuffer([]byte(telemetryData)))
 	if err != nil {
-		return fmt.Errorf("Error creating request")
+		return fmt.Errorf("error creating request")
 	}
 
 	// Add headers to the request
@@ -258,7 +263,7 @@ func sendTelemetryDynatrace(telemetryData, apiKey string, url string, contentTyp
 	// Send the request via a client
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error sending request to %v", url)
+		return fmt.Errorf("error sending request to %v", url)
 	}
 
 	defer resp.Body.Close()

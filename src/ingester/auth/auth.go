@@ -34,6 +34,7 @@ func InitializeCacheEviction() {
 			<-ticker.C // This blocks until the ticker sends a value
 			log.Info().Msg("Evicting Expired API Key Cache Entries")
 			evictExpiredEntries()
+			db.EvictExpiredEntries()
 		}
 	}()
 }

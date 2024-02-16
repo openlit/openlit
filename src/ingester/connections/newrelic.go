@@ -11,9 +11,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func configureNewRelicData(data map[string]interface{}) {
+func configureNewRelicData(data map[string]interface{}, config ConnectionConfig) {
+	newRelicLicenseKey := config.ApiKey
+	newRelicMetricsUrl := config.MetricsUrl
+	newRelicLogsUrl := config.LogsUrl
+
 	// The current time for the timestamp field.
 	currentTime := strconv.FormatInt(time.Now().Unix(), 10)
+	var platform string
 
 	// Extract the platform from the endpoint string
 	endpointParts := strings.Split(data["endpoint"].(string), ".")
@@ -438,18 +443,18 @@ func sendTelemetryNewRelic(telemetryData, authHeader string, headerKey string, u
 
 	req, err := http.NewRequest(requestType, url, bytes.NewBufferString(telemetryData))
 	if err != nil {
-		return fmt.Errorf("Error creating request")
+		return fmt.Errorf("error creating request")
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(fmt.Sprintf("%s", headerKey), authHeader)
+	req.Header.Set(headerKey, authHeader)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error sending request to %v", url)
+		return fmt.Errorf("error sending request to %v", url)
 	} else if resp.StatusCode == 404 {
-		return fmt.Errorf("Provided URL %v is not valid", url)
+		return fmt.Errorf("provided URL %v is not valid", url)
 	} else if resp.StatusCode == 403 {
-		return fmt.Errorf("Provided credentials are not valid")
+		return fmt.Errorf("provided credentials are not valid")
 	}
 
 	defer resp.Body.Close()
