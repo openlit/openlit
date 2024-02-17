@@ -18,11 +18,11 @@ import (
 )
 
 var (
-	once                   sync.Once             // once is used to ensure that the database is initialized only once
-	connectionCache        sync.Map              // connectionCache stores the lookup of connection details
-	ApiKeyCache            = sync.Map{}          // ApiKeyCache stores the lookup of API keys and organization IDs.
-	CacheEntryDuration     = time.Minute * 10    // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
-	db                     *sql.DB               // db holds the database connection
+	once                   sync.Once            // once is used to ensure that the database is initialized only once
+	connectionCache        sync.Map             // connectionCache stores the lookup of connection details
+	ApiKeyCache            = sync.Map{}         // ApiKeyCache stores the lookup of API keys and organization IDs.
+	CacheEntryDuration     = time.Minute * 10   // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
+	db                     *sql.DB              // db holds the database connection
 	doku_llm_data_table    = "DOKU_LLM_DATA"    // doku_llm_data_table holds the name of the data table
 	doku_apikeys_table     = "DOKU_APIKEYS"     // doku_apikeys_table holds the name of the API keys table
 	doku_connections_table = "DOKU_CONNECTIONS" // doku_connections_table holds the name of the connections table
