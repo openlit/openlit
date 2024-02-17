@@ -167,7 +167,7 @@ func getCreateDataTableSQL(tableName string) string {
 		image TEXT,
 		audioVoice TEXT,
 		finetuneJobStatus TEXT,
-		feedback VARCHAR(50)
+		feedback INTEGER
 	);`, tableName)
 }
 
