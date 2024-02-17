@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"ingester/db"
 	"github.com/rs/zerolog/log"
+	"ingester/db"
 )
 
 var (
