@@ -22,20 +22,29 @@ dbConfig:
 # Configure Platform to export LLM Observability Data from Doku
 # Only one platform can be enabled at a time, To enable a platform, set enabled to true and fill in the required fields for that platform.
 connections:
-  enabled: false                                                 # Enable or Disable the Observability Platform, Example: true
+  enabled: false                                                  # Enable or Disable the Observability Platform, Example: true
   # grafanaCloud:
-  #   promUrl: "influx-line-proxy-url"                           # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance
-  #   promUsername: "prometheus-userid"                          # Prometheus User ID of the Grafana Cloud Prometheus Instance
-  #   lokiUrl: "loki-push-url"                                   # URL to the Loki Push URL of the Grafana Cloud Loki Instance
-  #   lokiUsername: "loki-username"                              # Loki Username of the Grafana Cloud Loki Instance
-  #   accessToken: "grafana-cloud-access-token"                  # Access Token of the Grafana Cloud Instance
+  #   promUrl: "influx-line-proxy-url"                            # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance
+  #   promUsername: "prometheus-userid"                           # Prometheus User ID of the Grafana Cloud Prometheus Instance
+  #   lokiUrl: "loki-push-url"                                    # URL to the Loki Push URL of the Grafana Cloud Loki Instance
+  #   lokiUsername: "loki-username"                               # Loki Username of the Grafana Cloud Loki Instance
+  #   accessToken: "grafana-cloud-access-token"                   # Access Token of the Grafana Cloud Instance
 
   # newRelic:
-  #   metricsUrl: "https://metric-api.newrelic.com/metric/v1"    # URL to the New Relic Metric API
-  #   logsUrl: "https://log-api.newrelic.com/log/v1"             # URL to the New Relic Log API
-  #   key: "newrelic-api-key"                                    # Ingest API Key of the New Relic Account
+  #   metricsUrl: "https://metric-api.newrelic.com/metric/v1"     # URL to the New Relic Metric API
+  #   logsUrl: "https://log-api.newrelic.com/log/v1"              # URL to the New Relic Log API
+  #   key: "newrelic-api-key"                                     # Ingest API Key of the New Relic Account
 
   # datadog:
-  #   metricsUrl: "https://api.datadoghq.com/api/v1/series"        # URL to the DataDog Metrics API
-  #   logsUrl: "https://http.logs.datadoghq.com/api/v2/logs"       # URL to the DataDog Logs API
-  #   apiKey: "datadog-api-key"                                    # API Key of the DataDog Account
+  #   metricsUrl: "https://api.datadoghq.com/api/v1/series"       # URL to the DataDog Metrics API
+  #   logsUrl: "https://http.logs.datadoghq.com/api/v2/logs"      # URL to the DataDog Logs API
+  #   apiKey: "datadog-api-key"                                   # API Key of the DataDog Account
+
+  # signoz:
+  #   url: "https://api.datadoghq.com/api/v1/series"              # URL to the DataDog Metrics API
+  #   apiKey: "datadog-api-key"                                   # API Key of the DataDog Account
+
+  # dynatrace:
+  #   metricsUrl: "https://{your-env-id}.live.dynatrace.com/api/v2/metrics/ingest"            # URL to the Dynatrace Metrics API
+  #    logsUrl: "https://{your-env-id}.live.dynatrace.com/api/v2/logs/ingest"                 # URL to the Dynatrace Logs API
+  #    apiKey: <your-dynatrace-api-key>                                                       # API Key of the Dynatrace Account

@@ -18,11 +18,14 @@ import (
 )
 
 var (
-	once                sync.Once         // once is used to ensure that the database is initialized only once
-	db                  *sql.DB           // db holds the database connection
-	dbConfig            DatabaseConfig    // dbConfig holds the database configuration
-	doku_llm_data_table = "DOKU_LLM_DATA" // doku_llm_data_table holds the name of the data table
-	doku_apikeys_table  = "DOKU_APIKEYS"  // doku_apikeys_table holds the name of the API keys table
+	once                   sync.Once            // once is used to ensure that the database is initialized only once
+	connectionCache        sync.Map             // connectionCache stores the lookup of connection details
+	ApiKeyCache            = sync.Map{}         // ApiKeyCache stores the lookup of API keys and organization IDs.
+	CacheEntryDuration     = time.Minute * 10   // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
+	db                     *sql.DB              // db holds the database connection
+	doku_llm_data_table    = "DOKU_LLM_DATA"    // doku_llm_data_table holds the name of the data table
+	doku_apikeys_table     = "DOKU_APIKEYS"     // doku_apikeys_table holds the name of the API keys table
+	doku_connections_table = "DOKU_CONNECTIONS" // doku_connections_table holds the name of the connections table
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
@@ -48,16 +51,31 @@ var (
 	}
 )
 
-// DBConfig holds the database configuration
-type DatabaseConfig struct {
-	DBName       string
-	User         string
-	Password     string
-	Host         string
-	Port         string
-	SSLMode      string
-	MaxIdleConns int
-	MaxOpenConns int
+type ConnectionRequest struct {
+	Platform        string `json:"platform"`
+	MetricsUsername string `json:"metricsUsername,omitempty"`
+	LogsUserName    string `json:"logsUserName,omitempty"`
+	ApiKey          string `json:"apiKey"`
+	MetricsURL      string `json:"metricsURL,omitempty"`
+	LogsURL         string `json:"logsURL,omitempty"`
+}
+
+type connectionCacheEntry struct {
+	Config    *connections.ConnectionConfig
+	Timestamp time.Time
+}
+
+// EvictExpiredEntries goes through the cache and evicts expired entries.
+func EvictExpiredEntries() {
+	now := time.Now()
+	connectionCache.Range(func(key, value interface{}) bool {
+		if entry, ok := value.(connectionCacheEntry); ok {
+			if now.Sub(entry.Timestamp) >= CacheEntryDuration {
+				connectionCache.Delete(key)
+			}
+		}
+		return true
+	})
 }
 
 // PingDB attempts to ping the database to check if it's alive.
@@ -98,6 +116,21 @@ func generateSecureRandomKey() (string, error) {
 	return apiKey, nil
 }
 
+// getCreateConnectionsTableSQL returns the SQL query to create the API keys table.
+func getCreateConnectionsTableSQL(tableName string) string {
+	return fmt.Sprintf(`
+	CREATE TABLE IF NOT EXISTS %s (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		platform VARCHAR(50) NOT NULL,
+		metricsUrl TEXT NOT NULL,
+		logsUrl TEXT NOT NULL,
+		apiKey TEXT NOT NULL,
+		metricsUsername VARCHAR(50) NOT NULL,
+		logsUsername VARCHAR(50) NOT NULL,
+		created_at TIMESTAMPTZ DEFAULT NOW()
+	);`, tableName)
+}
+
 // getCreateAPIKeysTableSQL returns the SQL query to create the API keys table.
 func getCreateAPIKeysTableSQL(tableName string) string {
 	return fmt.Sprintf(`
@@ -133,7 +166,8 @@ func getCreateDataTableSQL(tableName string) string {
 		revisedPrompt TEXT,
 		image TEXT,
 		audioVoice TEXT,
-		finetuneJobStatus TEXT
+		finetuneJobStatus TEXT,
+		feedback INTEGER
 	);`, tableName)
 }
 
@@ -158,22 +192,24 @@ func tableExists(db *sql.DB, tableName string) (bool, error) {
 }
 
 // createTable creates a table in the database if it doesn't exist.
-func createTable(db *sql.DB, tableName string, retentionPeriod string) error {
+func createTable(db *sql.DB, tableName string) error {
 	var createTableSQL string
 	if tableName == doku_apikeys_table {
 		createTableSQL = getCreateAPIKeysTableSQL(tableName)
 	} else if tableName == doku_llm_data_table {
 		createTableSQL = getCreateDataTableSQL(tableName)
+	} else if tableName == doku_connections_table {
+		createTableSQL = getCreateConnectionsTableSQL(tableName)
 	}
 
 	exists, err := tableExists(db, tableName)
 	if err != nil {
-		return fmt.Errorf("Error checking table '%s' existence: %w", tableName, err)
+		return fmt.Errorf("error checking table '%s' existence: %w", tableName, err)
 	}
-	if exists == false {
+	if !exists {
 		_, err := db.Exec(createTableSQL)
 		if err != nil {
-			return fmt.Errorf("Error creating table %s: %w", tableName, err)
+			return fmt.Errorf("error creating table %s: %w", tableName, err)
 		}
 		log.Info().Msgf("Table '%s' created in the database", tableName)
 
@@ -181,7 +217,18 @@ func createTable(db *sql.DB, tableName string, retentionPeriod string) error {
 			createIndexSQL := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_api_key ON %s (api_key);", tableName)
 			_, err = db.Exec(createIndexSQL)
 			if err != nil {
-				return fmt.Errorf("Error creating index on 'api_key' column: %w", err)
+				return fmt.Errorf("error creating index on 'api_key' column: %w", err)
+			}
+
+			// Add fresh installation API key
+			newAPIKey, _ := generateSecureRandomKey()
+
+			// Insert the new API key into the database
+			insertQuery := fmt.Sprintf("INSERT INTO %s (api_key, name) VALUES ($1, $2)", doku_apikeys_table)
+			_, err = db.Exec(insertQuery, newAPIKey, "doku-client-internal")
+			if err != nil {
+				log.Error().Err(err).Msg("Error inserting the new API key in the database")
+				return err
 			}
 			log.Info().Msgf("Index on 'api_key' column checked/created in table '%s'", tableName)
 		}
@@ -190,15 +237,15 @@ func createTable(db *sql.DB, tableName string, retentionPeriod string) error {
 		if tableName == doku_llm_data_table {
 			_, err := db.Exec("SELECT create_hypertable($1, 'time')", tableName)
 			if err != nil {
-				return fmt.Errorf("Error creating hypertable: %w", err)
+				return fmt.Errorf("error creating hypertable: %w", err)
 			}
 			log.Info().Msgf("Table '%s' converted to a Hypertable", tableName)
-			query := fmt.Sprintf("SELECT add_retention_policy('%s', INTERVAL '%s')", tableName, retentionPeriod)
+			query := fmt.Sprintf("SELECT add_retention_policy('%s', INTERVAL '%s')", tableName, "180 days")
 			_, err = db.Exec(query)
 			if err != nil {
-				return fmt.Errorf("Error adding data retention policy: %w", err)
+				return fmt.Errorf("error adding data retention policy: %w", err)
 			}
-			log.Info().Msgf("Added data retention policy of '%s' to '%s' ", retentionPeriod, tableName)
+			log.Info().Msgf("Added data retention policy of '%s' to '%s' ", "180 days", tableName)
 		}
 	} else {
 		log.Info().Msgf("Table '%s' already exists in the database", tableName)
@@ -207,11 +254,11 @@ func createTable(db *sql.DB, tableName string, retentionPeriod string) error {
 }
 
 // initializeDB initializes connection to the database.
-func initializeDB() error {
+func initializeDB(cfg config.Configuration) error {
 	var dbErr error
 	once.Do(func() {
 		connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-			dbConfig.Host, dbConfig.Port, dbConfig.User, dbConfig.Password, dbConfig.DBName, dbConfig.SSLMode)
+			cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Name, cfg.Database.SSLMode)
 
 		if db, dbErr = sql.Open("postgres", connStr); dbErr != nil {
 			log.Error().Err(dbErr).Msg("Error connecting to the database")
@@ -224,8 +271,8 @@ func initializeDB() error {
 		}
 		log.Info().Msg("Successfully connected to the database")
 
-		db.SetMaxOpenConns(dbConfig.MaxOpenConns)
-		db.SetMaxIdleConns(dbConfig.MaxIdleConns)
+		db.SetMaxOpenConns(cfg.Database.MaxOpenConns)
+		db.SetMaxIdleConns(cfg.Database.MaxIdleConns)
 	})
 	return dbErr
 }
@@ -266,8 +313,6 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 		}
 	}
 
-	go connections.SendToPlatform(data)
-
 	// Define the SQL query for data insertion
 	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)", doku_llm_data_table)
 
@@ -299,45 +344,81 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 		return "Internal Server Error", http.StatusInternalServerError
 	}
 
+	go func() {
+		connDetails, err := checkConnections()
+		if err != nil {
+			log.Error().Err(err).Msg("Error checking for 'Connections' in the database")
+		}
+
+		if connDetails != nil {
+			connections.SendToPlatform(data, *connDetails)
+		} else {
+			log.Info().Msg("No 'Connections' details found for export. skipping data export")
+		}
+	}()
+
 	return "Data insertion completed", http.StatusCreated
 }
 
 // Init initializes the database connection and creates the required tables.
 func Init(cfg config.Configuration) error {
-
-	// Initialize the database configuration
-	dbConfig = DatabaseConfig{
-		DBName:       cfg.DBConfig.DBName,
-		User:         cfg.DBConfig.DBUser,
-		Password:     cfg.DBConfig.DBPassword,
-		Host:         cfg.DBConfig.DBHost,
-		Port:         cfg.DBConfig.DBPort,
-		SSLMode:      cfg.DBConfig.DBSSLMode,
-		MaxIdleConns: cfg.DBConfig.MaxIdleConns,
-		MaxOpenConns: cfg.DBConfig.MaxOpenConns,
-	}
-
-	err := initializeDB()
+	err := initializeDB(cfg)
 	if err != nil {
 		log.Error().Err(err).Msg("Error initializing database")
-		return fmt.Errorf("Could not initialize connection to the database: %w", err)
+		return fmt.Errorf("could not initialize connection to the database: %w", err)
 	}
 
 	// Create the DATA and API keys table if it doesn't exist.
-	log.Info().Msgf("Creating '%s' and '%s' tables in the database if they don't exist", doku_apikeys_table, doku_llm_data_table)
+	log.Info().Msgf("Creating '%s', '%s' and '%s' tables in the database if they don't exist", doku_connections_table, doku_apikeys_table, doku_llm_data_table)
 
-	err = createTable(db, doku_apikeys_table, cfg.RentionPeriod)
+	err = createTable(db, doku_connections_table)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error creating table %s", doku_connections_table)
+		return err
+	}
+
+	err = createTable(db, doku_apikeys_table)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error creating table %s", doku_apikeys_table)
 		return err
 	}
 
-	err = createTable(db, doku_llm_data_table, cfg.RentionPeriod)
+	err = createTable(db, doku_llm_data_table)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error creating table %s", doku_apikeys_table)
 		return err
 	}
 	return nil
+}
+
+func checkConnections() (*connections.ConnectionConfig, error) {
+	// Attempt to retrieve the connections config from cache first
+	if value, ok := connectionCache.Load("connectionConfig"); ok {
+		if entry, ok := value.(connectionCacheEntry); ok {
+			// Check if the cache entry is still valid
+			if time.Since(entry.Timestamp) < CacheEntryDuration {
+				return entry.Config, nil
+			}
+		}
+	}
+
+	// If not in cache or cache is expired, query the database
+	query := fmt.Sprintf("SELECT platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername FROM %s;", doku_connections_table)
+	var connDetails connections.ConnectionConfig
+	row := db.QueryRow(query)
+	err := row.Scan(&connDetails.Platform, &connDetails.MetricsUrl, &connDetails.LogsUrl,
+		&connDetails.ApiKey, &connDetails.MetricsUsername, &connDetails.LogsUsername)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Cache the newly retrieved ConnectionConfig
+	connectionCache.Store("connectionConfig", connectionCacheEntry{Config: &connDetails, Timestamp: time.Now()})
+
+	return &connDetails, nil
 }
 
 // PerformDatabaseInsertion performs the database insertion synchronously.
@@ -368,11 +449,11 @@ func CheckAPIKey(apiKey string) (string, error) {
 func GenerateAPIKey(existingAPIKey, name string) (string, error) {
 	// If there are any existing API keys, authenticate the provided API key before proceeding
 	var count int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", doku_apikeys_table)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE name != 'doku-client-internal'", doku_apikeys_table)
 	err := db.QueryRow(countQuery).Scan(&count)
 	if err != nil {
 		log.Error().Err(err).Msg("Error checking API key table")
-		return "", fmt.Errorf("Failed to check API key table: %v", err)
+		return "", fmt.Errorf("failed to check API key table: %v", err)
 	}
 
 	// Only perform the check if the count is greater than zero
@@ -451,6 +532,93 @@ func DeleteAPIKey(existingAPIKey, name string) error {
 		log.Error().Err(err).Msg("Error deleting API key")
 		return err
 	}
+	ApiKeyCache.Delete(apiKey)
 	log.Info().Msgf("API Key with the name '%s' deleted successfully", name)
+	return nil
+}
+
+// GenerateConnection
+func GenerateConnection(existingAPIKey string, config ConnectionRequest) error {
+	// Autheticate the provided API key before proceeding
+	_, err := CheckAPIKey(existingAPIKey)
+	if err != nil {
+		log.Warn().Msg("Authorization Failed for an API Key")
+		return fmt.Errorf("AUTHFAILED")
+	}
+
+	deleteRows := fmt.Sprintf("DELETE FROM %s", doku_connections_table)
+	_, err = db.Exec(deleteRows)
+	if err != nil {
+		log.Error().Err(err).Msg("Error deleting the existing Connections config in the database")
+		return err
+	}
+
+	insertQuery := fmt.Sprintf("INSERT INTO %s (platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername) VALUES ($1, $2, $3, $4, $5, $6)", doku_connections_table)
+	_, err = db.Exec(insertQuery, config.Platform, config.MetricsURL, config.LogsURL, config.ApiKey, config.MetricsUsername, config.LogsUserName)
+	if err != nil {
+		log.Error().Err(err).Msg("Error inserting the new Connections config in the database")
+		return err
+	}
+	connectionCache.Delete("connectionConfig")
+	log.Info().Msgf("New Connection config created successfully")
+	return nil
+}
+
+// DeleteConnection deletes the connection details from the database.
+func DeleteConnection(existingAPIKey string) error {
+	// Autheticate the provided API key before proceeding
+	_, err := CheckAPIKey(existingAPIKey)
+	if err != nil {
+		log.Warn().Msg("Authorization Failed for an API Key")
+		return fmt.Errorf("AUTHFAILED")
+	}
+
+	var count int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", doku_connections_table)
+	err = db.QueryRow(countQuery).Scan(&count)
+	if err != nil {
+		log.Info().Msgf("%d", count)
+		log.Error().Err(err).Msg("Error checking Connections Table")
+		return fmt.Errorf("failed to check Connections table: %v", err)
+	}
+	if count >= 1 {
+		deleteRows := fmt.Sprintf("DELETE FROM %s", doku_connections_table)
+		_, err = db.Exec(deleteRows)
+		if err != nil {
+			log.Error().Err(err).Msg("Error deleting the existing Connections config in the database")
+			return err
+		}
+		connectionCache.Delete("connectionConfig")
+		log.Info().Msgf("Connection config deleted successfully")
+	} else {
+		return fmt.Errorf("NOTFOUND")
+	}
+
+	return nil
+}
+
+// UpdateRetentionPeriod updates the retention period for the data table.
+func UpdateRetention(existingAPIKey string, retentionPeriod string) error {
+	// Autheticate the provided API key before proceeding
+	_, err := CheckAPIKey(existingAPIKey)
+	if err != nil {
+		log.Warn().Msg("Authorization Failed for an API Key")
+		return fmt.Errorf("AUTHFAILED")
+	}
+
+	query := fmt.Sprintf("SELECT remove_retention_policy('%s')", doku_llm_data_table)
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("error removing existing data retention policy: %w", err)
+	}
+
+	// Update the retention period for the data table
+	query = fmt.Sprintf("SELECT add_retention_policy('%s', INTERVAL '%s')", doku_llm_data_table, retentionPeriod)
+	_, err = db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("error adding data retention policy: %w", err)
+	}
+	log.Info().Msgf("Added data retention policy of '%s' to '%s' ", retentionPeriod, doku_llm_data_table)
+
 	return nil
 }

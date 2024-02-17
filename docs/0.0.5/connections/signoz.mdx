@@ -1,0 +1,1469 @@
+---
+title: 'SigNoz'
+description: 'Connect Doku to SigNoz'
+---
+
+<Frame>
+  <img src="https://github.com/dokulabs/doku/blob/signoz/docs/images/signoz-dashboard-1.jpg?raw=true"  />
+  <img src="https://github.com/dokulabs/doku/blob/signoz/docs/images/signoz-dashboard-2.jpg?raw=true" />
+</Frame>
+
+Doku can automatically send LLM usage data from Doku to SigNoz using the [HTTP Logs API](https://signoz.io/docs/userguide/send-logs-http/)
+
+Make the following curl request to Doku to add a connection for SigNoz. See more on the [Connections API](/0.0.5/api-reference/endpoint/connections/create)
+
+```shell 
+curl --request POST \
+  --url https://<YOUR_DOKU_URL>/api/connections \
+  --header 'Authorization: <DOKU_API_KEY>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "Platform": "signoz",
+  "LogsUrl": "<YOUR_SIGNOZ_LOGS_URL>",
+  "ApiKey": "<YOUR_SIGNOZ_API_KEY>"
+}'
+```
+
+## SigNoz Resources
+
+<Accordion title="Dashboard">
+	```json
+	{
+		"description": "This dashboard tracks costs, tokens, & model usage for LLM Applications via Doku for enhanced performance and evaluation.",
+		"layout": [
+		{
+			"h": 3,
+			"i": "4d33e5a0-2e34-4626-9dff-f795cd8e62ee",
+			"moved": false,
+			"static": false,
+			"w": 9,
+			"x": 0,
+			"y": 5
+		},
+		{
+			"h": 3,
+			"i": "5705486f-dfab-4428-96ce-97d5ccfc0620",
+			"moved": false,
+			"static": false,
+			"w": 6,
+			"x": 6,
+			"y": 17
+		},
+		{
+			"h": 3,
+			"i": "532306fd-bc68-4e3e-a76f-313b92d22f0e",
+			"moved": false,
+			"static": false,
+			"w": 3,
+			"x": 9,
+			"y": 14
+		},
+		{
+			"h": 3,
+			"i": "60e26de7-3b68-4348-b31b-bb7275a26a45",
+			"moved": false,
+			"static": false,
+			"w": 12,
+			"x": 0,
+			"y": 2
+		},
+		{
+			"h": 2,
+			"i": "443e85bf-9863-4002-abd4-0407fa12e92d",
+			"moved": false,
+			"static": false,
+			"w": 3,
+			"x": 2,
+			"y": 0
+		},
+		{
+			"h": 3,
+			"i": "84dc9645-8c6c-4b9a-9558-2386b6eb4d10",
+			"moved": false,
+			"static": false,
+			"w": 6,
+			"x": 0,
+			"y": 17
+		},
+		{
+			"h": 2,
+			"i": "99d0eee5-9e91-4496-a7ee-70508cbbca6b",
+			"moved": false,
+			"static": false,
+			"w": 3,
+			"x": 5,
+			"y": 0
+		},
+		{
+			"h": 2,
+			"i": "a0f453e8-0b6f-45bb-910c-6171a50919a9",
+			"moved": false,
+			"static": false,
+			"w": 2,
+			"x": 0,
+			"y": 0
+		},
+		{
+			"h": 2,
+			"i": "4f778a79-54cd-4a99-a5b0-3d06647c1fb9",
+			"moved": false,
+			"static": false,
+			"w": 4,
+			"x": 8,
+			"y": 0
+		},
+		{
+			"h": 3,
+			"i": "1128a154-ed4f-4189-b1ca-d52f28a78d28",
+			"moved": false,
+			"static": false,
+			"w": 3,
+			"x": 9,
+			"y": 11
+		},
+		{
+			"h": 3,
+			"i": "0c3a8c8a-5116-47f2-9dfe-242440ee65df",
+			"moved": false,
+			"static": false,
+			"w": 3,
+			"x": 9,
+			"y": 8
+		},
+		{
+			"h": 3,
+			"i": "ec9a5671-4a0c-4172-a383-82f37ab682f7",
+			"moved": false,
+			"static": false,
+			"w": 3,
+			"x": 9,
+			"y": 5
+		},
+		{
+			"h": 3,
+			"i": "af5f5471-e523-49e5-8de3-17a8c43fd115",
+			"moved": false,
+			"static": false,
+			"w": 9,
+			"x": 0,
+			"y": 8
+		},
+		{
+			"h": 3,
+			"i": "4f33601c-9707-4b52-8194-e6671c52666e",
+			"moved": false,
+			"static": false,
+			"w": 9,
+			"x": 0,
+			"y": 11
+		},
+		{
+			"h": 3,
+			"i": "11cba8dc-b2de-4eb6-a546-8a3cbe43cba2",
+			"moved": false,
+			"static": false,
+			"w": 9,
+			"x": 0,
+			"y": 14
+		}
+		],
+		"name": "",
+		"tags": [
+		"Doku",
+		"OpenAI",
+		"Cohere",
+		"Anthropic"
+		],
+		"title": "Doku - LLM Monitoring",
+		"variables": {},
+		"widgets": [
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "a0f453e8-0b6f-45bb-910c-6171a50919a9",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "value",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "",
+					"id": "------false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "",
+					"type": ""
+					},
+					"aggregateOperator": "count",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "9a3b0db1",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [],
+					"having": [],
+					"legend": "",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "984ba011-8db8-45aa-a4e2-8668569236bb",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Total Requests",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "99d0eee5-9e91-4496-a7ee-70508cbbca6b",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "value",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "totalTokens--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "totalTokens",
+					"type": "tag"
+					},
+					"aggregateOperator": "avg",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [],
+					"op": "AND"
+					},
+					"groupBy": [],
+					"having": [],
+					"legend": "",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "last",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "ebc81d59-4638-46a7-b111-adb28ccf64ac",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Avg Tokens / Request",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "84dc9645-8c6c-4b9a-9558-2386b6eb4d10",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "table",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "requestDuration--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "requestDuration",
+					"type": "tag"
+					},
+					"aggregateOperator": "count",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "eb4d013a",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "model--string--tag--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "model",
+						"type": "tag"
+					}
+					],
+					"having": [],
+					"legend": "Count",
+					"limit": null,
+					"orderBy": [
+					{
+						"columnName": "timestamp",
+						"order": "desc"
+					}
+					],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "2e7436ea-db19-4790-aeef-e905849ed401",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Model Usage",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "4f778a79-54cd-4a99-a5b0-3d06647c1fb9",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "value",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "usageCost--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "usageCost",
+					"type": "tag"
+					},
+					"aggregateOperator": "avg",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "6ce37ed5",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [],
+					"having": [],
+					"legend": "",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "last",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "6d5d2593-1ae7-481f-88be-ba762b9196a0",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Avg Cost / Request",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "443e85bf-9863-4002-abd4-0407fa12e92d",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "value",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "requestDuration--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "requestDuration",
+					"type": "tag"
+					},
+					"aggregateOperator": "avg",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "65e9c28f",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [],
+					"having": [],
+					"legend": "",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "last",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "38484c36-2230-45a7-9f0d-4211c9d00975",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Avg Request Duration",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "60e26de7-3b68-4348-b31b-bb7275a26a45",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "graph",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "requestDuration--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "requestDuration",
+					"type": "tag"
+					},
+					"aggregateOperator": "count",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "f28b0509",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [],
+					"having": [],
+					"legend": "Count",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "c6d1c906-6116-4559-a1eb-33b53d0abfcd",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Requests overtime",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "532306fd-bc68-4e3e-a76f-313b92d22f0e",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "table",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "requestDuration--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "requestDuration",
+					"type": "tag"
+					},
+					"aggregateOperator": "count",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "78e35563",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "applicationName--string--tag--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "applicationName",
+						"type": "tag"
+					}
+					],
+					"having": [],
+					"legend": "",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "24b9c833-d9ef-40de-b10c-1dbfbd7ef7c5",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Usage by Application",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "1128a154-ed4f-4189-b1ca-d52f28a78d28",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "table",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "requestDuration--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "requestDuration",
+					"type": "tag"
+					},
+					"aggregateOperator": "count",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "c79b6091",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "environment--string--resource--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "environment",
+						"type": "resource"
+					}
+					],
+					"having": [],
+					"legend": "",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "790116c6-535c-4e08-9fa2-0a158eb7b796",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Usage by Environment",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "0c3a8c8a-5116-47f2-9dfe-242440ee65df",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "table",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "requestDuration--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "requestDuration",
+					"type": "tag"
+					},
+					"aggregateOperator": "count",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "b575368c",
+						"key": {
+							"dataType": "string",
+							"id": "applicationName--string--tag--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "applicationName",
+							"type": "tag"
+						},
+						"op": "exists",
+						"value": ""
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "platform--string--tag--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "platform",
+						"type": "tag"
+					}
+					],
+					"having": [],
+					"legend": "",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "d59f9848-99b6-4d7b-9c3f-ab4752623cff",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Usage by Platform",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "ec9a5671-4a0c-4172-a383-82f37ab682f7",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "table",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "requestDuration--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "requestDuration",
+					"type": "tag"
+					},
+					"aggregateOperator": "count",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "5a2b96e0",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "generation--string--tag--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "generation",
+						"type": "tag"
+					}
+					],
+					"having": [],
+					"legend": "",
+					"limit": null,
+					"orderBy": [
+					{
+						"columnName": "#SIGNOZ_VALUE",
+						"order": "desc"
+					}
+					],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "db77fe7d-8982-4f4a-ab90-b139151ae121",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Usage by Category",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "5705486f-dfab-4428-96ce-97d5ccfc0620",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "graph",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "usageCost--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "usageCost",
+					"type": "tag"
+					},
+					"aggregateOperator": "avg",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "67d33dbc",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "model--string--tag--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "model",
+						"type": "tag"
+					}
+					],
+					"having": [],
+					"legend": "{{model}}",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "9d51906e-c800-4063-b355-333f882cfa74",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Avg Cost by Model",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "4d33e5a0-2e34-4626-9dff-f795cd8e62ee",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "graph",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "usageCost--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "usageCost",
+					"type": "tag"
+					},
+					"aggregateOperator": "avg",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "b906c8d2",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "generation--string--tag--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "generation",
+						"type": "tag"
+					}
+					],
+					"having": [],
+					"legend": "{{generation}}",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "a6678a16-3579-4037-8644-aa29c102dc41",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Avg Cost by Category",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "af5f5471-e523-49e5-8de3-17a8c43fd115",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "graph",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "usageCost--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "usageCost",
+					"type": "tag"
+					},
+					"aggregateOperator": "avg",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "11c2ee90",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "platform--string--tag--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "platform",
+						"type": "tag"
+					}
+					],
+					"having": [],
+					"legend": "{{platform}}",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "490a0010-6497-4caf-a19f-06532673278c",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Avg Cost by Platform",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "4f33601c-9707-4b52-8194-e6671c52666e",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "graph",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "usageCost--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "usageCost",
+					"type": "tag"
+					},
+					"aggregateOperator": "avg",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "e2a969e5",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "environment--string--resource--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "environment",
+						"type": "resource"
+					}
+					],
+					"having": [],
+					"legend": "{{environment}}",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "8bb7bebd-1472-4f1b-8ab8-9c649581bac0",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Avg Cost by Environment",
+			"yAxisUnit": "none"
+		},
+		{
+			"description": "",
+			"fillSpans": false,
+			"id": "11cba8dc-b2de-4eb6-a546-8a3cbe43cba2",
+			"isStacked": false,
+			"nullZeroValues": "zero",
+			"opacity": "1",
+			"panelTypes": "graph",
+			"query": {
+			"builder": {
+				"queryData": [
+				{
+					"aggregateAttribute": {
+					"dataType": "float64",
+					"id": "usageCost--float64--tag--false",
+					"isColumn": false,
+					"isJSON": false,
+					"key": "usageCost",
+					"type": "tag"
+					},
+					"aggregateOperator": "avg",
+					"dataSource": "logs",
+					"disabled": false,
+					"expression": "A",
+					"filters": {
+					"items": [
+						{
+						"id": "e2a969e5",
+						"key": {
+							"dataType": "string",
+							"id": "job--string--resource--false",
+							"isColumn": false,
+							"isJSON": false,
+							"key": "job",
+							"type": "resource"
+						},
+						"op": "=",
+						"value": "doku"
+						}
+					],
+					"op": "AND"
+					},
+					"groupBy": [
+					{
+						"dataType": "string",
+						"id": "applicationName--string--tag--false",
+						"isColumn": false,
+						"isJSON": false,
+						"key": "applicationName",
+						"type": "tag"
+					}
+					],
+					"having": [],
+					"legend": "{{applicationName}}",
+					"limit": null,
+					"orderBy": [],
+					"queryName": "A",
+					"reduceTo": "sum",
+					"stepInterval": 60
+				}
+				],
+				"queryFormulas": []
+			},
+			"clickhouse_sql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"id": "9c3b02ce-4ff7-4992-a323-0e492f85cb5b",
+			"promql": [
+				{
+				"disabled": false,
+				"legend": "",
+				"name": "A",
+				"query": ""
+				}
+			],
+			"queryType": "builder"
+			},
+			"softMax": null,
+			"softMin": null,
+			"thresholds": [],
+			"timePreferance": "GLOBAL_TIME",
+			"title": "Avg Cost by Application",
+			"yAxisUnit": "none"
+		}
+		]
+	}
+	```
+</Accordion>

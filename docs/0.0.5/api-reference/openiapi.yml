@@ -1,0 +1,202 @@
+openapi: 3.0.0
+info:
+  title: API Keys Service
+  description: This service manages API keys through GET, POST, and DELETE operations.
+  version: "0.0.2"
+
+servers:
+  - url: https://127.0.0.1:9044/
+
+paths:
+  /api/connections:
+    post:
+      summary: Create a new connection
+      operationId: createConnection
+      tags:
+        - Connection
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectionRequest'
+      responses:
+        '201':
+          description: Connection created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/json201Response'  
+    delete:
+      summary: Delete a connection
+      operationId: deleteConnection
+      tags:
+        - Connection
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Connection deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/json201Response'
+  /api/keys:
+    get:
+      summary: Get a list of API keys
+      operationId: getApiKeys
+      tags:
+        - API Key
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyRequest'
+      responses:
+        '200':
+          description: A list of API keys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/json201Response'
+    post:
+      summary: Create a new API key
+      operationId: createApiKey
+      tags:
+        - API Key
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyRequest'
+      responses:
+        '201':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/json201Response'  
+    delete:
+      summary: Delete an API key
+      operationId: deleteApiKey
+      tags:
+        - API Key
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyRequest'
+      responses:
+        '200':
+          description: API key deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/json201Response'
+  /api/data/retention:
+    post:
+      summary: Set data retention
+      operationId: setDataRetention
+      tags:
+        - Data Retention
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetentionRequest'
+      responses:
+        '201':
+          description: Data retention set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/json201Response'
+
+components:
+  schemas:
+    APIKeyRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name of the API key to be created or deleted. Example - `BIGDADDY`
+    RetentionRequest:
+      type: object
+      required:
+        - RetentionPeriod
+      properties:
+        RetentionPeriod:
+          type: string
+          description: Retention period for storing the data. Should be in the format of `<int> days`. Example - `180 days`
+    ConnectionRequest:
+      type: object
+      required:
+        - Platform
+        - MetricsUrl
+        - LogsUrl
+        - MetricsUsername
+        - LogsUsername
+        - ApiKey
+      properties:
+        Platform:
+          type: string
+          description: Name of the Observability Platform. Can be one of the following - `grafana`, `newrelic`, `datadog`, `dynatrace` and `signoz`
+        MetricsUrl:
+          type: string
+          description: URL of the metrics endpoint of the Observability Platform. Example - `https://api.datadoghq.com/api/v1/query`
+        LogsUrl:
+          type: string
+          description: URL of the logs endpoint of the Observability Platform. Example - `https://api.datadoghq.com/api/v1/query`
+        MetricsUsername:
+          type: string
+          description: Username for the metrics endpoint of the Observability Platform. Only required when Platform is passed as `grafana`.
+        LogsUsername:
+          type: string
+          description: Username for the logs endpoint of the Observability Platform. Only required when Platform is passed as `grafana`.
+        ApiKey:
+          type: string
+          description: API Key for the Observability Platform. Example - `glc*******`
+
+    json201Response:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+    
+    json401Response:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+          
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
