@@ -7,15 +7,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model apikey {
-  id      Int    @id @default(autoincrement())
-  api_key String @unique @db.VarChar(255)
-  name    String @db.VarChar(50)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+model doku_apikeys {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  api_key    String    @unique @db.VarChar(255)
+  name       String    @db.VarChar(50)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
 
   @@index([api_key], map: "idx_api_key")
 }
+
+/// This table has subclasses and requires additional setup for migrations. Visit https://pris.ly/d/table-inheritance for more info.
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model doku_llm_data {
+  time              DateTime @db.Timestamptz(6)
+  id                String?  @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  llmreqid          String?
+  environment       String   @db.VarChar(50)
+  endpoint          String   @db.VarChar(50)
+  sourcelanguage    String   @db.VarChar(50)
+  applicationname   String   @db.VarChar(50)
+  completiontokens  Int?
+  prompttokens      Int?
+  totaltokens       Int?
+  finishreason      String?  @db.VarChar(50)
+  requestduration   Float?
+  usagecost         Float?
+  model             String?  @db.VarChar(50)
+  prompt            String?
+  response          String?
+  imagesize         String?
+  revisedprompt     String?
+  image             String?
+  audiovoice        String?
+  finetunejobstatus String?
+
+  @@index([time(sort: Desc)])
+  @@ignore
+}
+
 
 model Account {
   id                 String    @id @default(cuid())
@@ -74,33 +103,4 @@ model VerificationRequest {
   updatedAt  DateTime @updatedAt
 
   @@unique([identifier, token])
-}
-
-/// This table has subclasses and requires additional setup for migrations. Visit https://pris.ly/d/table-inheritance for more info.
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
-model doku {
-  time              DateTime @db.Timestamptz(6)
-  name              String   @db.VarChar(10)
-  environment       String   @db.VarChar(50)
-  endpoint          String   @db.VarChar(50)
-  sourcelanguage    String   @db.VarChar(50)
-  applicationname   String   @db.VarChar(50)
-  completiontokens  Int?
-  prompttokens      Int?
-  totaltokens       Int?
-  finishreason      String?  @db.VarChar(50)
-  requestduration   Float?
-  usagecost         Float?
-  model             String?  @db.VarChar(50)
-  prompt            String?
-  response          String?
-  imagesize         String?
-  revisedprompt     String?
-  image             String?
-  audiovoice        String?
-  finetunejobid     String?
-  finetunejobstatus String?
-
-  @@index([time(sort: Desc)])
-  @@ignore
 }

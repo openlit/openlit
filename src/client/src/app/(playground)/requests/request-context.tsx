@@ -34,6 +34,10 @@ export const RequestMappings = {
 		label: "Finish Reason",
 		type: "string",
 	},
+	id: {
+		label: "Id",
+		type: "string",
+	},
 	image: {
 		label: "Image",
 		type: "string",
@@ -64,6 +68,10 @@ export const RequestMappings = {
 	},
 	response: {
 		label: "Response",
+		type: "string",
+	},
+	revisedprompt: {
+		label: "Revised Prompt",
 		type: "string",
 	},
 	sourcelanguage: {

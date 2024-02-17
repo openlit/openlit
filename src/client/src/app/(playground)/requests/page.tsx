@@ -1,17 +1,17 @@
 "use client";
 import RequestTable from "./request-table";
 import { useFilter } from "../filter-context";
-import { useCallback, useEffect, useState } from "react";
-import { getData } from "@/utils/api";
+import { useCallback, useEffect } from "react";
 import RequestFilter, { FilterConfigProps } from "./request-filter";
 import { RequestProvider } from "./request-context";
+import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import RequestDetails from "./request-details";
 
 export default function RequestPage() {
 	const [filter] = useFilter();
-	const [data, setData] = useState<Array<any>>([]);
-	const [config, setConfig] = useState<FilterConfigProps | undefined>();
+	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
-		const res = await getData({
+		fireRequest({
 			body: JSON.stringify({
 				timeLimit: filter.timeLimit,
 				// TODO: send config true based on if the config has not already been fetched or when the timeLimit is changed
@@ -24,12 +24,9 @@ export default function RequestPage() {
 				limit: filter.limit,
 				offset: filter.offset,
 			}),
-			method: "POST",
+			requestType: "POST",
 			url: "/api/metrics/request",
 		});
-
-		if (res?.config) setConfig(res.config);
-		setData(res?.records || []);
 	}, [filter]);
 
 	useEffect(() => {
@@ -38,10 +35,15 @@ export default function RequestPage() {
 
 	return (
 		<RequestProvider>
-			<div className="flex flex-col grow w-full h-full rounded overflow-hidden">
-				<RequestFilter config={config} />
-				<RequestTable data={data} />
-			</div>
+			<RequestFilter
+				config={(data as any)?.config as FilterConfigProps | undefined}
+			/>
+			<RequestTable
+				data={(data as any)?.records || []}
+				isFetched={isFetched}
+				isLoading={isLoading}
+			/>
+			<RequestDetails />
 		</RequestProvider>
 	);
 }

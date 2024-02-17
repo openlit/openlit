@@ -2,8 +2,8 @@ import { memo, useCallback, useEffect, useState } from "react";
 import { useFilter } from "../filter-context";
 import Card from "@/components/common/card";
 import { DonutChart } from "@tremor/react";
-import { getData } from "@/utils/api";
 import Legend from "@/components/common/legend";
+import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 
 const COLORS = ["blue-900", "blue-700", "blue-500", "blue-300", "blue-100"];
 
@@ -24,38 +24,47 @@ const PieChartCard = memo(
 		url,
 	}: PieChartCardProps) => {
 		const [filter] = useFilter();
-		const [data, setData] = useState<any[]>([]);
+		const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 
 		const fetchData = useCallback(async () => {
-			const res = await getData({
+			fireRequest({
 				body: JSON.stringify({
 					timeLimit: filter.timeLimit,
 				}),
-				method: "POST",
+				requestType: "POST",
 				url,
+				responseDataKey: "data",
 			});
-
-			setData(res?.data || []);
 		}, [filter, url]);
 
 		useEffect(() => {
 			if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
 		}, [filter, fetchData]);
 
+		const updatedData = data as any[];
+
 		return (
 			<Card containerClass={containerClass} heading={heading}>
-				<DonutChart
-					className="mt-6"
-					data={data}
-					category={categoryKey}
-					index={indexKey}
-					colors={COLORS.slice(0, data.length)}
-				/>
-				<Legend
-					className="mt-3 flex-col"
-					categories={data.map((item: any) => item[indexKey])}
-					colors={COLORS.slice(0, data.length)}
-				/>
+				{isLoading || !isFetched ? (
+					<div className="animate-pulse h-9 w-1/3 bg-secondary/[0.9] rounded"></div>
+				) : updatedData?.length ? (
+					<>
+						<DonutChart
+							className="mt-6"
+							data={updatedData}
+							category={categoryKey}
+							index={indexKey}
+							colors={COLORS.slice(0, updatedData.length)}
+						/>
+						<Legend
+							className="mt-3 flex-col"
+							categories={updatedData.map((item: any) => item[indexKey])}
+							colors={COLORS.slice(0, updatedData.length)}
+						/>
+					</>
+				) : (
+					<div className="text-sm text-tertiary/[0.5]">No data</div>
+				)}
 			</Card>
 		);
 	}

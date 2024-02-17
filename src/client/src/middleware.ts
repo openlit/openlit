@@ -4,12 +4,19 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
 	async function middleware(req) {
+		const pathname = req.nextUrl.pathname;
+		if (
+			pathname.startsWith("/_next") ||
+			pathname.startsWith("/static") ||
+			pathname.startsWith("/images")
+		)
+			return NextResponse.next();
+
 		const token = await getToken({ req });
 		const isAuth = !!token;
 		const isAuthPage =
-			req.nextUrl.pathname.startsWith("/login") ||
-			req.nextUrl.pathname.startsWith("/register");
-		const isApiPage = req.nextUrl.pathname.startsWith("/api");
+			pathname.startsWith("/login") || pathname.startsWith("/register");
+		const isApiPage = pathname.startsWith("/api");
 
 		if (isAuthPage) {
 			if (isAuth) {
@@ -26,7 +33,7 @@ export default withAuth(
 		}
 
 		if (!isAuth) {
-			let from = req.nextUrl.pathname;
+			let from = pathname;
 			if (req.nextUrl.search) {
 				from += req.nextUrl.search;
 			}
@@ -49,5 +56,12 @@ export default withAuth(
 );
 
 export const config = {
-	matcher: ["/api/:path*", "/dashboard/:path*", "/login", "/register"],
+	matcher: [
+		"/api/:path*",
+		"/login",
+		"/register",
+		"/dashboard",
+		"/api-keys",
+		"/requests",
+	],
 };

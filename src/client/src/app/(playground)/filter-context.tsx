@@ -42,7 +42,6 @@ function getTimeLimitObject(value: string, keyPrefix: string) {
 		set(object, `${keyPrefix}start`, addMonths(currentDate, -1));
 		set(object, `${keyPrefix}end`, currentDate);
 	} else if (value === TIME_RANGE_TYPE["3M"]) {
-		console.log("valuevaluevalue");
 		const currentDate = new Date();
 		set(object, `${keyPrefix}start`, addMonths(currentDate, -3));
 		set(object, `${keyPrefix}end`, currentDate);

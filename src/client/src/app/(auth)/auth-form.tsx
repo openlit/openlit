@@ -1,9 +1,11 @@
 import asaw from "@/utils/asaw";
 import { signIn } from "next-auth/react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
 const errors = {
+	AccessDenied: "Access denied for this account.",
 	Signin: "Try signing with a different account.",
 	OAuthSignin: "Try signing with a different account.",
 	OAuthCallback: "Try signing with a different account.",
@@ -63,12 +65,15 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 	}
 
 	return (
-		<div className="flex h-screen w-screen items-center justify-center">
-			<div className="z-10 w-full max-w-md overflow-hidden rounded-2xl shadow-xl">
-				<div className="flex flex-col items-center justify-center space-y-3 px-4 py-6 pt-8 text-center sm:px-16">
-					<h3 className="text-xl font-semibold">
-						{type === "login" ? "Sign In" : "Sign Up"}
-					</h3>
+		<div className="flex min-h-screen items-center justify-center bg-secondary p-8">
+			<div className="z-10 w-full max-w-md overflow-hidden rounded bg-tertiary text-secondary">
+				<div className="flex flex-col items-center justify-center space-y-3 px-4 py-6 pt-8 text-center">
+					<Image
+						alt="doku"
+						src="/images/doku-logo-with-name.png"
+						width={836}
+						height={298}
+					/>
 					<p className="text-sm">
 						{type === "login"
 							? "Use your email and password to sign in"
@@ -78,7 +83,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 				{error && <SignInError error={error as keyof typeof errors} />}
 				<form
 					action={type === "login" ? login : register}
-					className="flex flex-col space-y-4 px-4 py-8 sm:px-16 text-gray-900"
+					className="flex flex-col space-y-4 px-4 py-8 sm:px-16"
 				>
 					<div className="flex flex-col w-full items-start">
 						<label htmlFor="email" className="block text-xs uppercase">
@@ -88,17 +93,14 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 							id="email"
 							name="email"
 							type="email"
-							placeholder="user@acme.com"
+							placeholder="user@doku.com"
 							autoComplete="email"
 							required
-							className="mt-1 block w-full appearance-none border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-black focus:outline-none focus:ring-black sm:text-sm"
+							className="mt-1 block w-full appearance-none px-3 py-2 placeholder-secondary/[0.3] focus:outline-none bg-secondary/[0.05]"
 						/>
 					</div>
 					<div className="flex flex-col w-full items-start">
-						<label
-							htmlFor="password"
-							className="block text-xs dark:text-gray-200 uppercase"
-						>
+						<label htmlFor="password" className="block text-xs uppercase">
 							Password
 						</label>
 						<input
@@ -106,26 +108,21 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 							id="password"
 							name="password"
 							type="password"
+							placeholder="********"
 							required
-							className="mt-1 block w-full appearance-none border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-black focus:outline-none focus:ring-black sm:text-sm"
+							className="mt-1 block w-full appearance-none px-3 py-2 placeholder-secondary/[0.3] focus:outline-none bg-secondary/[0.05]"
 						/>
 					</div>
-					{type === "login" ? (
-						<button type="submit" className="p-3">
-							Sign in
-						</button>
-					) : (
-						<button type="submit" className="p-3">
-							Sign Up
-						</button>
-					)}
-					<p className="text-center text-sm text-gray-600">
+					<button type="submit" className="p-2 bg-primary text-white rounded">
+						{type === "login" ? "Sign in" : "Sign Up"}
+					</button>
+					<p className="text-center text-sm">
 						{type === "login"
 							? "Don't have an account? "
 							: "Already have an account?"}
 						<Link
 							href={type === "login" ? "/register" : "/login"}
-							className="font-semibold text-gray-600"
+							className="font-semibold text-secondary"
 						>
 							{type === "login" ? " Sign up" : " Sign in"}
 						</Link>

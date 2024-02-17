@@ -15,14 +15,12 @@ export default {
 			colors: {
 				darkMode: {
 					primary: "#0C120C",
-					secondary: "#DE541E",
-					tertiary: "#C0C5C1",
-					blue: "#003F91",
+					secondary: "#212738",
+					tertiary: "#FFF4D8",
 				},
-				primary: "#0C120C",
-				secondary: "#DE541E",
-				tertiary: "#C0C5C1",
-				blue: "#003F91",
+				primary: "#F36C06",
+				secondary: "#FFF4D8",
+				tertiary: "#212738",
 				// light mode
 				tremor: {
 					brand: {
