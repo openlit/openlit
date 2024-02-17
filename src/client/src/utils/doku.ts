@@ -13,6 +13,8 @@ export const validateMetricsRequestType = {
 	TOP_MODELS: "TOP_MODELS",
 	// Category
 	GENERATION_BY_CATEGORY: "GENERATION_BY_CATEGORY",
+	// Token
+	AVERAGE_REQUEST_TOKEN: "AVERAGE_REQUEST_TOKEN",
 };
 
 export const validateMetricsRequest = (
@@ -66,6 +68,15 @@ export const validateMetricsRequest = (
 			break;
 		// Category
 		case validateMetricsRequestType.GENERATION_BY_CATEGORY:
+			if (!params.timeLimit?.start || !params.timeLimit?.end) {
+				return {
+					success: false,
+					err: "Start date or End date missing!",
+				};
+			}
+			break;
+		// Token
+		case validateMetricsRequestType.AVERAGE_REQUEST_TOKEN:
 			if (!params.timeLimit?.start || !params.timeLimit?.end) {
 				return {
 					success: false,

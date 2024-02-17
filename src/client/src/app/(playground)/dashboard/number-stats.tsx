@@ -82,8 +82,14 @@ function NumberStats() {
 			/>
 			<StatCard
 				containerClass="rounded-r-lg w-full"
+				dataKey="average_total_tokens"
+				heading="Avg tokens per request"
+				url="/api/metrics/token/request/average"
+			/>
+			<StatCard
+				containerClass="rounded-r-lg w-full"
 				dataKey="average_usage_cost"
-				heading="Average cost per request"
+				heading="Avg cost per request"
 				textPrefix="$"
 				url="/api/metrics/cost/request/average"
 			/>
