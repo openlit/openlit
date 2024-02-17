@@ -23,6 +23,10 @@ jobs:
       IMAGE_NAME: ${{ github.repository }}-ingester
 
     steps:
+      - name: Get current date and time
+        id: datetime
+        run: echo "::set-output name=datetime::$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+  
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -66,9 +70,15 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
+          annotations: |
+            ${{ steps.meta.outputs.annotations }},
+            io.artifacthub.package.logo-url=https://github.com/dokulabs/.github/blob/main/profile/assets/logo-orange-bg.jpg?raw=true,
+            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/dokulabs/doku/main/README.md,
+            io.artifacthub.package.license=Apache-2.0,
+            org.opencontainers.image.vendor=Doku Labs,
+            io.artifacthub.package.maintainers=[{'name':'Doku Labs','email':'developers@dokulabs.com'}],
+            io.artifacthub.package.keywords='Monitoring, Observability, LLMs, OpenAI'
+      
       - name: Sign the published Docker image
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
