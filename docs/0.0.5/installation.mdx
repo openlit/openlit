@@ -23,20 +23,6 @@ Doku flexibly adapts to your preferred environment. Select a deployment method t
   >
     Deploy Doku using docker compose
   </Card>
-  <Card
-    title="Linux"
-    icon="linux"
-    href="/0.0.5/installation#linux"
-  >
-    Deploy Doku in a Linux Host
-  </Card>
-  <Card
-    title="Windows"
-    icon="windows"
-    href="/0.0.5/installation#windows"
-  >
-    Deploy Doku in a Windows Host
-  </Card>
 </CardGroup>
 
 ## Kubernetes
@@ -124,150 +110,13 @@ Quickly spin up Doku using Docker for a fast and straightforward setup.
   </Step>
 </Steps>
 
-## Linux
-<Steps>
-  <Step title="Install TimescaleDB">
-  Follow the Instructions [here](https://docs.timescale.com/self-hosted/latest/install/installation-linux/#installing-self-hosted-timescaledb-on-debian-based-systems) to install TimescaleDB in your Linux host.
-  </Step>
-  <Step title="Create a Doku Configuration file">
-    Create a file named `doku.yml` in the current directory. This YAML configuration file will contain all the necessary details for Doku to connect to your TimescaleDB instance and other services. Here is an example configuration:
-    
-    ```yaml doku.yml
-    ingesterPort: 9044                           
+---
 
-    pricingInfo:
-      url: https://raw.githubusercontent.com/dokulabs/doku/main/assets/pricing.json # URL to download Pricing data file
-
-    # Configuration for the Doku Backend Database (TimescaleDB)
-    dbConfig:
-      name: DBNAME                                # Name of the database, Example: "postgres"
-      username: USERNAME                          # Username to connect to the database, Example: "admin"
-      password: PASSWORD                          # Password to connect to the database, Example: "DOKU"
-      host: HOSTURL                               # Hostname of the database, Example: "174.21.1.2"
-      port: DBPORT                                # Port of the database, Example: 5432
-      sslMode: SSLMODE                            # SSL Mode of the database, Example: "require"
-      maxOpenConns: MAXOPENCONNS                  # Maximum number of open connections to the database, Example: 15
-      maxIdleConns: MAXOPENCONNS                  # Maximum number of idle connections to the database, Example: 15
-      dataTable: DATATABLE                        # Name of the table to store LLM Data, Example: "DOKU"
-      apiKeyTable: APIKEYTABLE                    # Name of the table to store API Keys, Example: "APIKEYS"
-
-    connections:
-      enabled: false                                                                  
-    ```
-    Be sure to replace the placeholder values with your actual database details and desired settings.
-    <Info>
-    As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `connections` configuration within the [Doku Configuration file (`doku.yml`)](/0.0.5/configuration#connections-configuration) file. 
-
-    Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.
-    </Info>
-  </Step>
-  <Step title="Install Doku in a linux Host">
-    <Tabs>
-      <Tab title="Linux">
-        <CodeGroup>
-          ```shell amd64
-          curl -O -L https://github.com/dokulabs/doku/releases/download/0.0.5/ingester-linux-amd64
-          chmod +x ingester-linux-amd64
-          ./ingester-linux-amd64 --config doku.yml
-          ```
-
-          ```shell arm64
-          curl -O -L https://github.com/dokulabs/doku/releases/download/0.0.5/ingester-linux-arm64
-          chmod +x ingester-linux-arm64
-          ./ingester-linux-arm64 --config doku.yml
-          ```
-
-          ```shell arm
-          curl -O -L https://github.com/dokulabs/doku/releases/download/0.0.5/ingester-linux-arm
-          chmod +x ingester-linux-arm
-          ./ingester-linux-arm --config doku.yml
-          ```
-          
-          ```shell ppc64le
-          curl -O -L https://github.com/dokulabs/doku/releases/download/0.0.5/ingester-linux-ppc64le
-          chmod +x ingester-linux-ppc64le
-          ./ingester-linux-ppc64le --config doku.yml
-          ```
-        </CodeGroup>
-      </Tab>
-      <Tab title="Darwin">
-        <CodeGroup>
-            ```shell amd64
-            curl -O -L https://github.com/dokulabs/doku/releases/download/0.0.5/ingester-darwin-amd64
-            chmod +x ingester-darwin-amd64
-            ./ingester-darwin-amd64 --config doku.yml
-            ```
-
-            ```shell arm64
-            curl -O -L https://github.com/dokulabs/doku/releases/download/0.0.5/ingester-darwin-arm64
-            chmod +x ingester-darwin-arm64
-            ./ingester-darwin-arm64 --config doku.yml
-            ```
-        </CodeGroup>
-      </Tab>
-    </Tabs>
-  </Step>
-</Steps>
-
-## Windows
-<Steps>
-  <Step title="Install TimescaleDB">
-    <Steps>
-    Download and install the Visual C++ Redistributable for Visual Studio from [www.microsoft.com](https://www.microsoft.com/en-us/download/details.aspx?id=48145).
-
-    Download and install PostgreSQL from [www.postgresql.org](https://www.postgresql.org/download/windows/). You might need to add the `pg_config` file location to your path. In the Windows Search tool, search for `system environment variables`. The path should be `C:\Program Files\PostgreSQL\<version>\bin`.
-    
-    Download the TimescaleDB installation `.zip` file from [Windows releases](https://docs.timescale.com/self-hosted/latest/install/installation-windows/#windows-releases).
-    
-    Locate the downloaded file on your local file system, and extract the files.
-    
-    In the extracted TimescaleDB directory, right-click the `setup.exe` file and select `Run as Administrator` to start the installer.
-    </Steps>
-  </Step>
-  <Step title="Create a Doku Configuration file">
-    Create a file named `doku.yml` in the current directory. This YAML configuration file will contain all the necessary details for Doku to connect to your TimescaleDB instance and other services. Here is an example configuration:
-      
-      ```yaml doku.yml
-      ingesterPort: 9044                           
-
-      pricingInfo:
-        url: https://raw.githubusercontent.com/dokulabs/doku/main/assets/pricing.json # URL to download Pricing data file
-
-      # Configuration for the Doku Backend Database (TimescaleDB)
-      dbConfig:
-        name: DBNAME                                # Name of the database, Example: "postgres"
-        username: USERNAME                          # Username to connect to the database, Example: "admin"
-        password: PASSWORD                          # Password to connect to the database, Example: "DOKU"
-        host: HOSTURL                               # Hostname of the database, Example: "174.21.1.2"
-        port: DBPORT                                # Port of the database, Example: 5432
-        sslMode: SSLMODE                            # SSL Mode of the database, Example: "require"
-        maxOpenConns: MAXOPENCONNS                  # Maximum number of open connections to the database, Example: 15
-        maxIdleConns: MAXOPENCONNS                  # Maximum number of idle connections to the database, Example: 15
-        dataTable: DATATABLE                        # Name of the table to store LLM Data, Example: "DOKU"
-        apiKeyTable: APIKEYTABLE                    # Name of the table to store API Keys, Example: "APIKEYS"
-
-      connections:
-        enabled: false                                                                  
-      ```
-      Be sure to replace the placeholder values with your actual database details and desired settings.
-      <Info>
-      As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `connections` configuration within the [Doku Configuration file (`doku.yml`)](/0.0.5/configuration#connections-configuration) file. 
-
-      Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.
-      </Info>
-  </Step>
-  <Step title="Install Doku in a Windows Host">
-    <CodeGroup>
-        ```shell amd64
-        invoke-WebRequest -Uri "https://github.com/dokulabs/doku/releases/download/0.0.5/ingester-windows-amd64" -OutFile "ingester.exe"
-        .\ingester.exe --config doku.yml
-        ```
-
-        ```shell 386
-        invoke-WebRequest -Uri "https://github.com/dokulabs/doku/releases/download/0.0.5/ingester-windows-386" -OutFile "ingester.exe"
-        .\ingester.exe --config doku.yml
-        ```
-    </CodeGroup>
-  </Step>
-</Steps>
-
+<CardGroup cols={2}>
+<Card title="Integrations" href="/0.0.5/integration/introduction" icon='circle-nodes'>
+Integrate your LLM Provider with Doku 
+</Card>
+<Card title="Connections" href="/0.0.5/connections/intro" icon='link'>
+Connect to your existing Observablity Platform
+</Card>
+</CardGroup>

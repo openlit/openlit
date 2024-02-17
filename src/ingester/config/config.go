@@ -47,7 +47,7 @@ func LoadConfigFromEnv() (*Configuration, error) {
 	config.Database.MaxIdleConns = getIntFromEnv("DOKU_DB_MAX_IDLE_CONNS")
 	config.Database.MaxOpenConns = getIntFromEnv("DOKU_DB_MAX_OPEN_CONNS")
 	config.IngesterPort = os.Getenv("DOKU_INGESTER_PORT")
-	config.Pricing.URL = os.Getenv("DOKU_PRICING_URL")
+	config.Pricing.URL = os.Getenv("DOKU_PRICING_JSON_URL")
 
 	// Setting default values if the environment variables are not provided
 	if config.IngesterPort == "" {

@@ -8,6 +8,41 @@ servers:
   - url: https://127.0.0.1:9044/
 
 paths:
+  /api/connections:
+    post:
+      summary: Create a new connection
+      operationId: createConnection
+      tags:
+        - Connection
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectionRequest'
+      responses:
+        '201':
+          description: Connection created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/jsonResponse'  
+    delete:
+      summary: Delete a connection
+      operationId: deleteConnection
+      tags:
+        - Connection
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Connection deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/jsonResponse'
   /api/keys:
     get:
       summary: Get a list of API keys
@@ -29,7 +64,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/jsonResponse'
-              
     post:
       summary: Create a new API key
       operationId: createApiKey
@@ -49,8 +83,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/jsonResponse'
-                
+                $ref: '#/components/schemas/jsonResponse'  
     delete:
       summary: Delete an API key
       operationId: deleteApiKey
@@ -71,6 +104,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/jsonResponse'
+  /api/data/retention:
+    post:
+      summary: Set data retention
+      operationId: setDataRetention
+      tags:
+        - Data Retention
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetentionRequest'
+      responses:
+        '201':
+          description: Data retention set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/jsonResponse'
 
 components:
   schemas:
@@ -81,6 +135,43 @@ components:
       properties:
         name:
           type: string
+          description: Name of the API key to be created or deleted. Example - `BIGDADDY`
+    RetentionRequest:
+      type: object
+      required:
+        - RetentionPeriod
+      properties:
+        RetentionPeriod:
+          type: string
+          description: Retention period for storing the data. Should be in the format of `<int> days`. Example - `180 days`
+    ConnectionRequest:
+      type: object
+      required:
+        - Platform
+        - MetricsUrl
+        - LogsUrl
+        - MetricsUsername
+        - LogsUsername
+        - ApiKey
+      properties:
+        Platform:
+          type: string
+          description: Name of the Observability Platform. Can be one of the following - `grafana`, `newrelic`, `datadog`, `dynatrace` and `signoz`
+        MetricsUrl:
+          type: string
+          description: URL of the metrics endpoint of the Observability Platform. Example - `https://api.datadoghq.com/api/v1/query`
+        LogsUrl:
+          type: string
+          description: URL of the logs endpoint of the Observability Platform. Example - `https://api.datadoghq.com/api/v1/query`
+        MetricsUsername:
+          type: string
+          description: Username for the metrics endpoint of the Observability Platform. Only required when Platform is passed as `grafana`.
+        LogsUsername:
+          type: string
+          description: Username for the logs endpoint of the Observability Platform. Only required when Platform is passed as `grafana`.
+        ApiKey:
+          type: string
+          description: API Key for the Observability Platform. Example - `glc*******`
 
     jsonResponse:
       type: object

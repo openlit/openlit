@@ -217,6 +217,17 @@ func createTable(db *sql.DB, tableName string) error {
 			if err != nil {
 				return fmt.Errorf("error creating index on 'api_key' column: %w", err)
 			}
+			
+			// Add fresh installation API key
+			newAPIKey, _ := generateSecureRandomKey()
+
+			// Insert the new API key into the database
+			insertQuery := fmt.Sprintf("INSERT INTO %s (api_key, name) VALUES ($1, $2)", doku_apikeys_table)
+			_, err = db.Exec(insertQuery, newAPIKey, "doku-client-internal")
+			if err != nil {
+				log.Error().Err(err).Msg("Error inserting the new API key in the database")
+				return err
+			}
 			log.Info().Msgf("Index on 'api_key' column checked/created in table '%s'", tableName)
 		}
 
@@ -437,7 +448,7 @@ func CheckAPIKey(apiKey string) (string, error) {
 func GenerateAPIKey(existingAPIKey, name string) (string, error) {
 	// If there are any existing API keys, authenticate the provided API key before proceeding
 	var count int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", doku_apikeys_table)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE api_key != 'doku-client-internal'", doku_apikeys_table)
 	err := db.QueryRow(countQuery).Scan(&count)
 	if err != nil {
 		log.Error().Err(err).Msg("Error checking API key table")

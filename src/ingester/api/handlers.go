@@ -161,14 +161,17 @@ func generateAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.Normalize()
+	if request.Name != "doku-client-internal" {
+		newAPIKey, err := db.GenerateAPIKey(getAuthKey(r), request.Name)
+		if err != nil {
+			handleAPIKeyErrors(w, err, request.Name)
+			return
+		}
 
-	newAPIKey, err := db.GenerateAPIKey(getAuthKey(r), request.Name)
-	if err != nil {
-		handleAPIKeyErrors(w, err, request.Name)
-		return
+		sendJSONResponse(w, http.StatusOK, newAPIKey)
+	} else {
+		sendJSONResponse(w, http.StatusBadRequest, "API Key name 'doku-client-internal' is reserved and cannot be used")
 	}
-
-	sendJSONResponse(w, http.StatusOK, newAPIKey)
 }
 
 // getAPIKeyHandler handles retrieving an existing API key.
@@ -180,14 +183,17 @@ func getAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.Normalize()
+	if request.Name != "doku-client-internal" {
+		apiKey, err := db.GetAPIKeyForName(getAuthKey(r), request.Name)
+		if err != nil {
+			handleAPIKeyErrors(w, err, request.Name)
+			return
+		}
 
-	apiKey, err := db.GetAPIKeyForName(getAuthKey(r), request.Name)
-	if err != nil {
-		handleAPIKeyErrors(w, err, request.Name)
-		return
+		sendJSONResponse(w, http.StatusOK, apiKey)
+	} else {
+		sendJSONResponse(w, http.StatusBadRequest, "API Key name 'doku-client-internal' is reserved and cannot be accessed")
 	}
-
-	sendJSONResponse(w, http.StatusOK, apiKey)
 }
 
 // deleteAPIKeyHandler handles deleting an existing API key.
@@ -200,13 +206,17 @@ func deleteAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	request.Normalize()
-	err := db.DeleteAPIKey(getAuthKey(r), request.Name)
-	if err != nil {
-		handleAPIKeyErrors(w, err, request.Name)
-		return
-	}
+	if request.Name != "doku-client-internal" {
+		err := db.DeleteAPIKey(getAuthKey(r), request.Name)
+		if err != nil {
+			handleAPIKeyErrors(w, err, request.Name)
+			return
+		}
 
-	sendJSONResponse(w, http.StatusOK, "API key deleted successfully")
+		sendJSONResponse(w, http.StatusOK, "API key deleted successfully")
+	} else {
+		sendJSONResponse(w, http.StatusBadRequest, "API Key name 'doku-client-internal' is reserved and cannot be deleted")
+	}
 }
 
 // DataHandler handles data related operations recieved on `/api/push` endpoint.

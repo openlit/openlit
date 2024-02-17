@@ -27,7 +27,7 @@ For Python and NodeJS projects, just import the DokuMetry SDK and initialize it 
   DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
   ```
   </CodeGroup>
-Find detailed instructions at the [DokuMetry SDK Documentation](/0.0.5/dokumetry/introduction).
+Find detailed instructions at the [DokuMetry SDK Documentation](https://github.com/dokulabs/dokumetry-node).
 
 ### The Doku Ingester: Your Data Processing Workhorse
 
@@ -48,10 +48,11 @@ Leveraging Doku, you can get:
 - **Connect to Observability Platforms**: Export LLM Observablity data and insights from Doku to popular observability platforms such as Grafana Cloud or Datadog.
 - **Team-centric Workflow**: Enhance team collaboration with seamless data sharing capabilities, creating an integrated environment for observability-driven teamwork.
 
-## Supported LLM Platforms
+## Integrations
 <CardGroup cols={3}>
   <Card
       title="OpenAI"
+      href="/0.0.5/integrations/openai/introduction"
       icon={
         <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <title>OpenAI</title>
@@ -63,6 +64,7 @@ Leveraging Doku, you can get:
   </Card>
   <Card
       title="Cohere"
+      href="/0.0.5/integrations/cohere/introduction"
       icon={
         <svg role="image" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 75 75">
         <g>
@@ -87,6 +89,7 @@ Leveraging Doku, you can get:
   </Card>
   <Card
       title="Anthropic"
+      href="/0.0.5/integrations/anthropic/introduction"
       icon={
         <svg viewBox="0 0 256 176" xmlns="http://www.w3.org/2000/svg">
           <path d="M147.486878,0 C147.486878,0 217.568251,175.780074 217.568251,175.780074 C217.568251,175.780074 256,175.780074 256,175.780074 C256,175.780074 185.918621,0 185.918621,0 C185.918621,0 147.486878,0 147.486878,0 C147.486878,0 147.486878,0 147.486878,0 Z"></path>
@@ -103,9 +106,15 @@ Select from the following guides to learn more about how to use Doku:
 
 <CardGroup cols={2}>
 <Card title="Quickstart" href="/0.0.5/quickstart" icon='bolt'>
-Get Started with monitoring your LLM Applications in 3 simple steps
+Get Started with monitoring your LLM Applications in 2 simple steps
 </Card>
-<Card title="Connections" href="/0.0.5/connections/intro" icon='connectdevelop'>
+<Card title="Integrations" href="/0.0.5/integration/introduction" icon='circle-nodes'>
+Integrate your LLM Provider with Doku 
+</Card>
+<Card title="Installation" href="/0.0.5/installation" icon='circle-down'>
+Deploy Doku in your preferred environment 
+</Card>
+<Card title="Connections" href="/0.0.5/connections/intro" icon='link'>
 Connect to your existing Observablity Platform
 </Card>
 </CardGroup>
