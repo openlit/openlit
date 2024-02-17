@@ -68,7 +68,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/386,windows/amd64,linux/amd64/v8,linux/arm/v7,linux/arm64/v8,linux/ppc64le
+          platforms: linux/386,linux/amd64,linux/arm/v7,linux/arm64/v8,linux/ppc64le
           annotations: |
             ${{ steps.meta.outputs.annotations }},
             io.artifacthub.package.logo-url=https://github.com/dokulabs/.github/blob/main/profile/assets/logo-orange-bg.jpg?raw=true,
