@@ -58,12 +58,15 @@ jobs:
         uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
       - name: Build and push Docker image
         id: build-and-push
         uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 # v5.1.0
         with:
           context: ./src/ingester/
+          provenance: false
           file: ./src/ingester/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
