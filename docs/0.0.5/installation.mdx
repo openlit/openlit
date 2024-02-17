@@ -44,69 +44,49 @@ Deploy Doku on your Kubernetes cluster using the [Doku Helm chart](https://githu
 <Info>As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `connections` configuration within the [values.yaml](https://github.com/dokulabs/helm/blob/main/charts/doku/values.yaml) file. Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.</Info>
 
 ## Docker
-Quickly spin up Doku using Docker for a fast and straightforward setup.
+Quickly spin up Doku using Docker Compose for a fast and straightforward setup.
 
 <Steps>
-  <Step title="Install TimescaleDB">
-    <Steps>
-      <Step title="Pull TimescaleDB Image">
-        ```shell
-        docker pull timescale/timescaledb-ha:pg14-ts2.14
-        ```
-      </Step>
-      <Step title="Run TimescaleDB Image">
-        ```shell
-        docker run -d --name timescaledb -p 127.0.0.1:5432:5432 \
-        -e POSTGRES_PASSWORD=password timescale/timescaledb-ha:pg14-ts2.14
-        ```
-      </Step>
-    </Steps>
+  <Step title="Create `docker-compose.yml`">
+  ```yml
+  version: '3.7'
+
+  services:
+    timescaledb:
+      image: timescale/timescaledb-ha:pg14-ts2.14
+      container_name: timescaledb
+      environment:
+        POSTGRES_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
+        POSTGRES_USER: ${DOKU_DB_USER:-admin}          
+        POSTGRES_DB: ${DOKU_DB_NAME:-postgres}          
+      volumes:
+        - timescaledb-data:/var/lib/postgresql/data
+      ports:
+        - "${DOKU_DB_PORT:-5432}:5432" 
+      restart: always
+
+    doku-ingester:
+      image: ghcr.io/patcher99/doku-ingester:0.0.5
+      container_name: doku-ingester
+      environment:
+        DOKU_DB_HOST: timescaledb   
+        DOKU_DB_PORT: ${DOKU_DB_PORT:-5432} 
+        DOKU_DB_NAME: ${DOKU_DB_NAME:-postgres}     
+        DOKU_DB_USER: ${DOKU_DB_USER:-admin}              
+        DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}           
+        DOKU_DB_SSLMODE: ${DB_DB_SSLMODE:-require}                        
+      depends_on:
+        - timescaledb
+      restart: always
+
+  volumes:
+    timescaledb-data:
+  ```
   </Step>
-  <Step title="Install Doku">
-    <Steps>
-      <Step title="Pull Doku Image">
-        ```shell
-        docker pull ghcr.io/dokulabs/doku-ingester:0.0.5 
-        ```
-      </Step>
-      <Step title="Create a Doku Configuration file">
-        Create a file named `doku.yml` in the current directory. This YAML configuration file will contain all the necessary details for Doku to connect to your TimescaleDB instance and other services. Here is an example configuration:
-        
-        ```yaml doku.yml
-        ingesterPort: 9044                           
-
-        pricingInfo:
-          url: https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json # URL to download Pricing data file
-
-        # Configuration for the Doku Backend Database (TimescaleDB)
-        dbConfig:
-          name: DBNAME                                # Name of the database, Example: "postgres"
-          username: USERNAME                          # Username to connect to the database, Example: "admin"
-          password: PASSWORD                          # Password to connect to the database, Example: "DOKU"
-          host: HOSTURL                               # Hostname of the database, Example: "174.21.1.2"
-          port: DBPORT                                # Port of the database, Example: 5432
-          sslMode: SSLMODE                            # SSL Mode of the database, Example: "require"
-          maxOpenConns: MAXOPENCONNS                  # Maximum number of open connections to the database, Example: 15
-          maxIdleConns: MAXOPENCONNS                  # Maximum number of idle connections to the database, Example: 15
-          dataTable: DATATABLE                        # Name of the table to store LLM Data, Example: "DOKU"
-          apiKeyTable: APIKEYTABLE                    # Name of the table to store API Keys, Example: "APIKEYS"
-
-        connections:
-          enabled: false                                                             
-        ```
-        Be sure to replace the placeholder values with your actual database details and desired settings.
-        <Info>
-        As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `connections` configuration within the [Doku Configuration file (`doku.yml`)](/0.0.5/configuration#connections-configuration) file. 
-
-        Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.
-        </Info>
-      </Step>
-      <Step title="Run the Doku Image">
-        ```shell
-        docker run -d --name doku -p 127.0.0.5:9044:9044 -v /doku.yml:/doku.yml dokulabs/ingester:0.0.5 --config /doku.yml
-        ```
-      </Step>
-    </Steps>
+   <Step title="Run `docker-compose.yml`">
+   ```shell
+   docker-compose up -d
+   ```
   </Step>
 </Steps>
 
