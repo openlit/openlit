@@ -20,11 +20,12 @@ import (
 var (
 	once                   sync.Once                 // once is used to ensure that the database is initialized only once
 	connectionCache        sync.Map                  // connectionCache stores the lookup of connection details
+	ApiKeyCache            = sync.Map{} 			 // ApiKeyCache stores the lookup of API keys and organization IDs.
 	CacheEntryDuration     = time.Minute * 10        // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
 	db                     *sql.DB                   // db holds the database connection
-	doku_llm_data_table    = "DOKU_LLM_DATAAAAAA"    // doku_llm_data_table holds the name of the data table
-	doku_apikeys_table     = "DOKU_APIKEYSAAAAA"     // doku_apikeys_table holds the name of the API keys table
-	doku_connections_table = "DOKU_CONNECTIONSAAAAA" // doku_connections_table holds the name of the connections table
+	doku_llm_data_table    = "DOKU_LLM_DATAT"    // doku_llm_data_table holds the name of the data table
+	doku_apikeys_table     = "DOKU_APIKEYST"     // doku_apikeys_table holds the name of the API keys table
+	doku_connections_table = "DOKU_CONNECTIONST" // doku_connections_table holds the name of the connections table
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
@@ -530,6 +531,7 @@ func DeleteAPIKey(existingAPIKey, name string) error {
 		log.Error().Err(err).Msg("Error deleting API key")
 		return err
 	}
+	ApiKeyCache.Delete(apiKey)
 	log.Info().Msgf("API Key with the name '%s' deleted successfully", name)
 	return nil
 }

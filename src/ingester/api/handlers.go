@@ -216,7 +216,6 @@ func deleteAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 			handleAPIKeyErrors(w, err, request.Name)
 			return
 		}
-
 		sendJSONResponse(w, http.StatusOK, "API key deleted successfully")
 	} else {
 		sendJSONResponse(w, http.StatusBadRequest, "API Key name 'doku-client-internal' is reserved and cannot be deleted")

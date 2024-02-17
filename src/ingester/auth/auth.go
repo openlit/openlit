@@ -3,17 +3,13 @@ package auth
 import (
 	"database/sql"
 	"fmt"
-	"sync"
 	"time"
 
 	"ingester/db"
-
 	"github.com/rs/zerolog/log"
 )
 
 var (
-	// apiKeyCache stores the lookup of API keys and organization IDs.
-	apiKeyCache = sync.Map{}
 	// CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
 	CacheEntryDuration = time.Minute * 10
 )
@@ -42,10 +38,10 @@ func InitializeCacheEviction() {
 // EvictExpiredEntries goes through the cache and evicts expired entries.
 func evictExpiredEntries() {
 	now := time.Now()
-	apiKeyCache.Range(func(key, value interface{}) bool {
+	db.ApiKeyCache.Range(func(key, value interface{}) bool {
 		if entry, ok := value.(cacheEntry); ok {
 			if now.Sub(entry.Timestamp) >= CacheEntryDuration {
-				apiKeyCache.Delete(key)
+				db.ApiKeyCache.Delete(key)
 			}
 		}
 		return true
@@ -55,7 +51,7 @@ func evictExpiredEntries() {
 // AuthenticateRequest checks the provided API key against the known keys.
 func AuthenticateRequest(apiKey string) (string, error) {
 	/// Attempt to retrieve API Key from the cache.
-	if val, ok := apiKeyCache.Load(apiKey); ok {
+	if val, ok := db.ApiKeyCache.Load(apiKey); ok {
 		entry := val.(cacheEntry)
 		if time.Since(entry.Timestamp) < CacheEntryDuration {
 			return entry.Name, nil
@@ -73,7 +69,7 @@ func AuthenticateRequest(apiKey string) (string, error) {
 	}
 
 	// The API key has been successfully authenticated, so cache it.
-	apiKeyCache.Store(apiKey, cacheEntry{Name: name, Timestamp: time.Now()})
+	db.ApiKeyCache.Store(apiKey, cacheEntry{Name: name, Timestamp: time.Now()})
 
 	return name, nil
 }
