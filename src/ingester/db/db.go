@@ -22,9 +22,9 @@ var (
 	connectionCache        sync.Map             // connectionCache stores the lookup of connection details
 	CacheEntryDuration     = time.Minute * 10   // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
 	db                     *sql.DB              // db holds the database connection
-	doku_llm_data_table    = "DOKU_LLM_DATTA"   // doku_llm_data_table holds the name of the data table
-	doku_apikeys_table     = "DOKU_APIKEYS"     // doku_apikeys_table holds the name of the API keys table
-	doku_connections_table = "DOKU_CONNECTIONS" // doku_connections_table holds the name of the connections table
+	doku_llm_data_table    = "DOKU_LLM_DATAAAA"   // doku_llm_data_table holds the name of the data table
+	doku_apikeys_table     = "DOKU_APIKEYSAAA"     // doku_apikeys_table holds the name of the API keys table
+	doku_connections_table = "DOKU_CONNECTIONSAAA" // doku_connections_table holds the name of the connections table
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
@@ -217,7 +217,7 @@ func createTable(db *sql.DB, tableName string) error {
 			if err != nil {
 				return fmt.Errorf("error creating index on 'api_key' column: %w", err)
 			}
-			
+
 			// Add fresh installation API key
 			newAPIKey, _ := generateSecureRandomKey()
 
@@ -448,7 +448,7 @@ func CheckAPIKey(apiKey string) (string, error) {
 func GenerateAPIKey(existingAPIKey, name string) (string, error) {
 	// If there are any existing API keys, authenticate the provided API key before proceeding
 	var count int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE api_key != 'doku-client-internal'", doku_apikeys_table)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE name != 'doku-client-internal'", doku_apikeys_table)
 	err := db.QueryRow(countQuery).Scan(&count)
 	if err != nil {
 		log.Error().Err(err).Msg("Error checking API key table")
