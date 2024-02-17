@@ -11,15 +11,19 @@ description: 'Connect Doku to Dynatrace'
 
 Doku can automatically send LLM usage data from Doku to Dynatrace using the [Ingest Metrics API](https://docs.dynatrace.com/docs/dynatrace-api/environment-api/metric-v2/post-ingest-metrics) and [Ingest Logs API](https://docs.dynatrace.com/docs/dynatrace-api/environment-api/log-monitoring-v2/post-ingest-logs)
 
-Add the following to your doku configuration file(`doku.yml`).
+Make the following curl request to Doku to add a connection for Dynatrace. See more on the [Connections API](/0.0.5/api-reference/endpoint/connections/create)
 
-```yaml doku.yml
-connections:
-  enabled: true                                 # Enable or Disable the Observability Platform, Example: true
-    dynatrace:
-      metricsUrl: <your-dynatrace-metrics-url>    # URL to the Dynatrace Metrics API
-      logsUrl: <your-dynatrace-logs-url>          # URL to the Dynatrace Logs API
-      apiKey: <your-dynatrace-api-key>            # API Key of the Dynatrace Account
+```shell 
+curl --request POST \
+  --url https://<YOUR_DOKU_URL>/api/connections \
+  --header 'Authorization: <DOKU_API_KEY>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "Platform": "dynatrace",
+  "MetricsUrl": "<YOUR_DYNATRACE_METRICS_URL>",
+  "LogsUrl": "<YOUR_DYNATRACE_LOGS_URL>",
+  "ApiKey": "<YOUR_DYNATRACE_API_KEY>"
+}'
 ```
 
 ## Dynatrace Resources

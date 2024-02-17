@@ -10,14 +10,18 @@ description: 'Connect Doku to SigNoz'
 
 Doku can automatically send LLM usage data from Doku to SigNoz using the [HTTP Logs API](https://signoz.io/docs/userguide/send-logs-http/)
 
-Add the following to your doku configuration file(`doku.yml`).
+Make the following curl request to Doku to add a connection for SigNoz. See more on the [Connections API](/0.0.5/api-reference/endpoint/connections/create)
 
-```yaml doku.yml
-connections:
-  enabled: true                          # Enable or Disable the Observability Platform, Example: true
-    signoz:
-      url: <your-signoz-metrics-url>     # URL to the SigNoz Logs API
-      apiKey: <your-signoz-api-key>      # API Key from SigNoz
+```shell 
+curl --request POST \
+  --url https://<YOUR_DOKU_URL>/api/connections \
+  --header 'Authorization: <DOKU_API_KEY>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "Platform": "signoz",
+  "LogsUrl": "<YOUR_SIGNOZ_LOGS_URL>",
+  "ApiKey": "<YOUR_SIGNOZ_API_KEY>"
+}'
 ```
 
 ## SigNoz Resources

@@ -11,15 +11,19 @@ description: 'Connect Doku to New Relic'
 
 Doku can automatically send LLM usage data from Doku to New Relic using the [Report Metrics HTTP API](https://docs.newrelic.com/docs/data-apis/ingest-apis/metric-api/report-metrics-metric-api/) and [Send Logs API](https://docs.newrelic.com/docs/logs/log-api/introduction-log-api/)
 
-Add the following to your doku configuration file(`doku.yml`).
+Make the following curl request to Doku to add a connection for New Relic. See more on the [Connections API](/0.0.5/api-reference/endpoint/connections/create)
 
-```yaml doku.yml
-connections:
-  enabled: true                                    # Enable or Disable the Observability Platform, Example: true
-    newRelic:
-      metricsUrl: <your-new-relic-metrics-url>     # URL to the New Relic Metric API
-      logsUrl: <your-new-relic-logs-url>           # URL to the New Relic Log API
-      key: <your-new-relic-api-key>                # Ingest API Key of the New Relic Account
+```shell 
+curl --request POST \
+  --url https://<YOUR_DOKU_URL>/api/connections \
+  --header 'Authorization: <DOKU_API_KEY>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "Platform": "newrelic",
+  "MetricsUrl": "<YOUR_NEWRELIC_METRICS_URL>",
+  "LogsUrl": "<YOUR_NEWRELIC_LOGS_URL>",
+  "ApiKey": "<YOUR_NEWRELIC_API_KEY>"
+}'
 ```
 
 ## New Relic Resources

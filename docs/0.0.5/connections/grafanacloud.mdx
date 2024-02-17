@@ -10,17 +10,21 @@ description: 'Connect Doku to Grafana Cloud'
 
 Doku can automatically send LLM usage data from Doku to Grafana Cloud using the [Grafana Cloud Influx Telegraf](https://grafana.com/docs/grafana-cloud/send-data/metrics/metrics-influxdb/push-from-telegraf/) and [Loki Push HTTP API](https://grafana.com/docs/loki/latest/reference/api/#push-log-entries-to-loki)
 
-Add the following to your doku configuration file(`doku.yml`).
+Make the following curl request to Doku to add a connection for Grafana Cloud. See more on the [Connections API](/0.0.5/api-reference/endpoint/connections/create)
 
-```yaml doku.yml
-connections:
-  enabled: true                                               # Enable or Disable the Observability Platform, Example: true
-    grafanaCloud:
-      promUrl: <your-grafana-cloud-influx-line-proxy-url>     # URL to the Influx Line Proxy URL of the Grafana Cloud Prometheus Instance
-      promUsername: <your-prometheus-userid>                  # Prometheus User ID of the Grafana Cloud Prometheus Instance
-      lokiUrl: <your-loki-push-url>                           # URL to the Loki Push URL of the Grafana Cloud Loki Instance
-      lokiUsername: <your-loki-username>                      # Loki Username of the Grafana Cloud Loki Instance
-      accessToken: <your-grafana-cloud-access-token>          # Access Token of the Grafana Cloud Instance
+```shell 
+curl --request POST \
+  --url https://<YOUR_DOKU_URL>/api/connections \
+  --header 'Authorization: <DOKU_API_KEY>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "Platform": "grafana",
+  "MetricsUrl": "<YOUR_GRAFANA_CLOUD_INFLUX_TELEGRAF_URL>",
+  "MetricsUsername": "<YOUR_GRAFANA_CLOUD_PROMETHEUS_USERNAME>",
+  "LogsUrl": "<YOUR_GRAFANA_CLOUD_LOGS_URL>",
+  "LogsUsername": "<YOUR_GRAFANA_CLOUD_LOGS_USERNAME>",
+  "ApiKey": "<YOUR_GRAFANA_CLOUD_API_KEY>"
+}'
 ```
 
 ## Grafana Resources
