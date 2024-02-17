@@ -11,9 +11,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func configureGrafanaCloudData(data map[string]interface{}) {
+func configureGrafanaCloudData(data map[string]interface{}, config ConnectionConfig) {
+	grafanaPromUsername := config.MetricsUsername
+	grafanaLokiUsername := config.LogsUsername
+	grafanaAccessToken := config.ApiKey
+	grafanaPromUrl := config.MetricsUrl
+	grafanaLokiUrl := config.LogsUrl
+
 	// The current time for the timestamp field.
 	currentTime := strconv.FormatInt(time.Now().UnixNano(), 10)
+	var platform string
 
 	// Extract the platform from the endpoint string
 	endpointParts := strings.Split(data["endpoint"].(string), ".")
@@ -28,7 +35,6 @@ func configureGrafanaCloudData(data map[string]interface{}) {
 	if !found {
 		call_type = "Unknown"
 	}
-	fmt.Println("Platform: ", call_type)
 
 	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.completions" {
 		if data["finishReason"] == nil {
@@ -41,6 +47,7 @@ func configureGrafanaCloudData(data map[string]interface{}) {
 			fmt.Sprintf(`doku_llm,job=doku,environment=%v,endpoint=%v,applicationName=%v,source=%v,model=%v,finishReason=%v,platform=%v,generation=%v requestDuration=%v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["requestDuration"]),
 			fmt.Sprintf(`doku_llm,job=doku,environment=%v,endpoint=%v,applicationName=%v,source=%v,model=%v,finishReason=%v,platform=%v,generation=%v usageCost=%v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type, data["usageCost"]),
 		}
+
 		var metricsBody = []byte(strings.Join(metrics, "\n"))
 		authHeader := fmt.Sprintf("Bearer %v:%v", grafanaPromUsername, grafanaAccessToken)
 		err := sendTelemetryGrafanaCloud(metricsBody, authHeader, grafanaPromUrl, "POST")
@@ -162,21 +169,20 @@ func configureGrafanaCloudData(data map[string]interface{}) {
 }
 
 func sendTelemetryGrafanaCloud(telemetryData []byte, authHeader string, url string, requestType string) error {
-
 	req, err := http.NewRequest(requestType, url, bytes.NewBuffer(telemetryData))
 	if err != nil {
-		return fmt.Errorf("Error creating request")
+		return fmt.Errorf("error creating request")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", authHeader)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error sending request to %v", url)
+		return fmt.Errorf("error sending request to %v", url)
 	} else if resp.StatusCode == 404 {
-		return fmt.Errorf("Provided URL %v is not valid", url)
+		return fmt.Errorf("provided URL %v is not valid", url)
 	} else if resp.StatusCode == 401 {
-		return fmt.Errorf("Provided credentials are not valid")
+		return fmt.Errorf("provided credentials are not valid")
 	}
 
 	defer resp.Body.Close()

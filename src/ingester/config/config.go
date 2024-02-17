@@ -4,129 +4,91 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-
-	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v2"
+	"strings"
 )
 
+// Assuming Configuration struct definition is globally accessible
 type Configuration struct {
-	IngesterPort  string `yaml:"ingesterPort"`
-	RentionPeriod string `yaml:"retentionPeriod"`
-	PricingInfo   struct {
-		LocalFile struct {
-			Path string `yaml:"path"`
-		} `yaml:"localFile"`
-		URL string `yaml:"url"`
-	} `yaml:"pricingInfo"`
-	DBConfig struct {
-		DBName       string `yaml:"name"`
-		DBUser       string `yaml:"username"`
-		DBPassword   string `yaml:"password"`
-		DBHost       string `yaml:"host"`
-		DBPort       string `yaml:"port"`
-		DBSSLMode    string `yaml:"sslMode"`
-		MaxOpenConns int    `yaml:"maxOpenConns"`
-		MaxIdleConns int    `yaml:"maxIdleConns"`
-	} `yaml:"dbConfig"`
-	Connections struct {
-		Enabled      bool `yaml:"enabled"`
-		GrafanaCloud struct {
-			PromURL      string `yaml:"promUrl"`
-			PromUsername string `yaml:"promUsername"`
-			LokiURL      string `yaml:"lokiUrl"`
-			LokiUsername string `yaml:"lokiUsername"`
-			AccessToken  string `yaml:"accessToken"`
-		} `yaml:"grafanaCloud"`
-		NewRelic struct {
-			Key        string `yaml:"key"`
-			MetricsURL string `yaml:"metricsUrl"`
-			LogsURL    string `yaml:"logsUrl"`
-		} `yaml:"newRelic"`
-		DataDog struct {
-			MetricsURL string `yaml:"metricsUrl"`
-			LogsURL    string `yaml:"logsUrl"`
-			APIKey     string `yaml:"apiKey"`
-		} `yaml:"datadog"`
-	} `yaml:"connections"`
+	IngesterPort string `json:"ingesterPort"`
+	Pricing      struct {
+		URL string `json:"url"`
+	} `json:"pricing"`
+	Database struct {
+		Host         string `json:"host"`
+		Name         string `json:"name"`
+		Password     string `json:"password"`
+		Port         string `json:"port"`
+		SSLMode      string `json:"sslmode"`
+		User         string `json:"user"`
+		MaxIdleConns int    `json:"maxIdleConns"`
+		MaxOpenConns int    `json:"maxOpenConns"`
+	} `json:"database"`
 }
 
-func validateConfig(cfg *Configuration) error {
-	if _, err := strconv.Atoi(cfg.IngesterPort); err != nil {
-		return fmt.Errorf("Ingester Port is not defined")
+func getIntFromEnv(envKey string) int {
+	valueStr := os.Getenv(envKey)
+	if value, err := strconv.Atoi(valueStr); err == nil {
+		return value
 	}
-	if _, err := strconv.Atoi(cfg.RentionPeriod); err != nil {
-		cfg.RentionPeriod = "6 months"
-	}
-
-	// Check if at least one PricingInfo configuration is set.
-	if cfg.PricingInfo.LocalFile.Path == "" && cfg.PricingInfo.URL == "" {
-		return fmt.Errorf("PricingInfo configuration is not defined")
-	}
-
-	// Check if both PricingInfo configurations are set.
-	if cfg.PricingInfo.LocalFile.Path != "" && cfg.PricingInfo.URL != "" {
-		return fmt.Errorf("Both LocalFile and URL configurations are defined in PricingInfo; only one is allowed")
-	}
-
-	if cfg.DBConfig.DBPassword == "" {
-		log.Info().Msg("'dbConfig.password' is not defined, trying to read from environment variable 'DB_PASSWORD'")
-		cfg.DBConfig.DBPassword = os.Getenv("DB_PASSWORD")
-		if cfg.DBConfig.DBPassword == "" {
-			return fmt.Errorf("'DB_PASSWORD' environment variable is not set and 'dbConfig.password' is not defined in configuration")
-		}
-		log.Info().Msg("dbConfig.password is now set")
-	}
-
-	if cfg.DBConfig.DBUser == "" {
-		log.Info().Msg("'dbConfig.username' is not defined, trying to read from environment variable 'DB_USERNAME")
-		cfg.DBConfig.DBUser = os.Getenv("DB_USERNAME")
-		if cfg.DBConfig.DBUser == "" {
-			return fmt.Errorf("'DB_USERNAME' environment variable is not set and 'dbConfig.username' is not defined in configuration")
-		}
-		log.Info().Msg("dbConfig.username is now set")
-	}
-
-	if cfg.Connections.Enabled {
-		definedConfigs := 0
-
-		if cfg.Connections.GrafanaCloud.PromURL != "" {
-			definedConfigs++
-		}
-		if cfg.Connections.NewRelic.Key != "" {
-			definedConfigs++
-		}
-		if cfg.Connections.DataDog.APIKey != "" {
-			definedConfigs++
-		}
-
-		if definedConfigs > 1 {
-			return fmt.Errorf("Only one observability platform configuration (GrafanaCloud, NewRelic, or DataDog) can be enabled at a time")
-		}
-
-		if definedConfigs == 0 {
-			return fmt.Errorf("Observability platform is enabled, but no observability configurations are defined")
-		}
-	}
-
-	return nil
+	return 0
 }
 
-func LoadConfiguration(configPath string) (*Configuration, error) {
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, err
+func LoadConfigFromEnv() (*Configuration, error) {
+	// Creating the configuration instance
+	config := &Configuration{}
+
+	// Loading configuration from environment variables
+	config.Database.Host = os.Getenv("DOKU_DB_HOST")
+	config.Database.Name = os.Getenv("DOKU_DB_NAME")
+	config.Database.Password = os.Getenv("DOKU_DB_PASSWORD")
+	config.Database.Port = os.Getenv("DOKU_DB_PORT")
+	config.Database.SSLMode = os.Getenv("DOKU_DB_SSLMODE")
+	config.Database.User = os.Getenv("DOKU_DB_USER")
+	config.Database.MaxIdleConns = getIntFromEnv("DOKU_DB_MAX_IDLE_CONNS")
+	config.Database.MaxOpenConns = getIntFromEnv("DOKU_DB_MAX_OPEN_CONNS")
+	config.IngesterPort = os.Getenv("DOKU_INGESTER_PORT")
+	config.Pricing.URL = os.Getenv("DOKU_PRICING_JSON_URL")
+
+	// Setting default values if the environment variables are not provided
+	if config.IngesterPort == "" {
+		config.IngesterPort = "9044" // default port
+	}
+	if config.Pricing.URL == "" {
+		config.Pricing.URL = "https://raw.githubusercontent.com/dokulabs/doku/main/assets/pricing.json" // default pricing URL
+	}
+	if config.Database.MaxIdleConns == 0 {
+		config.Database.MaxIdleConns = 10 // default max idle connections
+	}
+	if config.Database.MaxOpenConns == 0 {
+		config.Database.MaxOpenConns = 20 // default max open connections
 	}
 
-	var cfg Configuration
-	err = yaml.Unmarshal(data, &cfg)
-	if err != nil {
-		return nil, err
+	missingVars := []string{}
+
+	// Checking required environment variables and collecting names of missing ones
+	if config.Database.Host == "" {
+		missingVars = append(missingVars, "DOKU_DB_HOST")
+	}
+	if config.Database.Password == "" {
+		missingVars = append(missingVars, "DOKU_DB_PASSWORD")
+	}
+	if config.Database.Port == "" {
+		missingVars = append(missingVars, "DOKU_DB_PORT")
+	}
+	if config.Database.SSLMode == "" {
+		missingVars = append(missingVars, "DOKU_DB_SSLMODE")
+	}
+	if config.Database.User == "" {
+		missingVars = append(missingVars, "DOKU_DB_USER")
+	}
+	if config.Database.Name == "" {
+		missingVars = append(missingVars, "DOKU_DB_NAME")
 	}
 
-	// Validate the loaded configuration
-	if err := validateConfig(&cfg); err != nil {
-		return nil, err
+	// Returning an error listing all missing variables, if any
+	if len(missingVars) > 0 {
+		return nil, fmt.Errorf("missing required environment variables: %s", strings.Join(missingVars, ", "))
 	}
 
-	return &cfg, nil
+	return config, nil
 }

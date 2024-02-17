@@ -8,7 +8,6 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/pkoukk/tiktoken-go v0.1.6
 	github.com/rs/zerolog v1.31.0
-	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (

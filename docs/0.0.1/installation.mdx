@@ -55,7 +55,7 @@ Deploy Doku on your Kubernetes cluster using the [Doku Helm chart](https://githu
   ```
   </Step>
 </Steps>
-<Info>As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `connections` configuration within the [values.yaml](https://github.com/dokulabs/helm/blob/main/charts/doku/values.yaml) file. Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.</Info>
+<Info>As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `observabilityPlatform` configuration within the [values.yaml](https://github.com/dokulabs/helm/blob/main/charts/doku/values.yaml) file. Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.</Info>
 
 ## Docker
 Quickly spin up Doku using Docker for a fast and straightforward setup.
@@ -65,13 +65,13 @@ Quickly spin up Doku using Docker for a fast and straightforward setup.
     <Steps>
       <Step title="Pull TimescaleDB Image">
         ```shell
-        docker pull timescale/timescaledb-ha:pg14-latest
+        docker pull timescale/timescaledb-ha:pg14-ts2.14
         ```
       </Step>
       <Step title="Run TimescaleDB Image">
         ```shell
         docker run -d --name timescaledb -p 127.0.0.1:5432:5432 \
-        -e POSTGRES_PASSWORD=password timescale/timescaledb-ha:pg14-latest
+        -e POSTGRES_PASSWORD=password timescale/timescaledb-ha:pg14-ts2.14
         ```
       </Step>
     </Steps>
@@ -105,12 +105,12 @@ Quickly spin up Doku using Docker for a fast and straightforward setup.
           dataTable: DATATABLE                        # Name of the table to store LLM Data, Example: "DOKU"
           apiKeyTable: APIKEYTABLE                    # Name of the table to store API Keys, Example: "APIKEYS"
 
-        connections:
+        observabilityPlatform:
           enabled: false                                                             
         ```
         Be sure to replace the placeholder values with your actual database details and desired settings.
         <Info>
-        As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `connections` configuration within the [Doku Configuration file (`doku.yml`)](/0.0.1/configuration#connections-configuration) file. 
+        As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `observabilityPlatform` configuration within the [Doku Configuration file (`doku.yml`)](/0.0.1/configuration#connections-configuration) file. 
 
         Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.
         </Info>
@@ -151,12 +151,12 @@ Quickly spin up Doku using Docker for a fast and straightforward setup.
       dataTable: DATATABLE                        # Name of the table to store LLM Data, Example: "DOKU"
       apiKeyTable: APIKEYTABLE                    # Name of the table to store API Keys, Example: "APIKEYS"
 
-    connections:
+    observabilityPlatform:
       enabled: false                                                                  
     ```
     Be sure to replace the placeholder values with your actual database details and desired settings.
     <Info>
-    As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `connections` configuration within the [Doku Configuration file (`doku.yml`)](/0.0.1/configuration#connections-configuration) file. 
+    As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `observabilityPlatform` configuration within the [Doku Configuration file (`doku.yml`)](/0.0.1/configuration#connections-configuration) file. 
 
     Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.
     </Info>
@@ -246,12 +246,12 @@ Quickly spin up Doku using Docker for a fast and straightforward setup.
         dataTable: DATATABLE                        # Name of the table to store LLM Data, Example: "DOKU"
         apiKeyTable: APIKEYTABLE                    # Name of the table to store API Keys, Example: "APIKEYS"
 
-      connections:
+      observabilityPlatform:
         enabled: false                                                                  
       ```
       Be sure to replace the placeholder values with your actual database details and desired settings.
       <Info>
-      As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `connections` configuration within the [Doku Configuration file (`doku.yml`)](/0.0.1/configuration#connections-configuration) file. 
+      As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `observabilityPlatform` configuration within the [Doku Configuration file (`doku.yml`)](/0.0.1/configuration#connections-configuration) file. 
 
       Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.
       </Info>

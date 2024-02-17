@@ -1,0 +1,21 @@
+---
+title: 'Generate'
+description: 'Monitor Cohere Generate API usage'
+---
+
+## Generate
+
+```python
+import cohere
+import dokumetry
+
+co = cohere.Client('<<apiKey>>')
+
+# Pass the above `co` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
+dokumetry.init(llm=co, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+response = co.generate(
+  prompt='Please explain to me how LLMs work',
+)
+print(response)
+```

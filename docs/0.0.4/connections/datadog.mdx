@@ -1,0 +1,863 @@
+---
+title: 'DataDog'
+description: 'Connect Doku to DataDog'
+---
+
+<Frame>
+  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/datadog-dashboard-1.jpg?raw=true"  />
+  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/datadog-dashboard-2.jpg?raw=true" />
+</Frame>
+
+Doku can automatically send LLM usage data from Doku to DataDog using the [Submit Metrics API](https://docs.datadoghq.com/api/latest/metrics/#submit-metrics) and [Send Logs API](https://docs.datadoghq.com/api/latest/logs/#send-logs)
+
+Add the following to your doku configuration file(`doku.yml`).
+
+```yaml doku.yml
+connections:
+  enabled: true                                 # Enable or Disable the Observability Platform, Example: true
+    datadog:
+      metricsUrl: <your-datadog-metrics-url>    # URL to the DataDog Metrics API
+      logsUrl: <your-datadog-logs-url>          # URL to the DataDog Logs API
+      apiKey: <your-datadog-api-key>            # API Key of the DataDog Account
+```
+
+## DataDog Resources
+
+<Accordion title="Dashboard">
+    ```json
+    {
+    "title": "Doku - LLM Monitoring",
+    "description": "Dashboard to monitor LLM Applications using Doku",
+    "widgets": [
+      {
+        "id": 2592087041529600,
+        "definition": {
+          "type": "image",
+          "url": "https://github.com/dokulabs/.github/blob/main/profile/assets/favicon.png?raw=true",
+          "sizing": "contain",
+          "has_background": false,
+          "has_border": false,
+          "vertical_align": "center",
+          "horizontal_align": "center"
+        },
+        "layout": {
+          "x": 0,
+          "y": 0,
+          "width": 12,
+          "height": 1
+        }
+      },
+      {
+        "id": 1254363734970878,
+        "definition": {
+          "title": "Avg Request Duration",
+          "title_size": "16",
+          "title_align": "left",
+          "type": "query_value",
+          "requests": [
+            {
+              "response_format": "scalar",
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "avg:doku.llm.request.duration{host:doku,$applicationname,$environment}",
+                  "aggregator": "avg"
+                }
+              ],
+              "conditional_formats": [
+                {
+                  "comparator": "<=",
+                  "value": 10,
+                  "palette": "white_on_green"
+                },
+                {
+                  "comparator": ">",
+                  "value": 10,
+                  "palette": "white_on_red"
+                }
+              ],
+              "formulas": [
+                {
+                  "number_format": {
+                    "unit": {
+                      "type": "canonical_unit",
+                      "unit_name": "second"
+                    }
+                  },
+                  "formula": "query1"
+                }
+              ]
+            }
+          ],
+          "autoscale": true,
+          "precision": 2,
+          "timeseries_background": {
+            "yaxis": {
+              "include_zero": false
+            },
+            "type": "area"
+          }
+        },
+        "layout": {
+          "x": 0,
+          "y": 1,
+          "width": 3,
+          "height": 2
+        }
+      },
+      {
+        "id": 5019934425891746,
+        "definition": {
+          "title": "Avg Total Tokens",
+          "title_size": "16",
+          "title_align": "left",
+          "type": "query_value",
+          "requests": [
+            {
+              "response_format": "scalar",
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "avg:doku.llm.total.tokens{host:doku,$applicationname,$environment}",
+                  "aggregator": "avg"
+                }
+              ],
+              "conditional_formats": [
+                {
+                  "comparator": "<=",
+                  "value": 1000,
+                  "palette": "white_on_green"
+                },
+                {
+                  "comparator": ">",
+                  "value": 1000,
+                  "palette": "white_on_red"
+                }
+              ],
+              "formulas": [
+                {
+                  "formula": "query1"
+                }
+              ]
+            }
+          ],
+          "autoscale": true,
+          "precision": 2,
+          "timeseries_background": {
+            "type": "area"
+          }
+        },
+        "layout": {
+          "x": 3,
+          "y": 1,
+          "width": 3,
+          "height": 2
+        }
+      },
+      {
+        "id": 1292553433133982,
+        "definition": {
+          "title": "Avg Cost / Request",
+          "title_size": "16",
+          "title_align": "left",
+          "type": "query_value",
+          "requests": [
+            {
+              "formulas": [
+                {
+                  "formula": "query1",
+                  "number_format": {
+                    "unit": {
+                      "type": "canonical_unit",
+                      "unit_name": "dollar"
+                    }
+                  }
+                }
+              ],
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "avg:doku.llm.usage.cost{host:doku,$applicationname,$environment}",
+                  "aggregator": "max"
+                }
+              ],
+              "response_format": "scalar",
+              "conditional_formats": [
+                {
+                  "comparator": ">",
+                  "value": 0,
+                  "palette": "custom_bg",
+                  "custom_bg_color": "#5c7cff"
+                }
+              ]
+            }
+          ],
+          "autoscale": true,
+          "precision": 2,
+          "timeseries_background": {
+            "yaxis": {
+              "include_zero": true
+            },
+            "type": "area"
+          }
+        },
+        "layout": {
+          "x": 6,
+          "y": 1,
+          "width": 3,
+          "height": 2
+        }
+      },
+      {
+        "id": 5207596770618026,
+        "definition": {
+          "title": "Total Cost",
+          "title_size": "16",
+          "title_align": "left",
+          "type": "query_value",
+          "requests": [
+            {
+              "response_format": "scalar",
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "sum:doku.llm.usage.cost{host:doku,$applicationname,$environment}",
+                  "aggregator": "avg"
+                }
+              ],
+              "formulas": [
+                {
+                  "number_format": {
+                    "unit": {
+                      "type": "canonical_unit",
+                      "unit_name": "dollar"
+                    }
+                  },
+                  "formula": "query1"
+                }
+              ]
+            }
+          ],
+          "autoscale": true,
+          "precision": 2,
+          "timeseries_background": {
+            "type": "bars"
+          }
+        },
+        "layout": {
+          "x": 9,
+          "y": 1,
+          "width": 3,
+          "height": 2
+        }
+      },
+      {
+        "id": 7163232112237060,
+        "definition": {
+          "title": "Requests",
+          "title_size": "16",
+          "title_align": "left",
+          "show_legend": false,
+          "legend_layout": "auto",
+          "legend_columns": [
+            "avg",
+            "min",
+            "max",
+            "value",
+            "sum"
+          ],
+          "type": "timeseries",
+          "requests": [
+            {
+              "formulas": [
+                {
+                  "formula": "query1"
+                }
+              ],
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "count:doku.llm.request.duration{host:doku,$applicationname,$environment}"
+                }
+              ],
+              "response_format": "timeseries",
+              "style": {
+                "palette": "blue",
+                "line_type": "solid",
+                "line_width": "normal"
+              },
+              "display_type": "line"
+            }
+          ]
+        },
+        "layout": {
+          "x": 0,
+          "y": 3,
+          "width": 12,
+          "height": 3
+        }
+      },
+      {
+        "id": 6530509092714956,
+        "definition": {
+          "title": "Usage cost by Category",
+          "title_size": "16",
+          "title_align": "left",
+          "requests": [
+            {
+              "response_format": "scalar",
+              "formulas": [
+                {
+                  "number_format": {
+                    "unit": {
+                      "type": "canonical_unit",
+                      "unit_name": "dollar"
+                    }
+                  },
+                  "formula": "query1",
+                  "limit": {
+                    "count": 500,
+                    "order": "desc"
+                  }
+                }
+              ],
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "sum:doku.llm.usage.cost{host:doku,$applicationname,$environment} by {generation}",
+                  "aggregator": "avg"
+                }
+              ],
+              "style": {
+                "palette": "datadog16"
+              }
+            }
+          ],
+          "type": "sunburst",
+          "hide_total": true,
+          "legend": {
+            "type": "inline"
+          }
+        },
+        "layout": {
+          "x": 0,
+          "y": 6,
+          "width": 3,
+          "height": 3
+        }
+      },
+      {
+        "id": 8042116329904768,
+        "definition": {
+          "title": "Usage cost by Platform",
+          "title_size": "16",
+          "title_align": "left",
+          "requests": [
+            {
+              "response_format": "scalar",
+              "formulas": [
+                {
+                  "number_format": {
+                    "unit": {
+                      "type": "canonical_unit",
+                      "unit_name": "dollar"
+                    }
+                  },
+                  "formula": "query1",
+                  "limit": {
+                    "count": 500,
+                    "order": "desc"
+                  }
+                }
+              ],
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "sum:doku.llm.usage.cost{host:doku,$applicationname,$environment} by {platform}",
+                  "aggregator": "avg"
+                }
+              ],
+              "style": {
+                "palette": "datadog16"
+              }
+            }
+          ],
+          "type": "sunburst",
+          "hide_total": true,
+          "legend": {
+            "type": "inline"
+          }
+        },
+        "layout": {
+          "x": 3,
+          "y": 6,
+          "width": 3,
+          "height": 3
+        }
+      },
+      {
+        "id": 6701701162130436,
+        "definition": {
+          "title": "Usage cost by Application",
+          "title_size": "16",
+          "title_align": "left",
+          "requests": [
+            {
+              "response_format": "scalar",
+              "formulas": [
+                {
+                  "number_format": {
+                    "unit": {
+                      "type": "canonical_unit",
+                      "unit_name": "dollar"
+                    }
+                  },
+                  "formula": "query1",
+                  "limit": {
+                    "count": 500,
+                    "order": "desc"
+                  }
+                }
+              ],
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "sum:doku.llm.usage.cost{host:doku,$applicationname,$environment} by {applicationname}",
+                  "aggregator": "sum"
+                }
+              ],
+              "style": {
+                "palette": "datadog16"
+              }
+            }
+          ],
+          "type": "sunburst",
+          "hide_total": true,
+          "legend": {
+            "type": "inline"
+          }
+        },
+        "layout": {
+          "x": 6,
+          "y": 6,
+          "width": 3,
+          "height": 3
+        }
+      },
+      {
+        "id": 1437027828906050,
+        "definition": {
+          "title": "Usage cost by Environment",
+          "title_size": "16",
+          "title_align": "left",
+          "requests": [
+            {
+              "response_format": "scalar",
+              "formulas": [
+                {
+                  "number_format": {
+                    "unit": {
+                      "type": "canonical_unit",
+                      "unit_name": "dollar"
+                    }
+                  },
+                  "formula": "query1",
+                  "limit": {
+                    "count": 500,
+                    "order": "desc"
+                  }
+                }
+              ],
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "sum:doku.llm.usage.cost{host:doku,$applicationname,$environment} by {environment}",
+                  "aggregator": "avg"
+                }
+              ],
+              "style": {
+                "palette": "datadog16"
+              }
+            }
+          ],
+          "type": "sunburst",
+          "hide_total": true,
+          "legend": {
+            "type": "inline"
+          }
+        },
+        "layout": {
+          "x": 9,
+          "y": 6,
+          "width": 3,
+          "height": 3
+        }
+      },
+      {
+        "id": 2402383159288882,
+        "definition": {
+          "title": "Avg Prompt Tokens",
+          "title_size": "16",
+          "title_align": "left",
+          "type": "query_value",
+          "requests": [
+            {
+              "response_format": "scalar",
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "avg:doku.llm.prompt.tokens{host:doku,$applicationname,$environment}",
+                  "aggregator": "avg"
+                }
+              ],
+              "conditional_formats": [
+                {
+                  "comparator": "<=",
+                  "value": 1000,
+                  "palette": "white_on_green"
+                },
+                {
+                  "comparator": ">",
+                  "value": 1000,
+                  "palette": "white_on_red"
+                }
+              ],
+              "formulas": [
+                {
+                  "formula": "query1"
+                }
+              ]
+            }
+          ],
+          "autoscale": true,
+          "precision": 2,
+          "timeseries_background": {
+            "type": "area"
+          }
+        },
+        "layout": {
+          "x": 0,
+          "y": 9,
+          "width": 4,
+          "height": 1
+        }
+      },
+      {
+        "id": 1887750495626080,
+        "definition": {
+          "title": "Avg Token Usage",
+          "title_size": "16",
+          "title_align": "left",
+          "show_legend": true,
+          "legend_layout": "auto",
+          "legend_columns": [
+            "avg",
+            "min",
+            "max",
+            "value",
+            "sum"
+          ],
+          "type": "timeseries",
+          "requests": [
+            {
+              "formulas": [
+                {
+                  "formula": "query1"
+                },
+                {
+                  "formula": "query2"
+                }
+              ],
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "avg:doku.llm.prompt.tokens{host:doku,$applicationname,$environment}"
+                },
+                {
+                  "data_source": "metrics",
+                  "name": "query2",
+                  "query": "avg:doku.llm.completion.tokens{host:doku,$applicationname,$environment}"
+                }
+              ],
+              "response_format": "timeseries",
+              "style": {
+                "palette": "dog_classic",
+                "line_type": "solid",
+                "line_width": "normal"
+              },
+              "display_type": "line"
+            }
+          ]
+        },
+        "layout": {
+          "x": 4,
+          "y": 9,
+          "width": 8,
+          "height": 2
+        }
+      },
+      {
+        "id": 8227251321537566,
+        "definition": {
+          "title": "Avg Completion Tokens",
+          "title_size": "16",
+          "title_align": "left",
+          "type": "query_value",
+          "requests": [
+            {
+              "response_format": "scalar",
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "avg:doku.llm.completion.tokens{host:doku,$applicationname,$environment}",
+                  "aggregator": "avg"
+                }
+              ],
+              "conditional_formats": [
+                {
+                  "comparator": "<=",
+                  "value": 1000,
+                  "palette": "white_on_green"
+                },
+                {
+                  "comparator": ">",
+                  "value": 1000,
+                  "palette": "white_on_red"
+                }
+              ],
+              "formulas": [
+                {
+                  "formula": "query1"
+                }
+              ]
+            }
+          ],
+          "autoscale": true,
+          "precision": 2,
+          "timeseries_background": {
+            "type": "area"
+          }
+        },
+        "layout": {
+          "x": 0,
+          "y": 10,
+          "width": 4,
+          "height": 1
+        }
+      },
+      {
+        "id": 3302397057575330,
+        "definition": {
+          "title": "Top Models by Usage",
+          "title_size": "16",
+          "title_align": "left",
+          "type": "toplist",
+          "requests": [
+            {
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "sum:doku.llm.usage.cost{host:doku,$applicationname,$environment} by {model}",
+                  "aggregator": "avg"
+                }
+              ],
+              "formulas": [
+                {
+                  "number_format": {
+                    "unit": {
+                      "type": "canonical_unit",
+                      "unit_name": "dollar"
+                    }
+                  },
+                  "formula": "query1",
+                  "limit": {
+                    "count": 5,
+                    "order": "desc"
+                  }
+                }
+              ],
+              "response_format": "scalar"
+            }
+          ],
+          "style": {
+            "display": {
+              "type": "stacked",
+              "legend": "automatic"
+            }
+          }
+        },
+        "layout": {
+          "x": 0,
+          "y": 11,
+          "width": 4,
+          "height": 3
+        }
+      },
+      {
+        "id": 2328926103668336,
+        "definition": {
+          "title": "Avg Cost by Models",
+          "title_size": "16",
+          "title_align": "left",
+          "show_legend": true,
+          "legend_layout": "horizontal",
+          "legend_columns": [
+            "avg",
+            "min",
+            "max",
+            "value",
+            "sum"
+          ],
+          "type": "timeseries",
+          "requests": [
+            {
+              "formulas": [
+                {
+                  "number_format": {
+                    "unit": {
+                      "type": "canonical_unit",
+                      "unit_name": "dollar"
+                    }
+                  },
+                  "formula": "query1"
+                }
+              ],
+              "queries": [
+                {
+                  "data_source": "metrics",
+                  "name": "query1",
+                  "query": "avg:doku.llm.usage.cost{host:doku,$applicationname,$environment} by {model}"
+                }
+              ],
+              "response_format": "timeseries",
+              "style": {
+                "palette": "dog_classic",
+                "line_type": "solid",
+                "line_width": "normal"
+              },
+              "display_type": "line"
+            }
+          ]
+        },
+        "layout": {
+          "x": 4,
+          "y": 11,
+          "width": 8,
+          "height": 3
+        }
+      },
+      {
+        "id": 6390170780704056,
+        "definition": {
+          "title": "Prompt",
+          "title_size": "16",
+          "title_align": "left",
+          "requests": [
+            {
+              "response_format": "event_list",
+              "query": {
+                "data_source": "logs_stream",
+                "query_string": "host:doku type:prompt $applicationname $environment",
+                "indexes": [],
+                "storage": "hot"
+              },
+              "columns": [
+                {
+                  "field": "status_line",
+                  "width": "auto"
+                },
+                {
+                  "field": "timestamp",
+                  "width": "auto"
+                },
+                {
+                  "field": "content",
+                  "width": "compact"
+                }
+              ]
+            }
+          ],
+          "type": "list_stream"
+        },
+        "layout": {
+          "x": 0,
+          "y": 14,
+          "width": 6,
+          "height": 5
+        }
+      },
+      {
+        "id": 8605893614511422,
+        "definition": {
+          "title": "Response",
+          "title_size": "16",
+          "title_align": "left",
+          "requests": [
+            {
+              "response_format": "event_list",
+              "query": {
+                "data_source": "logs_stream",
+                "query_string": "host:doku $applicationname type:(response OR image) $environment",
+                "indexes": [],
+                "storage": "hot"
+              },
+              "columns": [
+                {
+                  "field": "status_line",
+                  "width": "auto"
+                },
+                {
+                  "field": "timestamp",
+                  "width": "auto"
+                },
+                {
+                  "field": "content",
+                  "width": "compact"
+                }
+              ]
+            }
+          ],
+          "type": "list_stream"
+        },
+        "layout": {
+          "x": 6,
+          "y": 14,
+          "width": 6,
+          "height": 5
+        }
+      }
+    ],
+    "template_variables": [
+      {
+        "name": "applicationname",
+        "prefix": "applicationname",
+        "available_values": [],
+        "default": "*"
+      },
+      {
+        "name": "environment",
+        "prefix": "environment",
+        "available_values": [],
+        "default": "*"
+      }
+    ],
+    "layout_type": "ordered",
+    "notify_list": [],
+    "reflow_type": "fixed"
+  }
+    ```
+</Accordion>
+

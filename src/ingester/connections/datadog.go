@@ -10,8 +10,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func configureDataDogData(data map[string]interface{}) {
+func configureDataDogData(data map[string]interface{}, config ConnectionConfig) {
+	dataDogMetricsUrl := config.MetricsUrl
+	dataDogLogsUrl := config.LogsUrl
+	dataDogAPIKey := config.ApiKey
+
 	currentTime := time.Now().Unix()
+	var platform string
+
+	// Extract the platform from the endpoint string
+	endpointParts := strings.Split(data["endpoint"].(string), ".")
+	if len(endpointParts) > 0 {
+		platform = endpointParts[0] // The first part of the endpoint string is the platform.
+	} else {
+		platform = "Unknown" // If the endpoint string is not in the expected format, set the platform to "unknown".
+	}
+
+	// Determine the type based on the endpoint by consulting the mapping.
+	call_type, found := endpointTypeMapping[data["endpoint"].(string)]
+	if !found {
+		call_type = "Unknown"
+	}
 
 	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.completions" {
 		if data["finishReason"] == nil {
@@ -23,37 +42,37 @@ func configureDataDogData(data map[string]interface{}) {
 				"metric": "doku.llm.completion.tokens",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v"]
-			}`, currentTime, data["completionTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["completionTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 			fmt.Sprintf(`{
 				"metric": "doku.llm.prompt.tokens",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v"]
-			}`, currentTime, data["promptTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["promptTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 			fmt.Sprintf(`{
 				"metric": "doku.llm.total.tokens",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v"]
-			}`, currentTime, data["totalTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["totalTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 			fmt.Sprintf(`{
 				"metric": "doku.llm.request.duration",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v"]
-			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 			fmt.Sprintf(`{
 				"metric": "doku.llm.usage.cost",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v"]
-			}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "finishReason:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["finishReason"], platform, call_type),
 		}
 
 		metrics := fmt.Sprintf(`{"series": [%s]}`, strings.Join(metricStrings, ","))
@@ -66,17 +85,17 @@ func configureDataDogData(data map[string]interface{}) {
 			fmt.Sprintf(`{
 				"ddsource": "doku",
 				"message": "%s",
-				"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt",
-				"hostname": "doku-ingester",
+				"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt,platform:%v,generation:%v",
+				"hostname": "doku",
 				"service": "%v"
-			}`, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["applicationName"]),
+			}`, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["applicationName"]),
 			fmt.Sprintf(`{
 				"ddsource": "doku",
 				"message": "%s",
-				"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:response",
-				"hostname": "doku-ingester",
+				"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:response,platform:%v,generation:%v",
+				"hostname": "doku",
 				"service": "%v"
-			}`, normalizeString(data["response"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["applicationName"]),
+			}`, normalizeString(data["response"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["applicationName"]),
 		}
 
 		logs := fmt.Sprintf("[%s]", strings.Join(logEntries, ","))
@@ -92,30 +111,30 @@ func configureDataDogData(data map[string]interface{}) {
 					"metric": "doku.llm.prompt.tokens",
 					"type": 0,
 					"points": [{ "timestamp": %d, "value": %f }],
-					"resources": [{ "name": "doku-ingester", "type": "host" }],
-					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v"]
-				}`, currentTime, data["promptTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"resources": [{ "name": "doku", "type": "host" }],
+					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "platform:%v", "generation:%v"]
+				}`, currentTime, data["promptTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"metric": "doku.llm.total.tokens",
 					"type": 0,
 					"points": [{ "timestamp": %d, "value": %f }],
-					"resources": [{ "name": "doku-ingester", "type": "host" }],
-					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v"]
-				}`, currentTime, data["totalTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"resources": [{ "name": "doku", "type": "host" }],
+					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "platform:%v", "generation:%v"]
+				}`, currentTime, data["totalTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"metric": "doku.llm.request.duration",
 					"type": 0,
 					"points": [{ "timestamp": %d, "value": %f }],
-					"resources": [{ "name": "doku-ingester", "type": "host" }],
-					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v"]
-				}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"resources": [{ "name": "doku", "type": "host" }],
+					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "platform:%v", "generation:%v"]
+				}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"metric": "doku.llm.usage.cost",
 					"type": 0,
 					"points": [{ "timestamp": %d, "value": %f }],
-					"resources": [{ "name": "doku-ingester", "type": "host" }],
-					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v"]
-				}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"resources": [{ "name": "doku", "type": "host" }],
+					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "platform:%v", "generation:%v"]
+				}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 			}
 
 			metrics := fmt.Sprintf(`{"series": [%s]}`, strings.Join(metricStrings, ","))
@@ -128,10 +147,10 @@ func configureDataDogData(data map[string]interface{}) {
 				fmt.Sprintf(`{
 					"ddsource": "doku",
 					"message": "%s",
-					"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt",
-					"hostname": "doku-ingester",
+					"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt,platform:%v,generation:%v",
+					"hostname": "doku",
 					"service": "%v"
-				}`, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["applicationName"]),
+				}`, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["applicationName"]),
 			}
 
 			logs := fmt.Sprintf("[%s]", strings.Join(logEntries, ","))
@@ -145,23 +164,23 @@ func configureDataDogData(data map[string]interface{}) {
 					"metric": "doku.llm.prompt.tokens",
 					"type": 0,
 					"points": [{ "timestamp": %d, "value": %f }],
-					"resources": [{ "name": "doku-ingester", "type": "host" }],
-					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v"]
-				}`, currentTime, data["promptTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"resources": [{ "name": "doku", "type": "host" }],
+					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "platform:%v", "generation:%v"]
+				}`, currentTime, data["promptTokens"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"metric": "doku.llm.request.duration",
 					"type": 0,
 					"points": [{ "timestamp": %d, "value": %f }],
-					"resources": [{ "name": "doku-ingester", "type": "host" }],
-					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v"]
-				}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"resources": [{ "name": "doku", "type": "host" }],
+					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "platform:%v", "generation:%v"]
+				}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 				fmt.Sprintf(`{
 					"metric": "doku.llm.usage.cost",
 					"type": 0,
 					"points": [{ "timestamp": %d, "value": %f }],
-					"resources": [{ "name": "doku-ingester", "type": "host" }],
-					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v"]
-				}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+					"resources": [{ "name": "doku", "type": "host" }],
+					"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "platform:%v", "generation:%v"]
+				}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 			}
 
 			metrics := fmt.Sprintf(`{"series": [%s]}`, strings.Join(metricStrings, ","))
@@ -174,10 +193,10 @@ func configureDataDogData(data map[string]interface{}) {
 				fmt.Sprintf(`{
 					"ddsource": "doku",
 					"message": "%s",
-					"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt",
-					"hostname": "doku-ingester",
+					"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt,platform:%v,generation:%v",
+					"hostname": "doku",
 					"service": "%v"
-				}`, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["applicationName"]),
+				}`, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["applicationName"]),
 			}
 
 			logs := fmt.Sprintf("[%s]", strings.Join(logEntries, ","))
@@ -192,9 +211,9 @@ func configureDataDogData(data map[string]interface{}) {
 				"metric": "doku.llm.request.duration",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v"]
-			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type),
 		}
 
 		metrics := fmt.Sprintf(`{"series": [%s]}`, strings.Join(metricStrings, ","))
@@ -208,16 +227,16 @@ func configureDataDogData(data map[string]interface{}) {
 				"metric": "doku.llm.request.duration",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "imageSize:%v","imageQuality:%v"]
-			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "imageSize:%v","imageQuality:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"], platform, call_type),
 			fmt.Sprintf(`{
 				"metric": "doku.llm.usage.cost",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "imageSize:%v","imageQuality:%v"]
-			}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "imageSize:%v","imageQuality:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"], platform, call_type),
 		}
 
 		metrics := fmt.Sprintf(`{"series": [%s]}`, strings.Join(metricStrings, ","))
@@ -242,20 +261,20 @@ func configureDataDogData(data map[string]interface{}) {
 			logEntries = append(logEntries, fmt.Sprintf(`{
 				"ddsource": "doku",
 					"message": "%s",
-					"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt",
-					"hostname": "doku-ingester",
+					"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt,platform:%v,generation:%v",
+					"hostname": "doku",
 					"service": "%v"
-				}`, promptMessage, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["applicationName"]),
+				}`, promptMessage, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["applicationName"]),
 			)
 		}
 
 		logEntries = append(logEntries, fmt.Sprintf(`{
 			"ddsource": "doku",
 				"message": "%s",
-				"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:image",
-				"hostname": "doku-ingester",
+				"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:image,platform:%v,generation:%v",
+				"hostname": "doku",
 				"service": "%v"
-			}`, data["image"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["applicationName"]),
+			}`, data["image"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["applicationName"]),
 		)
 
 		logs := fmt.Sprintf("[%s]", strings.Join(logEntries, ","))
@@ -269,16 +288,16 @@ func configureDataDogData(data map[string]interface{}) {
 				"metric": "doku.llm.request.duration",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "audioVoice:%v"]
-			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["audioVoice"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "audioVoice:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["requestDuration"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["audioVoice"], platform, call_type),
 			fmt.Sprintf(`{
 				"metric": "doku.llm.usage.cost",
 				"type": 0,
 				"points": [{ "timestamp": %d, "value": %f }],
-				"resources": [{ "name": "doku-ingester", "type": "host" }],
-				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "audioVoice:%v"]
-			}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["audioVoice"]),
+				"resources": [{ "name": "doku", "type": "host" }],
+				"tags": ["environment:%v", "endpoint:%v", "applicationName:%v", "source:%v", "model:%v", "audioVoice:%v", "platform:%v", "generation:%v"]
+			}`, currentTime, data["usageCost"], data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["audioVoice"], platform, call_type),
 		}
 
 		metrics := fmt.Sprintf(`{"series": [%s]}`, strings.Join(metricStrings, ","))
@@ -291,10 +310,10 @@ func configureDataDogData(data map[string]interface{}) {
 			fmt.Sprintf(`{
 				"ddsource": "doku",
 				"message": "%s",
-				"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt",
-				"hostname": "doku-ingester",
+				"ddtags": "environment:%v,endpoint:%v,applicationName:%v,source:%v,model:%v,type:prompt,platform:%v,generation:%v",
+				"hostname": "doku",
 				"service": "%v"
-			}`, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["applicationName"]),
+			}`, normalizeString(data["prompt"].(string)), data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["applicationName"]),
 		}
 
 		logs := fmt.Sprintf("[%s]", strings.Join(logEntries, ","))
@@ -309,7 +328,7 @@ func sendTelemetryDataDog(telemetryData, headerKey string, url string, requestTy
 	// Create a new request using http
 	req, err := http.NewRequest(requestType, url, bytes.NewBuffer([]byte(telemetryData)))
 	if err != nil {
-		return fmt.Errorf("Error creating request")
+		return fmt.Errorf("error creating request")
 	}
 
 	// Add headers to the request
@@ -318,14 +337,13 @@ func sendTelemetryDataDog(telemetryData, headerKey string, url string, requestTy
 	req.Header.Set("DD-API-KEY", headerKey)
 
 	// Send the request via a client
-	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("Error sending request to %v", url)
+		return fmt.Errorf("error sending request to %v", url)
 	} else if resp.StatusCode == 404 {
-		return fmt.Errorf("Provided URL %v is not valid", url)
+		return fmt.Errorf("provided URL %v is not valid", url)
 	} else if resp.StatusCode == 403 {
-		return fmt.Errorf("Provided credentials are not valid")
+		return fmt.Errorf("provided credentials are not valid")
 	}
 
 	defer resp.Body.Close()

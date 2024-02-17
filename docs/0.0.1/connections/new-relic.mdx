@@ -8,7 +8,7 @@ Doku can automatically send LLM usage data from Doku to New Relic using the [Rep
 Add the following to your doku configuration file(`doku.yml`).
 
 ```yaml doku.yml
-connections:
+observabilityPlatform:
   enabled: true                                    # Enable or Disable the Observability Platform, Example: true
     newRelic:
       metricsUrl: <your-new-relic-metrics-url>     # URL to the New Relic Metric API

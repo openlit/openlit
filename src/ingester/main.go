@@ -2,23 +2,23 @@ package main
 
 import (
 	"context"
-	"flag"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/common-nighthawk/go-figure"
-	"github.com/gorilla/mux"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"ingester/api"
 	"ingester/auth"
 	"ingester/config"
 	"ingester/connections"
 	"ingester/cost"
 	"ingester/db"
+
+	"github.com/common-nighthawk/go-figure"
+	"github.com/gorilla/mux"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func waitForShutdown(server *http.Server) {
@@ -27,8 +27,8 @@ func waitForShutdown(server *http.Server) {
 
 	// Wait for an interrupt
 	sig := <-quit
-	log.Info().Msgf("Caught sig: %+v", sig)
-	log.Info().Msg("Starting to shutdown server")
+	log.Info().Msgf("caught sig: %+v", sig)
+	log.Info().Msg("Sstarting to shutdown server")
 
 	// Initialize the context with a timeout to ensure the app can make a graceful exit
 	// or abort if it takes too long
@@ -36,9 +36,9 @@ func waitForShutdown(server *http.Server) {
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Error().Err(err).Msg("Server shutdown failed")
+		log.Error().Err(err).Msg("server shutdown failed")
 	} else {
-		log.Info().Msg("Server gracefully shutdown")
+		log.Info().Msg("server gracefully shutdown")
 	}
 }
 
@@ -51,48 +51,33 @@ func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Info().Msg("Starting Doku Ingester")
 
-	// Use flag package to parse the configuration file
-	configFilePath := flag.String("config", "./config.yml", "Path to the Doku Ingester config file")
-	flag.Parse()
-
-	// Load the configuration
-	cfg, err := config.LoadConfiguration(*configFilePath)
+	// Load the configuration from the environment variables
+	cfg, err := config.LoadConfigFromEnv()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to load configuration file")
+		log.Fatal().Err(err).Msg("Failed to load configuration from environment")
 	}
 
-	// Load pricing information, either from a local file or from a URL
-	if cfg.PricingInfo.URL != "" {
-		log.Info().Msgf("Initializing LLM Pricing Information from URL '%s'", cfg.PricingInfo.URL)
-		err = cost.LoadPricing("", cfg.PricingInfo.URL)
-	} else if cfg.PricingInfo.LocalFile.Path != "" {
-		log.Info().Msgf("Initializing LLM Pricing Information from local file '%s", cfg.PricingInfo.LocalFile.Path)
-		err = cost.LoadPricing(cfg.PricingInfo.LocalFile.Path, "")
-	}
+	// Initialize the pricing information from the URL
+	log.Info().Msgf("initializing LLM Pricing Information from URL '%s'", cfg.Pricing.URL)
+	err = cost.LoadPricing("", cfg.Pricing.URL)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to load LLM pricing information")
+		log.Fatal().Err(err).Msg("failed to load LLM pricing information")
 	}
-	log.Info().Msg("Successfully initialized LLM pricing information")
+
+	// Initialize the http client for the observability platforms
+	connections.Init()
+
+	log.Info().Msg("successfully initialized LLM pricing information")
 
 	// Initialize the backend database connection with loaded configuration
-	log.Info().Msg("Initializing connection to the backend database")
+	log.Info().Msg("initializing connection to the backend database")
 	err = db.Init(*cfg)
 	if err != nil {
-		log.Fatal().Msg("Unable to initialize connection to the backend database")
+		log.Fatal().Err(err).Msg("unable to initialize connection to the backend database")
 	}
-	log.Info().Msg("Successfully initialized connection to the backend database")
+	log.Info().Msg("successfully initialized connection to the backend database")
 
-	// Initialize observability platform if configured
-	if cfg.Connections.Enabled == true {
-		log.Info().Msg("Initializing for your Observability Platform")
-		err := connections.Init(*cfg)
-		if err != nil {
-			log.Fatal().Msg("Exiting due to error in initializing for your Observability Platform")
-		}
-		log.Info().Msg("Setup complete for sending data to your Observability Platform")
-	}
-
-	// Cache eviction setup for the authentication process
+	// Cache eviction setup for the API Keys and Connections
 	auth.InitializeCacheEviction()
 
 	// Initialize the HTTP server routing
@@ -100,6 +85,8 @@ func main() {
 	r.HandleFunc("/api/push", api.DataHandler).Methods("POST")
 	r.HandleFunc("/api/keys", api.APIKeyHandler).Methods("GET", "POST", "DELETE")
 	r.HandleFunc("/", api.BaseEndpoint).Methods("GET")
+	r.HandleFunc("/api/connections", api.ConnectionsHandler).Methods("POST", "DELETE")
+	r.HandleFunc("/api/data/retention", api.RetentionHandler).Methods("POST")
 
 	// Define and start the HTTP server
 	server := &http.Server{
@@ -112,9 +99,9 @@ func main() {
 
 	// Starts the HTTP server in a goroutine and logs any error upon starting.
 	go func() {
-		log.Info().Msg("Server listening on port " + cfg.IngesterPort)
+		log.Info().Msg("server listening on port " + cfg.IngesterPort)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal().Err(err).Msg("Could not listen on port " + cfg.IngesterPort)
+			log.Fatal().Err(err).Msg("could not listen on port " + cfg.IngesterPort)
 		}
 	}()
 
