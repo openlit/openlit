@@ -1,53 +1,58 @@
 "use client";
 import AddAPIKeyModal from "@/components/(playground)/add-api-key-modal";
 import ConfirmationModal from "@/components/common/confirmation-modal";
-import { deleteData, getData } from "@/utils/api";
+import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { Disclosure } from "@headlessui/react";
 import { DocumentDuplicateIcon, TrashIcon } from "@heroicons/react/24/outline";
-import { PlusIcon } from "@heroicons/react/24/solid";
 import copy from "copy-to-clipboard";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 function ManageKeys() {
-	const [data, setData] = useState<Array<any>>([]);
+	const { data, fireRequest: fireGetRequest, isLoading } = useFetchWrapper();
+	const { fireRequest: fireDeleteRequest, isLoading: isDeleting } =
+		useFetchWrapper();
+	const { fireRequest: firePostRequest, isLoading: isCreating } =
+		useFetchWrapper();
 	const [selectedKey, setSelectedKey] = useState<any>();
 	const [creating, setCreating] = useState<boolean>(false);
 	const newCreatedKey = useRef<any>();
-	const fetchData = useCallback(async () => {
-		const res = await getData({
-			method: "GET",
-			url: "/api/api-key",
-		});
 
-		setData(res || []);
+	const fetchData = useCallback(() => {
+		fireGetRequest({
+			url: "/api/api-key",
+			requestType: "GET",
+		});
 	}, []);
 
 	useEffect(() => {
 		fetchData();
 	}, [fetchData]);
 
-	const handleYes = useCallback(async () => {
-		await deleteData({
+	const handleYes = useCallback(() => {
+		fireDeleteRequest({
 			url: `/api/api-key/${selectedKey?.id}`,
+			requestType: "DELETE",
+			successCb: () => {
+				setSelectedKey(null);
+				fetchData();
+			},
 		});
-
-		setSelectedKey(null);
-		fetchData();
-	}, [selectedKey, fetchData]);
+	}, [selectedKey?.id]);
 
 	const handleNo = () => setSelectedKey(null);
 
-	const handleYesCreation = async (name: string) => {
-		const res = await getData({
+	const handleYesCreation = useCallback(async (name: string) => {
+		firePostRequest({
 			url: `/api/api-key`,
-			method: "POST",
+			requestType: "POST",
 			body: JSON.stringify({ name }),
+			successCb: (resp) => {
+				newCreatedKey.current = resp;
+				setCreating(false);
+				fetchData();
+			},
 		});
-
-		newCreatedKey.current = res;
-
-		setCreating(false);
-		fetchData();
-	};
+	}, []);
 
 	const handleNoCreation = () => setCreating(false);
 
@@ -56,16 +61,16 @@ function ManageKeys() {
 	return (
 		<>
 			<table className="w-2/3 text-sm text-left rtl:text-right mt-4">
-				<thead className="text-xs text-gray-700 uppercase">
-					<tr className="border-b">
+				<thead className="text-xs text-tertiary uppercase">
+					<tr className="border-b border-secondary">
 						<th className="px-6 py-2 w-1/3">Name</th>
 						<th className="px-6 py-2 w-1/3">Key</th>
 						<th className="px-6 py-2 w-1/3">Actions</th>
 					</tr>
 				</thead>
 				<tbody>
-					{data.map((item) => (
-						<tr className="border-b" key={item.id}>
+					{(data as Array<any>)?.map((item) => (
+						<tr className="border-b border-secondary" key={item.id}>
 							<td className="px-6 py-3 w-1/3 font-medium ">{item.name}</td>
 							<td className="px-6 py-3 w-1/3">
 								{item.api_key}
@@ -84,23 +89,40 @@ function ManageKeys() {
 							</td>
 						</tr>
 					))}
-					<tr onClick={() => setCreating(true)}>
-						<td
-							className="w-full bg-gray-200 hover:bg-gray-300 cursor-pointer py-1"
-							colSpan={3}
-						>
-							<PlusIcon className="w-4 mx-auto" />
-						</td>
-					</tr>
+					{isLoading && (
+						<tr className="border-b border-secondary animate-pulse">
+							<td className="px-6 py-3 w-1/3 font-medium ">
+								<div className="h-2 w-2/3 bg-secondary/[0.9] rounded"></div>
+							</td>
+							<td className="px-6 py-3 w-1/3">
+								<div className="h-2 w-2/3 bg-secondary/[0.9] rounded"></div>
+							</td>
+							<td className="px-6 py-3 w-1/3">
+								<div className="h-2 w-1/3 bg-secondary/[0.9] rounded"></div>
+							</td>
+						</tr>
+					)}
 				</tbody>
 			</table>
+			<button
+				type="button"
+				className="bg-primary/[0.8] text-secondary hover:bg-primary cursor-pointer px-3 py-0.5 text-center text-sm self-start rounded mt-3 outline-none"
+				onClick={() => setCreating(true)}
+			>
+				Add new
+			</button>
 			{selectedKey?.id && (
-				<ConfirmationModal handleNo={handleNo} handleYes={handleYes} />
+				<ConfirmationModal
+					handleNo={handleNo}
+					handleYes={handleYes}
+					isUpdating={isDeleting}
+				/>
 			)}
 			{creating && (
 				<AddAPIKeyModal
 					handleNo={handleNoCreation}
 					handleYes={handleYesCreation}
+					isCreating={isCreating}
 				/>
 			)}
 		</>
@@ -109,28 +131,38 @@ function ManageKeys() {
 
 export default function APIKeys() {
 	return (
-		<div className="flex flex-col grow w-full h-full rounded overflow-hidden p-2 text-sm">
-			<p>
+		<div className="flex flex-col w-full flex-1 overflow-auto">
+			<p className="text-base mb-5 text-tertiary/[0.8]">
 				Welcome to the API Key Management page. Here, you can view, generate,
 				and manage API keys for seamless integration with our services. Please
 				note that we do not display your secret API keys again after you
 				generate them.
 			</p>
-			<ul className="list-disc list-inside mt-2">
-				<li>
-					<span className="font-medium">Keep Your Keys Secure:</span> Treat your
-					API keys like passwords. Do not share them publicly or expose them in
-					places where unauthorized individuals may access them.
-				</li>
-				<li>
-					<span className="font-medium">Rotate Keys Regularly:</span> For
-					enhanced security, consider rotating your keys periodically.
-				</li>
-				<li>
-					<span className="font-medium">Revoke Unused Keys:</span> If a key is
-					no longer needed or compromised, revoke it immediately.
-				</li>
-			</ul>
+			<Disclosure defaultOpen>
+				<Disclosure.Button className="flex w-full justify-between rounded-t-lg bg-secondary px-4 py-2 text-left text-sm font-medium text-primary focus:outline-none">
+					Keep Your Keys Secure
+				</Disclosure.Button>
+				<Disclosure.Panel className="p-4 text-sm rounded-b-lg text-tertiary/[0.7] bg-secondary/[0.5]">
+					Treat your API keys like passwords. Do not share them publicly or
+					expose them in places where unauthorized individuals may access them.
+				</Disclosure.Panel>
+			</Disclosure>
+			<Disclosure defaultOpen>
+				<Disclosure.Button className="flex w-full justify-between rounded-t-lg bg-secondary px-4 py-2 text-left text-sm font-medium text-primary focus:outline-none mt-3">
+					Rotate Keys Regularly
+				</Disclosure.Button>
+				<Disclosure.Panel className="p-4 text-sm rounded-b-lg text-tertiary/[0.7] bg-secondary/[0.5]">
+					For enhanced security, consider rotating your keys periodically.
+				</Disclosure.Panel>
+			</Disclosure>
+			<Disclosure defaultOpen>
+				<Disclosure.Button className="flex w-full justify-between rounded-t-lg bg-secondary px-4 py-2 text-left text-sm font-medium text-primary focus:outline-none mt-3">
+					Revoke Unused Keys
+				</Disclosure.Button>
+				<Disclosure.Panel className="p-4 text-sm rounded-b-lg text-tertiary/[0.7] bg-secondary/[0.5]">
+					If a key is no longer needed or compromised, revoke it immediately.
+				</Disclosure.Panel>
+			</Disclosure>
 			<ManageKeys />
 		</div>
 	);

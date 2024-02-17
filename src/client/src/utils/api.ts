@@ -17,6 +17,7 @@ export async function getData({ body, method = "POST", url }: GET_DATA) {
 type DELETE_DATA = {
 	url: string;
 };
+
 export async function deleteData({ url }: DELETE_DATA) {
 	const res = await fetch(url, { method: "DELETE" });
 	if (!res.ok) {

@@ -32,7 +32,7 @@ export default function RequestFilter({
 					<Pagination
 						currentPage={filter.offset / filter.limit + 1}
 						currentSize={filter.limit}
-						totalPage={ceil(config.totalrows / filter.limit)}
+						totalPage={ceil((config.totalrows || 0) / filter.limit)}
 						onClickPageAction={onClickPageAction}
 						onClickPageLimit={onClickPageLimit}
 					/>

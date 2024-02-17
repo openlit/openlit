@@ -30,7 +30,7 @@ export default function Pagination(props: PaginationProps) {
 	const onSizeChange: MouseEventHandler = (ev) => {
 		const { size = "10" } = (ev.currentTarget as HTMLButtonElement).dataset;
 		props.onClickPageLimit(parseInt(size, 10));
-    setIsMenuOpen(false);
+		setIsMenuOpen(false);
 	};
 
 	const handleClickOutside = (event: MouseEvent) => {
@@ -59,7 +59,7 @@ export default function Pagination(props: PaginationProps) {
 			<div className="relative flex items-center mr-5" ref={dropdownRef}>
 				<button
 					type="button"
-					className="inline-flex justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-xs ring-1 ring-inset ring-gray-300"
+					className="inline-flex justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-xs ring-1 ring-inset ring-tertiary/[.2]"
 					onClick={() => setIsMenuOpen((e) => !e)}
 				>
 					{props.currentSize}
@@ -73,8 +73,8 @@ export default function Pagination(props: PaginationProps) {
 					{PageSizes.map((size: number) => (
 						<button
 							key={`size-${size}`}
-							className={`text-gray-700 block px-4 py-2 text-sm hover:bg-gray-50 ${
-								props.currentSize === size ? "bg-gray-50" : ""
+							className={`text-tertiary/[0.7] block px-4 py-2 text-sm hover:bg-secondary/[0.6] ${
+								props.currentSize === size ? "bg-secondary/[0.6]" : ""
 							}`}
 							data-size={size}
 							onClick={onSizeChange}
@@ -84,9 +84,12 @@ export default function Pagination(props: PaginationProps) {
 					))}
 				</div>
 			</div>
+			<div className="flex items-center mr-5 text-sm text-tertiary/[0.5]">
+				{props.currentPage} of {props.totalPage}
+			</div>
 			<div className="flex rounded-md shadow-sm" aria-label="Pagination">
 				<button
-					className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-40 disabled:cursor-not-allowed"
+					className="relative inline-flex items-center rounded-l-md px-2 py-2 text-tertiary ring-1 ring-inset ring-tertiary/[.15] hover:bg-secondary focus:z-20 focus:outline-offset-0 disabled:opacity-40 disabled:cursor-not-allowed"
 					data-action="previous"
 					disabled={firstPage}
 					onClick={onClickAction}
@@ -94,7 +97,7 @@ export default function Pagination(props: PaginationProps) {
 					<ChevronLeftIcon className="w-4" />
 				</button>
 				<button
-					className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-40 disabled:cursor-not-allowed"
+					className="relative inline-flex items-center rounded-r-md px-2 py-2 text-tertiary ring-1 ring-inset ring-tertiary/[.15] hover:bg-secondary focus:z-20 focus:outline-offset-0 disabled:opacity-40 disabled:cursor-not-allowed"
 					data-action="next"
 					disabled={lastPage}
 					onClick={onClickAction}

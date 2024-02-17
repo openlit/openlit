@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from ".prisma/client";
 
-export const TABLE_NAME = "doku";
+export const TABLE_NAME = "DOKU_LLM_DATA";
 
 export type TimeLimit = {
 	start: Date;

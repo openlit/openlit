@@ -10,7 +10,7 @@ type GenerateAPIKeyProps = {
 export async function generateAPIKey(params: GenerateAPIKeyProps) {
 	const api_key = crypto.randomBytes(32).toString("hex");
 	return await asaw(
-		prisma.apikey.create({
+		prisma.doku_apikeys.create({
 			data: {
 				name: params.name,
 				api_key,
@@ -20,10 +20,10 @@ export async function generateAPIKey(params: GenerateAPIKeyProps) {
 }
 
 export async function getAPIKeys() {
-	const [, data] = await asaw(prisma.apikey.findMany());
+	const [, data] = await asaw(prisma.doku_apikeys.findMany());
 	return normalizeAPIKeys(data);
 }
 
-export async function deleteAPIKey(id: number) {
-	return await asaw(prisma.apikey.delete({ where: { id } }));
+export async function deleteAPIKey(id: string) {
+	return await asaw(prisma.doku_apikeys.delete({ where: { id } }));
 }

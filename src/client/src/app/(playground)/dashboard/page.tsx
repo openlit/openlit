@@ -6,15 +6,15 @@ import RequestsPerTime from "./requests-per-time";
 
 export default function PlaygroundPage() {
 	return (
-		<div className="flex flex-col grow w-full h-full rounded overflow-hidden">
+		<>
 			<Filter />
-			<div className="flex flex-col p-2 grow w-full h-full rounded overflow-y-auto mt-2">
+			<div className="flex flex-col grow w-full h-full rounded overflow-y-auto py-2">
 				<NumberStats />
 				<div className="flex flex-col gap-6">
 					<RequestsPerTime />
 					<ModelsCategories />
 				</div>
 			</div>
-		</div>
+		</>
 	);
 }
