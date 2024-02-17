@@ -28,7 +28,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/jsonResponse'  
+                $ref: '#/components/schemas/json201Response'  
     delete:
       summary: Delete a connection
       operationId: deleteConnection
@@ -42,7 +42,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/jsonResponse'
+                $ref: '#/components/schemas/json201Response'
   /api/keys:
     get:
       summary: Get a list of API keys
@@ -63,7 +63,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/jsonResponse'
+                $ref: '#/components/schemas/json201Response'
     post:
       summary: Create a new API key
       operationId: createApiKey
@@ -83,7 +83,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/jsonResponse'  
+                $ref: '#/components/schemas/json201Response'  
     delete:
       summary: Delete an API key
       operationId: deleteApiKey
@@ -103,7 +103,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/jsonResponse'
+                $ref: '#/components/schemas/json201Response'
   /api/data/retention:
     post:
       summary: Set data retention
@@ -124,7 +124,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/jsonResponse'
+                $ref: '#/components/schemas/json201Response'
 
 components:
   schemas:
@@ -173,7 +173,18 @@ components:
           type: string
           description: API Key for the Observability Platform. Example - `glc*******`
 
-    jsonResponse:
+    json201Response:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+    
+    json401Response:
       type: object
       required:
         - status

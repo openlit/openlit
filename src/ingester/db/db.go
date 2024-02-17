@@ -18,13 +18,13 @@ import (
 )
 
 var (
-	once                   sync.Once            // once is used to ensure that the database is initialized only once
-	connectionCache        sync.Map             // connectionCache stores the lookup of connection details
-	CacheEntryDuration     = time.Minute * 10   // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
-	db                     *sql.DB              // db holds the database connection
-	doku_llm_data_table    = "DOKU_LLM_DATAAAA"   // doku_llm_data_table holds the name of the data table
-	doku_apikeys_table     = "DOKU_APIKEYSAAA"     // doku_apikeys_table holds the name of the API keys table
-	doku_connections_table = "DOKU_CONNECTIONSAAA" // doku_connections_table holds the name of the connections table
+	once                   sync.Once                 // once is used to ensure that the database is initialized only once
+	connectionCache        sync.Map                  // connectionCache stores the lookup of connection details
+	CacheEntryDuration     = time.Minute * 10        // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
+	db                     *sql.DB                   // db holds the database connection
+	doku_llm_data_table    = "DOKU_LLM_DATAAAAAA"    // doku_llm_data_table holds the name of the data table
+	doku_apikeys_table     = "DOKU_APIKEYSAAAAA"     // doku_apikeys_table holds the name of the API keys table
+	doku_connections_table = "DOKU_CONNECTIONSAAAAA" // doku_connections_table holds the name of the connections table
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
@@ -436,7 +436,6 @@ func CheckAPIKey(apiKey string) (string, error) {
 	err := db.QueryRow(query, apiKey).Scan(&name)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Warn().Msg("What?")
 			return "", err
 		}
 		return "", err
@@ -557,6 +556,7 @@ func GenerateConnection(existingAPIKey string, config ConnectionRequest) error {
 		log.Error().Err(err).Msg("Error inserting the new Connections config in the database")
 		return err
 	}
+	connectionCache.Delete("connectionConfig")
 	log.Info().Msgf("New Connection config created successfully")
 	return nil
 }
@@ -570,13 +570,26 @@ func DeleteConnection(existingAPIKey string) error {
 		return fmt.Errorf("AUTHFAILED")
 	}
 
-	deleteRows := fmt.Sprintf("DELETE FROM %s", doku_connections_table)
-	_, err = db.Exec(deleteRows)
+	var count int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", doku_connections_table)
+	err = db.QueryRow(countQuery).Scan(&count)
 	if err != nil {
-		log.Error().Err(err).Msg("Error deleting the existing Connections config in the database")
-		return err
+		log.Info().Msgf("%d", count)
+		log.Error().Err(err).Msg("Error checking Connections Table")
+		return fmt.Errorf("failed to check Connections table: %v", err)
 	}
-	log.Info().Msgf("Connection config deleted successfully")
+	if count >= 1 {
+		deleteRows := fmt.Sprintf("DELETE FROM %s", doku_connections_table)
+		_, err = db.Exec(deleteRows)
+		if err != nil {
+			log.Error().Err(err).Msg("Error deleting the existing Connections config in the database")
+			return err
+		}
+		connectionCache.Delete("connectionConfig")
+		log.Info().Msgf("Connection config deleted successfully")
+	} else {
+		return fmt.Errorf("NOTFOUND")
+	}
 
 	return nil
 }

@@ -145,6 +145,10 @@ func deleteConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := db.DeleteConnection(getAuthKey(r))
 	if err != nil {
+		if err.Error() == "NOTFOUND" {
+			sendJSONResponse(w, http.StatusNotFound, "No existing Connection found")
+			return
+		}
 		sendJSONResponse(w, http.StatusBadRequest, "Error deleting connection: "+err.Error())
 		return
 	}
