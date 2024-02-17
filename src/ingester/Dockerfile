@@ -15,3 +15,6 @@ COPY . .
 
 # Build the Go application and name the executable as "ingester"
 RUN go build -o ingester
+
+# Command to run the executable
+CMD ["./ingester"]
