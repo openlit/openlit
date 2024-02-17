@@ -94,7 +94,7 @@ func PingDB() error {
 		time.Sleep(retryDelay)
 	}
 
-	return fmt.Errorf("Failed to connect to the database after %d attempts", attempt)
+	return fmt.Errorf("failed to connect to the database after %d attempts", attempt)
 }
 
 // GenerateSecureRandomKey should generate a secure random string to be used as an API key.
