@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
@@ -12,20 +13,21 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	_ "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/rs/zerolog/log"
 )
 
 var (
-	once                   sync.Once            // once is used to ensure that the database is initialized only once
-	connectionCache        sync.Map             // connectionCache stores the lookup of connection details
-	ApiKeyCache            = sync.Map{}         // ApiKeyCache stores the lookup of API keys and organization IDs.
-	CacheEntryDuration     = time.Minute * 10   // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
-	db                     *sql.DB              // db holds the database connection
-	doku_llm_data_table    = "DOKU_LLM_DATA"    // doku_llm_data_table holds the name of the data table
-	doku_apikeys_table     = "DOKU_APIKEYS"     // doku_apikeys_table holds the name of the API keys table
-	doku_connections_table = "DOKU_CONNECTIONS" // doku_connections_table holds the name of the connections table
+	connectionCache        sync.Map               // connectionCache stores the lookup of connection details
+	ApiKeyCache            = sync.Map{}           // ApiKeyCache stores the lookup of API keys and organization IDs.
+	CacheEntryDuration     = time.Minute * 10     // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
+	db                     clickhouse.Conn        // db holds the database connection
+	ctx                    = context.Background() // ctx is the context for the database connection
+	doku_llm_data_table    = "DOKU_LLM_DATA"      // doku_llm_data_table holds the name of the data table
+	doku_apikeys_table     = "DOKU_APIKEYS"       // doku_apikeys_table holds the name of the API keys table
+	doku_connections_table = "DOKU_CONNECTIONS"   // doku_connections_table holds the name of the connections table
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
@@ -65,6 +67,14 @@ type connectionCacheEntry struct {
 	Timestamp time.Time
 }
 
+// PingDB checks if the database is responsive.
+func PingDB() error {
+	if err := db.Ping(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
 // EvictExpiredEntries goes through the cache and evicts expired entries.
 func EvictExpiredEntries() {
 	now := time.Now()
@@ -78,25 +88,6 @@ func EvictExpiredEntries() {
 	})
 }
 
-// PingDB attempts to ping the database to check if it's alive.
-func PingDB() error {
-	var attempt int
-	retryDelay := 15 * time.Second
-
-	for attempt < 5 {
-		attempt++
-		err := db.Ping()
-		if err == nil {
-			return nil
-		}
-
-		log.Warn().Err(err).Msgf("Failed to connect to the database on attempt %d, retrying in %s", attempt, retryDelay)
-		time.Sleep(retryDelay)
-	}
-
-	return fmt.Errorf("failed to connect to the database after %d attempts", attempt)
-}
-
 // GenerateSecureRandomKey should generate a secure random string to be used as an API key.
 func generateSecureRandomKey() (string, error) {
 	randomPartLength := 40 / 2 // Each byte becomes two hex characters, so we need half as many bytes.
@@ -104,7 +95,7 @@ func generateSecureRandomKey() (string, error) {
 	randomBytes := make([]byte, randomPartLength)
 	_, err := rand.Read(randomBytes)
 	if err != nil {
-		log.Error().Err(err).Msg("Error generating random bytes")
+		log.Error().Err(err).Msg("error generating random bytes")
 		// In the case of an error, return it as we cannot generate a key.
 		return "", err
 	}
@@ -119,162 +110,139 @@ func generateSecureRandomKey() (string, error) {
 // getCreateConnectionsTableSQL returns the SQL query to create the API keys table.
 func getCreateConnectionsTableSQL(tableName string) string {
 	return fmt.Sprintf(`
-	CREATE TABLE IF NOT EXISTS %s (
-		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-		platform VARCHAR(50) NOT NULL,
-		metricsUrl TEXT NOT NULL,
-		logsUrl TEXT NOT NULL,
-		apiKey TEXT NOT NULL,
-		metricsUsername VARCHAR(50) NOT NULL,
-		logsUsername VARCHAR(50) NOT NULL,
-		created_at TIMESTAMPTZ DEFAULT NOW()
-	);`, tableName)
+    CREATE TABLE IF NOT EXISTS %s (
+        id UUID DEFAULT generateUUIDv4(), 
+        platform String NOT NULL,
+        metricsUrl String NOT NULL,
+        logsUrl String NOT NULL,
+        apiKey String NOT NULL,
+        metricsUsername String NOT NULL,
+        logsUsername String NOT NULL,
+        created_at DateTime DEFAULT now() 
+    ) ENGINE = MergeTree()
+    ORDER BY id;`, tableName)
 }
 
 // getCreateAPIKeysTableSQL returns the SQL query to create the API keys table.
 func getCreateAPIKeysTableSQL(tableName string) string {
 	return fmt.Sprintf(`
-	CREATE TABLE IF NOT EXISTS %s (
-		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-		api_key VARCHAR(255) NOT NULL UNIQUE,
-		name VARCHAR(50) NOT NULL,
-		created_at TIMESTAMPTZ DEFAULT NOW()
-	);`, tableName)
+    CREATE TABLE IF NOT EXISTS %s (
+        id UUID DEFAULT generateUUIDv4(),  // Use ClickHouse's function to generate UUIDs
+        api_key String NOT NULL,  // VARCHAR is equivalent to String in ClickHouse
+        name String NOT NULL,
+        created_at DateTime DEFAULT now()
+    ) ENGINE = MergeTree()  // Specify the table engine, MergeTree engines are common in ClickHouse
+    ORDER BY (id, api_key);`, tableName) // Define the primary key as part of the engine's ORDER BY
 }
 
-// getCreateDataTableSQL returns the SQL query to create the data table.
-func getCreateDataTableSQL(tableName string) string {
+// getCreateDataTableSQL returns the SQL query to create the data table in ClickHouse.
+func getCreateDataTableSQL(tableName string, retentionPeriod string) string {
 	return fmt.Sprintf(`
-	CREATE TABLE IF NOT EXISTS %s (
-		time TIMESTAMPTZ NOT NULL,
-		id UUID DEFAULT gen_random_uuid(),
-		llmReqId TEXT,
-		environment VARCHAR(50) NOT NULL,
-		endpoint VARCHAR(50) NOT NULL,
-		sourceLanguage VARCHAR(50) NOT NULL,
-		applicationName VARCHAR(50) NOT NULL,
-		completionTokens INTEGER,
-		promptTokens INTEGER,
-		totalTokens INTEGER,
-		finishReason VARCHAR(50),
-		requestDuration DOUBLE PRECISION,
-		usageCost DOUBLE PRECISION,
-		model VARCHAR(50),
-		prompt TEXT,
-		response TEXT,
-		imageSize TEXT,
-		revisedPrompt TEXT,
-		image TEXT,
-		audioVoice TEXT,
-		finetuneJobStatus TEXT,
-		feedback INTEGER
-	);`, tableName)
+    CREATE TABLE IF NOT EXISTS %s (
+        time DateTime NOT NULL,
+        id UUID DEFAULT generateUUIDv4(), 
+        llmReqId String, 
+        environment String NOT NULL,
+        endpoint String NOT NULL,
+        sourceLanguage String NOT NULL,
+        applicationName String NOT NULL,
+        completionTokens Int32, 
+        promptTokens Int32,
+        totalTokens Int32,
+        finishReason String,
+        requestDuration Float64, 
+        usageCost Float64,
+        model String,
+        prompt String,
+        response String,
+        imageSize String, 
+        revisedPrompt String,
+        image String,
+        audioVoice String,
+        finetuneJobStatus String,
+        feedback Int32
+    ) ENGINE = MergeTree() 
+    ORDER BY (time, id)
+	TTL time + INTERVAL + %s DELETE; `, tableName, retentionPeriod)
 }
 
-// tableExists checks if a table exists in the database.
-func tableExists(db *sql.DB, tableName string) (bool, error) {
-	query := `
-		SELECT EXISTS (
-			SELECT 1
-			FROM   information_schema.tables 
-			WHERE  table_schema = 'public'
-			AND    lower(table_name) = lower($1)
-		)
-	`
+func tableExists(tableName string, databaseName string) (bool, error) {
+	query := `SELECT count() 
+              FROM system.tables 
+              WHERE database = ? AND name = ?`
 
-	var exists bool
-	err := db.QueryRow(query, tableName).Scan(&exists)
-	if err != nil {
+	var count uint64
+	if err := db.QueryRow(ctx, query, databaseName, tableName).Scan(&count); err != nil {
 		return false, err
 	}
-
-	return exists, nil
+	return count > 0, nil
 }
 
-// createTable creates a table in the database if it doesn't exist.
-func createTable(db *sql.DB, tableName string) error {
+// createTable attempts to create a table in ClickHouse if it doesn't already exist.
+func createTable(tableName string, cfg config.Configuration) error {
 	var createTableSQL string
+
 	if tableName == doku_apikeys_table {
 		createTableSQL = getCreateAPIKeysTableSQL(tableName)
 	} else if tableName == doku_llm_data_table {
-		createTableSQL = getCreateDataTableSQL(tableName)
+		createTableSQL = getCreateDataTableSQL(tableName, cfg.Database.RetentionPeriod)
 	} else if tableName == doku_connections_table {
 		createTableSQL = getCreateConnectionsTableSQL(tableName)
 	}
 
-	exists, err := tableExists(db, tableName)
+	exists, err := tableExists(tableName, cfg.Database.Name)
 	if err != nil {
 		return fmt.Errorf("error checking table '%s' existence: %w", tableName, err)
 	}
 	if !exists {
-		_, err := db.Exec(createTableSQL)
-		if err != nil {
-			return fmt.Errorf("error creating table %s: %w", tableName, err)
+		if err = db.Exec(ctx, createTableSQL); err != nil {
+			return fmt.Errorf("error creating table '%s': %w", tableName, err)
 		}
-		log.Info().Msgf("Table '%s' created in the database", tableName)
-
 		if tableName == doku_apikeys_table {
-			createIndexSQL := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_api_key ON %s (api_key);", tableName)
-			_, err = db.Exec(createIndexSQL)
-			if err != nil {
-				return fmt.Errorf("error creating index on 'api_key' column: %w", err)
-			}
-
-			// Add fresh installation API key
 			newAPIKey, _ := generateSecureRandomKey()
-
 			// Insert the new API key into the database
 			insertQuery := fmt.Sprintf("INSERT INTO %s (api_key, name) VALUES ($1, $2)", doku_apikeys_table)
-			_, err = db.Exec(insertQuery, newAPIKey, "doku-client-internal")
+			err = db.Exec(ctx, insertQuery, newAPIKey, "doku-client-internal")
 			if err != nil {
 				log.Error().Err(err).Msg("Error inserting the new API key in the database")
 				return err
 			}
-			log.Info().Msgf("Index on 'api_key' column checked/created in table '%s'", tableName)
 		}
-
-		// If the table to create is the data table, convert it into a hypertable
-		if tableName == doku_llm_data_table {
-			_, err := db.Exec("SELECT create_hypertable($1, 'time')", tableName)
-			if err != nil {
-				return fmt.Errorf("error creating hypertable: %w", err)
-			}
-			log.Info().Msgf("Table '%s' converted to a Hypertable", tableName)
-			query := fmt.Sprintf("SELECT add_retention_policy('%s', INTERVAL '%s')", tableName, "180 days")
-			_, err = db.Exec(query)
-			if err != nil {
-				return fmt.Errorf("error adding data retention policy: %w", err)
-			}
-			log.Info().Msgf("Added data retention policy of '%s' to '%s' ", "180 days", tableName)
-		}
-	} else {
-		log.Info().Msgf("Table '%s' already exists in the database", tableName)
+		log.Printf("table '%s' created in the database", tableName)
+		return nil
 	}
+	log.Info().Msgf("table '%s' exists in the database", tableName)
 	return nil
 }
 
 // initializeDB initializes connection to the database.
 func initializeDB(cfg config.Configuration) error {
-	var dbErr error
-	once.Do(func() {
-		connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-			cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Name, cfg.Database.SSLMode)
+	var err error
+	addr := fmt.Sprintf("%s:%s", cfg.Database.Host, cfg.Database.Port)
+	for attempt := 1; attempt <= 5; attempt++ {
+		db, _ = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{addr},
+			Auth: clickhouse.Auth{
+				Database: cfg.Database.Name,
+				Username: cfg.Database.User,
+				Password: cfg.Database.Password,
+			},
+			MaxOpenConns: cfg.Database.MaxOpenConns,
+			MaxIdleConns: cfg.Database.MaxIdleConns,
+		})
 
-		if db, dbErr = sql.Open("postgres", connStr); dbErr != nil {
-			log.Error().Err(dbErr).Msg("Error connecting to the database")
-			return
+		// Ping the database to check if it's connected.
+		if err = PingDB(); err != nil {
+			log.Warn().Msgf("failed to connect to the database on attempt %d, retrying in %s", attempt, 15*time.Second)
+			if attempt < 5 {
+				db.Close()
+				time.Sleep(15 * time.Second)
+				continue
+			}
+			return err
 		}
-
-		dbErr = PingDB()
-		if dbErr != nil {
-			return
-		}
-		log.Info().Msg("Successfully connected to the database")
-
-		db.SetMaxOpenConns(cfg.Database.MaxOpenConns)
-		db.SetMaxIdleConns(cfg.Database.MaxIdleConns)
-	})
-	return dbErr
+	}
+	return nil
 }
 
 func getTokens(text, model string) int {
@@ -313,11 +281,12 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 		}
 	}
 
-	// Define the SQL query for data insertion
-	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobStatus) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)", doku_llm_data_table)
+	// Construct query with placeholders
+	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", doku_llm_data_table)
 
-	// Execute the SQL query
-	_, err := db.Exec(query,
+	// Create a slice for parameters in the correct order
+	params := []interface{}{
+		time.Now(),
 		data["llmReqId"],
 		data["environment"],
 		data["endpoint"],
@@ -337,10 +306,12 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 		data["image"],
 		data["audioVoice"],
 		data["finetuneJobStatus"],
-	)
+	}
+
+	// Execute the SQL query
+	err := db.Exec(ctx, query, params...)
 	if err != nil {
-		log.Error().Err(err).Msg("Error Inserting data into the database")
-		// Update the response message and status code for error
+		log.Error().Err(err).Msg("error Inserting data into the database")
 		return "Internal Server Error", http.StatusInternalServerError
 	}
 
@@ -364,28 +335,24 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 func Init(cfg config.Configuration) error {
 	err := initializeDB(cfg)
 	if err != nil {
-		log.Error().Err(err).Msg("Error initializing database")
-		return fmt.Errorf("could not initialize connection to the database: %w", err)
+		return err
 	}
 
 	// Create the DATA and API keys table if it doesn't exist.
-	log.Info().Msgf("Creating '%s', '%s' and '%s' tables in the database if they don't exist", doku_connections_table, doku_apikeys_table, doku_llm_data_table)
+	log.Info().Msgf("creating '%s', '%s' and '%s' tables in the database if they don't exist", doku_connections_table, doku_apikeys_table, doku_llm_data_table)
 
-	err = createTable(db, doku_connections_table)
+	err = createTable(doku_connections_table, cfg)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error creating table %s", doku_connections_table)
 		return err
 	}
 
-	err = createTable(db, doku_apikeys_table)
+	err = createTable(doku_apikeys_table, cfg)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error creating table %s", doku_apikeys_table)
 		return err
 	}
 
-	err = createTable(db, doku_llm_data_table)
+	err = createTable(doku_llm_data_table, cfg)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error creating table %s", doku_apikeys_table)
 		return err
 	}
 	return nil
@@ -405,7 +372,8 @@ func checkConnections() (*connections.ConnectionConfig, error) {
 	// If not in cache or cache is expired, query the database
 	query := fmt.Sprintf("SELECT platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername FROM %s;", doku_connections_table)
 	var connDetails connections.ConnectionConfig
-	row := db.QueryRow(query)
+	// Ensure you have a valid database connection 'db' to ClickHouse, and it might need a context passed if supported
+	row := db.QueryRow(ctx, query) // Assuming you have a context 'ctx' available
 	err := row.Scan(&connDetails.Platform, &connDetails.MetricsUrl, &connDetails.LogsUrl,
 		&connDetails.ApiKey, &connDetails.MetricsUsername, &connDetails.LogsUsername)
 	if err != nil {
@@ -430,12 +398,12 @@ func PerformDatabaseInsertion(data map[string]interface{}) (string, int) {
 	return responseMessage, statusCode
 }
 
-// CheckAPIKey retrieves the name associated with the given API key from the database.
 func CheckAPIKey(apiKey string) (string, error) {
 	var name string
 
-	query := fmt.Sprintf("SELECT name FROM %s WHERE api_key = $1", doku_apikeys_table)
-	err := db.QueryRow(query, apiKey).Scan(&name)
+	// Adjust the placeholder for ClickHouse
+	query := fmt.Sprintf("SELECT name FROM %s WHERE api_key = ?", doku_apikeys_table)
+	err := db.QueryRow(ctx, query, apiKey).Scan(&name)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", err
@@ -445,14 +413,13 @@ func CheckAPIKey(apiKey string) (string, error) {
 	return name, nil
 }
 
-// GenerateAPIKey generates a new API key for a given name and stores it in the database.
 func GenerateAPIKey(existingAPIKey, name string) (string, error) {
-	// If there are any existing API keys, authenticate the provided API key before proceeding
-	var count int
+	count := uint64(0)
+
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE name != 'doku-client-internal'", doku_apikeys_table)
-	err := db.QueryRow(countQuery).Scan(&count)
+	err := db.QueryRow(ctx, countQuery).Scan(&count)
 	if err != nil {
-		log.Error().Err(err).Msg("Error checking API key table")
+		log.Error().Err(err).Msg("error checking API key table")
 		return "", fmt.Errorf("failed to check API key table: %v", err)
 	}
 
@@ -461,164 +428,129 @@ func GenerateAPIKey(existingAPIKey, name string) (string, error) {
 		// Attempt to retrieve any existing key for the given name.
 		_, err = GetAPIKeyForName(existingAPIKey, name)
 		if err == nil {
-			log.Warn().Msgf("Error creating new API Key as a key with the name '%s' already exists", name)
+			log.Warn().Msgf("error creating new API Key as a key with the name '%s' already exists", name)
 			return "", fmt.Errorf("KEYEXISTS")
 		} else if err.Error() == "AUTHFAILED" {
 			return "", err
 		}
 	}
 
-	// No existing key found, proceed to generate a new API key
-	log.Info().Msgf("Creating a new API Key with the name: %s", name)
 	newAPIKey, _ := generateSecureRandomKey()
 
-	// Insert the new API key into the database
-	insertQuery := fmt.Sprintf("INSERT INTO %s (api_key, name) VALUES ($1, $2)", doku_apikeys_table)
-	_, err = db.Exec(insertQuery, newAPIKey, name)
-	if err != nil {
-		log.Error().Err(err).Msg("Error inserting the new API key in the database")
+	// Properly use placeholders for the query parameters, adjusted for ClickHouse
+	insertQuery := fmt.Sprintf("INSERT INTO %s (api_key, name) VALUES (?, ?)", doku_apikeys_table)
+	if err := db.Exec(ctx, insertQuery, newAPIKey, name); err != nil {
+		log.Error().Err(err).Msg("error inserting the new API key in the database")
 		return "", err
 	}
 	log.Info().Msgf("API Key with the name '%s' created successfully", name)
 	return newAPIKey, nil
 }
 
-// GetAPIKeyForName retrieves an API key for a given name from the database.
 func GetAPIKeyForName(existingAPIKey, name string) (string, error) {
-
-	// Autheticate the provided API key before proceeding
+	// Authenticate the provided API key before proceeding
 	_, err := CheckAPIKey(existingAPIKey)
 	if err != nil {
 		log.Warn().Msg("Authorization Failed for an API Key")
 		return "", fmt.Errorf("AUTHFAILED")
 	}
-
 	// Retrieve the API key for the given name
 	var apiKey string
-	query := fmt.Sprintf("SELECT api_key FROM %s WHERE name = $1", doku_apikeys_table)
-	err = db.QueryRow(query, name).Scan(&apiKey)
+	// Adjust the query to use ? as a placeholder
+	query := fmt.Sprintf("SELECT api_key FROM %s WHERE name = ?", doku_apikeys_table)
+	err = db.QueryRow(ctx, query, name).Scan(&apiKey)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Warn().Msgf("API Key with the name '%s' currently not found in the database", name)
 			return "", fmt.Errorf("NOTFOUND")
 		}
-		log.Warn().Err(err).Msgf("Error retrieving API key for the name '%s'", name)
+		log.Warn().Err(err).Msgf("error retrieving API key for the name '%s'", name)
 		return "", err
 	}
 
 	return apiKey, nil
 }
 
-// DeleteAPIKey deletes an API key for a given name from the database.
 func DeleteAPIKey(existingAPIKey, name string) error {
-
-	// Autheticate the provided API key before proceeding and check if the API key exists
+	// Authenticate the provided API key before proceeding and check if the API key exists
 	apiKey, err := GetAPIKeyForName(existingAPIKey, name)
 	if err != nil {
-		if err.Error() == "AUTHFAILED" {
-			return err
-		}
-		if err.Error() == "NOTFOUND" {
-			return err
-		}
+		// If auth failed or API key was not found, return the error directly
 		return err
 	}
 
 	// Delete the API key from the database
-	log.Info().Msgf("Deleting API Key with the name '%s' from the database", name)
-	query := fmt.Sprintf("DELETE FROM %s WHERE api_key = $1", doku_apikeys_table)
-	_, err = db.Exec(query, apiKey)
-	if err != nil {
-		log.Error().Err(err).Msg("Error deleting API key")
+	log.Info().Msgf("deleting API Key with the name '%s' from the database", name)
+	// Adjust the query to use ? as the placeholder for ClickHouse
+	query := fmt.Sprintf("DELETE FROM %s WHERE api_key = ?", doku_apikeys_table)
+	if err = db.Exec(ctx, query, apiKey); err != nil {
+		log.Error().Err(err).Msg("error deleting API key")
 		return err
 	}
+
+	// Assuming ApiKeyCache is a custom caching mechanism you've implemented
 	ApiKeyCache.Delete(apiKey)
 	log.Info().Msgf("API Key with the name '%s' deleted successfully", name)
 	return nil
 }
 
-// GenerateConnection
 func GenerateConnection(existingAPIKey string, config ConnectionRequest) error {
-	// Autheticate the provided API key before proceeding
+	// Authenticate the provided API key before proceeding
 	_, err := CheckAPIKey(existingAPIKey)
 	if err != nil {
 		log.Warn().Msg("Authorization Failed for an API Key")
 		return fmt.Errorf("AUTHFAILED")
 	}
 
-	deleteRows := fmt.Sprintf("DELETE FROM %s", doku_connections_table)
-	_, err = db.Exec(deleteRows)
-	if err != nil {
-		log.Error().Err(err).Msg("Error deleting the existing Connections config in the database")
+	// Delete all existing rows in the connections table
+	deleteRows := fmt.Sprintf("DELETE FROM %s WHERE 1=1", doku_connections_table)
+	if err = db.Exec(ctx, deleteRows); err != nil {
+		log.Error().Err(err).Msg("error deleting the existing Connections config in the database")
 		return err
 	}
 
-	insertQuery := fmt.Sprintf("INSERT INTO %s (platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername) VALUES ($1, $2, $3, $4, $5, $6)", doku_connections_table)
-	_, err = db.Exec(insertQuery, config.Platform, config.MetricsURL, config.LogsURL, config.ApiKey, config.MetricsUsername, config.LogsUserName)
-	if err != nil {
-		log.Error().Err(err).Msg("Error inserting the new Connections config in the database")
+	// Insert the new connection configuration into the table
+	// Note: ClickHouse uses ? as placeholders
+	insertQuery := fmt.Sprintf("INSERT INTO %s (platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername) VALUES (?, ?, ?, ?, ?, ?)", doku_connections_table)
+	if err = db.Exec(ctx, insertQuery, config.Platform, config.MetricsURL, config.LogsURL, config.ApiKey, config.MetricsUsername, config.LogsUserName); err != nil {
+		log.Error().Err(err).Msg("error inserting the new Connections config in the database")
 		return err
 	}
+	// Assuming connectionCache is a custom mechanism for caching the connection configuration
 	connectionCache.Delete("connectionConfig")
 	log.Info().Msgf("New Connection config created successfully")
 	return nil
 }
 
-// DeleteConnection deletes the connection details from the database.
+// / DeleteConnection deletes the existing connection configuration from the database.
 func DeleteConnection(existingAPIKey string) error {
-	// Autheticate the provided API key before proceeding
+	// Authenticate the provided API key before proceeding
 	_, err := CheckAPIKey(existingAPIKey)
 	if err != nil {
 		log.Warn().Msg("Authorization Failed for an API Key")
 		return fmt.Errorf("AUTHFAILED")
 	}
 
-	var count int
+	var count uint64
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", doku_connections_table)
-	err = db.QueryRow(countQuery).Scan(&count)
+	err = db.QueryRow(ctx, countQuery).Scan(&count)
 	if err != nil {
-		log.Info().Msgf("%d", count)
-		log.Error().Err(err).Msg("Error checking Connections Table")
+		log.Error().Err(err).Msg("error checking Connections Table")
 		return fmt.Errorf("failed to check Connections table: %v", err)
 	}
 	if count >= 1 {
-		deleteRows := fmt.Sprintf("DELETE FROM %s", doku_connections_table)
-		_, err = db.Exec(deleteRows)
+		deleteRows := fmt.Sprintf("DELETE FROM %s WHERE 1=1", doku_connections_table)
+		err = db.Exec(ctx, deleteRows)
 		if err != nil {
-			log.Error().Err(err).Msg("Error deleting the existing Connections config in the database")
+			log.Error().Err(err).Msg("error deleting the existing Connections config in the database")
 			return err
 		}
+		// Assuming connectionCache is a mechanism you've implemented for caching
 		connectionCache.Delete("connectionConfig")
-		log.Info().Msgf("Connection config deleted successfully")
+		log.Info().Msg("connection config deleted successfully")
 	} else {
 		return fmt.Errorf("NOTFOUND")
 	}
-
-	return nil
-}
-
-// UpdateRetentionPeriod updates the retention period for the data table.
-func UpdateRetention(existingAPIKey string, retentionPeriod string) error {
-	// Autheticate the provided API key before proceeding
-	_, err := CheckAPIKey(existingAPIKey)
-	if err != nil {
-		log.Warn().Msg("Authorization Failed for an API Key")
-		return fmt.Errorf("AUTHFAILED")
-	}
-
-	query := fmt.Sprintf("SELECT remove_retention_policy('%s')", doku_llm_data_table)
-	_, err = db.Exec(query)
-	if err != nil {
-		return fmt.Errorf("error removing existing data retention policy: %w", err)
-	}
-
-	// Update the retention period for the data table
-	query = fmt.Sprintf("SELECT add_retention_policy('%s', INTERVAL '%s')", doku_llm_data_table, retentionPeriod)
-	_, err = db.Exec(query)
-	if err != nil {
-		return fmt.Errorf("error adding data retention policy: %w", err)
-	}
-	log.Info().Msgf("Added data retention policy of '%s' to '%s' ", retentionPeriod, doku_llm_data_table)
 
 	return nil
 }

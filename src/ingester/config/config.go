@@ -14,14 +14,14 @@ type Configuration struct {
 		URL string `json:"url"`
 	} `json:"pricing"`
 	Database struct {
-		Host         string `json:"host"`
-		Name         string `json:"name"`
-		Password     string `json:"password"`
-		Port         string `json:"port"`
-		SSLMode      string `json:"sslmode"`
-		User         string `json:"user"`
-		MaxIdleConns int    `json:"maxIdleConns"`
-		MaxOpenConns int    `json:"maxOpenConns"`
+		Host            string `json:"host"`
+		Name            string `json:"name"`
+		Password        string `json:"password"`
+		Port            string `json:"port"`
+		User            string `json:"user"`
+		MaxIdleConns    int    `json:"maxIdleConns"`
+		MaxOpenConns    int    `json:"maxOpenConns"`
+		RetentionPeriod string `json:"retentionPeriod"`
 	} `json:"database"`
 }
 
@@ -42,10 +42,10 @@ func LoadConfigFromEnv() (*Configuration, error) {
 	config.Database.Name = os.Getenv("DOKU_DB_NAME")
 	config.Database.Password = os.Getenv("DOKU_DB_PASSWORD")
 	config.Database.Port = os.Getenv("DOKU_DB_PORT")
-	config.Database.SSLMode = os.Getenv("DOKU_DB_SSLMODE")
 	config.Database.User = os.Getenv("DOKU_DB_USER")
 	config.Database.MaxIdleConns = getIntFromEnv("DOKU_DB_MAX_IDLE_CONNS")
 	config.Database.MaxOpenConns = getIntFromEnv("DOKU_DB_MAX_OPEN_CONNS")
+	config.Database.RetentionPeriod = os.Getenv("DOKU_DB_RETENTION_PERIOD")
 	config.IngesterPort = os.Getenv("DOKU_INGESTER_PORT")
 	config.Pricing.URL = os.Getenv("DOKU_PRICING_JSON_URL")
 
@@ -62,6 +62,9 @@ func LoadConfigFromEnv() (*Configuration, error) {
 	if config.Database.MaxOpenConns == 0 {
 		config.Database.MaxOpenConns = 20 // default max open connections
 	}
+	if config.Database.RetentionPeriod == "" {
+		config.Database.RetentionPeriod = "6 MONTH" // default retention period
+	}
 
 	missingVars := []string{}
 
@@ -74,9 +77,6 @@ func LoadConfigFromEnv() (*Configuration, error) {
 	}
 	if config.Database.Port == "" {
 		missingVars = append(missingVars, "DOKU_DB_PORT")
-	}
-	if config.Database.SSLMode == "" {
-		missingVars = append(missingVars, "DOKU_DB_SSLMODE")
 	}
 	if config.Database.User == "" {
 		missingVars = append(missingVars, "DOKU_DB_USER")

@@ -28,7 +28,7 @@ func waitForShutdown(server *http.Server) {
 	// Wait for an interrupt
 	sig := <-quit
 	log.Info().Msgf("caught sig: %+v", sig)
-	log.Info().Msg("Sstarting to shutdown server")
+	log.Info().Msg("starting to shutdown server")
 
 	// Initialize the context with a timeout to ensure the app can make a graceful exit
 	// or abort if it takes too long
@@ -49,7 +49,7 @@ func main() {
 	figure.NewColorFigure("DOKU Ingester", "", "yellow", true).Print()
 	// Configure global settings for the zerolog logger
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Info().Msg("Starting Doku Ingester")
+	log.Info().Msg("starting Doku Ingester")
 
 	// Load the configuration from the environment variables
 	cfg, err := config.LoadConfigFromEnv()
@@ -73,20 +73,18 @@ func main() {
 	log.Info().Msg("initializing connection to the backend database")
 	err = db.Init(*cfg)
 	if err != nil {
-		log.Fatal().Err(err).Msg("unable to initialize connection to the backend database")
+		log.Fatal().Msgf("%v", err)
 	}
 	log.Info().Msg("successfully initialized connection to the backend database")
 
 	// Cache eviction setup for the API Keys and Connections
 	auth.InitializeCacheEviction()
-
 	// Initialize the HTTP server routing
 	r := mux.NewRouter()
 	r.HandleFunc("/api/push", api.DataHandler).Methods("POST")
 	r.HandleFunc("/api/keys", api.APIKeyHandler).Methods("GET", "POST", "DELETE")
 	r.HandleFunc("/", api.BaseEndpoint).Methods("GET")
 	r.HandleFunc("/api/connections", api.ConnectionsHandler).Methods("POST", "DELETE")
-	r.HandleFunc("/api/data/retention", api.RetentionHandler).Methods("POST")
 
 	// Define and start the HTTP server
 	server := &http.Server{

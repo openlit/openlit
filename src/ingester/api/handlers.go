@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"ingester/auth"
@@ -122,6 +121,10 @@ func generateConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := db.GenerateConnection(getAuthKey(r), request)
 	if err != nil {
+		if err.Error() == "AUTHFAILED" {
+			sendJSONResponse(w, http.StatusUnauthorized, errMsgAuthFailed)
+			return
+		}
 		sendJSONResponse(w, http.StatusBadRequest, "Error creating connection: "+err.Error())
 		return
 	}
@@ -147,6 +150,10 @@ func deleteConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err.Error() == "NOTFOUND" {
 			sendJSONResponse(w, http.StatusNotFound, "No existing Connection found")
+			return
+		}
+		if err.Error() == "AUTHFAILED" {
+			sendJSONResponse(w, http.StatusUnauthorized, errMsgAuthFailed)
 			return
 		}
 		sendJSONResponse(w, http.StatusBadRequest, "Error deleting connection: "+err.Error())
@@ -276,34 +283,6 @@ func ConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
-}
-
-// retentionHandler handles updating the retention period in the Database.
-func RetentionHandler(w http.ResponseWriter, r *http.Request) {
-	type RetentionRequest struct {
-		RetentionPeriod string `json:"retentionPeriod"`
-	}
-	var request RetentionRequest
-
-	if err := decodeRequestBody(r, &request); err != nil {
-		sendJSONResponse(w, http.StatusBadRequest, errMsgInvalidBody)
-		return
-	}
-
-	// Use regex to validate the format "<int> days"
-	match, _ := regexp.MatchString(`^\d+\s+days$`, request.RetentionPeriod)
-	if !match {
-		sendJSONResponse(w, http.StatusBadRequest, "retention period should be in the format '<int> days'")
-		return
-	}
-
-	err := db.UpdateRetention(getAuthKey(r), request.RetentionPeriod)
-	if err != nil {
-		sendJSONResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	sendJSONResponse(w, http.StatusOK, "retention period updated successfully")
 }
 
 // BaseEndpoint serves as a health check and entry point for the service.
