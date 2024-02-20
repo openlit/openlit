@@ -88,7 +88,7 @@ func main() {
 
 	// Define and start the HTTP server
 	server := &http.Server{
-		Addr:         ":" + cfg.IngesterPort,
+		Addr:         ":9044" ,
 		Handler:      r,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -97,9 +97,9 @@ func main() {
 
 	// Starts the HTTP server in a goroutine and logs any error upon starting.
 	go func() {
-		log.Info().Msg("server listening on port " + cfg.IngesterPort)
+		log.Info().Msg("server listening on port :9044")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal().Err(err).Msg("could not listen on port " + cfg.IngesterPort)
+			log.Fatal().Err(err).Msg("could not listen on port :9044")
 		}
 	}()
 

@@ -9,7 +9,6 @@ import (
 
 // Assuming Configuration struct definition is globally accessible
 type Configuration struct {
-	IngesterPort string `json:"ingesterPort"`
 	Pricing      struct {
 		URL string `json:"url"`
 	} `json:"pricing"`
@@ -46,13 +45,8 @@ func LoadConfigFromEnv() (*Configuration, error) {
 	config.Database.MaxIdleConns = getIntFromEnv("DOKU_DB_MAX_IDLE_CONNS")
 	config.Database.MaxOpenConns = getIntFromEnv("DOKU_DB_MAX_OPEN_CONNS")
 	config.Database.RetentionPeriod = os.Getenv("DOKU_DB_RETENTION_PERIOD")
-	config.IngesterPort = os.Getenv("DOKU_INGESTER_PORT")
 	config.Pricing.URL = os.Getenv("DOKU_PRICING_JSON_URL")
 
-	// Setting default values if the environment variables are not provided
-	if config.IngesterPort == "" {
-		config.IngesterPort = "9044" // default port
-	}
 	if config.Pricing.URL == "" {
 		config.Pricing.URL = "https://raw.githubusercontent.com/dokulabs/doku/main/assets/pricing.json" // default pricing URL
 	}
