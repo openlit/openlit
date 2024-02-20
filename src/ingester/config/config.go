@@ -9,7 +9,7 @@ import (
 
 // Assuming Configuration struct definition is globally accessible
 type Configuration struct {
-	Pricing      struct {
+	Pricing struct {
 		URL string `json:"url"`
 	} `json:"pricing"`
 	Database struct {

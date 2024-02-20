@@ -88,7 +88,7 @@ func main() {
 
 	// Define and start the HTTP server
 	server := &http.Server{
-		Addr:         ":9044" ,
+		Addr:         ":9044",
 		Handler:      r,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
