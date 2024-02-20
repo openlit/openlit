@@ -1,0 +1,142 @@
+---
+title: 'Configuration'
+description: 'Configuring Options for Doku'
+icon: 'sliders'
+---
+
+This document outlines the various options available for configuring Doku using Envionment variables.
+
+## Environment Varibales
+
+<ResponseField name="DOKU_DB_HOST" required>
+  Host address for the Clickhouse to be used by Doku
+
+  **Example**:
+  ```yaml
+  export DOKU_DB_HOST=127.0.0.1
+  ```
+</ResponseField>
+
+<ResponseField name="DOKU_DB_PORT" required>
+  Port on which Clickhouse is running
+
+  **Example**:
+  ```yaml
+  export DOKU_DB_PORT=5432
+  ```
+</ResponseField>
+
+<ResponseField name="DOKU_DB_NAME" required>
+  Name of the database in Clickhouse to be used by Doku
+
+  **Example**:
+  ```yaml
+  export DOKU_DB_NAME=postgres
+  ```
+</ResponseField>
+
+<ResponseField name="DOKU_DB_USER" required>
+  Username to be used when connecting to Clickhouse
+
+  **Example**:
+  ```yaml
+  export DOKU_DB_USER=admin
+  ```
+</ResponseField>
+
+<ResponseField name="DOKU_DB_PASSWORD" required>
+  Password for the Database user to be used when connecting to Clickhouse
+
+  **Example**:
+  ```yaml
+  export DOKU_DB_PASSWORD=DOKU
+  ```
+</ResponseField>
+
+<ResponseField name="DOKU_DB_SLLMODE" required>
+  SSL Mode to be used when connecting to Clickhouse
+
+  **Example**:
+  ```yaml
+  export DOKU_DB_SLLMODE=require
+  ```
+</ResponseField>
+
+<ResponseField name="DOKU_PRICING_JSON_URL">
+  Doku supports using a Json file retrived from a URL for the LLM Pricing data.
+
+**Default Value**:
+```shell
+https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json
+```
+
+**Example**:
+```yaml
+export DOKU_PRICING_JSON_URL=https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json
+  ```
+</ResponseField>
+
+<ResponseField name="DOKU_DB_MAX_IDLE_CONNS">
+  Maximum number of concurrent idle database connections.
+
+**Default Value**:
+```shell
+10
+```
+
+**Example**:
+```shell
+export DOKU_DB_MAX_IDLE_CONNS=10
+```
+</ResponseField>
+
+<ResponseField name="DOKU_DB_MAX_OPEN_CONNS">
+  Maximum number of concurrent open database connections.
+
+**Default Value**:
+```shell
+20
+```
+
+**Example**:
+```shell
+export DOKU_DB_MAX_OPEN_CONNS=20
+```
+</ResponseField>
+
+<ResponseField name="DOKU_DB_RETENTION_PERIOD">
+  The `DOKU_DB_RETENTION_PERIOD` specifies the TTL for data in Clickhouse.
+
+**Default Value**:
+```shell
+6 MONTH
+```
+
+**Example**:
+```shell
+export DOKU_DB_RETENTION_PERIOD="6 MONTH"
+```
+</ResponseField>
+
+
+## Example Env File
+
+```.env.example .env
+DOKU_DB_HOST="127.0.0.1"
+DOKU_DB_PORT="5432"
+DOKU_DB_NAME="postgres"
+DOKU_DB_USER="admin"
+DOKU_DB_PASSWORD="DOKU"
+DOKU_DB_SSLMODE="require
+```
+
+---
+
+<CardGroup cols={2}>
+<Card title="Integrations" href="/0.1.0/integration/introduction" icon='circle-nodes'>
+Integrate your LLM Provider with Doku 
+</Card>
+<Card title="Connections" href="/0.1.0/connections/intro" icon='link'>
+Connect to your existing Observablity Platform
+</Card>
+</CardGroup>
