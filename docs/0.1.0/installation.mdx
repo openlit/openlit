@@ -49,38 +49,38 @@ Quickly spin up Doku using Docker Compose for a fast and straightforward setup.
 <Steps>
   <Step title="Create `docker-compose.yml`">
   ```yml
-  version: '3.7'
+  version: '3.8'
 
   services:
-    timescaledb:
-      image: timescale/timescaledb-ha:pg14-ts2.14
-      container_name: timescaledb
+    clickhouse:
+      image: clickhouse/clickhouse-server:24.1.5
+      container_name: clickhouse
       environment:
-        POSTGRES_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
-        POSTGRES_USER: ${DOKU_DB_USER:-admin}          
-        POSTGRES_DB: ${DOKU_DB_NAME:-postgres}          
+        CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
+        CLICKHOUSE_USER: ${DOKU_DB_USER:-default}                   
       volumes:
-        - timescaledb-data:/var/lib/postgresql/data
+        - clickhouse-data:/var/lib/clickhouse
       ports:
-        - "${DOKU_DB_PORT:-5432}:5432" 
+        - "${DOKU_DB_PORT:-9000}:9000" 
       restart: always
 
     doku-ingester:
-      image: ghcr.io/patcher99/doku-ingester:0.1.0
+      image: ghcr.io/patcher99/doku-ingester:0.0.6
       container_name: doku-ingester
       environment:
-        DOKU_DB_HOST: timescaledb   
-        DOKU_DB_PORT: ${DOKU_DB_PORT:-5432} 
-        DOKU_DB_NAME: ${DOKU_DB_NAME:-postgres}     
-        DOKU_DB_USER: ${DOKU_DB_USER:-admin}              
-        DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}           
-        DOKU_DB_SSLMODE: ${DB_DB_SSLMODE:-require}                        
+        DOKU_DB_HOST: clickhouse   
+        DOKU_DB_PORT: ${DOKU_DB_PORT:-9000} 
+        DOKU_DB_NAME: ${DOKU_DB_NAME:-default}     
+        DOKU_DB_USER: ${DOKU_DB_USER:-default}              
+        DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+      ports:
+        - "${DOKU_INGESTER_PORT:-9044}:9044"           
       depends_on:
-        - timescaledb
+        - clickhouse
       restart: always
 
   volumes:
-    timescaledb-data:
+    clickhouse-data:
   ```
   </Step>
    <Step title="Start Docker Compose">
