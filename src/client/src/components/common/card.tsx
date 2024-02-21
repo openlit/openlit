@@ -27,7 +27,7 @@ export default forwardRef(function Card(
 			className={`border border-secondary relative text-left text-tertiary p-6 text-sm ${containerClass}`}
 			ref={ref}
 		>
-			{heading && <p className="mb-2">{heading}</p>}
+			{heading && <h3 className="mb-2 font-medium">{heading}</h3>}
 			{!!isLoading ? (
 				<div
 					className={`animate-pulse bg-secondary/[0.9] rounded-full ${loadingClass}`}
