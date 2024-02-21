@@ -1,4 +1,5 @@
-import { type TokenParams, getAverageTokensPerRequest } from "@/lib/doku/token";
+import { DokuParams } from "@/lib/doku/common";
+import { getCostByApplication } from "@/lib/doku/cost";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
@@ -8,17 +9,16 @@ export async function POST(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit;
 
-	const params: TokenParams = {
+	const params: DokuParams = {
 		timeLimit: {
 			start: timeLimit.start,
 			end: timeLimit.end,
 		},
-		type: formData.type,
 	};
 
 	const validationParam = validateMetricsRequest(
 		params,
-		validateMetricsRequestType.AVERAGE_REQUEST_TOKEN
+		validateMetricsRequestType.COST_BY_APPLICATION
 	);
 
 	if (!validationParam.success)
@@ -26,6 +26,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getAverageTokensPerRequest(params);
+	const res: any = await getCostByApplication(params);
 	return Response.json(res);
 }

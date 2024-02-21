@@ -18,7 +18,7 @@ export async function getRequestPerTime(params: DokuParams) {
 
 	const query = `SELECT
 		CAST(COUNT(endpoint) AS INTEGER) AS total,
-		TO_CHAR(DATE_TRUNC('${dateTrunc}', time), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS request_time
+		TO_CHAR(DATE_TRUNC('${dateTrunc}', time), 'YY/MM/DD HH24:MI') AS request_time
 		FROM ${TABLE_NAME} 
 		WHERE time >= '${start}' AND time <= '${end}'
 		GROUP BY request_time

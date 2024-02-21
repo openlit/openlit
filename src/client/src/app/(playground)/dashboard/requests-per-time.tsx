@@ -23,9 +23,12 @@ export default function RequestsPerTime() {
 	}, [filter, fetchData]);
 
 	return (
-		<Card heading="Requests per time" containerClass="rounded-lg">
+		<Card
+			containerClass="rounded-lg w-full h-full h-64"
+			heading="Requests per time"
+		>
 			<LineChart
-				className="mt-6"
+				className="h-40"
 				connectNulls
 				data={isLoading || !isFetched ? [] : (data as any[]) || []}
 				index="request_time"

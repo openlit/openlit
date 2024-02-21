@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect } from "react";
 import { useFilter } from "../filter-context";
 import Card from "@/components/common/card";
 import { DonutChart } from "@tremor/react";
@@ -72,22 +72,36 @@ const PieChartCard = memo(
 
 PieChartCard.displayName = "PieChartCard";
 
-export default function ModelsCategories() {
+export default function DataCharts() {
 	return (
 		<div className="flex w-full gap-6">
-			<PieChartCard
-				categoryKey="model_count"
-				containerClass="rounded-lg w-full"
-				heading="Top Models"
-				indexKey="model"
-				url="/api/metrics/model/top"
-			/>
 			<PieChartCard
 				categoryKey="count"
 				containerClass="rounded-lg w-full"
 				heading="Generation by categories"
 				indexKey="category"
 				url="/api/metrics/category"
+			/>
+			<PieChartCard
+				categoryKey="count"
+				containerClass="rounded-lg w-full"
+				heading="Generation by provider"
+				indexKey="provider"
+				url="/api/metrics/endpoint"
+			/>
+			<PieChartCard
+				categoryKey="cost"
+				containerClass="rounded-lg w-full"
+				heading="Cost by application"
+				indexKey="applicationname"
+				url="/api/metrics/cost/application"
+			/>
+			<PieChartCard
+				categoryKey="cost"
+				containerClass="rounded-lg w-full"
+				heading="Cost by Environment"
+				indexKey="environment"
+				url="/api/metrics/cost/environment"
 			/>
 		</div>
 	);

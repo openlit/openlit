@@ -1,24 +1,24 @@
-import { type TokenParams, getAverageTokensPerRequest } from "@/lib/doku/token";
+import { DokuParams } from "@/lib/doku/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/utils/doku";
+import { getResultGenerationByEndpoint } from "@/lib/doku/endpoint";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit;
 
-	const params: TokenParams = {
+	const params: DokuParams = {
 		timeLimit: {
 			start: timeLimit.start,
 			end: timeLimit.end,
 		},
-		type: formData.type,
 	};
 
 	const validationParam = validateMetricsRequest(
 		params,
-		validateMetricsRequestType.AVERAGE_REQUEST_TOKEN
+		validateMetricsRequestType.GENERATION_BY_ENDPOINT
 	);
 
 	if (!validationParam.success)
@@ -26,6 +26,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getAverageTokensPerRequest(params);
+	const res: any = await getResultGenerationByEndpoint(params);
 	return Response.json(res);
 }
