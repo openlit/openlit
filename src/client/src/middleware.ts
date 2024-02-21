@@ -32,16 +32,16 @@ export default withAuth(
 			}
 		}
 
-		// if (!isAuth) {
-		// 	let from = pathname;
-		// 	if (req.nextUrl.search) {
-		// 		from += req.nextUrl.search;
-		// 	}
+		if (!isAuth) {
+			let from = pathname;
+			if (req.nextUrl.search) {
+				from += req.nextUrl.search;
+			}
 
-		// 	return NextResponse.redirect(
-		// 		new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
-		// 	);
-		// }
+			return NextResponse.redirect(
+				new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, req.url)
+			);
+		}
 	},
 	{
 		callbacks: {
