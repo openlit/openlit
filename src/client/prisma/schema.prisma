@@ -4,61 +4,22 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:../.db2/data.db"
 }
-
-model doku_apikeys {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  api_key    String    @unique @db.VarChar(255)
-  name       String    @db.VarChar(50)
-  created_at DateTime? @default(now()) @db.Timestamptz(6)
-
-  @@index([api_key], map: "idx_api_key")
-}
-
-/// This table has subclasses and requires additional setup for migrations. Visit https://pris.ly/d/table-inheritance for more info.
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
-model doku_llm_data {
-  time              DateTime @db.Timestamptz(6)
-  id                String?  @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  llmreqid          String?
-  environment       String   @db.VarChar(50)
-  endpoint          String   @db.VarChar(50)
-  sourcelanguage    String   @db.VarChar(50)
-  applicationname   String   @db.VarChar(50)
-  completiontokens  Int?
-  prompttokens      Int?
-  totaltokens       Int?
-  finishreason      String?  @db.VarChar(50)
-  requestduration   Float?
-  usagecost         Float?
-  model             String?  @db.VarChar(50)
-  prompt            String?
-  response          String?
-  imagesize         String?
-  revisedprompt     String?
-  image             String?
-  audiovoice        String?
-  finetunejobstatus String?
-
-  @@index([time(sort: Desc)])
-  @@ignore
-}
-
 
 model Account {
   id                 String    @id @default(cuid())
-  userId              String    @map("user_id")
-  type                 String?
+  userId             String    @map("user_id")
+  type               String?
   provider           String
   providerAccountId  String    @map("provider_account_id")
   token_type         String?
-  refresh_token      String?   @db.Text
-  access_token       String?   @db.Text
+  refresh_token      String?
+  access_token       String?
   expires_at         Int?
   scope              String?
-  id_token           String? @db.Text
+  id_token           String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -69,14 +30,14 @@ model Account {
 
 
 model Session {
-  id           String   @id @default(cuid())
-  userId       String?  @map("user_id")
-  sessionToken String   @db.Text @map("session_token") @unique
-  accessToken  String?  @db.Text @map("access_token")
+  id           String    @id @default(cuid())
+  userId       String?   @map("user_id")
+  sessionToken String    @map("session_token") @unique
+  accessToken  String?   @map("access_token")
   expires      DateTime
   user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@map("sessions")
 }
@@ -84,8 +45,8 @@ model Session {
 model User {
   id                    String     @id @default(uuid())
   name                  String?
-  email                 String    @unique
-  emailVerified         DateTime?   @map("email_verified")
+  email                 String     @unique
+  emailVerified         DateTime?  @map("email_verified")
   password              String?
   image                 String?
   createdAt             DateTime   @default(now())

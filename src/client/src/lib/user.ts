@@ -1,4 +1,3 @@
-import { User } from "@prisma/client";
 import prisma from "./prisma";
 import asaw from "@/utils/asaw";
 import { genSaltSync, hashSync } from "bcrypt-ts";

@@ -1,7 +1,9 @@
 import crypto from "crypto";
-import prisma from "./prisma";
 import asaw from "@/utils/asaw";
 import { normalizeAPIKeys } from "@/utils/api-key";
+import { dataCollector } from "./doku/common";
+
+export const TABLE_NAME = "doku_apikeys";
 
 type GenerateAPIKeyProps = {
 	name: string;
@@ -9,21 +11,18 @@ type GenerateAPIKeyProps = {
 
 export async function generateAPIKey(params: GenerateAPIKeyProps) {
 	const api_key = crypto.randomBytes(32).toString("hex");
-	return await asaw(
-		prisma.doku_apikeys.create({
-			data: {
-				name: params.name,
-				api_key,
-			},
-		})
-	);
+	return dataCollector(`INSERT INTO ${TABLE_NAME} (name, api_key)
+	VALUES ("${params.name}", "${api_key}");`);
 }
 
 export async function getAPIKeys() {
-	const [, data] = await asaw(prisma.doku_apikeys.findMany());
+	const [, { data }] = await asaw(dataCollector(`SELECT * from ${TABLE_NAME}`));
 	return normalizeAPIKeys(data);
 }
 
 export async function deleteAPIKey(id: string) {
-	return await asaw(prisma.doku_apikeys.delete({ where: { id } }));
+	const [, { data }] = await asaw(
+		dataCollector(`DELETE FROM ${TABLE_NAME} WHERE id = ${id};`)
+	);
+	return data;
 }
