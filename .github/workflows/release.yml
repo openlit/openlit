@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   ingester-docker:
-    name: Release Ingester Docker Image
+    name: Ingester Docker Image
     runs-on: ubuntu-latest
     outputs: 
       version: ${{ steps.set-version-output.outputs.version }}
@@ -93,7 +93,7 @@ jobs:
         run: echo "::set-output name=version::${{ env.DOCKER_METADATA_OUTPUT_VERSION }}"
   
   ingester-binaries:
-    name: Release Ingester Binaries
+    name: Ingester Binaries
     needs: ingester-docker
     runs-on: ubuntu-latest
     strategy:
