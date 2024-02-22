@@ -1,58 +1,58 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "sqlite"
-  url      = "file:../.db2/data.db"
+  url      = env("DATABASE_URL")
 }
 
 model Account {
-  id                 String    @id @default(cuid())
-  userId             String    @map("user_id")
-  type               String?
-  provider           String
-  providerAccountId  String    @map("provider_account_id")
-  token_type         String?
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  scope              String?
-  id_token           String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  type              String?
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  token_type        String?
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  scope             String?
+  id_token          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
 }
 
-
 model Session {
-  id           String    @id @default(cuid())
-  userId       String?   @map("user_id")
-  sessionToken String    @map("session_token") @unique
-  accessToken  String?   @map("access_token")
+  id           String   @id @default(cuid())
+  userId       String?  @map("user_id")
+  sessionToken String   @unique @map("session_token")
+  accessToken  String?  @map("access_token")
   expires      DateTime
-  user         User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("sessions")
 }
 
 model User {
-  id                    String     @id @default(uuid())
-  name                  String?
-  email                 String     @unique
-  emailVerified         DateTime?  @map("email_verified")
-  password              String?
-  image                 String?
-  createdAt             DateTime   @default(now())
-  updatedAt             DateTime   @updatedAt
-  accounts              Account[]
-  sessions              Session[]
+  id            String    @id @default(uuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  password      String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+
   @@map("users")
 }
 
