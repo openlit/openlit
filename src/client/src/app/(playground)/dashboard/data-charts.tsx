@@ -92,16 +92,16 @@ export default function DataCharts() {
 			<PieChartCard
 				categoryKey="cost"
 				containerClass="rounded-lg w-full"
-				heading="Cost by application"
-				indexKey="applicationname"
-				url="/api/metrics/cost/application"
+				heading="Cost by Environment"
+				indexKey="environment"
+				url="/api/metrics/cost/environment"
 			/>
 			<PieChartCard
 				categoryKey="cost"
 				containerClass="rounded-lg w-full"
-				heading="Cost by Environment"
-				indexKey="environment"
-				url="/api/metrics/cost/environment"
+				heading="Cost by application"
+				indexKey="applicationname"
+				url="/api/metrics/cost/application"
 			/>
 		</div>
 	);

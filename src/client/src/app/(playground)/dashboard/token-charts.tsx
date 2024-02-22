@@ -81,7 +81,7 @@ function ModelsPerTime() {
 	return (
 		<Card
 			containerClass="rounded-r-lg w-full h-full border-l-0"
-			heading="Tokens usage"
+			heading="Models per time"
 		>
 			<LineChart
 				className="h-40"

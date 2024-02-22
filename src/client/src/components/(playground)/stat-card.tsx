@@ -7,6 +7,7 @@ import { round } from "lodash";
 type StatCardProps = Partial<CardProps> & {
 	dataKey: string;
 	extraParams?: Record<any, any>;
+	roundTo?: number;
 	textPrefix?: string;
 	textSuffix?: string;
 	url: string;
@@ -16,6 +17,7 @@ const StatCard = memo(
 	({
 		dataKey,
 		extraParams = {},
+		roundTo = 4,
 		textClass = "",
 		textPrefix = "",
 		textSuffix = "",
@@ -46,7 +48,7 @@ const StatCard = memo(
 				isLoading={isLoading || !isFetched}
 				text={`${textPrefix}${round(
 					(data as Record<any, any>)?.[dataKey] || 0,
-					4
+					roundTo
 				)}${textSuffix}`}
 				textClass={`text-primary ${textClass}`}
 				{...rest}

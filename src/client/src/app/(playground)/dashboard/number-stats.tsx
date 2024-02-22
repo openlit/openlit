@@ -27,6 +27,7 @@ function NumberStats() {
 				containerClass="border-r-0 w-full"
 				dataKey="total_usage_cost"
 				heading="Total costs"
+				roundTo={7}
 				textPrefix="$"
 				url="/api/metrics/cost/total"
 			/>
@@ -34,6 +35,7 @@ function NumberStats() {
 				containerClass="rounded-r-lg w-full"
 				dataKey="average_usage_cost"
 				heading="Avg cost per request"
+				roundTo={7}
 				textPrefix="$"
 				url="/api/metrics/cost/request/average"
 			/>
