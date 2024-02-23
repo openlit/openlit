@@ -1,15 +1,19 @@
+<div align="center">
+
 # Doku: Open Source Observability for LLMs
+
 [![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
 [![Documentation](https://img.shields.io/badge/Documentation-orange?logo=Google-Docs&logoColor=white)](https://docs.dokulabs.com/)
-[![Static Badge](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/doku-0tq5728/shared_invite/zt-2a9aql9xx-FN5EIZ2DtZ~XtJoYdxUDtA)
-[![License](https://img.shields.io/github/license/dokulabs/doku?label=license&logo=github&color=f80&logoColor=fff%22%20alt=%22License)](https://github.com/dokulabs/doku/blob/main/LICENSE)
+[![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/doku-0tq5728/shared_invite/zt-2a9aql9xx-FN5EIZ2DtZ~XtJoYdxUDtA)
+[![License](https://img.shields.io/github/license/dokulabs/doku?label=License&logo=github&color=f80&logoColor=white)](https://github.com/dokulabs/doku/blob/main/LICENSE)
 [![Downloads](https://static.pepy.tech/badge/dokumetry/month)](https://pepy.tech/project/dokumetry)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/dokulabs/doku)](https://github.com/dokulabs/doku/pulse)
 [![GitHub Contributors](https://img.shields.io/github/contributors/dokulabs/doku)](https://github.com/dokulabs/doku/graphs/contributors)
-
 [![Helm Version](https://img.shields.io/github/tag/dokulabs/helm.svg?&label=Chart%20Version&logo=helm)](https://github.com/dokulabs/helm/tags)
 [![Python Library Version](https://img.shields.io/github/tag/dokulabs/dokumetry-python.svg?&label=dokumetry%20version&logo=pypi)](https://pypi.org/project/dokumetry/)
 [![NPM Package Version](https://img.shields.io/github/tag/dokulabs/dokumetry-node.svg?&label=dokumetry%20version&logo=npm)](https://www.npmjs.com/package/dokumetry)
+
+</div>
 
 
 
@@ -23,10 +27,8 @@ Get advanced monitoring and evaluation for your LLM applications with these key 
 - **Zero Added Latency**: Doku's smart data handling ensures rapid data processing without impacting your application's performance, maintaining the responsiveness of your LLM applications.
 - **Connect to Observability Platforms**: Doku seamlessly connects with leading observability platforms like Grafana Cloud and Datadog, among others to automatically export data. 
 
-## How it works
-<Frame>
-  <img src="https://raw.githubusercontent.com/dokulabs/.github/main/profile/assets/banner.gif"
-</Frame>
+## How it works?
+![How it Works?](https://raw.githubusercontent.com/dokulabs/.github/main/profile/assets/banner.gif)
 
 ### Step 1: Instrument your Application
 Integrating the `dokumetry` SDK into LLM applications is straightforward with SDKs designed for Python and NodeJS. Start monitoring for your LLM Application with just **two lines of code**: 
@@ -54,8 +56,6 @@ You can choose to use a new ClickHouse database setup or connect to your existin
 With your LLM monitoring data processed, connect Doku to your preferred Observability Platform to begin visualizing and analyzing your data in-depth.
 
 Stay tuned for the upcoming release of Doku UI, enhancing your data visualization capabilities further.
-
-
 
 ## 🚀 Getting Started with Doku
 
