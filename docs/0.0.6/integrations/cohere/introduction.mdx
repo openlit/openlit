@@ -7,7 +7,7 @@ DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Cohe
 
 ## Get Started 
 
-The integration is compatible with Cohere SDK versions >=4.0.0.
+The integration is compatible with Cohere SDK versions >=4.0.0
 
 <Tabs>
   <Tab title="Python">
@@ -52,24 +52,33 @@ The following Cohere Endpoints are supported for monitoring with DokuMetry
 
 ## Parameters
 
-| Parameter         | Description                                               | Required      |
-|-------------------|-----------------------------------------------------------|---------------|
-| llm               | Language Learning Model (LLM) Object to track             | Yes           |
-| doku_url          | URL of your Doku Instance                                 | Yes           |
-| api_key           | Your Doku API key                                         | Yes           |
-| environment       | Custom environment tag to include in your metrics         | Optional      |
-| application_name  | Custom application name tag for your metrics              | Optional      |
-| skip_resp         | Skip response from the Doku Ingester for faster execution | Optional      |
+<Tabs>
+  <Tab title="Python">
+  | Parameter         | Description                                               | Required      |
+  |-------------------|-----------------------------------------------------------|---------------|
+  | llm               | Cohere Object to track                                    | Yes           |
+  | doku_url          | URL of your Doku Ingester                                 | Yes           |
+  | api_key           | Your Doku API key                                         | Yes           |
+  | environment       | Custom environment tag to include in your metrics         | Optional      |
+  | application_name  | Custom application name tag for your metrics              | Optional      |
+  | skip_resp         | Skip response from the Doku Ingester for faster execution | Optional      |
+  </Tab>
+  <Tab title="NodeJS">
+  | Parameter         | Description                                               | Required      |
+  |-------------------|-----------------------------------------------------------|---------------|
+  | llm               | Cohere Object to track                                    | Yes           |
+  | dokuUrl           | URL of your Doku Ingester                                 | Yes           |
+  | apiKey            | Your Doku API key                                         | Yes           |
+  | environment       | Custom environment tag to include in your metrics         | Optional      |
+  | applicationName   | Custom application name tag for your metrics              | Optional      |
+  | skipResp          | Skip response from the Doku Ingester for faster execution | Optional      |
+  </Tab>
+</Tabs>
 
 ## Advanced Usage
-When using DokuMetry in Production environments, It is recommened to set `skip_resp = true` for faster porcessing. 
+When using DokuMetry in Production environments, It is recommened to set Skip response parameter to `true` for faster porcessing. 
 
-To filter your LLM Usage according application or the environment, set the `application` and `environment` paramaters with the actual values.
-
-## Requirements
-Python >= 3.7 is supported.
-
-If you are interested in other runtime environments, please open or upvote an issue on [GitHub](https://github.com/dokulabs/doku/issues).
+To filter your LLM Usage according application or the environment, set the Application name and Environment paramaters with the actual values.
 
 ---
 
