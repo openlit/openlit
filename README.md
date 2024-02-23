@@ -1,4 +1,5 @@
 <div align="center">
+<img src="https://github.com/dokulabs/.github/blob/main/profile/assets/favicon.png?raw=true" alt="Doku Logo">
 
 # Doku: Open Source Observability for LLMs
 
