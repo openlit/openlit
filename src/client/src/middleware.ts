@@ -2,6 +2,8 @@ import { getToken } from "next-auth/jwt";
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
+const DEFAULT_ROUTE = "/getting-started";
+
 export default withAuth(
 	async function middleware(req) {
 		const pathname = req.nextUrl.pathname;
@@ -20,7 +22,7 @@ export default withAuth(
 
 		if (isAuthPage) {
 			if (isAuth) {
-				return NextResponse.redirect(new URL("/dashboard", req.url));
+				return NextResponse.redirect(new URL(DEFAULT_ROUTE, req.url));
 			}
 
 			return null;
@@ -60,6 +62,7 @@ export const config = {
 		"/api/:path*",
 		"/login",
 		"/register",
+		"/getting-started",
 		"/dashboard",
 		"/api-keys",
 		"/requests",

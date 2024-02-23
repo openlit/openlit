@@ -3,6 +3,7 @@
 import { signOut } from "next-auth/react";
 import { ReactElement } from "react";
 import {
+	AcademicCapIcon,
 	CircleStackIcon,
 	HomeModernIcon,
 	KeyIcon,
@@ -22,6 +23,11 @@ const ICON_CLASSES =
 	"flex-shrink-0 w-6 h-6 transition duration-75 transition duration-75";
 
 const SIDEBAR_ITEMS: SidebarItemProps[] = [
+	{
+		icon: <AcademicCapIcon className={ICON_CLASSES} />,
+		text: "Getting started",
+		link: "/getting-started",
+	},
 	{
 		icon: <HomeModernIcon className={ICON_CLASSES} />,
 		text: "Dashboard",
@@ -97,7 +103,7 @@ export default function Sidebar() {
 								className={
 									item.link === pathname
 										? "border-r-4 border-primary text-primary bg-primary/[.09]"
-										: "text-tertiary"
+										: "text-tertiary/[0.9] hover:text-primary"
 								}
 								{...item}
 							/>
