@@ -1,7 +1,10 @@
+"use client";
+import { DEFAULT_LOGGED_IN_ROUTE } from "@/constants/route";
 import asaw from "@/utils/asaw";
 import { signIn } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 const errors = {
@@ -26,6 +29,9 @@ const SignInError = ({ error }: { error: keyof typeof errors }) => {
 };
 
 export function AuthForm({ type }: { type: "login" | "register" }) {
+	const searchParams = useSearchParams();
+	const callbackUrl: string =
+		(searchParams.get("callbackUrl") as string) || DEFAULT_LOGGED_IN_ROUTE;
 	const [error, setError] = useState<string>("");
 	async function authWrapper(fn: any) {
 		const [err, response] = await asaw(fn());
@@ -40,12 +46,12 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 			return;
 		}
 
-		window.location.replace("/dashboard");
+		window.location.replace(callbackUrl);
 	}
 	async function login(formData: FormData) {
 		authWrapper(() =>
 			signIn("login", {
-				callbackUrl: "/dashboard",
+				callbackUrl,
 				email: formData.get("email") as string,
 				password: formData.get("password") as string,
 				redirect: false,
@@ -56,7 +62,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 	async function register(formData: FormData) {
 		authWrapper(() =>
 			signIn("register", {
-				callbackUrl: "/dashboard",
+				callbackUrl,
 				email: formData.get("email") as string,
 				password: formData.get("password") as string,
 				redirect: false,

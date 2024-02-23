@@ -1,8 +1,7 @@
 import { getToken } from "next-auth/jwt";
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-
-const DEFAULT_ROUTE = "/getting-started";
+import { DEFAULT_LOGGED_IN_ROUTE } from "@/constants/route";
 
 export default withAuth(
 	async function middleware(req) {
@@ -22,7 +21,7 @@ export default withAuth(
 
 		if (isAuthPage) {
 			if (isAuth) {
-				return NextResponse.redirect(new URL(DEFAULT_ROUTE, req.url));
+				return NextResponse.redirect(new URL(DEFAULT_LOGGED_IN_ROUTE, req.url));
 			}
 
 			return null;
