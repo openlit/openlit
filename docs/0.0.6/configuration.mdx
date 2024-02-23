@@ -4,12 +4,12 @@ description: 'Configuring Options for Doku'
 icon: 'sliders'
 ---
 
-This document outlines the various options available for configuring Doku using Envionment variables.
+This guide covers all the available environment variables to fine-tune Doku according to your needs.
 
 ## Environment Varibales
 
 <ResponseField name="DOKU_DB_HOST" required>
-  Host address for the Clickhouse to be used by Doku
+  Specifies the host address of the ClickHouse server for Doku to connect to.
 
   **Example**:
   ```yaml
@@ -18,11 +18,11 @@ This document outlines the various options available for configuring Doku using 
 </ResponseField>
 
 <ResponseField name="DOKU_DB_PORT" required>
-  Port on which Clickhouse is running
+  Defines the port on which ClickHouse listens.
 
   **Example**:
   ```yaml
-  export DOKU_DB_PORT=5432
+  export DOKU_DB_PORT=9000
   ```
 </ResponseField>
 
@@ -31,21 +31,21 @@ This document outlines the various options available for configuring Doku using 
 
   **Example**:
   ```yaml
-  export DOKU_DB_NAME=postgres
+  export DOKU_DB_NAME=default
   ```
 </ResponseField>
 
 <ResponseField name="DOKU_DB_USER" required>
-  Username to be used when connecting to Clickhouse
+  Sets the username for authenticating with ClickHouse.
 
   **Example**:
   ```yaml
-  export DOKU_DB_USER=admin
+  export DOKU_DB_USER=default
   ```
 </ResponseField>
 
 <ResponseField name="DOKU_DB_PASSWORD" required>
-  Password for the Database user to be used when connecting to Clickhouse
+  Sets the password for authenticating with ClickHouse.
 
   **Example**:
   ```yaml
@@ -53,17 +53,8 @@ This document outlines the various options available for configuring Doku using 
   ```
 </ResponseField>
 
-<ResponseField name="DOKU_DB_SLLMODE" required>
-  SSL Mode to be used when connecting to Clickhouse
-
-  **Example**:
-  ```yaml
-  export DOKU_DB_SLLMODE=require
-  ```
-</ResponseField>
-
 <ResponseField name="DOKU_PRICING_JSON_URL">
-  Doku supports using a Json file retrived from a URL for the LLM Pricing data.
+  URL of the json file containing the LLM Pricing data.
 
 **Default Value**:
 ```shell
@@ -119,24 +110,23 @@ export DOKU_DB_RETENTION_PERIOD="6 MONTH"
 </ResponseField>
 
 
-## Example Env File
+## Sample Environment File (.env)
 
 ```.env.example .env
 DOKU_DB_HOST="127.0.0.1"
-DOKU_DB_PORT="5432"
-DOKU_DB_NAME="postgres"
-DOKU_DB_USER="admin"
+DOKU_DB_PORT="9000"
+DOKU_DB_NAME="default"
+DOKU_DB_USER="default"
 DOKU_DB_PASSWORD="DOKU"
-DOKU_DB_SSLMODE="require
 ```
 
 ---
 
 <CardGroup cols={2}>
-<Card title="Integrations" href="/0.1.0/integration/introduction" icon='circle-nodes'>
+<Card title="Integrations" href="/0.0.6/integrations/introduction" icon='circle-nodes'>
 Integrate your LLM Provider with Doku 
 </Card>
-<Card title="Connections" href="/0.1.0/connections/intro" icon='link'>
+<Card title="Connections" href="/0.0.6/connections/intro" icon='link'>
 Connect to your existing Observablity Platform
 </Card>
 </CardGroup>

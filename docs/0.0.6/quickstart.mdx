@@ -4,53 +4,77 @@ description: 'Quickly start **monitoring** your **LLM Applications** in just **t
 icon: 'bolt'
 ---
 
-This guide will walk you through setting up your monitoring system with minimal effort. In just a few steps, you'll be able to track and analyze the performance and usage of your Large Language Model (LLM) applications.
-
-## Prerequistes
-- Ensure you have access to a **Kubernetes Cluster**. You can quickly spin up a Kubernetes Cluster using [Kind](https://github.com/kubernetes-sigs/kind?tab=readme-ov-file#installation-and-usage)
-
-## Get Started
+This guide will walk you through setting up monitoring for your LLM Application with minimal effort. In just a few steps, you'll be able to track and analyze the performance and usage of your Large Language Model (LLM) applications.
 
 <Steps>
-  <Step title="Install Doku in a Kubernetes Cluster">
+  <Step title="Deploy Doku">
     <Steps>
-      <Step title="Helm Repo Setup">
-      ```shell shell
-      helm repo add dokulabs https://dokulabs.github.io/helm/
-      helm repo update
-      ```
+      <Step title="Prepare your Environment">
+        ```yaml docker-compose.yml
+        version: '3.8'
+
+        services:
+          clickhouse:
+            image: clickhouse/clickhouse-server:24.1.5
+            container_name: clickhouse
+            environment:
+              CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
+              CLICKHOUSE_USER: ${DOKU_DB_USER:-default}                   
+            volumes:
+              - clickhouse-data:/var/lib/clickhouse
+            ports:
+              - "${DOKU_DB_PORT:-9000}:9000" 
+            restart: always
+
+          doku-ingester:
+            image: ghcr.io/patcher99/doku-ingester:0.0.8
+            container_name: doku-ingester
+            environment:
+              DOKU_DB_HOST: clickhouse   
+              DOKU_DB_PORT: ${DOKU_DB_PORT:-9000} 
+              DOKU_DB_NAME: ${DOKU_DB_NAME:-default}     
+              DOKU_DB_USER: ${DOKU_DB_USER:-default}              
+              DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+            ports:
+              - "9044:9044"           
+            depends_on:
+              - clickhouse
+            restart: always
+
+        volumes:
+          clickhouse-data:
+        ```
       </Step>
-      <Step title="Installing the Helm Chart">
-      ```shell shell
-      helm install doku dokulabs/doku
-      ```
+      <Step title="Launch Doku">
+        ```shell
+        docker-compose up -d
+        ```
       </Step>
     </Steps>
   </Step>
   <Step title="Generate an API Key">
-    With Doku running, the next step is to [generate an API key](/0.1.0/api-reference/endpoint/api-keys/create) for secure communication between your applications and Doku.
+    With Doku running, the next step is to [generate an API key](/0.0.6/api-reference/endpoint/api-keys/create) for secure communication between your applications and Doku.
 
     To generate your first API key, you can use the following command:
 
     ```shell shell
     curl --request POST \
-      --url https://<your-doku-url>/api/keys \
+      --url https://127.0.0.1:9044/api/keys \
       --header 'Authorization: ""' \
       --header 'Content-Type: application/json' \
       --data '{
-      "name": "Admin"
+      "name": "Patcher"
       }'
     ```
 
-    Make sure to store the returned API key securely, as it's necessary for authorizing future API calls with Doku.
-
-    <Info>
-    During your initial request to generate an API key, you can leave the Authorization header empty (i.e., `""`). For subsequent requests, you will need to supply the generated API key.
-    </Info>
-
+    <Note>
+    **Save the API Key** — This key is essential for configuring the `dokumetry` SDK. 
+    
+    For your first API call to generate the key, the Authorization header should be left blank. However, remember to include this API key in the Authorization header for all future API interactions and SDK configurations.
+    </Note>
   </Step>
-  <Step title="Instrument your code">
-    Choose the appropriate SDK for your application's programming language and follow the steps to integrate monitoring with just a couple of lines of code.
+  <Step title="Instrument your Application">
+    Choose the appropriate SDK for your LLM application's programming language and follow the steps to integrate monitoring with just **two lines of code**.
     <Tabs>
       <Tab title="Python">
         <Steps>
@@ -60,12 +84,12 @@ This guide will walk you through setting up your monitoring system with minimal 
             ```
           </Step>
           <Step title="Add the following two lines to your application code:">
-            Add the snippet below to your Python application, replacing `YOUR_DOKU_URL` and `YOUR_DOKU_TOKEN` with corresponding values.
+            Add the snippet below to your Python application, replace `YOUR_DOKU_TOKEN` with API key you created in Step 2.
             
             ```python
             import dokumetry
 
-            dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+            dokumetry.init(llm=client, doku_url="http://127.0.0.1:9044/", api_key="YOUR_DOKU_TOKEN")
             ```
 
             Example Usage for monitoring `OpenAI` Usage:
@@ -79,7 +103,7 @@ This guide will walk you through setting up your monitoring system with minimal 
             )
 
             # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-            dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+            dokumetry.init(llm=client, doku_url="http://127.0.0.1:9044/", api_key="YOUR_DOKU_TOKEN")
 
             chat_completion = client.chat.completions.create(
                 messages=[
@@ -104,11 +128,11 @@ This guide will walk you through setting up your monitoring system with minimal 
             ```
           </Step>
           <Step title="Add the following two lines to your application code">
-            Add the snippet below to your NodeJS application, replacing `YOUR_DOKU_URL` and `YOUR_DOKU_TOKEN` with corresponding values.
+            Add the snippet below to your NodeJS application, replace `YOUR_DOKU_TOKEN` with API key you created in Step 2.
             ```javascript
             import DokuMetry from 'dokumetry';
 
-            DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+            DokuMetry.init({llm: openai, dokuUrl: "http://127.0.0.1:9044/", apiKey: "YOUR_DOKU_TOKEN"})
             ```
 
             Example Usage for monitoring `OpenAI` Usage:
@@ -122,7 +146,7 @@ This guide will walk you through setting up your monitoring system with minimal 
             });
 
             // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-            DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+            DokuMetry.init({llm: openai, dokuUrl: "http://127.0.0.1:9044/", apiKey: "YOUR_DOKU_TOKEN"})
 
             async function main() {
               const chatCompletion = await openai.chat.completions.create({
@@ -147,10 +171,10 @@ You're all set! Following these steps should have you on your way to effectively
 ---
 
 <CardGroup cols={2}>
-<Card title="Integrations" href="/0.1.0/integration/introduction" icon='circle-nodes'>
+<Card title="Integrations" href="/0.0.6/integrations/introduction" icon='circle-nodes'>
 Integrate your LLM Provider with Doku 
 </Card>
-<Card title="Connections" href="/0.1.0/connections/intro" icon='link'>
+<Card title="Connections" href="/0.0.6/connections/intro" icon='link'>
 Connect to your existing Observablity Platform
 </Card>
 </CardGroup>

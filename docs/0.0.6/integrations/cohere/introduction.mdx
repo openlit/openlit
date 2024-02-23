@@ -1,13 +1,13 @@
 ---
-title: 'Anthropic Integration'
+title: 'Cohere integration'
 sidebarTitle: 'Get Started'
 ---
 
-DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Anthropic usage data and metrics from your Python/NodeJS code. 
+DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Cohere usage data and metrics from your Python/NodeJS code. 
 
 ## Get Started 
 
-The integration is compatible with OpenAI SDK versions >=1.0.0.
+The integration is compatible with Cohere SDK versions >=4.0.0.
 
 <Tabs>
   <Tab title="Python">
@@ -16,14 +16,12 @@ The integration is compatible with OpenAI SDK versions >=1.0.0.
     ```
 
     ```python
-    from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+    import cohere
     import dokumetry
 
-    anthropic = Anthropic(
-        api_key="anthropic_api_key",
-    )
+    co = cohere.Client('YOUR_API_KEY')
 
-    dokumetry.init(llm = anthropic, doku_url = "YOUR_DOKU_URL", api_key = "YOUR_DOKU_TOKEN")
+    dokumetry.init(llm = co, doku_url = "YOUR_DOKU_URL", api_key = "YOUR_DOKU_TOKEN")
     ```
   </Tab>
   <Tab title="Javascript">
@@ -32,23 +30,25 @@ The integration is compatible with OpenAI SDK versions >=1.0.0.
     ```
 
     ```javascript
-    import Anthropic from '@anthropic-ai/sdk';
+    import { CohereClient } from "cohere-ai";
     import DokuMetry from 'dokumetry';
 
-    const anthropic = new Anthropic({
-      apiKey: 'anthropic_api_key', 
+    const co = new CohereClient({
+            token: "<<apiKey>>",
     });
 
-    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    DokuMetry.init({llm: co, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
     ```
   </Tab>
 </Tabs>
 
 ## Supported Endpoints
+The following Cohere Endpoints are supported for monitoring with DokuMetry
 
-The following Anthropic Endpoints are supported for monitoring with DokuMetry
-
-- [Completions](/0.1.0/integrations/anthropic/examples/completions)
+- [Chat](/0.0.6/integrations/cohere/examples/chat)
+- [Generate](/0.0.6/integrations/cohere/examples/generate)
+- [Summarize](/0.0.6/integrations/cohere/examples/summarize)
+- [Embed](/0.0.6/integrations/cohere/examples/embed)
 
 ## Parameters
 
@@ -74,10 +74,10 @@ If you are interested in other runtime environments, please open or upvote an is
 ---
 
 <CardGroup cols={2}>
-<Card title="Connections" href="/0.1.0/connections/intro" icon='link'>
+<Card title="Connections" href="/0.0.6/connections/intro" icon='link'>
 Connect to your existing Observablity Platform
 </Card>
-<Card title="API Refernce" href="/0.1.0/api-reference/introduction" icon='code'>
+<Card title="API Refernce" href="/0.0.6/api-reference/introduction" icon='code'>
 OpenAPI specification for API Endpoints in Doku 
 </Card>
 </CardGroup>

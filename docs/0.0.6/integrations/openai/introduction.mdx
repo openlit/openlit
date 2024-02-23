@@ -1,13 +1,13 @@
 ---
-title: 'Cohere integration'
+title: 'OpenAI Integration'
 sidebarTitle: 'Get Started'
 ---
 
-DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Cohere usage data and metrics from your Python/NodeJS code. 
+DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor OpenAI usage data and metrics from your Python/NodeJS code. 
 
 ## Get Started 
 
-The integration is compatible with Cohere SDK versions >=4.0.0.
+The integration is compatible with OpenAI SDK versions >=1.0.0.
 
 <Tabs>
   <Tab title="Python">
@@ -16,12 +16,12 @@ The integration is compatible with Cohere SDK versions >=4.0.0.
     ```
 
     ```python
-    import cohere
+    from openai import OpenAI
     import dokumetry
 
-    co = cohere.Client('YOUR_API_KEY')
+    client = OpenAI()
 
-    dokumetry.init(llm = co, doku_url = "YOUR_DOKU_URL", api_key = "YOUR_DOKU_TOKEN")
+    dokumetry.init(llm = client, doku_url = "YOUR_DOKU_URL", api_key = "YOUR_DOKU_TOKEN")
     ```
   </Tab>
   <Tab title="Javascript">
@@ -30,25 +30,26 @@ The integration is compatible with Cohere SDK versions >=4.0.0.
     ```
 
     ```javascript
-    import { CohereClient } from "cohere-ai";
+    import OpenAI from "openai";
     import DokuMetry from 'dokumetry';
 
-    const co = new CohereClient({
-            token: "<<apiKey>>",
-    });
+    const client = new OpenAI();
 
-    DokuMetry.init({llm: co, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    DokuMetry.init({llm: client, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
     ```
   </Tab>
 </Tabs>
 
 ## Supported Endpoints
-The following Cohere Endpoints are supported for monitoring with DokuMetry
 
-- [Chat](/0.1.0/integrations/cohere/examples/chat)
-- [Generate](/0.1.0/integrations/cohere/examples/generate)
-- [Summarize](/0.1.0/integrations/cohere/examples/summarize)
-- [Embed](/0.1.0/integrations/cohere/examples/embed)
+The following OpenAI Endpoints are supported for monitoring with DokuMetry
+
+- [Chat completions](/0.0.6/integrations/openai/examples/chat)
+- [Image Create](/0.0.6/integrations/openai/examples/image#create-image) and [Image Variations](/0.0.6/integrations/openai/examples/image#create-image-variation)
+- [Audio Speech Create](/0.0.6/integrations/openai/examples/audio)
+- [Embeddings](/0.0.6/integrations/openai/examples/embeddings)
+- [Fine Tunings](/0.0.6/integrations/openai/examples/fine-tuning)
+- [Completions](/0.0.6/integrations/openai/examples/completions)
 
 ## Parameters
 
@@ -74,10 +75,10 @@ If you are interested in other runtime environments, please open or upvote an is
 ---
 
 <CardGroup cols={2}>
-<Card title="Connections" href="/0.1.0/connections/intro" icon='link'>
+<Card title="Connections" href="/0.0.6/connections/intro" icon='link'>
 Connect to your existing Observablity Platform
 </Card>
-<Card title="API Refernce" href="/0.1.0/api-reference/introduction" icon='code'>
+<Card title="API Refernce" href="/0.0.6/api-reference/introduction" icon='code'>
 OpenAPI specification for API Endpoints in Doku 
 </Card>
 </CardGroup>

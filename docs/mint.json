@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "versions": ["0.0.5", "0.0.4", "0.0.3", "0.0.2", "0.0.1"],
+  "versions": ["0.0.6", "0.0.5"],
   "name": "Doku",
   "logo": {
     "dark": "https://github.com/dokulabs/.github/blob/main/profile/assets/dark-bg-with-text-logo.jpg?raw=true",
@@ -23,7 +23,7 @@
     }
   ],
   "modeToggle": {
-    "default": "dark"
+    "default": "light"
   },
   "feedback": {
     "thumbsRating": true,
@@ -42,6 +42,112 @@
     }
   ],
   "navigation": [
+    {
+      "group": "Introduction",
+      "pages": [
+        "0.0.6/introduction",
+        "0.0.6/quickstart",
+        "0.0.6/installation",
+        "0.0.6/configuration"
+      ],
+      "version": "0.0.6"
+    },
+    {
+      "group": "Integrations",
+      "version": "0.0.6",
+      "pages": [
+        "0.0.6/integrations/introduction",
+        {
+          "group": "OpenAI",
+          "version": "0.0.6",
+          "pages": [
+            "0.0.6/integrations/openai/introduction",
+            {
+              "group": "Examples",
+              "version": "0.0.6",
+              "pages": [
+                "0.0.6/integrations/openai/examples/chat",
+                "0.0.6/integrations/openai/examples/image",
+                "0.0.6/integrations/openai/examples/embeddings",
+                "0.0.6/integrations/openai/examples/audio",
+                "0.0.6/integrations/openai/examples/fine-tuning",
+                "0.0.6/integrations/openai/examples/completions"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Cohere",
+          "version": "0.0.6",
+          "pages": [
+            "0.0.6/integrations/cohere/introduction",
+            {
+              "group": "Examples",
+              "version": "0.0.6",
+              "pages": [
+                "0.0.6/integrations/cohere/examples/chat",
+                "0.0.6/integrations/cohere/examples/generate",
+                "0.0.6/integrations/cohere/examples/summarize",
+                "0.0.6/integrations/cohere/examples/embed"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Anthropic",
+          "version": "0.0.6",
+          "pages": [
+            "0.0.6/integrations/anthropic/introduction",
+            {
+              "group": "Examples",
+              "version": "0.0.6",
+              "pages": [
+                "0.0.6/integrations/anthropic/examples/completions"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "Connections",
+      "pages": [
+        "0.0.6/connections/intro",
+        "0.0.6/connections/grafanaoss",
+        "0.0.6/connections/grafanacloud",
+        "0.0.6/connections/datadog",
+        "0.0.6/connections/new-relic",
+        "0.0.6/connections/signoz",
+        "0.0.6/connections/dynatrace"
+      ],
+      "version": "0.0.6"
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "0.0.6/api-reference/introduction",
+        {
+          "group": "API Keys",
+          "icon": "key",
+          "pages": [
+            "0.0.6/api-reference/endpoint/api-keys/create",
+            "0.0.6/api-reference/endpoint/api-keys/get",
+            "0.0.6/api-reference/endpoint/api-keys/delete"
+          ],
+          "version": "0.0.6"
+        },
+        {
+          "group": "Connections",
+          "icon": "link",
+          "pages": [
+            "0.0.6/api-reference/endpoint/connections/create",
+            "0.0.6/api-reference/endpoint/connections/delete"
+          ],
+          "version": "0.0.6"
+        }
+      ],
+      "version": "0.0.6"
+    },
     {
       "group": "Get Started",
       "pages": [
