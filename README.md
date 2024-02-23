@@ -7,41 +7,102 @@
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/dokulabs/doku)](https://github.com/dokulabs/doku/pulse)
 [![GitHub Contributors](https://img.shields.io/github/contributors/dokulabs/doku)](https://github.com/dokulabs/doku/graphs/contributors)
 
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/doku)](https://artifacthub.io/packages/search?repo=doku)
 [![Helm Version](https://img.shields.io/github/tag/dokulabs/helm.svg?&label=Chart%20Version&logo=helm)](https://github.com/dokulabs/helm/tags)
 [![Python Library Version](https://img.shields.io/github/tag/dokulabs/dokumetry-python.svg?&label=dokumetry%20version&logo=pypi)](https://pypi.org/project/dokumetry/)
 [![NPM Package Version](https://img.shields.io/github/tag/dokulabs/dokumetry-node.svg?&label=dokumetry%20version&logo=npm)](https://www.npmjs.com/package/dokumetry)
 
 
 
-Doku is an open-source observability tool engineered for Large Language Models (LLMs). Designed for ease of integration into existing LLM applications, Doku offers unparalleled insights into usage, performance, and overhead—allowing you to analyze, optimize, and scale your AI applications and LLM usage effectively. 
+Doku is an **open-source LLMOps tool** engineered to enables developers with comprehensive capabilities to monitor, analyze, and optimize LLM applications. It provides valuable real-time data on **LLM usage, performance, and costs**. Through seamless integrations with leading LLM platforms, including OpenAI, Cohere, and Anthropic, Doku acts as a central command center for all your LLM needs. It effectively guides your efforts, ensuring that your LLM applications not only operate at peak efficiency but also scale successfully.
 
-Whether you're working with OpenAI, Cohere, or Anthropic, It tracks all your LLM requests transparently and conveys the insights needed to make data-driven decisions. From monitoring usage and understanding latencies to managing costs and collaborating effortlessly, Doku grants you the lens to view your models in high definition.
+## Why use Doku?
+Get advanced monitoring and evaluation for your LLM applications with these key benefits:
 
-#### How it works
-![Doku Banner](https://raw.githubusercontent.com/dokulabs/.github/main/profile/assets/banner.gif)
+- **Granular Usage Insights of your LLM Applications**: Assess your LLM's performance and costs with fine-grained control, breaking down metrics by environment (such as staging or production) or application, to optimize for efficiency and scalability.
+- **Real-Time Data Streaming**: Unlike other platforms where you might wait minutes to see your data due to data being sent in batches, Doku is able to display data as it streams. This immediate insight enables quick decision-making and adjustments.
+- **Zero Added Latency**: Doku's smart data handling ensures rapid data processing without impacting your application's performance, maintaining the responsiveness of your LLM applications.
+- **Connect to Observability Platforms**: Doku seamlessly connects with leading observability platforms like Grafana Cloud and Datadog, among others to automatically export data. 
 
-Leveraging Doku, you can get:
+## How it works
+<Frame>
+  <img src="https://raw.githubusercontent.com/dokulabs/.github/main/profile/assets/banner.gif"
+</Frame>
 
-- 🕵️ **In-depth LLM Monitoring**: Track every request to LLM platforms like OpenAI with precision, ensuring comprehensive visibility over your model's interactions.
-- 🎛️ **Granular Usage Insights of your LLM Applications**: Assess your LLM's performance and costs with fine-grained control, breaking down metrics by environment (such as staging or production) or application, to optimize for efficiency and scalability.
-- 📈 **Connect to Observability Platforms**: Export LLM Observablity data and insights from Doku to popular observability platforms such as Grafana OSS, Grafana Cloud, Datadog and New Relic.
-- 👥 **Team-centric Workflow**: Enhance team collaboration with seamless data sharing capabilities, creating an integrated environment for observability-driven teamwork.
+### Step 1: Instrument your Application
+Integrating the `dokumetry` SDK into LLM applications is straightforward with SDKs designed for Python and NodeJS. Start monitoring for your LLM Application with just **two lines of code**: 
 
-## Supported LLMs:
+For Python
+```python python
+import dokumetry
 
-- ✅ [OpenAI](https://openai.com/)
-- ✅ [Cohere](https://cohere.com/)
-- ✅ [Anthropic](https://www.anthropic.com/)
+dokumetry.init(llm=openai, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+```
+For NodeJS
 
-And this is only the beginning—as we grow, so will our list of supported LLM platforms. We're dedicated to continually refining our features to enhance your LLM and Generative AI observability experience.
+```javascript 
+import DokuMetry from 'dokumetry';
+
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+```
+
+### Step 2: Data processed by Doku Ingester
+Once the `dokumetry` SDKs are configured in your LLM application, Monitoring data starts streaming to the [Doku Ingester](https://github.com/dokulabs/doku/tree/main/src/ingester#readme). It processes and safely stores your data in ClickHouse, keeping your LLM Monitoring data **secure** and **compliant** in your environment.
+
+You can choose to use a new ClickHouse database setup or connect to your existing one to work with Doku. 
+
+### Step 3: Visualize in your Observability Platform
+With your LLM monitoring data processed, connect Doku to your preferred Observability Platform to begin visualizing and analyzing your data in-depth.
+
+Stay tuned for the upcoming release of Doku UI, enhancing your data visualization capabilities further.
+
 
 
 ## 🚀 Getting Started with Doku
 
 Jumpstart your journey with Doku by deploying it via our Helm chart, designed to simplify the installation process on any Kubernetes cluster.
 
-### Deploying with Helm 📦 
+### Docker 
+1. Create `docker-compose.yml`
+```yaml
+version: '3.8'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.1.5
+    container_name: clickhouse
+    environment:
+      CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
+      CLICKHOUSE_USER: ${DOKU_DB_USER:-default}                   
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    ports:
+      - "${DOKU_DB_PORT:-9000}:9000" 
+    restart: always
+
+  doku-ingester:
+    image: ghcr.io/patcher99/doku-ingester:0.0.8
+    container_name: doku-ingester
+    environment:
+      DOKU_DB_HOST: clickhouse   
+      DOKU_DB_PORT: ${DOKU_DB_PORT:-9000} 
+      DOKU_DB_NAME: ${DOKU_DB_NAME:-default}     
+      DOKU_DB_USER: ${DOKU_DB_USER:-default}              
+      DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+    ports:
+      - "9044:9044"           
+    depends_on:
+      - clickhouse
+    restart: always
+
+volumes:
+  clickhouse-data:
+```
+
+2. Start Docker Compose
+```shell
+docker-compose up -d
+```
+### Kubernetes 
 
 To install the Doku Helm chart, follow these steps:
 
@@ -63,31 +124,32 @@ helm repo update
 helm install doku dokulabs/doku
 ```
 
-**NOTE**:
-> As Doku does not have a built-in visualization UI yet, it is preferred that you set up the `connections` configuration within the [values.yaml](https://github.com/dokulabs/doku/tree/main/helm/doku/values.yaml) file in the Helm Chart. Doing so enables visualization of the LLM Observability data processed by Doku using an external observability platform.
-
 For a detailed list of configurable parameters for the Helm chart, refer to the `values.yaml` file in the [Helm chart](https://github.com/dokulabs/doku/tree/main/helm/doku).
 
 ### 🔑 Generating an API Key
 
-Once Doku is up and running, proceed to generate your first API key:
+With Doku running, the next step is to generate an API key for secure communication between your applications and Doku.
 
-1. Hit the `/api/keys` endpoint of the Doku service:
+To generate your first API key, you can use the following command:
 
-```shell
-curl -X POST http://<Doku-URL>/api/keys \
--H 'Authorization: ""' \
--H 'Content-Type: application/json' \
--d '{"Name": "YourKeyName"}'
+```shell shell
+curl --request POST \
+  --url https://<YOUR_DOKU_INGESTER_URL>/api/keys \
+  --header 'Authorization: ""' \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "Patcher"
+  }'
 ```
 
 **Note**: 
-> - For your initial API call, `Authorization` header can be set to `""`. 
-> - Store the provided API key securely; it will be required to pass the generated and a valid API Ke in `Authorization` header  for subsequent API calls.
+> **Save the API Key** — This key is essential for configuring the `dokumetry` SDK. 
 
-### ⚡️ Automatically send LLM Observability Data to Doku
+> For your first API call to generate the key, the Authorization header should be left blank. However, remember to include this API key in the Authorization header for all future API interactions and SDK configurations.
 
-With the `dokumetry` SDKs for [Python](https://github.com/dokulabs/dokumetry-python) and [NodeJS](https://github.com/dokulabs/dokumetry-node), sending observability data to Doku is just **TWO** lines of code in your application. Once integrated, the SDKs take care of capturing and conveying LLM usage data directly to your Doku instance, requiring minimal effort on your part.
+### ⚡️ Instrument your Application
+
+Choose the appropriate SDK for your LLM application's programming language and follow the steps to integrate monitoring with just **two lines of code**.
 
 #### Python
 
@@ -102,7 +164,7 @@ Add the following two lines to your application code:
 ```python
 import dokumetry
 
-dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 ```
 
 ##### Example Usage for monitoring `OpenAI` Usage:
@@ -116,7 +178,7 @@ client = OpenAI(
 )
 
 # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
 chat_completion = client.chat.completions.create(
     messages=[
@@ -144,7 +206,7 @@ Add the following two lines to your application code:
 ```javascript
 import DokuMetry from 'dokumetry';
 
-DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 ```
 
 ##### Example Usage for monitoring `OpenAI` Usage:
@@ -158,7 +220,7 @@ const openai = new OpenAI({
 });
 
 // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
 async function main() {
   const chatCompletion = await openai.chat.completions.create({
@@ -174,7 +236,7 @@ Refer to the `dokumetry` [NodeJS SDK repository](https://github.com/dokulabs/dok
 
 ## Security
 
-Doku uses key based authentication mechanism to ensure the security of your data. Be sure to keep your API keys confidential and manage permissions diligently. Refer to our [Security Policy](SECURITY)
+Doku uses key based authentication mechanism to ensure the security of your data and as Doku is self-hosted, The data stays within your environment.
 
 ## Contributing
 
