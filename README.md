@@ -1,7 +1,7 @@
 <div align="center">
 <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/favicon.png?raw=true" alt="Doku Logo" width="10%"><h1>Doku: Open Source Observability for LLMs</h1>
 
-**[Documentation](https://docs.dokulabs.com/) | [Quickstart](#🚀-getting-started-with-doku) | [Python SDK](https://github.com/dokulabs/dokumetry-python) | [Node SDK](https://github.com/dokulabs/dokumetry-node) | [Helm Chart](https://github.com/dokulabs/helm)**
+**[Documentation](https://docs.dokulabs.com/) | [Quickstart](#-getting-started-with-doku) | [Python SDK](https://github.com/dokulabs/dokumetry-python) | [Node SDK](https://github.com/dokulabs/dokumetry-node) | [Helm Chart](https://github.com/dokulabs/helm)**
 
 [![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
 [![License](https://img.shields.io/github/license/dokulabs/doku?label=License&logo=github&color=f80&logoColor=white)](https://github.com/dokulabs/doku/blob/main/LICENSE)
