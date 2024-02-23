@@ -1,7 +1,5 @@
 <div align="center">
-<img src="https://github.com/dokulabs/.github/blob/main/profile/assets/favicon.png?raw=true" alt="Doku Logo">
-
-# Doku: Open Source Observability for LLMs
+<img src="https://github.com/dokulabs/.github/blob/main/profile/assets/favicon.png?raw=true" alt="Doku Logo" width="20%"><h1>Doku: Open Source Observability for LLMs</h1>
 
 [![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
 [![Documentation](https://img.shields.io/badge/Documentation-orange?logo=Google-Docs&logoColor=white)](https://docs.dokulabs.com/)
