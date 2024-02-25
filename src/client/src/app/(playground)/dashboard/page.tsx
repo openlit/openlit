@@ -1,8 +1,9 @@
 "use client";
 import Filter from "../filter";
-import ModelsCategories from "./models-categories";
+import DataCharts from "./data-charts";
 import NumberStats from "./number-stats";
 import RequestsPerTime from "./requests-per-time";
+import TokenCharts from "./token-charts";
 
 export default function PlaygroundPage() {
 	return (
@@ -12,7 +13,8 @@ export default function PlaygroundPage() {
 				<NumberStats />
 				<div className="flex flex-col gap-6">
 					<RequestsPerTime />
-					<ModelsCategories />
+					<DataCharts />
+					<TokenCharts />
 				</div>
 			</div>
 		</>
