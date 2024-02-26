@@ -23,15 +23,16 @@ This guide will walk you through setting up monitoring for your LLM Application 
             volumes:
               - clickhouse-data:/var/lib/clickhouse
             ports:
-              - "${DOKU_DB_PORT:-9000}:9000" 
+              - "9000:9000" 
+              - "8123:8123" 
             restart: always
 
           doku-ingester:
-            image: ghcr.io/patcher99/doku-ingester:0.0.8
+            image: ghcr.io/dokulabs/doku-ingester:0.0.6
             container_name: doku-ingester
             environment:
               DOKU_DB_HOST: clickhouse   
-              DOKU_DB_PORT: ${DOKU_DB_PORT:-9000} 
+              DOKU_DB_PORT: 9000 
               DOKU_DB_NAME: ${DOKU_DB_NAME:-default}     
               DOKU_DB_USER: ${DOKU_DB_USER:-default}              
               DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
