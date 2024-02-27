@@ -1,4 +1,3 @@
-import { User } from "@prisma/client";
 import prisma from "./prisma";
 import asaw from "@/utils/asaw";
 import { genSaltSync, hashSync } from "bcrypt-ts";
@@ -23,7 +22,7 @@ export const getUserByEmail = async ({
 	email?: string;
 	selectPassword?: boolean;
 }) => {
-	if (!email) return ["No email Provided"];
+	if (!email) throw new Error("No email Provided");
 	const user = await prisma.user.findUnique({
 		where: {
 			email,

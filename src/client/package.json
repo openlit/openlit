@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@clickhouse/client": "^0.2.10",
     "@headlessui/react": "^1.7.18",
     "@heroicons/react": "^2.1.1",
     "@next-auth/prisma-adapter": "^1.0.7",
@@ -17,11 +18,13 @@
     "bcrypt-ts": "^5.0.1",
     "copy-to-clipboard": "^3.3.3",
     "date-fns": "^3.3.1",
+    "generic-pool": "^3.9.0",
     "lodash": "^4.17.21",
     "next": "14.0.4",
     "next-auth": "^4.24.5",
     "react": "^18",
     "react-dom": "^18",
+    "react-hot-toast": "^2.4.1",
     "react-syntax-highlighter": "^15.5.0"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import {
-	TABLE_NAME,
+	DATA_TABLE_NAME,
 	DokuParams,
 	dataCollector,
 	DokuRequestParams,
@@ -18,11 +18,16 @@ export async function getRequestPerTime(params: DokuParams) {
 
 	const query = `SELECT
 		CAST(COUNT(endpoint) AS INTEGER) AS total,
-		TO_CHAR(DATE_TRUNC('${dateTrunc}', time), 'YY/MM/DD HH24:MI') AS request_time
-		FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'
-		GROUP BY request_time
-		ORDER BY request_time`;
+			formatDateTime(DATE_TRUNC('${dateTrunc}', time), '%Y/%m/%d %R') AS request_time
+		FROM
+			${DATA_TABLE_NAME}
+		WHERE
+			time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
+		GROUP BY
+			request_time
+		ORDER BY
+			request_time;
+		`;
 
 	return dataCollector(query);
 }
@@ -32,8 +37,8 @@ export async function getTotalRequests(params: DokuParams) {
 
 	const query = `SELECT
 		CAST(COUNT(endpoint) AS INTEGER) AS total_requests
-		FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'`;
+		FROM ${DATA_TABLE_NAME} 
+		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
 	return dataCollector(query);
 }
@@ -42,9 +47,12 @@ export async function getAverageRequestDuration(params: DokuParams) {
 	const { start, end } = params.timeLimit;
 
 	const query = `SELECT
-		CAST(AVG(requestduration) AS DECIMAL) AS average_duration
-		FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'`;
+			AVG(requestDuration) AS average_duration
+		FROM
+			${DATA_TABLE_NAME}
+		WHERE
+			time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}');
+		`;
 
 	return dataCollector(query);
 }
@@ -55,17 +63,17 @@ export async function getRequestsConfig(params: DokuRequestParams) {
 
 	const select = [
 		endpoints && "ARRAY_AGG(DISTINCT endpoint) AS endpoints",
-		maxUsageCost && "MAX(usagecost) AS maxUsageCost",
+		maxUsageCost && "MAX(usageCost) AS maxUsageCost",
 		models && "ARRAY_AGG(DISTINCT model) AS models",
 		totalRows && "CAST(COUNT(*) AS INTEGER) AS totalRows",
 	]
 		.filter(Boolean)
-		.join(" , ");
+		.join(", ");
 
 	if (select.length === 0) return [];
 
-	const query = `SELECT ${select} FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'`;
+	const query = `SELECT ${select} FROM ${DATA_TABLE_NAME} 
+			WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
 	return dataCollector(query);
 }
@@ -81,8 +89,8 @@ export async function getRequests(params: DokuRequestParams) {
 			((configValues as DataCollectorType)?.data as Array<any>)?.[0] || {};
 	}
 
-	const query = `SELECT *	FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'
+	const query = `SELECT *	FROM ${DATA_TABLE_NAME} 
+		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
 		ORDER BY time
 		LIMIT ${limit}
 		OFFSET ${offset}`;

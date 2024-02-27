@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { COLORS } from "./colors";
 
 export default {
 	content: [
@@ -13,14 +14,7 @@ export default {
 		current: "currentColor",
 		extend: {
 			colors: {
-				darkMode: {
-					primary: "#0C120C",
-					secondary: "#212738",
-					tertiary: "#FFF4D8",
-				},
-				primary: "#F36C06",
-				secondary: "#FFF4D8",
-				tertiary: "#212738",
+				...COLORS,
 				// light mode
 				tremor: {
 					brand: {

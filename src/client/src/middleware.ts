@@ -65,5 +65,6 @@ export const config = {
 		"/dashboard",
 		"/api-keys",
 		"/requests",
+		"/settings",
 	],
 };
