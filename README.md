@@ -1,7 +1,7 @@
 <div align="center">
 <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/favicon.png?raw=true" alt="Doku Logo" width="10%"><h1>Doku: Open Source Observability for LLMs</h1>
 
-**[Documentation](https://docs.dokulabs.com/) | [Quickstart](#-getting-started-with-doku) | [Python SDK](https://github.com/dokulabs/dokumetry-python) | [Node SDK](https://github.com/dokulabs/dokumetry-node) | [Helm Chart](https://github.com/dokulabs/helm)**
+**[Documentation](https://docs.dokulabs.com/) | [Quickstart](#-getting-started-with-doku) | [Python SDK](https://github.com/dokulabs/dokumetry-python) | [Node SDK](https://github.com/dokulabs/dokumetry-node) | [Helm Chart](https://github.com/dokulabs/helm) | [Doku UI Client](https://github.com/dokulabs/doku/blob/main/src/client/README.md)**
 
 [![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
 [![License](https://img.shields.io/github/license/dokulabs/doku?label=License&logo=github&color=f80&logoColor=white)](https://github.com/dokulabs/doku/blob/main/LICENSE)
@@ -240,6 +240,12 @@ Refer to the `dokumetry` [NodeJS SDK repository](https://github.com/dokulabs/dok
 ## Security
 
 Doku uses key based authentication mechanism to ensure the security of your data and as Doku is self-hosted, The data stays within your environment.
+
+## Use Our Doku UI Client
+
+Doku UI Client provides multiple functionalities to add multiple datasource views, analyze data with charts, view requests details, manage api keys etc.
+
+Follow the setup to start the client development server : [Doku UI Client](https://github.com/dokulabs/doku/blob/main/src/client/README.md)
 
 ## Contributing
 
