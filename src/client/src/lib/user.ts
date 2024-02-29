@@ -1,6 +1,21 @@
 import prisma from "./prisma";
 import asaw from "@/utils/asaw";
-import { genSaltSync, hashSync } from "bcrypt-ts";
+import { compare, genSaltSync, hashSync } from "bcrypt-ts";
+import { getCurrentUser } from "./session";
+import { User } from "@prisma/client";
+
+const getHashedPassword = (password: string): string => {
+	const salt = genSaltSync(10);
+	const hash = hashSync(password, salt);
+	return hash;
+};
+
+export const isPasswordMatches = async (
+	password: string,
+	userPassword: string
+): Promise<boolean> => {
+	return await compare(password, userPassword);
+};
 
 function exclude<User>(
 	user: User,
@@ -29,19 +44,28 @@ export const getUserByEmail = async ({
 		},
 	});
 
-	if (!user) null;
+	if (!user) throw new Error("No user with this email exists");
 
 	// @ts-expect-error
 	return exclude(user, selectPassword && []);
 };
 
-export const getUserById = async ({ id }: { id?: string }) => {
+export const getUserById = async ({
+	id,
+	selectPassword = false,
+}: {
+	id?: string;
+	selectPassword?: boolean;
+}) => {
 	if (!id) return null;
-	return await prisma.user.findUnique({
+	const user = await prisma.user.findUnique({
 		where: {
 			id,
 		},
 	});
+
+	// @ts-expect-error
+	return exclude(user, selectPassword && []);
 };
 
 export const createNewUser = async (
@@ -57,13 +81,12 @@ export const createNewUser = async (
 	const [, existingUser] = await asaw(getUserByEmail({ email }));
 	if (existingUser) throw new Error("User already exists! Please signin!");
 
-	const salt = genSaltSync(10);
-	const hash = hashSync(password, salt);
+	const hashedPassword = getHashedPassword(password);
 
 	let createdUser = await prisma.user.create({
 		data: {
 			email,
-			password: hash,
+			password: hashedPassword,
 		},
 	});
 
@@ -87,5 +110,44 @@ export const updateUser = async ({
 	return await prisma.user.update({
 		where,
 		data,
+	});
+};
+
+export const updateUserProfile = async ({
+	currentPassword,
+	newPassword,
+	name,
+}: {
+	currentPassword?: string;
+	newPassword?: string;
+	name?: string;
+}) => {
+	const user = await getCurrentUser({ selectPassword: true });
+
+	if (!user) throw new Error("Unauthorized user!");
+
+	const updatedUserObject: Partial<User> = {};
+
+	if (newPassword) {
+		if (!currentPassword)
+			throw new Error("Provide current password to update it to new one!");
+		const passwordsMatch = await isPasswordMatches(
+			currentPassword,
+			user.password || ""
+		);
+		if (!passwordsMatch) throw new Error("Wrong current password!");
+		updatedUserObject.password = getHashedPassword(newPassword);
+	}
+
+	if (name) {
+		updatedUserObject.name = name;
+	}
+
+	if (Object.keys(updatedUserObject).length === 0)
+		throw new Error("Nothing to update!");
+
+	return updateUser({
+		data: updatedUserObject,
+		where: { id: user.id },
 	});
 };

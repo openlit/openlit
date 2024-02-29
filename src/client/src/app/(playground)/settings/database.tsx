@@ -1,3 +1,4 @@
+import SideTabs, { SideTabItemProps } from "@/components/common/side-tabs";
 import { DB_META_KEYS } from "@/constants/dbConfig";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { noop } from "@/utils/noop";
@@ -27,7 +28,7 @@ function ModifyDatabaseConfig({
 	dbConfig?: DBConfig;
 	successCb: () => void;
 }) {
-	const { error, fireRequest, isLoading } = useFetchWrapper();
+	const { fireRequest, isLoading } = useFetchWrapper();
 
 	const modifyDetails: FormEventHandler<HTMLFormElement> = useCallback(
 		(event) => {
@@ -76,12 +77,6 @@ function ModifyDatabaseConfig({
 				<h2 className="text-base font-semibold text-tertiary sticky top-0 bg-white">
 					{dbConfig?.id ? "Update" : "Add"} database config
 				</h2>
-
-				{(error as any) && (
-					<div className="flex flex-col mt-6 w-full text-sm font-medium text-primary">
-						{(error as any).toString()}
-					</div>
-				)}
 
 				<div className="flex flex-col mt-6 w-full">
 					<div className="flex flex-1 items-center">
@@ -243,66 +238,31 @@ function DatabaseList({
 		}
 	};
 
+	const items: SideTabItemProps[] = dbConfigs.map((dbConfig) => ({
+		id: dbConfig.id,
+		name: dbConfig.name,
+		badge: dbConfig.environment,
+		isCurrent: !!dbConfig.isCurrent,
+		enableActiveChange: true,
+		enableDeletion: true,
+	}));
+
+	items.push({
+		id: ADD_NEW_ID,
+		name: "Add New",
+	});
+
 	return (
 		<div
 			className={`flex flex-1 h-full border-t border-secondary relative ${isLoading}`}
 		>
-			<ul className="shrink-0 w-1/5 border-r border-secondary overflow-y-auto">
-				{dbConfigs.map((item) => (
-					<li
-						key={item.id}
-						className={`flex flex-col p-2 text-sm cursor-pointer border-b border-secondary relative group ${
-							selectedDBConfigId === item.id
-								? "bg-secondary/[0.5] text-primary"
-								: "bg-tertiary/[0.02] text-tertiary/[0.8]"
-						}`}
-						data-item-id={item.id}
-						onClick={onClickDB}
-					>
-						<span className="text-ellipsis overflow-hidden whitespace-nowrap">
-							{item.name}
-						</span>
-						<span
-							className={`mt-1 space-x-1 px-3 py-1 rounded-full text-xs font-medium max-w-fit ${
-								selectedDBConfigId === item.id
-									? "bg-primary/[0.1] text-primary"
-									: "bg-tertiary/[0.1] text-tertiary/[0.5]"
-							}`}
-						>
-							{item.environment}
-						</span>
-						<TrashIcon
-							className="w-3 h-3 absolute right-2 top-2 hidden group-hover:inline text-tertiary/[0.6] hover:text-primary"
-							onClick={onClickDelete}
-						/>
-						<div
-							className={`flex items-center justify-center w-4 h-4 absolute right-2 bottom-2 border  rounded-full cursor-pointer ${
-								item.isCurrent
-									? "border-primary bg-primary text-white"
-									: "border-tertiary/[0.3]"
-							}`}
-							onClick={onClickSetCurrent}
-						>
-							{item.isCurrent && (
-								<CheckIcon className="w-3 h-3" onClick={onClickDelete} />
-							)}
-						</div>
-					</li>
-				))}
-				<li
-					className={`flex flex-col justify-center p-2 text-sm cursor-pointer ${
-						selectedDBConfigId === ADD_NEW_ID
-							? "bg-secondary/[0.5] text-primary"
-							: "bg-tertiary/[0.02] text-tertiary/[0.8]"
-					}`}
-					data-item-id={ADD_NEW_ID}
-					onClick={onClickDB}
-				>
-					<span className="text-ellipsis overflow-hidden whitespace-nowrap">
-						Add New
-					</span>
-				</li>
-			</ul>
+			<SideTabs
+				items={items}
+				onClickTab={onClickDB}
+				selectedTabId={selectedDBConfigId}
+				onClickItemChangeActive={onClickSetCurrent}
+				onClickItemDelete={onClickDelete}
+			/>
 			<div className="flex flex-1 w-full h-full">
 				<ModifyDatabaseConfig
 					dbConfig={dbConfigByKey[selectedDBConfigId]}
@@ -336,12 +296,10 @@ export default function Database() {
 			Loading...
 		</div>
 	) : (
-		<>
-			<DatabaseList
-				dbConfigs={(data as DBConfig[]) || []}
-				successCb={fetchData}
-				isLoadingList={isLoading}
-			/>
-		</>
+		<DatabaseList
+			dbConfigs={(data as DBConfig[]) || []}
+			successCb={fetchData}
+			isLoadingList={isLoading}
+		/>
 	);
 }

@@ -4,9 +4,10 @@ import { Tab } from "@headlessui/react";
 import { useSearchParams } from "next/navigation";
 import { ReactNode } from "react";
 import Database from "./database";
+import Profile from "./profile";
 
 type TabsObjectType = Record<
-	"database",
+	"profile" | "database",
 	{
 		title: string;
 		component: ReactNode;
@@ -16,6 +17,10 @@ type TabsObjectType = Record<
 type KeyofTabsObjectType = keyof TabsObjectType;
 
 const tabsObject: TabsObjectType = {
+	profile: {
+		title: "Profile",
+		component: <Profile />,
+	},
 	database: {
 		title: "Database",
 		component: <Database />,
