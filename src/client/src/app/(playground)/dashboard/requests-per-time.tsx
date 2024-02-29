@@ -3,6 +3,7 @@ import { useFilter } from "../filter-context";
 import Card from "@/components/common/card";
 import { LineChart } from "@tremor/react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import toast from "react-hot-toast";
 
 export default function RequestsPerTime() {
 	const [filter] = useFilter();
@@ -15,6 +16,11 @@ export default function RequestsPerTime() {
 			requestType: "POST",
 			url: "/api/metrics/request/time",
 			responseDataKey: "data",
+			failureCb: (err?: string) => {
+				toast.error(err || `Cannot connect to server!`, {
+					id: "dashboard-page",
+				});
+			},
 		});
 	}, [filter]);
 

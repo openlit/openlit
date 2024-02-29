@@ -6,6 +6,7 @@ import RequestFilter, { FilterConfigProps } from "./request-filter";
 import { RequestProvider } from "./request-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import RequestDetails from "./request-details";
+import toast from "react-hot-toast";
 
 export default function RequestPage() {
 	const [filter] = useFilter();
@@ -26,6 +27,11 @@ export default function RequestPage() {
 			}),
 			requestType: "POST",
 			url: "/api/metrics/request",
+			failureCb: (err?: string) => {
+				toast.error(err || `Cannot connect to server!`, {
+					id: "request-page",
+				});
+			},
 		});
 	}, [filter]);
 

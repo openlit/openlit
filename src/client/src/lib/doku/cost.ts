@@ -1,12 +1,12 @@
-import { DokuParams, TABLE_NAME, dataCollector } from "./common";
+import { DokuParams, DATA_TABLE_NAME, dataCollector } from "./common";
 
 export async function getTotalCost(params: DokuParams) {
 	const { start, end } = params.timeLimit;
 
 	const query = `SELECT
-		CAST(SUM(usagecost) AS DECIMAL) AS total_usage_cost
-		FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'`;
+		sum(usageCost) AS total_usage_cost
+		FROM ${DATA_TABLE_NAME} 
+		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
 	return dataCollector(query);
 }
@@ -15,9 +15,9 @@ export async function getAverageCost(params: DokuParams) {
 	const { start, end } = params.timeLimit;
 
 	const query = `SELECT
-		CAST(AVG(usagecost) AS DECIMAL) AS average_usage_cost
-		FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'`;
+		avg(usageCost) AS average_usage_cost
+		FROM ${DATA_TABLE_NAME} 
+		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
 	return dataCollector(query);
 }
@@ -25,14 +25,16 @@ export async function getAverageCost(params: DokuParams) {
 export async function getCostByApplication(params: DokuParams) {
 	const { start, end } = params.timeLimit;
 
-	const query = `
-    SELECT 
-			DISTINCT applicationname as applicationname, 
-			CAST(ROUND(SUM(usagecost)::numeric, 7) AS FLOAT) AS cost,
-			SUM(usagecost) * 100.0 / SUM(usagecost) AS percentage
-		FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'
-		GROUP BY applicationname`;
+	const query = `SELECT
+			applicationName,
+			sum(usageCost) AS cost,
+			100.0 * sum(usageCost) / sum(sum(usageCost)) OVER () AS percentage
+		FROM
+			${DATA_TABLE_NAME}
+		WHERE
+			time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
+		GROUP BY
+			applicationName;`;
 
 	return dataCollector(query);
 }
@@ -40,13 +42,12 @@ export async function getCostByApplication(params: DokuParams) {
 export async function getCostByEnvironment(params: DokuParams) {
 	const { start, end } = params.timeLimit;
 
-	const query = `
-    SELECT 
+	const query = `SELECT 
 			DISTINCT environment as environment, 
-			CAST(ROUND(SUM(usagecost)::numeric, 7) AS FLOAT) AS cost,
-			SUM(usagecost) * 100.0 / SUM(usagecost) AS percentage
-		FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'
+			SUM(usageCost) AS cost,
+			SUM(usageCost) * 100.0 / SUM(usageCost) AS percentage
+		FROM ${DATA_TABLE_NAME} 
+		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
 		GROUP BY environment`;
 
 	return dataCollector(query);

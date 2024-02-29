@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 
 type SidebarItemProps = {
 	className?: string;
@@ -42,6 +43,11 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <KeyIcon className={ICON_CLASSES} />,
 		text: "API keys",
 		link: "/api-keys",
+	},
+	{
+		icon: <WrenchScrewdriverIcon className={ICON_CLASSES} />,
+		text: "Settings",
+		link: "/settings",
 	},
 ];
 

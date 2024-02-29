@@ -66,7 +66,7 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 				<div className="flex items-center pl-3 border-l border-tertiary/[0.2]">
 					<ClockIcon className="w-4" />
 					<p className="text-xs leading-none ml-2">
-						{round(item.requestduration, 4)}s
+						{round(item.requestDuration, 4)}s
 					</p>
 				</div>
 			</div>
@@ -79,7 +79,7 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 				<RowItem
 					containerClass="w-3/12"
 					label="App name"
-					text={item.applicationname}
+					text={item.applicationName}
 					textClass="font-medium"
 				/>
 				<RowItem
@@ -100,21 +100,21 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 					containerClass="w-1.5/12"
 					icon={<CurrencyDollarIcon className="w-4" />}
 					label="Usage cost"
-					text={`${round(item.usagecost, 6)}`}
+					text={`${round(item.usageCost, 6)}`}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
 					icon={<ClipboardDocumentCheckIcon className="w-4" />}
 					label="Prompt Tokens"
-					text={`${item.prompttokens || "-"}`}
+					text={`${item.promptTokens || "-"}`}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
 					icon={<ClipboardDocumentListIcon className="w-4" />}
 					label="Total Tokens"
-					text={`${item.totaltokens || "-"}`}
+					text={`${item.totalTokens || "-"}`}
 					textClass="text-sm"
 				/>
 			</div>

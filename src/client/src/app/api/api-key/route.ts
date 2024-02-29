@@ -1,4 +1,4 @@
-import { generateAPIKey, getAPIKeys } from "@/lib/api-key";
+import { generateAPIKey, getAPIKeys } from "@/lib/doku/api-key";
 
 export async function GET() {
 	const res: any = await getAPIKeys();

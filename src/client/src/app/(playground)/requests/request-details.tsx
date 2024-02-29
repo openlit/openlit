@@ -60,7 +60,7 @@ export default function RequestDetails() {
 										<div className="p-4 bg-secondary relative">
 											<div className="flex flex-col">
 												<Dialog.Title className="text-2xl font-bold leading-7 text-tertiary">
-													{request.applicationname}
+													{request.applicationName}
 												</Dialog.Title>
 												<div className="flex items-center mt-3 text-tertiary/[.7]">
 													<BeakerIcon className="w-4 mr-3" />
@@ -102,7 +102,7 @@ export default function RequestDetails() {
 												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 													<ClockIcon className="w-3" />
 													<span>Request duration : </span>
-													<span>{round(request.requestduration, 4)}s</span>
+													<span>{round(request.requestDuration, 4)}s</span>
 												</div>
 												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 													<CogIcon className="w-3" />
@@ -112,44 +112,44 @@ export default function RequestDetails() {
 												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 													<CurrencyDollarIcon className="w-3" />
 													<span>Usage cost : </span>
-													<span>{round(request.usagecost, 6)}</span>
+													<span>{round(request.usageCost, 6)}</span>
 												</div>
-												{request.prompttokens && (
+												{request.promptTokens && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<ClipboardDocumentCheckIcon className="w-3" />
 														<span>Prompt tokens : </span>
-														<span>{request.prompttokens}</span>
+														<span>{request.promptTokens}</span>
 													</div>
 												)}
-												{request.totaltokens && (
+												{request.totalTokens && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<ClipboardDocumentListIcon className="w-3" />
 														<span>Total tokens : </span>
-														<span>{request.totaltokens}</span>
+														<span>{request.totalTokens}</span>
 													</div>
 												)}
 												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 													<LanguageIcon className="w-3" />
 													<span>Source Language : </span>
-													<span>{request.sourcelanguage}</span>
+													<span>{request.sourceLanguage}</span>
 												</div>
 												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 													<GlobeAltIcon className="w-3" />
 													<span>Environment : </span>
 													<span>{request.environment}</span>
 												</div>
-												{request.audiovoice && (
+												{request.audioVoice && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<SpeakerWaveIcon className="w-3" />
 														<span>Audio voice : </span>
-														<span>{request.audiovoice}</span>
+														<span>{request.audioVoice}</span>
 													</div>
 												)}
-												{request.imagesize && (
+												{request.imageSize && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<PhotoIcon className="w-3" />
 														<span>Image size : </span>
-														<span>{request.imagesize}</span>
+														<span>{request.imageSize}</span>
 													</div>
 												)}
 											</div>
@@ -161,13 +161,13 @@ export default function RequestDetails() {
 													{request.prompt}
 												</code>
 											</div>
-											{request.revisedprompt && (
+											{request.revisedPrompt && (
 												<div className="flex flex-col space-y-3 mt-4">
 													<span className="text-sm text-tertiary/[0.8] font-medium">
 														Revised Prompt :{" "}
 													</span>
 													<code className="text-sm inline-flex text-left items-center bg-tertiary text-secondary rounded-md p-4">
-														{request.prompt}
+														{request.revisedPrompt}
 													</code>
 												</div>
 											)}
@@ -181,18 +181,18 @@ export default function RequestDetails() {
 													</code>
 												</div>
 											)}
-											{request.image && request.imagesize && (
+											{request.image && request.imageSize && (
 												<div className="flex items-center justify-center aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-tertiary/[0.1] lg:aspect-none group-hover:opacity-75 lg:h-80 mt-4">
 													<Image
 														src={request.image}
-														alt={request.applicationname}
+														alt={request.applicationName}
 														className="h-full w-full object-cover object-center lg:h-full lg:w-full"
 														width={parseInt(
-															request.imagesize.split("x")[0],
+															request.imageSize.split("x")[0],
 															10
 														)}
 														height={parseInt(
-															request.imagesize.split("x")[1],
+															request.imageSize.split("x")[1],
 															10
 														)}
 													/>
