@@ -142,7 +142,7 @@ function ModifyDatabaseConfig({
 								name={DB_META_KEYS.url}
 								id={DB_META_KEYS.url}
 								className="flex-1 border border-tertiary/[0.2] py-1.5 px-2 text-tertiary placeholder:text-tertiary/[0.4] outline-none focus:ring-0 text-sm"
-								placeholder="clickhouse<+driver>://<user>:<password>@<host>:<port>/<database>[? key=value..]"
+								placeholder="clickhouse://<user>:<password>@<host>:<port>/<database>[? key=value..]"
 								defaultValue={dbConfig?.meta[DB_META_KEYS.url]}
 							/>
 						</div>
