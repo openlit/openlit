@@ -31,14 +31,16 @@ export type DataCollectorType = { err?: unknown; data?: unknown };
 export async function dataCollector(query: string): Promise<DataCollectorType> {
 	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
 	if (err) return { err, data: [] };
-	const clickhousePool = createClickhousePool(
-		((dbConfig as DatabaseConfig)?.meta as Record<string, any>)?.[
-			DB_META_KEYS.url
-		] || ""
-	);
-	const client = await clickhousePool.acquire();
+	let clickhousePool;
+	let client;
 
 	try {
+		clickhousePool = createClickhousePool(
+			((dbConfig as DatabaseConfig)?.meta as Record<string, any>)?.[
+				DB_META_KEYS.url
+			] || ""
+		);
+		client = await clickhousePool.acquire();
 		const result = await client.query({ query, format: "JSONEachRow" });
 		const data = await result.json();
 		return { data };
@@ -46,6 +48,6 @@ export async function dataCollector(query: string): Promise<DataCollectorType> {
 		console.trace(error);
 		return { err: `ClickHouse Query Error: ${error.message}`, data: [] };
 	} finally {
-		clickhousePool.release(client);
+		if (clickhousePool && client) clickhousePool?.release(client);
 	}
 }
