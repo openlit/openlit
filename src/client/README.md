@@ -38,7 +38,19 @@ Doku Client frontend uses Nextjs, Typescript and Tailwind. The application uses 
     npx prisma migrate deploy
     npx prisma generate
     ````
-6. Start the dev server
+6. If you want to create a default user and a default db config run :
+    ```sh 
+    npx prisma db seed 
+    ````
+    `Note: Make sure the db is empty.`
+    This will create a default user with 
+    - email : user@dokulabs.com
+    - password : dokulabsuser
+    This will create a db config with
+    - environment: "production",
+    - name: "Default DB",
+    - meta: { databaseUrl: "clickhouse://127.0.0.1:8123" }
+7. Start the dev server
     ```sh 
     npm run dev
     ````
