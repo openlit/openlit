@@ -15,5 +15,6 @@ Attach screenshots/screen recordings here to show the changes.
 ---
 
 #### Checklist:
-- [ ] Added visual proof for changes (Needed if you made changes to Doku Client)
-- [ ] Checked Doku contribution guidelines.
+- [ ] PR name follows conventional commits format: `feat: ...` or `fix: ....`
+- [ ] Added visuals for changes (Needed if you made changes to Doku Client or Connections in Doku Ingester)
+- [ ] Checked Doku [contribution guidelines](https://github.com/dokulabs/doku/blob/main/CONTRIBUTING.md)
