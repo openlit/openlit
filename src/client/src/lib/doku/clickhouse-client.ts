@@ -1,21 +1,38 @@
-// clickhouseService.js
-import { parseClickHouseConnectionString } from "@/utils/parser";
+import { parseQueryStringToObject } from "@/utils/parser";
 import { ClickHouseClient, createClient } from "@clickhouse/client";
+import { DatabaseConfig } from "@prisma/client";
 import { createPool, Pool } from "generic-pool";
 
+interface ClickHouseConnectionInfo {
+	username: string;
+	password: string;
+	host: string;
+	port: string;
+	database: string;
+	additional_headers: Record<string, string>;
+}
+
 export default function createClickhousePool(
-	connectionString: string
+	dbConfig: DatabaseConfig
 ): Pool<ClickHouseClient> {
-	const connectionObject = parseClickHouseConnectionString(connectionString);
+	const connectionObject: ClickHouseConnectionInfo = {
+		username: dbConfig.username,
+		password: dbConfig.password || "",
+		host: dbConfig.host,
+		port: dbConfig.port,
+		database: dbConfig.database,
+		additional_headers: parseQueryStringToObject(dbConfig.query || ""),
+	};
+
 	return createPool(
 		{
 			create: async () => createClient(connectionObject),
 			destroy: (client: ClickHouseClient) => client.close(),
 		},
 		{
-			max: 10, // Adjust based on your server capacity and requirements
-			min: 2, // Start with a minimum number of connections
-			idleTimeoutMillis: 30000, // Adjust based on your workload and server characteristics
+			max: 10,
+			min: 2,
+			idleTimeoutMillis: 30000,
 		}
 	);
 }

@@ -1,8 +1,7 @@
+import FormBuilder from "@/components/common/form-builder";
 import SideTabs, { SideTabItemProps } from "@/components/common/side-tabs";
-import { DB_META_KEYS } from "@/constants/dbConfig";
+import { DatabaseConfig } from "@/constants/dbConfig";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { noop } from "@/utils/noop";
-import { CheckIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { keyBy } from "lodash";
 import {
 	FormEventHandler,
@@ -13,11 +12,7 @@ import {
 } from "react";
 import toast from "react-hot-toast";
 
-type DBConfig = {
-	id: string;
-	name: string;
-	environment: string;
-	meta: Record<string, any>;
+type DBConfig = DatabaseConfig & {
 	isCurrent?: boolean;
 };
 
@@ -42,11 +37,14 @@ function ModifyDatabaseConfig({
 			fireRequest({
 				body: JSON.stringify({
 					id: dbConfig?.id,
-					name: (formElement.name as any)?.value,
-					environment: (formElement.environment as any)?.value,
-					meta: {
-						[DB_META_KEYS.url]: (formElement[DB_META_KEYS.url] as any)?.value,
-					},
+					name: (formElement.name as any).value,
+					environment: formElement.environment.value,
+					username: formElement.username.value,
+					password: formElement.username.password || "",
+					host: formElement.host.value,
+					port: formElement.port.value,
+					database: formElement.database.value,
+					query: formElement.query.value,
 				}),
 				requestType: "POST",
 				url: "/api/db-config",
@@ -69,93 +67,77 @@ function ModifyDatabaseConfig({
 	);
 
 	return (
-		<form
-			className="flex flex-col w-full"
-			onSubmit={isLoading ? noop : modifyDetails}
-		>
-			<div className="flex flex-col relative flex-1 overflow-y-auto px-5 py-3">
-				<h2 className="text-base font-semibold text-tertiary sticky top-0 bg-white">
-					{dbConfig?.id ? "Update" : "Add"} database config
-				</h2>
-
-				<div className="flex flex-col mt-6 w-full">
-					<div className="flex flex-1 items-center">
-						<label
-							htmlFor="name"
-							className="text-tertiary/[0.8] text-sm font-normal w-1/5"
-						>
-							Config Name
-						</label>
-						<div className="flex w-2/3 shadow-sm ring-1 ring-inset ring-gray-300">
-							<input
-								key={`${dbConfig?.id}-name`}
-								type="text"
-								name="name"
-								id="name"
-								className="flex-1 border border-tertiary/[0.2] py-1.5 px-2 text-tertiary placeholder:text-tertiary/[0.4] outline-none focus:ring-0 text-sm"
-								placeholder="db-config"
-								defaultValue={dbConfig?.name}
-							/>
-						</div>
-					</div>
-				</div>
-
-				<div className="flex flex-col mt-6 w-full">
-					<div className="flex flex-1 items-center">
-						<label
-							htmlFor="environment"
-							className="text-tertiary/[0.8] text-sm font-normal w-1/5"
-						>
-							Environment
-						</label>
-						<div className="flex w-2/3 shadow-sm ring-1 ring-inset ring-gray-300">
-							<input
-								key={`${dbConfig?.id}-environment`}
-								type="text"
-								name="environment"
-								id="environment"
-								className="flex-1 border border-tertiary/[0.2] py-1.5 px-2 text-tertiary placeholder:text-tertiary/[0.4] outline-none focus:ring-0 text-sm"
-								placeholder="production"
-								defaultValue={dbConfig?.environment}
-							/>
-						</div>
-					</div>
-				</div>
-
-				<div className="flex flex-col mt-6 w-full">
-					<div className="flex flex-1 items-center">
-						<label
-							htmlFor={DB_META_KEYS.url}
-							className="text-tertiary/[0.8] text-sm font-normal w-1/5"
-						>
-							Clickhouse Database url
-						</label>
-						<div className="flex w-2/3 shadow-sm ring-1 ring-inset ring-gray-300">
-							<input
-								key={`${dbConfig?.id}-${DB_META_KEYS.url}`}
-								type="text"
-								name={DB_META_KEYS.url}
-								id={DB_META_KEYS.url}
-								className="flex-1 border border-tertiary/[0.2] py-1.5 px-2 text-tertiary placeholder:text-tertiary/[0.4] outline-none focus:ring-0 text-sm"
-								placeholder="clickhouse://<user>:<password>@<host>:<port>/<database>[? key=value..]"
-								defaultValue={dbConfig?.meta[DB_META_KEYS.url]}
-							/>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<div className="mt-6 flex items-center justify-end border-t border-secondary w-full py-2 gap-3">
-				<button
-					type="submit"
-					className={`rounded-sm bg-primary/[0.9] px-5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-primary focus-visible:outline ${
-						isLoading ? "animate-pulse" : ""
-					}`}
-				>
-					{dbConfig?.id ? "Update" : "Save"}
-				</button>
-			</div>
-		</form>
+		<FormBuilder
+			fields={[
+				{
+					label: "Config Name",
+					type: "text",
+					name: "name",
+					placeholder: "db-config",
+					defaultValue: dbConfig?.name,
+					inputKey: `${dbConfig?.id}-name`,
+				},
+				{
+					label: "Environment",
+					type: "text",
+					name: "environment",
+					placeholder: "production",
+					defaultValue: dbConfig?.environment,
+					inputKey: `${dbConfig?.id}-environment`,
+				},
+				{
+					label: "Username",
+					type: "text",
+					name: "username",
+					placeholder: "username",
+					defaultValue: dbConfig?.username,
+					inputKey: `${dbConfig?.id}-username`,
+				},
+				{
+					label: "Password",
+					type: "password",
+					name: "password",
+					placeholder: "*******",
+					inputKey: `${dbConfig?.id}-password`,
+				},
+				{
+					label: "Host",
+					type: "text",
+					name: "host",
+					placeholder: "127.0.0.1",
+					defaultValue: dbConfig?.host,
+					inputKey: `${dbConfig?.id}-host`,
+				},
+				{
+					label: "Port",
+					type: "number",
+					name: "port",
+					placeholder: "8123",
+					defaultValue: dbConfig?.port,
+					inputKey: `${dbConfig?.id}-port`,
+				},
+				{
+					label: "Database",
+					type: "text",
+					name: "database",
+					placeholder: "doku",
+					defaultValue: dbConfig?.database,
+					inputKey: `${dbConfig?.id}-database`,
+				},
+				{
+					label: "Query params",
+					type: "text",
+					name: "query",
+					placeholder: "a=b&c=d",
+					defaultValue: dbConfig?.query,
+					inputKey: `${dbConfig?.id}-query`,
+				},
+			]}
+			heading={`${dbConfig?.id ? "Update" : "Add"} database config`}
+			isLoading={isLoading}
+			onSubmit={modifyDetails}
+			submitButtonText={dbConfig?.id ? "Update" : "Save"}
+		/>
 	);
 }
 

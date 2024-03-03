@@ -14,7 +14,7 @@ Doku Client frontend uses Nextjs, Typescript and Tailwind. The application uses 
 
 ### Pre-requisites:
 - `node` : version >=20
-- `postgres` : db for the doku client's storage (this comes under docker compose but if you setup without docker, then you need postgres db url to be set in env variable)
+- `sqlite` : db for the doku client's storage (this will come under docker compose with persistent volumne but if you setup without docker, then you need provide file url as env variable like `file:/path/to/file`)
  
 ### The first step : Setup server without docker
 1. Clone the doku repository 
@@ -29,11 +29,11 @@ Doku Client frontend uses Nextjs, Typescript and Tailwind. The application uses 
     ```sh 
     npm install
     ````
-4. Run command below to create an env file and then update the .env file for the `DATABASE_URL` to point to the postgres db
+4. Run command below to create an env file and then update the .env file for the `DATABASE_URL` to point to the sqlite db
     ```sh 
     cp .env.example .env
     ````
-5. Apply the migrations to the postgres db using the below commands. First command applies the migrations to the db and the second command generates assets like Prisma Client based on the generator and data model blocks defined in your prisma/schema.prisma file.
+5. Apply the migrations to the sqlite db using the below commands. First command applies the migrations to the db and the second command generates assets like Prisma Client based on the generator and data model blocks defined in your prisma/schema.prisma file.
     ```sh 
     npx prisma migrate deploy
     npx prisma generate

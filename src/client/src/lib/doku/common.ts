@@ -1,7 +1,5 @@
-import { DatabaseConfig } from "@prisma/client";
 import { getDBConfigByUser } from "../db-config";
 import createClickhousePool from "./clickhouse-client";
-import { DB_META_KEYS } from "@/constants/dbConfig";
 import asaw from "@/utils/asaw";
 
 export const DATA_TABLE_NAME = "DOKU_LLM_DATA";
@@ -31,11 +29,7 @@ export type DataCollectorType = { err?: unknown; data?: unknown };
 export async function dataCollector(query: string): Promise<DataCollectorType> {
 	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
 	if (err) return { err, data: [] };
-	const clickhousePool = createClickhousePool(
-		((dbConfig as DatabaseConfig)?.meta as Record<string, any>)?.[
-			DB_META_KEYS.url
-		] || ""
-	);
+	const clickhousePool = createClickhousePool(dbConfig);
 	const client = await clickhousePool.acquire();
 
 	try {
