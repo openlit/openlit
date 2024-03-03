@@ -49,7 +49,11 @@ Doku Client frontend uses Nextjs, Typescript and Tailwind. The application uses 
     This will create a db config with
     - environment: "production",
     - name: "Default DB",
-    - meta: { databaseUrl: "clickhouse://127.0.0.1:8123" }
+    - username: "default",
+	- password: "DOKU",
+	- host: "127.0.0.1",
+	- port: "8123",
+	- database: "default",
 7. Start the dev server
     ```sh 
     npm run dev
