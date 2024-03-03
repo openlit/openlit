@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -15,11 +15,11 @@ model Account {
   provider          String
   providerAccountId String   @map("provider_account_id")
   token_type        String?
-  refresh_token     String?  @db.Text
-  access_token      String?  @db.Text
+  refresh_token     String? 
+  access_token      String? 
   expires_at        Int?
   scope             String?
-  id_token          String?  @db.Text
+  id_token          String? 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -31,8 +31,8 @@ model Account {
 model Session {
   id           String   @id @default(cuid())
   userId       String?  @map("user_id")
-  sessionToken String   @unique @map("session_token") @db.Text
-  accessToken  String?  @map("access_token") @db.Text
+  sessionToken String   @unique @map("session_token")
+  accessToken  String?  @map("access_token")
   expires      DateTime
   user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
@@ -75,7 +75,12 @@ model DatabaseConfig {
   id              String                @id @default(cuid())
   name            String
   environment     String                @default("production")
-  meta            Json
+  username        String                @default("admin")             
+	password        String?    
+	host            String                @default("127.0.0.1")
+	port            String                @default("8123")
+	database        String                @default("doku")
+	query           String?
   dbUsers         DatabaseConfigUser[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt

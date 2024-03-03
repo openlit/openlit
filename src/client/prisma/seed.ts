@@ -1,4 +1,3 @@
-import { DB_META_KEYS } from "../src/constants/dbConfig";
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 async function main() {
@@ -21,7 +20,11 @@ async function main() {
 		create: {
 			environment: "production",
 			name: "Default DB",
-			meta: { [DB_META_KEYS.url]: "clickhouse://127.0.0.1:8123" },
+			username: "default",
+			password: "DOKU",
+			host: "127.0.0.1",
+			port: "8123",
+			database: "default",
 			createdByUserId: user.id,
 		},
 	});
