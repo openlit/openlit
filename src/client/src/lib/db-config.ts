@@ -53,19 +53,15 @@ export const getDBConfigById = async ({ id }: { id: string }) => {
 };
 
 export const upsertDBConfig = async (
-	{
-		environment,
-		name,
-		meta,
-	}: {
-		environment: string;
-		name: string;
-		meta: string;
-	},
+	dbConfig: Partial<DatabaseConfig>,
 	id?: string
 ) => {
-	if (!name) throw new Error("No name provided");
-	if (!meta) throw new Error("No meta details provided");
+	if (!dbConfig.name) throw new Error("No name provided");
+	if (!dbConfig.username) throw new Error("No username provided");
+	if (!dbConfig.host) throw new Error("No host provided");
+	if (!dbConfig.port) throw new Error("No port provided");
+	if (!dbConfig.database) throw new Error("No database provided");
+	if (!dbConfig.database) throw new Error("No database provided");
 
 	const user = await getCurrentUser();
 
@@ -73,7 +69,7 @@ export const upsertDBConfig = async (
 
 	const existingDBName = await prisma.databaseConfig.findUnique({
 		where: {
-			name,
+			name: dbConfig.name,
 			NOT: {
 				id,
 			},
@@ -84,20 +80,16 @@ export const upsertDBConfig = async (
 
 	const whereObject: any = {};
 	if (id) whereObject.id = id;
-	else whereObject.name = name;
+	else whereObject.name = dbConfig.name;
 
-	const dbConfig = await prisma.databaseConfig.upsert({
+	const createddbConfig = await prisma.databaseConfig.upsert({
 		where: whereObject,
 		create: {
-			environment,
-			name,
-			meta,
+			...(dbConfig as any),
 			createdByUserId: user.id,
 		},
 		update: {
-			environment,
-			name,
-			meta,
+			...dbConfig,
 		},
 	});
 
@@ -110,7 +102,7 @@ export const upsertDBConfig = async (
 		await prisma.databaseConfigUser.create({
 			data: {
 				userId: user.id,
-				databaseConfigId: dbConfig.id,
+				databaseConfigId: createddbConfig.id,
 				isCurrent: !ifFirstDBConfigCreated,
 			},
 		});
