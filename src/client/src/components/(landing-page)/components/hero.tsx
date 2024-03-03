@@ -4,9 +4,7 @@ export default function Hero() {
 			<div className="mx-auto w-full py-10 sm:py-32 lg:py-20">
 				<div className="text-center">
 					<h1 className="flex flex-col font-extrabold tracking-tight">
-						<span className="block xl:inline text-primary text-6xl">
-							Doku
-						</span>
+						<span className="block xl:inline text-primary text-6xl">Doku</span>
 						<span className="block text-tertiary xl:inline text-3xl">
 							Observability for LLMs
 						</span>
@@ -26,7 +24,7 @@ export default function Hero() {
 							href="https://github.com/dokulabs/doku"
 							className="text-sm font-semibold leading-6 text-tertiary hover:text-primary"
 						>
-							Learn more <span aria-hidden="true">→</span>
+							Github repository <span aria-hidden="true">→</span>
 						</a>
 					</div>
 				</div>
