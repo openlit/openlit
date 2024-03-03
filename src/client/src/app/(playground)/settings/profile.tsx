@@ -1,13 +1,37 @@
+import FormBuilder from "@/components/common/form-builder";
 import SideTabs, { SideTabItemProps } from "@/components/common/side-tabs";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { noop } from "@/utils/noop";
-import { FormEventHandler, MouseEventHandler, useState } from "react";
+import { User } from "@prisma/client";
+import {
+	FormEventHandler,
+	MouseEventHandler,
+	useEffect,
+	useState,
+} from "react";
 import toast from "react-hot-toast";
 
 const PROFILE_TOAST_ID = "profile-details";
 
 function ModifyProfileDetails() {
-	const { error, fireRequest, isLoading } = useFetchWrapper();
+	const { data: user, fireRequest: getUser } = useFetchWrapper();
+	const { fireRequest, isLoading } = useFetchWrapper();
+
+	const fetchUser = () => {
+		getUser({
+			requestType: "GET",
+			url: "/api/user/profile",
+			responseDataKey: "data",
+			failureCb: (err?: string) => {
+				toast.error(err || "Unauthorized access!", {
+					id: PROFILE_TOAST_ID,
+				});
+			},
+		});
+	};
+
+	useEffect(() => {
+		fetchUser();
+	}, []);
 
 	const modifyDetails: FormEventHandler<HTMLFormElement> = (event) => {
 		event.preventDefault();
@@ -42,6 +66,7 @@ function ModifyProfileDetails() {
 					id: PROFILE_TOAST_ID,
 				});
 				formElement.reset();
+				fetchUser();
 			},
 			failureCb: (err?: string) => {
 				toast.error(err || "Profile details updation failed!", {
@@ -51,113 +76,46 @@ function ModifyProfileDetails() {
 		});
 	};
 
+	const updatedUser = user as User;
+
 	return (
-		<form
-			className="flex flex-col w-full"
-			onSubmit={isLoading ? noop : modifyDetails}
-		>
-			<div className="flex flex-col relative flex-1 overflow-y-auto px-5 py-3">
-				<h2 className="text-base font-semibold text-tertiary sticky top-0 bg-white">
-					Update profile details
-				</h2>
-
-				<div className="flex flex-col mt-6 w-full">
-					<div className="flex flex-1 items-center">
-						<label
-							htmlFor="name"
-							className="text-tertiary/[0.8] text-sm font-normal w-1/5"
-						>
-							Profile Name
-						</label>
-						<div className="flex w-2/3 shadow-sm ring-1 ring-inset ring-gray-300">
-							<input
-								key="name"
-								type="text"
-								name="name"
-								id="name"
-								className="flex-1 border border-tertiary/[0.2] py-1.5 px-2 text-tertiary placeholder:text-tertiary/[0.4] outline-none focus:ring-0 text-sm"
-								placeholder="profile name"
-								defaultValue=""
-							/>
-						</div>
-					</div>
-				</div>
-
-				<div className="flex flex-col mt-6 w-full">
-					<div className="flex flex-1 items-center">
-						<label
-							htmlFor="currentPassword"
-							className="text-tertiary/[0.8] text-sm font-normal w-1/5"
-						>
-							Current Password
-						</label>
-						<div className="flex w-2/3 shadow-sm ring-1 ring-inset ring-gray-300">
-							<input
-								key="currentPassword"
-								type="password"
-								name="currentPassword"
-								id="currentPassword"
-								className="flex-1 border border-tertiary/[0.2] py-1.5 px-2 text-tertiary placeholder:text-tertiary/[0.4] outline-none focus:ring-0 text-sm"
-								placeholder="********"
-							/>
-						</div>
-					</div>
-				</div>
-
-				<div className="flex flex-col mt-6 w-full">
-					<div className="flex flex-1 items-center">
-						<label
-							htmlFor="newPassword"
-							className="text-tertiary/[0.8] text-sm font-normal w-1/5"
-						>
-							New Password
-						</label>
-						<div className="flex w-2/3 shadow-sm ring-1 ring-inset ring-gray-300">
-							<input
-								key="newPassword"
-								type="password"
-								name="newPassword"
-								id="newPassword"
-								className="flex-1 border border-tertiary/[0.2] py-1.5 px-2 text-tertiary placeholder:text-tertiary/[0.4] outline-none focus:ring-0 text-sm"
-								placeholder="********"
-							/>
-						</div>
-					</div>
-				</div>
-
-				<div className="flex flex-col mt-6 w-full">
-					<div className="flex flex-1 items-center">
-						<label
-							htmlFor="confirmNewPassword"
-							className="text-tertiary/[0.8] text-sm font-normal w-1/5"
-						>
-							Confirm New Password
-						</label>
-						<div className="flex w-2/3 shadow-sm ring-1 ring-inset ring-gray-300">
-							<input
-								key="confirmNewPassword"
-								type="password"
-								name="confirmNewPassword"
-								id="confirmNewPassword"
-								className="flex-1 border border-tertiary/[0.2] py-1.5 px-2 text-tertiary placeholder:text-tertiary/[0.4] outline-none focus:ring-0 text-sm"
-								placeholder="********"
-							/>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<div className="mt-6 flex items-center justify-end border-t border-secondary w-full py-2 gap-3">
-				<button
-					type="submit"
-					className={`rounded-sm bg-primary/[0.9] px-5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-primary focus-visible:outline ${
-						isLoading ? "animate-pulse" : ""
-					}`}
-				>
-					Update
-				</button>
-			</div>
-		</form>
+		<FormBuilder
+			fields={[
+				{
+					label: "Profile Name",
+					type: "text",
+					name: "name",
+					placeholder: "db-config",
+					defaultValue: updatedUser?.name || "",
+					inputKey: `${updatedUser?.id}-name`,
+				},
+				{
+					label: "Current Password",
+					type: "password",
+					name: "currentPassword",
+					placeholder: "*******",
+					inputKey: `${updatedUser?.id}-currentPassword`,
+				},
+				{
+					label: "New Password",
+					type: "password",
+					name: "newPassword",
+					placeholder: "*******",
+					inputKey: `${updatedUser?.id}-newPassword`,
+				},
+				{
+					label: "Confirm New Password",
+					type: "password",
+					name: "confirmNewPassword",
+					placeholder: "*******",
+					inputKey: `${updatedUser?.id}-confirmNewPassword`,
+				},
+			]}
+			heading={`Update profile details`}
+			isLoading={isLoading}
+			onSubmit={modifyDetails}
+			submitButtonText={"Update"}
+		/>
 	);
 }
 
