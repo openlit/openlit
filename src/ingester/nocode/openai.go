@@ -11,10 +11,11 @@ import (
 )
 
 func RunOpenAITask() {
-	apiToken := ""
-	orgID := ""
+	apiToken := "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"
+	orgID := "org-RXrPv8fY9rahdyxaw5fhwxub"
 
 	currentDate := time.Now().Format("2006-01-02")
+
 	usageResponse, err := fetchChatUsageData(currentDate, apiToken, orgID)
 	if err != nil {
 		fmt.Println("Error fetching usage data:", err)
@@ -26,7 +27,10 @@ func RunOpenAITask() {
 
 	for _, data := range usageResponse.Data {
 		transformedData = append(transformedData, transformData(data))
-		db.InsertNoCodeLLM(transformedData)
+	}
+
+	for _, data := range transformedData {
+		db.InsertNoCodeLLM(data)
 	}
 }
 

@@ -586,17 +586,14 @@ func DeleteConnection(existingAPIKey string) error {
 	return nil
 }
 
-func InsertNoCodeLLM(data []map[string]interface{}) error {
-	query := `
-		INSERT INTO your_table_name (
-			id, aggregation_timestamp, api_key_id, api_key_name, completionTokens, cost, email,
-			endpoint, model, n_requests, organization_id, organization_name, promptTokens, totalTokens
-		) VALUES (
-			generateUUIDv4(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-		)`
+func InsertNoCodeLLM(data map[string]interface{}) error {
+	// Construct query with placeholders
+	query := fmt.Sprintf("INSERT INTO %s (id, aggregation_timestamp, api_key_id, api_key_name, completionTokens, cost, email,endpoint, model, n_requests, organization_id, organization_name, promptTokens, totalTokens) VALUES (generateUUIDv4(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", doku_nocode_llm_data_table)
 
 	// Convert aggregation_timestamp to ClickHouse DateTime format
 	aggregationTimestamp := time.Unix(int64(data["aggregation_timestamp"].(float64)), 0)
+
+	// Not generating UUID in Go but letting ClickHouse handle it via generateUUIDv4()
 
 	params := []interface{}{
 		aggregationTimestamp,
@@ -615,7 +612,7 @@ func InsertNoCodeLLM(data []map[string]interface{}) error {
 	}
 
 	// Assuming db is a *clickhouse.Conn or similar from your ClickHouse Go client
-	if err := db.Exec(ctx, query, params); err != nil {
+	if err := db.Exec(ctx, query, params...); err != nil {
 		return fmt.Errorf("failed to insert data into ClickHouse: %w", err)
 	}
 
