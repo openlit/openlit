@@ -5,7 +5,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
 import asaw from "@/utils/asaw";
 import { createNewUser, getUserByEmail, updateUser } from "@/lib/user";
-import { compare } from "bcrypt-ts";
+import { doesPasswordMatches } from "@/utils/user";
 
 const prisma = new PrismaClient();
 
@@ -81,7 +81,7 @@ export const authOptions = {
 					getUserByEmail({ email: credentials.email, selectPassword: true })
 				);
 				if (!user || err) return err || "No such user exists!";
-				const passwordsMatch = await compare(
+				const passwordsMatch = await doesPasswordMatches(
 					credentials.password,
 					user.password
 				);

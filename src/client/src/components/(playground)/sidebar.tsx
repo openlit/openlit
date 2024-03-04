@@ -3,12 +3,14 @@
 import { signOut } from "next-auth/react";
 import { ReactElement } from "react";
 import {
+	AcademicCapIcon,
 	CircleStackIcon,
 	HomeModernIcon,
 	KeyIcon,
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 
 type SidebarItemProps = {
 	className?: string;
@@ -23,6 +25,11 @@ const ICON_CLASSES =
 
 const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
+		icon: <AcademicCapIcon className={ICON_CLASSES} />,
+		text: "Getting started",
+		link: "/getting-started",
+	},
+	{
 		icon: <HomeModernIcon className={ICON_CLASSES} />,
 		text: "Dashboard",
 		link: "/dashboard",
@@ -36,6 +43,11 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <KeyIcon className={ICON_CLASSES} />,
 		text: "API keys",
 		link: "/api-keys",
+	},
+	{
+		icon: <WrenchScrewdriverIcon className={ICON_CLASSES} />,
+		text: "Settings",
+		link: "/settings",
 	},
 ];
 
@@ -79,7 +91,7 @@ export default function Sidebar() {
 						icon={
 							<Image
 								className="flex-shrink-0 w-6 h-6 transition duration-75"
-								src="/images/doku.png"
+								src="/images/logo.png"
 								alt="Doku's Logo"
 								priority
 								width={24}
@@ -97,7 +109,7 @@ export default function Sidebar() {
 								className={
 									item.link === pathname
 										? "border-r-4 border-primary text-primary bg-primary/[.09]"
-										: "text-tertiary"
+										: "text-tertiary/[0.9] hover:text-primary"
 								}
 								{...item}
 							/>

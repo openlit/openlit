@@ -2,15 +2,15 @@ import { noop } from "@/utils/noop";
 import { ReactNode, createContext, useContext, useState } from "react";
 
 export const RequestMappings = {
-	applicationname: {
+	applicationName: {
 		label: "Application Name",
 		type: "string",
 	},
-	audiovoice: {
+	audioVoice: {
 		label: "Audio Voice",
 		type: "string",
 	},
-	completiontokens: {
+	completionTokens: {
 		label: "Completion Tokens",
 		type: "string",
 	},
@@ -22,15 +22,15 @@ export const RequestMappings = {
 		label: "Environment",
 		type: "string",
 	},
-	finetunejobid: {
+	finetuneJobid: {
 		label: "Fine Tune Job Id",
 		type: "string",
 	},
-	finetunejobstatus: {
+	finetuneJobStatus: {
 		label: "Fine Tune Job Status",
 		type: "string",
 	},
-	finishreason: {
+	finishReason: {
 		label: "Finish Reason",
 		type: "string",
 	},
@@ -42,7 +42,7 @@ export const RequestMappings = {
 		label: "Image",
 		type: "string",
 	},
-	imagesize: {
+	imageSize: {
 		label: "Image Size",
 		type: "string",
 	},
@@ -58,11 +58,11 @@ export const RequestMappings = {
 		label: "Prompt",
 		type: "string",
 	},
-	prompttokens: {
+	promptTokens: {
 		label: "Prompt Tokens",
 		type: "string",
 	},
-	requestduration: {
+	requestDuration: {
 		label: "Request Duration",
 		type: "string",
 	},
@@ -70,11 +70,11 @@ export const RequestMappings = {
 		label: "Response",
 		type: "string",
 	},
-	revisedprompt: {
+	revisedPrompt: {
 		label: "Revised Prompt",
 		type: "string",
 	},
-	sourcelanguage: {
+	sourceLanguage: {
 		label: "Source Language",
 		type: "string",
 	},
@@ -82,11 +82,11 @@ export const RequestMappings = {
 		label: "Time",
 		type: "string",
 	},
-	totaltokens: {
+	totalTokens: {
 		label: "Total Tokens",
 		type: "string",
 	},
-	usagecost: {
+	usageCost: {
 		label: "Usage Cost",
 		type: "string",
 	},
@@ -95,15 +95,15 @@ export const RequestMappings = {
 export const DisplayDataRequestMappingKeys: Array<
 	keyof typeof RequestMappings
 > = [
-	"applicationname",
+	"applicationName",
 	"endpoint",
 	"model",
-	"requestduration",
-	"prompttokens",
-	"totaltokens",
-	"usagecost",
+	"requestDuration",
+	"promptTokens",
+	"totalTokens",
+	"usageCost",
 	"time",
-	"sourcelanguage",
+	"sourceLanguage",
 ];
 
 type RequestProps = Record<keyof typeof RequestMappings, any> | null;

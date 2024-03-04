@@ -1,4 +1,4 @@
-import { deleteAPIKey } from "@/lib/api-key";
+import { deleteAPIKey } from "@/lib/doku/api-key";
 
 export async function DELETE(_: Request, context: any) {
 	const { id } = context.params;

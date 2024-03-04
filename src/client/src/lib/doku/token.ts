@@ -1,5 +1,5 @@
 import { differenceInDays, differenceInYears } from "date-fns";
-import { DokuParams, TABLE_NAME, dataCollector } from "./common";
+import { DokuParams, DATA_TABLE_NAME, dataCollector } from "./common";
 
 export type TOKEN_TYPE = "total" | "prompt" | "completion";
 
@@ -11,15 +11,15 @@ export async function getAverageTokensPerRequest(params: TokenParams) {
 	const { start, end } = params.timeLimit;
 
 	const query = `SELECT
-		CAST(AVG(${
+		AVG(${
 			params.type === "total"
-				? "totaltokens"
+				? "totalTokens"
 				: params.type === "prompt"
-				? "prompttokens"
-				: "completiontokens"
-		}) AS DECIMAL) AS total_tokens
-		FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'`;
+				? "promptTokens"
+				: "completionTokens"
+		}) AS total_tokens
+		FROM ${DATA_TABLE_NAME} 
+		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
 	return dataCollector(query);
 }
@@ -34,12 +34,12 @@ export async function getTokensPerTime(params: DokuParams) {
 	}
 
 	const query = `SELECT
-		CAST(SUM(totaltokens) AS INTEGER) AS totaltokens,
-		CAST(SUM(prompttokens) AS INTEGER) AS prompttokens,
-		CAST(SUM(completiontokens) AS INTEGER) AS completiontokens,
-		TO_CHAR(DATE_TRUNC('${dateTrunc}', time), 'YY/MM/DD HH24:MI') AS request_time
-		FROM ${TABLE_NAME} 
-		WHERE time >= '${start}' AND time <= '${end}'
+		CAST(SUM(totalTokens) AS INTEGER) AS totaltokens,
+		CAST(SUM(promptTokens) AS INTEGER) AS prompttokens,
+		CAST(SUM(completionTokens) AS INTEGER) AS completiontokens,
+		formatDateTime(DATE_TRUNC('${dateTrunc}', time), '%Y/%m/%d %R') AS request_time
+		FROM ${DATA_TABLE_NAME} 
+		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
 		GROUP BY request_time
 		ORDER BY request_time`;
 

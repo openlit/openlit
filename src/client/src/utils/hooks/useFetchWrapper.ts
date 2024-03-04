@@ -4,7 +4,7 @@ import { deleteData, getData } from "@/utils/api";
 
 type useFetchWrapperProps = {
 	body?: string;
-	failureCb?: () => void;
+	failureCb?: (s?: string) => void;
 	url: string;
 	requestType: "GET" | "POST" | "DELETE";
 	responseDataKey?: string;
@@ -27,6 +27,7 @@ export default function useFetchWrapper() {
 			successCb,
 		}: useFetchWrapperProps) => {
 			setIsLoading(true);
+			setError(null);
 			try {
 				let response;
 				if (requestType === "GET" || requestType === "POST") {
@@ -41,12 +42,18 @@ export default function useFetchWrapper() {
 					});
 				}
 
-				const finalResponse = get(response, responseDataKey, response);
-				setData(finalResponse);
-				if (typeof successCb === "function") successCb(finalResponse); 
+				if (response.err) {
+					setError(response.err);
+					if (typeof failureCb === "function") failureCb(response.err);
+				} else {
+					const finalResponse = get(response, responseDataKey, response);
+					setData(finalResponse);
+					if (typeof successCb === "function") successCb(finalResponse);
+				}
 			} catch (error) {
-				setError(error);
-				if (typeof failureCb === "function") failureCb();
+				const updatedError = (error as any).toString().replaceAll("Error:", "");
+				setError(updatedError);
+				if (typeof failureCb === "function") failureCb(updatedError);
 			}
 
 			setIsLoading(false);

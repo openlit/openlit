@@ -41,7 +41,7 @@ CREATE TABLE "users" (
 );
 
 -- CreateTable
-CREATE TABLE "VerificationRequest" (
+CREATE TABLE "verificationrequest" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "identifier" TEXT NOT NULL,
     "token" TEXT NOT NULL,
@@ -60,8 +60,7 @@ CREATE UNIQUE INDEX "sessions_session_token_key" ON "sessions"("session_token");
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "VerificationRequest_token_key" ON "VerificationRequest"("token");
+CREATE UNIQUE INDEX "verificationrequest_token_key" ON "verificationrequest"("token");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "VerificationRequest_identifier_token_key" ON "VerificationRequest"("identifier", "token");
-
+CREATE UNIQUE INDEX "verificationrequest_identifier_token_key" ON "verificationrequest"("identifier", "token");

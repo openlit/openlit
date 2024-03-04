@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed": "npx prisma db seed"
   },
   "dependencies": {
+    "@clickhouse/client": "^0.2.10",
     "@headlessui/react": "^1.7.18",
     "@heroicons/react": "^2.1.1",
     "@next-auth/prisma-adapter": "^1.0.7",
@@ -17,23 +19,31 @@
     "bcrypt-ts": "^5.0.1",
     "copy-to-clipboard": "^3.3.3",
     "date-fns": "^3.3.1",
+    "generic-pool": "^3.9.0",
     "lodash": "^4.17.21",
     "next": "14.0.4",
     "next-auth": "^4.24.5",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "react-hot-toast": "^2.4.1",
+    "react-syntax-highlighter": "^15.5.0"
   },
   "devDependencies": {
     "@types/lodash": "^4.14.202",
-    "@types/node": "^20",
+    "@types/node": "^20.11.24",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/react-syntax-highlighter": "^15.5.11",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.0.4",
     "postcss": "^8",
     "prisma": "^5.8.1",
     "tailwindcss": "^3.3.0",
-    "typescript": "^5"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   }
 }
