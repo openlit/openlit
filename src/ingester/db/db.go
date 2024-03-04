@@ -20,14 +20,15 @@ import (
 )
 
 var (
-	connectionCache        sync.Map               // connectionCache stores the lookup of connection details
-	ApiKeyCache            = sync.Map{}           // ApiKeyCache stores the lookup of API keys and organization IDs.
-	CacheEntryDuration     = time.Minute * 10     // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
-	db                     clickhouse.Conn        // db holds the database connection
-	ctx                    = context.Background() // ctx is the context for the database connection
-	doku_llm_data_table    = "DOKU_LLM_DATA"      // doku_llm_data_table holds the name of the data table
-	doku_apikeys_table     = "DOKU_APIKEYS"       // doku_apikeys_table holds the name of the API keys table
-	doku_connections_table = "DOKU_CONNECTIONS"   // doku_connections_table holds the name of the connections table
+	connectionCache            sync.Map                 // connectionCache stores the lookup of connection details
+	ApiKeyCache                = sync.Map{}             // ApiKeyCache stores the lookup of API keys and organization IDs.
+	CacheEntryDuration         = time.Minute * 10       // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
+	db                         clickhouse.Conn          // db holds the database connection
+	ctx                        = context.Background()   // ctx is the context for the database connection
+	doku_llm_data_table        = "DOKU_LLM_DATA"        // doku_llm_data_table holds the name of the data table
+	doku_apikeys_table         = "DOKU_APIKEYS"         // doku_apikeys_table holds the name of the API keys table
+	doku_connections_table     = "DOKU_CONNECTIONS"     // doku_connections_table holds the name of the connections table
+	doku_nocode_llm_data_table = "DOKU_NOCODE_LLM_DATA" // doku_nocode_llm_data_table holds the name of the NoCode LLM data table
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
@@ -105,6 +106,28 @@ func generateSecureRandomKey() (string, error) {
 	apiKey := "dk" + randomHexString
 
 	return apiKey, nil
+}
+
+// getCreateNoCodeLLMTableSQL returns the SQL query to create the NoCode LLM data table in ClickHouse.
+func getCreateNoCodeLLMTableSQL(tableName string) string {
+	return fmt.Sprintf(`
+        CREATE TABLE IF NOT EXISTS %s (
+            id UUID DEFAULT generateUUIDv4(),
+            aggregation_timestamp DateTime NOT NULL,
+            api_key_id Nullable(String),
+            api_key_name Nullable(String),
+            completionTokens Int64 NOT NULL,
+            cost Float64 NOT NULL,
+            email Nullable(String),
+            endpoint String NOT NULL,
+            model String NOT NULL,
+            n_requests Int64 NOT NULL,
+            organization_id String NOT NULL,
+            organization_name String NOT NULL,
+            promptTokens Int64 NOT NULL,
+            totalTokens Int64 NOT NULL
+        ) ENGINE = MergeTree()
+        ORDER BY aggregation_timestamp;`, tableName)
 }
 
 // getCreateConnectionsTableSQL returns the SQL query to create the API keys table.
@@ -188,6 +211,8 @@ func createTable(tableName string, cfg config.Configuration) error {
 		createTableSQL = getCreateDataTableSQL(tableName, cfg.Database.RetentionPeriod)
 	} else if tableName == doku_connections_table {
 		createTableSQL = getCreateConnectionsTableSQL(tableName)
+	} else if tableName == doku_nocode_llm_data_table {
+		createTableSQL = getCreateNoCodeLLMTableSQL(tableName)
 	}
 
 	exists, err := tableExists(tableName, cfg.Database.Name)
@@ -355,6 +380,12 @@ func Init(cfg config.Configuration) error {
 	if err != nil {
 		return err
 	}
+
+	err = createTable(doku_nocode_llm_data_table, cfg)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -550,6 +581,42 @@ func DeleteConnection(existingAPIKey string) error {
 		log.Info().Msg("connection config deleted successfully")
 	} else {
 		return fmt.Errorf("NOTFOUND")
+	}
+
+	return nil
+}
+
+func InsertNoCodeLLM(data []map[string]interface{}) error {
+	query := `
+		INSERT INTO your_table_name (
+			id, aggregation_timestamp, api_key_id, api_key_name, completionTokens, cost, email,
+			endpoint, model, n_requests, organization_id, organization_name, promptTokens, totalTokens
+		) VALUES (
+			generateUUIDv4(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+		)`
+
+	// Convert aggregation_timestamp to ClickHouse DateTime format
+	aggregationTimestamp := time.Unix(int64(data["aggregation_timestamp"].(float64)), 0)
+
+	params := []interface{}{
+		aggregationTimestamp,
+		data["api_key_id"],
+		data["api_key_name"],
+		data["completionTokens"],
+		data["cost"],
+		data["email"],
+		data["endpoint"],
+		data["model"],
+		data["n_requests"],
+		data["organization_id"],
+		data["organization_name"],
+		data["promptTokens"],
+		data["totalTokens"],
+	}
+
+	// Assuming db is a *clickhouse.Conn or similar from your ClickHouse Go client
+	if err := db.Exec(ctx, query, params); err != nil {
+		return fmt.Errorf("failed to insert data into ClickHouse: %w", err)
 	}
 
 	return nil
