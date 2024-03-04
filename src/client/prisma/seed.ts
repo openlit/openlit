@@ -14,35 +14,41 @@ async function main() {
 		},
 	});
 
-	const dbConfig = await prisma.databaseConfig.upsert({
-		where: { name: "Default DB", AND: { createdByUserId: user.id } },
-		update: {},
-		create: {
-			environment: "production",
-			name: "Default DB",
-			username: "default",
-			password: "DOKU",
-			host: "127.0.0.1",
-			port: "8123",
-			database: "default",
-			createdByUserId: user.id,
-		},
-	});
+	const environmentDBConfig = {
+		username: process.env.INIT_DB_USERNAME || "default",
+		password: process.env.INIT_DB_PASSWORD || "",
+		host: process.env.INIT_DB_HOST,
+		port: process.env.INIT_DB_PORT,
+		database: process.env.INIT_DB_DATABASE || "default",
+	};
 
-	await prisma.databaseConfigUser.upsert({
-		where: {
-			databaseConfigId_userId: {
+	if (environmentDBConfig.host && environmentDBConfig.port) {
+		const dbConfig = await prisma.databaseConfig.upsert({
+			where: { name: "Default DB", AND: { createdByUserId: user.id } },
+			update: {},
+			create: {
+				environment: "production",
+				name: "Default DB",
+				...environmentDBConfig,
+				createdByUserId: user.id,
+			},
+		});
+
+		await prisma.databaseConfigUser.upsert({
+			where: {
+				databaseConfigId_userId: {
+					userId: user.id,
+					databaseConfigId: dbConfig.id,
+				},
+			},
+			update: {},
+			create: {
 				userId: user.id,
 				databaseConfigId: dbConfig.id,
+				isCurrent: true,
 			},
-		},
-		update: {},
-		create: {
-			userId: user.id,
-			databaseConfigId: dbConfig.id,
-			isCurrent: true,
-		},
-	});
+		});
+	}
 }
 main()
 	.then(async () => {

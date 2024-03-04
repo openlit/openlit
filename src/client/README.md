@@ -46,14 +46,12 @@ Doku Client frontend uses Nextjs, Typescript and Tailwind. The application uses 
     This will create a default user with 
     - email : user@dokulabs.com
     - password : dokulabsuser
-    This will create a db config with
-    - environment: "production",
-    - name: "Default DB",
-    - username: "default",
-	- password: "DOKU",
-	- host: "127.0.0.1",
-	- port: "8123",
-	- database: "default",
+    For a default db config you need to pass some environment variables (some have default values):
+    - `INIT_DB_USERNAME` (optional) ---> "default"
+    - `INIT_DB_PASSWORD` (optional) ---> ""
+    - `INIT_DB_HOST`     (required)
+    - `INIT_DB_PORT`     (required)
+    - `INIT_DB_DATABASE` (optional) ---> "default"
 7. Start the dev server
     ```sh 
     npm run dev
