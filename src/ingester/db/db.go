@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	_ "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -28,7 +29,8 @@ var (
 	doku_llm_data_table        = "DOKU_LLM_DATA"        // doku_llm_data_table holds the name of the data table
 	doku_apikeys_table         = "DOKU_APIKEYS"         // doku_apikeys_table holds the name of the API keys table
 	doku_connections_table     = "DOKU_CONNECTIONS"     // doku_connections_table holds the name of the connections table
-	doku_nocode_llm_data_table = "DOKU_NOCODE_LLM_DATA" // doku_nocode_llm_data_table holds the name of the NoCode LLM data table
+	doku_nocode_llm_data_table = "DOKU_NOCODE_LLM_DATA_TEST" // doku_nocode_llm_data_table holds the name of the NoCode LLM data table
+	doku_nocode_llm_org_table  = "DOKU_NOCODE_LLM_ORG"  // doku_nocode_llm_org_table holds the name of the NoCode LLM organization table
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
@@ -108,6 +110,19 @@ func generateSecureRandomKey() (string, error) {
 	return apiKey, nil
 }
 
+// getCreateNoCodeLLMOrgSQL returns the SQL query to create the NoCode LLM data table in ClickHouse.
+func getCreateNoCodeLLMOrgSQL(tableName string) string {
+	return fmt.Sprintf(`
+        CREATE TABLE IF NOT EXISTS %s (
+            id UUID DEFAULT generateUUIDv4(),
+            platform String NOT NULL,
+			apiKey String NOT NULL,
+			orgID String NOT NULL,
+			orgName String NOT NULL,
+        ) ENGINE = MergeTree()
+        ORDER BY platform;`, tableName)
+}
+
 // getCreateNoCodeLLMTableSQL returns the SQL query to create the NoCode LLM data table in ClickHouse.
 func getCreateNoCodeLLMTableSQL(tableName string) string {
 	return fmt.Sprintf(`
@@ -116,16 +131,17 @@ func getCreateNoCodeLLMTableSQL(tableName string) string {
             aggregation_timestamp DateTime NOT NULL,
             api_key_id Nullable(String),
             api_key_name Nullable(String),
-            completionTokens Int64 NOT NULL,
+            completionTokens Nullable(Int64),
             cost Float64 NOT NULL,
             email Nullable(String),
             endpoint String NOT NULL,
             model String NOT NULL,
             n_requests Int64 NOT NULL,
+			imageSize Nullable(String),
             organization_id String NOT NULL,
             organization_name String NOT NULL,
-            promptTokens Int64 NOT NULL,
-            totalTokens Int64 NOT NULL
+            promptTokens Nullable(Int64),
+            totalTokens Nullable(Int64)
         ) ENGINE = MergeTree()
         ORDER BY aggregation_timestamp;`, tableName)
 }
@@ -213,6 +229,8 @@ func createTable(tableName string, cfg config.Configuration) error {
 		createTableSQL = getCreateConnectionsTableSQL(tableName)
 	} else if tableName == doku_nocode_llm_data_table {
 		createTableSQL = getCreateNoCodeLLMTableSQL(tableName)
+	} else if tableName == doku_nocode_llm_org_table {
+		createTableSQL = getCreateNoCodeLLMOrgSQL(tableName)
 	}
 
 	exists, err := tableExists(tableName, cfg.Database.Name)
@@ -364,7 +382,7 @@ func Init(cfg config.Configuration) error {
 	}
 
 	// Create the DATA and API keys table if it doesn't exist.
-	log.Info().Msgf("creating '%s', '%s' and '%s' tables in the database if they don't exist", doku_connections_table, doku_apikeys_table, doku_llm_data_table)
+	log.Info().Msgf("creating '%s', '%s', '%s', '%s' and '%s' tables in the database if they don't exist", doku_connections_table, doku_apikeys_table, doku_llm_data_table, doku_nocode_llm_data_table, doku_nocode_llm_org_table)
 
 	err = createTable(doku_connections_table, cfg)
 	if err != nil {
@@ -382,6 +400,11 @@ func Init(cfg config.Configuration) error {
 	}
 
 	err = createTable(doku_nocode_llm_data_table, cfg)
+	if err != nil {
+		return err
+	}
+
+	err = createTable(doku_nocode_llm_org_table, cfg)
 	if err != nil {
 		return err
 	}
@@ -586,35 +609,45 @@ func DeleteConnection(existingAPIKey string) error {
 	return nil
 }
 
-func InsertNoCodeLLM(data map[string]interface{}) error {
-	// Construct query with placeholders
-	query := fmt.Sprintf("INSERT INTO %s (id, aggregation_timestamp, api_key_id, api_key_name, completionTokens, cost, email,endpoint, model, n_requests, organization_id, organization_name, promptTokens, totalTokens) VALUES (generateUUIDv4(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", doku_nocode_llm_data_table)
+func InsertNoCodeLLM(data []map[string]interface{}) error {
+    // The query is now prepared to handle nullable tokens and includes the image_size column.
+    // The exact SQL might require adjustments based on your ClickHouse schema specifics.
+    query := fmt.Sprintf("INSERT INTO %s (id, aggregation_timestamp, api_key_id, api_key_name, completionTokens, cost, email, endpoint, model, n_requests, organization_id, organization_name, promptTokens, totalTokens, imageSize) VALUES ", doku_nocode_llm_data_table)
 
-	// Convert aggregation_timestamp to ClickHouse DateTime format
-	aggregationTimestamp := time.Unix(int64(data["aggregation_timestamp"].(float64)), 0)
+    var params []interface{}
+    var placeholders []string
+	
+    for _, row := range data {
+        // Adjust the following line based on your datetime format requirements and data availability.
+        aggregationTimestamp := time.Unix(int64(row["aggregation_timestamp"].(float64)), 0).Format("2006-01-02 15:04:05")
 
-	// Not generating UUID in Go but letting ClickHouse handle it via generateUUIDv4()
+        placeholders = append(placeholders, "(generateUUIDv4(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 
-	params := []interface{}{
-		aggregationTimestamp,
-		data["api_key_id"],
-		data["api_key_name"],
-		data["completionTokens"],
-		data["cost"],
-		data["email"],
-		data["endpoint"],
-		data["model"],
-		data["n_requests"],
-		data["organization_id"],
-		data["organization_name"],
-		data["promptTokens"],
-		data["totalTokens"],
-	}
+        params = append(params,
+            aggregationTimestamp,
+            row["api_key_id"],
+            row["api_key_name"],
+            row["completionTokens"], // This and the next two can be nil/NULL for DALL·E data
+            row["cost"],
+            row["email"],
+            row["endpoint"],
+            row["model"],
+            row["n_requests"],
+            row["organization_id"],
+            row["organization_name"],
+            row["promptTokens"], // Make sure these token fields are appropriately handled for nil values
+            row["totalTokens"], // Same note on nil handling
+            row["imageSize"],   // This will be nil/NULL for chat data entries
+        )
+    }
 
-	// Assuming db is a *clickhouse.Conn or similar from your ClickHouse Go client
-	if err := db.Exec(ctx, query, params...); err != nil {
-		return fmt.Errorf("failed to insert data into ClickHouse: %w", err)
-	}
+    // Finalizing the query with dynamically generated placeholders
+    query += strings.Join(placeholders, ",")
 
-	return nil
+    // Executing the batch insert
+    if err := db.Exec(context.TODO(), query, params...); err != nil {
+        return fmt.Errorf("failed to perform batch insertion into ClickHouse: %w", err)
+    }
+
+    return nil
 }
