@@ -11,8 +11,8 @@ import (
 )
 
 func RunOpenAITask() {
-	apiToken := "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"
-	orgID := "org-RXrPv8fY9rahdyxaw5fhwxub"
+	apiToken := ""
+	orgID := ""
 
 	currentDate := time.Now().Format("2006-01-02")
 
