@@ -11,8 +11,8 @@ import (
 )
 
 func RunOpenAITask() {
-	apiToken := "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"
-	orgID := "org-RXrPv8fY9rahdyxaw5fhwxub"
+	apiToken := ""
+	orgID := ""
 
 	currentDate := time.Now().Format("2006-01-02")
 	usageResponse, err := fetchChatUsageData(currentDate, apiToken, orgID)
