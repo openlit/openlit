@@ -4,8 +4,39 @@ import Card from "@/components/common/card";
 import { DonutChart } from "@tremor/react";
 import Legend from "@/components/common/legend";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { round } from "lodash";
 
 const COLORS = ["blue-900", "blue-700", "blue-500", "blue-300", "blue-100"];
+
+const valueFormatter = (number: number) => `${round(number, 7)}`;
+
+type CustomTooltipTypeDonut = {
+	payload: any;
+	active: boolean | undefined;
+	label: any;
+};
+
+const customTooltip = (props: CustomTooltipTypeDonut) => {
+	const { payload, active } = props;
+	if (!active || !payload) return null;
+	const categoryPayload = payload?.[0];
+	if (!categoryPayload) return null;
+	return (
+		<div className="min-w-36 flex rounded-xs bg-white shadow">
+			<div
+				className={`flex w-1.5 flex-col bg-${categoryPayload?.color} mr-2`}
+			/>
+			<div className="flex flex-col justify-between">
+				<p className="whitespace-nowrap font-medium">
+					{categoryPayload.name}
+				</p>
+				<p className="whitespace-nowrap text-tertiary">
+					{valueFormatter(categoryPayload.value)}
+				</p>
+			</div>
+		</div>
+	);
+};
 
 type PieChartCardProps = {
 	categoryKey: string;
@@ -53,11 +84,14 @@ const PieChartCard = memo(
 							className="mt-6"
 							data={updatedData}
 							category={categoryKey}
+							customTooltip={customTooltip}
 							index={indexKey}
 							colors={COLORS.slice(0, updatedData.length)}
+							showAnimation
+							valueFormatter={valueFormatter}
 						/>
 						<Legend
-							className="mt-3 flex-col"
+							className="mt-3"
 							categories={updatedData.map((item: any) => item[indexKey])}
 							colors={COLORS.slice(0, updatedData.length)}
 						/>
@@ -100,7 +134,7 @@ export default function DataCharts() {
 				categoryKey="cost"
 				containerClass="rounded-lg w-full"
 				heading="Cost by application"
-				indexKey="applicationname"
+				indexKey="applicationName"
 				url="/api/metrics/cost/application"
 			/>
 		</div>

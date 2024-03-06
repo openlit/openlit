@@ -44,6 +44,7 @@ function TopModels() {
 				<BarList
 					data={isLoading || !isFetched ? [] : updatedData}
 					className="h-40"
+					showAnimation
 				/>
 			)}
 		</Card>
@@ -85,12 +86,14 @@ function ModelsPerTime() {
 		>
 			<LineChart
 				className="h-40"
+				connectNulls
 				data={isLoading || !isFetched ? [] : updatedDataWithType}
 				index="request_time"
 				categories={Array.from(models)}
 				noDataText={
 					isLoading || !isFetched ? "Loading ..." : "No data available"
 				}
+				showAnimation
 			/>
 		</Card>
 	);
@@ -131,6 +134,7 @@ function TokensPerTime() {
 				noDataText={
 					isLoading || !isFetched ? "Loading ..." : "No data available"
 				}
+				showAnimation
 			/>
 		</Card>
 	);

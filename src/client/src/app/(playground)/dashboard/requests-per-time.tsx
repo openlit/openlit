@@ -44,6 +44,7 @@ export default function RequestsPerTime() {
 				noDataText={
 					isLoading || !isFetched ? "Loading ..." : "No data available"
 				}
+				showAnimation
 			/>
 		</Card>
 	);

@@ -21,7 +21,7 @@ export async function getAverageTokensPerRequest(params: TokenParams) {
 		FROM ${DATA_TABLE_NAME} 
 		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }
 
 export async function getTokensPerTime(params: DokuParams) {
@@ -43,5 +43,5 @@ export async function getTokensPerTime(params: DokuParams) {
 		GROUP BY request_time
 		ORDER BY request_time`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }

@@ -23,7 +23,7 @@ export async function getTopModels(params: ModelDokuParams) {
 		LIMIT ${params.top};
 	`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }
 
 export async function getModelsPerTime(params: DokuParams) {
@@ -49,5 +49,5 @@ export async function getModelsPerTime(params: DokuParams) {
 			request_time;
 	`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }

@@ -14,7 +14,7 @@ const Legend = ({
 	itemClassName = "",
 }: LegendProps) => {
 	return (
-		<ol className={`relative overflow-hidden mt-3 flex-col ${className}`}>
+		<ol className={`relative overflow-hidden mt-3 flex flex-wrap ${className}`}>
 			{categories.map((category, index) => (
 				<li
 					key={`category-${index}`}

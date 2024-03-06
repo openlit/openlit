@@ -11,3 +11,8 @@ export const parseQueryStringToObject = (
 
 	return queryObject;
 };
+
+export const constructURL = (hostname: string, port: string) =>
+	`${hostname.match(/^https?\:\/\//) ? hostname : "http://" + hostname}${
+		port ? ":" + port : ""
+	}`;
