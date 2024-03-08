@@ -8,15 +8,39 @@ Doku Client frontend uses Nextjs, Typescript and Tailwind. The application uses 
 
 # 📖 Table of Contents
 - [⚙️ Pre-requisites](#-pre-requisites)
-- [📌 The first step : Setup server without docker](#-the-first-step--setup-server-without-docker)
+- [📌 Setup server with docker](#-setup-server-with-docker)
+- [📌 Setup server without docker](#-setup-server-without-docker)
 - [🔌 Found a bug or want to request a feature](#found-a-bug-or-want-to-request-a-feature)
 - [Give A Star ⭐](#give-a-star-)
 
 ### Pre-requisites:
 - `node` : version >=20
 - `sqlite` : db for the doku client's storage (this will come under docker compose with persistent volumne but if you setup without docker, then you need provide file url as env variable like `file:/path/to/file`)
+
+### Setup server with docker
+1. Clone the doku repository 
+    ```sh 
+    git clone git@github.com:dokulabs/doku.git
+    ````
+2. Go to the client folder
+    ```sh 
+    cd src/client
+    ````
+3. Install the docker on your system if not there, please visit: https://docs.docker.com/get-docker/
+4. Run command below to create a docker image
+    ```sh 
+    docker build -t {doku-client} .
+    ````
+    Feel free to replace {doku-client} with your custom image name
+    
+5. Run the created image by the following command :
+    ```sh 
+    docker run -p 3000:3000 -e SQLITE_DATABASE_URL="file:/path/to/file/example.db" -e INIT_DB_HOST="127.0.0.1" -e INIT_DB_PORT=8123 -e INIT_DB_USERNAME="dokutest" -e INIT_DB_PASSWORD="dokutest" -e INIT_DB_DATABASE="default"  test-doku-prisma
+    ````
+    Update the env variables in the run command as per you need.
+
  
-### The first step : Setup server without docker
+### Setup server without docker
 1. Clone the doku repository 
     ```sh 
     git clone git@github.com:dokulabs/doku.git
@@ -29,7 +53,7 @@ Doku Client frontend uses Nextjs, Typescript and Tailwind. The application uses 
     ```sh 
     npm install
     ````
-4. Run command below to create an env file and then update the .env file for the `DATABASE_URL` to point to the sqlite db
+4. Run command below to create an env file and then update the .env file for the `SQLITE_DATABASE_URL` to point to the sqlite db
     ```sh 
     cp .env.example .env
     ````
@@ -56,6 +80,8 @@ Doku Client frontend uses Nextjs, Typescript and Tailwind. The application uses 
     ```sh 
     npm run dev
     ````
+
+Enjoy Doku!🎉
 
 ### Found a bug or want to request a feature
 

@@ -20,6 +20,7 @@ export async function POST(request: Request) {
 		name: formData.name,
 		environment: formData.environment,
 		username: formData.username,
+		password: formData.password,
 		host: formData.host,
 		port: formData.port,
 		database: formData.database,

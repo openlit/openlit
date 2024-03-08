@@ -1,7 +1,10 @@
 import crypto from "crypto";
-import asaw from "@/utils/asaw";
 import { normalizeAPIKeys } from "@/utils/api-key";
-import { API_KEY_TABLE_NAME, dataCollector } from "./common";
+import {
+	API_KEY_TABLE_NAME,
+	RESTRICTED_API_KEY_DELETION_NAMES,
+	dataCollector,
+} from "./common";
 
 type GenerateAPIKeyProps = {
 	name: string;
@@ -9,20 +12,41 @@ type GenerateAPIKeyProps = {
 
 export async function generateAPIKey(params: GenerateAPIKeyProps) {
 	const api_key = crypto.randomBytes(32).toString("hex");
-	return dataCollector(`INSERT INTO ${API_KEY_TABLE_NAME} (name, api_key)
-	VALUES ("${params.name}", "${api_key}");`);
+	const { err } = await dataCollector(
+		{
+			table: API_KEY_TABLE_NAME,
+			values: [{ name: params.name, api_key }],
+			columns: ["name", "api_key"],
+			format: "JSONEachRow",
+		},
+		"insert"
+	);
+
+	if (err) {
+		return { err };
+	}
+
+	return dataCollector({
+		query: `SELECT * from ${API_KEY_TABLE_NAME} WHERE name='${params.name}'`,
+	});
 }
 
 export async function getAPIKeys() {
-	const [, { data }] = await asaw(
-		dataCollector(`SELECT * from ${API_KEY_TABLE_NAME}`)
-	);
+	const { data = [] as any } = await dataCollector({
+		query: `SELECT * from ${API_KEY_TABLE_NAME} WHERE name NOT IN ('${RESTRICTED_API_KEY_DELETION_NAMES.join(
+			"' , '"
+		)}') ORDER BY created_at asc`,
+	});
 	return normalizeAPIKeys(data);
 }
 
 export async function deleteAPIKey(id: string) {
-	const [, { data }] = await asaw(
-		dataCollector(`DELETE FROM ${API_KEY_TABLE_NAME} WHERE id = ${id};`)
+	return dataCollector(
+		{
+			query: `DELETE FROM ${API_KEY_TABLE_NAME} WHERE id = '${id}' and name NOT IN ('${RESTRICTED_API_KEY_DELETION_NAMES.join(
+				"' , '"
+			)}');`,
+		},
+		"command"
 	);
-	return data;
 }

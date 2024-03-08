@@ -34,18 +34,23 @@ function ModifyDatabaseConfig({
 				id: "db-config-details",
 			});
 
+			const payload: DatabaseConfig = {
+				id: dbConfig?.id || "",
+				name: (formElement.name as any).value,
+				environment: formElement.environment.value,
+				username: formElement.username.value,
+				host: formElement.host.value,
+				port: formElement.port.value,
+				database: formElement.database.value,
+				query: formElement.query.value,
+			};
+
+			if (formElement.password.value) {
+				payload.password = formElement.password.value;
+			}
+
 			fireRequest({
-				body: JSON.stringify({
-					id: dbConfig?.id,
-					name: (formElement.name as any).value,
-					environment: formElement.environment.value,
-					username: formElement.username.value,
-					password: formElement.username.password || "",
-					host: formElement.host.value,
-					port: formElement.port.value,
-					database: formElement.database.value,
-					query: formElement.query.value,
-				}),
+				body: JSON.stringify(payload),
 				requestType: "POST",
 				url: "/api/db-config",
 				responseDataKey: "data",

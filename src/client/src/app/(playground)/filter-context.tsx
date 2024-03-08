@@ -11,7 +11,7 @@ export const TIME_RANGE_TYPE: Record<"24H" | "7D" | "1M" | "3M", string> = {
 	"3M": "3M",
 };
 
-export const DEFAULT_TIME_RANGE = "7D";
+export const DEFAULT_TIME_RANGE = "24H";
 
 export interface FilterType {
 	timeLimit: {
