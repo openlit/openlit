@@ -4,6 +4,7 @@ import { useCallback, useEffect } from "react";
 import { useFilter } from "../filter-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import Card from "@/components/common/card";
+import { getChartColors } from "@/constants/chart-colors";
 
 function TopModels() {
 	const [filter] = useFilter();
@@ -24,10 +25,13 @@ function TopModels() {
 		if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
 	}, [filter, fetchData]);
 
-	const updatedData = ((data as any[]) || []).map((item) => ({
+	const colors = getChartColors((data as any[])?.length || 0);
+
+	const updatedData = ((data as any[]) || []).map((item, index) => ({
 		name: item.model,
 		value: item.model_count,
 		target: item.total,
+		color: colors[index],
 	}));
 
 	return (
@@ -43,7 +47,7 @@ function TopModels() {
 			) : (
 				<BarList
 					data={isLoading || !isFetched ? [] : updatedData}
-					className="h-40"
+					className="h-40 text-tertiary"
 					showAnimation
 				/>
 			)}
@@ -79,6 +83,9 @@ function ModelsPerTime() {
 		};
 	});
 
+	const modelsArr = Array.from(models);
+	const colors = getChartColors(modelsArr.length);
+
 	return (
 		<Card
 			containerClass="rounded-r-lg w-full h-full border-l-0"
@@ -87,9 +94,10 @@ function ModelsPerTime() {
 			<LineChart
 				className="h-40"
 				connectNulls
+				colors={colors}
 				data={isLoading || !isFetched ? [] : updatedDataWithType}
 				index="request_time"
-				categories={Array.from(models)}
+				categories={modelsArr}
 				noDataText={
 					isLoading || !isFetched ? "Loading ..." : "No data available"
 				}
@@ -119,6 +127,8 @@ function TokensPerTime() {
 
 	const updatedDataWithType = ((data || []) as any[]) || [];
 
+	const colors = getChartColors(3);
+
 	return (
 		<Card
 			containerClass="rounded-r-lg w-full h-full border-l-0"
@@ -126,10 +136,10 @@ function TokensPerTime() {
 		>
 			<AreaChart
 				className="h-4/5"
+				colors={colors}
 				data={isLoading || !isFetched ? [] : updatedDataWithType}
 				index="request_time"
 				categories={["totaltokens", "prompttokens", "completiontokens"]}
-				colors={["emerald", "green", "blue"]}
 				yAxisWidth={40}
 				noDataText={
 					isLoading || !isFetched ? "Loading ..." : "No data available"

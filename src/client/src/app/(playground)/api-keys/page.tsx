@@ -107,12 +107,10 @@ function ManageKeys() {
 								)}
 							</td>
 							<td className="px-6 py-3 w-1/3">
-								{item.canDelete && (
-									<TrashIcon
-										className="w-4 cursor-pointer"
-										onClick={() => setSelectedKey(item)}
-									/>
-								)}
+								<TrashIcon
+									className="w-4 cursor-pointer"
+									onClick={() => setSelectedKey(item)}
+								/>
 							</td>
 						</tr>
 					))}

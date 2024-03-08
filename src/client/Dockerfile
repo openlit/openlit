@@ -4,17 +4,11 @@ FROM node:20 as builder
 # Set the working directory in the container
 WORKDIR /app/client
 
-# Copy package.json and package-lock.json to the working directory
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy the rest of the application code
+# Copy package.json and package-lock.json to the working directory & the rest of the application code
 COPY . .
 
-# Build the Next.js application
-RUN npm run build
+# Install dependencies & Build the Next.js application
+RUN npm install && npm run build
 
 # Use a smaller image for production
 FROM node:20
@@ -30,7 +24,7 @@ COPY --from=builder /app/client/package-lock.json ./package-lock.json
 COPY --from=builder /app/client/public ./public
 COPY --from=builder /app/client/prisma ./prisma
 
-# Create an entrypoint script to generate NextAuth.js secret and run commands
+# Execute entrypoint script to generate NextAuth.js secret and run commands
 COPY --from=builder /app/client/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 

@@ -33,7 +33,9 @@ export async function generateAPIKey(params: GenerateAPIKeyProps) {
 
 export async function getAPIKeys() {
 	const { data = [] as any } = await dataCollector({
-		query: `SELECT * from ${API_KEY_TABLE_NAME} ORDER BY created_at asc`,
+		query: `SELECT * from ${API_KEY_TABLE_NAME} WHERE name NOT IN ('${RESTRICTED_API_KEY_DELETION_NAMES.join(
+			"' , '"
+		)}') ORDER BY created_at asc`,
 	});
 	return normalizeAPIKeys(data);
 }

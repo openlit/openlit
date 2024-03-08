@@ -11,6 +11,5 @@ export function normalizeAPIKeys(
 		return params.map((p) => ({
 			...p,
 			api_key: maskingKey(p?.api_key || ""),
-			canDelete: !RESTRICTED_API_KEY_DELETION_NAMES.includes(p.name || ""),
 		}));
 }

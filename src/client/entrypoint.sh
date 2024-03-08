@@ -7,7 +7,7 @@ export NEXTAUTH_SECRET=$(openssl rand -base64 32)
 # Set NextAuth.js environment variables
 echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
 echo "NEXTAUTH_URL=http://localhost:3000" >> /etc/environment
-echo "DATABASE_URL=${DATABASE_URL:-file:../data/data.db}" >> /etc/environment
+echo "SQLITE_DATABASE_URL=${SQLITE_DATABASE_URL:-file:../data/data.db}" >> /etc/environment
 
 # Environment variables for DB config
 echo "INIT_DB_USERNAME=${INIT_DB_USERNAME}" >> /etc/environment

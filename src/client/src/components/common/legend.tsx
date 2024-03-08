@@ -23,7 +23,7 @@ const Legend = ({
 					} ${itemClassName}`}
 				>
 					<svg
-						className={`flex-none h-2 w-2 mr-1.5 ${
+						className={`flex-none h-2 w-2 mr-1.5 text-${
 							colors[index] || DEFAULT_COLOR
 						} opacity-100`}
 						fill="currentColor"

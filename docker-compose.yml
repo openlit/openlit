@@ -36,7 +36,7 @@ services:
       dockerfile: Dockerfile
     container_name: doku-client
     environment:
-      DATABASE_URL: file:/app/client/data/data.db
+      SQLITE_DATABASE_URL: file:/app/client/data/data.db
       INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
       INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
       INIT_DB_HOST: clickhouse
