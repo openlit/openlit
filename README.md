@@ -62,9 +62,12 @@ Stay tuned for the upcoming release of Doku UI, enhancing your data visualizatio
 
 ## 🚀 Getting Started with Doku
 
+### 💿 Installation
 Jumpstart your journey with Doku by deploying it via our Helm chart, designed to simplify the installation process on any Kubernetes cluster.
 
-### Docker 
+#### Docker 
+To install the Doku using Docker, follow these steps:
+
 1. Create `docker-compose.yml`
 ```yaml
 version: '3.8'
@@ -105,7 +108,8 @@ volumes:
 ```shell
 docker-compose up -d
 ```
-### Kubernetes 
+
+#### Kubernetes 
 
 To install the Doku Helm chart, follow these steps:
 
