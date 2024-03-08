@@ -65,6 +65,15 @@ export default {
 				"tremor-title": ["1.125rem", { lineHeight: "1.75rem" }],
 				"tremor-metric": ["1.875rem", { lineHeight: "2.25rem" }],
 			},
+			animation: {
+        'infinite-scroll': 'infinite-scroll 25s linear infinite',
+      },
+      keyframes: {
+        'infinite-scroll': {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-100%)' },
+        }
+      }   
 		},
 	},
 	safelist: [
