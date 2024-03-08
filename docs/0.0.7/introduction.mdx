@@ -1,0 +1,64 @@
+---
+title: What is Doku?
+description: 'Open-source platform for monitoring and evaluating LLMs at scale'
+---
+
+Doku is an **open-source LLMOps tool** engineered to enables developers with comprehensive capabilities to monitor, analyze, and optimize LLM applications. It provides valuable real-time data on **LLM usage, performance, and costs**. Through seamless integrations with leading LLM platforms, including OpenAI, Cohere, and Anthropic, Doku acts as a central command center for all your LLM needs. It effectively guides your efforts, ensuring that your LLM applications not only operate at peak efficiency but also scale successfully.
+
+## Why use Doku?
+Get advanced monitoring and evaluation for your LLM applications with these key benefits:
+
+- **Granular Usage Insights of your LLM Applications**: Assess your LLM's performance and costs with fine-grained control, breaking down metrics by environment (such as staging or production) or application, to optimize for efficiency and scalability.
+- **Real-Time Data Streaming**: Unlike other platforms where you might wait minutes to see your data due to data being sent in batches, Doku is able to display data as it streams. This immediate insight enables quick decision-making and adjustments.
+- **Zero Added Latency**: Doku's smart data handling ensures rapid data processing without impacting your application's performance, maintaining the responsiveness of your LLM applications.
+- **Connect to Observability Platforms**: Doku seamlessly connects with leading observability platforms like Grafana Cloud and Datadog, among others to automatically export data. 
+
+## How it works
+<Frame>
+  <img src="https://raw.githubusercontent.com/dokulabs/.github/main/profile/assets/banner.gif" />
+</Frame>
+
+### Step 1: Instrument your Application
+Integrating the `dokumetry` SDK into LLM applications is straightforward with SDKs designed for Python and NodeJS. Start monitoring for your LLM Application with just **two lines of code**: 
+
+<CodeGroup>
+```python python
+import dokumetry
+
+dokumetry.init(llm=openai, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+```
+
+```javascript NodeJS
+import DokuMetry from 'dokumetry';
+
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+```
+</CodeGroup>
+
+### Step 2: Data processed by Doku Ingester
+Once the `dokumetry` SDKs are configured in your LLM application, Monitoring data starts streaming to the [Doku Ingester](https://github.com/dokulabs/doku/tree/main/src/ingester#readme). It processes and safely stores your data in ClickHouse, keeping your LLM Monitoring data **secure** and **compliant** in your environment.
+
+You can choose to use a new ClickHouse database setup or connect to your existing one to work with Doku. 
+
+### Step 3: Visualize in your Observability Platform
+With your LLM monitoring data processed, connect Doku to your preferred Observability Platform to begin visualizing and analyzing your data in-depth.
+
+Stay tuned for the upcoming release of Doku UI, enhancing your data visualization capabilities further.
+
+## Getting Started
+Select from the following guides to learn more about how to use Doku:
+
+<CardGroup cols={2}>
+<Card title="Quickstart" href="/0.0.7/quickstart" icon='bolt'>
+Get Started with monitoring your LLM Applications in 2 simple steps
+</Card>
+<Card title="Integrations" href="/0.0.7/integrations/introduction" icon='circle-nodes'>
+Integrate your LLM Provider with Doku 
+</Card>
+<Card title="Installation" href="/0.0.7/installation" icon='circle-down'>
+Deploy Doku in your preferred environment 
+</Card>
+<Card title="Connections" href="/0.0.7/connections/intro" icon='link'>
+Connect to your existing Observablity Platform
+</Card>
+</CardGroup>
