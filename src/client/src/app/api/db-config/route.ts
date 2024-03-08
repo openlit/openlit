@@ -1,5 +1,6 @@
 import { getDBConfigByUser, upsertDBConfig } from "@/lib/db-config";
 import asaw from "@/utils/asaw";
+import { DatabaseConfig } from "@prisma/client";
 
 export async function GET() {
 	const [err, res]: any = await asaw(getDBConfigByUser());
@@ -14,13 +15,18 @@ export async function GET() {
 export async function POST(request: Request) {
 	const formData = await request.json();
 	const id = formData.id;
-	const name = formData.name;
-	const environment = formData.environment;
-	const meta = formData.meta;
 
-	const [err, res]: any = await asaw(
-		upsertDBConfig({ name, environment, meta }, id)
-	);
+	const dbConfig: Partial<DatabaseConfig> = {
+		name: formData.name,
+		environment: formData.environment,
+		username: formData.username,
+		host: formData.host,
+		port: formData.port,
+		database: formData.database,
+		query: formData.query,
+	};
+
+	const [err, res]: any = await asaw(upsertDBConfig(dbConfig, id));
 
 	if (err)
 		return Response.json(err, {

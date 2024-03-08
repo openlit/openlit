@@ -91,7 +91,7 @@ export default function Sidebar() {
 						icon={
 							<Image
 								className="flex-shrink-0 w-6 h-6 transition duration-75"
-								src="https://avatars.githubusercontent.com/u/149867240?s=48&v=4"
+								src="/images/logo.png"
 								alt="Doku's Logo"
 								priority
 								width={24}
