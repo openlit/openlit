@@ -29,7 +29,7 @@ func configureSignozData(data map[string]interface{}, config ConnectionConfig) {
 		call_type = "Unknown"
 	}
 
-	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.completions" {
+	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.messages" {
 		if data["finishReason"] == nil {
 			data["finishReason"] = "null"
 		}

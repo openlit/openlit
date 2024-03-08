@@ -14,7 +14,7 @@ FROM
       SELECT 
           CASE
               WHEN endpoint LIKE 'openai.chat%' THEN '${GENERATION_CATEGORIZATION.chat}'
-              WHEN endpoint LIKE 'anthropic.completions%' THEN '${GENERATION_CATEGORIZATION.chat}'
+              WHEN endpoint LIKE 'anthropic.messages%' THEN '${GENERATION_CATEGORIZATION.chat}'
               WHEN endpoint LIKE 'cohere.summarize%' THEN '${GENERATION_CATEGORIZATION.chat}'
               WHEN endpoint LIKE 'cohere.generate%' THEN '${GENERATION_CATEGORIZATION.chat}'
               WHEN endpoint LIKE 'cohere.chat%' THEN '${GENERATION_CATEGORIZATION.chat}'
