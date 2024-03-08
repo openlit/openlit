@@ -128,13 +128,13 @@
             "promptPrice": 0.01,
             "completionPrice": 0.03
         },
-        "claude-instant-1": {
-            "promptPrice": 0.00163,
-            "completionPrice": 0.00551
+        "claude-3-opus-202402291": {
+            "promptPrice": 0.015,
+            "completionPrice": 0.075
         },
-        "claude-2": {
-            "promptPrice": 0.01102,
-            "completionPrice": 0.03268
+        "claude-3-sonnet-20240229": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
         },
         "command": {
             "promptPrice": 0.001,
