@@ -25,7 +25,7 @@ var (
 		"cohere.generate":                 "Chat",
 		"cohere.chat":                     "Chat",
 		"cohere.summarize":                "Chat",
-		"anthropic.completions":           "Chat",
+		"anthropic.messages":              "Chat",
 		"openai.embeddings":               "Embeddings",
 		"cohere.embed":                    "Embeddings",
 		"openai.images.create":            "Image",
