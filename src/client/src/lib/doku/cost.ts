@@ -8,7 +8,7 @@ export async function getTotalCost(params: DokuParams) {
 		FROM ${DATA_TABLE_NAME} 
 		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }
 
 export async function getAverageCost(params: DokuParams) {
@@ -19,7 +19,7 @@ export async function getAverageCost(params: DokuParams) {
 		FROM ${DATA_TABLE_NAME} 
 		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }
 
 export async function getCostByApplication(params: DokuParams) {
@@ -36,7 +36,7 @@ export async function getCostByApplication(params: DokuParams) {
 		GROUP BY
 			applicationName;`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }
 
 export async function getCostByEnvironment(params: DokuParams) {
@@ -50,5 +50,5 @@ export async function getCostByEnvironment(params: DokuParams) {
 		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
 		GROUP BY environment`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }

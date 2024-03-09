@@ -12,8 +12,8 @@ export async function getResultGenerationByEndpoint(params: DokuParams) {
         ${DATA_TABLE_NAME}
     WHERE
         time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
-    GROUP BY endpoint;
+    GROUP BY provider;
   `;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }

@@ -6,6 +6,9 @@ import { Disclosure } from "@headlessui/react";
 import { DocumentDuplicateIcon, TrashIcon } from "@heroicons/react/24/outline";
 import copy from "copy-to-clipboard";
 import { useCallback, useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
+
+const API_KEY_TOAST_ID = "api-key-details";
 
 function ManageKeys() {
 	const { data, fireRequest: fireGetRequest, isLoading } = useFetchWrapper();
@@ -29,12 +32,23 @@ function ManageKeys() {
 	}, [fetchData]);
 
 	const handleYes = useCallback(() => {
+		toast.loading("Deleting API key!", {
+			id: API_KEY_TOAST_ID,
+		});
 		fireDeleteRequest({
 			url: `/api/api-key/${selectedKey?.id}`,
 			requestType: "DELETE",
 			successCb: () => {
 				setSelectedKey(null);
 				fetchData();
+				toast.success("API key deleted successfully!", {
+					id: API_KEY_TOAST_ID,
+				});
+			},
+			failureCb: (err?: string) => {
+				toast.error(err || "API key deletion failed!", {
+					id: API_KEY_TOAST_ID,
+				});
 			},
 		});
 	}, [selectedKey?.id]);
@@ -42,14 +56,25 @@ function ManageKeys() {
 	const handleNo = () => setSelectedKey(null);
 
 	const handleYesCreation = useCallback(async (name: string) => {
+		toast.loading("Creating an API key!", {
+			id: API_KEY_TOAST_ID,
+		});
 		firePostRequest({
 			url: `/api/api-key`,
 			requestType: "POST",
 			body: JSON.stringify({ name }),
-			successCb: (resp) => {
-				newCreatedKey.current = resp;
+			successCb: (data = []) => {
+				newCreatedKey.current = data[0] || {};
 				setCreating(false);
 				fetchData();
+				toast.success("API key created successfully!", {
+					id: API_KEY_TOAST_ID,
+				});
+			},
+			failureCb: (err?: string) => {
+				toast.error(err?.toString() || "API key creation failed!", {
+					id: API_KEY_TOAST_ID,
+				});
 			},
 		});
 	}, []);
