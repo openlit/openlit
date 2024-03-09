@@ -1,16 +1,50 @@
-import { parseQueryStringToObject } from "@/utils/parser";
+import { constructURL, parseQueryStringToObject } from "@/utils/parser";
 import { ClickHouseClient, createClient } from "@clickhouse/client";
 import { DatabaseConfig } from "@prisma/client";
 import { createPool, Pool } from "generic-pool";
+import asaw from "@/utils/asaw";
 
 interface ClickHouseConnectionInfo {
 	username: string;
 	password: string;
 	host: string;
-	port: string;
 	database: string;
 	additional_headers: Record<string, string>;
 }
+
+const getClickHouseFactoryOptions = (
+	connectionObject: ClickHouseConnectionInfo
+) => ({
+	create: async (): Promise<ClickHouseClient> => {
+		return new Promise(async (resolve, reject) => {
+			const client: ClickHouseClient = createClient(connectionObject);
+
+			const [err, result] = await asaw(
+				client.ping()
+			);
+			if (err || !result.success) {
+				client.close();
+				return reject(result.error?.toString() || "Unable to ping the db");
+			}
+
+			return resolve(client);
+		});
+	},
+	destroy: (client: ClickHouseClient) => client.close(),
+	validate: (client: ClickHouseClient): Promise<boolean> => {
+		return new Promise(async (resolve, reject) => {
+			const [err, result] = await asaw(
+				client.ping()
+			);
+			if (err || !result.success) {
+				client.close();
+				return reject(result.error?.toString() || "Unable to ping the db");
+			}
+
+			return resolve(true);
+		});
+	},
+});
 
 export default function createClickhousePool(
 	dbConfig: DatabaseConfig
@@ -18,21 +52,17 @@ export default function createClickhousePool(
 	const connectionObject: ClickHouseConnectionInfo = {
 		username: dbConfig.username,
 		password: dbConfig.password || "",
-		host: dbConfig.host,
-		port: dbConfig.port,
+		host: constructURL(dbConfig.host, dbConfig.port),
 		database: dbConfig.database,
 		additional_headers: parseQueryStringToObject(dbConfig.query || ""),
 	};
 
-	return createPool(
-		{
-			create: async () => createClient(connectionObject),
-			destroy: (client: ClickHouseClient) => client.close(),
-		},
-		{
-			max: 10,
-			min: 2,
-			idleTimeoutMillis: 30000,
-		}
-	);
+	return createPool(getClickHouseFactoryOptions(connectionObject), {
+		max: 10,
+		min: 2,
+		idleTimeoutMillis: 10000,
+		maxWaitingClients: 2,
+		testOnBorrow: true,
+		acquireTimeoutMillis: 5000,
+	});
 }
