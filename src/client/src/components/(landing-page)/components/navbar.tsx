@@ -12,19 +12,27 @@ export default function Navbar() {
 						width={836}
 						height={298}
 					/>
-					<a
-						href={"https://github.com/dokulabs/doku"}
-						className={`flex items-center rounded-md px-3 py-2 text-sm font-medium bg-tertiary text-white`}
-					>
-						<Image
-							alt="github"
-							className="invert"
-							src="/images/github-mark.svg"
-							width={20}
-							height={20}
-						/>
-						<span className="hidden sm:ml-3 sm:block">Github</span>
-					</a>
+					<div className="flex h-16 items-center justify-between space-x-4">
+						<a
+							href={"/dashboard"}
+							className={`flex items-center rounded-md px-3 py-2 text-sm font-medium bg-primary/[0.1] text-primary text-center`}
+						>
+							<span className="block">Go to dashboard</span>
+						</a>
+						<a
+							href={"https://github.com/dokulabs/doku"}
+							className={`flex items-center rounded-md px-3 py-2 text-sm font-medium bg-tertiary text-white`}
+						>
+							<Image
+								alt="github"
+								className="invert"
+								src="/images/github-mark.svg"
+								width={20}
+								height={20}
+							/>
+							<span className="hidden sm:ml-3 sm:block">Github</span>
+						</a>
+					</div>
 				</div>
 			</div>
 		</div>

@@ -27,6 +27,14 @@ export default function Hero() {
 							Github repository <span aria-hidden="true">→</span>
 						</a>
 					</div>
+					<div className="mt-6 flex items-center justify-center gap-x-6">
+						<a
+							href={"/dashboard"}
+							className={`flex items-center rounded-md px-8 py-2 text-sm font-medium bg-primary/[0.1] text-primary text-center`}
+						>
+							<span className="block">Go to dashboard</span>
+						</a>
+					</div>
 				</div>
 			</div>
 			<div
