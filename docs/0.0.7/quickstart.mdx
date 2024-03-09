@@ -72,26 +72,13 @@ This guide will walk you through setting up monitoring for your LLM Application 
       </Step>
     </Steps>
   </Step>
-  <Step title="Generate an API Key">
-    With Doku running, the next step is to [generate an API key](/0.0.7/api-reference/endpoint/api-keys/create) for secure communication between your applications and Doku.
-
-    To generate your first API key, you can use the following command:
-
-    ```shell shell
-    curl --request POST \
-      --url https://127.0.0.1:9044/api/keys \
-      --header 'Authorization: ""' \
-      --header 'Content-Type: application/json' \
-      --data '{
-      "name": "Patcher"
-      }'
-    ```
-
-    <Note>
-    **Save the API Key** — This key is essential for configuring the `dokumetry` SDK. 
-    
-    For your first API call to generate the key, the Authorization header should be left blank. However, remember to include this API key in the Authorization header for all future API interactions and SDK configurations.
-    </Note>
+  <Step title="Access Doku Client UI and Generate an API Key">
+    With Doku running, the next step is to Access the Doku Client UI and generate an API key for secure communication between your applications and Doku.
+    1. Open your browser and go to Doku Client UI at `127.0.0.1:3000/login`
+    2.  Login using theb default credentials
+        - Email as `user@dokulabs.com` 
+        - Password as `dokulabsuser`
+    3. Once you have logged into Doku UI, Go to [API Keys page](http://127.0.0.1:3000/api-keys) and Create an API Key. Copy the generated API Key.
   </Step>
   <Step title="Instrument your Application">
     Choose the appropriate SDK for your LLM application's programming language and follow the steps to integrate monitoring with just **two lines of code**.
