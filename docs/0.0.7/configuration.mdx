@@ -6,6 +6,75 @@ icon: 'sliders'
 
 This guide covers all the available environment variables to fine-tune Doku according to your needs.
 
+## Doku Client
+
+### Environment Varibales
+
+<ResponseField name="INIT_DB_HOST" required>
+  Sets the password for the user authenticating with ClickHouse.
+
+  **Example**:
+  ```yaml
+  export INIT_DB_HOST=127.0.0.1
+  ```
+</ResponseField>
+
+<ResponseField name="INIT_DB_PORT" required>
+  Sets the password for the user authenticating with ClickHouse.
+
+  **Example**:
+  ```yaml
+  export INIT_DB_PORT=8123
+  ```
+</ResponseField>
+
+<ResponseField name="INIT_DB_DATABASE" required>
+  Name of the database in Clickhouse to be used by Doku
+
+  **Example**:
+  ```yaml
+  export INIT_DB_DATABASE=default
+  ```
+</ResponseField>
+
+<ResponseField name="INIT_DB_USERNAME" required>
+  Sets the username for authenticating with ClickHouse.
+
+  **Example**:
+  ```yaml
+  export INIT_DB_USERNAME=default
+  ```
+</ResponseField>
+
+<ResponseField name="INIT_DB_PASSWORD" required>
+  Sets the password for authenticating with ClickHouse.
+
+  **Example**:
+  ```yaml
+  export INIT_DB_PASSWORD=default
+  ```
+</ResponseField>
+
+<ResponseField name="SQLITE_DATABASE_URL" required>
+  Specifies the location where SQLITE data is stored.
+
+  **Example**:
+  ```yaml
+  export SQLITE_DATABASE_URL=file:/app/client/data/data.db
+  ```
+</ResponseField>
+
+### Sample Environment File (.env)
+
+```.env.example .env
+INIT_DB_HOST: 127.0.0.1
+INIT_DB_PORT: 8123
+INIT_DB_DATABASE: default
+INIT_DB_USERNAME: default
+INIT_DB_PASSWORD: DOKU
+SQLITE_DATABASE_URL: file:/app/client/data/data.db
+```
+
 ## Doku Ingester
 
 ### Environment Varibales

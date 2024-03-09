@@ -83,16 +83,19 @@ For a quick and straightforward setup, Docker Compose can be used to deploy Doku
       image: ghcr.io/dokulabs/doku-client:0.0.7
       container_name: doku-client
       environment:
-        DATABASE_URL: file:/app/client/data/data.db
         INIT_DB_HOST: clickhouse
         INIT_DB_PORT: 8123
         INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
         INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
         INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+        SQLITE_DATABASE_URL: file:/app/client/data/data.db
       ports:
         - "3000:3000"
+      depends_on:
+        - clickhouse
       volumes:
         - doku-client-data:/app/client/data
+      restart: always
 
   volumes:
     clickhouse-data:

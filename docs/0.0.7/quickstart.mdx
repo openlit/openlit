@@ -46,12 +46,12 @@ This guide will walk you through setting up monitoring for your LLM Application 
             image: ghcr.io/dokulabs/doku-client:0.0.7
             container_name: doku-client
             environment:
-              DATABASE_URL: file:/app/client/data/data.db
               INIT_DB_HOST: clickhouse
               INIT_DB_PORT: 8123
               INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
               INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
               INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+              SQLITE_DATABASE_URL: file:/app/client/data/data.db
             ports:
               - "3000:3000"
             depends_on:
@@ -72,9 +72,9 @@ This guide will walk you through setting up monitoring for your LLM Application 
       </Step>
     </Steps>
   </Step>
-  <Step title="Access Doku Client UI and Generate an API Key">
-    With Doku running, the next step is to Access the Doku Client UI and generate an API key for secure communication between your applications and Doku.
-    1. Open your browser and go to Doku Client UI at `127.0.0.1:3000/login`
+  <Step title="Access Doku UI and Generate an API Key">
+    With Doku running, the next step is to access the Doku UI and generate an API key for secure communication between your applications and Doku.
+    1. Open your browser and go to Doku UI at `127.0.0.1:3000/login`
     2.  Login using theb default credentials
         - Email as `user@dokulabs.com` 
         - Password as `dokulabsuser`
@@ -170,6 +170,16 @@ This guide will walk you through setting up monitoring for your LLM Application 
         </Steps>
       </Tab>
     </Tabs>
+  </Step>
+  <Step title="Visualize and Analyze">
+  Once you have Doku Ingester set up, you can instantly get insights into how your LLM applications. Just head over to Doku UI at `127.0.0.1:3000` on your browser to start exploring.
+
+With Doku, you get a simple, powerful view into important info like how much you're spending on LLMs, which parts of your app are using them the most, and how well they're performing. Find out which LLM models are favorites among your applications, and dive deep into performance details to make smart decisions. This setup is perfect for optimizing your app performance and keeping an eye on costs.
+  <Frame>
+    <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-1.jpg?raw=true" />
+    <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-2.jpg?raw=true" />
+    <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-3.jpg?raw=true" />
+  </Frame>
   </Step>
 </Steps>
 
