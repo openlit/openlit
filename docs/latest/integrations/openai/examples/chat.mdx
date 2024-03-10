@@ -6,12 +6,16 @@ description: 'Monitor OpenAI Chat Completions API usage'
 
 <Tabs>
   <Tab title="Python">
+
+    ### Synchronous Usage
     <CodeGroup>
       ```python Default
       from openai import OpenAI
       import dokumetry
 
-      client = OpenAI()
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
 
       # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
@@ -31,7 +35,9 @@ description: 'Monitor OpenAI Chat Completions API usage'
       from openai import OpenAI
       import dokumetry
 
-      client = OpenAI()
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
 
       # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
@@ -60,7 +66,9 @@ description: 'Monitor OpenAI Chat Completions API usage'
       from openai import OpenAI
       import dokumetry
 
-      client = OpenAI()
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
 
       # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
@@ -82,7 +90,9 @@ description: 'Monitor OpenAI Chat Completions API usage'
       from openai import OpenAI
       import dokumetry
 
-      client = OpenAI()
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
 
       # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
@@ -122,7 +132,9 @@ description: 'Monitor OpenAI Chat Completions API usage'
       from openai import OpenAI
       import dokumetry
 
-      client = OpenAI()
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
 
       # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
@@ -138,6 +150,164 @@ description: 'Monitor OpenAI Chat Completions API usage'
 
       print(completion.choices[0].message)
       print(completion.choices[0].logprobs)
+      ```
+    </CodeGroup>
+
+    ### Asynchronous Usage
+
+    <CodeGroup>
+      ```python Default
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+      async def main() -> None:
+        chat_completion = await client.chat.completions.create(
+          messages=[
+            {
+              "role": "user",
+              "content": "Say this is a test",
+            }
+          ],
+          model="gpt-3.5-turbo",
+        )
+
+      asyncio.run(main())
+      ```
+
+      ```python Image Input
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+      async def main() -> None:
+        response = await client.chat.completions.create(
+            model="gpt-4-vision-preview",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "What’s in this image?"},
+                        {
+                            "type": "image_url",
+                            "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+                        },
+                    ],
+                }
+            ],
+            max_tokens=300,
+        )
+
+      asyncio.run(main())
+      ```
+
+      ```python Streaming
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+      async def main():
+        stream = await client.chat.completions.create(
+          model="gpt-4",
+          messages=[{"role": "user", "content": "Say this is a test"}],
+          stream=True,
+        )
+        async for chunk in stream:
+          print(chunk.choices[0].delta.content or "", end="")
+
+
+      asyncio.run(main())
+      ```
+
+      ```python Functions
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+      tools = [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_current_weather",
+            "description": "Get the current weather in a given location",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "location": {
+                  "type": "string",
+                  "description": "The city and state, e.g. San Francisco, CA",
+                },
+                "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+              },
+              "required": ["location"],
+            },
+          }
+        }
+      ]
+      messages = [{"role": "user", "content": "What's the weather like in Boston today?"}]
+
+      async def main() -> None:
+        completion = await client.chat.completions.create(
+          model="gpt-3.5-turbo",
+          messages=messages,
+          tools=tools,
+          tool_choice="auto"
+        )
+
+      asyncio.run(main())
+      ```
+
+      ```python LogProbs
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+      async def main() -> None:
+        completion = await client.chat.completions.create(
+          model="gpt-3.5-turbo",
+          messages=[
+            {"role": "user", "content": "Hello!"}
+          ],
+          logprobs=True,
+          top_logprobs=2
+        )
+
+      asyncio.run(main())
       ```
     </CodeGroup>
   </Tab>

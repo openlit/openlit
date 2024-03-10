@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "versions": ["0.0.7"],
+  "versions": ["latest", "0.0.7"],
   "name": "Doku",
   "logo": {
     "dark": "https://github.com/dokulabs/.github/blob/main/profile/assets/dark-bg-with-text-logo.jpg?raw=true",
@@ -102,7 +102,7 @@
               "group": "Examples",
               "version": "latest",
               "pages": [
-                "latest/integrations/anthropic/examples/completions"
+                "latest/integrations/anthropic/examples/messages"
               ]
             }
           ]
