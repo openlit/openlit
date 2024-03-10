@@ -45,6 +45,10 @@ Follow the steps below to get Doku Client running in your environment. Both Dock
     --name doku_client doku-client
     ```
 
+3. Login to Doku UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
+    - Email as `user@dokulabs.com`
+    - Password as `dokulabsuser`
+
 You can also use the [Doku Helm Chart](www.github.com/dokulabs/helm) to deploy Doku Client in Kubernetes
 
 ### Manual Setup (Development)
@@ -92,6 +96,10 @@ You can also use the [Doku Helm Chart](www.github.com/dokulabs/helm) to deploy D
     ```sh
     npm run dev
     ```
+
+8. Login to Doku UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
+    - Email as `user@dokulabs.com`
+    - Password as `dokulabsuser`
 
 ## Configuration
 

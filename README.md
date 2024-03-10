@@ -251,6 +251,14 @@ main();
 
 Refer to the `dokumetry` [NodeJS SDK repository](https://github.com/dokulabs/dokumetry-node) for more advanced configurations and use cases.
 
+### Visualize and Analyze
+
+Once you have Doku Ingester and `DokuMetry` SDKs set up, you can instantly get insights into how your LLM applications. Just head over to Doku UI at `127.0.0.1:3000` on your browser to start exploring.
+
+![Doku Client UI](https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-1.jpg?raw=true)
+
+With Doku, you get a simple, powerful view into important info like how much you’re spending on LLMs, which parts of your app are using them the most, and how well they’re performing. Find out which LLM models are favorites among your applications, and dive deep into performance details to make smart decisions. This setup is perfect for optimizing your app performance and keeping an eye on costs.
+
 ## Security
 
 Doku uses key based authentication mechanism to ensure the security of your data and as Doku is self-hosted, The data stays within your environment.
