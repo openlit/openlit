@@ -277,4 +277,4 @@ For support, issues, or feature requests, submit an issue through the [GitHub is
 
 ## Visualize! Analyze! Optimize!
 
-Join us on this voyage to reshape the future of AI insights. Share your thoughts, suggest features, and explore contributions. Engage with us on [GitHub](https://github.com/dokulabs/doku) and be part of Doku's community-led innovation.
+Join us on this voyage to reshape the future of AI Observability. Share your thoughts, suggest features, and explore contributions. Engage with us on [GitHub](https://github.com/dokulabs/doku) and be part of Doku's community-led innovation.
