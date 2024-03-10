@@ -47,6 +47,24 @@ services:
       - doku-client-data:/app/client/data
     restart: always
 
+  doku-client:
+    image: doku-client
+    build:
+      context: ./src/client
+      dockerfile: Dockerfile
+    container_name: doku-client
+    environment:
+      SQLITE_DATABASE_URL: file:/app/client/data/data.db
+      INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
+      INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: 8123
+      INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
+    ports:
+      - "3000:3000"
+    volumes:
+      - doku-client-data:/app/client/data
+
 volumes:
   clickhouse-data:
   doku-client-data:

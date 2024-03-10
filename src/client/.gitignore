@@ -37,5 +37,7 @@ next-env.d.ts
 
 .env
 
+# Db file
+*.db
 #data
 /db-data

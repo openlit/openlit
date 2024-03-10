@@ -4,6 +4,7 @@ import Card from "@/components/common/card";
 import { LineChart } from "@tremor/react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import toast from "react-hot-toast";
+import { getChartColors } from "@/constants/chart-colors";
 
 export default function RequestsPerTime() {
 	const [filter] = useFilter();
@@ -28,6 +29,8 @@ export default function RequestsPerTime() {
 		if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
 	}, [filter, fetchData]);
 
+	const colors = getChartColors(1);
+
 	return (
 		<Card
 			containerClass="rounded-lg w-full h-full h-64"
@@ -39,11 +42,12 @@ export default function RequestsPerTime() {
 				data={isLoading || !isFetched ? [] : (data as any[]) || []}
 				index="request_time"
 				categories={["total"]}
-				colors={["emerald"]}
+				colors={colors}
 				yAxisWidth={40}
 				noDataText={
 					isLoading || !isFetched ? "Loading ..." : "No data available"
 				}
+				showAnimation
 			/>
 		</Card>
 	);

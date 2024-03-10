@@ -14,11 +14,11 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const [err, res]: any = await generateAPIKey({ name });
+	const { err, data }: any = await generateAPIKey({ name });
 	if (err)
 		return Response.json(err, {
 			status: 400,
 		});
 
-	return Response.json(res);
+	return Response.json(data);
 }

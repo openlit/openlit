@@ -97,9 +97,15 @@ You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/mai
     npm run dev
     ```
 
+<<<<<<< HEAD
 8. Login to Doku UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
     - Email as `user@dokulabs.com`
     - Password as `dokulabsuser`
+=======
+Enjoy Doku!🎉
+
+### Found a bug or want to request a feature
+>>>>>>> main
 
 ## Configuration
 
