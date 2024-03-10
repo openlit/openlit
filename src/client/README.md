@@ -2,7 +2,7 @@
 
 [![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
 [![License](https://img.shields.io/github/license/dokulabs/doku?label=license&logo=github&color=f80&logoColor=fff%22%20alt=%22License)](https://github.com/dokulabs/doku/blob/main/LICENSE)
-[![Client Version](https://img.shields.io/github/tag/dokulabs/doku.svg?label=Version&logo=next.js)](https://github.com/dokulabs/doku/tags)
+[![Client Version](https://img.shields.io/github/tag/dokulabs/doku.svg?&label=Version)](https://github.com/dokulabs/doku/tags)
 
 ![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white) 
 ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) 
@@ -20,7 +20,7 @@ Doku Client serves as the frontend UI for displaying visualizations and observab
 - **Flexible Data Source Integration**: Built-in support for ClickHouse, enabling efficient data retrieval and management.
 - **Responsive Design**: A UI that adapts to various screen sizes, providing an optimal viewing experience across devices.
 
-## Quick Start
+## 🚀 Quick Start
 
 Follow the steps below to get Doku Client running in your environment. Both Docker and manual installation options are provided.
 

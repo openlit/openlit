@@ -17,7 +17,7 @@ Doku Ingester facilitates real-time data ingestion from `dokumetry` [Python](htt
 - **Scalable Architecture**: Designed with a scalable mindset to grow with your needs, handling increasing loads smoothly and efficiently.
 - **Customizable Caching**: Configurable in-memory caching for improved performance.
 
-## Quick Start
+## 🚀 Quick Start
 
 Follow the steps below to get Doku Ingester running in your environment. Both Docker and manual installation options are provided.
 
