@@ -49,7 +49,7 @@ Follow the steps below to get Doku Client running in your environment. Both Dock
     - Email as `user@dokulabs.com`
     - Password as `dokulabsuser`
 
-You can also use the [Doku Helm Chart](www.github.com/dokulabs/helm) to deploy Doku Client in Kubernetes
+You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/main/charts/doku) to deploy Doku Client in Kubernetes
 
 ### Manual Setup (Development)
 

@@ -43,7 +43,7 @@ Follow the steps below to get Doku Ingester running in your environment. Both Do
     ```
 
 
-You can also use the [Doku Helm Chart](www.github.com/dokulabs/helm) to deploy Doku Ingester in Kubernetes
+You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/main/charts/doku) to deploy Doku Ingester in Kubernetes
 
 ### Manual Setup (Development)
 
