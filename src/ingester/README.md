@@ -1,9 +1,14 @@
 # Doku Ingester
+
 [![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
 [![License](https://img.shields.io/github/license/dokulabs/doku?label=license&logo=github&color=f80&logoColor=fff%22%20alt=%22License)](https://github.com/dokulabs/doku/blob/main/LICENSE)
 [![Ingester Version](https://img.shields.io/github/tag/dokulabs/doku.svg?&label=Version)](https://github.com/dokulabs/doku/tags)
 
-Doku Ingester is an integral part of Doku's LLM Observability tools, facilitating real-time data ingestion from `dokumetry` [Python](https://github.com/dokulabs/dokumetry-python) and [Node](https://github.com/dokulabs/dokumetry-node) SDKs for Large Language Models (LLM) analytics. It ensures the secure collection of telemetry data, enabling insights on usage patterns, performance metrics, and cost management for LLMs.
+
+![Go](https://img.shields.io/badge/golang-black?style=for-the-badge&logo=go)
+![Clickhouse](https://img.shields.io/badge/clickhouse-faff69?style=for-the-badge&logo=clickhouse)
+
+Doku Ingester facilitates real-time data ingestion from `dokumetry` [Python](https://github.com/dokulabs/dokumetry-python) and [Node](https://github.com/dokulabs/dokumetry-node) SDKs for Large Language Models (LLM) analytics. It ensures the secure collection of telemetry data, enabling insights on usage patterns, performance metrics, and cost management for LLMs.
 
 ## Features
 
@@ -12,77 +17,79 @@ Doku Ingester is an integral part of Doku's LLM Observability tools, facilitatin
 - **Scalable Architecture**: Designed with a scalable mindset to grow with your needs, handling increasing loads smoothly and efficiently.
 - **Customizable Caching**: Configurable in-memory caching for improved performance.
 
-## Quick Start
+## 🚀 Quick Start
 
-To start using Doku Ingester, ensure you have Docker installed and configured on your machine. Create a config file as shown in in this [example](./assets/example-config.yml). Then Clone the repository and follow the steps below:
+Follow the steps below to get Doku Ingester running in your environment. Both Docker and manual installation options are provided.
 
 ### Docker
-```bash
-# Clone the repository
-git clone https://github.com/dokulabs/ingester.git
+1. **Pull the Docker image**
 
-# Build the Docker image
-docker build -t doku-ingester .
+    ```bash
+    docker pull ghcr.io/dokulabs/doku-ingester:latest
+    ```
 
-# Run the container
-docker run -d -p 9044:9044 --name doku_ingester doku-ingester --config <path-to-config>.yml
-```
+2. **Run the container with environment variables**
 
-### Go
+    In this command, replace `"<ClickHouse-URL>"`, `"<ClickHouse-Port>"`, `"<ClickHouse-Database-name>"`, `"<ClickHouse-username>"`, and `"<ClickHouse-password>"` with your actual ClickHouse configuration details.
 
-```bash
-# Clone the repository and use `src` directory
-git clone https://github.com/dokulabs/doku.git
-cd src/ingester
+    ```bash
+    docker run -d -p 9044:9044 \
+    -e DOKU_DB_HOST="<ClickHouse-URL>" \
+    -e DOKU_DB_PORT="<ClickHouse-Port>" \
+    -e DOKU_DB_NAME="<ClickHouse-Database-name>" \
+    -e DOKU_DB_USER="<ClickHouse-username>" \
+    -e DOKU_DB_PASSWORD="<ClickHouse-password>" \
+    --name doku_ingester doku-ingester
+    ```
 
-# Build the Go Package
-go build -o doku-ingester .
 
-# Run the Doku Ingester Go Binary
-./doku-ingester --config <path-to-config>.yml
-```
+You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/main/charts/doku) to deploy Doku Ingester in Kubernetes
+
+### Manual Setup (Development)
+
+1. Clone the doku repository 
+    ```sh 
+    git clone git@github.com:dokulabs/doku.git
+    ````
+2. Go to the ingester folder
+    ```sh 
+    cd src/ingester
+    ````
+3. Build the Go Package
+    ```sh 
+    go build -o doku-ingester .
+    ````
+4. **Run the Doku Ingester Go Binary with Environment Variables**
+
+    Before running the following command, ensure you replace `"<ClickHouse-URL>"`, `"<ClickHouse-Port>"`, `"<ClickHouse-Database-name>"`, `"<ClickHouse-username>"`, and `"<ClickHouse-password>"` with your actual values.
+
+    ```sh
+    export DOKU_DB_HOST="<ClickHouse-URL>"
+    export DOKU_DB_PORT="<ClickHouse-Port>"
+    export DOKU_DB_NAME="<ClickHouse-Database-name>"
+    export DOKU_DB_USER="<ClickHouse-Username>"
+    export DOKU_DB_PASSWORD="<ClickHouse-Password>"
+    ./doku-ingester
+    ```
 
 ## Configuration
 
-Before running the Ingester, configure the following environment variables:
+To configure Doku Ingester, you can pass the following environment values, each tailored to suit your infrastructure and operational preferences. This customization allows Doku Ingester to seamlessly integrate with your existing setup and respond to its demands effectively.
 
-| Variable            | Description                   | Example Value      |
-|---------------------|-------------------------------|--------------------|
-| `DB_NAME`           | The database name             | postgres           |
-| `DB_USER`           | The database user             | admin              |
-| `DB_PASSWORD`       | The database password         | tsdbpassword       |
-| `DB_HOST`           | The database host             | 127.0.0.1          |
-| `DB_PORT`           | The database port             | 5432               |
-| `DB_SSLMODE`        | The SSL mode for the database | require            |
-| `DATA_TABLE_NAME`   | The name of the data table    | DOKU               |
-| `APIKEY_TABLE_NAME` | The name of the API key table | APIKEYS            |
-| `DB_MAX_OPEN_CONNS` | Max open database connections | 10                 |
-| `DB_MAX_IDLE_CONNS` | Max idle database connections | 5                  |
 
-Adapt these settings to match your database configuration.
+| Variable                | Description                                                                                                   | Default Value                                                                   | Required | Example                                |
+|-------------------------|---------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|:--------:|----------------------------------------|
+| `DOKU_DB_HOST`          | Host address of the ClickHouse server for Doku to connect to.                                                 |                                                                                 |    ✓     | `127.0.0.1`                            |
+| `DOKU_DB_PORT`          | Port on which ClickHouse listens.                                                                             |                                                                                 |    ✓     | `9000`                                 |
+| `DOKU_DB_NAME`          | Database name in ClickHouse to be used by Doku.                                                               |                                                                                 |    ✓     | `default`                              |
+| `DOKU_DB_USER`          | Username for authenticating with ClickHouse.                                                                  |                                                                                 |    ✓     | `default`                              |
+| `DOKU_DB_PASSWORD`      | Password for authenticating with ClickHouse.                                                                  |                                                                                 |    ✓     | `DOKU`                                 |
+| `DOKU_PRICING_JSON_URL` | URL of the JSON file containing LLM Pricing data.                                                             | `https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json` |          | `<URL>`                                |
+| `DOKU_DB_MAX_IDLE_CONNS`| Maximum number of concurrent idle database connections.                                                       | `10`                                                                            |          | `10`                                   |
+| `DOKU_DB_MAX_OPEN_CONNS`| Maximum number of concurrent open database connections.                                                       | `20`                                                                            |          | `20`                                   |
+| `DOKU_DB_RETENTION_PERIOD` | TTL for data in ClickHouse.                                                                                  | `6 MONTH`                                                                       |          | `"6 MONTH"`                            |
 
-## Optional: Data Export Configuration
-
-To export data from Doku to your observability platform, first set the `OBSERVABILITY_PLATFORM` environment variable. Depending on the specified platform, additional configuration environment variables may be required.
-
-### Observability Platform Settings
-
-Set up the `OBSERVABILITY_PLATFORM` to your chosen platform. Currently supported options include:
-
-- `GRAFANA` for Grafana Cloud.
-
-Based on your selection, provide the additional required environment variables as follows.
-
-#### Grafana Cloud
-
-If exporting to Grafana Cloud, set the following environment variables:
-
-| Variable                 | Description                                   | Example Value                                   |
-|--------------------------|-----------------------------------------------|-------------------------------------------------|
-| `OBSERVABILITY_PLATFORM` | The observability platform to use             | `GRAFANA`                                       |
-| `GRAFANA_LOGS_USER`      | The username for Grafana Loki                 | `121313`                                        |
-| `GRAFANA_LOKI_URL`       | The URL of the Grafana CLoud Loki instance    | `https://logs-xx.grafana.net/loki/api/v1/push`  |
-| `GRAFANA_ACCESS_TOKEN`   | The access token for Grafana Cloud            | `glc_eyxxxxxxxxxxxxx`                           |
+For more detailed information on configuration options and additional settings, please visit the Doku documentation page: [Doku Configuration Details](https://docs.dokulabs.com/latest/configuration).
 
 ## Security
 

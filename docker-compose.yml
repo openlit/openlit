@@ -10,7 +10,7 @@ services:
     volumes:
       - clickhouse-data:/var/lib/clickhouse
     ports:
-      - "9000:9000"
+      - "9000:9000" 
       - "8123:8123" 
     restart: always
 
@@ -27,6 +27,24 @@ services:
       - "9044:9044"           
     depends_on:
       - clickhouse
+    restart: always
+  
+  doku-client:
+    image: ghcr.io/patcher99/doku-client:0.0.10
+    container_name: doku-client
+    environment:
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: 8123
+      INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
+      INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
+      INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+      SQLITE_DATABASE_URL: file:/app/client/data/data.db
+    ports:
+      - "3000:3000"
+    depends_on:
+      - clickhouse
+    volumes:
+      - doku-client-data:/app/client/data
     restart: always
 
   doku-client:

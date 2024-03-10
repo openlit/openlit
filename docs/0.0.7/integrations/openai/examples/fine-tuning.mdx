@@ -1,0 +1,47 @@
+---
+title: 'Fine Tuning'
+description: 'Monitor OpenAI Fine Tuning API usage'
+---
+
+## Create Fine Tuning Job
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from openai import OpenAI
+    import dokumetry
+
+    client = OpenAI(
+      api_key = "YOUR_OPENAI_API_KEY"
+    )
+
+    # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+
+    client.fine_tuning.jobs.create(
+      training_file="file-abc123",
+      model="gpt-3.5-turbo"
+    )
+    ```
+  </Tab>
+  <Tab title="javascript">
+    ```javascript
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const openai = new OpenAI();
+
+    // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const fineTune = await openai.fineTuning.jobs.create({
+        training_file: "file-abc123"
+      });
+
+      console.log(fineTune);
+    }
+
+    main();
+    ```
+  </Tab>
+</Tabs>
