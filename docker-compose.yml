@@ -15,7 +15,7 @@ services:
     restart: always
 
   doku-ingester:
-    image: ghcr.io/dokulabs/doku-ingester:0.0.6
+    image: ghcr.io/dokulabs/doku-ingester:latest
     container_name: doku-ingester
     environment:
       DOKU_DB_HOST: clickhouse   
@@ -30,7 +30,7 @@ services:
     restart: always
   
   doku-client:
-    image: ghcr.io/patcher99/doku-client:0.0.10
+    image: ghcr.io/dokulabs/doku-client:latest
     container_name: doku-client
     environment:
       INIT_DB_HOST: clickhouse
@@ -46,24 +46,6 @@ services:
     volumes:
       - doku-client-data:/app/client/data
     restart: always
-
-  doku-client:
-    image: doku-client
-    build:
-      context: ./src/client
-      dockerfile: Dockerfile
-    container_name: doku-client
-    environment:
-      SQLITE_DATABASE_URL: file:/app/client/data/data.db
-      INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
-      INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
-      INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: 8123
-      INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
-    ports:
-      - "3000:3000"
-    volumes:
-      - doku-client-data:/app/client/data
 
 volumes:
   clickhouse-data:
