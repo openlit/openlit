@@ -91,7 +91,7 @@ export async function getRequests(params: DokuRequestParams) {
 
 	const query = `SELECT *	FROM ${DATA_TABLE_NAME} 
 		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
-		ORDER BY time
+		ORDER BY time desc
 		LIMIT ${limit}
 		OFFSET ${offset}`;
 
