@@ -76,6 +76,7 @@ description: 'Monitor Anthropic Messages API Usage'
     # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all Anthropic calls are automatically tracked.
     dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
 
+
     async def main() -> None:
       message = await client.messages.create(
         max_tokens=1024,
@@ -89,8 +90,8 @@ description: 'Monitor Anthropic Messages API Usage'
       )
 
     asyncio.run(main())
+
     ```
-    
     ```python streaming
     import asyncio
     from anthropic import AsyncAnthropic

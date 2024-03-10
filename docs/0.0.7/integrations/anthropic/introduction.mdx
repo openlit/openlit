@@ -7,7 +7,7 @@ DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Anth
 
 ## Get Started 
 
-The integration is compatible with Anthropic SDK versions >=0.10.0
+The integration is compatible with Anthropic Python SDK version >=0.19.0 and Typescript SDK version >=0.9.0
 
 <Tabs>
   <Tab title="Python">
@@ -16,7 +16,7 @@ The integration is compatible with Anthropic SDK versions >=0.10.0
     ```
 
     ```python
-    from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+    from anthropic import Anthropic
     import dokumetry
 
     anthropic = Anthropic(
@@ -48,7 +48,7 @@ The integration is compatible with Anthropic SDK versions >=0.10.0
 
 The following Anthropic Endpoints are supported for monitoring with DokuMetry
 
-- [Completions](/0.0.7/integrations/anthropic/examples/completions)
+- [messages](/0.0.7/integrations/anthropic/examples/messages)
 
 ## Parameters
 <Tabs>

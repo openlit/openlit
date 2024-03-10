@@ -282,11 +282,10 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 	}
 
 	// Construct query with placeholders
-	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", doku_llm_data_table)
+	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobStatus) VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", doku_llm_data_table)
 
 	// Create a slice for parameters in the correct order
 	params := []interface{}{
-		time.Now(),
 		data["llmReqId"],
 		data["environment"],
 		data["endpoint"],

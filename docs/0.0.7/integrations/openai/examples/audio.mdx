@@ -12,7 +12,9 @@ description: 'Monitor OpenAI Audio API usage'
     from openai import OpenAI
     import dokumetry
 
-    client = OpenAI()
+    client = OpenAI(
+      api_key = "YOUR_OPENAI_API_KEY"
+    )
 
     # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
     dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")

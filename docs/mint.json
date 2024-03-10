@@ -208,7 +208,7 @@
               "group": "Examples",
               "version": "0.0.7",
               "pages": [
-                "0.0.7/integrations/anthropic/examples/completions"
+                "0.0.7/integrations/anthropic/examples/messages"
               ]
             }
           ]
