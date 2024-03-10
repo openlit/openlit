@@ -45,6 +45,112 @@
     {
       "group": "Introduction",
       "pages": [
+        "latest/introduction",
+        "latest/quickstart",
+        "latest/installation",
+        "latest/configuration"
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "Integrations",
+      "version": "latest",
+      "pages": [
+        "latest/integrations/introduction",
+        {
+          "group": "OpenAI",
+          "version": "latest",
+          "pages": [
+            "latest/integrations/openai/introduction",
+            {
+              "group": "Examples",
+              "version": "latest",
+              "pages": [
+                "latest/integrations/openai/examples/chat",
+                "latest/integrations/openai/examples/image",
+                "latest/integrations/openai/examples/embeddings",
+                "latest/integrations/openai/examples/audio",
+                "latest/integrations/openai/examples/fine-tuning",
+                "latest/integrations/openai/examples/completions"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Cohere",
+          "version": "latest",
+          "pages": [
+            "latest/integrations/cohere/introduction",
+            {
+              "group": "Examples",
+              "version": "latest",
+              "pages": [
+                "latest/integrations/cohere/examples/chat",
+                "latest/integrations/cohere/examples/generate",
+                "latest/integrations/cohere/examples/summarize",
+                "latest/integrations/cohere/examples/embed"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Anthropic",
+          "version": "latest",
+          "pages": [
+            "latest/integrations/anthropic/introduction",
+            {
+              "group": "Examples",
+              "version": "latest",
+              "pages": [
+                "latest/integrations/anthropic/examples/completions"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "group": "Connections",
+      "pages": [
+        "latest/connections/intro",
+        "latest/connections/grafanaoss",
+        "latest/connections/grafanacloud",
+        "latest/connections/datadog",
+        "latest/connections/new-relic",
+        "latest/connections/signoz",
+        "latest/connections/dynatrace"
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "latest/api-reference/introduction",
+        {
+          "group": "API Keys",
+          "icon": "key",
+          "pages": [
+            "latest/api-reference/endpoint/api-keys/create",
+            "latest/api-reference/endpoint/api-keys/get",
+            "latest/api-reference/endpoint/api-keys/delete"
+          ],
+          "version": "latest"
+        },
+        {
+          "group": "Connections",
+          "icon": "link",
+          "pages": [
+            "latest/api-reference/endpoint/connections/create",
+            "latest/api-reference/endpoint/connections/delete"
+          ],
+          "version": "latest"
+        }
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "Introduction",
+      "pages": [
         "0.0.7/introduction",
         "0.0.7/quickstart",
         "0.0.7/installation",
