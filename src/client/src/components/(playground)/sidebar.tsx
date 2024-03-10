@@ -1,6 +1,5 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import { ReactElement } from "react";
 import {
 	AcademicCapIcon,
@@ -18,6 +17,7 @@ type SidebarItemProps = {
 	text: string;
 	link?: string;
 	onClick?: any;
+	target?: string;
 };
 
 const ICON_CLASSES =
@@ -53,8 +53,10 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 
 const SIDEBAR_BOTTOM_ITEMS: SidebarItemProps[] = [
 	{
-		text: "Signout",
-		onClick: signOut,
+		text: "Documentation",
+		link: "https://docs.dokulabs.com/",
+		target: "_blank",
+		className: "justify-center text-sm text-primary hover:bg-primary/[0.1]"
 	},
 ];
 
@@ -66,6 +68,7 @@ const SidebarItem = (props: SidebarItemProps) => {
 				props.className || ""
 			}`}
 			onClick={props.onClick}
+			target={props.target}
 		>
 			{props.icon}
 			<span className={`${props.icon && "ml-5"} text-nowrap`}>
@@ -90,7 +93,7 @@ export default function Sidebar() {
 						link="/"
 						icon={
 							<Image
-								className="flex-shrink-0 w-6 h-6 transition duration-75"
+								className="flex-shrink-0 w-8 h-8 transition duration-75 -mr-2"
 								src="/images/logo.png"
 								alt="Doku's Logo"
 								priority
@@ -109,7 +112,7 @@ export default function Sidebar() {
 								className={
 									item.link === pathname
 										? "border-r-4 border-primary text-primary bg-primary/[.09]"
-										: "text-tertiary/[0.9] hover:text-primary"
+										: "text-tertiary/[0.8] hover:text-primary"
 								}
 								{...item}
 							/>
@@ -123,7 +126,7 @@ export default function Sidebar() {
 								className={
 									item.link === pathname
 										? "border-r-4 border-primary text-primary bg-primary/[.09]"
-										: "text-tertiary/[0.5] justify-center"
+										: "text-tertiary/[0.5] justify-center text-sm"
 								}
 								{...item}
 							/>

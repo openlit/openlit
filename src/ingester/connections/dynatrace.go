@@ -3,10 +3,11 @@ package connections
 import (
 	"bytes"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 func configureDynatraceData(data map[string]interface{}, config ConnectionConfig) {
@@ -29,7 +30,7 @@ func configureDynatraceData(data map[string]interface{}, config ConnectionConfig
 		call_type = "Unknown"
 	}
 
-	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.completions" {
+	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.messages" {
 		if data["finishReason"] == nil {
 			data["finishReason"] = "null"
 		}

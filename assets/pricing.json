@@ -128,7 +128,7 @@
             "promptPrice": 0.01,
             "completionPrice": 0.03
         },
-        "claude-3-opus-202402291": {
+        "claude-3-opus-20240229": {
             "promptPrice": 0.015,
             "completionPrice": 0.075
         },
