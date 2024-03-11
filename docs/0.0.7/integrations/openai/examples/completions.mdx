@@ -14,8 +14,8 @@ description: 'Monitor OpenAI Completions API Usage'
       api_key = "YOUR_OPENAI_API_KEY"
     )
 
-    # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     client.completions.create(
       model="gpt-3.5-turbo-instruct",
@@ -33,8 +33,8 @@ description: 'Monitor OpenAI Completions API Usage'
       api_key = "YOUR_OPENAI_API_KEY"
     )
 
-    # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     for chunk in client.completions.create(
       model="gpt-3.5-turbo-instruct",
@@ -56,8 +56,8 @@ description: 'Monitor OpenAI Completions API Usage'
 
     const openai = new OpenAI();
 
-    // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
       const completion = await openai.completions.create({
@@ -78,8 +78,8 @@ description: 'Monitor OpenAI Completions API Usage'
 
     const openai = new OpenAI();
 
-    // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
       const stream = await openai.completions.create({

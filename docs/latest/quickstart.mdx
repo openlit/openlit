@@ -109,7 +109,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
                 api_key="YOUR_OPENAI_KEY"
             )
 
-            # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+            # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
             dokumetry.init(llm=client, doku_url="http://127.0.0.1:9044/", api_key="YOUR_DOKU_TOKEN")
 
             chat_completion = client.chat.completions.create(
@@ -152,7 +152,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
               apiKey: 'My API Key', // defaults to process.env["OPENAI_API_KEY"]
             });
 
-            // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+            // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
             DokuMetry.init({llm: openai, dokuUrl: "http://127.0.0.1:9044/", apiKey: "YOUR_DOKU_TOKEN"})
 
             async function main() {

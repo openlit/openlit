@@ -18,8 +18,8 @@ description: 'Monitor Anthropic Messages API Usage'
       api_key="YOUR_ANTHROPIC_API_KEY",
     )
 
-    # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all Anthropic calls are automatically tracked.
-    dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     message = client.messages.create(
       max_tokens=1024,
@@ -42,8 +42,8 @@ description: 'Monitor Anthropic Messages API Usage'
       api_key="YOUR_ANTHROPIC_API_KEY",
     )
 
-    # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all Anthropic calls are automatically tracked.
-    dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     stream = client.messages.create(
       max_tokens=1024,
@@ -73,8 +73,8 @@ description: 'Monitor Anthropic Messages API Usage'
       api_key="YOUR_ANTHROPIC_API_KEY",
     )
 
-    # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all Anthropic calls are automatically tracked.
-    dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     async def main() -> None:
       message = await client.messages.create(
@@ -101,8 +101,8 @@ description: 'Monitor Anthropic Messages API Usage'
       api_key="YOUR_ANTHROPIC_API_KEY",
     )
 
-    # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all Anthropic calls are automatically tracked.
-    dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     async def main():
       stream = client.messages.create(
@@ -133,8 +133,8 @@ description: 'Monitor Anthropic Messages API Usage'
       apiKey: 'my_api_key', // defaults to process.env["ANTHROPIC_API_KEY"]
     });
 
-    // Pass the above `anthropic` object along with your DOKU URL and API key and this will make sure that all Anthropic calls are automatically tracked.
-    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    // Pass the above `anthropic` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
       const message = await anthropic.messages.create({
@@ -157,8 +157,8 @@ description: 'Monitor Anthropic Messages API Usage'
       apiKey: 'my_api_key', // defaults to process.env["ANTHROPIC_API_KEY"]
     });
 
-    // Pass the above `anthropic` object along with your DOKU URL and API key and this will make sure that all Anthropic calls are automatically tracked.
-    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    // Pass the above `anthropic` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     const stream = await anthropic.messages.create({
       max_tokens: 1024,

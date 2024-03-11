@@ -13,8 +13,8 @@ description: 'Monitor Cohere Chat API usage'
 
     co = cohere.Client('<<apiKey>>')
 
-    # Pass the above `co` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
-    dokumetry.init(llm=co, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+    dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     response = co.chat(
         chat_history=[
@@ -34,8 +34,8 @@ description: 'Monitor Cohere Chat API usage'
 
     co = cohere.Client('<<apiKey>>')
 
-    # Pass the above `co` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
-    dokumetry.init(llm=co, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+    dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     response = co.chat(
         chat_history=[
@@ -62,8 +62,8 @@ description: 'Monitor Cohere Chat API usage'
         });
 
         (async () => {
-            // Pass the above `cohere` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
-            DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+            // Pass the above `cohere` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+            DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
             const response = await cohere.chat({
                 message: 'Say this is a test',
@@ -83,8 +83,8 @@ description: 'Monitor Cohere Chat API usage'
         });
 
         (async () => {
-        // Pass the above `cohere` object along with your DOKU URL and API key and this will make sure that all Cohere calls are automatically tracked.
-        DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+        // Pass the above `cohere` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+        DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
         const chatStream = await cohere.chatStream({
             chatHistory: [

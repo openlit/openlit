@@ -194,7 +194,7 @@ client = OpenAI(
     api_key="YOUR_OPENAI_KEY"
 )
 
-# Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+# Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
 dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
 chat_completion = client.chat.completions.create(
@@ -236,7 +236,7 @@ const openai = new OpenAI({
   apiKey: 'My API Key', // defaults to process.env["OPENAI_API_KEY"]
 });
 
-// Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+// Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
 DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
 async function main() {

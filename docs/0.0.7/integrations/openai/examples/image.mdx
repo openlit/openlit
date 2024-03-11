@@ -15,8 +15,8 @@ description: 'Monitor OpenAI Image API usage'
       api_key = "YOUR_OPENAI_API_KEY"
     )
 
-    # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     client.images.generate(
       model="dall-e-3",
@@ -33,8 +33,8 @@ description: 'Monitor OpenAI Image API usage'
 
     const openai = new OpenAI();
 
-    // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
       const image = await openai.images.generate({ model: "dall-e-3", prompt: "A cute baby sea otter" });
@@ -58,8 +58,8 @@ description: 'Monitor OpenAI Image API usage'
       api_key = "YOUR_OPENAI_API_KEY"
     )
 
-    # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     response = client.images.create_variation(
       image=open("image_edit_original.png", "rb"),
@@ -76,8 +76,8 @@ description: 'Monitor OpenAI Image API usage'
 
     const openai = new OpenAI();
 
-    // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
       const image = await openai.images.createVariation({
