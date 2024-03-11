@@ -42,7 +42,7 @@ Follow the steps below to get Doku Client running in your environment. Both Dock
     -e INIT_DB_USERNAME="<ClickHouse-username>" \
     -e INIT_DB_PASSWORD="<ClickHouse-password>" \
     -e SQLITE_DATABASE_URL=file:/app/client/data/data.db \
-    --name doku_client doku-client
+    --name doku-client ghcr.io/dokulabs/doku-client:latest
     ```
 
 3. Login to Doku UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
@@ -119,7 +119,7 @@ To configure Doku Client, you can pass the following environment values, each ta
 | `INIT_DB_DATABASE`   | Database name in ClickHouse for Doku Client.                                |          | `default`                             |
 | `INIT_DB_USERNAME`   | Username for authenticating with ClickHouse.                                |          | `default`                             |
 | `INIT_DB_PASSWORD`   | Password for authenticating with ClickHouse.                                |          | `default`                             |
-| `SQLITE_DATABASE_URL`| Location of the SQLITE database for Doku Client data storage.                |    ✓     | `file:/app/client/data/data.db`       |
+| `SQLITE_DATABASE_URL`| Location of the SQLITE database for Doku Client data storage.               |    ✓     | `file:/app/client/data/data.db`       |
 
 For more detailed information on configuration options and additional settings, please visit the Doku documentation page: [Doku Configuration Details](https://docs.dokulabs.com/latest/configuration).
 
