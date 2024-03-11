@@ -39,7 +39,7 @@ Follow the steps below to get Doku Ingester running in your environment. Both Do
     -e DOKU_DB_NAME="<ClickHouse-Database-name>" \
     -e DOKU_DB_USER="<ClickHouse-username>" \
     -e DOKU_DB_PASSWORD="<ClickHouse-password>" \
-    --name doku_ingester doku-ingester
+    --name doku-ingester ghcr.io/dokulabs/doku-ingester:latest
     ```
 
 
@@ -84,10 +84,10 @@ To configure Doku Ingester, you can pass the following environment values, each 
 | `DOKU_DB_NAME`          | Database name in ClickHouse to be used by Doku.                                                               |                                                                                 |    ✓     | `default`                              |
 | `DOKU_DB_USER`          | Username for authenticating with ClickHouse.                                                                  |                                                                                 |    ✓     | `default`                              |
 | `DOKU_DB_PASSWORD`      | Password for authenticating with ClickHouse.                                                                  |                                                                                 |    ✓     | `DOKU`                                 |
-| `DOKU_PRICING_JSON_URL` | URL of the JSON file containing LLM Pricing data.                                                             | `https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json` |          | `<URL>`                                |
+| `DOKU_PRICING_JSON_URL` | URL of the JSON file containing LLM Pricing data.                                                             | `https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json`  |          | `<URL>`                                |
 | `DOKU_DB_MAX_IDLE_CONNS`| Maximum number of concurrent idle database connections.                                                       | `10`                                                                            |          | `10`                                   |
 | `DOKU_DB_MAX_OPEN_CONNS`| Maximum number of concurrent open database connections.                                                       | `20`                                                                            |          | `20`                                   |
-| `DOKU_DB_RETENTION_PERIOD` | TTL for data in ClickHouse.                                                                                  | `6 MONTH`                                                                       |          | `"6 MONTH"`                            |
+| `DOKU_DB_RETENTION_PERIOD` | TTL for data in ClickHouse.                                                                                | `6 MONTH`                                                                       |          | `"6 MONTH"`                            |
 
 For more detailed information on configuration options and additional settings, please visit the Doku documentation page: [Doku Configuration Details](https://docs.dokulabs.com/latest/configuration).
 
