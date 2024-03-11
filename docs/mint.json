@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "versions": ["latest", "0.0.7"],
+  "versions": ["0.1"],
   "name": "Doku",
   "logo": {
     "dark": "https://github.com/dokulabs/.github/blob/main/profile/assets/dark-bg-with-text-logo.jpg?raw=true",
@@ -45,64 +45,64 @@
     {
       "group": "Introduction",
       "pages": [
-        "latest/introduction",
-        "latest/quickstart",
-        "latest/installation",
-        "latest/configuration"
+        "0.1/introduction",
+        "0.1/quickstart",
+        "0.1/installation",
+        "0.1/configuration"
       ],
-      "version": "latest"
+      "version": "0.1"
     },
     {
       "group": "Integrations",
-      "version": "latest",
+      "version": "0.1",
       "pages": [
-        "latest/integrations/introduction",
+        "0.1/integrations/introduction",
         {
           "group": "OpenAI",
-          "version": "latest",
+          "version": "0.1",
           "pages": [
-            "latest/integrations/openai/introduction",
+            "0.1/integrations/openai/introduction",
             {
               "group": "Examples",
-              "version": "latest",
+              "version": "0.1",
               "pages": [
-                "latest/integrations/openai/examples/chat",
-                "latest/integrations/openai/examples/image",
-                "latest/integrations/openai/examples/embeddings",
-                "latest/integrations/openai/examples/audio",
-                "latest/integrations/openai/examples/fine-tuning",
-                "latest/integrations/openai/examples/completions"
+                "0.1/integrations/openai/examples/chat",
+                "0.1/integrations/openai/examples/image",
+                "0.1/integrations/openai/examples/embeddings",
+                "0.1/integrations/openai/examples/audio",
+                "0.1/integrations/openai/examples/fine-tuning",
+                "0.1/integrations/openai/examples/completions"
               ]
             }
           ]
         },
         {
           "group": "Cohere",
-          "version": "latest",
+          "version": "0.1",
           "pages": [
-            "latest/integrations/cohere/introduction",
+            "0.1/integrations/cohere/introduction",
             {
               "group": "Examples",
-              "version": "latest",
+              "version": "0.1",
               "pages": [
-                "latest/integrations/cohere/examples/chat",
-                "latest/integrations/cohere/examples/generate",
-                "latest/integrations/cohere/examples/summarize",
-                "latest/integrations/cohere/examples/embed"
+                "0.1/integrations/cohere/examples/chat",
+                "0.1/integrations/cohere/examples/generate",
+                "0.1/integrations/cohere/examples/summarize",
+                "0.1/integrations/cohere/examples/embed"
               ]
             }
           ]
         },
         {
           "group": "Anthropic",
-          "version": "latest",
+          "version": "0.1",
           "pages": [
-            "latest/integrations/anthropic/introduction",
+            "0.1/integrations/anthropic/introduction",
             {
               "group": "Examples",
-              "version": "latest",
+              "version": "0.1",
               "pages": [
-                "latest/integrations/anthropic/examples/messages"
+                "0.1/integrations/anthropic/examples/messages"
               ]
             }
           ]
@@ -112,147 +112,41 @@
     {
       "group": "Connections",
       "pages": [
-        "latest/connections/intro",
-        "latest/connections/grafanaoss",
-        "latest/connections/grafanacloud",
-        "latest/connections/datadog",
-        "latest/connections/new-relic",
-        "latest/connections/signoz",
-        "latest/connections/dynatrace"
+        "0.1/connections/intro",
+        "0.1/connections/grafanaoss",
+        "0.1/connections/grafanacloud",
+        "0.1/connections/datadog",
+        "0.1/connections/new-relic",
+        "0.1/connections/signoz",
+        "0.1/connections/dynatrace"
       ],
-      "version": "latest"
+      "version": "0.1"
     },
     {
       "group": "API Reference",
       "pages": [
-        "latest/api-reference/introduction",
+        "0.1/api-reference/introduction",
         {
           "group": "API Keys",
           "icon": "key",
           "pages": [
-            "latest/api-reference/endpoint/api-keys/create",
-            "latest/api-reference/endpoint/api-keys/get",
-            "latest/api-reference/endpoint/api-keys/delete"
+            "0.1/api-reference/endpoint/api-keys/create",
+            "0.1/api-reference/endpoint/api-keys/get",
+            "0.1/api-reference/endpoint/api-keys/delete"
           ],
-          "version": "latest"
+          "version": "0.1"
         },
         {
           "group": "Connections",
           "icon": "link",
           "pages": [
-            "latest/api-reference/endpoint/connections/create",
-            "latest/api-reference/endpoint/connections/delete"
+            "0.1/api-reference/endpoint/connections/create",
+            "0.1/api-reference/endpoint/connections/delete"
           ],
-          "version": "latest"
+          "version": "0.1"
         }
       ],
-      "version": "latest"
-    },
-    {
-      "group": "Introduction",
-      "pages": [
-        "0.0.7/introduction",
-        "0.0.7/quickstart",
-        "0.0.7/installation",
-        "0.0.7/configuration"
-      ],
-      "version": "0.0.7"
-    },
-    {
-      "group": "Integrations",
-      "version": "0.0.7",
-      "pages": [
-        "0.0.7/integrations/introduction",
-        {
-          "group": "OpenAI",
-          "version": "0.0.7",
-          "pages": [
-            "0.0.7/integrations/openai/introduction",
-            {
-              "group": "Examples",
-              "version": "0.0.7",
-              "pages": [
-                "0.0.7/integrations/openai/examples/chat",
-                "0.0.7/integrations/openai/examples/image",
-                "0.0.7/integrations/openai/examples/embeddings",
-                "0.0.7/integrations/openai/examples/audio",
-                "0.0.7/integrations/openai/examples/fine-tuning",
-                "0.0.7/integrations/openai/examples/completions"
-              ]
-            }
-          ]
-        },
-        {
-          "group": "Cohere",
-          "version": "0.0.7",
-          "pages": [
-            "0.0.7/integrations/cohere/introduction",
-            {
-              "group": "Examples",
-              "version": "0.0.7",
-              "pages": [
-                "0.0.7/integrations/cohere/examples/chat",
-                "0.0.7/integrations/cohere/examples/generate",
-                "0.0.7/integrations/cohere/examples/summarize",
-                "0.0.7/integrations/cohere/examples/embed"
-              ]
-            }
-          ]
-        },
-        {
-          "group": "Anthropic",
-          "version": "0.0.7",
-          "pages": [
-            "0.0.7/integrations/anthropic/introduction",
-            {
-              "group": "Examples",
-              "version": "0.0.7",
-              "pages": [
-                "0.0.7/integrations/anthropic/examples/messages"
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "group": "Connections",
-      "pages": [
-        "0.0.7/connections/intro",
-        "0.0.7/connections/grafanaoss",
-        "0.0.7/connections/grafanacloud",
-        "0.0.7/connections/datadog",
-        "0.0.7/connections/new-relic",
-        "0.0.7/connections/signoz",
-        "0.0.7/connections/dynatrace"
-      ],
-      "version": "0.0.7"
-    },
-    {
-      "group": "API Reference",
-      "pages": [
-        "0.0.7/api-reference/introduction",
-        {
-          "group": "API Keys",
-          "icon": "key",
-          "pages": [
-            "0.0.7/api-reference/endpoint/api-keys/create",
-            "0.0.7/api-reference/endpoint/api-keys/get",
-            "0.0.7/api-reference/endpoint/api-keys/delete"
-          ],
-          "version": "0.0.7"
-        },
-        {
-          "group": "Connections",
-          "icon": "link",
-          "pages": [
-            "0.0.7/api-reference/endpoint/connections/create",
-            "0.0.7/api-reference/endpoint/connections/delete"
-          ],
-          "version": "0.0.7"
-        }
-      ],
-      "version": "0.0.7"
+      "version": "0.1"
     }
   ],
   "analytics": {
