@@ -1,4 +1,4 @@
-## Run Doku UI Client server
+# Doku Client
 
 [![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
 [![License](https://img.shields.io/github/license/dokulabs/doku?label=license&logo=github&color=f80&logoColor=fff%22%20alt=%22License)](https://github.com/dokulabs/doku/blob/main/LICENSE)
@@ -15,10 +15,9 @@ Doku Client serves as the frontend UI for displaying visualizations and observab
 
 ## Features
 
-- **Rich Analytics Dashboard**: Visualize LLM performance, usage patterns, and cost metrics in real-time.
-- **User Management**: Integrated user management for access control and authentication.
-- **Flexible Data Source Integration**: Built-in support for ClickHouse, enabling efficient data retrieval and management.
-- **Responsive Design**: A UI that adapts to various screen sizes, providing an optimal viewing experience across devices.
+- **Comprehensive Analytics Dashboard**: Easily monitor Large Language Model performance, user activity, and critical metrics related to costs and tokens in real-time.
+- **User Management System**: Offers built-in user management to ensure secure access control and smooth authentication processes.
+- **Versatile Data Source Connectivity**: Seamlessly adjust and integrate your ClickHouse database details directly within the UI. This flexibility enables quick switches between databases to keep your Doku Client running efficiently.
 
 ## 🚀 Quick Start
 
@@ -96,16 +95,9 @@ You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/mai
     ```sh
     npm run dev
     ```
-
-<<<<<<< HEAD
 8. Login to Doku UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
     - Email as `user@dokulabs.com`
     - Password as `dokulabsuser`
-=======
-Enjoy Doku!🎉
-
-### Found a bug or want to request a feature
->>>>>>> main
 
 ## Configuration
 
