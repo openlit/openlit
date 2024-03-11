@@ -8,7 +8,7 @@ export default function Navbar() {
 					<Image
 						alt="doku"
 						className="w-24"
-						src="/images/doku-logo-with-name.png"
+						src="/images/doku-logo-with-name-black.png"
 						width={836}
 						height={298}
 					/>
