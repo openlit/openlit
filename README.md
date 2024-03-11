@@ -253,7 +253,7 @@ Refer to the `dokumetry` [NodeJS SDK repository](https://github.com/dokulabs/dok
 
 ### Visualize and Analyze
 
-Once you have Doku Ingester and `DokuMetry` SDKs set up, you can instantly get insights into how your LLM applications. Just head over to Doku UI at `127.0.0.1:3000` on your browser to start exploring.
+Once you have Doku Ingester and `DokuMetry` SDKs set up, you can instantly get insights into how your LLM applications in the Doku Client UI. Just head over to `127.0.0.1:3000` on your browser to start exploring.
 
 ![Doku Client UI](https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-1.jpg?raw=true)
 
