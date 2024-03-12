@@ -1,0 +1,108 @@
+---
+title: 'Chat'
+description: 'Monitor Cohere Chat API usage'
+---
+
+## Chat
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+    ```python No Streaming
+    import cohere
+    import dokumetry
+
+    co = cohere.Client('<<apiKey>>')
+
+    # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+    dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    response = co.chat(
+        chat_history=[
+        {"role": "USER", "message": "Who discovered gravity?"},
+        {"role": "CHATBOT", "message": "The man who is widely credited with discovering gravity is Sir Isaac Newton"}
+        ],
+        message="What year was he born?",
+        # perform web search before answering the question. You can also use your own custom connector.
+        connectors=[{"id": "web-search"}] 
+    )
+    print(response)
+    ```
+
+    ```python Streaming
+    import cohere
+    import dokumetry
+
+    co = cohere.Client('<<apiKey>>')
+
+    # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+    dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    response = co.chat(
+        chat_history=[
+        {"role": "USER", "message": "Who discovered gravity?"},
+        {"role": "CHATBOT", "message": "The man who is widely credited with discovering gravity is Sir Isaac Newton"}
+        ],
+        message="What year was he born?",
+        stream=True,
+        # perform web search before answering the question. You can also use your own custom connector.
+        connectors=[{"id": "web-search"}] 
+    )
+    print(response)
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="Javascript">
+    <CodeGroup>
+        ```javascript No Streaming
+        import { CohereClient } from "cohere-ai";
+        import DokuMetry from 'dokumetry';
+
+        const cohere = new CohereClient({
+            token: "<<apiKey>>",
+        });
+
+        (async () => {
+            // Pass the above `cohere` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+            DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+            const response = await cohere.chat({
+                message: 'Say this is a test',
+                model: 'command',
+            });
+
+            console.log(response)
+        })();
+        ```
+
+        ```javascript Streaming
+        import { CohereClient } from "cohere-ai";
+        import DokuMetry from 'dokumetry';
+
+        const cohere = new CohereClient({
+            token: "<<apiKey>>",
+        });
+
+        (async () => {
+        // Pass the above `cohere` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+        DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+        const chatStream = await cohere.chatStream({
+            chatHistory: [
+                { role: "USER", message: "Who discovered gravity?" },
+                { role: "CHATBOT", message: "The man who is widely credited with discovering gravity is Sir Isaac Newton" }
+            ],
+            message: "What year was he born?",
+            // perform web search before answering the question. You can also use your own custom connector.
+            connectors: [{ id: "web-search" }],
+        });
+
+        for await (const message of chatStream) {
+            if (message.eventType === "text-generation") {
+                console.log(message);
+            }
+        }
+        })();
+        ```
+    </CodeGroup>
+  </Tab>
+</Tabs>

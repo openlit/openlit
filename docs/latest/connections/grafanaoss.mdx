@@ -1,0 +1,1935 @@
+---
+title: 'Grafana OSS'
+description: 'Connect Doku to Grafana OSS'
+---
+
+<Frame>
+  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/grafana-dashboard-1.jpg?raw=true"  />
+  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/grafana-dashboard-3.jpg?raw=true" />
+</Frame>
+
+You can add the Doku's backend storage database (`ClickHouse`) as a datasource in Grafana.
+
+## Steps
+
+1. Navigate to your Grafana Instance.
+1. Login with your credentials.
+1. Click on the **Connection** on the left sidebar to open the **Add new connection**.
+1. In the search box, type `ClickHouse` and then click `Install` button on the top right corner.
+1. Click the **Add new data source** button on the top right corner.
+1.In the settings form, fill in the details to connect to your ClickHouse database:
+    1. **Server address**: Provide the host address of your ClickHouse Database (e.g., `127.0.0.1`).
+    1. **Server port**: Provide the port of your ClickHouse Database (e.g., `9000`) and set protocol as `Native`
+    1. **Username**: The username for the ClickHouse database. Default user used by Doku is `default`.
+    1. **Password**: The password for the database. Default password used by Doku is `DOKU`.
+    1. Under **Additional settings**
+       - Add **Default database**. Default database used by Doku is `default`.
+1. Optionally customize the **Additional settings**.
+1. Click the **Save & Test** button at the bottom of the page.
+
+Grafana will attempt to connect to the database using the provided settings. If everything is configured correctly, you will see a message indicating the data source is working.
+
+## Grafana Resources
+
+<Accordion title="Dashboard">
+    ```json
+    {
+    "annotations": {
+        "list": [
+        {
+            "builtIn": 1,
+            "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+        }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": 1,
+    "links": [
+        {
+        "icon": "info",
+        "tags": [],
+        "targetBlank": true,
+        "title": "Doku Documentation",
+        "tooltip": "",
+        "type": "link",
+        "url": "https://grafana.com/docs/grafana/latest/"
+        },
+        {
+        "icon": "info",
+        "tags": [],
+        "targetBlank": true,
+        "title": "Doku Community",
+        "tooltip": "",
+        "type": "link",
+        "url": "https://dokulabs.slack.com/"
+        },
+        {
+        "icon": "info",
+        "tags": [],
+        "targetBlank": true,
+        "title": "Dokulabs GitHub",
+        "tooltip": "",
+        "type": "link",
+        "url": "https://github.com/dokulabs/"
+        }
+    ],
+    "liveNow": false,
+    "panels": [
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "gridPos": {
+            "h": 4,
+            "w": 11,
+            "x": 0,
+            "y": 0
+        },
+        "id": 23,
+        "options": {
+            "code": {
+            "language": "plaintext",
+            "showLineNumbers": false,
+            "showMiniMap": false
+            },
+            "content": "---\n---\n---\n---\n---\n---",
+            "mode": "markdown"
+        },
+        "pluginVersion": "10.3.3",
+        "transparent": true,
+        "type": "text"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "gridPos": {
+            "h": 4,
+            "w": 2,
+            "x": 11,
+            "y": 0
+        },
+        "id": 2,
+        "options": {
+            "code": {
+            "language": "plaintext",
+            "showLineNumbers": false,
+            "showMiniMap": false
+            },
+            "content": "![Doku Logo](https://github.com/dokulabs/.github/blob/main/profile/assets/favicon.png?raw=true)",
+            "mode": "markdown"
+        },
+        "pluginVersion": "10.3.3",
+        "transparent": true,
+        "type": "text"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "gridPos": {
+            "h": 4,
+            "w": 11,
+            "x": 13,
+            "y": 0
+        },
+        "id": 22,
+        "options": {
+            "code": {
+            "language": "plaintext",
+            "showLineNumbers": false,
+            "showMiniMap": false
+            },
+            "content": "---\n---\n---\n---\n---\n---",
+            "mode": "markdown"
+        },
+        "pluginVersion": "10.3.3",
+        "transparent": true,
+        "type": "text"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel shows the total number of requests sent to Large Language Models (LLM) Platforms in the selected time interval.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "fixedColor": "yellow",
+                "mode": "continuous-BlPu"
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 80
+                }
+                ]
+            },
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 4
+        },
+        "id": 3,
+        "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+            "calcs": [
+                "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+        },
+        "pluginVersion": "10.3.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT count(*) FROM DOKU_LLM_DATA\nWHERE $__timeFilter(time)",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "name": "COUNT",
+                    "parameters": [
+                    {
+                        "name": "environment",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Total Requests",
+        "transparent": true,
+        "type": "stat"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel shows the average time taken to process each request by the Large Language Models (LLM), offering a snapshot of system performance and efficiency.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "thresholds"
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 5
+                }
+                ]
+            },
+            "unit": "s",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 6,
+            "y": 4
+        },
+        "id": 4,
+        "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+            "calcs": [
+                "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+        },
+        "pluginVersion": "10.3.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT AVG(requestDuration) FROM DOKU_LLM_DATA\nWHERE $__timeFilter(time)",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "name": "AVG",
+                    "parameters": [
+                    {
+                        "name": "requestduration",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Avg Request Duration",
+        "transparent": true,
+        "type": "stat"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel shows the average count of Total tokens used per LLM request",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "thresholds"
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 1000
+                }
+                ]
+            },
+            "unit": "none",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 10,
+            "y": 4
+        },
+        "id": 5,
+        "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+            "calcs": [
+                "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+        },
+        "pluginVersion": "10.3.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT AVG(totalTokens) FROM DOKU_LLM_DATA\nWHERE $__timeFilter(time)",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "name": "AVG",
+                    "parameters": [
+                    {
+                        "name": "totaltokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Avg Tokens per Request",
+        "transparent": true,
+        "type": "stat"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel shows the average cost incurred per request to the LLM, helping monitor and optimize budget allocation for LLM usage.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "thresholds"
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 5
+                }
+                ]
+            },
+            "unit": "currencyUSD",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 3,
+            "w": 4,
+            "x": 14,
+            "y": 4
+        },
+        "id": 6,
+        "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+            "calcs": [
+                "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+        },
+        "pluginVersion": "10.3.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT AVG(usageCost) FROM DOKU_LLM_DATA \nWHERE $__timeFilter(time)",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "name": "AVG",
+                    "parameters": [
+                    {
+                        "name": "usagecost",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Avg Cost / Request",
+        "transparent": true,
+        "type": "stat"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel shows the total cost on LLM requests over the selected period.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "continuous-BlPu"
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                }
+                ]
+            },
+            "unit": "currencyUSD",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 18,
+            "y": 4
+        },
+        "id": 10,
+        "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+            "calcs": [
+                "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+        },
+        "pluginVersion": "10.3.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT SUM(usageCost) FROM DOKU_LLM_DATA\nWHERE $__timeFilter(time)",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "name": "SUM",
+                    "parameters": [
+                    {
+                        "name": "usagecost",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Total Cost",
+        "transparent": true,
+        "type": "stat"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel shows the count of API requests made to LLMs over the selected time.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "palette-classic-by-name"
+            },
+            "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "series",
+                "axisGridShow": true,
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 100,
+                "gradientMode": "opacity",
+                "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                "dash": [
+                    10,
+                    10
+                ],
+                "fill": "dash"
+                },
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                "type": "linear"
+                },
+                "showPoints": "always",
+                "spanNulls": false,
+                "stacking": {
+                "group": "A",
+                "mode": "none"
+                },
+                "thresholdsStyle": {
+                "mode": "off"
+                }
+            },
+            "fieldMinMax": false,
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                }
+                ]
+            },
+            "unit": "none",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 5,
+            "w": 24,
+            "x": 0,
+            "y": 7
+        },
+        "id": 17,
+        "options": {
+            "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": false
+            },
+            "tooltip": {
+            "mode": "single",
+            "sort": "none"
+            }
+        },
+        "pluginVersion": "10.2.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "format": "time_series",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  DATE_TRUNC('day', \"time\") AS \"time\",\n  COUNT(endpoint) AS total_requests\nFROM \n  DOKU_LLM_DATA\nWHERE\n  $__timeFilter(\"time\")\nGROUP BY \n  DATE_TRUNC('day', \"time\")\nORDER BY \n  \"time\";",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "alias": "\"Prompt Tokens\"",
+                    "parameters": [
+                    {
+                        "name": "prompttokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                },
+                {
+                    "alias": "\"time\"",
+                    "parameters": [
+                    {
+                        "name": "\"time\"",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                },
+                {
+                    "alias": "\"Completion Tokens\"",
+                    "parameters": [
+                    {
+                        "name": "completiontokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                },
+                {
+                    "alias": "\"Total Tokens\"",
+                    "parameters": [
+                    {
+                        "name": "totaltokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Total Requests / Day",
+        "type": "timeseries"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel illustrates the distribution of LLM requests across different usage categories: Chat Generations, Embeddings, Image Generations, Audio Generations, and Fine Tuning. It visualizes the relative volume of requests, helping to identify which types of operations are most frequently performed and providing insights into usage patterns by category.\n\n",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "palette-classic"
+            },
+            "custom": {
+                "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+                }
+            },
+            "mappings": [],
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 0,
+            "y": 12
+        },
+        "id": 12,
+        "options": {
+            "displayLabels": [
+            "name",
+            "percent"
+            ],
+            "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": false,
+            "values": []
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+            "calcs": [],
+            "fields": "/^requests$/",
+            "values": true
+            },
+            "tooltip": {
+            "mode": "single",
+            "sort": "asc"
+            }
+        },
+        "pluginVersion": "10.2.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n    category,\n    CAST(COUNT(*) AS INTEGER) AS Requests,\n    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage\n    FROM \n        (\n            SELECT \n                CASE\n                  WHEN endpoint LIKE 'openai.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE 'openai.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'anthropic.messages%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.summarize%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.generate%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE '%embed%' THEN 'Embeddings'\n                  WHEN endpoint LIKE 'openai.images%' THEN 'Image'\n                  WHEN endpoint LIKE 'openai.audio%' THEN 'Audio'\n                  WHEN endpoint LIKE 'openai.fine_tuning%' THEN 'Fine Tuning'\n                END AS category,\n                endpoint\n            FROM DOKU_LLM_DATA\n            WHERE $__timeFilter(time)\n        ) AS subquery\n    GROUP BY category",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "parameters": [],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            }
+            }
+        ],
+        "title": "Usage by Category",
+        "transparent": true,
+        "type": "piechart"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "Displays the cost breakdown by provider (OpenAI, Cohere, Anthropic) for LLM requests, offering insights into financial deployment across different services.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "palette-classic"
+            },
+            "custom": {
+                "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+                }
+            },
+            "mappings": [],
+            "unit": "currencyUSD",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 6,
+            "y": 12
+        },
+        "id": 16,
+        "options": {
+            "displayLabels": [
+            "name",
+            "value"
+            ],
+            "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": false,
+            "values": []
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+            "calcs": [],
+            "fields": "/.*/",
+            "values": true
+            },
+            "tooltip": {
+            "mode": "single",
+            "sort": "asc"
+            }
+        },
+        "pluginVersion": "10.2.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT\n  CASE\n    WHEN endpoint LIKE 'openai.%' THEN 'OpenAI'\n    WHEN endpoint LIKE 'cohere.%' THEN 'Cohere'\n    WHEN endpoint LIKE 'anthropic.%' THEN 'Anthropic'\n  END AS provider,\n  SUM(usageCost) AS total_cost\nFROM\n  DOKU_LLM_DATA\nWHERE $__timeFilter(time)\nGROUP BY\n  provider\nORDER BY\n  total_cost DESC;",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "parameters": [],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            }
+            }
+        ],
+        "title": "Usage cost by Provider",
+        "transparent": true,
+        "type": "piechart"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel presents a pie chart detailing the distribution of expenses for LLM requests by various applications. It shows how budget allocations are consumed by different applications, enabling a deeper understanding of cost drivers and facilitating cost optimization efforts.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "palette-classic"
+            },
+            "custom": {
+                "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+                }
+            },
+            "mappings": [],
+            "unit": "currencyUSD",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 12,
+            "y": 12
+        },
+        "id": 18,
+        "options": {
+            "displayLabels": [
+            "name",
+            "value"
+            ],
+            "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": false
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+            "calcs": [
+                "uniqueValues"
+            ],
+            "fields": "",
+            "values": true
+            },
+            "tooltip": {
+            "mode": "single",
+            "sort": "none"
+            }
+        },
+        "pluginVersion": "10.2.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "    SELECT\n      applicationName,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      DOKU_LLM_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY\n      applicationName\n    ORDER BY\n      \"usageCost\" DESC",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "parameters": [],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            }
+            }
+        ],
+        "title": "Usage cost by Application",
+        "transparent": true,
+        "type": "piechart"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "Visualizes the allocation of LLM request expenses across different environments, such as development, staging, and production. This breakdown helps in tracking and managing costs with respect to operational environments.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "palette-classic"
+            },
+            "custom": {
+                "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+                }
+            },
+            "mappings": [],
+            "unit": "currencyUSD",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 18,
+            "y": 12
+        },
+        "id": 19,
+        "options": {
+            "displayLabels": [
+            "name",
+            "value"
+            ],
+            "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": false
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+            "calcs": [
+                "uniqueValues"
+            ],
+            "fields": "",
+            "values": true
+            },
+            "tooltip": {
+            "mode": "single",
+            "sort": "none"
+            }
+        },
+        "pluginVersion": "10.2.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "    SELECT\n      environment,\n      sum(usageCost) AS \"usageCost\"\n    FROM\n      DOKU_LLM_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY\n      environment\n    ORDER BY\n      \"usageCost\" DESC",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "parameters": [],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            }
+            }
+        ],
+        "title": "Usage cost by Environment",
+        "transparent": true,
+        "type": "piechart"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel shows the average count of Prompt tokens used per LLM request",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "continuous-YlBl"
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 5
+                }
+                ]
+            },
+            "unit": "none",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 21
+        },
+        "id": 9,
+        "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+            "calcs": [
+                "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+        },
+        "pluginVersion": "10.3.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT AVG(promptTokens) FROM DOKU_LLM_DATA WHERE \n  $__timeFilter(\"time\")",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "name": "AVG",
+                    "parameters": [
+                    {
+                        "name": "prompttokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Avg Prompt Tokens / Request",
+        "type": "stat"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "Provides a time-series analysis of token consumption for LLM requests, highlighting trends in usage intensity and complexity over time.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "palette-classic"
+            },
+            "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "series",
+                "axisGridShow": true,
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "hue",
+                "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+                },
+                "insertNulls": 86400000,
+                "lineInterpolation": "linear",
+                "lineStyle": {
+                "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": true,
+                "stacking": {
+                "group": "A",
+                "mode": "none"
+                },
+                "thresholdsStyle": {
+                "mode": "off"
+                }
+            },
+            "fieldMinMax": false,
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 80
+                }
+                ]
+            },
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 6,
+            "w": 18,
+            "x": 6,
+            "y": 21
+        },
+        "id": 11,
+        "options": {
+            "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+            },
+            "tooltip": {
+            "mode": "single",
+            "sort": "none"
+            }
+        },
+        "pluginVersion": "10.2.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT promptTokens AS \"Prompt Tokens\", \"time\" AS \"time\", completionTokens AS \"Completion Tokens\", totalTokens AS \"Total Tokens\" FROM DOKU_LLM_DATA",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "alias": "\"Prompt Tokens\"",
+                    "parameters": [
+                    {
+                        "name": "prompttokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                },
+                {
+                    "alias": "\"time\"",
+                    "parameters": [
+                    {
+                        "name": "\"time\"",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                },
+                {
+                    "alias": "\"Completion Tokens\"",
+                    "parameters": [
+                    {
+                        "name": "completiontokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                },
+                {
+                    "alias": "\"Total Tokens\"",
+                    "parameters": [
+                    {
+                        "name": "totaltokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Token usage",
+        "type": "timeseries"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "This panel shows the average count of Completion tokens used per LLM request",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "continuous-YlBl"
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 5
+                }
+                ]
+            },
+            "unit": "none",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 3,
+            "w": 6,
+            "x": 0,
+            "y": 24
+        },
+        "id": 7,
+        "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+            "calcs": [
+                "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+        },
+        "pluginVersion": "10.3.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT AVG(completionTokens) FROM DOKU_LLM_DATA WHERE \n  $__timeFilter(\"time\")",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "name": "AVG",
+                    "parameters": [
+                    {
+                        "name": "completiontokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Avg Completion Tokens / Request",
+        "type": "stat"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "Displays the frequency of model usage over time, identifying the most utilised models and showcasing usage trends across different periods",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "fixedColor": "purple",
+                "mode": "continuous-YlBl"
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 80
+                }
+                ]
+            },
+            "unit": "none",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 0,
+            "y": 27
+        },
+        "id": 13,
+        "options": {
+            "displayMode": "lcd",
+            "maxVizHeight": 167,
+            "minVizHeight": 10,
+            "minVizWidth": 75,
+            "namePlacement": "top",
+            "orientation": "horizontal",
+            "reduceOptions": {
+            "calcs": [
+                "sum"
+            ],
+            "fields": "/^total_count$/",
+            "values": true
+            },
+            "showUnfilled": true,
+            "sizing": "manual",
+            "valueMode": "text"
+        },
+        "pluginVersion": "10.3.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  model,\n  total_count,\n  percentage_usage\nFROM \n  (\n    SELECT \n      model,\n      COUNT(*) AS total_count,\n      ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage_usage\n    FROM \n      DOKU_LLM_DATA\n    WHERE $__timeFilter(time)\n    GROUP BY \n      model\n    ORDER BY \n      percentage_usage DESC\n  ) sub\nLIMIT 5;",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "parameters": [
+                    {
+                        "name": "model",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Top models by usage",
+        "type": "bargauge"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "Breaks down token usage across different LLM models, offering insights into which models are driving the highest token consumption.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "palette-classic"
+            },
+            "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                "group": "A",
+                "mode": "none"
+                },
+                "thresholdsStyle": {
+                "mode": "off"
+                }
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 80
+                }
+                ]
+            },
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 27
+        },
+        "id": 14,
+        "options": {
+            "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+            },
+            "tooltip": {
+            "mode": "single",
+            "sort": "none"
+            }
+        },
+        "pluginVersion": "10.2.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  DATE_TRUNC('day', \"time\") AS \"time\",\n  model,\n  COUNT(*) AS \"Model:\"\nFROM \n  DOKU_LLM_DATA\nWHERE \n  $__timeFilter(\"time\")\nGROUP BY \n  1, model\nORDER BY \n  \"time\" ASC, model;",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "parameters": [
+                    {
+                        "name": "model",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "Model usage by day",
+        "type": "timeseries"
+        },
+        {
+        "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${datasource}"
+        },
+        "description": "Table showing prompts and responses along with their associated costs and token usage.",
+        "fieldConfig": {
+            "defaults": {
+            "color": {
+                "mode": "palette-classic-by-name"
+            },
+            "custom": {
+                "align": "center",
+                "cellOptions": {
+                "mode": "gradient",
+                "type": "color-background"
+                },
+                "filterable": true,
+                "inspect": true
+            },
+            "mappings": [],
+            "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                {
+                    "color": "green",
+                    "value": null
+                },
+                {
+                    "color": "red",
+                    "value": 80
+                }
+                ]
+            },
+            "unit": "currencyUSD",
+            "unitScale": true
+            },
+            "overrides": []
+        },
+        "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 33
+        },
+        "id": 15,
+        "options": {
+            "cellHeight": "sm",
+            "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+                "sum"
+            ],
+            "show": false
+            },
+            "showHeader": true
+        },
+        "pluginVersion": "10.3.3",
+        "targets": [
+            {
+            "datasource": {
+                "type": "grafana-clickhouse-datasource",
+                "uid": "${datasource}"
+            },
+            "editorMode": "code",
+            "editorType": "sql",
+            "format": 1,
+            "meta": {},
+            "pluginVersion": "4.0.3",
+            "queryType": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \"time\", applicationName, model, prompt, response, usageCost FROM DOKU_LLM_DATA WHERE $__timeFilter(time)",
+            "refId": "A",
+            "sql": {
+                "columns": [
+                {
+                    "parameters": [
+                    {
+                        "name": "endpoint",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                },
+                {
+                    "parameters": [
+                    {
+                        "name": "prompt",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                },
+                {
+                    "parameters": [
+                    {
+                        "name": "response",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                },
+                {
+                    "parameters": [
+                    {
+                        "name": "totaltokens",
+                        "type": "functionParameter"
+                    }
+                    ],
+                    "type": "function"
+                }
+                ],
+                "groupBy": [
+                {
+                    "property": {
+                    "type": "string"
+                    },
+                    "type": "groupBy"
+                }
+                ],
+                "limit": 50
+            },
+            "table": "doku"
+            }
+        ],
+        "title": "User Activity",
+        "transparent": true,
+        "type": "table"
+        }
+    ],
+    "refresh": "",
+    "schemaVersion": 39,
+    "tags": [
+        "Doku",
+        "OpenAI",
+        "Cohere",
+        "Anthropic"
+    ],
+    "templating": {
+        "list": [
+        {
+            "current": {
+            "selected": false,
+            "text": "grafana-clickhouse-datasource",
+            "value": "ef07bf93-52b4-4c5d-adda-8a498d388510"
+            },
+            "hide": 0,
+            "includeAll": false,
+            "label": "Datasource",
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "grafana-clickhouse-datasource",
+            "queryValue": "",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+        }
+        ]
+    },
+    "time": {
+        "from": "now-7d",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "",
+    "title": "Doku - LLM Monitoring",
+    "uid": "doku-llm-monitoring",
+    "version": 3,
+    "weekStart": ""
+    }
+    ```
+</Accordion>
+

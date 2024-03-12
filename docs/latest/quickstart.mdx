@@ -1,0 +1,197 @@
+---
+title: 'Quickstart'
+description: 'Quickly start **monitoring** your **LLM Applications** in just **two lines** of code'
+icon: 'bolt'
+---
+
+This guide will walk you through setting up monitoring for your LLM Application with minimal effort. In just a few steps, you'll be able to track and analyze the performance and usage of your Large Language Model (LLM) applications.
+
+<Steps>
+  <Step title="Deploy Doku">
+    <Steps>
+      <Step title="Prepare your Environment">
+        ```yaml docker-compose.yml
+        version: '3.8'
+
+        services:
+          clickhouse:
+            image: clickhouse/clickhouse-server:24.1.5
+            container_name: clickhouse
+            environment:
+              CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
+              CLICKHOUSE_USER: ${DOKU_DB_USER:-default}                   
+            volumes:
+              - clickhouse-data:/var/lib/clickhouse
+            ports:
+              - "9000:9000" 
+              - "8123:8123" 
+            restart: always
+
+          doku-ingester:
+            image: ghcr.io/dokulabs/doku-ingester
+            container_name: doku-ingester
+            environment:
+              DOKU_DB_HOST: clickhouse   
+              DOKU_DB_PORT: 9000 
+              DOKU_DB_NAME: ${DOKU_DB_NAME:-default}     
+              DOKU_DB_USER: ${DOKU_DB_USER:-default}              
+              DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+            ports:
+              - "9044:9044"           
+            depends_on:
+              - clickhouse
+            restart: always
+          
+          doku-client:
+            image: ghcr.io/dokulabs/doku-client
+            container_name: doku-client
+            environment:
+              INIT_DB_HOST: clickhouse
+              INIT_DB_PORT: 8123
+              INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
+              INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
+              INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+              SQLITE_DATABASE_URL: file:/app/client/data/data.db
+            ports:
+              - "3000:3000"
+            depends_on:
+              - clickhouse
+            volumes:
+              - doku-client-data:/app/client/data
+            restart: always
+
+        volumes:
+          clickhouse-data:
+          doku-client-data:
+        ```
+      </Step>
+      <Step title="Launch Doku">
+        ```shell
+        docker-compose up -d
+        ```
+      </Step>
+    </Steps>
+  </Step>
+  <Step title="Access Doku UI and Generate an API Key">
+    With Doku running, the next step is to access the Doku UI and generate an API key for secure communication between your applications and Doku.
+    1. Open your browser and go to Doku UI at `127.0.0.1:3000/login`
+    2.  Login using theb default credentials
+        - Email as `user@dokulabs.com` 
+        - Password as `dokulabsuser`
+    3. Once you have logged into Doku UI, Go to [API Keys page](http://127.0.0.1:3000/api-keys) and Create an API Key. Copy the generated API Key.
+  </Step>
+  <Step title="Instrument your Application">
+    Choose the appropriate SDK for your LLM application's programming language and follow the steps to integrate monitoring with just **two lines of code**.
+    <Tabs>
+      <Tab title="Python">
+        <Steps>
+          <Step title="Install the dokumetry Python SDK using pip">
+            ```shell
+            pip install dokumetry
+            ```
+          </Step>
+          <Step title="Add the following two lines to your application code:">
+            Add the snippet below to your Python application, replace `YOUR_DOKU_TOKEN` with API key you created in Step 2.
+            
+            ```python
+            import dokumetry
+
+            dokumetry.init(llm=client, doku_url="http://127.0.0.1:9044/", api_key="YOUR_DOKU_TOKEN")
+            ```
+
+            Example Usage for monitoring `OpenAI` Usage:
+
+            ```python
+            from openai import OpenAI
+            import dokumetry
+
+            client = OpenAI(
+                api_key="YOUR_OPENAI_KEY"
+            )
+
+            # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+            dokumetry.init(llm=client, doku_url="http://127.0.0.1:9044/", api_key="YOUR_DOKU_TOKEN")
+
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "What is LLM Observability",
+                    }
+                ],
+                model="gpt-3.5-turbo",
+            )
+            ```
+            
+            Refer to the `dokumetry` [Python SDK repository](https://github.com/dokulabs/dokumetry-python) for more advanced configurations and use cases.
+          </Step>
+        </Steps>
+      </Tab>
+      <Tab title="NodeJS">
+        <Steps>
+          <Step title="Install the dokumetry NodeJS SDK using npm">
+            ```shell
+            npm install dokumetry
+            ```
+          </Step>
+          <Step title="Add the following two lines to your application code">
+            Add the snippet below to your NodeJS application, replace `YOUR_DOKU_TOKEN` with API key you created in Step 2.
+            ```javascript
+            import DokuMetry from 'dokumetry';
+
+            DokuMetry.init({llm: openai, dokuUrl: "http://127.0.0.1:9044/", apiKey: "YOUR_DOKU_TOKEN"})
+            ```
+
+            Example Usage for monitoring `OpenAI` Usage:
+
+            ```javascript
+            import OpenAI from 'openai';
+            import DokuMetry from 'dokumetry';
+
+            const openai = new OpenAI({
+              apiKey: 'My API Key', // defaults to process.env["OPENAI_API_KEY"]
+            });
+
+            // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+            DokuMetry.init({llm: openai, dokuUrl: "http://127.0.0.1:9044/", apiKey: "YOUR_DOKU_TOKEN"})
+
+            async function main() {
+              const chatCompletion = await openai.chat.completions.create({
+                messages: [{ role: 'user', content: 'What are the key to effective observability?' }],
+                model: 'gpt-3.5-turbo',
+              });
+            }
+
+            main();
+            ```
+
+            Refer to the `dokumetry` [NodeJS SDK repository](https://github.com/dokulabs/dokumetry-node) for more advanced configurations and use cases.
+          </Step>
+        </Steps>
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="Visualize and Analyze">
+  Once you have Doku Ingester and `DokuMetry` SKDs set up, you can instantly get insights into how your LLM applications. Just head over to Doku UI at `127.0.0.1:3000` on your browser to start exploring.
+
+With Doku, you get a simple, powerful view into important info like how much you're spending on LLMs, which parts of your app are using them the most, and how well they're performing. Find out which LLM models are favorites among your applications, and dive deep into performance details to make smart decisions. This setup is perfect for optimizing your app performance and keeping an eye on costs.
+  <Frame>
+    <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-1.jpg?raw=true" />
+    <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-2.jpg?raw=true" />
+    <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-3.jpg?raw=true" />
+  </Frame>
+  </Step>
+</Steps>
+
+You're all set! Following these steps should have you on your way to effectively monitoring your LLM applications. If you have any questions or need support, reach out to our [community](https://join.slack.com/t/doku-0tq5728/shared_invite/zt-2a9aql9xx-FN5EIZ2DtZ~XtJoYdxUDtA).
+
+---
+
+<CardGroup cols={2}>
+<Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
+Integrate your LLM Provider with Doku 
+</Card>
+<Card title="Connections" href="/latest/connections/intro" icon='link'>
+Connect to your existing Observablity Platform
+</Card>
+</CardGroup>

@@ -1,0 +1,91 @@
+---
+title: 'Anthropic Integration'
+sidebarTitle: 'Get Started'
+---
+
+DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Anthropic usage data and metrics from your Python/NodeJS code. 
+
+## Get Started 
+
+The integration is compatible with Anthropic Python SDK version `>=0.19.0` and Typescript SDK version `>=0.9.0`
+
+<Tabs>
+  <Tab title="Python">
+    ```shell
+    pip install dokumetry
+    ```
+
+    ```python
+    from anthropic import Anthropic
+    import dokumetry
+
+    anthropic = Anthropic(
+        api_key="anthropic_api_key",
+    )
+
+    dokumetry.init(llm = anthropic, doku_url = "YOUR_DOKU_INGESTER_URL", api_key = "YOUR_DOKU_TOKEN")
+    ```
+  </Tab>
+  <Tab title="Javascript">
+    ```shell
+    npm install dokumetry
+    ```
+
+    ```javascript
+    import Anthropic from '@anthropic-ai/sdk';
+    import DokuMetry from 'dokumetry';
+
+    const anthropic = new Anthropic({
+      apiKey: 'anthropic_api_key', 
+    });
+
+    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    ```
+  </Tab>
+</Tabs>
+
+## Supported Endpoints
+
+The following Anthropic Endpoints are supported for monitoring with DokuMetry
+
+- [messages](/latest/integrations/anthropic/examples/messages)
+
+## Parameters
+<Tabs>
+  <Tab title="Python">
+  | Parameter         | Description                                               | Required      |
+  |-------------------|-----------------------------------------------------------|---------------|
+  | llm               | Anthropic Object to track                                 | Yes           |
+  | doku_url          | URL of your Doku Ingester                                 | Yes           |
+  | api_key           | Your Doku API key                                         | Yes           |
+  | environment       | Custom environment tag to include in your metrics         | Optional      |
+  | application_name  | Custom application name tag for your metrics              | Optional      |
+  | skip_resp         | Skip response from the Doku Ingester for faster execution | Optional      |
+  </Tab>
+  <Tab title="NodeJS">
+  | Parameter         | Description                                               | Required      |
+  |-------------------|-----------------------------------------------------------|---------------|
+  | llm               | Anthropic Object to track                                 | Yes           |
+  | dokuUrl           | URL of your Doku Ingester                                 | Yes           |
+  | apiKey            | Your Doku API key                                         | Yes           |
+  | environment       | Custom environment tag to include in your metrics         | Optional      |
+  | applicationName   | Custom application name tag for your metrics              | Optional      |
+  | skipResp          | Skip response from the Doku Ingester for faster execution | Optional      |
+  </Tab>
+</Tabs>
+
+## Advanced Usage
+When using DokuMetry in Production environments, It is recommened to set Skip response parameter to `true` for faster porcessing. 
+
+To filter your LLM Usage according application or the environment, set the Application name and Environment paramaters with the actual values.
+
+---
+
+<CardGroup cols={2}>
+<Card title="Connections" href="/latest/connections/intro" icon='link'>
+Connect to your existing Observablity Platform
+</Card>
+<Card title="API Refernce" href="/latest/api-reference/introduction" icon='code'>
+OpenAPI specification for API Endpoints in Doku 
+</Card>
+</CardGroup>

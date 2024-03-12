@@ -1,0 +1,45 @@
+---
+title: 'Generate'
+description: 'Monitor Cohere Generate API usage'
+---
+
+## Generate
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import cohere
+    import dokumetry
+
+    co = cohere.Client('<<apiKey>>')
+
+    # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+    dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    response = co.generate(
+      prompt='Please explain to me how LLMs work',
+    )
+    print(response)
+    ```
+  </Tab>
+  <Tab title="Javascript">
+    ```javascript
+    import { CohereClient } from "cohere-ai";
+    import DokuMetry from 'dokumetry';
+
+    const cohere = new CohereClient({
+        token: "<<apiKey>>",
+    });
+
+    (async () => {
+      // Pass the above `cohere` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+      DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+      const generate = await cohere.generate({
+          prompt: "Please explain to me how LLMs work",
+      });
+
+      console.log(generate);
+    })();
+    ```
+  </Tab>
+</Tabs>
