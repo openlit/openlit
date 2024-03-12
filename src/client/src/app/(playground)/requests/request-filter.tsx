@@ -5,9 +5,9 @@ import { ceil } from "lodash";
 
 export type FilterConfigProps = {
 	endpoints: string[];
-	maxusagecost: number;
+	maxUsageCost: number;
 	models: string[];
-	totalrows: number;
+	totalRows: number;
 };
 
 export default function RequestFilter({
@@ -32,7 +32,7 @@ export default function RequestFilter({
 					<Pagination
 						currentPage={filter.offset / filter.limit + 1}
 						currentSize={filter.limit}
-						totalPage={ceil((config.totalrows || 0) / filter.limit)}
+						totalPage={ceil((config.totalRows || 0) / filter.limit)}
 						onClickPageAction={onClickPageAction}
 						onClickPageLimit={onClickPageLimit}
 					/>

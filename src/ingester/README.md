@@ -39,7 +39,7 @@ Follow the steps below to get Doku Ingester running in your environment. Both Do
     -e DOKU_DB_NAME="<ClickHouse-Database-name>" \
     -e DOKU_DB_USER="<ClickHouse-username>" \
     -e DOKU_DB_PASSWORD="<ClickHouse-password>" \
-    --name doku_ingester doku-ingester
+    --name doku-ingester ghcr.io/dokulabs/doku-ingester:latest
     ```
 
 
@@ -77,32 +77,32 @@ You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/mai
 To configure Doku Ingester, you can pass the following environment values, each tailored to suit your infrastructure and operational preferences. This customization allows Doku Ingester to seamlessly integrate with your existing setup and respond to its demands effectively.
 
 
-| Variable                | Description                                                                                                   | Default Value                                                                   | Required | Example                                |
-|-------------------------|---------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|:--------:|----------------------------------------|
-| `DOKU_DB_HOST`          | Host address of the ClickHouse server for Doku to connect to.                                                 |                                                                                 |    ✓     | `127.0.0.1`                            |
-| `DOKU_DB_PORT`          | Port on which ClickHouse listens.                                                                             |                                                                                 |    ✓     | `9000`                                 |
-| `DOKU_DB_NAME`          | Database name in ClickHouse to be used by Doku.                                                               |                                                                                 |    ✓     | `default`                              |
-| `DOKU_DB_USER`          | Username for authenticating with ClickHouse.                                                                  |                                                                                 |    ✓     | `default`                              |
-| `DOKU_DB_PASSWORD`      | Password for authenticating with ClickHouse.                                                                  |                                                                                 |    ✓     | `DOKU`                                 |
-| `DOKU_PRICING_JSON_URL` | URL of the JSON file containing LLM Pricing data.                                                             | `https://raw.githubusercontent.com/dokulabs/ingester/main/assets/pricing.json` |          | `<URL>`                                |
-| `DOKU_DB_MAX_IDLE_CONNS`| Maximum number of concurrent idle database connections.                                                       | `10`                                                                            |          | `10`                                   |
-| `DOKU_DB_MAX_OPEN_CONNS`| Maximum number of concurrent open database connections.                                                       | `20`                                                                            |          | `20`                                   |
-| `DOKU_DB_RETENTION_PERIOD` | TTL for data in ClickHouse.                                                                                  | `6 MONTH`                                                                       |          | `"6 MONTH"`                            |
+| Variable                   | Description                                                     | Required | Example                                |
+|----------------------------|-----------------------------------------------------------------|:--------:|----------------------------------------|
+| `DOKU_DB_HOST`             | Host address of the ClickHouse server for Doku to connect to.   |    ✓     | `127.0.0.1`                            |
+| `DOKU_DB_PORT`             | Port on which ClickHouse listens.                               |    ✓     | `9000`                                 |
+| `DOKU_DB_NAME`             | Database name in ClickHouse to be used by Doku.                 |    ✓     | `default`                              |
+| `DOKU_DB_USER`             | Username for authenticating with ClickHouse.                    |    ✓     | `default`                              |
+| `DOKU_DB_PASSWORD`         | Password for authenticating with ClickHouse.                    |    ✓     | `DOKU`                                 |
+| `DOKU_PRICING_JSON_URL`    | URL of the JSON file containing LLM Pricing data.               |          | `URL`                                  |
+| `DOKU_DB_MAX_IDLE_CONNS`   | Maximum number of concurrent idle database connections.         |          | `10`                                   |
+| `DOKU_DB_MAX_OPEN_CONNS`   | Maximum number of concurrent open database connections.         |          | `20`                                   |
+| `DOKU_DB_RETENTION_PERIOD` | TTL for data in ClickHouse.                                     |          | `6 MONTH`                              |
 
 For more detailed information on configuration options and additional settings, please visit the Doku documentation page: [Doku Configuration Details](https://docs.dokulabs.com/latest/configuration).
 
 ## Security
 
-Doku Ingester uses key based authentication mechanism to ensure the security of your data. Be sure to keep your API keys confidential and manage permissions diligently. Refer to our [Security Policy](SECURITY)
+Doku Ingester uses key based authentication mechanism to ensure the security of your data. Be sure to keep your API keys confidential and manage permissions diligently. Refer to our [Security Policy](../../SECURITY.md)
 
 ## Contributing
 
-We welcome contributions to the Doku Ingester project. Please refer to [CONTRIBUTING](CONTRIBUTING) for detailed guidelines on how you can participate.
+We welcome contributions to the Doku Ingester project. Please refer to [CONTRIBUTING](../../CONTRIBUTING.md) for detailed guidelines on how you can participate.
 
 ## License
 
-Doku Ingester is available under the [Apache-2.0 license](LICENSE).
+Doku Ingester is available under the [Apache-2.0 license](../../LICENSE).
 
 ## Support
 
-For support, issues, or feature requests, submit an issue through the [GitHub issues](https://github.com/dokulabs/ingester/issues) associated with this repository.
+For support, issues, or feature requests, submit an issue through the [GitHub issues](https://github.com/dokulabs/doku/issues) associated with this repository.

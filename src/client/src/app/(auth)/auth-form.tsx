@@ -72,7 +72,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 
 	return (
 		<div className="flex min-h-screen items-center justify-center bg-secondary p-8">
-			<div className="z-10 w-full max-w-md overflow-hidden rounded bg-tertiary text-secondary">
+			<div className="z-10 w-full max-w-md overflow-hidden rounded-xl bg-tertiary text-secondary">
 				<div className="flex flex-col items-center justify-center space-y-3 px-4 py-6 pt-8 text-center">
 					<Image
 						alt="doku"

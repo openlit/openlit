@@ -10,7 +10,7 @@ export default function Footer() {
 							<Image
 								alt="doku"
 								className="w-40"
-								src="/images/doku-logo-with-name.png"
+								src="/images/doku-logo-with-name-black.png"
 								width={836}
 								height={298}
 							/>
@@ -40,29 +40,6 @@ export default function Footer() {
 								</li>
 							</ul>
 						</div>
-						<div>
-							<h2 className="mb-6 text-sm font-semibold text-tertiary dark:text-white">
-								Follow us
-							</h2>
-							<ul className="text-sm">
-								<li className="mb-3">
-									<a
-										href="https://join.slack.com/t/doku-0tq5728/shared_invite/zt-2a9aql9xx-FN5EIZ2DtZ~XtJoYdxUDtA"
-										className="hover:text-primary text-tertiary"
-									>
-										Slack
-									</a>
-								</li>
-								<li>
-									<a
-										href="https://twitter.com/doku_labs"
-										className="hover:text-primary text-tertiary"
-									>
-										X
-									</a>
-								</li>
-							</ul>
-						</div>
 					</div>
 				</div>
 				<hr className="my-6 border-primary/[0.2] sm:mx-auto lg:my-8" />
@@ -76,8 +53,36 @@ export default function Footer() {
 					</span>
 					<div className="flex mt-4 sm:justify-center sm:mt-0 justify-center md:justify-end">
 						<a
+							href="https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ"
+							className="text-tertiary hover:text-tertiary dark:hover:text-white ms-5"
+							target="_blank"
+						>
+							<svg viewBox="0 0 2447.6 2452.5" className="w-4 h-4">
+								<g clipRule="evenodd" fillRule="evenodd">
+									<path
+										d="m897.4 0c-135.3.1-244.8 109.9-244.7 245.2-.1 135.3 109.5 245.1 244.8 245.2h244.8v-245.1c.1-135.3-109.5-245.1-244.9-245.3.1 0 .1 0 0 0m0 654h-652.6c-135.3.1-244.9 109.9-244.8 245.2-.2 135.3 109.4 245.1 244.7 245.3h652.7c135.3-.1 244.9-109.9 244.8-245.2.1-135.4-109.5-245.2-244.8-245.3z"
+										fill="#36c5f0"
+									/>
+									<path
+										d="m2447.6 899.2c.1-135.3-109.5-245.1-244.8-245.2-135.3.1-244.9 109.9-244.8 245.2v245.3h244.8c135.3-.1 244.9-109.9 244.8-245.3zm-652.7 0v-654c.1-135.2-109.4-245-244.7-245.2-135.3.1-244.9 109.9-244.8 245.2v654c-.2 135.3 109.4 245.1 244.7 245.3 135.3-.1 244.9-109.9 244.8-245.3z"
+										fill="#2eb67d"
+									/>
+									<path
+										d="m1550.1 2452.5c135.3-.1 244.9-109.9 244.8-245.2.1-135.3-109.5-245.1-244.8-245.2h-244.8v245.2c-.1 135.2 109.5 245 244.8 245.2zm0-654.1h652.7c135.3-.1 244.9-109.9 244.8-245.2.2-135.3-109.4-245.1-244.7-245.3h-652.7c-135.3.1-244.9 109.9-244.8 245.2-.1 135.4 109.4 245.2 244.7 245.3z"
+										fill="#ecb22e"
+									/>
+									<path
+										d="m0 1553.2c-.1 135.3 109.5 245.1 244.8 245.2 135.3-.1 244.9-109.9 244.8-245.2v-245.2h-244.8c-135.3.1-244.9 109.9-244.8 245.2zm652.7 0v654c-.2 135.3 109.4 245.1 244.7 245.3 135.3-.1 244.9-109.9 244.8-245.2v-653.9c.2-135.3-109.4-245.1-244.7-245.3-135.4 0-244.9 109.8-244.8 245.1 0 0 0 .1 0 0"
+										fill="#e01e5a"
+									/>
+								</g>
+							</svg>
+							<span className="sr-only">Slack page</span>
+						</a>
+						<a
 							href="https://twitter.com/doku_labs"
 							className="text-tertiary hover:text-tertiary dark:hover:text-white ms-5"
+							target="_blank"
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -95,6 +100,7 @@ export default function Footer() {
 						<a
 							href="https://github.com/dokulabs"
 							className="text-tertiary hover:text-tertiary dark:hover:text-white ms-5"
+							target="_blank"
 						>
 							<svg
 								className="w-4 h-4"
