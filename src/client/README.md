@@ -121,11 +121,11 @@ We take security seriously. Doku Client incorporates best practices for authenti
 
 ## Contributing
 
-Contributions to Doku Client are greatly appreciated. Whether you have suggestions for bug fixes, improvements, or new features, please see [CONTRIBUTING](https://github.com/dokulabs/doku/CONTRIBUTING) for more details on submitting pull requests or opening issues.
+Contributions to Doku Client are greatly appreciated. Whether you have suggestions for bug fixes, improvements, or new features, please see [CONTRIBUTING](../../CONTRIBUTING.md) for more details on submitting pull requests or opening issues.
 
 ## License
 
-Doku Client is available under the [Apache-2.0 license](https://github.com/dokulabs/doku/LICENSE).
+Doku Client is available under the [Apache-2.0 license](../../LICENSE).
 
 ## Support
 
