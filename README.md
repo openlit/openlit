@@ -164,6 +164,8 @@ With Doku running, the next step is to access the Doku UI and generate an API ke
     - Password as `dokulabsuser`
 3. Once you have logged into Doku UI, Go to [API Keys page](http://127.0.0.1:3000/api-keys) and Create an API Key. Copy the generated API Key.
 
+> 💡 **Tip:** Alternatively, you can use the HTTP API to create your Doku API Key. For further details, take a look at the [API Reference](https://docs.dokulabs.com/latest/api-reference/endpoint/api-keys/create) section.
+
 ### ⚡️ Instrument your Application
 
 Choose the appropriate SDK for your LLM application's programming language and follow the steps to integrate monitoring with just **two lines of code**.
