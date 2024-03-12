@@ -9,7 +9,7 @@
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/dokulabs/doku)](https://github.com/dokulabs/doku/pulse)
 [![GitHub Contributors](https://img.shields.io/github/contributors/dokulabs/doku)](https://github.com/dokulabs/doku/graphs/contributors)
 
-[![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/doku-0tq5728/shared_invite/zt-2a9aql9xx-FN5EIZ2DtZ~XtJoYdxUDtA)
+[![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
 [![X](https://img.shields.io/badge/follow-%40dokulabs-1DA1F2?logo=x&style=social)](https://twitter.com/doku_labs)
 
 [![Doku Version](https://img.shields.io/github/tag/dokulabs/doku.svg?&label=Doku%20Version&logo=docker)](https://github.com/dokulabs/doku/tags)
@@ -88,7 +88,7 @@ To install the Doku using Docker, follow these steps:
       restart: always
 
     doku-ingester:
-      image: ghcr.io/dokulabs/doku-ingester:0.0.7
+      image: ghcr.io/dokulabs/doku-ingester:0.1.0
       container_name: doku-ingester
       environment:
         DOKU_DB_HOST: clickhouse   
@@ -103,7 +103,7 @@ To install the Doku using Docker, follow these steps:
       restart: always
     
     doku-client:
-      image: ghcr.io/dokulabs/doku-client:0.0.7
+      image: ghcr.io/dokulabs/doku-client:0.1.0
       container_name: doku-client
       environment:
         INIT_DB_HOST: clickhouse
@@ -164,6 +164,8 @@ With Doku running, the next step is to access the Doku UI and generate an API ke
     - Password as `dokulabsuser`
 3. Once you have logged into Doku UI, Go to [API Keys page](http://127.0.0.1:3000/api-keys) and Create an API Key. Copy the generated API Key.
 
+> 💡 **Tip:** Alternatively, you can use the HTTP API to create your Doku API Key. For further details, take a look at the [API Reference](https://docs.dokulabs.com/latest/api-reference/endpoint/api-keys/create) section.
+
 ### ⚡️ Instrument your Application
 
 Choose the appropriate SDK for your LLM application's programming language and follow the steps to integrate monitoring with just **two lines of code**.
@@ -194,7 +196,7 @@ client = OpenAI(
     api_key="YOUR_OPENAI_KEY"
 )
 
-# Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+# Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
 dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
 chat_completion = client.chat.completions.create(
@@ -236,7 +238,7 @@ const openai = new OpenAI({
   apiKey: 'My API Key', // defaults to process.env["OPENAI_API_KEY"]
 });
 
-// Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+// Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
 DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
 async function main() {

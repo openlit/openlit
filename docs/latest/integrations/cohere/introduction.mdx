@@ -7,7 +7,7 @@ DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Cohe
 
 ## Get Started 
 
-The integration is compatible with Cohere SDK versions >=4.0.0
+The integration is compatible with Cohere Python SDK version `>=5.0.0` and Typescript SDK version `>=7.6.0`
 
 <Tabs>
   <Tab title="Python">
@@ -21,7 +21,7 @@ The integration is compatible with Cohere SDK versions >=4.0.0
 
     co = cohere.Client('YOUR_API_KEY')
 
-    dokumetry.init(llm = co, doku_url = "YOUR_DOKU_URL", api_key = "YOUR_DOKU_TOKEN")
+    dokumetry.init(llm = co, doku_url = "YOUR_DOKU_INGESTER_URL", api_key = "YOUR_DOKU_TOKEN")
     ```
   </Tab>
   <Tab title="Javascript">
@@ -37,7 +37,7 @@ The integration is compatible with Cohere SDK versions >=4.0.0
             token: "<<apiKey>>",
     });
 
-    DokuMetry.init({llm: co, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    DokuMetry.init({llm: co, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
     ```
   </Tab>
 </Tabs>
