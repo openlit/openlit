@@ -18,14 +18,13 @@ You can add the Doku's backend storage database (`ClickHouse`) as a datasource i
 1. In the search box, type `ClickHouse` and then click `Install` button on the top right corner.
 1. Click the **Add new data source** button on the top right corner.
 1.In the settings form, fill in the details to connect to your ClickHouse database:
-    - **Server address**: Provide the host address of your ClickHouse Database (e.g., `127.0.0.1`).
-    - **Server port**: Provide the port of your ClickHouse Database (e.g., `9000`) and set protocol as `Native`
-    - **TLS/SSL Setiing**: Enter the securtity to use for connection. Default used by Doku is `require`.
-    - **Username**: The username for the ClickHouse database. Default user used by Doku is `default`.
-    - **Password**: The password for the database. Default password used by Doku is `DOKU`.
-    - Under **Additional settings**
-      - Add **Default database**. Default database used by Doku is `default`.
-1. Optionally customize the **Max open connections**, **Max idle connections**, and **Connection Max Lifetime**.
+    1. **Server address**: Provide the host address of your ClickHouse Database (e.g., `127.0.0.1`).
+    1. **Server port**: Provide the port of your ClickHouse Database (e.g., `9000`) and set protocol as `Native`
+    1. **Username**: The username for the ClickHouse database. Default user used by Doku is `default`.
+    1. **Password**: The password for the database. Default password used by Doku is `DOKU`.
+    1. Under **Additional settings**
+       - Add **Default database**. Default database used by Doku is `default`.
+1. Optionally customize the **Additional settings**.
 1. Click the **Save & Test** button at the bottom of the page.
 
 Grafana will attempt to connect to the database using the provided settings. If everything is configured correctly, you will see a message indicating the data source is working.
