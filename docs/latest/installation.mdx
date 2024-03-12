@@ -65,7 +65,7 @@ For a quick and straightforward setup, Docker Compose can be used to deploy Doku
       restart: always
 
     doku-ingester:
-      image: ghcr.io/dokulabs/doku-ingester
+      image: ghcr.io/dokulabs/doku-ingester:latest
       container_name: doku-ingester
       environment:
         DOKU_DB_HOST: clickhouse   
@@ -80,7 +80,7 @@ For a quick and straightforward setup, Docker Compose can be used to deploy Doku
       restart: always
     
     doku-client:
-      image: ghcr.io/dokulabs/doku-client
+      image: ghcr.io/dokulabs/doku-client:latest
       container_name: doku-client
       environment:
         INIT_DB_HOST: clickhouse
