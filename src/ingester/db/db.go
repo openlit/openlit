@@ -10,9 +10,9 @@ import (
 	"ingester/connections"
 	"ingester/cost"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	_ "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -21,16 +21,16 @@ import (
 )
 
 var (
-	connectionCache            sync.Map                 // connectionCache stores the lookup of connection details
-	ApiKeyCache                = sync.Map{}             // ApiKeyCache stores the lookup of API keys and organization IDs.
-	CacheEntryDuration         = time.Minute * 10       // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
-	db                         clickhouse.Conn          // db holds the database connection
-	ctx                        = context.Background()   // ctx is the context for the database connection
-	doku_llm_data_table        = "DOKU_LLM_DATA"        // doku_llm_data_table holds the name of the data table
-	doku_apikeys_table         = "DOKU_APIKEYS"         // doku_apikeys_table holds the name of the API keys table
-	doku_connections_table     = "DOKU_CONNECTIONS"     // doku_connections_table holds the name of the connections table
+	connectionCache            sync.Map                      // connectionCache stores the lookup of connection details
+	ApiKeyCache                = sync.Map{}                  // ApiKeyCache stores the lookup of API keys and organization IDs.
+	CacheEntryDuration         = time.Minute * 10            // CacheEntryDuration defines how long an item should stay in the cache before being re-validated.
+	db                         clickhouse.Conn               // db holds the database connection
+	ctx                        = context.Background()        // ctx is the context for the database connection
+	doku_llm_data_table        = "DOKU_LLM_DATA"             // doku_llm_data_table holds the name of the data table
+	doku_apikeys_table         = "DOKU_APIKEYS"              // doku_apikeys_table holds the name of the API keys table
+	doku_connections_table     = "DOKU_CONNECTIONS"          // doku_connections_table holds the name of the connections table
 	doku_nocode_llm_data_table = "DOKU_NOCODE_LLM_DATA_TEST" // doku_nocode_llm_data_table holds the name of the NoCode LLM data table
-	doku_nocode_llm_org_table  = "DOKU_NOCODE_LLM_ORG"  // doku_nocode_llm_org_table holds the name of the NoCode LLM organization table
+	doku_nocode_llm_org_table  = "DOKU_NOCODE_LLM_ORG"       // doku_nocode_llm_org_table holds the name of the NoCode LLM organization table
 	// validFields represent the fields that are expected in the incoming data.
 	validFields = []string{
 		"name",
@@ -610,44 +610,44 @@ func DeleteConnection(existingAPIKey string) error {
 }
 
 func InsertNoCodeLLM(data []map[string]interface{}) error {
-    // The query is now prepared to handle nullable tokens and includes the image_size column.
-    // The exact SQL might require adjustments based on your ClickHouse schema specifics.
-    query := fmt.Sprintf("INSERT INTO %s (id, aggregation_timestamp, api_key_id, api_key_name, completionTokens, cost, email, endpoint, model, n_requests, organization_id, organization_name, promptTokens, totalTokens, imageSize) VALUES ", doku_nocode_llm_data_table)
+	// The query is now prepared to handle nullable tokens and includes the image_size column.
+	// The exact SQL might require adjustments based on your ClickHouse schema specifics.
+	query := fmt.Sprintf("INSERT INTO %s (id, aggregation_timestamp, api_key_id, api_key_name, completionTokens, cost, email, endpoint, model, n_requests, organization_id, organization_name, promptTokens, totalTokens, imageSize) VALUES ", doku_nocode_llm_data_table)
 
-    var params []interface{}
-    var placeholders []string
-	
-    for _, row := range data {
-        // Adjust the following line based on your datetime format requirements and data availability.
-        aggregationTimestamp := time.Unix(int64(row["aggregation_timestamp"].(float64)), 0).Format("2006-01-02 15:04:05")
+	var params []interface{}
+	var placeholders []string
 
-        placeholders = append(placeholders, "(generateUUIDv4(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	for _, row := range data {
+		// Adjust the following line based on your datetime format requirements and data availability.
+		aggregationTimestamp := time.Unix(int64(row["aggregation_timestamp"].(float64)), 0).Format("2006-01-02 15:04:05")
 
-        params = append(params,
-            aggregationTimestamp,
-            row["api_key_id"],
-            row["api_key_name"],
-            row["completionTokens"], // This and the next two can be nil/NULL for DALL·E data
-            row["cost"],
-            row["email"],
-            row["endpoint"],
-            row["model"],
-            row["n_requests"],
-            row["organization_id"],
-            row["organization_name"],
-            row["promptTokens"], // Make sure these token fields are appropriately handled for nil values
-            row["totalTokens"], // Same note on nil handling
-            row["imageSize"],   // This will be nil/NULL for chat data entries
-        )
-    }
+		placeholders = append(placeholders, "(generateUUIDv4(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 
-    // Finalizing the query with dynamically generated placeholders
-    query += strings.Join(placeholders, ",")
+		params = append(params,
+			aggregationTimestamp,
+			row["api_key_id"],
+			row["api_key_name"],
+			row["completionTokens"], // This and the next two can be nil/NULL for DALL·E data
+			row["cost"],
+			row["email"],
+			row["endpoint"],
+			row["model"],
+			row["n_requests"],
+			row["organization_id"],
+			row["organization_name"],
+			row["promptTokens"], // Make sure these token fields are appropriately handled for nil values
+			row["totalTokens"],  // Same note on nil handling
+			row["imageSize"],    // This will be nil/NULL for chat data entries
+		)
+	}
 
-    // Executing the batch insert
-    if err := db.Exec(context.TODO(), query, params...); err != nil {
-        return fmt.Errorf("failed to perform batch insertion into ClickHouse: %w", err)
-    }
+	// Finalizing the query with dynamically generated placeholders
+	query += strings.Join(placeholders, ",")
 
-    return nil
+	// Executing the batch insert
+	if err := db.Exec(context.TODO(), query, params...); err != nil {
+		return fmt.Errorf("failed to perform batch insertion into ClickHouse: %w", err)
+	}
+
+	return nil
 }
