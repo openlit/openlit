@@ -25,6 +25,7 @@
       "@/prisma/*": ["./prisma/*"],
       "@/utils/*": ["./src/utils/*"],
       "@/constants/*": ["./src/constants/*"],
+      "@/store/*": ["./src/store/*"],
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

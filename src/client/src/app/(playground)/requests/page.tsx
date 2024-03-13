@@ -7,9 +7,11 @@ import { RequestProvider } from "./request-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import RequestDetails from "./request-details";
 import toast from "react-hot-toast";
+import { useFilterStore } from "@/store/filter";
 
 export default function RequestPage() {
-	const [filter] = useFilter();
+	// const [filter] = useFilter();
+	const { filter } = useFilterStore();
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({

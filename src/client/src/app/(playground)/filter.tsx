@@ -4,6 +4,7 @@ import {
 	TIME_RANGE_TYPE,
 	useFilter,
 } from "./filter-context";
+import { useFilterStore } from "@/store/filter";
 
 const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 	TIME_RANGE_TYPE
@@ -12,16 +13,21 @@ const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 	label: TIME_RANGE_TYPE[k as keyof typeof TIME_RANGE_TYPE],
 }));
 
-const DEFAULT_CHECKED_INDEX = TIME_RANGE_TABS.findIndex(
-	({ key }) => key === DEFAULT_TIME_RANGE
-);
+// const DEFAULT_CHECKED_INDEX = TIME_RANGE_TABS.findIndex(
+// 	({ key }) => key === DEFAULT_TIME_RANGE
+// );
 
 const Filter = () => {
-	const [, updateFilter] = useFilter();
+	// const [filter, updateFilter] = useFilter();
+	const { filter, updateFilter } = useFilterStore();
 	const handleChange = (index: number) => {
 		const selectedTab = TIME_RANGE_TABS[index].key;
 		updateFilter("timeLimit.type", selectedTab);
 	};
+
+	const DEFAULT_CHECKED_INDEX = TIME_RANGE_TABS.findIndex(
+		({ key }) => key === filter.timeLimit.type || DEFAULT_TIME_RANGE
+	);
 
 	return (
 		<div className="flex pb-3 pt-2">
