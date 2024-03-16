@@ -30,7 +30,7 @@ func configureDynatraceData(data map[string]interface{}, config ConnectionConfig
 		call_type = "Unknown"
 	}
 
-	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.messages" {
+	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.messages" || data["endpoint"] == "mistral.chat" || data["endpoint"] == "azure.chat.completions" || data["endpoint"] == "azure.completions" {
 		if data["finishReason"] == nil {
 			data["finishReason"] = "null"
 		}
@@ -81,7 +81,7 @@ func configureDynatraceData(data map[string]interface{}, config ConnectionConfig
 		if err != nil {
 			log.Error().Err(err).Msgf("Error sending Logs to DataDog")
 		}
-	} else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" {
+	} else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" || data["endpoint"] == "mistral.embeddings" || data["endpoint"] == "azure.embeddings" {
 		if data["endpoint"] == "openai.embeddings" {
 			// Building the data string by concatenating sprintf calls for each metric
 			metrics := fmt.Sprintf(`doku.llm.total.tokens,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["totalTokens"]) + "\n" +
@@ -156,7 +156,7 @@ func configureDynatraceData(data map[string]interface{}, config ConnectionConfig
 		if err != nil {
 			log.Error().Err(err).Msgf("Error sending Metrics to Dynatrace")
 		}
-	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" {
+	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" || data["endpoint"] == "azure.images.create" {
 		// Building the data string by concatenating sprintf calls for each metric
 		metrics := fmt.Sprintf(`doku.llm.request.duration,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["requestDuration"]) + "\n" +
 			fmt.Sprintf(`doku.llm.usage.cost,environment="%v",endpoint="%v",application="%v",source="%v",model="%v",platform="%v",generation="%v",job="doku" %v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["usageCost"])
