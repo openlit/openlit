@@ -18,7 +18,8 @@
         "embed-multilingual-light-v3.0": 0.0001,
         "embed-english-v2.0": 0.0001,
         "embed-english-light-v2.0": 0.0001,
-        "embed-multilingual-v2.0": 0.0001
+        "embed-multilingual-v2.0": 0.0001,
+        "mistral-embed": 0.0001
     },
     "images": {
         "dall-e-3": {
@@ -177,6 +178,26 @@
         "command-light-nightly": {
             "promptPrice": 0.0003,
             "completionPrice": 0.0006
+        },
+        "open-mistral-7b": {
+            "promptPrice": 0.00025,
+            "completionPrice": 0.00025
+        },
+        "open-mixtral-8x7b": {
+            "promptPrice": 0.0007,
+            "completionPrice": 0.0007
+        },
+        "mistral-small-latest": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.006
+        },
+        "mistral-medium-latest": {
+            "promptPrice": 0.0027,
+            "completionPrice": 0.0081
+        },
+        "mistral-large-latest": {
+            "promptPrice": 0.008,
+            "completionPrice": 0.024
         }
     }
 }
