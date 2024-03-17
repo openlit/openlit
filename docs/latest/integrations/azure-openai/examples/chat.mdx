@@ -1,8 +1,7 @@
 ---
 title: 'Chat Completions'
-description: 'Monitor OpenAI Chat Completions API usage'
+description: 'Monitor Azure OpenAI `chat.completions` API usage for cost, performance & user interactions'
 ---
-
 
 <Tabs>
   <Tab title="Python">
@@ -10,74 +9,51 @@ description: 'Monitor OpenAI Chat Completions API usage'
     ### Synchronous Usage
     <CodeGroup>
       ```python Default
-      from openai import OpenAI
+      from openai import AzureOpenAI
       import dokumetry
 
-      client = OpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
+      client = AzureOpenAI(
+        api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+        api_version = "2024-02-01",
+        azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
       )
+
+      azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
 
       # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
       completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model=azure_model_deployment,
         messages=[
-          {"role": "system", "content": "You are a helpful assistant."},
-          {"role": "user", "content": "Hello!"}
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
         ]
       )
 
       print(completion.choices[0].message)
       ```
 
-      ```python Image Input
-      from openai import OpenAI
-      import dokumetry
-
-      client = OpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
-      )
-
-      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
-
-      response = client.chat.completions.create(
-          model="gpt-4-vision-preview",
-          messages=[
-              {
-                  "role": "user",
-                  "content": [
-                      {"type": "text", "text": "What’s in this image?"},
-                      {
-                          "type": "image_url",
-                          "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
-                      },
-                  ],
-              }
-          ],
-          max_tokens=300,
-      )
-
-      print(response.choices[0])
-      ```
-
       ```python Streaming
-      from openai import OpenAI
+      from openai import AzureOpenAI
       import dokumetry
 
-      client = OpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
+      client = AzureOpenAI(
+        api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+        api_version = "2024-02-01",
+        azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
       )
+
+      azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
 
       # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
       completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model=azure_model_deployment,
         messages=[
-          {"role": "system", "content": "You are a helpful assistant."},
-          {"role": "user", "content": "Hello!"}
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
         ],
         stream=True
       )
@@ -87,12 +63,16 @@ description: 'Monitor OpenAI Chat Completions API usage'
       ```
 
       ```python Functions
-      from openai import OpenAI
+      from openai import AzureOpenAI
       import dokumetry
 
-      client = OpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
+      client = AzureOpenAI(
+        api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+        api_version = "2024-02-01",
+        azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
       )
+
+      azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
 
       # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
@@ -119,7 +99,7 @@ description: 'Monitor OpenAI Chat Completions API usage'
       ]
       messages = [{"role": "user", "content": "What's the weather like in Boston today?"}]
       completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model=azure_model_deployment,
         messages=messages,
         tools=tools,
         tool_choice="auto"
@@ -129,20 +109,25 @@ description: 'Monitor OpenAI Chat Completions API usage'
       ```
 
       ```python LogProbs
-      from openai import OpenAI
+      from openai import AzureOpenAI
       import dokumetry
 
-      client = OpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
+      client = AzureOpenAI(
+        api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+        api_version = "2024-02-01",
+        azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
       )
+
+      azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
 
       # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
       completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model=azure_model_deployment,
         messages=[
-          {"role": "user", "content": "Hello!"}
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
         ],
         logprobs=True,
         top_logprobs=2
@@ -158,12 +143,16 @@ description: 'Monitor OpenAI Chat Completions API usage'
     <CodeGroup>
       ```python Default
       import asyncio
-      from openai import AsyncOpenAI
+      from openai import AsyncAzureOpenAI
       import dokumetry
 
-      client = AsyncOpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
+      client = AsyncAzureOpenAI(
+        api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+        api_version = "2024-02-01",
+        azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
       )
+
+      azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
 
       # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
@@ -171,45 +160,10 @@ description: 'Monitor OpenAI Chat Completions API usage'
       async def main() -> None:
         chat_completion = await client.chat.completions.create(
           messages=[
-            {
-              "role": "user",
-              "content": "Say this is a test",
-            }
+            {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+            {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
           ],
-          model="gpt-3.5-turbo",
-        )
-
-      asyncio.run(main())
-      ```
-
-      ```python Image Input
-      import asyncio
-      from openai import AsyncOpenAI
-      import dokumetry
-
-      client = AsyncOpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
-      )
-
-      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
-
-      async def main() -> None:
-        response = await client.chat.completions.create(
-            model="gpt-4-vision-preview",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "What’s in this image?"},
-                        {
-                            "type": "image_url",
-                            "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
-                        },
-                    ],
-                }
-            ],
-            max_tokens=300,
+          model=azure_model_deployment,
         )
 
       asyncio.run(main())
@@ -217,20 +171,27 @@ description: 'Monitor OpenAI Chat Completions API usage'
 
       ```python Streaming
       import asyncio
-      from openai import AsyncOpenAI
+      from openai import AsyncAzureOpenAI
       import dokumetry
 
-      client = AsyncOpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
+      client = AsyncAzureOpenAI(
+        api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+        api_version = "2024-02-01",
+        azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
       )
+
+      azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
 
       # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
       async def main():
         stream = await client.chat.completions.create(
-          model="gpt-4",
-          messages=[{"role": "user", "content": "Say this is a test"}],
+          model=azure_model_deployment,
+          messages=[
+            {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+            {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+          ],
           stream=True,
         )
         async for chunk in stream:
@@ -242,12 +203,16 @@ description: 'Monitor OpenAI Chat Completions API usage'
 
       ```python Functions
       import asyncio
-      from openai import AsyncOpenAI
+      from openai import AsyncAzureOpenAI
       import dokumetry
 
-      client = AsyncOpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
+      client = AsyncAzureOpenAI(
+        api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+        api_version = "2024-02-01",
+        azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
       )
+
+      azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
 
       # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
@@ -276,7 +241,7 @@ description: 'Monitor OpenAI Chat Completions API usage'
 
       async def main() -> None:
         completion = await client.chat.completions.create(
-          model="gpt-3.5-turbo",
+          model=azure_model_deployment,
           messages=messages,
           tools=tools,
           tool_choice="auto"
@@ -287,21 +252,26 @@ description: 'Monitor OpenAI Chat Completions API usage'
 
       ```python LogProbs
       import asyncio
-      from openai import AsyncOpenAI
+      from openai import AsyncAzureOpenAI
       import dokumetry
 
-      client = AsyncOpenAI(
-        api_key = "YOUR_OPENAI_API_KEY"
+      client = AsyncAzureOpenAI(
+        api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+        api_version = "2024-02-01",
+        azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
       )
+
+      azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
 
       # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
       dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
       async def main() -> None:
         completion = await client.chat.completions.create(
-          model="gpt-3.5-turbo",
+          model=azure_model_deployment,
           messages=[
-            {"role": "user", "content": "Hello!"}
+            {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+            {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
           ],
           logprobs=True,
           top_logprobs=2
@@ -317,15 +287,25 @@ description: 'Monitor OpenAI Chat Completions API usage'
     import OpenAI from "openai";
     import DokuMetry from 'dokumetry';
 
-    const openai = new OpenAI();
+    const client = new OpenAI({
+      apiKey: "YOUR_AZURE_OPENAI_API_KEY",
+      baseURL: `https://YOUR_AZURE_OPENAI_RESOURCE.openai.azure.com/openai/deployments/YOUR_AZURE_OPENAI_DEPLOYMENT`,
+      defaultQuery: { 'api-version': "2024-02-01" },
+      defaultHeaders: { 'api-key': "YOUR_AZURE_OPENAI_API_KEY" },
+    });
 
-    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    const azureModelDeployment = 'YOUR_AZURE_OPENAI_DEPLOYMENT';
+
+    // Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: client, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
-      const completion = await openai.chat.completions.create({
-        messages: [{ role: "system", content: "You are a helpful assistant." }],
-        model: "gpt-3.5-turbo",
+      const completion = await client.chat.completions.create({
+        messages: [
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+        ],
+        model: azureModelDeployment,
       });
 
       console.log(completion.choices[0]);
@@ -334,52 +314,28 @@ description: 'Monitor OpenAI Chat Completions API usage'
     main();
     ```
 
-    ```javascript Image Input
-    import OpenAI from "openai";
-    import DokuMetry from 'dokumetry';
-
-    const openai = new OpenAI();
-
-    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
-
-    async function main() {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4-vision-preview",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "What’s in this image?" },
-              {
-                type: "image_url",
-                image_url:
-                  "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
-              },
-            ],
-          },
-        ],
-      });
-      console.log(response.choices[0]);
-    }
-    main();
-    ```
-
     ```javascript Streaming
     import OpenAI from "openai";
     import DokuMetry from 'dokumetry';
 
-    const openai = new OpenAI();
+    const client = new OpenAI({
+      apiKey: "YOUR_AZURE_OPENAI_API_KEY",
+      baseURL: `https://YOUR_AZURE_OPENAI_RESOURCE.openai.azure.com/openai/deployments/YOUR_AZURE_OPENAI_DEPLOYMENT`,
+      defaultQuery: { 'api-version': "2024-02-01" },
+      defaultHeaders: { 'api-key': "YOUR_AZURE_OPENAI_API_KEY" },
+    });
 
-    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    const azureModelDeployment = 'YOUR_AZURE_OPENAI_DEPLOYMENT';
+
+    // Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: client, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+      const completion = await client.chat.completions.create({
+        model: azureModelDeployment,
         messages: [
-          {"role": "system", "content": "You are a helpful assistant."},
-          {"role": "user", "content": "Hello!"}
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
         ],
         stream: true,
       });
@@ -396,10 +352,17 @@ description: 'Monitor OpenAI Chat Completions API usage'
     import OpenAI from "openai";
     import DokuMetry from 'dokumetry';
 
-    const openai = new OpenAI();
+    const client = new OpenAI({
+      apiKey: "YOUR_AZURE_OPENAI_API_KEY",
+      baseURL: `https://YOUR_AZURE_OPENAI_RESOURCE.openai.azure.com/openai/deployments/YOUR_AZURE_OPENAI_DEPLOYMENT`,
+      defaultQuery: { 'api-version': "2024-02-01" },
+      defaultHeaders: { 'api-key': "YOUR_AZURE_OPENAI_API_KEY" },
+    });
 
-    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    const azureModelDeployment = 'YOUR_AZURE_OPENAI_DEPLOYMENT';
+
+    // Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: client, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
       const messages = [{"role": "user", "content": "What's the weather like in Boston today?"}];
@@ -424,8 +387,8 @@ description: 'Monitor OpenAI Chat Completions API usage'
           }
       ];
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+      const response = await client.chat.completions.create({
+        model: azureModelDeployment,
         messages: messages,
         tools: tools,
         tool_choice: "auto",
@@ -441,15 +404,25 @@ description: 'Monitor OpenAI Chat Completions API usage'
     import OpenAI from "openai";
     import DokuMetry from 'dokumetry';
 
-    const openai = new OpenAI();
+    const client = new OpenAI({
+      apiKey: "YOUR_AZURE_OPENAI_API_KEY",
+      baseURL: `https://YOUR_AZURE_OPENAI_RESOURCE.openai.azure.com/openai/deployments/YOUR_AZURE_OPENAI_DEPLOYMENT`,
+      defaultQuery: { 'api-version': "2024-02-01" },
+      defaultHeaders: { 'api-key': "YOUR_AZURE_OPENAI_API_KEY" },
+    });
 
-    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    const azureModelDeployment = 'YOUR_AZURE_OPENAI_DEPLOYMENT';
+
+    // Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: client, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
-      const completion = await openai.chat.completions.create({
-        messages: [{ role: "user", content: "Hello!" }],
-        model: "gpt-3.5-turbo",
+      const completion = await client.chat.completions.create({
+        messages: [
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my Azure OpenAI based LLM Applications?"}
+        ],
+        model: azureModelDeployment,
         logprobs: true,
         top_logprobs: 2,
       });

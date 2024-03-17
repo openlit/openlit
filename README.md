@@ -88,7 +88,7 @@ To install the Doku using Docker, follow these steps:
       restart: always
 
     doku-ingester:
-      image: ghcr.io/dokulabs/doku-ingester:0.1.0
+      image: ghcr.io/dokulabs/doku-ingester:0.1.1
       container_name: doku-ingester
       environment:
         DOKU_DB_HOST: clickhouse   
@@ -103,7 +103,7 @@ To install the Doku using Docker, follow these steps:
       restart: always
     
     doku-client:
-      image: ghcr.io/dokulabs/doku-client:0.1.0
+      image: ghcr.io/dokulabs/doku-client:0.1.1
       container_name: doku-client
       environment:
         INIT_DB_HOST: clickhouse

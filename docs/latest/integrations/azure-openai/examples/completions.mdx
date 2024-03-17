@@ -1,0 +1,118 @@
+---
+title: 'Completions'
+description: 'Monitor Azure OpenAI `completions` API usage for cost, performance & user interactions'
+---
+
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+    ```python No Streaming
+    from openai import AzureOpenAI
+    import dokumetry
+
+    client = AzureOpenAI(
+      api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+      api_version = "2024-02-01",
+      azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
+    )
+
+    azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
+
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    response = client.completions.create(
+      model=azure_model_deployment,
+      prompt="What is LLM Observablity?",
+    )
+
+    print(respomse.choices[0].text)
+    ```
+
+    ```python Streaming
+    from openai import AzureOpenAI
+    import dokumetry
+
+    client = AzureOpenAI(
+      api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+      api_version = "2024-02-01",
+      azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
+    )
+
+    azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
+
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    response = client.completions.create(
+      model=azure_model_deployment,
+      prompt="How to monitor LLM Applications?",
+      stream=True
+    )
+
+    for chunk in respomse:
+      print(chunk.choices[0].text)
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="NodeJS">
+    <CodeGroup>
+    ```javascript No Streaming
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const client = new OpenAI({
+      apiKey: "YOUR_AZURE_OPENAI_API_KEY",
+      baseURL: `https://YOUR_AZURE_OPENAI_RESOURCE.openai.azure.com/openai/deployments/YOUR_AZURE_OPENAI_DEPLOYMENT`,
+      defaultQuery: { 'api-version': "2024-02-01" },
+      defaultHeaders: { 'api-key': "YOUR_AZURE_OPENAI_API_KEY" },
+    });
+
+    const azureModelDeployment = 'YOUR_AZURE_OPENAI_DEPLOYMENT';
+
+    // Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: client, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const response = await client.completions.create({
+        model: azureModelDeployment,
+        prompt: "How to monitor LLM Applications?",
+      });
+
+      console.log(response);
+    }
+    main();
+    ```
+
+    ```javascript Streaming
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const client = new OpenAI({
+      apiKey: "YOUR_AZURE_OPENAI_API_KEY",
+      baseURL: `https://YOUR_AZURE_OPENAI_RESOURCE.openai.azure.com/openai/deployments/YOUR_AZURE_OPENAI_DEPLOYMENT`,
+      defaultQuery: { 'api-version': "2024-02-01" },
+      defaultHeaders: { 'api-key': "YOUR_AZURE_OPENAI_API_KEY" },
+    });
+
+    const azureModelDeployment = 'YOUR_AZURE_OPENAI_DEPLOYMENT';
+
+    // Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: client, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const response = await client.completions.create({
+        model: azureModelDeployment,
+        prompt: "How to monitor LLM Applications?",
+        stream: true,
+      });
+
+      for await (const chunk of response) {
+        console.log(chunk.choices[0].text)
+      }
+    }
+    main();
+    ```
+    </CodeGroup>
+  </Tab>
+</Tabs>

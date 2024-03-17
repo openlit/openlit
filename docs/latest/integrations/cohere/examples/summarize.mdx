@@ -1,16 +1,15 @@
 ---
 title: 'Summarize'
-description: 'Monitor Cohere Summarize API usage'
+description: 'Monitor Cohere `summarize` API usage for cost, performance & user interactions'
 ---
 
-## Summarize
 <Tabs>
   <Tab title="Python">
     ```python
     import cohere
     import dokumetry
 
-    co = cohere.Client('<<apiKey>>')
+    co = cohere.Client("YOUR_COHERE_API_KEY")
 
     # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
     dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
@@ -50,7 +49,7 @@ description: 'Monitor Cohere Summarize API usage'
     import DokuMetry from 'dokumetry';
 
     const cohere = new CohereClient({
-        token: "<<apiKey>>",
+        token: "YOUR_COHERE_API_KEY",
     });
 
     (async () => {

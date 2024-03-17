@@ -29,7 +29,7 @@ func configureSignozData(data map[string]interface{}, config ConnectionConfig) {
 		call_type = "Unknown"
 	}
 
-	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.messages" {
+	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.messages" || data["endpoint"] == "mistral.chat" || data["endpoint"] == "azure.chat.completions" || data["endpoint"] == "azure.completions" {
 		if data["finishReason"] == nil {
 			data["finishReason"] = "null"
 		}
@@ -68,7 +68,7 @@ func configureSignozData(data map[string]interface{}, config ConnectionConfig) {
 		if err != nil {
 			log.Error().Err(err).Msgf("Error sending Metrics to SigNoz")
 		}
-	} else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" {
+	} else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" || data["endpoint"] == "azure.embeddings" || data["endpoint"] == "mistral.embeddings" {
 		jsonBody := fmt.Sprintf(`[
 			{
 				"trace_id": "",
@@ -130,7 +130,7 @@ func configureSignozData(data map[string]interface{}, config ConnectionConfig) {
 		if err != nil {
 			log.Error().Err(err).Msgf("Error sending Metrics to SigNoz")
 		}
-	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" {
+	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" || data["endpoint"] == "azure.images.create" {
 		var promptMessage string
 		if data["model"] == "dall-e-2" {
 			// Assuming data["prompt"] exists and is a string

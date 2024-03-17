@@ -3,20 +3,19 @@ title: 'Embed'
 description: 'Monitor Cohere Embed API usage'
 ---
 
-## Embed
 <Tabs>
   <Tab title="Python">
     ```python
     import cohere
     import dokumetry
 
-    co = cohere.Client('<<apiKey>>')
+    co = cohere.Client("YOUR_COHERE_API_KEY")
 
     # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
     dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     response = co.embed(
-      texts=['hello', 'goodbye'],
+      texts=['LLM', 'Monitoring', 'Observability'],
       model='embed-english-v3.0',
       input_type='classification'
     )
@@ -29,7 +28,7 @@ description: 'Monitor Cohere Embed API usage'
     import DokuMetry from 'dokumetry';
 
     const cohere = new CohereClient({
-        token: "<<apiKey>>",
+        token: "YOUR_COHERE_API_KEY",
     });
 
     (async () => {
@@ -37,7 +36,7 @@ description: 'Monitor Cohere Embed API usage'
       DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
       const embed = await cohere.embed({
-          texts: ["hello", "goodbye"],
+          texts: ['LLM', 'Monitoring', 'Observability'],
           model: "embed-english-v3.0",
           inputType: "classification",
       });
