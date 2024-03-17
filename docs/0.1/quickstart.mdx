@@ -28,7 +28,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
             restart: always
 
           doku-ingester:
-            image: ghcr.io/dokulabs/doku-ingester:0.1.0
+            image: ghcr.io/dokulabs/doku-ingester:0.1.1
             container_name: doku-ingester
             environment:
               DOKU_DB_HOST: clickhouse   
@@ -43,7 +43,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
             restart: always
           
           doku-client:
-            image: ghcr.io/dokulabs/doku-client:0.1.0
+            image: ghcr.io/dokulabs/doku-client:0.1.1
             container_name: doku-client
             environment:
               INIT_DB_HOST: clickhouse
@@ -80,7 +80,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
         - Password as `dokulabsuser`
     3. Once you have logged into Doku UI, Go to [API Keys page](http://127.0.0.1:3000/api-keys) and Create an API Key. Copy the generated API Key.
 
-    <Tip>Alternatively, you can use the HTTP API to create your Doku API Key. For further details, take a look at the [API Reference](/latest/api-reference/endpoint/api-keys/create) section.</Tip>
+    <Tip>Alternatively, you can use the HTTP API to create your Doku API Key. For further details, take a look at the [API Reference](/0.1/api-reference/endpoint/api-keys/create) section.</Tip>
   </Step>
   <Step title="Instrument your Application">
     Choose the appropriate SDK for your LLM application's programming language and follow the steps to integrate monitoring with just **two lines of code**.

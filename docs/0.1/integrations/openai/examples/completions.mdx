@@ -1,6 +1,6 @@
 ---
 title: 'Completions'
-description: 'Monitor OpenAI Completions API Usage'
+description: 'Monitor OpenAI `completions` API usage for cost, performance & user interactions'
 ---
 
 <Tabs>
@@ -17,12 +17,12 @@ description: 'Monitor OpenAI Completions API Usage'
     # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
     dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
-    client.completions.create(
+    response = client.completions.create(
       model="gpt-3.5-turbo-instruct",
-      prompt="Say this is a test",
-      max_tokens=7,
-      temperature=0
+      prompt="What is LLM Observablity?",
     )
+
+    print(respomse.choices[0].text)
     ```
 
     ```python Streaming
@@ -36,15 +36,14 @@ description: 'Monitor OpenAI Completions API Usage'
     # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
     dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
-    for chunk in client.completions.create(
+    response = client.completions.create(
       model="gpt-3.5-turbo-instruct",
-      prompt="Say this is a test",
-      max_tokens=7,
-      temperature=0,
+      prompt="How to monitor LLM Applications?",
       stream=True
-    ):
+    )
 
-    print(chunk.choices[0].text)
+    for chunk in respomse:
+      print(chunk.choices[0].text)
     ```
     </CodeGroup>
   </Tab>
@@ -60,14 +59,12 @@ description: 'Monitor OpenAI Completions API Usage'
     DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
-      const completion = await openai.completions.create({
+      const response = await openai.completions.create({
         model: "gpt-3.5-turbo-instruct",
-        prompt: "Say this is a test.",
-        max_tokens: 7,
-        temperature: 0,
+        prompt: "How to monitor LLM Applications?",
       });
 
-      console.log(completion);
+      console.log(response);
     }
     main();
     ```
@@ -82,13 +79,13 @@ description: 'Monitor OpenAI Completions API Usage'
     DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
-      const stream = await openai.completions.create({
+      const response = await openai.completions.create({
         model: "gpt-3.5-turbo-instruct",
-        prompt: "Say this is a test.",
+        prompt: "How to monitor LLM Applications?",
         stream: true,
       });
 
-      for await (const chunk of stream) {
+      for await (const chunk of response) {
         console.log(chunk.choices[0].text)
       }
     }

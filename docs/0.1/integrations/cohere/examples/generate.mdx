@@ -1,9 +1,8 @@
 ---
 title: 'Generate'
-description: 'Monitor Cohere Generate API usage'
+description: 'Monitor Cohere `generate` API usage for cost, performance & user interactions'
 ---
 
-## Generate
 <Tabs>
   <Tab title="Python">
     ```python
@@ -16,7 +15,7 @@ description: 'Monitor Cohere Generate API usage'
     dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     response = co.generate(
-      prompt='Please explain to me how LLMs work',
+      prompt='How to monitor my LLM Applications?',
     )
     print(response)
     ```
@@ -27,7 +26,7 @@ description: 'Monitor Cohere Generate API usage'
     import DokuMetry from 'dokumetry';
 
     const cohere = new CohereClient({
-        token: "<<apiKey>>",
+        token: "YOUR_COHERE_API_KEY",
     });
 
     (async () => {
@@ -35,7 +34,7 @@ description: 'Monitor Cohere Generate API usage'
       DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
       const generate = await cohere.generate({
-          prompt: "Please explain to me how LLMs work",
+          prompt: "What is LLM Monitoring?",
       });
 
       console.log(generate);

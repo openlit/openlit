@@ -12,7 +12,7 @@ The integration is compatible with Cohere Python SDK version `>=5.0.0` and Types
 <Tabs>
   <Tab title="Python">
     ```shell
-    pip install dokumetry==0.1.0
+    pip install dokumetry==0.1.1
     ```
 
     ```python
@@ -26,7 +26,7 @@ The integration is compatible with Cohere Python SDK version `>=5.0.0` and Types
   </Tab>
   <Tab title="Javascript">
     ```shell
-    npm install dokumetry@0.1.0
+    npm install dokumetry@0.1.1
     ```
 
     ```javascript
@@ -34,7 +34,7 @@ The integration is compatible with Cohere Python SDK version `>=5.0.0` and Types
     import DokuMetry from 'dokumetry';
 
     const co = new CohereClient({
-            token: "<<apiKey>>",
+            token: "YOUR_COHERE_API_KEY",
     });
 
     DokuMetry.init({llm: co, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
@@ -45,7 +45,7 @@ The integration is compatible with Cohere Python SDK version `>=5.0.0` and Types
 ## Supported Endpoints
 The following Cohere Endpoints are supported for monitoring with DokuMetry
 
-- [Chat](/0.1/integrations/cohere/examples/chat)
+- [Chat](/0.1/integrations/cohere/examples/cochat)
 - [Generate](/0.1/integrations/cohere/examples/generate)
 - [Summarize](/0.1/integrations/cohere/examples/summarize)
 - [Embed](/0.1/integrations/cohere/examples/embed)
