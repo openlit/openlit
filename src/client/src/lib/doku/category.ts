@@ -13,11 +13,11 @@ FROM
   (
       SELECT 
           CASE
-              WHEN endpoint LIKE 'openai.chat%' THEN '${GENERATION_CATEGORIZATION.chat}'
-              WHEN endpoint LIKE 'anthropic.completions%' THEN '${GENERATION_CATEGORIZATION.chat}'
+              WHEN endpoint LIKE '%chat%' THEN '${GENERATION_CATEGORIZATION.chat}'
+              WHEN endpoint LIKE '%completions%' THEN '${GENERATION_CATEGORIZATION.chat}'
+              WHEN endpoint LIKE 'anthropic.messages%' THEN '${GENERATION_CATEGORIZATION.chat}'
               WHEN endpoint LIKE 'cohere.summarize%' THEN '${GENERATION_CATEGORIZATION.chat}'
               WHEN endpoint LIKE 'cohere.generate%' THEN '${GENERATION_CATEGORIZATION.chat}'
-              WHEN endpoint LIKE 'cohere.chat%' THEN '${GENERATION_CATEGORIZATION.chat}'
               WHEN endpoint LIKE '%embed%' THEN '${GENERATION_CATEGORIZATION.embed}'
               WHEN endpoint LIKE 'openai.images%' THEN '${GENERATION_CATEGORIZATION.image}'
               WHEN endpoint LIKE 'openai.audio%' THEN '${GENERATION_CATEGORIZATION.audio}'
@@ -32,5 +32,5 @@ GROUP BY
 
     `;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }

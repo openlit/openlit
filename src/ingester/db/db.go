@@ -300,18 +300,18 @@ func getTokens(text, model string) int {
 // insertDataToDB inserts data into the database.
 func insertDataToDB(data map[string]interface{}) (string, int) {
 	// Calculate usage cost based on the endpoint type
-	if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" {
+	if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" || data["endpoint"] == "azure.embeddings" || data["endpoint"] == "mistral.embeddings" {
 		data["usageCost"], _ = cost.CalculateEmbeddingsCost(data["promptTokens"].(float64), data["model"].(string))
-	} else if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "cohere.generate" {
+	} else if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "anthropic.messages" || data["endpoint"] == "mistral.chat" || data["endpoint"] == "azure.chat.completions" || data["endpoint"] == "azure.completions" {
 		if data["completionTokens"] != nil && data["promptTokens"] != nil {
 			data["usageCost"], _ = cost.CalculateChatCost(data["promptTokens"].(float64), data["completionTokens"].(float64), data["model"].(string))
-		} else if (data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions") && data["prompt"] != nil && data["response"] != nil {
+		} else if (data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "azure.completions" || data["endpoint"] == "azure.chat.completions") && data["prompt"] != nil && data["response"] != nil {
 			data["promptTokens"] = getTokens(data["prompt"].(string), data["model"].(string))
 			data["completionTokens"] = getTokens(data["response"].(string), data["model"].(string))
 			data["totalTokens"] = data["promptTokens"].(int) + data["completionTokens"].(int)
 			data["usageCost"], _ = cost.CalculateChatCost(float64(data["promptTokens"].(int)), float64(data["completionTokens"].(int)), data["model"].(string))
 		}
-	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" {
+	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" || data["endpoint"] == "azure.images.create" {
 		data["usageCost"], _ = cost.CalculateImageCost(data["model"].(string), data["imageSize"].(string), data["imageQuality"].(string))
 	} else if data["endpoint"] == "openai.audio.speech.create" {
 		data["usageCost"], _ = cost.CalculateAudioCost(data["prompt"].(string), data["model"].(string))
@@ -325,11 +325,10 @@ func insertDataToDB(data map[string]interface{}) (string, int) {
 	}
 
 	// Construct query with placeholders
-	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", doku_llm_data_table)
+	query := fmt.Sprintf("INSERT INTO %s (time, llmReqId, environment, endpoint, sourceLanguage, applicationName, completionTokens, promptTokens, totalTokens, finishReason, requestDuration, usageCost, model, prompt, response, imageSize, revisedPrompt, image, audioVoice, finetuneJobStatus) VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", doku_llm_data_table)
 
 	// Create a slice for parameters in the correct order
 	params := []interface{}{
-		time.Now(),
 		data["llmReqId"],
 		data["environment"],
 		data["endpoint"],
@@ -609,6 +608,50 @@ func DeleteConnection(existingAPIKey string) error {
 	return nil
 }
 
+// / GetConnection gets the existing connection configuration from the database.
+func GetConnection(existingAPIKey string) (map[string]interface{}, error) {
+	// Authenticate the provided API key before proceeding
+	_, err := CheckAPIKey(existingAPIKey)
+	if err != nil {
+		log.Warn().Msg("Authorization Failed for an API Key")
+		return nil, fmt.Errorf("AUTHFAILED")
+	}
+
+	connectionDetails := map[string]interface{}{}
+
+	// Prepare the ClickHouse SQL query.
+	query := fmt.Sprintf(`SELECT platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername, created_at FROM %s ORDER BY id LIMIT 1`, doku_connections_table)
+
+	// QueryRow executes the query and returns at most one row.
+	row := db.QueryRow(ctx, query)
+
+	var platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername string
+	var createdAt time.Time
+
+	// Scan the results into variables.
+	err = row.Scan(&platform, &metricsUrl, &logsUrl, &apiKey, &metricsUsername, &logsUsername, &createdAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Info().Msg("No configuration found in the database.")
+			return nil, fmt.Errorf("NOTFOUND")
+		}
+		log.Error().Err(err).Msg("Failed to get the connection configuration")
+		return nil, err
+	}
+
+	// Populate the results map.
+	connectionDetails["platform"] = platform
+	connectionDetails["metricsUrl"] = metricsUrl
+	connectionDetails["logsUrl"] = logsUrl
+	connectionDetails["apiKey"] = apiKey
+	connectionDetails["metricsUsername"] = metricsUsername
+	connectionDetails["logsUsername"] = logsUsername
+	connectionDetails["created_at"] = createdAt
+
+	return connectionDetails, nil
+
+}
+
 func InsertNoCodeLLM(data []map[string]interface{}) error {
 	// The query is now prepared to handle nullable tokens and includes the image_size column.
 	// The exact SQL might require adjustments based on your ClickHouse schema specifics.
@@ -650,4 +693,3 @@ func InsertNoCodeLLM(data []map[string]interface{}) error {
 	}
 
 	return nil
-}

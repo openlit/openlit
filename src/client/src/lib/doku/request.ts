@@ -29,7 +29,7 @@ export async function getRequestPerTime(params: DokuParams) {
 			request_time;
 		`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }
 
 export async function getTotalRequests(params: DokuParams) {
@@ -40,7 +40,7 @@ export async function getTotalRequests(params: DokuParams) {
 		FROM ${DATA_TABLE_NAME} 
 		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }
 
 export async function getAverageRequestDuration(params: DokuParams) {
@@ -54,7 +54,7 @@ export async function getAverageRequestDuration(params: DokuParams) {
 			time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}');
 		`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }
 
 export async function getRequestsConfig(params: DokuRequestParams) {
@@ -75,7 +75,7 @@ export async function getRequestsConfig(params: DokuRequestParams) {
 	const query = `SELECT ${select} FROM ${DATA_TABLE_NAME} 
 			WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
 
-	return dataCollector(query);
+	return dataCollector({ query });
 }
 
 export async function getRequests(params: DokuRequestParams) {
@@ -91,11 +91,11 @@ export async function getRequests(params: DokuRequestParams) {
 
 	const query = `SELECT *	FROM ${DATA_TABLE_NAME} 
 		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
-		ORDER BY time
+		ORDER BY time desc
 		LIMIT ${limit}
 		OFFSET ${offset}`;
 
-	const { data, err } = await dataCollector(query);
+	const { data, err } = await dataCollector({ query });
 	return {
 		err,
 		config,

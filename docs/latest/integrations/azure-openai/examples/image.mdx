@@ -1,0 +1,60 @@
+---
+title: 'Image'
+description: 'Monitor Azure OpenAI `image` API usage for cost, performance & user interactions'
+---
+
+## Create Image
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from openai import AzureOpenAI
+    import dokumetry
+
+    client = AzureOpenAI(
+      api_key = "YOUR_AZURE_OPENAI_API_KEY",  
+      api_version = "2024-02-01",
+      azure_endpoint = "YOUR_AZURE_OPENAI_API_ENDPOINT"
+    )
+
+    azure_model_deployment = "YOUR_AZURE_OPENAI_DEPLOYMENT"
+
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    image = client.images.generate(
+      model=azure_model_deployment,
+      prompt="Create a dashboard for LLM Observability data",
+      n=1,
+      size="1024x1024"
+    )
+
+    print(image.data)
+    ```
+  </Tab>
+  <Tab title="Javascript">
+    ```javascript
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const client = new OpenAI({
+      apiKey: "YOUR_AZURE_OPENAI_API_KEY",
+      baseURL: `https://YOUR_AZURE_OPENAI_RESOURCE.openai.azure.com/openai/deployments/YOUR_AZURE_OPENAI_DEPLOYMENT`,
+      defaultQuery: { 'api-version': "2024-02-01" },
+      defaultHeaders: { 'api-key': "YOUR_AZURE_OPENAI_API_KEY" },
+    });
+
+    const azureModelDeployment = 'YOUR_AZURE_OPENAI_DEPLOYMENT';
+
+    async function main() {
+      const image = await client.images.generate({ 
+        model: azureModelDeployment, 
+        prompt: "Create a dashboard for LLM Observability data" 
+      });
+
+      console.log(image.data);
+    }
+    main();
+    ```
+  </Tab>
+</Tabs>

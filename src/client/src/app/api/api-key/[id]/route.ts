@@ -2,10 +2,10 @@ import { deleteAPIKey } from "@/lib/doku/api-key";
 
 export async function DELETE(_: Request, context: any) {
 	const { id } = context.params;
-	const [err, res] = await deleteAPIKey(id);
-	if (err)
-		return Response.json(err, {
+	const resp: any = await deleteAPIKey(id);
+	if (resp?.err)
+		return Response.json(resp.err || "Server error!", {
 			status: 400,
 		});
-	return Response.json(res);
+	return Response.json(resp);
 }

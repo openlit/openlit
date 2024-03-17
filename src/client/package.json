@@ -6,14 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed": "npx prisma db seed"
   },
   "dependencies": {
     "@clickhouse/client": "^0.2.10",
     "@headlessui/react": "^1.7.18",
     "@heroicons/react": "^2.1.1",
     "@next-auth/prisma-adapter": "^1.0.7",
-    "@prisma/client": "^5.8.1",
+    "@prisma/client": "^5.10.2",
     "@tremor/react": "^3.13.1",
     "bcrypt-ts": "^5.0.1",
     "copy-to-clipboard": "^3.3.3",
@@ -29,7 +30,7 @@
   },
   "devDependencies": {
     "@types/lodash": "^4.14.202",
-    "@types/node": "^20",
+    "@types/node": "^20.11.24",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-syntax-highlighter": "^15.5.11",
@@ -39,6 +40,10 @@
     "postcss": "^8",
     "prisma": "^5.8.1",
     "tailwindcss": "^3.3.0",
-    "typescript": "^5"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   }
 }

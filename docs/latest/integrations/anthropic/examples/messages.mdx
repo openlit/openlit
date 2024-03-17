@@ -1,0 +1,146 @@
+---
+title: 'Messages'
+description: 'Monitor Anthropic `messages` API usage for cost, performance & user interactions'
+---
+
+<Tabs>
+  <Tab title="Python">
+
+  ### Synchronous Usage
+  <CodeGroup>
+    ```python default
+    from anthropic import Anthropic
+    import dokumetry
+
+    client = Anthropic(
+      api_key="YOUR_ANTHROPIC_API_KEY",
+    )
+
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    message = client.messages.create(
+      messages=[{ "role": "user", "content": "Hello, Explain LLM Monitoring in one sentence"}],
+      model="claude-3-opus-20240229",
+    )
+    print(message.content)
+    ```
+    ```python streaming
+    from anthropic import Anthropic
+    import dokumetry
+
+    client = Anthropic(
+      api_key="YOUR_ANTHROPIC_API_KEY",
+    )
+
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    stream = client.messages.create(
+      messages=[{"role": "user", "content": "Hello, Explain LLM Monitoring in one sentence"}],
+      model="claude-3-opus-20240229",
+      stream=True,
+    )
+    for event in stream:
+      print(event.type)
+    ```
+    </CodeGroup>
+    
+    ### Asynchronous usage
+    <CodeGroup>
+    ```python default
+    import asyncio
+    from anthropic import AsyncAnthropic
+    import dokumetry
+
+    client = AsyncAnthropic(
+      api_key="YOUR_ANTHROPIC_API_KEY",
+    )
+
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    async def main() -> None:
+      message = await client.messages.create(
+        messages=[{"role": "user","content": "Hello, How to monitor LLM Applications?"}],
+        model="claude-3-opus-20240229",
+      )
+      print(message.content)
+
+    asyncio.run(main())
+    ```
+
+    ```python streaming
+    import asyncio
+    from anthropic import AsyncAnthropic
+    import dokumetry
+
+    client = AsyncAnthropic(
+      api_key="YOUR_ANTHROPIC_API_KEY",
+    )
+
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    async def main() -> None:
+      stream = await client.messages.create(
+        messages=[{"role": "user","content": "What metrics to monitor for my LLM Applications?"}],
+        model="claude-3-opus-20240229",
+        stream=True,
+      )
+      async for event in stream:
+        print(event.type)
+    
+    asyncio.run(main())
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="Javascript">
+    <CodeGroup>
+    ```javascript default
+    import Anthropic from '@anthropic-ai/sdk';
+    import DokuMetry from 'dokumetry';
+
+    const anthropic = new Anthropic({
+      apiKey: 'my_api_key',
+    });
+
+    // Pass the above `anthropic` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const message = await anthropic.messages.create({
+        messages: [{ role: 'user', content: 'How to monitor my LLM Applications?' }],
+        model: 'claude-3-opus-20240229',
+      });
+
+      console.log(message.content);
+    }
+
+    main();
+    ```
+
+    ```javascript streaming
+    import Anthropic from '@anthropic-ai/sdk';
+    import DokuMetry from 'dokumetry';
+
+    const anthropic = new Anthropic({
+      apiKey: 'my_api_key',
+    });
+
+    // Pass the above `anthropic` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
+    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    const stream = await anthropic.messages.create({
+      messages: [{ role: 'user', content: 'How to setup LLM Obserability?' }],
+      model: 'claude-3-opus-20240229',
+      stream: true,
+    });
+    for await (const messageStreamEvent of stream) {
+      console.log(messageStreamEvent.type);
+    }
+    ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+

@@ -1,52 +1,132 @@
-## Run Doku UI Client server
-![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white) ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) ![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white) ![Clickhouse](https://img.shields.io/badge/clickhouse-faff69?style=for-the-badge&logo=clickhouse
-) ![Headless](https://img.shields.io/badge/headlessui-6dc0fd?style=for-the-badge&logo=headlessui
-) ![Next-Auth](https://img.shields.io/badge/next-auth-2cfefe?style=for-the-badge&logo=next-auth
-)
+# Doku Client
 
-Doku Client frontend uses Nextjs, Typescript and Tailwind. The application uses `@tremor/react` for charts, `react-hot-toast` for toasts, `@clickhouse/client` for clickhouse db client, `@prisma/client` for client's db for user management, db configuration management etc.
+[![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
+[![License](https://img.shields.io/github/license/dokulabs/doku?label=license&logo=github&color=f80&logoColor=fff%22%20alt=%22License)](https://github.com/dokulabs/doku/blob/main/LICENSE)
+[![Client Version](https://img.shields.io/github/tag/dokulabs/doku.svg?&label=Version)](https://github.com/dokulabs/doku/tags)
 
-# 📖 Table of Contents
-- [⚙️ Pre-requisites](#-pre-requisites)
-- [📌 The first step : Setup server without docker](#-the-first-step--setup-server-without-docker)
-- [🔌 Found a bug or want to request a feature](#found-a-bug-or-want-to-request-a-feature)
-- [Give A Star ⭐](#give-a-star-)
+![Next JS](https://img.shields.io/badge/Next-black?style=for-the-badge&logo=next.js&logoColor=white) 
+![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) 
+![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white) 
+![Clickhouse](https://img.shields.io/badge/clickhouse-faff69?style=for-the-badge&logo=clickhouse)
+![Headless](https://img.shields.io/badge/headlessui-6dc0fd?style=for-the-badge&logo=headlessui)
+![Next-Auth](https://img.shields.io/badge/next-auth-2cfefe?style=for-the-badge&logo=next-auth)
 
-### Pre-requisites:
-- `node` : version >=20
-- `sqlite` : db for the doku client's storage (this will come under docker compose with persistent volumne but if you setup without docker, then you need provide file url as env variable like `file:/path/to/file`)
- 
-### The first step : Setup server without docker
-1. Clone the doku repository 
-    ```sh 
-    git clone git@github.com:dokulabs/doku.git
-    ````
-2. Go to the client folder
-    ```sh 
-    cd src/client
-    ````
-3. Install the dependencies
-    ```sh 
+Doku Client serves as the frontend UI for displaying visualizations and observability data for Large Language Models (LLM), drawing data from ClickHouse. The platform leverages the power of modern web technologies like Next.js and TailwindCSS to offer an intuitive and responsive user experience.
+
+## Features
+
+- **Comprehensive Analytics Dashboard**: Easily monitor Large Language Model performance, user activity, and critical metrics related to costs and tokens in real-time.
+- **User Management System**: Offers built-in user management to ensure secure access control and smooth authentication processes.
+- **Versatile Data Source Connectivity**: Seamlessly adjust and integrate your ClickHouse database details directly within the UI. This flexibility enables quick switches between databases to keep your Doku Client running efficiently.
+
+## 🚀 Quick Start
+
+Follow the steps below to get Doku Client running in your environment. Both Docker and manual installation options are provided.
+
+
+### Docker
+
+1. **Pull the Docker image**
+    ```bash
+    docker pull ghcr.io/dokulabs/doku-client:latest
+    ```
+
+2. **Run the container with Environment Variables**
+    Here, replace `<YourValues>` with actual values for the environment variables.
+    ```bash
+    docker run -d -p 3000:3000 \
+    -e INIT_DB_HOST="<ClickHouse-URL>" \
+    -e INIT_DB_PORT="<ClickHouse-Port>" \
+    -e INIT_DB_DATABASE="<ClickHouse-Database-name>" \
+    -e INIT_DB_USERNAME="<ClickHouse-username>" \
+    -e INIT_DB_PASSWORD="<ClickHouse-password>" \
+    -e SQLITE_DATABASE_URL=file:/app/client/data/data.db \
+    --name doku-client ghcr.io/dokulabs/doku-client:latest
+    ```
+
+3. Login to Doku UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
+    - Email as `user@dokulabs.com`
+    - Password as `dokulabsuser`
+
+You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/main/charts/doku) to deploy Doku Client in Kubernetes
+
+### Manual Setup (Development)
+
+1. **Clone the doku repository**
+    ```sh
+    git clone https://github.com/dokulabs/doku.git
+    ```
+2. **Navigate to the client folder**
+    ```sh
+    cd doku/src/client
+    ```
+3. **Install the dependencies**
+    ```sh
     npm install
-    ````
-4. Run command below to create an env file and then update the .env file for the `DATABASE_URL` to point to the sqlite db
-    ```sh 
-    cp .env.example .env
-    ````
-5. Apply the migrations to the sqlite db using the below commands. First command applies the migrations to the db and the second command generates assets like Prisma Client based on the generator and data model blocks defined in your prisma/schema.prisma file.
-    ```sh 
+    ```
+4. **Configure Environemnt Variables**
+
+    Below are the commands to set environment variables if needed during manual setup. Replace `<value>` with your actual configuration:
+    ```sh
+    export INIT_DB_HOST=<value>
+    export INIT_DB_PORT=<value>
+    export INIT_DB_DATABASE=<value>
+    export INIT_DB_USERNAME=<value>
+    export INIT_DB_PASSWORD=<value>
+    export SQLITE_DATABASE_URL=<value>
+    ```
+    
+5. **Apply the migrations**
+    
+    This creates your SQLite database schema.
+    ```sh
     npx prisma migrate deploy
     npx prisma generate
-    ````
-6. Start the dev server
-    ```sh 
+    ```
+6. **(Optional) Seed the database**
+    
+    If desired, seed the database to create a default user (`user@dokulabs.com` with the password `dokulabsuser`) and database configuration.
+    ```sh
+    npx prisma db seed
+    ```
+    Ensure the database is empty before running this command.
+
+7. **Start the development server**
+    ```sh
     npm run dev
-    ````
+    ```
+8. Login to Doku UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
+    - Email as `user@dokulabs.com`
+    - Password as `dokulabsuser`
 
-### Found a bug or want to request a feature
+## Configuration
 
-Please open a [Github issue](https://github.com/dokulabs/doku/issues/new/choose).
+To configure Doku Client, you can pass the following environment values, each tailored to suit your infrastructure and operational preferences. This customization allows Doku Client to seamlessly integrate with your existing setup and respond to its demands effectively.
 
-### Give A Star ⭐
 
-You can also give this repository a star to show more people and they can use this repository
+| Variable             | Description                                                                 | Required | Example                               |
+|----------------------|-----------------------------------------------------------------------------|:--------:|---------------------------------------|
+| `INIT_DB_HOST`       | Host address of the ClickHouse server to connect to.                        |    ✓     | `127.0.0.1`                           |
+| `INIT_DB_PORT`       | Port on which ClickHouse listens.                                           |    ✓     | `8123`                                |
+| `INIT_DB_DATABASE`   | Database name in ClickHouse for Doku Client.                                |          | `default`                             |
+| `INIT_DB_USERNAME`   | Username for authenticating with ClickHouse.                                |          | `default`                             |
+| `INIT_DB_PASSWORD`   | Password for authenticating with ClickHouse.                                |          | `default`                             |
+| `SQLITE_DATABASE_URL`| Location of the SQLITE database for Doku Client data storage.               |    ✓     | `file:/app/client/data/data.db`       |
+
+For more detailed information on configuration options and additional settings, please visit the Doku documentation page: [Doku Configuration Details](https://docs.dokulabs.com/latest/configuration).
+
+## Security
+
+We take security seriously. Doku Client incorporates best practices for authentication, authorization, and secure communication to ensure data privacy and protection.
+
+## Contributing
+
+Contributions to Doku Client are greatly appreciated. Whether you have suggestions for bug fixes, improvements, or new features, please see [CONTRIBUTING](../../CONTRIBUTING.md) for more details on submitting pull requests or opening issues.
+
+## License
+
+Doku Client is available under the [Apache-2.0 license](../../LICENSE).
+
+## Support
+
+For support, issues, or feature requests, please submit an issue through the [GitHub issues](https://github.com/dokulabs/doku/issues) page for this repository.

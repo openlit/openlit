@@ -1,21 +1,8 @@
 import prisma from "./prisma";
 import asaw from "@/utils/asaw";
-import { compare, genSaltSync, hashSync } from "bcrypt-ts";
 import { getCurrentUser } from "./session";
 import { User } from "@prisma/client";
-
-const getHashedPassword = (password: string): string => {
-	const salt = genSaltSync(10);
-	const hash = hashSync(password, salt);
-	return hash;
-};
-
-export const isPasswordMatches = async (
-	password: string,
-	userPassword: string
-): Promise<boolean> => {
-	return await compare(password, userPassword);
-};
+import { getHashedPassword, doesPasswordMatches } from "@/utils/user";
 
 function exclude<User>(
 	user: User,
@@ -131,7 +118,7 @@ export const updateUserProfile = async ({
 	if (newPassword) {
 		if (!currentPassword)
 			throw new Error("Provide current password to update it to new one!");
-		const passwordsMatch = await isPasswordMatches(
+		const passwordsMatch = await doesPasswordMatches(
 			currentPassword,
 			user.password || ""
 		);

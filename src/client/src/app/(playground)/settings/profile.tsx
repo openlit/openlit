@@ -12,26 +12,14 @@ import toast from "react-hot-toast";
 
 const PROFILE_TOAST_ID = "profile-details";
 
-function ModifyProfileDetails() {
-	const { data: user, fireRequest: getUser } = useFetchWrapper();
+function ModifyProfileDetails({
+	user,
+	fetchUser,
+}: {
+	user: User | null;
+	fetchUser: () => void;
+}) {
 	const { fireRequest, isLoading } = useFetchWrapper();
-
-	const fetchUser = () => {
-		getUser({
-			requestType: "GET",
-			url: "/api/user/profile",
-			responseDataKey: "data",
-			failureCb: (err?: string) => {
-				toast.error(err || "Unauthorized access!", {
-					id: PROFILE_TOAST_ID,
-				});
-			},
-		});
-	};
-
-	useEffect(() => {
-		fetchUser();
-	}, []);
 
 	const modifyDetails: FormEventHandler<HTMLFormElement> = (event) => {
 		event.preventDefault();
@@ -76,8 +64,6 @@ function ModifyProfileDetails() {
 		});
 	};
 
-	const updatedUser = user as User;
-
 	return (
 		<FormBuilder
 			fields={[
@@ -86,29 +72,29 @@ function ModifyProfileDetails() {
 					type: "text",
 					name: "name",
 					placeholder: "db-config",
-					defaultValue: updatedUser?.name || "",
-					inputKey: `${updatedUser?.id}-name`,
+					defaultValue: user?.name || "",
+					inputKey: `${user?.id}-name`,
 				},
 				{
 					label: "Current Password",
 					type: "password",
 					name: "currentPassword",
 					placeholder: "*******",
-					inputKey: `${updatedUser?.id}-currentPassword`,
+					inputKey: `${user?.id}-currentPassword`,
 				},
 				{
 					label: "New Password",
 					type: "password",
 					name: "newPassword",
 					placeholder: "*******",
-					inputKey: `${updatedUser?.id}-newPassword`,
+					inputKey: `${user?.id}-newPassword`,
 				},
 				{
 					label: "Confirm New Password",
 					type: "password",
 					name: "confirmNewPassword",
 					placeholder: "*******",
-					inputKey: `${updatedUser?.id}-confirmNewPassword`,
+					inputKey: `${user?.id}-confirmNewPassword`,
 				},
 			]}
 			heading={`Update profile details`}
@@ -120,6 +106,21 @@ function ModifyProfileDetails() {
 }
 
 export default function Profile() {
+	const { data: user, fireRequest: getUser } = useFetchWrapper();
+
+	const fetchUser = () => {
+		getUser({
+			requestType: "GET",
+			url: "/api/user/profile",
+			responseDataKey: "data",
+			failureCb: (err?: string) => {
+				toast.error(err || "Unauthorized access!", {
+					id: PROFILE_TOAST_ID,
+				});
+			},
+		});
+	};
+
 	const items: SideTabItemProps[] = [
 		{
 			id: "details",
@@ -136,15 +137,25 @@ export default function Profile() {
 		setSelectedTabId(itemId);
 	};
 
+	useEffect(() => {
+		fetchUser();
+	}, []);
+
+	const updatedItems = items.map((item) =>
+		item.id === "details" ? { ...item, badge: (user as User)?.email } : item
+	);
+
 	return (
 		<div className="flex flex-1 h-full border-t border-secondary relative">
 			<SideTabs
-				items={items}
+				items={updatedItems}
 				onClickTab={onClickDB}
 				selectedTabId={selectedTabId}
 			/>
 			<div className="flex flex-1 w-full h-full">
-				{selectedTabId === "details" ? <ModifyProfileDetails /> : null}
+				{selectedTabId === "details" ? (
+					<ModifyProfileDetails user={user as User} fetchUser={fetchUser} />
+				) : null}
 			</div>
 		</div>
 	);

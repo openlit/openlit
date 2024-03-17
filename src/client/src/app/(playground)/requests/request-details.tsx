@@ -18,6 +18,7 @@ import { useRequest } from "@/app/(playground)/requests/request-context";
 import Image from "next/image";
 import { round } from "lodash";
 import { format } from "date-fns";
+import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/solid";
 
 export default function RequestDetails() {
 	const [request, updateRequest] = useRequest();
@@ -114,14 +115,14 @@ export default function RequestDetails() {
 													<span>Usage cost : </span>
 													<span>{round(request.usageCost, 6)}</span>
 												</div>
-												{request.promptTokens && (
+												{request.promptTokens > 0 && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<ClipboardDocumentCheckIcon className="w-3" />
 														<span>Prompt tokens : </span>
 														<span>{request.promptTokens}</span>
 													</div>
 												)}
-												{request.totalTokens && (
+												{request.totalTokens > 0 && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<ClipboardDocumentListIcon className="w-3" />
 														<span>Total tokens : </span>
@@ -182,7 +183,11 @@ export default function RequestDetails() {
 												</div>
 											)}
 											{request.image && request.imageSize && (
-												<div className="flex items-center justify-center aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-tertiary/[0.1] lg:aspect-none group-hover:opacity-75 lg:h-80 mt-4">
+												<a
+													href={request.image}
+													target="_blank"
+													className="flex items-center justify-center aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-secondary/[0.3] lg:aspect-none lg:h-80 mt-4 group relative p-4 text-center text-tertiary/[0.5]"
+												>
 													<Image
 														src={request.image}
 														alt={request.applicationName}
@@ -196,7 +201,10 @@ export default function RequestDetails() {
 															10
 														)}
 													/>
-												</div>
+													<span className="flex items-center justify-center opacity-0 group-hover:opacity-100 absolute top-0 left-0 w-full h-full text-primary bg-primary/[0.1]">
+														<ArrowTopRightOnSquareIcon className="w-6 h-6 ml-2 shrink-0" />
+													</span>
+												</a>
 											)}
 										</div>
 									</div>

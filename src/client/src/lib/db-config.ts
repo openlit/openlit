@@ -61,7 +61,6 @@ export const upsertDBConfig = async (
 	if (!dbConfig.host) throw new Error("No host provided");
 	if (!dbConfig.port) throw new Error("No port provided");
 	if (!dbConfig.database) throw new Error("No database provided");
-	if (!dbConfig.database) throw new Error("No database provided");
 
 	const user = await getCurrentUser();
 

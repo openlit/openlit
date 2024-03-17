@@ -34,7 +34,7 @@ func configureNewRelicData(data map[string]interface{}, config ConnectionConfig)
 		call_type = "Unknown"
 	}
 
-	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.completions" {
+	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.messages" || data["endpoint"] == "mistral.chat" || data["endpoint"] == "azure.chat.completions" || data["endpoint"] == "azure.completions" {
 		if data["finishReason"] == nil {
 			data["finishReason"] = "null"
 		}
@@ -128,7 +128,7 @@ func configureNewRelicData(data map[string]interface{}, config ConnectionConfig)
 			log.Error().Err(err).Msgf("Error sending Logs to New Relic")
 		}
 
-	} else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" {
+	} else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" || data["endpoint"] == "mistral.embeddings" || data["endpoint"] == "azure.embeddings" {
 		if data["endpoint"] == "openai.embeddings" {
 			jsonMetrics := []string{
 				fmt.Sprintf(`{
@@ -281,7 +281,7 @@ func configureNewRelicData(data map[string]interface{}, config ConnectionConfig)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error sending Metrics to New Relic")
 		}
-	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" {
+	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" || data["endpoint"] == "azure.images.create" {
 		jsonMetrics := []string{
 			fmt.Sprintf(`{
 					"name": "doku.LLM.Request.Duration",

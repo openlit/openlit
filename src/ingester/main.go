@@ -100,7 +100,7 @@ func main() {
 	r.HandleFunc("/api/push", api.DataHandler).Methods("POST")
 	r.HandleFunc("/api/keys", api.APIKeyHandler).Methods("GET", "POST", "DELETE")
 	r.HandleFunc("/", api.BaseEndpoint).Methods("GET")
-	r.HandleFunc("/api/connections", api.ConnectionsHandler).Methods("POST", "DELETE")
+	r.HandleFunc("/api/connections", api.ConnectionsHandler).Methods("POST", "DELETE", "GET")
 
 	// Define and start the HTTP server
 	server := &http.Server{

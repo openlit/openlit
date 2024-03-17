@@ -1,0 +1,94 @@
+---
+title: 'Image'
+description: 'Monitor OpenAI `image` API usage for cost, performance & user interactions'
+---
+
+## Create Image
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from openai import OpenAI
+    import dokumetry
+
+    client = OpenAI(
+      api_key = "YOUR_OPENAI_API_KEY"
+    )
+
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    image = client.images.generate(
+      model="dall-e-3",
+      prompt="Create a dashboard for LLM Observability data",
+      n=1,
+      size="1024x1024"
+    )
+
+    print(image.data)
+    ```
+  </Tab>
+  <Tab title="Javascript">
+    ```javascript
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const openai = new OpenAI();
+
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const image = await openai.images.generate({ model: "dall-e-3", prompt: "Create a dashboard for LLM Observability data" });
+
+      console.log(image.data);
+    }
+    main();
+    ```
+  </Tab>
+</Tabs>
+
+## Create Image Variation
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from openai import OpenAI
+    import dokumetry
+
+    client = OpenAI(
+      api_key = "YOUR_OPENAI_API_KEY"
+    )
+
+    # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    response = client.images.create_variation(
+      image=open("image_edit_original.png", "rb"),
+      n=2,
+      size="1024x1024"
+    )
+    ```
+  </Tab>
+  <Tab title="Javascript">
+    ```javascript
+    import fs from "fs";
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const openai = new OpenAI();
+
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const image = await openai.images.createVariation({
+        image: fs.createReadStream("otter.png"),
+      });
+
+      console.log(image.data);
+    }
+    main();
+    ```
+  </Tab>
+</Tabs>
