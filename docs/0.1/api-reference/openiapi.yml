@@ -43,6 +43,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/json201Response'
+    get:
+      summary: Get Connections details
+      operationId: getConnection
+      tags:
+        - Connection
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Connection details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionDetailsResponse'
+        '404':
+          description: Unauthorized request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/json401Response'
   /api/keys:
     get:
       summary: Get a list of API keys
@@ -143,7 +163,32 @@ components:
         ApiKey:
           type: string
           description: API Key for the Observability Platform. Example - `glc*******`
-
+    ConnectionDetailsResponse:
+      type: object
+      properties:
+        connections:
+          type: object
+          properties:
+            apiKey:
+              type: string
+            created_at:
+              type: string
+              format: date-time
+            id:
+              type: string
+            logsUrl:
+              type: string
+            logsUsername:
+              type: string
+            metricsUrl:
+              type: string
+            metricsUsername:
+              type: string
+            platform:
+              type: string
+        status:
+          type: integer
+          example: 200
     json201Response:
       type: object
       required:
