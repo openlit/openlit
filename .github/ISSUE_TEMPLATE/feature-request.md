@@ -1,7 +1,7 @@
 ---
 name: Feature Request
 about: Suggest an idea for this project
-title: ''
+title: "[FEAT]:"
 labels: ":raised_hand: Up for Grabs, :rocket: Feature"
 assignees: ''
 

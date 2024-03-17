@@ -1,7 +1,7 @@
 ---
 name: Bug
 about: Create a report to help us improve
-title: ''
+title: "[BUG]:"
 labels: ":bug: Bug, :raised_hand: Up for Grabs"
 assignees: ''
 
