@@ -174,8 +174,6 @@ components:
             created_at:
               type: string
               format: date-time
-            id:
-              type: string
             logsUrl:
               type: string
             logsUsername:

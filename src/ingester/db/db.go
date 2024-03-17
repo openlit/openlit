@@ -566,16 +566,16 @@ func GetConnection(existingAPIKey string) (map[string]interface{}, error) {
 	connectionDetails := map[string]interface{}{}
 
 	// Prepare the ClickHouse SQL query.
-	query := fmt.Sprintf(`SELECT id, platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername, created_at FROM %s ORDER BY id LIMIT 1`, doku_connections_table)
+	query := fmt.Sprintf(`SELECT platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername, created_at FROM %s ORDER BY id LIMIT 1`, doku_connections_table)
 
 	// QueryRow executes the query and returns at most one row.
 	row := db.QueryRow(ctx, query)
 
-	var id, platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername string
+	var platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername string
 	var createdAt time.Time
 
 	// Scan the results into variables.
-	err = row.Scan(&id, &platform, &metricsUrl, &logsUrl, &apiKey, &metricsUsername, &logsUsername, &createdAt)
+	err = row.Scan(&platform, &metricsUrl, &logsUrl, &apiKey, &metricsUsername, &logsUsername, &createdAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Info().Msg("No configuration found in the database.")
@@ -586,7 +586,6 @@ func GetConnection(existingAPIKey string) (map[string]interface{}, error) {
 	}
 
 	// Populate the results map.
-	connectionDetails["id"] = id
 	connectionDetails["platform"] = platform
 	connectionDetails["metricsUrl"] = metricsUrl
 	connectionDetails["logsUrl"] = logsUrl
