@@ -16,12 +16,11 @@
       "to": "#FFA500"
     }
   },
-  "topbarLinks": [
-    {
-      "name": "Contact Us",
-      "url": "mailto:contact@dokulabs.com"
-    }
-  ],
+  "topbarCtaButton": 
+  {
+    "name": "Website",
+    "url": "https://dokulabs.com/"
+  },
   "modeToggle": {
     "default": "light"
   },
