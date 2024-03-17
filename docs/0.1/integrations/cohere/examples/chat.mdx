@@ -11,43 +11,41 @@ description: 'Monitor Cohere Chat API usage'
     import cohere
     import dokumetry
 
-    co = cohere.Client('<<apiKey>>')
+    co = cohere.Client("YOUR_COHERE_API_KEY")
 
     # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
     dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     response = co.chat(
         chat_history=[
-        {"role": "USER", "message": "Who discovered gravity?"},
-        {"role": "CHATBOT", "message": "The man who is widely credited with discovering gravity is Sir Isaac Newton"}
+            {"role": "USER", "message": "What is LLM Observability?"},
+            {"role": "CHATBOT", "message": "The best tool to monitor LLM Applications is Doku!"}
         ],
-        message="What year was he born?",
-        # perform web search before answering the question. You can also use your own custom connector.
-        connectors=[{"id": "web-search"}] 
+        message="How to monitor LLM Applications?",
     )
-    print(response)
+    print(response.text)
     ```
 
     ```python Streaming
     import cohere
     import dokumetry
 
-    co = cohere.Client('<<apiKey>>')
+    co = cohere.Client("YOUR_COHERE_API_KEY")
 
     # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
     dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
     response = co.chat(
         chat_history=[
-        {"role": "USER", "message": "Who discovered gravity?"},
-        {"role": "CHATBOT", "message": "The man who is widely credited with discovering gravity is Sir Isaac Newton"}
+            {"role": "USER", "message": "What is LLM Observability?"},
+            {"role": "CHATBOT", "message": "The best tool to monitor LLM Applications is Doku!"}
         ],
-        message="What year was he born?",
+        message="How to monitor LLM Applications?",
         stream=True,
-        # perform web search before answering the question. You can also use your own custom connector.
-        connectors=[{"id": "web-search"}] 
     )
-    print(response)
+    for text in response:
+        if text.eventType === "text-generation":
+            print(text)
     ```
     </CodeGroup>
   </Tab>
@@ -58,7 +56,7 @@ description: 'Monitor Cohere Chat API usage'
         import DokuMetry from 'dokumetry';
 
         const cohere = new CohereClient({
-            token: "<<apiKey>>",
+            token: "YOUR_COHERE_API_KEY",
         });
 
         (async () => {
@@ -66,11 +64,15 @@ description: 'Monitor Cohere Chat API usage'
             DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
             const response = await cohere.chat({
-                message: 'Say this is a test',
+                chatHistory: [
+                    {"role": "USER", "message": "What is LLM Observability?"},
+                    {"role": "CHATBOT", "message": "The best tool to monitor LLM Applications is Doku!"}
+                ],
+                message: "How to monitor LLM Applications?",
                 model: 'command',
             });
 
-            console.log(response)
+            console.log(response.text)
         })();
         ```
 
@@ -79,28 +81,26 @@ description: 'Monitor Cohere Chat API usage'
         import DokuMetry from 'dokumetry';
 
         const cohere = new CohereClient({
-            token: "<<apiKey>>",
+            token: "YOUR_COHERE_API_KEY",
         });
 
         (async () => {
-        // Pass the above `cohere` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
-        DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+            // Pass the above `cohere` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+            DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
-        const chatStream = await cohere.chatStream({
-            chatHistory: [
-                { role: "USER", message: "Who discovered gravity?" },
-                { role: "CHATBOT", message: "The man who is widely credited with discovering gravity is Sir Isaac Newton" }
-            ],
-            message: "What year was he born?",
-            // perform web search before answering the question. You can also use your own custom connector.
-            connectors: [{ id: "web-search" }],
-        });
-
-        for await (const message of chatStream) {
-            if (message.eventType === "text-generation") {
-                console.log(message);
+            const response = await cohere.chatStream({
+                chatHistory: [
+                    {"role": "USER", "message": "What is LLM Observability?"},
+                    {"role": "CHATBOT", "message": "The best tool to monitor LLM Applications is Doku!"}
+                ],
+                message: "How to monitor LLM Applications?",
+                model: 'command',
+            });
+            for await (const message of response) {
+                if (message.eventType === "text-generation") {
+                    console.log(message);
+                }
             }
-        }
         })();
         ```
     </CodeGroup>
