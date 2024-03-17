@@ -1,0 +1,472 @@
+---
+title: 'Chat Completions'
+description: 'Monitor OpenAI `chat.completions` API usage for cost, performance & user interactions'
+---
+
+<Tabs>
+  <Tab title="Python">
+
+    ### Synchronous Usage
+    <CodeGroup>
+      ```python Default
+      from openai import OpenAI
+      import dokumetry
+
+      client = OpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+        ]
+      )
+
+      print(completion.choices[0].message)
+      ```
+
+      ```python Image Input
+      from openai import OpenAI
+      import dokumetry
+
+      client = OpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      response = client.chat.completions.create(
+          model="gpt-4-vision-preview",
+          messages=[
+              {
+                  "role": "user",
+                  "content": [
+                      {"type": "text", "text": "What’s in this image?"},
+                      {
+                          "type": "image_url",
+                          "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+                      },
+                  ],
+              }
+          ],
+          max_tokens=300,
+      )
+
+      print(response.choices[0])
+      ```
+
+      ```python Streaming
+      from openai import OpenAI
+      import dokumetry
+
+      client = OpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+        ],
+        stream=True
+      )
+
+      for chunk in completion:
+        print(chunk.choices[0].delta)
+      ```
+
+      ```python Functions
+      from openai import OpenAI
+      import dokumetry
+
+      client = OpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      tools = [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_current_weather",
+            "description": "Get the current weather in a given location",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "location": {
+                  "type": "string",
+                  "description": "The city and state, e.g. San Francisco, CA",
+                },
+                "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+              },
+              "required": ["location"],
+            },
+          }
+        }
+      ]
+      messages = [{"role": "user", "content": "What's the weather like in Boston today?"}]
+      completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        tools=tools,
+        tool_choice="auto"
+      )
+
+      print(completion)
+      ```
+
+      ```python LogProbs
+      from openai import OpenAI
+      import dokumetry
+
+      client = OpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+        ],
+        logprobs=True,
+        top_logprobs=2
+      )
+
+      print(completion.choices[0].message)
+      print(completion.choices[0].logprobs)
+      ```
+    </CodeGroup>
+
+    ### Asynchronous Usage
+
+    <CodeGroup>
+      ```python Default
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      async def main() -> None:
+        chat_completion = await client.chat.completions.create(
+          messages=[
+            {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+            {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+          ],
+          model="gpt-3.5-turbo",
+        )
+
+      asyncio.run(main())
+      ```
+
+      ```python Image Input
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      async def main() -> None:
+        response = await client.chat.completions.create(
+            model="gpt-4-vision-preview",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "What’s in this image?"},
+                        {
+                            "type": "image_url",
+                            "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+                        },
+                    ],
+                }
+            ],
+            max_tokens=300,
+        )
+
+      asyncio.run(main())
+      ```
+
+      ```python Streaming
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      async def main():
+        stream = await client.chat.completions.create(
+          model="gpt-4",
+          messages=[
+            {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+            {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+          ],
+          stream=True,
+        )
+        async for chunk in stream:
+          print(chunk.choices[0].delta.content or "", end="")
+
+
+      asyncio.run(main())
+      ```
+
+      ```python Functions
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      tools = [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_current_weather",
+            "description": "Get the current weather in a given location",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "location": {
+                  "type": "string",
+                  "description": "The city and state, e.g. San Francisco, CA",
+                },
+                "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+              },
+              "required": ["location"],
+            },
+          }
+        }
+      ]
+      messages = [{"role": "user", "content": "What's the weather like in Boston today?"}]
+
+      async def main() -> None:
+        completion = await client.chat.completions.create(
+          model="gpt-3.5-turbo",
+          messages=messages,
+          tools=tools,
+          tool_choice="auto"
+        )
+
+      asyncio.run(main())
+      ```
+
+      ```python LogProbs
+      import asyncio
+      from openai import AsyncOpenAI
+      import dokumetry
+
+      client = AsyncOpenAI(
+        api_key = "YOUR_OPENAI_API_KEY"
+      )
+
+      # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+      dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+      async def main() -> None:
+        completion = await client.chat.completions.create(
+          model="gpt-3.5-turbo",
+          messages=[
+            {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+            {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+          ],
+          logprobs=True,
+          top_logprobs=2
+        )
+
+      asyncio.run(main())
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="NodeJS">
+    <CodeGroup>
+    ```javascript Default
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const openai = new OpenAI();
+
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const completion = await openai.chat.completions.create({
+        messages: [
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+        ],
+        model: "gpt-3.5-turbo",
+      });
+
+      console.log(completion.choices[0]);
+    }
+
+    main();
+    ```
+
+    ```javascript Image Input
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const openai = new OpenAI();
+
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-vision-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "What’s in this image?" },
+              {
+                type: "image_url",
+                image_url:
+                  "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+              },
+            ],
+          },
+        ],
+      });
+      console.log(response.choices[0]);
+    }
+    main();
+    ```
+
+    ```javascript Streaming
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const openai = new OpenAI();
+
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+        ],
+        stream: true,
+      });
+
+      for await (const chunk of completion) {
+        console.log(chunk.choices[0].delta.content);
+      }
+    }
+
+    main();
+    ```
+
+    ```javascript Functions
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const openai = new OpenAI();
+
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const messages = [{"role": "user", "content": "What's the weather like in Boston today?"}];
+      const tools = [
+          {
+            "type": "function",
+            "function": {
+              "name": "get_current_weather",
+              "description": "Get the current weather in a given location",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "type": "string",
+                    "description": "The city and state, e.g. San Francisco, CA",
+                  },
+                  "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+                },
+                "required": ["location"],
+              },
+            }
+          }
+      ];
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: messages,
+        tools: tools,
+        tool_choice: "auto",
+      });
+
+      console.log(response);
+    }
+
+    main();
+    ```
+
+    ```javascript LogProbs
+    import OpenAI from "openai";
+    import DokuMetry from 'dokumetry';
+
+    const openai = new OpenAI();
+
+    // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+    DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+    async function main() {
+      const completion = await openai.chat.completions.create({
+        messages: [
+          {"role": "system", "content": "You are a expert at monitoring LLM Applications"},
+          {"role": "user", "content": "Hello! How do I monitor my OpenAI based LLM Applications?"}
+        ],
+        model: "gpt-3.5-turbo",
+        logprobs: true,
+        top_logprobs: 2,
+      });
+
+      console.log(completion.choices[0]);
+    }
+
+    main();
+    ```
+    </CodeGroup>
+  </Tab>
+</Tabs>

@@ -1,0 +1,107 @@
+---
+title: 'Chat'
+description: 'Monitor Cohere `chat` API usage for cost, performance & user interactions'
+---
+
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+    ```python No Streaming
+    import cohere
+    import dokumetry
+
+    co = cohere.Client("YOUR_COHERE_API_KEY")
+
+    # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+    dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    response = co.chat(
+        chat_history=[
+            {"role": "USER", "message": "What is LLM Observability?"},
+            {"role": "CHATBOT", "message": "The best tool to monitor LLM Applications is Doku!"}
+        ],
+        message="How to monitor LLM Applications?",
+    )
+    print(response.text)
+    ```
+
+    ```python Streaming
+    import cohere
+    import dokumetry
+
+    co = cohere.Client("YOUR_COHERE_API_KEY")
+
+    # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+    dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
+
+    response = co.chat(
+        chat_history=[
+            {"role": "USER", "message": "What is LLM Observability?"},
+            {"role": "CHATBOT", "message": "The best tool to monitor LLM Applications is Doku!"}
+        ],
+        message="How to monitor LLM Applications?",
+        stream=True,
+    )
+    for text in response:
+        if text.eventType === "text-generation":
+            print(text)
+    ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="Javascript">
+    <CodeGroup>
+        ```javascript No Streaming
+        import { CohereClient } from "cohere-ai";
+        import DokuMetry from 'dokumetry';
+
+        const cohere = new CohereClient({
+            token: "YOUR_COHERE_API_KEY",
+        });
+
+        (async () => {
+            // Pass the above `cohere` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+            DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+            const response = await cohere.chat({
+                chatHistory: [
+                    {"role": "USER", "message": "What is LLM Observability?"},
+                    {"role": "CHATBOT", "message": "The best tool to monitor LLM Applications is Doku!"}
+                ],
+                message: "How to monitor LLM Applications?",
+                model: 'command',
+            });
+
+            console.log(response.text)
+        })();
+        ```
+
+        ```javascript Streaming
+        import { CohereClient } from "cohere-ai";
+        import DokuMetry from 'dokumetry';
+
+        const cohere = new CohereClient({
+            token: "YOUR_COHERE_API_KEY",
+        });
+
+        (async () => {
+            // Pass the above `cohere` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
+            DokuMetry.init({llm: cohere, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+
+            const response = await cohere.chatStream({
+                chatHistory: [
+                    {"role": "USER", "message": "What is LLM Observability?"},
+                    {"role": "CHATBOT", "message": "The best tool to monitor LLM Applications is Doku!"}
+                ],
+                message: "How to monitor LLM Applications?",
+                model: 'command',
+            });
+            for await (const message of response) {
+                if (message.eventType === "text-generation") {
+                    console.log(message);
+                }
+            }
+        })();
+        ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
