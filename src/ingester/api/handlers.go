@@ -176,21 +176,21 @@ func getConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 			sendJSONResponse(w, http.StatusUnauthorized, errMsgAuthFailed)
 			return
 		}
-		sendJSONResponse(w, http.StatusBadRequest, "Error getting connection: " +err.Error())
+		sendJSONResponse(w, http.StatusBadRequest, "Error getting connection: "+err.Error())
 		return
 	}
 
 	response := map[string]interface{}{
-        "status":      http.StatusOK,
-        "connections": observability,
-    }
+		"status":      http.StatusOK,
+		"connections": observability,
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusOK) // Setting the status code here is actually superfluous since `Encode` will write it as well.
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK) // Setting the status code here is actually superfluous since `Encode` will write it as well.
 
-    if err := json.NewEncoder(w).Encode(response); err != nil {
-        http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
-    }
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
+	}
 }
 
 // generateAPIKeyHandler handles the creation of a new API Key

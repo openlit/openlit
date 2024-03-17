@@ -572,7 +572,7 @@ func GetConnection(existingAPIKey string) (map[string]interface{}, error) {
 	row := db.QueryRow(ctx, query)
 
 	var id, platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername string
-	var createdAt time.Time 
+	var createdAt time.Time
 
 	// Scan the results into variables.
 	err = row.Scan(&id, &platform, &metricsUrl, &logsUrl, &apiKey, &metricsUsername, &logsUsername, &createdAt)
