@@ -15,6 +15,6 @@ Attach screenshots/screen recordings here to show the changes.
 ---
 
 #### Checklist:
-- [ ] PR name follows conventional commits format: `feat: ...` or `fix: ....`
+- [ ] PR name follows conventional commits format: `[FEAT]: ...` or `[FIX]: ....`
 - [ ] Added visuals for changes (Needed if you made changes to Doku Client or Connections in Doku Ingester)
 - [ ] Checked Doku [contribution guidelines](https://github.com/dokulabs/doku/blob/main/CONTRIBUTING.md)
