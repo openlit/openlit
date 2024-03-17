@@ -553,3 +553,47 @@ func DeleteConnection(existingAPIKey string) error {
 
 	return nil
 }
+
+// / GetConnection gets the existing connection configuration from the database.
+func GetConnection(existingAPIKey string) (map[string]interface{}, error) {
+	// Authenticate the provided API key before proceeding
+	_, err := CheckAPIKey(existingAPIKey)
+	if err != nil {
+		log.Warn().Msg("Authorization Failed for an API Key")
+		return nil, fmt.Errorf("AUTHFAILED")
+	}
+
+	connectionDetails := map[string]interface{}{}
+
+	// Prepare the ClickHouse SQL query.
+	query := fmt.Sprintf(`SELECT id, platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername, created_at FROM %s ORDER BY id LIMIT 1`, doku_connections_table)
+
+	// QueryRow executes the query and returns at most one row.
+	row := db.QueryRow(ctx, query)
+
+	var id, platform, metricsUrl, logsUrl, apiKey, metricsUsername, logsUsername string
+	var createdAt time.Time 
+
+	// Scan the results into variables.
+	err = row.Scan(&id, &platform, &metricsUrl, &logsUrl, &apiKey, &metricsUsername, &logsUsername, &createdAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Info().Msg("No configuration found in the database.")
+			return nil, fmt.Errorf("NOTFOUND")
+		}
+		log.Error().Err(err).Msg("Failed to get the connection configuration")
+		return nil, err
+	}
+
+	// Populate the results map.
+	connectionDetails["id"] = id
+	connectionDetails["platform"] = platform
+	connectionDetails["metricsUrl"] = metricsUrl
+	connectionDetails["logsUrl"] = logsUrl
+	connectionDetails["apiKey"] = apiKey
+	connectionDetails["metricsUsername"] = metricsUsername
+	connectionDetails["logsUsername"] = logsUsername
+	connectionDetails["created_at"] = createdAt
+
+	return connectionDetails, nil
+}

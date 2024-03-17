@@ -172,7 +172,8 @@
           "icon": "link",
           "pages": [
             "latest/api-reference/endpoint/connections/create",
-            "latest/api-reference/endpoint/connections/delete"
+            "latest/api-reference/endpoint/connections/delete",
+            "latest/api-reference/endpoint/connections/get"
           ],
           "version": "latest"
         }
@@ -310,7 +311,8 @@
           "icon": "link",
           "pages": [
             "0.1/api-reference/endpoint/connections/create",
-            "0.1/api-reference/endpoint/connections/delete"
+            "0.1/api-reference/endpoint/connections/delete",
+            "0.1/api-reference/endpoint/connections/get"
           ],
           "version": "0.1"
         }
