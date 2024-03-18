@@ -92,7 +92,14 @@ function ManageConnections() {
 
 	return (
 		<>
-			<div className="flex flex-wrap gap-10 mt-4">
+			<div
+				className={`flex flex-wrap gap-10 mt-4 relative ${
+					isLoading || isDeleting ? "animate-pulse" : ""
+				}`}
+			>
+				{(isLoading || isDeleting) && (
+					<div className="absolute z-10 w-full h-full top-0 left-0" />
+				)}
 				{Object.keys(CONNECTIONS).map((connectionKey: string) => {
 					const connection =
 						CONNECTIONS[connectionKey as keyof typeof CONNECTIONS];
