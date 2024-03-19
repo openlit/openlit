@@ -4,3 +4,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "gomod"
+    directory: "/src/ingester/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "npm"
+    directory: "/src/client/"
+    schedule:
+      interval: "weekly"
