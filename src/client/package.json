@@ -10,7 +10,7 @@
     "seed": "npx prisma db seed"
   },
   "dependencies": {
-    "@clickhouse/client": "^0.2.10",
+    "@clickhouse/client": "^0.3.0",
     "@headlessui/react": "^1.7.18",
     "@heroicons/react": "^2.1.1",
     "@next-auth/prisma-adapter": "^1.0.7",
