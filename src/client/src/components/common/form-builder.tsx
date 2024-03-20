@@ -51,7 +51,7 @@ const FormBuilder = ({
 	submitButtonText,
 }: {
 	fields: FieldProps[];
-	heading: string;
+	heading?: string;
 	isLoading?: boolean;
 	onSubmit: FormEventHandler<HTMLFormElement>;
 	submitButtonText: string;
@@ -62,15 +62,17 @@ const FormBuilder = ({
 			onSubmit={isLoading ? noop : onSubmit}
 		>
 			<div className="flex flex-col relative flex-1 overflow-y-auto">
-				<h2 className="text-base font-semibold px-5 pt-3 text-tertiary sticky top-0 bg-white">
-					{heading}
-				</h2>
+				{heading && (
+					<h2 className="text-base font-semibold px-5 pt-3 text-tertiary sticky top-0 bg-white">
+						{heading}
+					</h2>
+				)}
 
-        <div className="flex flex-col relative flex-1 overflow-y-auto px-5 pb-3">
-          {fields.map((field, index) => (
-            <FormField key={index} {...field} />
-          ))}
-        </div>
+				<div className="flex flex-col relative flex-1 overflow-y-auto px-5 pb-3">
+					{fields.map((field, index) => (
+						<FormField key={index} {...field} />
+					))}
+				</div>
 				<div className="mt-6 flex items-center justify-end border-t border-secondary w-full py-2 gap-3">
 					<button
 						type="submit"
