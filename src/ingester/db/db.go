@@ -166,18 +166,6 @@ func getCreateDataTableSQL(tableName string, retentionPeriod string) string {
 	TTL time + INTERVAL + %s DELETE; `, tableName, retentionPeriod)
 }
 
-func tableExists(tableName string, databaseName string) (bool, error) {
-	query := `SELECT count() 
-              FROM system.tables 
-              WHERE database = ? AND name = ?`
-
-	var count uint64
-	if err := db.QueryRow(ctx, query, databaseName, tableName).Scan(&count); err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
 // createTable attempts to create a table in ClickHouse if it doesn't already exist.
 func createTable(tableName string, cfg config.Configuration) error {
 	var createTableSQL string
@@ -190,28 +178,30 @@ func createTable(tableName string, cfg config.Configuration) error {
 		createTableSQL = getCreateConnectionsTableSQL(tableName)
 	}
 
-	exists, err := tableExists(tableName, cfg.Database.Name)
-	if err != nil {
-		return fmt.Errorf("error checking table '%s' existence: %w", tableName, err)
+	if err := db.Exec(ctx, createTableSQL); err != nil {
+		return fmt.Errorf("error creating table '%s': %w", tableName, err)
 	}
-	if !exists {
-		if err = db.Exec(ctx, createTableSQL); err != nil {
-			return fmt.Errorf("error creating table '%s': %w", tableName, err)
+	if tableName == doku_apikeys_table {
+		var exists uint64
+		checkQuery := fmt.Sprintf("SELECT count() FROM %s WHERE name = $1", doku_apikeys_table)
+
+		if err := db.QueryRow(ctx, checkQuery, "doku-client-internal").Scan(&exists); err != nil {
+			log.Error().Err(err).Msg("Error checking if the internal API key exists in the database")
+			return err
 		}
-		if tableName == doku_apikeys_table {
+
+		if exists == 0 {
 			newAPIKey, _ := generateSecureRandomKey()
 			// Insert the new API key into the database
 			insertQuery := fmt.Sprintf("INSERT INTO %s (api_key, name) VALUES ($1, $2)", doku_apikeys_table)
-			err = db.Exec(ctx, insertQuery, newAPIKey, "doku-client-internal")
+			err := db.Exec(ctx, insertQuery, newAPIKey, "doku-client-internal")
 			if err != nil {
 				log.Error().Err(err).Msg("Error inserting the new API key in the database")
 				return err
 			}
 		}
-		log.Printf("table '%s' created in the database", tableName)
-		return nil
 	}
-	log.Info().Msgf("table '%s' exists in the database", tableName)
+	log.Printf("table '%s' created/exists in the database", tableName)
 	return nil
 }
 
