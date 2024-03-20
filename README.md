@@ -154,6 +154,10 @@ To install the Doku Helm chart, follow these steps:
 
 For a detailed list of configurable parameters for the Helm chart, refer to the `values.yaml` file in the [Helm chart](https://github.com/dokulabs/doku/tree/main/helm/doku).
 
+### Other Installation Methods
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/tZQJlB?referralCode=8Gb9bk)
+
 ### 🔑 Access Doku UI and Generate an API Key
 
 With Doku running, the next step is to access the Doku UI and generate an API key for secure communication between your applications and Doku.
