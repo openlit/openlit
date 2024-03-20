@@ -46,7 +46,6 @@ services:
     volumes:
       - doku-client-data:/app/client/data
     restart: always
-
 volumes:
   clickhouse-data:
   doku-client-data:
