@@ -7,12 +7,14 @@ DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Open
 
 ## Get Started 
 
-The integration is compatible with OpenAI Python SDK version `>=1.13.0` and NodeJS SDK `>=4.28.0`
+The integration is compatible with  
+- OpenAI Python SDK client `>=1.13.0` 
+- OpenAI JS/TS SDK client `>=4.28.0`
 
 <Tabs>
   <Tab title="Python">
     ```shell
-    pip install dokumetry
+    pip install dokumetry==0.1.1
     ```
 
     ```python
@@ -26,7 +28,7 @@ The integration is compatible with OpenAI Python SDK version `>=1.13.0` and Node
   </Tab>
   <Tab title="Javascript">
     ```shell
-    npm install dokumetry
+    npm install dokumetry@0.1.1
     ```
 
     ```javascript
@@ -44,7 +46,7 @@ The integration is compatible with OpenAI Python SDK version `>=1.13.0` and Node
 
 The following OpenAI Endpoints are supported for monitoring with DokuMetry
 
-- [Chat completions](/latest/integrations/openai/examples/chat)
+- [Chat completions](/latest/integrations/openai/examples/chatCompletions)
 - [Image Create](/latest/integrations/openai/examples/image#create-image) and [Image Variations](/latest/integrations/openai/examples/image#create-image-variation)
 - [Audio Speech Create](/latest/integrations/openai/examples/audio)
 - [Embeddings](/latest/integrations/openai/examples/embeddings)
@@ -87,7 +89,7 @@ To filter your LLM Usage according application or the environment, set the Appli
 <Card title="Connections" href="/latest/connections/intro" icon='link'>
 Connect to your existing Observablity Platform
 </Card>
-<Card title="API Refernce" href="/latest/api-reference/introduction" icon='code'>
+<Card title="API Reference" href="/latest/api-reference/introduction" icon='code'>
 OpenAPI specification for API Endpoints in Doku 
 </Card>
 </CardGroup>

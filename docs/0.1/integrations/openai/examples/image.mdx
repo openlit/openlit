@@ -1,6 +1,6 @@
 ---
 title: 'Image'
-description: 'Monitor OpenAI Image API usage'
+description: 'Monitor OpenAI `image` API usage for cost, performance & user interactions'
 ---
 
 ## Create Image
@@ -18,12 +18,14 @@ description: 'Monitor OpenAI Image API usage'
     # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
     dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
-    client.images.generate(
+    image = client.images.generate(
       model="dall-e-3",
-      prompt="A cute baby sea otter",
+      prompt="Create a dashboard for LLM Observability data",
       n=1,
       size="1024x1024"
     )
+
+    print(image.data)
     ```
   </Tab>
   <Tab title="Javascript">
@@ -37,7 +39,7 @@ description: 'Monitor OpenAI Image API usage'
     DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
     async function main() {
-      const image = await openai.images.generate({ model: "dall-e-3", prompt: "A cute baby sea otter" });
+      const image = await openai.images.generate({ model: "dall-e-3", prompt: "Create a dashboard for LLM Observability data" });
 
       console.log(image.data);
     }

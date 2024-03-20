@@ -88,7 +88,7 @@ To install the Doku using Docker, follow these steps:
       restart: always
 
     doku-ingester:
-      image: ghcr.io/dokulabs/doku-ingester:0.1.0
+      image: ghcr.io/dokulabs/doku-ingester:0.1.1
       container_name: doku-ingester
       environment:
         DOKU_DB_HOST: clickhouse   
@@ -103,7 +103,7 @@ To install the Doku using Docker, follow these steps:
       restart: always
     
     doku-client:
-      image: ghcr.io/dokulabs/doku-client:0.1.0
+      image: ghcr.io/dokulabs/doku-client:0.1.1
       container_name: doku-client
       environment:
         INIT_DB_HOST: clickhouse
@@ -153,6 +153,10 @@ To install the Doku Helm chart, follow these steps:
   ```
 
 For a detailed list of configurable parameters for the Helm chart, refer to the `values.yaml` file in the [Helm chart](https://github.com/dokulabs/doku/tree/main/helm/doku).
+
+### Other Installation Methods
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/tZQJlB?referralCode=8Gb9bk)
 
 ### 🔑 Access Doku UI and Generate an API Key
 

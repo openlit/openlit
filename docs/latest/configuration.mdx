@@ -11,7 +11,7 @@ This guide covers all the available environment variables to fine-tune Doku acco
 ### Environment Varibales
 
 <ResponseField name="INIT_DB_HOST" required>
-  Sets the password for the user authenticating with ClickHouse.
+  Sets the host address of the ClickHouse server for Doku Client to connect
 
   **Example**:
   ```yaml
@@ -20,7 +20,7 @@ This guide covers all the available environment variables to fine-tune Doku acco
 </ResponseField>
 
 <ResponseField name="INIT_DB_PORT" required>
-  Sets the password for the user authenticating with ClickHouse.
+  Sets the port on which ClickHouse listens
 
   **Example**:
   ```yaml
@@ -29,7 +29,7 @@ This guide covers all the available environment variables to fine-tune Doku acco
 </ResponseField>
 
 <ResponseField name="INIT_DB_DATABASE" required>
-  Name of the database in Clickhouse to be used by Doku
+  Sets the name of the database in Clickhouse to be used by Doku
 
   **Example**:
   ```yaml
@@ -38,7 +38,7 @@ This guide covers all the available environment variables to fine-tune Doku acco
 </ResponseField>
 
 <ResponseField name="INIT_DB_USERNAME" required>
-  Sets the username for authenticating with ClickHouse.
+  Sets the username for authenticating with ClickHouse
 
   **Example**:
   ```yaml
@@ -47,7 +47,7 @@ This guide covers all the available environment variables to fine-tune Doku acco
 </ResponseField>
 
 <ResponseField name="INIT_DB_PASSWORD" required>
-  Sets the password for authenticating with ClickHouse.
+  Sets the password for authenticating with ClickHouse
 
   **Example**:
   ```yaml
@@ -56,7 +56,7 @@ This guide covers all the available environment variables to fine-tune Doku acco
 </ResponseField>
 
 <ResponseField name="SQLITE_DATABASE_URL" required>
-  Specifies the location where SQLITE data is stored.
+  Sets the location where SQLITE data is stored.
 
   **Example**:
   ```yaml
@@ -80,7 +80,7 @@ SQLITE_DATABASE_URL="file:/app/client/data/data.db"
 ### Environment Varibales
 
 <ResponseField name="DOKU_DB_HOST" required>
-  Specifies the host address of the ClickHouse server for Doku to connect to.
+  Sets the host address of the ClickHouse server for Doku Ingester to connect
 
   **Example**:
   ```yaml
@@ -89,7 +89,7 @@ SQLITE_DATABASE_URL="file:/app/client/data/data.db"
 </ResponseField>
 
 <ResponseField name="DOKU_DB_PORT" required>
-  Defines the port on which ClickHouse listens.
+  Sets the port on which ClickHouse listens
 
   **Example**:
   ```yaml
@@ -98,7 +98,7 @@ SQLITE_DATABASE_URL="file:/app/client/data/data.db"
 </ResponseField>
 
 <ResponseField name="DOKU_DB_NAME" required>
-  Name of the database in Clickhouse to be used by Doku
+ Sets the name of the database in Clickhouse to be used by Doku
 
   **Example**:
   ```yaml
@@ -107,7 +107,7 @@ SQLITE_DATABASE_URL="file:/app/client/data/data.db"
 </ResponseField>
 
 <ResponseField name="DOKU_DB_USER" required>
-  Sets the username for authenticating with ClickHouse.
+  Sets the username for authenticating with ClickHouse
 
   **Example**:
   ```yaml
@@ -116,7 +116,7 @@ SQLITE_DATABASE_URL="file:/app/client/data/data.db"
 </ResponseField>
 
 <ResponseField name="DOKU_DB_PASSWORD" required>
-  Sets the password for authenticating with ClickHouse.
+  Sets the password for authenticating with ClickHouse
 
   **Example**:
   ```yaml
@@ -125,7 +125,7 @@ SQLITE_DATABASE_URL="file:/app/client/data/data.db"
 </ResponseField>
 
 <ResponseField name="DOKU_PRICING_JSON_URL">
-  URL of the json file containing the LLM Pricing data.
+  Sets the URL of the json file containing the LLM Pricing data
 
 **Default Value**:
 ```shell
@@ -139,7 +139,7 @@ export DOKU_PRICING_JSON_URL=https://raw.githubusercontent.com/dokulabs/ingester
 </ResponseField>
 
 <ResponseField name="DOKU_DB_MAX_IDLE_CONNS">
-  Maximum number of concurrent idle database connections.
+  Sets the maximum number of concurrent idle database connections.
 
 **Default Value**:
 ```shell
@@ -153,7 +153,7 @@ export DOKU_DB_MAX_IDLE_CONNS=10
 </ResponseField>
 
 <ResponseField name="DOKU_DB_MAX_OPEN_CONNS">
-  Maximum number of concurrent open database connections.
+  Sets the maximum number of concurrent open database connections.
 
 **Default Value**:
 ```shell
@@ -167,7 +167,7 @@ export DOKU_DB_MAX_OPEN_CONNS=20
 </ResponseField>
 
 <ResponseField name="DOKU_DB_RETENTION_PERIOD">
-  The `DOKU_DB_RETENTION_PERIOD` specifies the TTL for data in Clickhouse.
+  Sets the TTL for data in Clickhouse.
 
 **Default Value**:
 ```shell
