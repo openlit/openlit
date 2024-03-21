@@ -186,6 +186,7 @@ export default function RequestDetails() {
 												<a
 													href={request.image}
 													target="_blank"
+													rel="noopener noreferrer"
 													className="flex items-center justify-center aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-secondary/[0.3] lg:aspect-none lg:h-80 mt-4 group relative p-4 text-center text-tertiary/[0.5]"
 												>
 													<Image
