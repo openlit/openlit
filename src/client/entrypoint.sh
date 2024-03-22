@@ -17,11 +17,12 @@ echo "INIT_DB_PORT=${INIT_DB_PORT}" >> /etc/environment
 echo "INIT_DB_DATABASE=${INIT_DB_DATABASE}" >> /etc/environment
 
 # Run Prisma migrations and generate prisma client
-npx prisma migrate deploy
-npx prisma generate
+npm install -g prisma
+prisma migrate deploy
+prisma generate
 
 # Run the seed 
-npx prisma db seed
+prisma db seed
 
 # Start the Next.js application
 exec node --max_old_space_size=512 $(which npm) start
