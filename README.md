@@ -75,7 +75,7 @@ To install the Doku using Docker, follow these steps:
 
   services:
     clickhouse:
-      image: clickhouse/clickhouse-server:24.1.5
+      image: clickhouse/clickhouse-server:24.2.2
       container_name: clickhouse
       environment:
         CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
@@ -153,6 +153,10 @@ To install the Doku Helm chart, follow these steps:
   ```
 
 For a detailed list of configurable parameters for the Helm chart, refer to the `values.yaml` file in the [Helm chart](https://github.com/dokulabs/doku/tree/main/helm/doku).
+
+### Other Installation Methods
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/tZQJlB?referralCode=8Gb9bk)
 
 ### 🔑 Access Doku UI and Generate an API Key
 
