@@ -75,7 +75,7 @@ To install the Doku using Docker, follow these steps:
 
   services:
     clickhouse:
-      image: clickhouse/clickhouse-server:24.1.5
+      image: clickhouse/clickhouse-server:24.2.2
       container_name: clickhouse
       environment:
         CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   

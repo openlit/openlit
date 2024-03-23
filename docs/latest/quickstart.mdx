@@ -15,7 +15,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
 
         services:
           clickhouse:
-            image: clickhouse/clickhouse-server:24.1.5
+            image: clickhouse/clickhouse-server:24.2.2
             container_name: clickhouse
             environment:
               CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
