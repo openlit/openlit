@@ -37,7 +37,7 @@ Deploy Doku on your Kubernetes cluster using the [Doku Helm chart](https://githu
   </Step>
   <Step title="Installing the Helm Chart">
   ```shell shell
-  helm install doku dokulabs/doku --version="0.1.1"
+  helm install doku dokulabs/doku --version="0.1.3"
   ```
   </Step>
 </Steps>
@@ -65,7 +65,7 @@ For a quick and straightforward setup, Docker Compose can be used to deploy Doku
       restart: always
 
     doku-ingester:
-      image: ghcr.io/dokulabs/doku-ingester:0.1.1
+      image: ghcr.io/dokulabs/doku-ingester:0.1.3
       container_name: doku-ingester
       environment:
         DOKU_DB_HOST: clickhouse   
@@ -80,7 +80,7 @@ For a quick and straightforward setup, Docker Compose can be used to deploy Doku
       restart: always
     
     doku-client:
-      image: ghcr.io/dokulabs/doku-client:0.1.1
+      image: ghcr.io/dokulabs/doku-client:0.1.3
       container_name: doku-client
       environment:
         INIT_DB_HOST: clickhouse

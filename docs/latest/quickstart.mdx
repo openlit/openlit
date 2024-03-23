@@ -28,7 +28,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
             restart: always
 
           doku-ingester:
-            image: ghcr.io/dokulabs/doku-ingester:0.1.1
+            image: ghcr.io/dokulabs/doku-ingester:0.1.3
             container_name: doku-ingester
             environment:
               DOKU_DB_HOST: clickhouse   
@@ -43,7 +43,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
             restart: always
           
           doku-client:
-            image: ghcr.io/dokulabs/doku-client:0.1.1
+            image: ghcr.io/dokulabs/doku-client:0.1.3
             container_name: doku-client
             environment:
               INIT_DB_HOST: clickhouse
