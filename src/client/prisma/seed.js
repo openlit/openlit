@@ -1,6 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 async function main() {
+	console.log("Inside seeding.....");
 	// const defaultPassword = "dokulabsuser"; ⤵
 	const hashedPassword =
 		"$2a$10$XmL4Q45wWgPzMJXlM5L70eFyYvUGgIeRRm5f4.OOlcaIM/sQB6j/S";
@@ -49,6 +50,7 @@ async function main() {
 			},
 		});
 	}
+	console.log("Seeding End.....");
 }
 main()
 	.then(async () => {
@@ -57,5 +59,4 @@ main()
 	.catch(async (e) => {
 		console.error(e);
 		await prisma.$disconnect();
-		process.exit(1);
 	});
