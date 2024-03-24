@@ -21,6 +21,16 @@
 
 Doku is an **open-source LLMOps tool** engineered to enables developers with comprehensive capabilities to monitor, analyze, and optimize LLM applications. It provides valuable real-time data on **LLM usage, performance, and costs**. Through seamless integrations with leading LLM platforms, including OpenAI, Cohere, and Anthropic, Doku acts as a central command center for all your LLM needs. It effectively guides your efforts, ensuring that your LLM applications not only operate at peak efficiency but also scale successfully.
 
+<iframe
+  width="560"
+  height="315"
+  src="https://www.youtube.com/embed/6jhxVesllEY?si=M8dkLVVE2G7WhmBo"
+  title="Demo: Monitoring LLM Application with Doku"
+  frameborder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; playsinline"
+  allowfullscreen
+></iframe>
+
 ## Why use Doku?
 Get advanced monitoring and evaluation for your LLM applications with these key benefits:
 
