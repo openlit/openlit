@@ -22,6 +22,7 @@ description: 'Monitor Anthropic `messages` API usage for cost, performance & use
     message = client.messages.create(
       messages=[{ "role": "user", "content": "Hello, Explain LLM Monitoring in one sentence"}],
       model="claude-3-opus-20240229",
+      max_tokens=1024
     )
     print(message.content)
     ```
@@ -38,6 +39,7 @@ description: 'Monitor Anthropic `messages` API usage for cost, performance & use
 
     stream = client.messages.create(
       messages=[{"role": "user", "content": "Hello, Explain LLM Monitoring in one sentence"}],
+      max_tokens=1024,
       model="claude-3-opus-20240229",
       stream=True,
     )
