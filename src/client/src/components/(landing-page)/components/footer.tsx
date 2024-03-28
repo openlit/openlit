@@ -56,6 +56,7 @@ export default function Footer() {
 							href="https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ"
 							className="text-tertiary hover:text-tertiary dark:hover:text-white ms-5"
 							target="_blank"
+							rel="noopener"
 						>
 							<svg viewBox="0 0 2447.6 2452.5" className="w-4 h-4">
 								<g clipRule="evenodd" fillRule="evenodd">
@@ -83,6 +84,7 @@ export default function Footer() {
 							href="https://twitter.com/doku_labs"
 							className="text-tertiary hover:text-tertiary dark:hover:text-white ms-5"
 							target="_blank"
+							rel="noopener"
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -101,6 +103,7 @@ export default function Footer() {
 							href="https://github.com/dokulabs"
 							className="text-tertiary hover:text-tertiary dark:hover:text-white ms-5"
 							target="_blank"
+							rel="noopener"
 						>
 							<svg
 								className="w-4 h-4"

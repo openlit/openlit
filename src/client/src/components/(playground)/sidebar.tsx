@@ -10,7 +10,7 @@ import {
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
+import { LinkIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 
 type SidebarItemProps = {
 	className?: string;
@@ -45,6 +45,11 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		leftIcon: <KeyIcon className={ICON_CLASSES} />,
 		text: "API keys",
 		link: "/api-keys",
+	},
+	{
+		leftIcon: <LinkIcon className={ICON_CLASSES} />,
+		text: "Connections",
+		link: "/connections",
 	},
 	{
 		leftIcon: <WrenchScrewdriverIcon className={ICON_CLASSES} />,
@@ -115,7 +120,7 @@ export default function Sidebar() {
 					/>
 				</div>
 				<div className="w-full margin-y-2" />
-				<ul className="flex-1 pt-2 space-y-2">
+				<ul className="flex-1 pt-2 text-sm">
 					{SIDEBAR_ITEMS.map((item, index) => (
 						<li key={`sidebar-${index}`}>
 							<SidebarItem
@@ -129,7 +134,7 @@ export default function Sidebar() {
 						</li>
 					))}
 				</ul>
-				<ul className="shrink-0 space-y-2 bg-secondary/[0.9]">
+				<ul className="shrink-0 bg-secondary/[0.9]">
 					{SIDEBAR_BOTTOM_ITEMS.map((item, index) => (
 						<li key={`sidebar-${index}`}>
 							<SidebarItem

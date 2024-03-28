@@ -11,6 +11,7 @@ import {
 
 export const DATA_TABLE_NAME = "DOKU_LLM_DATA";
 export const API_KEY_TABLE_NAME = "DOKU_APIKEYS";
+export const CONNECTION_TABLE_NAME = "DOKU_CONNECTIONS";
 export const RESTRICTED_API_KEY_DELETION_NAMES = ["doku-client-internal"];
 
 export type TimeLimit = {
@@ -69,8 +70,8 @@ export async function dataCollector(
 			);
 
 			if (result) {
-				const data = await result?.json();
-				return { data };
+				const [err, data] = await asaw(result?.json());
+				return { err, data };
 			}
 		} else if (clientQueryType === "insert") {
 			if (!table || !values) return { err: "No table specified!" };
