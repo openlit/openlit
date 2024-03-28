@@ -21,6 +21,8 @@
 
 Doku is an **open-source LLMOps tool** engineered to enables developers with comprehensive capabilities to monitor, analyze, and optimize LLM applications. It provides valuable real-time data on **LLM usage, performance, and costs**. Through seamless integrations with leading LLM platforms, including OpenAI, Cohere, and Anthropic, Doku acts as a central command center for all your LLM needs. It effectively guides your efforts, ensuring that your LLM applications not only operate at peak efficiency but also scale successfully.
 
+https://github.com/dokulabs/doku/assets/150420377/80281574-40c0-404a-a0bc-bdc5c631c9d8
+
 ## Why use Doku?
 Get advanced monitoring and evaluation for your LLM applications with these key benefits:
 
@@ -88,7 +90,7 @@ To install the Doku using Docker, follow these steps:
       restart: always
 
     doku-ingester:
-      image: ghcr.io/dokulabs/doku-ingester:0.1.1
+      image: ghcr.io/dokulabs/doku-ingester:latest
       container_name: doku-ingester
       environment:
         DOKU_DB_HOST: clickhouse   
@@ -103,7 +105,7 @@ To install the Doku using Docker, follow these steps:
       restart: always
     
     doku-client:
-      image: ghcr.io/dokulabs/doku-client:0.1.1
+      image: ghcr.io/dokulabs/doku-client:latest
       container_name: doku-client
       environment:
         INIT_DB_HOST: clickhouse

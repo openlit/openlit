@@ -34,16 +34,15 @@ description: 'Monitor Cohere `chat` API usage for cost, performance & user inter
     # Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
     dokumetry.init(llm=co, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
-    response = co.chat(
+    response = co.chat_steam(
         chat_history=[
             {"role": "USER", "message": "What is LLM Observability?"},
             {"role": "CHATBOT", "message": "The best tool to monitor LLM Applications is Doku!"}
         ],
         message="How to monitor LLM Applications?",
-        stream=True,
     )
     for text in response:
-        if text.eventType === "text-generation":
+        if text.event_type === "text-generation":
             print(text)
     ```
     </CodeGroup>
