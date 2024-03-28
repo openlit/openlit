@@ -3,7 +3,7 @@ module ingester
 go 1.22.1
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.22.2
+	github.com/ClickHouse/clickhouse-go/v2 v2.22.3
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
 	github.com/gorilla/mux v1.8.1
 	github.com/pkoukk/tiktoken-go v0.1.6
