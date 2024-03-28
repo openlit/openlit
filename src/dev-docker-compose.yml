@@ -15,7 +15,10 @@ services:
     restart: always
 
   doku-ingester:
-    image: ghcr.io/dokulabs/doku-ingester:latest
+    image: doku-ingester
+    build:
+      context: ./ingester
+      dockerfile: Dockerfile
     container_name: doku-ingester
     environment:
       DOKU_DB_HOST: clickhouse   
@@ -30,7 +33,10 @@ services:
     restart: always
   
   doku-client:
-    image: ghcr.io/dokulabs/doku-client:latest
+    image: doku-client
+    build:
+      context: ./client
+      dockerfile: Dockerfile
     container_name: doku-client
     environment:
       INIT_DB_HOST: clickhouse
