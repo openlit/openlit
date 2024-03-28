@@ -18,7 +18,7 @@
     "@tremor/react": "^3.13.1",
     "bcrypt-ts": "^5.0.1",
     "copy-to-clipboard": "^3.3.3",
-    "date-fns": "^3.3.1",
+    "date-fns": "^3.6.0",
     "generic-pool": "^3.9.0",
     "lodash": "^4.17.21",
     "next": "14.0.4",
