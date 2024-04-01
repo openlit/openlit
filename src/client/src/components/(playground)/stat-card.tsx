@@ -1,8 +1,9 @@
-import { useFilter } from "@/app/(playground)/filter-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { memo, useCallback, useEffect } from "react";
 import Card, { CardProps } from "../common/card";
 import { round } from "lodash";
+import { getFilterDetails } from "@/selectors/filter";
+import { useRootStore } from "@/store";
 
 type StatCardProps = Partial<CardProps> & {
 	dataKey: string;
@@ -24,7 +25,7 @@ const StatCard = memo(
 		url,
 		...rest
 	}: StatCardProps) => {
-		const [filter] = useFilter();
+		const filter = useRootStore(getFilterDetails);
 		const { data, isFetched, isLoading, fireRequest } = useFetchWrapper();
 
 		const fetchData = useCallback(async () => {

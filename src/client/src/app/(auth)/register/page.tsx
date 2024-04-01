@@ -1,5 +1,4 @@
-"use client";
-import { AuthForm } from "../auth-form";
+import { AuthForm } from "../../../components/(auth)/auth-form";
 
 export default function Login() {
 	return <AuthForm type={"register"} />;

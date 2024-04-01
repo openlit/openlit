@@ -1,13 +1,14 @@
 import { useCallback, useEffect } from "react";
-import { useFilter } from "../filter-context";
 import Card from "@/components/common/card";
 import { LineChart } from "@tremor/react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import toast from "react-hot-toast";
 import { getChartColors } from "@/constants/chart-colors";
+import { useRootStore } from "@/store";
+import { getFilterDetails } from "@/selectors/filter";
 
 export default function RequestsPerTime() {
-	const [filter] = useFilter();
+	const filter = useRootStore(getFilterDetails);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({

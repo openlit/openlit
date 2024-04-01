@@ -1,7 +1,8 @@
 import Pagination from "@/components/common/pagination";
-import Filter from "../filter";
-import { useFilter } from "../filter-context";
 import { ceil } from "lodash";
+import Filter from "../../../components/(playground)/filter";
+import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
+import { useRootStore } from "@/store";
 
 export type FilterConfigProps = {
 	endpoints: string[];
@@ -15,7 +16,8 @@ export default function RequestFilter({
 }: {
 	config: FilterConfigProps | undefined;
 }) {
-	const [filter, updateFilter] = useFilter();
+	const filter = useRootStore(getFilterDetails);
+	const updateFilter = useRootStore(getUpdateFilter);
 	const onClickPageAction = (dir: -1 | 1) => {
 		updateFilter("offset", filter.offset + dir * filter.limit);
 	};

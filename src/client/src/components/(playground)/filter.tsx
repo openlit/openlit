@@ -1,10 +1,15 @@
 import { Tab } from "@headlessui/react";
-import {
-	DEFAULT_TIME_RANGE,
-	TIME_RANGE_TYPE,
-	useFilter,
-} from "./filter-context";
-import { useFilterStore } from "@/store/filter";
+import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
+import { useRootStore } from "@/store";
+
+const DEFAULT_TIME_RANGE = "24H";
+
+const TIME_RANGE_TYPE: Record<"24H" | "7D" | "1M" | "3M", string> = {
+	"24H": "24H",
+	"7D": "7D",
+	"1M": "1M",
+	"3M": "3M",
+};
 
 const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 	TIME_RANGE_TYPE
@@ -13,25 +18,21 @@ const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 	label: TIME_RANGE_TYPE[k as keyof typeof TIME_RANGE_TYPE],
 }));
 
-// const DEFAULT_CHECKED_INDEX = TIME_RANGE_TABS.findIndex(
-// 	({ key }) => key === DEFAULT_TIME_RANGE
-// );
-
 const Filter = () => {
-	// const [filter, updateFilter] = useFilter();
-	const { filter, updateFilter } = useFilterStore();
+	const filter = useRootStore(getFilterDetails);
+	const updateFilter = useRootStore(getUpdateFilter);
 	const handleChange = (index: number) => {
 		const selectedTab = TIME_RANGE_TABS[index].key;
 		updateFilter("timeLimit.type", selectedTab);
 	};
 
 	const DEFAULT_CHECKED_INDEX = TIME_RANGE_TABS.findIndex(
-		({ key }) => key === filter.timeLimit.type || DEFAULT_TIME_RANGE
+		({ key }) => key === (filter.timeLimit.type || DEFAULT_TIME_RANGE)
 	);
 
 	return (
 		<div className="flex pb-3 pt-2">
-			<Tab.Group defaultIndex={DEFAULT_CHECKED_INDEX} onChange={handleChange}>
+			<Tab.Group selectedIndex={DEFAULT_CHECKED_INDEX} onChange={handleChange}>
 				<Tab.List className="flex space-x-1 rounded-xl bg-secondary/[0.8] p-1">
 					{TIME_RANGE_TABS.map(({ label, key }) => (
 						<Tab

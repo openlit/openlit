@@ -1,9 +1,6 @@
-"use client";
-
-import { create } from "zustand";
-import { merge, set } from "lodash";
+import { set } from "lodash";
 import { addDays, addMonths, addWeeks } from "date-fns";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { lens } from "@dhmk/zustand-lens";
 
 export const TIME_RANGE_TYPE: Record<"24H" | "7D" | "1M" | "3M", string> = {
 	"24H": "24H",
@@ -55,37 +52,29 @@ const INITIAL_FILTER: FilterType = {
 	offset: 0,
 };
 
-type FilterStore = {
-	filter: FilterType;
+export type FilterStore = {
+	details: FilterType;
 	updateFilter: (key: string, value: any) => void;
 };
 
-export const useFilterStore = create<FilterStore>()(
-	persist(
-		(setStore, get) => ({
-			filter: INITIAL_FILTER,
-			updateFilter: (key: string, value: any) => {
-				let object = {};
-				switch (key) {
-					case "timeLimit.type":
-						object = getTimeLimitObject(value, "timeLimit.");
-						break;
-					case "limit":
-						set(object, "offset", 0);
-						break;
-					case "offset":
-						break;
-					default:
-						break;
-				}
-
-				set(object, key, value);
-				console.log(object);
-				setStore({ filter: { ...get().filter, ...object } });
-			},
-		}),
-		{
-			name: "filterStorage",
+export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
+	details: INITIAL_FILTER,
+	updateFilter: (key: string, value: any) => {
+		let object = {};
+		switch (key) {
+			case "timeLimit.type":
+				object = getTimeLimitObject(value, "timeLimit.");
+				break;
+			case "limit":
+				set(object, "offset", 0);
+				break;
+			case "offset":
+				break;
+			default:
+				break;
 		}
-	)
-);
+
+		set(object, key, value);
+		setStore({ details: { ...getStore().details, ...object } });
+	},
+}));
