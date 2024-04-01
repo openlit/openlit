@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "versions": ["latest", "0.0.7"],
+  "versions": ["latest", "0.1"],
   "name": "Doku",
   "logo": {
     "dark": "https://github.com/dokulabs/.github/blob/main/profile/assets/dark-bg-with-text-logo.jpg?raw=true",
@@ -16,12 +16,11 @@
       "to": "#FFA500"
     }
   },
-  "topbarLinks": [
-    {
-      "name": "Contact Us",
-      "url": "mailto:contact@dokulabs.com"
-    }
-  ],
+  "topbarCtaButton": 
+  {
+    "name": "Website",
+    "url": "https://dokulabs.com/"
+  },
   "modeToggle": {
     "default": "light"
   },
@@ -66,7 +65,7 @@
               "group": "Examples",
               "version": "latest",
               "pages": [
-                "latest/integrations/openai/examples/chat",
+                "latest/integrations/openai/examples/chatCompletions",
                 "latest/integrations/openai/examples/image",
                 "latest/integrations/openai/examples/embeddings",
                 "latest/integrations/openai/examples/audio",
@@ -85,7 +84,7 @@
               "group": "Examples",
               "version": "latest",
               "pages": [
-                "latest/integrations/cohere/examples/chat",
+                "latest/integrations/cohere/examples/cochat",
                 "latest/integrations/cohere/examples/generate",
                 "latest/integrations/cohere/examples/summarize",
                 "latest/integrations/cohere/examples/embed"
@@ -103,6 +102,38 @@
               "version": "latest",
               "pages": [
                 "latest/integrations/anthropic/examples/messages"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Mistral",
+          "version": "latest",
+          "pages": [
+            "latest/integrations/mistral/introduction",
+            {
+              "group": "Examples",
+              "version": "latest",
+              "pages": [
+                "latest/integrations/mistral/examples/mistral-chat",
+                "latest/integrations/mistral/examples/embedding"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Azure OpenAI",
+          "version": "latest",
+          "pages": [
+            "latest/integrations/azure-openai/introduction",
+            {
+              "group": "Examples",
+              "version": "latest",
+              "pages": [
+                "latest/integrations/azure-openai/examples/chat",
+                "latest/integrations/azure-openai/examples/image",
+                "latest/integrations/azure-openai/examples/embeddings",
+                "latest/integrations/azure-openai/examples/completions"
               ]
             }
           ]
@@ -141,7 +172,8 @@
           "icon": "link",
           "pages": [
             "latest/api-reference/endpoint/connections/create",
-            "latest/api-reference/endpoint/connections/delete"
+            "latest/api-reference/endpoint/connections/delete",
+            "latest/api-reference/endpoint/connections/get"
           ],
           "version": "latest"
         }
@@ -151,64 +183,96 @@
     {
       "group": "Introduction",
       "pages": [
-        "0.0.7/introduction",
-        "0.0.7/quickstart",
-        "0.0.7/installation",
-        "0.0.7/configuration"
+        "0.1/introduction",
+        "0.1/quickstart",
+        "0.1/installation",
+        "0.1/configuration"
       ],
-      "version": "0.0.7"
+      "version": "0.1"
     },
     {
       "group": "Integrations",
-      "version": "0.0.7",
+      "version": "0.1",
       "pages": [
-        "0.0.7/integrations/introduction",
+        "0.1/integrations/introduction",
         {
           "group": "OpenAI",
-          "version": "0.0.7",
+          "version": "0.1",
           "pages": [
-            "0.0.7/integrations/openai/introduction",
+            "0.1/integrations/openai/introduction",
             {
               "group": "Examples",
-              "version": "0.0.7",
+              "version": "0.1",
               "pages": [
-                "0.0.7/integrations/openai/examples/chat",
-                "0.0.7/integrations/openai/examples/image",
-                "0.0.7/integrations/openai/examples/embeddings",
-                "0.0.7/integrations/openai/examples/audio",
-                "0.0.7/integrations/openai/examples/fine-tuning",
-                "0.0.7/integrations/openai/examples/completions"
+                "0.1/integrations/openai/examples/chatCompletions",
+                "0.1/integrations/openai/examples/image",
+                "0.1/integrations/openai/examples/embeddings",
+                "0.1/integrations/openai/examples/audio",
+                "0.1/integrations/openai/examples/fine-tuning",
+                "0.1/integrations/openai/examples/completions"
               ]
             }
           ]
         },
         {
           "group": "Cohere",
-          "version": "0.0.7",
+          "version": "0.1",
           "pages": [
-            "0.0.7/integrations/cohere/introduction",
+            "0.1/integrations/cohere/introduction",
             {
               "group": "Examples",
-              "version": "0.0.7",
+              "version": "0.1",
               "pages": [
-                "0.0.7/integrations/cohere/examples/chat",
-                "0.0.7/integrations/cohere/examples/generate",
-                "0.0.7/integrations/cohere/examples/summarize",
-                "0.0.7/integrations/cohere/examples/embed"
+                "0.1/integrations/cohere/examples/cochat",
+                "0.1/integrations/cohere/examples/generate",
+                "0.1/integrations/cohere/examples/summarize",
+                "0.1/integrations/cohere/examples/embed"
               ]
             }
           ]
         },
         {
           "group": "Anthropic",
-          "version": "0.0.7",
+          "version": "0.1",
           "pages": [
-            "0.0.7/integrations/anthropic/introduction",
+            "0.1/integrations/anthropic/introduction",
             {
               "group": "Examples",
-              "version": "0.0.7",
+              "version": "0.1",
               "pages": [
-                "0.0.7/integrations/anthropic/examples/messages"
+                "0.1/integrations/anthropic/examples/messages"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Mistral",
+          "version": "0.1",
+          "pages": [
+            "0.1/integrations/mistral/introduction",
+            {
+              "group": "Examples",
+              "version": "0.1",
+              "pages": [
+                "0.1/integrations/mistral/examples/mistral-chat",
+                "0.1/integrations/mistral/examples/embedding"
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Azure OpenAI",
+          "version": "0.1",
+          "pages": [
+            "0.1/integrations/azure-openai/introduction",
+            {
+              "group": "Examples",
+              "version": "0.1",
+              "pages": [
+                "0.1/integrations/azure-openai/examples/chat",
+                "0.1/integrations/azure-openai/examples/image",
+                "0.1/integrations/azure-openai/examples/embeddings",
+                "0.1/integrations/azure-openai/examples/completions"
               ]
             }
           ]
@@ -218,41 +282,42 @@
     {
       "group": "Connections",
       "pages": [
-        "0.0.7/connections/intro",
-        "0.0.7/connections/grafanaoss",
-        "0.0.7/connections/grafanacloud",
-        "0.0.7/connections/datadog",
-        "0.0.7/connections/new-relic",
-        "0.0.7/connections/signoz",
-        "0.0.7/connections/dynatrace"
+        "0.1/connections/intro",
+        "0.1/connections/grafanaoss",
+        "0.1/connections/grafanacloud",
+        "0.1/connections/datadog",
+        "0.1/connections/new-relic",
+        "0.1/connections/signoz",
+        "0.1/connections/dynatrace"
       ],
-      "version": "0.0.7"
+      "version": "0.1"
     },
     {
       "group": "API Reference",
       "pages": [
-        "0.0.7/api-reference/introduction",
+        "0.1/api-reference/introduction",
         {
           "group": "API Keys",
           "icon": "key",
           "pages": [
-            "0.0.7/api-reference/endpoint/api-keys/create",
-            "0.0.7/api-reference/endpoint/api-keys/get",
-            "0.0.7/api-reference/endpoint/api-keys/delete"
+            "0.1/api-reference/endpoint/api-keys/create",
+            "0.1/api-reference/endpoint/api-keys/get",
+            "0.1/api-reference/endpoint/api-keys/delete"
           ],
-          "version": "0.0.7"
+          "version": "0.1"
         },
         {
           "group": "Connections",
           "icon": "link",
           "pages": [
-            "0.0.7/api-reference/endpoint/connections/create",
-            "0.0.7/api-reference/endpoint/connections/delete"
+            "0.1/api-reference/endpoint/connections/create",
+            "0.1/api-reference/endpoint/connections/delete",
+            "0.1/api-reference/endpoint/connections/get"
           ],
-          "version": "0.0.7"
+          "version": "0.1"
         }
       ],
-      "version": "0.0.7"
+      "version": "0.1"
     }
   ],
   "analytics": {
@@ -262,7 +327,8 @@
   },
   "footerSocials": {
     "github": "https://github.com/dokulabs/",
-    "slack": "https://dokulabs.slack.com",
-    "twitter": "https://twitter.com/doku_labs"
+    "slack": "https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ",
+    "twitter": "https://twitter.com/doku_labs",
+    "discord": "https://discord.gg/pGKEqmDE"
   }
 }

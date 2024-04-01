@@ -36,7 +36,7 @@ func configureGrafanaCloudData(data map[string]interface{}, config ConnectionCon
 		call_type = "Unknown"
 	}
 
-	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.messages" {
+	if data["endpoint"] == "openai.chat.completions" || data["endpoint"] == "openai.completions" || data["endpoint"] == "cohere.generate" || data["endpoint"] == "cohere.chat" || data["endpoint"] == "cohere.summarize" || data["endpoint"] == "anthropic.messages" || data["endpoint"] == "mistral.chat" || data["endpoint"] == "azure.chat.completions" || data["endpoint"] == "azure.completions" {
 		if data["finishReason"] == nil {
 			data["finishReason"] = "null"
 		}
@@ -68,7 +68,7 @@ func configureGrafanaCloudData(data map[string]interface{}, config ConnectionCon
 		if err != nil {
 			log.Error().Err(err).Msgf("Error sending data to Grafana Cloud Loki")
 		}
-	} else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" {
+	} else if data["endpoint"] == "openai.embeddings" || data["endpoint"] == "cohere.embed" || data["endpoint"] == "mistral.embeddings" || data["endpoint"] == "azure.embeddings" {
 		if data["endpoint"] == "openai.embeddings" {
 			metrics := []string{
 				fmt.Sprintf(`doku_llm,job=doku,environment=%v,endpoint=%v,applicationName=%v,source=%v,model=%v,platform=%v,generation=%v promptTokens=%v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], platform, call_type, data["promptTokens"]),
@@ -119,7 +119,7 @@ func configureGrafanaCloudData(data map[string]interface{}, config ConnectionCon
 		if err != nil {
 			log.Error().Err(err).Msgf("Error sending data to Grafana Cloud Prometheus")
 		}
-	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" {
+	} else if data["endpoint"] == "openai.images.create" || data["endpoint"] == "openai.images.create.variations" || data["endpoint"] == "azure.images.create" {
 		metrics := []string{
 			fmt.Sprintf(`doku_llm,job=doku,environment=%v,endpoint=%v,applicationName=%v,source=%v,model=%v,imageSize=%v,imageQuality=%v,platform=%v,generation=%v requestDuration=%v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"], platform, call_type, data["requestDuration"]),
 			fmt.Sprintf(`doku_llm,job=doku,environment=%v,endpoint=%v,applicationName=%v,source=%v,model=%v,imageSize=%v,imageQuality=%v,platform=%v,generation=%v usageCost=%v`, data["environment"], data["endpoint"], data["applicationName"], data["sourceLanguage"], data["model"], data["imageSize"], data["imageQuality"], platform, call_type, data["usageCost"]),

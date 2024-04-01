@@ -7,12 +7,14 @@ DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Cohe
 
 ## Get Started 
 
-The integration is compatible with Cohere SDK versions >=4.0.0
+The integration is compatible with 
+- Cohere Python SDK client `>=5.0.0`
+- Cohere JS/TS SDK client `>=7.6.0`
 
 <Tabs>
   <Tab title="Python">
     ```shell
-    pip install dokumetry
+    pip install dokumetry==0.1.1
     ```
 
     ```python
@@ -21,12 +23,12 @@ The integration is compatible with Cohere SDK versions >=4.0.0
 
     co = cohere.Client('YOUR_API_KEY')
 
-    dokumetry.init(llm = co, doku_url = "YOUR_DOKU_URL", api_key = "YOUR_DOKU_TOKEN")
+    dokumetry.init(llm = co, doku_url = "YOUR_DOKU_INGESTER_URL", api_key = "YOUR_DOKU_TOKEN")
     ```
   </Tab>
   <Tab title="Javascript">
     ```shell
-    npm install dokumetry
+    npm install dokumetry@0.1.1
     ```
 
     ```javascript
@@ -34,10 +36,10 @@ The integration is compatible with Cohere SDK versions >=4.0.0
     import DokuMetry from 'dokumetry';
 
     const co = new CohereClient({
-            token: "<<apiKey>>",
+            token: "YOUR_COHERE_API_KEY",
     });
 
-    DokuMetry.init({llm: co, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    DokuMetry.init({llm: co, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
     ```
   </Tab>
 </Tabs>
@@ -45,7 +47,7 @@ The integration is compatible with Cohere SDK versions >=4.0.0
 ## Supported Endpoints
 The following Cohere Endpoints are supported for monitoring with DokuMetry
 
-- [Chat](/latest/integrations/cohere/examples/chat)
+- [Chat](/latest/integrations/cohere/examples/cochat)
 - [Generate](/latest/integrations/cohere/examples/generate)
 - [Summarize](/latest/integrations/cohere/examples/summarize)
 - [Embed](/latest/integrations/cohere/examples/embed)
@@ -86,7 +88,7 @@ To filter your LLM Usage according application or the environment, set the Appli
 <Card title="Connections" href="/latest/connections/intro" icon='link'>
 Connect to your existing Observablity Platform
 </Card>
-<Card title="API Refernce" href="/latest/api-reference/introduction" icon='code'>
+<Card title="API Reference" href="/latest/api-reference/introduction" icon='code'>
 OpenAPI specification for API Endpoints in Doku 
 </Card>
 </CardGroup>

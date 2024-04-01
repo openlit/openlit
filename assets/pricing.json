@@ -6,16 +6,35 @@
         "ada": 0.0001,
         "ada-v2": 0.00010,
         "text-ada-001": 0.0001,
+        "azure_text-embedding-ada-002": 0.0001,
+        "azure_text-embedding-3-small": 0.00002,
+        "azure_text-embedding-3-large": 0.00013,
+        "azure_ada": 0.0001,
+        "azure_ada-v2": 0.00010,
+        "azure_text-ada-001": 0.0001,
         "embed-english-v3.0": 0.0001,
         "embed-multilingual-v3.0": 0.0001,
         "embed-english-light-v3.0": 0.0001,
         "embed-multilingual-light-v3.0": 0.0001,
         "embed-english-v2.0": 0.0001,
         "embed-english-light-v2.0": 0.0001,
-        "embed-multilingual-v2.0": 0.0001
+        "embed-multilingual-v2.0": 0.0001,
+        "mistral-embed": 0.0001
     },
     "images": {
         "dall-e-3": {
+            "standard": {
+                "1024x1024": 0.040,
+                "1024x1792": 0.020,
+                "1792x1024": 0.080
+            },
+            "hd": {
+                "1024x1024": 0.080,
+                "1024x1792": 0.120,
+                "1792x1024": 0.120
+            }
+        },
+        "azure_dall-e-3": {
             "standard": {
                 "1024x1024": 0.040,
                 "1024x1792": 0.020,
@@ -100,6 +119,18 @@
             "promptPrice": 0.0005,
             "completionPrice": 0.0015
         },
+        "azure_gpt-35-turbo": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
+        "azure_gpt-35-turbo-16k": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
+        "azure_gpt-35-turbo-instruct": {
+            "promptPrice": 0.0015,
+            "completionPrice": 0.0020
+        },
         "gpt-4": {
             "promptPrice": 0.03,
             "completionPrice": 0.06
@@ -128,6 +159,14 @@
             "promptPrice": 0.01,
             "completionPrice": 0.03
         },
+        "azure_gpt-4": {
+            "promptPrice": 0.03,
+            "completionPrice": 0.06
+        },
+        "azure_gpt-4-32k": {
+            "promptPrice": 0.06,
+            "completionPrice": 0.12
+        },
         "claude-3-opus-20240229": {
             "promptPrice": 0.015,
             "completionPrice": 0.075
@@ -135,6 +174,10 @@
         "claude-3-sonnet-20240229": {
             "promptPrice": 0.003,
             "completionPrice": 0.015
+        },
+        "claude-3-haiku-20240307": {
+            "promptPrice": 0.00025,
+            "completionPrice": 0.00125
         },
         "command": {
             "promptPrice": 0.001,
@@ -151,6 +194,26 @@
         "command-light-nightly": {
             "promptPrice": 0.0003,
             "completionPrice": 0.0006
+        },
+        "open-mistral-7b": {
+            "promptPrice": 0.00025,
+            "completionPrice": 0.00025
+        },
+        "open-mixtral-8x7b": {
+            "promptPrice": 0.0007,
+            "completionPrice": 0.0007
+        },
+        "mistral-small-latest": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.006
+        },
+        "mistral-medium-latest": {
+            "promptPrice": 0.0027,
+            "completionPrice": 0.0081
+        },
+        "mistral-large-latest": {
+            "promptPrice": 0.008,
+            "completionPrice": 0.024
         }
     }
 }

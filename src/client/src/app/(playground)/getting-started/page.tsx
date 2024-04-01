@@ -29,7 +29,7 @@ export default function GettingStarted() {
 					<CodeBlock
 						className="text-xs"
 						code={`import dokumetry
-dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")`}
+dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")`}
 						language="python"
 					/>
 					<p className="mt-2">
@@ -51,8 +51,8 @@ client = OpenAI(
     api_key="YOUR_OPENAI_KEY"
 )
 
-# Pass the above \`client\` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-dokumetry.init(llm=client, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+# Pass the above \`client\` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 
 chat_completion = client.chat.completions.create(
     messages=[
@@ -104,7 +104,7 @@ chat_completion = client.chat.completions.create(
 					<CodeBlock
 						className="text-xs"
 						code={`import DokuMetry from "dokumetry";
-DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"});`}
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"});`}
 						language="javascript"
 					/>
 					<p className="mt-2">
@@ -126,8 +126,8 @@ const openai = new OpenAI({
   apiKey: "My API Key", // defaults to process.env["OPENAI_API_KEY"]
 });
 
-// Pass the above \`openai\` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+// Pass the above \`openai\` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 
 async function main() {
   const chatCompletion = await openai.chat.completions.create({

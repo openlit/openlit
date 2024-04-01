@@ -3,9 +3,15 @@ title: What is Doku?
 description: 'Open-source platform for monitoring and evaluating LLMs at scale'
 ---
 
-<Frame>
-    <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-1.jpg?raw=true" />
-</Frame>
+<iframe
+  width="560"
+  height="315"
+  src="https://www.youtube.com/embed/6jhxVesllEY?si=M8dkLVVE2G7WhmBo"
+  title="Demo: Monitoring LLM Application with Doku"
+  frameborder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; playsinline"
+  allowfullscreen
+></iframe>
 
 Doku is an **open-source LLMOps tool** engineered to enables developers with comprehensive capabilities to monitor, analyze, and optimize LLM applications. It provides valuable real-time data on **LLM usage, performance, and costs**. Through seamless integrations with leading LLM platforms, including OpenAI, Cohere, and Anthropic, Doku acts as a central command center for all your LLM needs. It effectively guides your efforts, ensuring that your LLM applications not only operate at peak efficiency but also scale successfully.
 
@@ -29,13 +35,13 @@ Integrating the `dokumetry` SDK into LLM applications is straightforward with SD
 ```python python
 import dokumetry
 
-dokumetry.init(llm=openai, doku_url="YOUR_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
+dokumetry.init(llm=openai, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
 ```
 
 ```javascript NodeJS
 import DokuMetry from 'dokumetry';
 
-DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_URL", apiKey: "YOUR_DOKU_TOKEN"})
+DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
 ```
 </CodeGroup>
 
@@ -53,7 +59,7 @@ With your LLM monitoring data processed and securely stored, you can now leverag
     <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/doku-client-3.jpg?raw=true" />
 </Frame>
 
-For those with a preferred observability platform, you can also integrate and visualize this data elsewhere with ease. This flexibility ensures optimal monitoring workflow integration, regardless of your platform choice. For more details on how to set up these connections, check out the [Connections](https://example.com/latest/connections/intro) guide.
+For those with a preferred observability platform, you can also integrate and visualize this data elsewhere with ease. This flexibility ensures optimal monitoring workflow integration, regardless of your platform choice. For more details on how to set up these connections, check out the [Connections](/latest/connections/intro) guide.
 ## Getting Started
 Select from the following guides to learn more about how to use Doku:
 

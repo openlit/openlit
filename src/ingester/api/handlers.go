@@ -163,6 +163,36 @@ func deleteConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 	sendJSONResponse(w, http.StatusOK, "Connection deleted successfully")
 }
 
+// getConnectionsHandler handles the retrieval of a new Connection
+func getConnectionsHandler(w http.ResponseWriter, r *http.Request) {
+
+	observability, err := db.GetConnection(getAuthKey(r))
+	if err != nil {
+		if err.Error() == "NOTFOUND" {
+			sendJSONResponse(w, http.StatusNotFound, "No existing Connection found")
+			return
+		}
+		if err.Error() == "AUTHFAILED" {
+			sendJSONResponse(w, http.StatusUnauthorized, errMsgAuthFailed)
+			return
+		}
+		sendJSONResponse(w, http.StatusBadRequest, "Error getting connection: "+err.Error())
+		return
+	}
+
+	response := map[string]interface{}{
+		"status":      http.StatusOK,
+		"connections": observability,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK) // Setting the status code here is actually superfluous since `Encode` will write it as well.
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
+	}
+}
+
 // generateAPIKeyHandler handles the creation of a new API Key
 func generateAPIKeyHandler(w http.ResponseWriter, r *http.Request) {
 	var request APIKeyRequest
@@ -276,6 +306,8 @@ func APIKeyHandler(w http.ResponseWriter, r *http.Request) {
 // ConnectionsHandler handles all 'Connections' tasks recieved on `/api/connections` endpoint.
 func ConnectionsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
+	case "GET":
+		getConnectionsHandler(w, r)
 	case "POST":
 		generateConnectionsHandler(w, r)
 	case "DELETE":

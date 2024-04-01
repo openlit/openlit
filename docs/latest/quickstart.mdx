@@ -15,7 +15,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
 
         services:
           clickhouse:
-            image: clickhouse/clickhouse-server:24.1.5
+            image: clickhouse/clickhouse-server:24.2.2
             container_name: clickhouse
             environment:
               CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
@@ -28,7 +28,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
             restart: always
 
           doku-ingester:
-            image: ghcr.io/dokulabs/doku-ingester:latest
+            image: ghcr.io/dokulabs/doku-ingester:0.1.3
             container_name: doku-ingester
             environment:
               DOKU_DB_HOST: clickhouse   
@@ -43,7 +43,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
             restart: always
           
           doku-client:
-            image: ghcr.io/dokulabs/doku-client:latest
+            image: ghcr.io/dokulabs/doku-client:0.1.3
             container_name: doku-client
             environment:
               INIT_DB_HOST: clickhouse
@@ -79,6 +79,8 @@ This guide will walk you through setting up monitoring for your LLM Application 
         - Email as `user@dokulabs.com` 
         - Password as `dokulabsuser`
     3. Once you have logged into Doku UI, Go to [API Keys page](http://127.0.0.1:3000/api-keys) and Create an API Key. Copy the generated API Key.
+
+    <Tip>Alternatively, you can use the HTTP API to create your Doku API Key. For further details, take a look at the [API Reference](/latest/api-reference/endpoint/api-keys/create) section.</Tip>
   </Step>
   <Step title="Instrument your Application">
     Choose the appropriate SDK for your LLM application's programming language and follow the steps to integrate monitoring with just **two lines of code**.
@@ -109,7 +111,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
                 api_key="YOUR_OPENAI_KEY"
             )
 
-            # Pass the above `client` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+            # Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
             dokumetry.init(llm=client, doku_url="http://127.0.0.1:9044/", api_key="YOUR_DOKU_TOKEN")
 
             chat_completion = client.chat.completions.create(
@@ -152,7 +154,7 @@ This guide will walk you through setting up monitoring for your LLM Application 
               apiKey: 'My API Key', // defaults to process.env["OPENAI_API_KEY"]
             });
 
-            // Pass the above `openai` object along with your DOKU URL and API key and this will make sure that all OpenAI calls are automatically tracked.
+            // Pass the above `openai` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
             DokuMetry.init({llm: openai, dokuUrl: "http://127.0.0.1:9044/", apiKey: "YOUR_DOKU_TOKEN"})
 
             async function main() {
