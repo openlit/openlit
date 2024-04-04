@@ -5,6 +5,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter, BatchSpanProcessor
+import os
 
 is_tracer_provider_set = False
 llm_specific_tracers = {}
@@ -25,8 +26,10 @@ def setup_tracing(application_name="default", llm_type="general", tracer=None, e
         trace.set_tracer_provider(TracerProvider(resource=resource))
         
         if exporter == 'otlp':
-            span_exporter = OTLPSpanExporter(endpoint="your_collector_endpoint", insecure=True)
-        else:  # default to console as fallback
+            otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+            otlp_headers = os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
+            span_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, headers=otlp_headers)
+        else:  
             span_exporter = ConsoleSpanExporter()
         
         trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(span_exporter))
@@ -38,3 +41,4 @@ def setup_tracing(application_name="default", llm_type="general", tracer=None, e
     llm_specific_tracers[unique_tracer_key] = tracer
     
     return tracer
+
