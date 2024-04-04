@@ -47,7 +47,7 @@ def fetch_pricing_info():
     return {}
 
 # pylint: disable=too-many-arguments, line-too-long, too-many-return-statements
-def init(llm, environment="default", application_name="default", skip_resp=False, tracer=None, exporter='console'):    
+def init(llm, environment="default", application_name="default", skip_resp=False, tracer=None, exporter='console', otlp_endpoint=None, otlp_headers=None):    
     """
     Initialize Doku configuration. Allows passing a custom tracer. Supports 'console' and 'otlp' as exporters.
 
@@ -65,7 +65,7 @@ def init(llm, environment="default", application_name="default", skip_resp=False
     DokuConfig.application_name = application_name
     DokuConfig.pricing_info = fetch_pricing_info()
 
-    tracer = setup_tracing(exporter=exporter, application_name=application_name, tracer=tracer)
+    tracer = setup_tracing(exporter=exporter, application_name=application_name, tracer=tracer, otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers)
 
     #pylint: disable=no-else-return, line-too-long
     if hasattr(llm, 'moderations') and callable(llm.chat.completions.create) and ('.openai.azure.com/' not in str(llm.base_url)):

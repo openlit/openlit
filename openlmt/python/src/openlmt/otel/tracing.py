@@ -10,7 +10,7 @@ import os
 is_tracer_provider_set = False
 llm_specific_tracers = {}
 
-def setup_tracing(application_name="default", llm_type="general", tracer=None, exporter='console'):
+def setup_tracing(application_name="default", llm_type="general", tracer=None, exporter='console', otlp_endpoint=None, otlp_headers=None):
     global is_tracer_provider_set
     global llm_specific_tracers
 
@@ -26,9 +26,9 @@ def setup_tracing(application_name="default", llm_type="general", tracer=None, e
         trace.set_tracer_provider(TracerProvider(resource=resource))
         
         if exporter == 'otlp':
-            otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-            otlp_headers = os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
-            span_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, headers=otlp_headers)
+            otlp_endpoint = otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+            otlp_headers = otlp_headers or os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
+            span_exporter = OTLPSpanExporter(endpoint=otlp_endpoint)
         else:  
             span_exporter = ConsoleSpanExporter()
         
