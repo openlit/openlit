@@ -1,0 +1,99 @@
+"""
+Azure OpenAI Test Suite
+
+This module contains a suite of tests for OpenAI functionality using the OpenAI Python library.
+It includes tests for various OpenAI API endpoints such as completions, chat completions,
+embeddings creation, fine-tuning job creation, image generation, image variation creation,
+and audio speech generation.
+
+The tests are designed to cover different aspects of OpenAI's capabilities and serve as a
+validation mechanism for the integration with the Doku monitoring system.
+
+Global client and initialization are set up for the OpenAI client and Doku monitoring.
+
+Environment Variables:
+    - AZURE_OPENAI_API_TOKEN: OpenAI API key for authentication.
+    - DOKU_URL: Doku URL for monitoring data submission.
+    - DOKU_TOKEN: Doku authentication api_key.
+
+Note: Ensure the environment variables are properly set before running the tests.
+"""
+
+import os
+from openai import AzureOpenAI
+import dokumetry
+
+# Global client
+client = AzureOpenAI(
+    api_key=os.getenv("AZURE_OPENAI_API_TOKEN"),
+    api_version = "2024-02-01",
+    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+)
+
+azure_chat_model = os.getenv("AZURE_OPENAI_CHAT_MODEL")
+azure_embedding_model = os.getenv("AZURE_OPENAI_EMBEDDING_MODEL")
+azure_image_model = os.getenv("AZURE_OPENAI_IMAGE_MODEL")
+
+# Global initialization
+# pylint: disable=line-too-long
+dokumetry.init(llm=client, doku_url=os.getenv("DOKU_URL"), api_key=os.getenv("DOKU_TOKEN"), environment="dokumetry-testing", application_name="dokumetry-python-test", skip_resp=False)
+
+def test_completion():
+    """
+    Test the completions.
+
+    Raises:
+        AssertionError: If the completion response object is not as expected.
+    """
+
+    completions_resp = client.completions.create(
+        model=azure_chat_model,
+        prompt="Hello world",
+        max_tokens=100
+    )
+    assert completions_resp.object == 'text_completion'
+
+def test_chat_completion():
+    """
+    Test chat completions.
+
+    Raises:
+        AssertionError: If the chat completion response object is not as expected.
+    """
+
+    chat_completions_resp = client.chat.completions.create(
+        model=azure_chat_model,
+        max_tokens=100,
+        messages=[{"role": "user", "content": "What is Grafana?"}]
+    )
+    assert chat_completions_resp.object == 'chat.completion'
+
+def test_embedding_creation():
+    """
+    Test embedding creation.
+
+    Raises:
+        AssertionError: If the embedding response object is not as expected.
+    """
+
+    embeddings_resp = client.embeddings.create(
+        model=azure_embedding_model,
+        input="The quick brown fox jumped over the lazy dog",
+        encoding_format="float"
+    )
+    assert embeddings_resp.data[0].object == 'embedding'
+
+def test_image_generation():
+    """
+    Test image generation.
+
+    Raises:
+        AssertionError: If the image generation response created timestamp is not present.
+    """
+
+    image_generation_resp = client.images.generate(
+        model=azure_chat_model,
+        prompt='Generate an image for LLM Observability Dashboard',
+        n=1
+    )
+    assert image_generation_resp.created is not None
