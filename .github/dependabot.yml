@@ -12,3 +12,11 @@ updates:
     directory: "/src/client/"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/" 
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "tests/" 
+    schedule:
+      interval: "weekly"
