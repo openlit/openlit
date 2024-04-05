@@ -91,7 +91,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                                 if isinstance(content, list):
                                     content_str = ", ".join(
-                                        #pylint: disable=line-too-long
+                                        # pylint: disable=line-too-long
                                         f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                         if "type" in item else f'text: {item["text"]}'
                                         for item in content

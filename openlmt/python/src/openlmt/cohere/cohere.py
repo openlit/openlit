@@ -109,7 +109,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
             logging.error(f"Error generating OTLP data: {str(e)}")
             return response
 
-    #pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals
     def patched_chat_stream(*args, **kwargs):
         """
         Patched version of Cohere's chat_stream method.

@@ -18,7 +18,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
     original_mistral_chat_stream = llm.chat_stream
     original_mistral_embeddings = llm.embeddings
 
-    #pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals
     def patched_chat(*args, **kwargs):
         """
         Patched version of Mistral's chat method.
@@ -81,7 +81,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
             logging.error(f"Error generating OTLP data: {str(e)}")
             return response
 
-    #pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals
     def patched_chat_stream(*args, **kwargs):
         """
         Patched version of Mistral's chat_stream method.

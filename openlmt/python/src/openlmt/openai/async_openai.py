@@ -38,13 +38,13 @@ def init(llm, environment, application_name, tracer, pricing_info):
         try:
             is_streaming = kwargs.get("stream", False)
             start_time = time.time()
-            #pylint: disable=no-else-return
+            # pylint: disable=no-else-return
             if is_streaming:
                 async def stream_generator():
                     llmresponse = ""
                     async for chunk in await original_chat_create(*args, **kwargs):
                         if len(chunk.choices) > 0:
-                            #pylint: disable=line-too-long
+                            # pylint: disable=line-too-long
                             if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
                                 content = chunk.choices[0].delta.content
                                 if content:
@@ -62,7 +62,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                             if isinstance(content, list):
                                 content_str = ", ".join(
-                                    #pylint: disable=line-too-long
+                                    # pylint: disable=line-too-long
                                     f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                     if "type" in item else f'text: {item["text"]}'
                                     for item in content

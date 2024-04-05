@@ -91,7 +91,7 @@ def test_embedding_creation():
 #         )
 #         assert fine_tuning_job_resp.object == 'fine_tuning.job'
 
-#     #pylint: disable=broad-exception-caught
+#     # pylint: disable=broad-exception-caught
 #     except Exception as e:
 #         if 'rate_limit_exceeded' in str(e):
 #             error_json = e.response.json()
