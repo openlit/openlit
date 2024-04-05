@@ -1,53 +1,50 @@
 version: '3.8'
 
 services:
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.2.2
-    container_name: clickhouse
-    environment:
-      CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
-      CLICKHOUSE_USER: ${DOKU_DB_USER:-default}                   
-    volumes:
-      - clickhouse-data:/var/lib/clickhouse
-    ports:
-      - "9000:9000" 
-      - "8123:8123" 
-    restart: always
+  # clickhouse:
+  #   image: clickhouse/clickhouse-server:24.2.2
+  #   container_name: clickhouse
+  #   environment:
+  #     CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
+  #     CLICKHOUSE_USER: ${DOKU_DB_USER:-default}                   
+  #   volumes:
+  #     - clickhouse-data:/var/lib/clickhouse
+  #   ports:
+  #     - "9000:9000" 
+  #     - "8123:8123" 
+  #   restart: always
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.94.0
     ports:
-      - "4317:4317" # Default endpoint for OpenTelemetry gRPC receiver
-      - "4318:4318" # Default endpoint for OpenTelemetry HTTP receiver
-      - "8888:8888" # Default endpoint for querying metrics
-      - "55679:55679" # Default endpoint for ZPages
-      - "14250:14250" # Default endpoint for Jaeger gRPC receiver
-      - "14268:14268" # Default endpoint for Jaeger HTTP receiver
-      - "9411:9411" # Default endpoint for Zipkin receiver
+      - "4317:4317" 
+      - "4318:4318" 
+      - "8888:8888" 
+      - "55679:55679" 
     volumes:
       - ./assets/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
-    depends_on:
-      - clickhouse
+    # depends_on:
+    #   - clickhouse
   
-  doku-client:
-    image: ghcr.io/dokulabs/doku-client:latest
-    container_name: doku-client
-    environment:
-      INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: 8123
-      INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
-      INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
-      INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
-      SQLITE_DATABASE_URL: file:/app/client/data/data.db
-    ports:
-      - "3000:3000"
-    depends_on:
-      - clickhouse
-    volumes:
-      - doku-client-data:/app/client/data
-    restart: always
+  # doku-client:
+  #   image: ghcr.io/dokulabs/doku-client:latest
+  #   container_name: doku-client
+  #   environment:
+  #     INIT_DB_HOST: clickhouse
+  #     INIT_DB_PORT: 8123
+  #     INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
+  #     INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
+  #     INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
+  #     SQLITE_DATABASE_URL: file:/app/client/data/data.db
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - clickhouse
+  #   volumes:
+  #     - doku-client-data:/app/client/data
+  #   restart: always
 
 volumes:
-  clickhouse-data:
-  doku-client-data:
+  # clickhouse-data:
+  # doku-client-data:
   otel-config:

@@ -8,55 +8,80 @@ import logging
 from ..__helpers import get_chat_model_cost
 from opentelemetry.trace import SpanKind
 
+# Initialize logger for logging potential issues and operations
+logger = logging.getLogger(__name__)
+
 # pylint: disable=too-many-arguments, too-many-statements
 def init(llm, environment, application_name, tracer, pricing_info):
     """
-    Initialize Anthropic integration with Doku.
+    Initializes the instrumentation process by patching the Anthropic clients’ 'messages.create'
+    method to gather telemetry data during its execution.
 
     Args:
-        llm: The Anthropic function to be patched.
-        doku_url (str): Doku URL.
-        api_key (str): Authentication api_key.
-        environment (str): Doku environment.
-        application_name (str): Doku application name.
-        skip_resp (bool): Skip response processing.
+        llm: Reference to the Anthropic client being instrumented.
+        environment (str): Identifier for the environment (e.g., 'production', 'development').
+        application_name (str): Name of the application using the instrumented client.
+        tracer: OpenTelemetry tracer object used for creating spans.
+        pricing_info (dict): Contains pricing information for calculating the cost of operations.
     """
 
+    # Backup original messages.create function for later restoration if needed
     original_messages_create = llm.messages.create
 
     # pylint: disable=too-many-locals
     def patched_messages_create(*args, **kwargs):
         """
-        Patched version of Anthropic's messages.create method.
+        A patched version of the 'messages.create' method, enabling telemetry data collection.
+
+        This method wraps the original call to 'messages.create', adding a telemetry layer that
+        captures execution time, error handling, and other metrics.
 
         Args:
-            *args: Variable positional arguments.
-            **kwargs: Variable keyword arguments.
+            *args: Variable positional arguments passed to the original method.
+            **kwargs: Variable keyword arguments passed to the original method.
 
         Returns:
-            AnthropicResponse: The response from Anthropic's messages.create.
+            The response from the original 'messages.create' method.
         """
-        try:
-            streaming = kwargs.get("stream", False)
-            start_time = time.time()
 
-            # pylint: disable=no-else-return
-            if streaming:
-                def stream_generator():
-                    llmresponse = ""
-                    for event in original_messages_create(*args, **kwargs):
-                        if event.type == "message_start":
-                            response_id = event.message.id
-                            prompt_tokens = event.message.usage.input_tokens
-                        if event.type == "content_block_delta":
-                            llmresponse += event.delta.text
-                        if event.type == "message_delta":
-                            completion_tokens = event.usage.output_tokens
-                            finish_reason = event.delta.stop_reason
-                        yield event
+        # Check if streaming is enabled for the API call
+        streaming = kwargs.get("stream", False)
+        # Record start time for measuring request duration
+        start_time = time.time()
+
+        # pylint: disable=no-else-return
+        if streaming:
+            # Special handling for streaming response to accommodate the nature of data flow
+            def stream_generator():
+                # Placeholder for aggregating streaming response
+                llmresponse = ""
+
+                # Loop through streaming events capturing relevant details
+                for event in original_messages_create(*args, **kwargs):
+
+                    # Collect message IDs and input token from events
+                    if event.type == "message_start":
+                        response_id = event.message.id
+                        prompt_tokens = event.message.usage.input_tokens
+
+                    # Aggregate response content
+                    if event.type == "content_block_delta":
+                        llmresponse += event.delta.text
+
+                    # Collect output tokens and stop reason from events
+                    if event.type == "message_delta":
+                        completion_tokens = event.usage.output_tokens
+                        finish_reason = event.delta.stop_reason
+                    yield event
+
+                # Sections handling exceptions ensure observability without disrupting operations
+                try:
                     with tracer.start_as_current_span("anthropic.messages", kind= SpanKind.CLIENT) as span:
                         end_time = time.time()
+                        # Calculate total duration of operation
                         duration = end_time - start_time
+
+                        # Format 'messages' into a single string
                         message_prompt = kwargs.get("messages", "")
                         formatted_messages = []
                         for message in message_prompt:
@@ -73,9 +98,12 @@ def init(llm, environment, application_name, tracer, pricing_info):
                                 formatted_messages.append(f"{role}: {content_str}")
                             else:
                                 formatted_messages.append(f"{role}: {content}")
-
                         prompt = "\n".join(formatted_messages)
+
+                        # Calculate cost of the operation
                         cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"), pricing_info, prompt_tokens, completion_tokens)
+
+                        # Set Span attributes
                         span.set_attribute("llm.provider", "Anthropic")
                         span.set_attribute("llm.generation", "chat")
                         span.set_attribute("llm.endpoint", "anthropic.messages")
@@ -97,16 +125,28 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         span.set_attribute("llm.totalTokens", prompt_tokens + completion_tokens)
                         span.set_attribute("llm.cost", cost)
 
-                return stream_generator()
-            else:
-                start_time = time.time()
-                response = original_messages_create(*args, **kwargs)
-                end_time = time.time()
+                except Exception as e:
+                    with tracer.start_as_current_span("anthropic.messages", kind=SpanKind.INTERNAL) as span:
+                        # Record the exception details within the span
+                        span.record_exception(e)
+                        # Mark the exception as having propagated beyond expected scope
+                        span.set_attribute("exception.escaped", True)
+                        logger.error(f"Error in patched message creation: {e}")
+
+            return stream_generator()
+
+        # Handling for non-streaming responses
+        else:
+            response = original_messages_create(*args, **kwargs)
+            end_time = time.time()
+            try:
                 with tracer.start_as_current_span("anthropic.messages", kind=SpanKind.CLIENT) as span:
+                    # Calculate total duration of operation
                     duration = end_time - start_time
+
+                    # Format 'messages' into a single string
                     message_prompt = kwargs.get("messages", "")
                     formatted_messages = []
-
                     for message in message_prompt:
                         role = message["role"]
                         content = message["content"]
@@ -120,9 +160,12 @@ def init(llm, environment, application_name, tracer, pricing_info):
                             formatted_messages.append(f"{role}: {content_str}")
                         else:
                             formatted_messages.append(f"{role}: {content}")
-
                     prompt = "\n".join(formatted_messages)
+
+                    # Calculate cost of the operation
                     cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"), pricing_info, response.usage.input_tokens, response.usage.output_tokens)
+
+                    # Set Span attribues
                     span.set_attribute("llm.provider", "Anthropic")
                     span.set_attribute("llm.generation", "chat")
                     span.set_attribute("llm.endpoint", "anthropic.messages")
@@ -144,8 +187,18 @@ def init(llm, environment, application_name, tracer, pricing_info):
                     span.set_attribute("llm.totalTokens", response.usage.input_tokens + response.usage.output_tokens)
                     span.set_attribute("llm.cost", cost)
 
+                # Return original response
                 return response
-        except Exception as e:
-            logging.error(f"Error generating OTLP data: {str(e)}")
+
+            except Exception as e:
+                with tracer.start_as_current_span("anthropic.messages", kind=SpanKind.INTERNAL) as span:
+                    # Record the exception details within the span
+                    span.record_exception(e)
+                    # Mark the exception as having propagated beyond expected scope
+                    span.set_attribute("exception.escaped", True)
+                    logger.error(f"Error in patched message creation: {e}")
+
+                # Return original response
+                return response
 
     llm.messages.create = patched_messages_create

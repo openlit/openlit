@@ -31,7 +31,7 @@ co = cohere.Client(os.getenv("COHERE_API_TOKEN"))
 
 # Global cohere initialization
 # pylint: disable=line-too-long
-openlmt.init(llm=co, doku_url=os.getenv("DOKU_URL"), api_key=os.getenv("DOKU_TOKEN"), environment="dokumetry-testing", application_name="dokumetry-python-test", skip_resp=False)
+openlmt.init(llm=co, doku_url=os.getenv("DOKU_URL"), api_key=os.getenv("DOKU_TOKEN"), environment="dokumetry-testing", application_name="dokumetry-python-test")
 
 # pylint disable=line-too-long
 def test_summarize():

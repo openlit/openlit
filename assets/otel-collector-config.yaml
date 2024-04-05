@@ -17,8 +17,8 @@ extensions:
   zpages: {}
 exporters:
   clickhouse:
-    endpoint: tcp://clickhouse:9000
-    database: otel
+    endpoint: tcp://146.190.11.107:9000?dial_timeout=10s
+    database: openlmt
     username: default
     password: DOKU
     ttl: 72h
