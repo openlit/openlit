@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 # pylint: disable=too-many-arguments, too-many-statements
 def init(llm, environment, application_name, tracer, pricing_info):
     """
-    Initializes the instrumentation process by patching the Anthropic clients’ 'messages.create'
-    method to gather telemetry data during its execution.
+    Initializes the instrumentation process by patching the Anthropic client
+    methods to gather telemetry data during its execution.
 
     Args:
         llm: Reference to the Anthropic client being instrumented.
