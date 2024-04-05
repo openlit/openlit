@@ -5,8 +5,8 @@ Module for monitoring Azure OpenAI API calls.
 
 import time
 import logging
-from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_image_model_cost, openai_tokens, handle_exception
 from opentelemetry.trace import SpanKind
+from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_image_model_cost, openai_tokens, handle_exception
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -151,7 +151,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                         # Find base model from response
                         model = "azure_" + response.model
-                        
+
                         # Format 'messages' into a single string
                         message_prompt = kwargs.get("messages", "")
                         formatted_messages = []
@@ -211,7 +211,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
                                     span.set_attribute(attribute_name, response.choices[i].message.content)
                                     i += 1
 
-                                # Return original response    
+                                # Return original response
                                 return response
 
                         # Set span attributes when tools is passed to the function call
@@ -234,7 +234,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                     # Return original response
                     return response
-            
+
             except Exception as e:
                 handle_exception(tracer, e, "azure.openai.chat.completions")
                 raise e

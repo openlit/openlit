@@ -1,0 +1,3 @@
+# helm install grafana grafana/grafana -f grafana.yml
+service:
+  type: LoadBalancer
