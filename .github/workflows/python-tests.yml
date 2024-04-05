@@ -14,7 +14,6 @@ env:
   COHERE_API_TOKEN: ${{ secrets.COHERE_API_TOKEN }}
   ANTHROPIC_API_TOKEN: ${{ secrets.ANTHROPIC_API_TOKEN }}
   MISTRAL_API_TOKEN: ${{ secrets.MISTRAL_API_TOKEN }}
-  DOKU_URL: http://127.0.0.1:9044
 
 jobs:
   build:
@@ -29,21 +28,6 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@0d103c3126aa41d772a8362f6aa67afac040f80c # v3.1.0
-
-    - name: Setup Doku Stack
-      run: docker-compose up -d
-    
-    - name: Sleep for 30 seconds
-      run: sleep 30
-
-    - name: Make API Request and Set DOKU_TOKEN
-      run: |
-        RESPONSE=$(curl -X POST $DOKU_URL/api/keys \
-          -H 'Authorization: ""' \
-          -H 'Content-Type: application/json' \
-          -d '{"Name": "GITHUBACTION"}')
-        MESSAGE=$(echo $RESPONSE | jq -r '.message')
-        echo "DOKU_TOKEN=${MESSAGE}" >> $GITHUB_ENV
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v3
