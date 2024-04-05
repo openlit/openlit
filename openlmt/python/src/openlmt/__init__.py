@@ -35,11 +35,11 @@ class OpenLMTConfig:
         application_name: The name of the application using the library.
         pricing_info: A dictionary storing pricing information.
     """
+
     llm = None
     environment = None
     application_name = None
     pricing_info = {}
-
 
 def init(llm, environment="default", application_name="default", tracer=None, otlp_endpoint=None, otlp_headers=None, disable_batch=False):    
     """
@@ -54,6 +54,7 @@ def init(llm, environment="default", application_name="default", tracer=None, ot
         otlp_headers: Headers for OTLP exporter.
         disable_batch: Flag to disable batch span processing.
     """
+
     try:
         # Set up the basic configuration
         OpenLMTConfig.llm = llm
@@ -80,6 +81,7 @@ def init(llm, environment="default", application_name="default", tracer=None, ot
                 tracer=tracer,
                 pricing_info=OpenLMTConfig.pricing_info,
             )
+
     except Exception as e:
         # Log any error that occurs during the initialization process
         logger.error("Error during OpenLMT initialization: %s", e)
@@ -94,6 +96,7 @@ def _select_instrumentor(llm: Any):
     Returns:
         The selected instrumentor object if a relevant match is found, otherwise None.
     """
+
     # Check for each LLM client and return the corresponding instrumentor
     if isinstance(llm, (AsyncOpenAI, OpenAI)) and '.openai.azure.com/' not in str(llm.base_url):
         return AsyncOpenAIInstrumentor() if isinstance(llm, AsyncOpenAI) else OpenAIInstrumentor()
@@ -105,5 +108,6 @@ def _select_instrumentor(llm: Any):
         return AsyncAnthropicInstrumentor() if isinstance(llm, AsyncAnthropic) else AnthropicInstrumentor()
     elif hasattr(llm, 'generate') and callable(llm.generate):
         return CohereInstrumentor()
+
     # If the LLM doesn't match any known clients, return None
     return None

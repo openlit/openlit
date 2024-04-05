@@ -210,6 +210,8 @@ def init(llm, environment, application_name, tracer, pricing_info):
                                     attribute_name = f"llm.response.{i}"
                                     span.set_attribute(attribute_name, response.choices[i].message.content)
                                     i += 1
+
+                                # Return original response    
                                 return response
 
                         # Set span attributes when tools is passed to the function call
@@ -455,15 +457,15 @@ def init(llm, environment, application_name, tracer, pricing_info):
                     return response
 
             except Exception as e:
-                    handle_exception(tracer, e, "azure.openai.embeddings")
-                    logger.error(f"Error in patched message creation: {e}")
+                handle_exception(tracer, e, "azure.openai.embeddings")
+                logger.error(f"Error in patched message creation: {e}")
 
-                    # Return original response
-                    return response
+                # Return original response
+                return response
 
         except Exception as e:
-                handle_exception(tracer, e, "azure.openai.embeddings")
-                raise e
+            handle_exception(tracer, e, "azure.openai.embeddings")
+            raise e
 
     async def patched_image_create(*args, **kwargs):
         """
@@ -528,15 +530,15 @@ def init(llm, environment, application_name, tracer, pricing_info):
                     return response
 
             except Exception as e:
-                    handle_exception(tracer, e, "azure.openai.images.generate")
-                    logger.error(f"Error in patched message creation: {e}")
+                handle_exception(tracer, e, "azure.openai.images.generate")
+                logger.error(f"Error in patched message creation: {e}")
 
-                    # Return original response
-                    return response
+                # Return original response
+                return response
 
         except Exception as e:
-                handle_exception(tracer, e, "azure.openai.images.generate")
-                raise e
+            handle_exception(tracer, e, "azure.openai.images.generate")
+            raise e
 
     llm.chat.completions.create = llm_chat_completions
     llm.completions.create = llm_completions
