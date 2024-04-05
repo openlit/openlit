@@ -40,11 +40,10 @@ def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, o
             # Use a console exporter if no OTLP endpoint is configured; otherwise, use the OTLP exporter.
             if otlp_endpoint:
                 span_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, headers=otlp_headers)
+                span_processor = BatchSpanProcessor(span_exporter) if not disable_batch else SimpleSpanProcessor(span_exporter)
             else:
                 span_exporter = ConsoleSpanExporter()
-
-            # Decide on the span processor based on the disable_batch flag.
-            span_processor = BatchSpanProcessor(span_exporter) if not disable_batch else SimpleSpanProcessor(span_exporter)
+                span_processor = SimpleSpanProcessor(span_exporter)
 
             # Add the chosen span processor to the tracer provider.
             trace.get_tracer_provider().add_span_processor(span_processor)
