@@ -34,7 +34,7 @@ client = MistralClient(
 
 # Global Mistral initialization
 # pylint: disable=line-too-long
-openlmt.init(llm=client, doku_url=os.getenv("DOKU_URL"), api_key=os.getenv("DOKU_TOKEN"), environment="dokumetry-testing", application_name="dokumetry-python-test")
+openlmt.init(llm=client, environment="dokumetry-testing", application_name="dokumetry-python-test")
 
 def test_chat():
     """
