@@ -103,7 +103,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
                             completion_tokens = openai_tokens(llmresponse, kwargs.get("model", "gpt-3.5-turbo"))
 
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"), pricing_info, prompt_tokens, completion_tokens)
+                            cost = get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens)
 
                             # Set Span attributes
                             span.set_attribute("llm.provider", "Azuure.OpenAI")
@@ -113,7 +113,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
                             span.set_attribute("llm.environment", environment)
                             span.set_attribute("llm.application.name", application_name)
                             span.set_attribute("llm.request.duration", duration)
-                            span.set_attribute("llm.model", kwargs.get("model", "gpt-3.5-turbo"))
+                            span.set_attribute("llm.model", model)
                             span.set_attribute("llm.user", kwargs.get("user", ""))
                             span.set_attribute("llm.tool.choice", kwargs.get("tool_choice", ""))
                             span.set_attribute("llm.temperature", kwargs.get("temperature", 1))
@@ -178,7 +178,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         span.set_attribute("llm.environment", environment)
                         span.set_attribute("llm.application.name", application_name)
                         span.set_attribute("llm.request.duration", duration)
-                        span.set_attribute("llm.model", kwargs.get("model", "gpt-3.5-turbo"))
+                        span.set_attribute("llm.model", model)
                         span.set_attribute("llm.user", kwargs.get("user", ""))
                         span.set_attribute("llm.tool.choice", kwargs.get("tool_choice", ""))
                         span.set_attribute("llm.temperature", kwargs.get("temperature", 1))
@@ -191,7 +191,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"), pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
+                            cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
 
                             span.set_attribute("llm.promptTokens", response.usage.prompt_tokens)
                             span.set_attribute("llm.completionTokens", response.usage.completion_tokens)
@@ -217,7 +217,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         # Set span attributes when tools is passed to the function call
                         elif "tools" in kwargs:
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"), pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
+                            cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
 
                             span.set_attribute("llm.response", "Function called with tools")
                             span.set_attribute("llm.promptTokens", response.usage.prompt_tokens)

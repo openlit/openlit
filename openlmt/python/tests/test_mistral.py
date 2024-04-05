@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """
 Mistral Test Suite
 

@@ -61,7 +61,7 @@ def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, o
         # Create and return a tracer from the tracer provider using the current module's name.
         return trace.get_tracer(__name__)
 
-    # pylint: disable=broad-exception-caught
+    # pylint: disable=bare-except
     except:
         # In case of a setup failure, return None to signify the error.
         return None

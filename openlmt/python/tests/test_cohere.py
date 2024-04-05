@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """
 Cohere Test Suite
 

@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """
 Anthropic Test Suite
 

@@ -5,8 +5,8 @@ Module for monitoring Mistral API calls.
 
 import time
 import logging
-from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 from opentelemetry.trace import SpanKind
+from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
                 with tracer.start_as_current_span("mistral.chat", kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
-                    
+
                     # Format 'messages' into a single string
                     message_prompt = kwargs.get('messages', "")
                     formatted_messages = []
@@ -102,7 +102,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                 # Return original response
                 return response
-            
+
             except Exception as e:
                 handle_exception(tracer, e, "mistral.chat")
                 logger.error("Error in patched message creation: %s", e)
@@ -148,7 +148,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         total_tokens = event.usage.total_tokens
                         finish_reason = event.choices[0].finish_reason
                     yield event
-                
+
                 # Sections handling exceptions ensure observability without disrupting operations
                 try:
                     with tracer.start_as_current_span("mistral.chat", kind= SpanKind.CLIENT) as span:
@@ -198,7 +198,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         span.set_attribute("llm.completionTokens", completion_tokens)
                         span.set_attribute("llm.totalTokens", total_tokens)
                         span.set_attribute("llm.cost", cost)
-                
+
                 except Exception as e:
                     handle_exception(tracer, e, "mistral.chat")
                     logger.error("Error in patched message creation: %s", e)

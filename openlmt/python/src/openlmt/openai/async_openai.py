@@ -11,7 +11,7 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_mod
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-# pylint: disable=too-many-locals, oo-many-arguments, too-many-statements
+# pylint: disable=too-many-locals, too-many-arguments, too-many-statements
 def init(llm, environment, application_name, tracer, pricing_info):
     """
     Initializes the instrumentation process by patching the OpenAI client
@@ -234,7 +234,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                     # Return original response
                     return response
-            
+
             except Exception as e:
                 handle_exception(tracer, e, "openai.chat.completions")
                 raise e

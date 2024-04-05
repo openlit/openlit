@@ -234,7 +234,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                     # Return original response
                     return response
-            
+
             except Exception as e:
                 handle_exception(tracer, e, "openai.chat.completions")
                 raise e
@@ -311,7 +311,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
         Returns:
             The response from the original 'fine_tuning.jobs.create' method.
         """
-        
+
         # Sections handling exceptions ensure observability without disrupting operations
         try:
             start_time = time.time()
@@ -376,7 +376,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
             response = original_images_create(*args, **kwargs)
             end_time = time.time()
             images_count = 0
-            
+
             try:
                 with tracer.start_as_current_span("openai.images.generate", kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation

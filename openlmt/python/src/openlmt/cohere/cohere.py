@@ -5,8 +5,8 @@ Module for monitoring Cohere API calls.
 
 import time
 import logging
-from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 from opentelemetry.trace import SpanKind
+from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -90,8 +90,8 @@ def init(llm, environment, application_name, tracer, pricing_info):
                 return response
 
         except Exception as e:
-                handle_exception(tracer, e, "cohere.embed")
-                raise e
+            handle_exception(tracer, e, "cohere.embed")
+            raise e
 
     def chat_generate(*args, **kwargs):
         """
@@ -149,15 +149,15 @@ def init(llm, environment, application_name, tracer, pricing_info):
                 return response
 
             except Exception as e:
-                    handle_exception(tracer, e, "cohere.chat")
-                    logger.error("Error in patched message creation: %s", e)
+                handle_exception(tracer, e, "cohere.chat")
+                logger.error("Error in patched message creation: %s", e)
 
-                    # Return original response
-                    return response
+                # Return original response
+                return response
 
         except Exception as e:
-                handle_exception(tracer, e, "cohere.chat")
-                raise e
+            handle_exception(tracer, e, "cohere.chat")
+            raise e
 
     # pylint: disable=too-many-locals
     def patched_chat_stream(*args, **kwargs):
