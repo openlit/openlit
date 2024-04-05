@@ -6,9 +6,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 )
 
 var Pricing PricingModel
+var modelRegexPatterns = map[string]*regexp.Regexp{}
+var directModelLookup = map[string]string{}
 
 // PricingModel is the pricing information for the different models and features.
 type PricingModel struct {
@@ -19,6 +23,48 @@ type PricingModel struct {
 		PromptPrice     float64 `json:"promptPrice"`
 		CompletionPrice float64 `json:"completionPrice"`
 	} `json:"chat"`
+}
+
+func compileModelRegexes(pricingModel PricingModel) {
+	// Compile regexes just in case they are needed for more nuanced matches
+	for modelName := range pricingModel.Embeddings {
+		pattern := regexp.QuoteMeta(modelName)
+		modelRegexPatterns["embeddings:"+modelName] = regexp.MustCompile(pattern)
+	}
+
+	// Images
+	for modelName := range pricingModel.Images {
+		pattern := regexp.QuoteMeta(modelName)
+		modelRegexPatterns["images:"+modelName] = regexp.MustCompile(pattern)
+	}
+
+	// Audio
+	for modelName := range pricingModel.Audio {
+		pattern := regexp.QuoteMeta(modelName)
+		modelRegexPatterns["audio:"+modelName] = regexp.MustCompile(pattern)
+	}
+
+	// Chat
+	for modelName := range pricingModel.Chat {
+		pattern := regexp.QuoteMeta(modelName)
+		modelRegexPatterns["chat:"+modelName] = regexp.MustCompile(pattern)
+	}
+}
+
+func buildDirectLookupTable(pricingModel PricingModel) {
+	// Direct mappings for known models
+	for modelName := range pricingModel.Embeddings {
+		directModelLookup[modelName] = modelName
+	}
+	for modelName := range pricingModel.Chat {
+		directModelLookup[modelName] = modelName
+	}
+	for modelName := range pricingModel.Audio {
+		directModelLookup[modelName] = modelName
+	}
+	for modelName := range pricingModel.Images {
+		directModelLookup[modelName] = modelName
+	}
 }
 
 // validatePricingData validates the pricing data for the different models and features.
@@ -114,12 +160,30 @@ func LoadPricing(path, url string) error {
 		return err
 	}
 
+	compileModelRegexes(Pricing)
+	buildDirectLookupTable(Pricing)
+
 	return nil
+}
+
+func findBaseModelFromPattern(modelName string) string {
+	// First, check the direct lookup table
+	if baseModel, found := directModelLookup[modelName]; found {
+		return baseModel
+	}
+	// Fallback to regex pattern matching if not found
+	for baseModel, pattern := range modelRegexPatterns {
+		if pattern.MatchString(modelName) {
+			return strings.SplitN(baseModel, ":", 2)[1]
+		}
+	}
+	return modelName
 }
 
 // calculateEmbeddingsCost calculates the cost for embeddings based on the model and prompt tokens.
 func CalculateEmbeddingsCost(promptTokens float64, model string) (float64, error) {
-	price, ok := Pricing.Embeddings[model]
+	baseModel := findBaseModelFromPattern(model)
+	price, ok := Pricing.Embeddings[baseModel]
 	if !ok {
 		return 0, nil
 	}
@@ -128,7 +192,8 @@ func CalculateEmbeddingsCost(promptTokens float64, model string) (float64, error
 
 // calculateImageCost calculates the cost for images based on the model, image size, and quality.
 func CalculateImageCost(model, imageSize, quality string) (float64, error) {
-	models, ok := Pricing.Images[model]
+	baseModel := findBaseModelFromPattern(model)
+	models, ok := Pricing.Images[baseModel]
 	if !ok {
 		return 0, nil
 	}
@@ -146,7 +211,8 @@ func CalculateImageCost(model, imageSize, quality string) (float64, error) {
 
 // calculateChatCost calculates the cost for chat based on the model, prompt tokens, and completion tokens.
 func CalculateChatCost(promptTokens, completionTokens float64, model string) (float64, error) {
-	chatModel, ok := Pricing.Chat[model]
+	baseModel := findBaseModelFromPattern(model)
+	chatModel, ok := Pricing.Chat[baseModel]
 	if !ok {
 		return 0, nil
 	}
@@ -155,7 +221,8 @@ func CalculateChatCost(promptTokens, completionTokens float64, model string) (fl
 
 // CalculateAudioCost calculates the cost for Audio based on the model, and prompt.
 func CalculateAudioCost(prompt string, model string) (float64, error) {
-	price, ok := Pricing.Audio[model]
+	baseModel := findBaseModelFromPattern(model)
+	price, ok := Pricing.Audio[baseModel]
 	if !ok {
 		return 0, nil
 	}
