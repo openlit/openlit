@@ -8,9 +8,11 @@ import RequestDetails from "./request-details";
 import toast from "react-hot-toast";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
+import { getPingStatus } from "@/selectors/database-config";
 
 export default function RequestPage() {
 	const filter = useRootStore(getFilterDetails);
+	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
@@ -37,8 +39,13 @@ export default function RequestPage() {
 	}, [filter]);
 
 	useEffect(() => {
-		if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
-	}, [filter, fetchData]);
+		if (
+			filter.timeLimit.start &&
+			filter.timeLimit.end &&
+			pingStatus === "success"
+		)
+			fetchData();
+	}, [filter, fetchData, pingStatus]);
 
 	return (
 		<RequestProvider>
@@ -47,8 +54,8 @@ export default function RequestPage() {
 			/>
 			<RequestTable
 				data={(data as any)?.records || []}
-				isFetched={isFetched}
-				isLoading={isLoading}
+				isFetched={isFetched || pingStatus !== "pending"}
+				isLoading={isLoading && pingStatus === "pending"}
 			/>
 			<RequestDetails />
 		</RequestProvider>

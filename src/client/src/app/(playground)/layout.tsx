@@ -3,8 +3,9 @@ import Sidebar from "@/components/(playground)/sidebar";
 import Header from "@/components/(playground)/header";
 import { useEffect } from "react";
 import { useRootStore } from "@/store";
-import { getIsUserFetched, setUser } from "@/selectors/user";
+import { getIsUserFetched } from "@/selectors/user";
 import { fetchAndPopulateCurrentUserStore } from "@/helpers/user";
+import ClickhouseConnectivityWrapper from "@/components/(playground)/clickhouse-connectivity-wrapper";
 
 export default function PlaygroundLayout({
 	children,
@@ -12,10 +13,9 @@ export default function PlaygroundLayout({
 	children: React.ReactNode;
 }) {
 	const isFetched = useRootStore(getIsUserFetched);
-	const updateUser = useRootStore(setUser);
 
 	useEffect(() => {
-		if (!isFetched) fetchAndPopulateCurrentUserStore(updateUser);
+		if (!isFetched) fetchAndPopulateCurrentUserStore();
 	}, [isFetched]);
 
 	return (
@@ -25,6 +25,7 @@ export default function PlaygroundLayout({
 				<div className="flex flex-col w-full h-full overflow-hidden rounded-lg bg-white/[0.9]">
 					<Header />
 					<div className="flex flex-col grow w-full h-full px-4 overflow-hidden">
+						<ClickhouseConnectivityWrapper />
 						{children}
 					</div>
 				</div>

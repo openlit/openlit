@@ -1,8 +1,9 @@
+import { useRootStore } from "@/store";
 import { getData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import { redirect } from "next/navigation";
 
-export const fetchAndPopulateCurrentUserStore = async (updateUser) => {
+export const fetchAndPopulateCurrentUserStore = async () => {
 	const [, user] = await asaw(
 		getData({
 			url: "/api/user/profile",
@@ -11,5 +12,5 @@ export const fetchAndPopulateCurrentUserStore = async (updateUser) => {
 	);
 
 	if (!user) return redirect("/login");
-	updateUser(user);
+	useRootStore.getState().user.set(user);
 };
