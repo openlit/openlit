@@ -6,3 +6,4 @@ pytest>=7.4.0
 requests>=2.31.0
 pylint>=3.0.2
 mistralai>=0.1.5
+opentelemetry-api>=1.24.0
