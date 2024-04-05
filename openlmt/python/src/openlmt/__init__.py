@@ -101,7 +101,6 @@ def _select_instrumentor(llm: Any):
         The selected instrumentor object if a relevant match is found, otherwise None.
     """
 
-    
     # Check for each LLM client and return the corresponding instrumentor
     # pylint: disable=no-else-return
     if isinstance(llm, (AsyncOpenAI, OpenAI)) and '.openai.azure.com/' not in str(llm.base_url):
