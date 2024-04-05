@@ -1,12 +1,12 @@
-# pylint: disable=duplicate-code, line-too-long
+# pylint: disable=duplicate-code, line-too-long, broad-exception-caught
 """
 Module for monitoring Anthropic API calls.
 """
 
 import time
 import logging
-from ..__helpers import get_chat_model_cost, handle_exception
 from opentelemetry.trace import SpanKind
+from ..__helpers import get_chat_model_cost, handle_exception
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -199,7 +199,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                     # Return original response
                     return response
-            
+
             except Exception as e:
                 handle_exception(tracer, e, "anthropic.messages")
                 raise e

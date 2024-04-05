@@ -1,3 +1,6 @@
+# pylint: disable=useless-return, bad-staticmethod-argument
+"""Initializer of Auto Instrumentation of Anthropic Functions"""
+
 from typing import Collection
 
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor

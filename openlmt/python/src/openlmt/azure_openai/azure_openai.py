@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long
+# pylint: disable=duplicate-code, line-too-long, broad-exception-caught
 """
 Module for monitoring Azure OpenAI API calls.
 """
@@ -151,7 +151,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                         # Find base model from response
                         model = "azure_" + response.model
-                        
+ 
                         # Format 'messages' into a single string
                         message_prompt = kwargs.get("messages", "")
                         formatted_messages = []

@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long
+# pylint: disable=duplicate-code, line-too-long, broad-exception-caught
 """
 Module for monitoring Cohere API calls.
 """
