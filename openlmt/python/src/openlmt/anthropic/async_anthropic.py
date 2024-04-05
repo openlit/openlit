@@ -5,7 +5,7 @@ Module for monitoring Anthropic API calls.
 
 import time
 import logging
-from ..__helpers import get_chat_model_cost
+from ..__helpers import get_chat_model_cost, handle_exception
 from opentelemetry.trace import SpanKind
 
 # Initialize logger for logging potential issues and operations
@@ -56,28 +56,94 @@ def init(llm, environment, application_name, tracer, pricing_info):
                 # Placeholder for aggregating streaming response
                 llmresponse = ""
 
-                # Loop through streaming events capturing relevant details
-                async for event in await original_messages_create(*args, **kwargs):
-
-                    # Collect message IDs and input token from events
-                    if event.type == "message_start":
-                        response_id = event.message.id
-                        prompt_tokens = event.message.usage.input_tokens
-
-                    # Aggregate response content
-                    if event.type == "content_block_delta":
-                        llmresponse += event.delta.text
-
-                    # Collect output tokens and stop reason from events
-                    if event.type == "message_delta":
-                        completion_tokens = event.usage.output_tokens
-                        finish_reason = event.delta.stop_reason
-                    yield event
-
-                # Sections handling exceptions ensure observability without disrupting operations
                 try:
-                    with tracer.start_as_current_span("anthropic.messages", kind= SpanKind.CLIENT) as span:
-                        end_time = time.time()
+                    # Loop through streaming events capturing relevant details
+                    async for event in await original_messages_create(*args, **kwargs):
+
+                        # Collect message IDs and input token from events
+                        if event.type == "message_start":
+                            response_id = event.message.id
+                            prompt_tokens = event.message.usage.input_tokens
+
+                        # Aggregate response content
+                        if event.type == "content_block_delta":
+                            llmresponse += event.delta.text
+
+                        # Collect output tokens and stop reason from events
+                        if event.type == "message_delta":
+                            completion_tokens = event.usage.output_tokens
+                            finish_reason = event.delta.stop_reason
+                        yield event
+
+                    # Sections handling exceptions ensure observability without disrupting operations
+                    try:
+                        with tracer.start_as_current_span("anthropic.messages", kind= SpanKind.CLIENT) as span:
+                            end_time = time.time()
+                            # Calculate total duration of operation
+                            duration = end_time - start_time
+
+                            # Format 'messages' into a single string
+                            message_prompt = kwargs.get("messages", "")
+                            formatted_messages = []
+                            for message in message_prompt:
+                                role = message["role"]
+                                content = message["content"]
+
+                                if isinstance(content, list):
+                                    content_str = ", ".join(
+                                        #pylint: disable=line-too-long
+                                        f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
+                                        if "type" in item else f'text: {item["text"]}'
+                                        for item in content
+                                    )
+                                    formatted_messages.append(f"{role}: {content_str}")
+                                else:
+                                    formatted_messages.append(f"{role}: {content}")
+                            prompt = "\n".join(formatted_messages)
+
+                            # Calculate cost of the operation
+                            cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"), pricing_info, prompt_tokens, completion_tokens)
+
+                            # Set Span attributes
+                            span.set_attribute("llm.provider", "Anthropic")
+                            span.set_attribute("llm.generation", "chat")
+                            span.set_attribute("llm.endpoint", "anthropic.messages")
+                            span.set_attribute("llm.req.id", response_id)
+                            span.set_attribute("llm.environment", environment)
+                            span.set_attribute("llm.application.name", application_name)
+                            span.set_attribute("llm.request.duration", duration)
+                            span.set_attribute("llm.model", kwargs.get("model", "claude-3-sonnet-20240229"))
+                            span.set_attribute("llm.max.tokens", kwargs.get("max_tokens", ""))
+                            span.set_attribute("llm.prompt", prompt)
+                            span.set_attribute("llm.stream", True)
+                            span.set_attribute("llm.temperature", kwargs.get("temperature", 1.0))
+                            span.set_attribute("llm.top.p", kwargs.get("top_p", ""))
+                            span.set_attribute("llm.top.k", kwargs.get("top_k", ""))
+                            span.set_attribute("llm.finish.reason", finish_reason)
+                            span.set_attribute("llm.response", llmresponse)
+                            span.set_attribute("llm.promptTokens", prompt_tokens)
+                            span.set_attribute("llm.completionTokens", completion_tokens)
+                            span.set_attribute("llm.totalTokens", prompt_tokens + completion_tokens)
+                            span.set_attribute("llm.cost", cost)
+
+                    except Exception as e:
+                        handle_exception(tracer, e, "anthropic.messages")
+                        logger.error(f"Error in patched message creation: {e}")
+
+                except Exception as e:
+                    handle_exception(tracer, e, "anthropic.messages")
+                    raise e
+
+            return stream_generator()
+
+        # Handling for non-streaming responses
+        else:
+            try:
+                response = await original_messages_create(*args, **kwargs)
+                end_time = time.time()
+
+                try:
+                    with tracer.start_as_current_span("anthropic.messages", kind=SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
 
@@ -90,7 +156,6 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                             if isinstance(content, list):
                                 content_str = ", ".join(
-                                    #pylint: disable=line-too-long
                                     f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                     if "type" in item else f'text: {item["text"]}'
                                     for item in content
@@ -101,104 +166,42 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         prompt = "\n".join(formatted_messages)
 
                         # Calculate cost of the operation
-                        cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"), pricing_info, prompt_tokens, completion_tokens)
+                        cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"), pricing_info, response.usage.input_tokens, response.usage.output_tokens)
 
-                        # Set Span attributes
+                        # Set Span attribues
                         span.set_attribute("llm.provider", "Anthropic")
                         span.set_attribute("llm.generation", "chat")
                         span.set_attribute("llm.endpoint", "anthropic.messages")
-                        span.set_attribute("llm.req.id", response_id)
+                        span.set_attribute("llm.req.id", response.id)
                         span.set_attribute("llm.environment", environment)
                         span.set_attribute("llm.application.name", application_name)
                         span.set_attribute("llm.request.duration", duration)
                         span.set_attribute("llm.model", kwargs.get("model", "claude-3-sonnet-20240229"))
                         span.set_attribute("llm.max.tokens", kwargs.get("max_tokens", ""))
                         span.set_attribute("llm.prompt", prompt)
-                        span.set_attribute("llm.stream", True)
+                        span.set_attribute("llm.stream", False)
                         span.set_attribute("llm.temperature", kwargs.get("temperature", 1.0))
                         span.set_attribute("llm.top.p", kwargs.get("top_p", ""))
                         span.set_attribute("llm.top.k", kwargs.get("top_k", ""))
-                        span.set_attribute("llm.finish.reason", finish_reason)
-                        span.set_attribute("llm.response", llmresponse)
-                        span.set_attribute("llm.promptTokens", prompt_tokens)
-                        span.set_attribute("llm.completionTokens", completion_tokens)
-                        span.set_attribute("llm.totalTokens", prompt_tokens + completion_tokens)
+                        span.set_attribute("llm.finish.reason", response.stop_reason)
+                        span.set_attribute("llm.response", response.content[0].text if response.content else "")
+                        span.set_attribute("llm.promptTokens", response.usage.input_tokens)
+                        span.set_attribute("llm.completionTokens", response.usage.output_tokens)
+                        span.set_attribute("llm.totalTokens", response.usage.input_tokens + response.usage.output_tokens)
                         span.set_attribute("llm.cost", cost)
 
+                    # Return original response
+                    return response
+
                 except Exception as e:
-                    with tracer.start_as_current_span("anthropic.messages", kind=SpanKind.INTERNAL) as span:
-                        # Record the exception details within the span
-                        span.record_exception(e)
-                        # Mark the exception as having propagated beyond expected scope
-                        span.set_attribute("exception.escaped", True)
-                        logger.error(f"Error in patched message creation: {e}")
-
-            return stream_generator()
-
-        # Handling for non-streaming responses
-        else:
-            response = await original_messages_create(*args, **kwargs)
-            end_time = time.time()
-            try:
-                with tracer.start_as_current_span("anthropic.messages", kind=SpanKind.CLIENT) as span:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
-                    # Format 'messages' into a single string
-                    message_prompt = kwargs.get("messages", "")
-                    formatted_messages = []
-                    for message in message_prompt:
-                        role = message["role"]
-                        content = message["content"]
-
-                        if isinstance(content, list):
-                            content_str = ", ".join(
-                                f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
-                                if "type" in item else f'text: {item["text"]}'
-                                for item in content
-                            )
-                            formatted_messages.append(f"{role}: {content_str}")
-                        else:
-                            formatted_messages.append(f"{role}: {content}")
-                    prompt = "\n".join(formatted_messages)
-
-                    # Calculate cost of the operation
-                    cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"), pricing_info, response.usage.input_tokens, response.usage.output_tokens)
-
-                    # Set Span attribues
-                    span.set_attribute("llm.provider", "Anthropic")
-                    span.set_attribute("llm.generation", "chat")
-                    span.set_attribute("llm.endpoint", "anthropic.messages")
-                    span.set_attribute("llm.req.id", response.id)
-                    span.set_attribute("llm.environment", environment)
-                    span.set_attribute("llm.application.name", application_name)
-                    span.set_attribute("llm.request.duration", duration)
-                    span.set_attribute("llm.model", kwargs.get("model", "claude-3-sonnet-20240229"))
-                    span.set_attribute("llm.max.tokens", kwargs.get("max_tokens", ""))
-                    span.set_attribute("llm.prompt", prompt)
-                    span.set_attribute("llm.stream", False)
-                    span.set_attribute("llm.temperature", kwargs.get("temperature", 1.0))
-                    span.set_attribute("llm.top.p", kwargs.get("top_p", ""))
-                    span.set_attribute("llm.top.k", kwargs.get("top_k", ""))
-                    span.set_attribute("llm.finish.reason", response.stop_reason)
-                    span.set_attribute("llm.response", response.content[0].text if response.content else "")
-                    span.set_attribute("llm.promptTokens", response.usage.input_tokens)
-                    span.set_attribute("llm.completionTokens", response.usage.output_tokens)
-                    span.set_attribute("llm.totalTokens", response.usage.input_tokens + response.usage.output_tokens)
-                    span.set_attribute("llm.cost", cost)
-
-                # Return original response
-                return response
-
-            except Exception as e:
-                with tracer.start_as_current_span("anthropic.messages", kind=SpanKind.INTERNAL) as span:
-                    # Record the exception details within the span
-                    span.record_exception(e)
-                    # Mark the exception as having propagated beyond expected scope
-                    span.set_attribute("exception.escaped", True)
+                    handle_exception(tracer, e, "anthropic.messages")
                     logger.error(f"Error in patched message creation: {e}")
 
-                # Return original response
-                return response
+                    # Return original response
+                    return response
+            
+            except Exception as e:
+                handle_exception(tracer, e, "anthropic.messages")
+                raise e
 
     llm.messages.create = patched_messages_create

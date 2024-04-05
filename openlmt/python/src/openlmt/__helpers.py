@@ -5,6 +5,7 @@ This module has functions to calculate model costs based on tokens and to fetch 
 import logging
 import requests
 import tiktoken
+from opentelemetry.trace import SpanKind
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -115,3 +116,10 @@ def fetch_pricing_info():
     except Exception as err:
         logger.error(f"Unexpected error occurred while fetching pricing info: {err}")
     return {}
+
+def handle_exception(tracer,e, endpoint):
+    with tracer.start_as_current_span(endpoint, kind=SpanKind.INTERNAL) as span:
+        # Record the exception details within the span
+        span.record_exception(e)
+        # Mark the exception as having propagated beyond expected scope
+        span.set_attribute("exception.escaped", True)

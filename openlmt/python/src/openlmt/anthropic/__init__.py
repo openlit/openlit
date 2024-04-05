@@ -12,7 +12,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
-    
+
     def _instrument(self, **kwargs):
         llm = kwargs.get("llm")
         application_name = kwargs.get("application_name")
@@ -22,7 +22,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
 
         init_anthropic(llm, environment, application_name, tracer, pricing_info)
         return
-    
+
     @staticmethod
     def _uninstrument(self, **kwargs):
         pass
@@ -32,7 +32,7 @@ class AsyncAnthropicInstrumentor(BaseInstrumentor):
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
-    
+
     def _instrument(self, **kwargs):
         llm = kwargs.get("llm")
         application_name = kwargs.get("application_name")
@@ -40,11 +40,9 @@ class AsyncAnthropicInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
 
-
         init_async_anthropic(llm, environment, application_name, tracer, pricing_info)
         return
 
-    
     @staticmethod
     def _uninstrument(self, **kwargs):
         pass
