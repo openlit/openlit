@@ -6,6 +6,7 @@ pytest>=7.4.0
 requests>=2.31.0
 pylint>=3.0.2
 mistralai>=0.1.5
+tiktoken>=0.1.1
 opentelemetry-api>=1.24.0
 opentelemetry-sdk>=1.24.0
 opentelemetry-exporter-otlp>=1.24.0
