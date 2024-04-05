@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, line-too-long
 """
 Module for monitoring Azure OpenAI API calls.
 """
@@ -130,7 +130,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                     except Exception as e:
                         handle_exception(tracer, e, "azure.openai.chat.completions")
-                        logger.error(f"Error in patched message creation: {e}")
+                        logger.error("Error in patched message creation: %s", e)
 
                 except Exception as e:
                     handle_exception(tracer, e, "azure.openai.chat.completions")
@@ -230,7 +230,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                 except Exception as e:
                     handle_exception(tracer, e, "azure.openai.chat.completions")
-                    logger.error(f"Error in patched message creation: {e}")
+                    logger.error("Error in patched message creation: %s", e)
 
                     # Return original response
                     return response
@@ -319,7 +319,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                     except Exception as e:
                         handle_exception(tracer, e, "azure.openai.completions")
-                        logger.error(f"Error in patched message creation: {e}")
+                        logger.error("Error in patched message creation: %s", e)
 
                 except Exception as e:
                     handle_exception(tracer, e, "azure.openai.completions")
@@ -399,7 +399,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                 except Exception as e:
                     handle_exception(tracer, e, "azure.openai.completions")
-                    logger.error(f"Error in patched message creation: {e}")
+                    logger.error("Error in patched message creation: %s", e)
 
                     # Return original response
                     return response
@@ -458,7 +458,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
             except Exception as e:
                 handle_exception(tracer, e, "azure.openai.embeddings")
-                logger.error(f"Error in patched message creation: {e}")
+                logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
@@ -531,7 +531,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
             except Exception as e:
                 handle_exception(tracer, e, "azure.openai.images.generate")
-                logger.error(f"Error in patched message creation: {e}")
+                logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response

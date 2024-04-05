@@ -1,5 +1,9 @@
+# pylint: disable=line-too-long
+"""
+Setups up OpenTelemetry tracer
+"""
+
 import os
-import logging
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -7,7 +11,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 # Global flag to check if the tracer provider initialization is complete.
-is_tracer_provider_set = False
+TRACER_SET = False
 
 def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, otlp_headers=None, disable_batch=False):
     """
@@ -23,10 +27,13 @@ def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, o
     Returns:
         A tracer instance configured according to the given parameters or environment variables.
     """
-    global is_tracer_provider_set
+
+    # pylint: disable=global-statement)
+    global TRACER_SET
+
     try:
         # Execute the tracing setup only if a custom tracer hasn't been provided and the provider is not yet set.
-        if tracer is None and not is_tracer_provider_set:
+        if tracer is None and not TRACER_SET:
             # Create a resource with the service name attribute.
             resource = Resource(attributes={SERVICE_NAME: application_name})
 
@@ -49,11 +56,12 @@ def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, o
             trace.get_tracer_provider().add_span_processor(span_processor)
 
             # Set the flag to indicate the tracer provider has been configured.
-            is_tracer_provider_set = True
+            TRACER_SET = True
 
         # Create and return a tracer from the tracer provider using the current module's name.
         return trace.get_tracer(__name__)
 
-    except Exception as e:
+    # pylint: disable=broad-exception-caught
+    except:
         # In case of a setup failure, return None to signify the error.
         return None

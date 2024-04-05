@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, line-too-long
 """
 Module for monitoring Anthropic API calls.
 """
@@ -128,7 +128,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                     except Exception as e:
                         handle_exception(tracer, e, "anthropic.messages")
-                        logger.error(f"Error in patched message creation: {e}")
+                        logger.error("Error in patched message creation: %s", e)
 
                 except Exception as e:
                     handle_exception(tracer, e, "anthropic.messages")
@@ -195,7 +195,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                 except Exception as e:
                     handle_exception(tracer, e, "anthropic.messages")
-                    logger.error(f"Error in patched message creation: {e}")
+                    logger.error("Error in patched message creation: %s", e)
 
                     # Return original response
                     return response

@@ -1,12 +1,12 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, line-too-long
 """
 Module for monitoring OpenAI API calls.
 """
 
 import time
 import logging
-from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_model_cost, get_image_model_cost, openai_tokens, handle_exception
 from opentelemetry.trace import SpanKind
+from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_model_cost, get_image_model_cost, openai_tokens, handle_exception
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -132,7 +132,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                     except Exception as e:
                         handle_exception(tracer, e, "openai.chat.completions")
-                        logger.error(f"Error in patched message creation: {e}")
+                        logger.error("Error in patched message creation: %s", e)
 
                 except Exception as e:
                     handle_exception(tracer, e, "openai.chat.completions")
@@ -230,7 +230,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                 except Exception as e:
                     handle_exception(tracer, e, "openai.chat.completions")
-                    logger.error(f"Error in patched message creation: {e}")
+                    logger.error("Error in patched message creation: %s", e)
 
                     # Return original response
                     return response
@@ -288,7 +288,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
             except Exception as e:
                 handle_exception(tracer, e, "openai.embeddings")
-                logger.error(f"Error in patched message creation: {e}")
+                logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
@@ -346,7 +346,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
             except Exception as e:
                 handle_exception(tracer, e, "openai.fine.tuning")
-                logger.error(f"Error in patched message creation: {e}")
+                logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
@@ -376,7 +376,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
             response = await original_images_create(*args, **kwargs)
             end_time = time.time()
             images_count = 0
-            
+
             try:
                 with tracer.start_as_current_span("openai.images.generate", kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
@@ -420,7 +420,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
             except Exception as e:
                 handle_exception(tracer, e, "openai.images.generate")
-                logger.error(f"Error in patched message creation: {e}")
+                logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
@@ -493,7 +493,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
             except Exception as e:
                 handle_exception(tracer, e, "openai.images.create.variation")
-                logger.error(f"Error in patched message creation: {e}")
+                logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
@@ -550,7 +550,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
             except Exception as e:
                 handle_exception(tracer, e, "openai.audio.speech.create")
-                logger.error(f"Error in patched message creation: {e}")
+                logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
