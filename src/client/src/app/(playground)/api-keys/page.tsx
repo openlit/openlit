@@ -1,8 +1,6 @@
 "use client";
 import AddAPIKeyModal from "@/components/(playground)/add-api-key-modal";
 import ConfirmationModal from "@/components/common/confirmation-modal";
-import { getPingStatus } from "@/selectors/database-config";
-import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { Disclosure } from "@headlessui/react";
 import { DocumentDuplicateIcon, TrashIcon } from "@heroicons/react/24/outline";
@@ -21,7 +19,6 @@ function ManageKeys() {
 	const [selectedKey, setSelectedKey] = useState<any>();
 	const [creating, setCreating] = useState<boolean>(false);
 	const newCreatedKey = useRef<any>();
-	const pingStatus = useRootStore(getPingStatus);
 
 	const fetchData = useCallback(() => {
 		fireGetRequest({
@@ -31,8 +28,8 @@ function ManageKeys() {
 	}, []);
 
 	useEffect(() => {
-		if (pingStatus === "success") fetchData();
-	}, [fetchData, pingStatus]);
+		fetchData();
+	}, [fetchData]);
 
 	const handleYes = useCallback(() => {
 		toast.loading("Deleting API key!", {
@@ -117,7 +114,7 @@ function ManageKeys() {
 							</td>
 						</tr>
 					))}
-					{isLoading && pingStatus === "pending" && (
+					{isLoading && (
 						<tr className="border-b border-secondary animate-pulse">
 							<td className="px-6 py-3 w-1/3 font-medium ">
 								<div className="h-2 w-2/3 bg-secondary/[0.9] rounded"></div>

@@ -12,6 +12,4 @@ export function normalizeAPIKeys(
 			...p,
 			api_key: maskingKey(p?.api_key || ""),
 		}));
-	
-	return params;
 }

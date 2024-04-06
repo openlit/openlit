@@ -1,13 +1,11 @@
 import { memo, useCallback, useEffect } from "react";
+import { useFilter } from "../filter-context";
 import Card from "@/components/common/card";
 import { DonutChart } from "@tremor/react";
 import Legend from "@/components/common/legend";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { round } from "lodash";
 import { getChartColors } from "@/constants/chart-colors";
-import { useRootStore } from "@/store";
-import { getFilterDetails } from "@/selectors/filter";
-import { getPingStatus } from "@/selectors/database-config";
 
 const valueFormatter = (number: number) => `${round(number, 7)}`;
 
@@ -53,8 +51,7 @@ const PieChartCard = memo(
 		indexKey,
 		url,
 	}: PieChartCardProps) => {
-		const filter = useRootStore(getFilterDetails);
-		const pingStatus = useRootStore(getPingStatus);
+		const [filter] = useFilter();
 		const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 
 		const fetchData = useCallback(async () => {
@@ -69,13 +66,8 @@ const PieChartCard = memo(
 		}, [filter, url]);
 
 		useEffect(() => {
-			if (
-				filter.timeLimit.start &&
-				filter.timeLimit.end &&
-				pingStatus === "success"
-			)
-				fetchData();
-		}, [filter, fetchData, pingStatus]);
+			if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
+		}, [filter, fetchData]);
 
 		const updatedData = data as any[];
 
@@ -83,7 +75,7 @@ const PieChartCard = memo(
 
 		return (
 			<Card containerClass={containerClass} heading={heading}>
-				{(isLoading || !isFetched) && pingStatus === "pending" ? (
+				{isLoading || !isFetched ? (
 					<div className="animate-pulse h-9 w-1/3 bg-secondary/[0.9] rounded"></div>
 				) : updatedData?.length ? (
 					<>

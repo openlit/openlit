@@ -1,10 +1,8 @@
+import { useFilter } from "@/app/(playground)/filter-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { memo, useCallback, useEffect } from "react";
 import Card, { CardProps } from "../common/card";
 import { round } from "lodash";
-import { getFilterDetails } from "@/selectors/filter";
-import { useRootStore } from "@/store";
-import { getPingStatus } from "@/selectors/database-config";
 
 type StatCardProps = Partial<CardProps> & {
 	dataKey: string;
@@ -26,8 +24,7 @@ const StatCard = memo(
 		url,
 		...rest
 	}: StatCardProps) => {
-		const filter = useRootStore(getFilterDetails);
-		const pingStatus = useRootStore(getPingStatus);
+		const [filter] = useFilter();
 		const { data, isFetched, isLoading, fireRequest } = useFetchWrapper();
 
 		const fetchData = useCallback(async () => {
@@ -43,17 +40,12 @@ const StatCard = memo(
 		}, [filter, url]);
 
 		useEffect(() => {
-			if (
-				filter.timeLimit.start &&
-				filter.timeLimit.end &&
-				pingStatus === "success"
-			)
-				fetchData();
-		}, [filter, fetchData, pingStatus]);
+			if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
+		}, [filter, fetchData]);
 
 		return (
 			<Card
-				isLoading={(isLoading || !isFetched) && pingStatus === "pending"}
+				isLoading={isLoading || !isFetched}
 				text={`${textPrefix}${round(
 					(data as Record<any, any>)?.[dataKey] || 0,
 					roundTo

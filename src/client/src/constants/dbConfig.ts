@@ -9,7 +9,3 @@ export type DatabaseConfig = {
 	database: string;
 	query?: string;
 };
-
-export type DatabaseConfigWithActive = DatabaseConfig & {
-	isCurrent?: boolean;
-};

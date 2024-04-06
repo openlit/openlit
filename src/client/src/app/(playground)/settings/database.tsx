@@ -1,30 +1,27 @@
 import FormBuilder from "@/components/common/form-builder";
 import SideTabs, { SideTabItemProps } from "@/components/common/side-tabs";
-import { DatabaseConfig, DatabaseConfigWithActive } from "@/constants/dbConfig";
-import {
-	changeActiveDatabaseConfig,
-	deleteDatabaseConfig,
-	fetchDatabaseConfigList,
-} from "@/helpers/database-config";
-import {
-	getDatabaseConfigList,
-	getDatabaseConfigListIsLoading,
-} from "@/selectors/database-config";
-import { useRootStore } from "@/store";
+import { DatabaseConfig } from "@/constants/dbConfig";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { keyBy } from "lodash";
 import {
 	FormEventHandler,
 	MouseEventHandler,
 	useCallback,
+	useEffect,
 	useState,
 } from "react";
 import toast from "react-hot-toast";
 
+type DBConfig = DatabaseConfig & {
+	isCurrent?: boolean;
+};
+
 function ModifyDatabaseConfig({
 	dbConfig,
+	successCb,
 }: {
-	dbConfig?: DatabaseConfigWithActive;
+	dbConfig?: DBConfig;
+	successCb: () => void;
 }) {
 	const { fireRequest, isLoading } = useFetchWrapper();
 
@@ -58,7 +55,7 @@ function ModifyDatabaseConfig({
 				url: "/api/db-config",
 				responseDataKey: "data",
 				successCb: () => {
-					fetchDatabaseConfigList();
+					successCb();
 					toast.success("Db config updated!", {
 						id: "db-config-details",
 					});
@@ -153,11 +150,14 @@ const ADD_NEW_ID = "ADD_NEW_ID";
 
 function DatabaseList({
 	dbConfigs,
+	successCb,
 	isLoadingList,
 }: {
-	dbConfigs: DatabaseConfigWithActive[];
+	dbConfigs: DBConfig[];
+	successCb: () => void;
 	isLoadingList: boolean;
 }) {
+	const { fireRequest, isLoading } = useFetchWrapper();
 	const [selectedDBConfigId, setSelectedDBConfigId] = useState<string>(
 		dbConfigs[0]?.id || ADD_NEW_ID
 	);
@@ -177,7 +177,13 @@ function DatabaseList({
 			(event.target as SVGSVGElement).closest("li") as HTMLLIElement
 		).dataset;
 
-		if (itemId) deleteDatabaseConfig(itemId);
+		if (itemId)
+			fireRequest({
+				requestType: "DELETE",
+				url: `/api/db-config/${itemId}`,
+				responseDataKey: "data",
+				successCb,
+			});
 	};
 
 	const onClickSetCurrent: MouseEventHandler<HTMLDivElement> = (event) => {
@@ -193,7 +199,29 @@ function DatabaseList({
 					id: "db-config-current",
 				}
 			);
-			changeActiveDatabaseConfig(itemId);
+			fireRequest({
+				requestType: "POST",
+				url: `/api/db-config/current/${itemId}`,
+				responseDataKey: "data",
+				successCb: () => {
+					successCb();
+					toast.success(
+						`Db config: ${dbConfigByKey[itemId].name} set active!`,
+						{
+							id: "db-config-current",
+						}
+					);
+				},
+				failureCb: (err?: string) => {
+					toast.error(
+						err ||
+							`Db config: ${dbConfigByKey[itemId].name} setting active failed!`,
+						{
+							id: "db-config-current",
+						}
+					);
+				},
+			});
 		}
 	};
 
@@ -212,7 +240,9 @@ function DatabaseList({
 	});
 
 	return (
-		<div className="flex flex-1 h-full border-t border-secondary relative">
+		<div
+			className={`flex flex-1 h-full border-t border-secondary relative ${isLoading}`}
+		>
 			<SideTabs
 				items={items}
 				onClickTab={onClickDB}
@@ -221,9 +251,12 @@ function DatabaseList({
 				onClickItemDelete={onClickDelete}
 			/>
 			<div className="flex flex-1 w-full h-full">
-				<ModifyDatabaseConfig dbConfig={dbConfigByKey[selectedDBConfigId]} />
+				<ModifyDatabaseConfig
+					dbConfig={dbConfigByKey[selectedDBConfigId]}
+					successCb={successCb}
+				/>
 			</div>
-			{isLoadingList && (
+			{(isLoading || isLoadingList) && (
 				<div className="flex absolute w-full left-0 top-0 h-full bg-secondary/[0.1] animate-pulse z-10" />
 			)}
 		</div>
@@ -231,17 +264,29 @@ function DatabaseList({
 }
 
 export default function Database() {
-	const databaseList = useRootStore(getDatabaseConfigList);
-	const databaseListIsLoading = useRootStore(getDatabaseConfigListIsLoading);
+	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 
-	return databaseListIsLoading && databaseList.length === 0 ? (
+	const fetchData = async () => {
+		fireRequest({
+			requestType: "GET",
+			url: "/api/db-config",
+			responseDataKey: "data",
+		});
+	};
+
+	useEffect(() => {
+		fetchData();
+	}, []);
+
+	return !isFetched ? (
 		<div className="flex items-center justify-center w-full h-full bg-secondary text-primary animate-pulse">
 			Loading...
 		</div>
 	) : (
 		<DatabaseList
-			dbConfigs={(databaseList as DatabaseConfigWithActive[]) || []}
-			isLoadingList={databaseListIsLoading}
+			dbConfigs={(data as DBConfig[]) || []}
+			successCb={fetchData}
+			isLoadingList={isLoading}
 		/>
 	);
 }

@@ -1,10 +1,6 @@
-import { Suspense } from "react";
-import { AuthForm } from "../../../components/(auth)/auth-form";
+"use client";
+import { AuthForm } from "../auth-form";
 
-export default function Register() {
-	return (
-		<Suspense fallback={null}>
-			<AuthForm type={"register"} />
-		</Suspense>
-	);
+export default function Login() {
+	return <AuthForm type={"register"} />;
 }
