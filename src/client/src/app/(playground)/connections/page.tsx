@@ -1,17 +1,12 @@
 "use client";
 import ConfirmationModal from "@/components/common/confirmation-modal";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import {
-	MouseEventHandler,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { MouseEventHandler, useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { CONNECTIONS } from "./constant";
 import { CheckBadgeIcon, TrashIcon } from "@heroicons/react/24/solid";
 import AddConnections from "./add-connections";
+import Image from "next/image";
 
 const CONNECTIONS_TOAST_ID = "connection-details";
 
@@ -115,10 +110,12 @@ function ManageConnections() {
 							data-platform={connection.platform}
 							onClick={onClickPlatform}
 						>
-							<img
+							<Image
 								className="w-1/2 h-full rounded-l-sm p-3"
 								src={`/images/connections/${connection.image}`}
 								alt="Room Image"
+								width="64"
+								height="64"
 							/>
 							<div className="w-full flex flex-col py-3">
 								<h3

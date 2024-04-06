@@ -25,6 +25,9 @@
       "@/prisma/*": ["./prisma/*"],
       "@/utils/*": ["./src/utils/*"],
       "@/constants/*": ["./src/constants/*"],
+      "@/store/*": ["./src/store/*"],
+      "@/helpers/*": ["./src/helpers/*"],
+      "@/selectors/*": ["./src/selectors/*"],
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "prisma/seed.js"],
