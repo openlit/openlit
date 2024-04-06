@@ -1,7 +1,5 @@
 import FormBuilder from "@/components/common/form-builder";
 import SideTabs, { SideTabItemProps } from "@/components/common/side-tabs";
-import { getUserDetails, setUser } from "@/selectors/user";
-import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { User } from "@prisma/client";
 import {
@@ -108,18 +106,13 @@ function ModifyProfileDetails({
 }
 
 export default function Profile() {
-	const userDetails = useRootStore(getUserDetails);
-	const setUserDetails = useRootStore(setUser);
-	const { fireRequest: getUser } = useFetchWrapper();
+	const { data: user, fireRequest: getUser } = useFetchWrapper();
 
 	const fetchUser = () => {
 		getUser({
 			requestType: "GET",
 			url: "/api/user/profile",
 			responseDataKey: "data",
-			successCb(res) {
-				setUserDetails(res);
-			},
 			failureCb: (err?: string) => {
 				toast.error(err || "Unauthorized access!", {
 					id: PROFILE_TOAST_ID,
@@ -144,10 +137,12 @@ export default function Profile() {
 		setSelectedTabId(itemId);
 	};
 
+	useEffect(() => {
+		fetchUser();
+	}, []);
+
 	const updatedItems = items.map((item) =>
-		item.id === "details"
-			? { ...item, badge: (userDetails as User)?.email }
-			: item
+		item.id === "details" ? { ...item, badge: (user as User)?.email } : item
 	);
 
 	return (
@@ -159,10 +154,7 @@ export default function Profile() {
 			/>
 			<div className="flex flex-1 w-full h-full">
 				{selectedTabId === "details" ? (
-					<ModifyProfileDetails
-						user={userDetails as User}
-						fetchUser={fetchUser}
-					/>
+					<ModifyProfileDetails user={user as User} fetchUser={fetchUser} />
 				) : null}
 			</div>
 		</div>

@@ -6,7 +6,6 @@ import { CONNECTION_PLATFORM_TYPE } from "@/utils/connection";
 import FormBuilder from "@/components/common/form-builder";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import toast from "react-hot-toast";
-import Image from "next/image";
 
 const CONNECTIONS_TOAST_ID = "connection-details";
 
@@ -95,9 +94,9 @@ export default function AddConnections({
 										<div className="p-4 bg-secondary relative">
 											<div className="flex flex-col">
 												<Dialog.Title className="flex items-center text-2xl font-bold leading-7 text-tertiary">
-													<Image
+													<img
 														className="w-8 h-8 rounded-l-sm"
-														src={`/images/connections${
+														src={`/images/connections/${
 															CONNECTIONS[platform as CONNECTION_PLATFORM_TYPE]
 																.image
 														}`}
@@ -105,8 +104,6 @@ export default function AddConnections({
 															CONNECTIONS[platform as CONNECTION_PLATFORM_TYPE]
 																.name
 														}
-														width="64"
-														height="64"
 													/>
 													<p className="ml-4">
 														Export to{" "}

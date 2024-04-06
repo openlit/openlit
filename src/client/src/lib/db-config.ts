@@ -17,7 +17,6 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 				databaseConfig: true,
 			},
 		});
-
 		return dbConfig?.databaseConfig;
 	}
 
