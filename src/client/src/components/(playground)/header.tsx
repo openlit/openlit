@@ -1,7 +1,7 @@
-"use client";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Dropdown from "../common/drop-down";
+import DatabaseConfigSwitch from "./database-config-switch";
 
 function UserDropdownTrigger() {
 	return (
@@ -24,6 +24,7 @@ export default function Header() {
 			<div className="flex flex-1 overflow-y-auto capitalize text-xl font-semibold">
 				{pathname.substring(1).replaceAll("-", " ")}
 			</div>
+			<DatabaseConfigSwitch />
 			<Dropdown
 				triggerComponent={<UserDropdownTrigger />}
 				itemList={[

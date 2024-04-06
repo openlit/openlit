@@ -1,5 +1,3 @@
-"use client";
-
 import { ReactElement } from "react";
 import {
 	AcademicCapIcon,
@@ -11,6 +9,7 @@ import {
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LinkIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
 
 type SidebarItemProps = {
 	className?: string;
@@ -75,21 +74,36 @@ const SIDEBAR_BOTTOM_ITEMS: SidebarItemProps[] = [
 ];
 
 const SidebarItem = (props: SidebarItemProps) => {
+	if (props.target || !props.link)
+		return (
+			<a
+				href={props.link}
+				className={`flex items-center p-2 cursor-pointer ${
+					props.className || ""
+				}`}
+				onClick={props.onClick}
+				target={props.target}
+			>
+				{props.leftIcon}
+				<span className={`${props.leftIcon && "ml-5"} text-nowrap`}>
+					{props.text}
+				</span>
+				{props.rightIcon}
+			</a>
+		);
 	return (
-		<a
-			href={props.link}
+		<Link
 			className={`flex items-center p-2 cursor-pointer ${
 				props.className || ""
 			}`}
-			onClick={props.onClick}
-			target={props.target}
+			href={props.link}
 		>
 			{props.leftIcon}
 			<span className={`${props.leftIcon && "ml-5"} text-nowrap`}>
 				{props.text}
 			</span>
 			{props.rightIcon}
-		</a>
+		</Link>
 	);
 };
 
