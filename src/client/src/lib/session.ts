@@ -15,6 +15,7 @@ export async function getCurrentUser({
 		const [, user] = await asaw(
 			getUserById({ id: session.user.id, selectPassword })
 		);
+
 		return user ?? null;
 	}
 

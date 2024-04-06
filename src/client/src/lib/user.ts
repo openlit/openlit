@@ -48,6 +48,8 @@ export const getUserById = async ({
 		},
 	});
 
+	if (!user) return null;
+
 	return exclude(user, selectPassword ? [] : undefined);
 };
 

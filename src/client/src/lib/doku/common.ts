@@ -42,7 +42,7 @@ export async function dataCollector(
 		table,
 		values,
 	}: Partial<QueryParams & InsertParams & CommandParams>,
-	clientQueryType: "query" | "command" | "insert" = "query"
+	clientQueryType: "query" | "command" | "insert" | "ping" = "query"
 ): Promise<DataCollectorType> {
 	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
 	if (err) return { err, data: [] };
@@ -52,11 +52,13 @@ export async function dataCollector(
 	try {
 		clickhousePool = createClickhousePool(dbConfig);
 		const [err, clientClick] = await asaw(clickhousePool.acquire());
-		if (err || !clientClick) {
+
+		if (err) {
 			return { err, data: [] };
 		}
 		client = clientClick;
-		if (!client) throw new Error("Clickhouse client is not available!");
+		if (!client)
+			return { err: "Clickhouse client is not available!", data: [] };
 		let respErr;
 		let result;
 
@@ -86,7 +88,11 @@ export async function dataCollector(
 			if (result?.query_id) {
 				return { data: "Added successfully!" };
 			}
-		} else {
+		} else if (clientQueryType === "ping") {
+			[respErr, result] = await asaw(client.ping());
+
+			return { err: respErr, data: !!result };
+		} else if (clientQueryType === "command") {
 			if (!query) return { err: "No query specified!" };
 			[respErr, result] = await asaw(
 				client.command({
@@ -99,7 +105,7 @@ export async function dataCollector(
 			}
 		}
 
-		return { err: respErr };
+		return { err: respErr || "Unable to process the information" };
 	} catch (error: any) {
 		return { err: `ClickHouse Query Error: ${error.message}`, data: [] };
 	} finally {
