@@ -1,13 +1,16 @@
 import { useCallback, useEffect } from "react";
-import { useFilter } from "../filter-context";
 import Card from "@/components/common/card";
 import { LineChart } from "@tremor/react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import toast from "react-hot-toast";
 import { getChartColors } from "@/constants/chart-colors";
+import { useRootStore } from "@/store";
+import { getFilterDetails } from "@/selectors/filter";
+import { getPingStatus } from "@/selectors/database-config";
 
 export default function RequestsPerTime() {
-	const [filter] = useFilter();
+	const filter = useRootStore(getFilterDetails);
+	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
@@ -26,8 +29,13 @@ export default function RequestsPerTime() {
 	}, [filter]);
 
 	useEffect(() => {
-		if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
-	}, [filter, fetchData]);
+		if (
+			filter.timeLimit.start &&
+			filter.timeLimit.end &&
+			pingStatus === "success"
+		)
+			fetchData();
+	}, [filter, fetchData, pingStatus]);
 
 	const colors = getChartColors(1);
 
@@ -39,13 +47,19 @@ export default function RequestsPerTime() {
 			<LineChart
 				className="h-40"
 				connectNulls
-				data={isLoading || !isFetched ? [] : (data as any[]) || []}
+				data={
+					(isLoading || !isFetched) && pingStatus === "pending"
+						? []
+						: (data as any[]) || []
+				}
 				index="request_time"
 				categories={["total"]}
 				colors={colors}
 				yAxisWidth={40}
 				noDataText={
-					isLoading || !isFetched ? "Loading ..." : "No data available"
+					(isLoading || !isFetched) && pingStatus === "pending"
+						? "Loading ..."
+						: "No data available"
 				}
 				showAnimation
 			/>
