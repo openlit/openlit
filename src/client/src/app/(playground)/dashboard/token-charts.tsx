@@ -6,9 +6,11 @@ import Card from "@/components/common/card";
 import { getChartColors } from "@/constants/chart-colors";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
+import { getPingStatus } from "@/selectors/database-config";
 
 function TopModels() {
 	const filter = useRootStore(getFilterDetails);
+	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 
 	const fetchData = useCallback(async () => {
@@ -23,8 +25,13 @@ function TopModels() {
 	}, [filter]);
 
 	useEffect(() => {
-		if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
-	}, [filter, fetchData]);
+		if (
+			filter.timeLimit.start &&
+			filter.timeLimit.end &&
+			pingStatus === "success"
+		)
+			fetchData();
+	}, [filter, fetchData, pingStatus]);
 
 	const colors = getChartColors((data as any[])?.length || 0);
 
@@ -37,7 +44,7 @@ function TopModels() {
 
 	return (
 		<Card containerClass="rounded-l-lg w-1/2 h-full" heading="Top models">
-			{isLoading || !isFetched ? (
+			{(isLoading || !isFetched) && pingStatus === "pending" ? (
 				<div className="flex w-full items-center justify-center h-40">
 					Loading...
 				</div>
@@ -47,7 +54,11 @@ function TopModels() {
 				</div>
 			) : (
 				<BarList
-					data={isLoading || !isFetched ? [] : updatedData}
+					data={
+						(isLoading || !isFetched) && pingStatus === "pending"
+							? []
+							: updatedData
+					}
 					className="h-40 text-tertiary"
 					showAnimation
 				/>
@@ -58,6 +69,7 @@ function TopModels() {
 
 function ModelsPerTime() {
 	const filter = useRootStore(getFilterDetails);
+	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
@@ -71,8 +83,13 @@ function ModelsPerTime() {
 	}, [filter]);
 
 	useEffect(() => {
-		if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
-	}, [filter, fetchData]);
+		if (
+			filter.timeLimit.start &&
+			filter.timeLimit.end &&
+			pingStatus === "success"
+		)
+			fetchData();
+	}, [filter, fetchData, pingStatus]);
 
 	const models: Set<string> = new Set();
 
@@ -96,11 +113,17 @@ function ModelsPerTime() {
 				className="h-40"
 				connectNulls
 				colors={colors}
-				data={isLoading || !isFetched ? [] : updatedDataWithType}
+				data={
+					(isLoading || !isFetched) && pingStatus === "pending"
+						? []
+						: updatedDataWithType
+				}
 				index="request_time"
 				categories={modelsArr}
 				noDataText={
-					isLoading || !isFetched ? "Loading ..." : "No data available"
+					(isLoading || !isFetched) && pingStatus === "pending"
+						? "Loading ..."
+						: "No data available"
 				}
 				showAnimation
 			/>
@@ -110,6 +133,7 @@ function ModelsPerTime() {
 
 function TokensPerTime() {
 	const filter = useRootStore(getFilterDetails);
+	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
@@ -123,8 +147,13 @@ function TokensPerTime() {
 	}, [filter]);
 
 	useEffect(() => {
-		if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
-	}, [filter, fetchData]);
+		if (
+			filter.timeLimit.start &&
+			filter.timeLimit.end &&
+			pingStatus === "success"
+		)
+			fetchData();
+	}, [filter, fetchData, pingStatus]);
 
 	const updatedDataWithType = ((data || []) as any[]) || [];
 
@@ -138,12 +167,18 @@ function TokensPerTime() {
 			<AreaChart
 				className="h-4/5"
 				colors={colors}
-				data={isLoading || !isFetched ? [] : updatedDataWithType}
+				data={
+					(isLoading || !isFetched) && pingStatus === "pending"
+						? []
+						: updatedDataWithType
+				}
 				index="request_time"
 				categories={["totaltokens", "prompttokens", "completiontokens"]}
 				yAxisWidth={40}
 				noDataText={
-					isLoading || !isFetched ? "Loading ..." : "No data available"
+					(isLoading || !isFetched) && pingStatus === "pending"
+						? "Loading ..."
+						: "No data available"
 				}
 				showAnimation
 			/>
