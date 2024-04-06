@@ -7,6 +7,7 @@ import { round } from "lodash";
 import { getChartColors } from "@/constants/chart-colors";
 import { useRootStore } from "@/store";
 import { getFilterDetails } from "@/selectors/filter";
+import { getPingStatus } from "@/selectors/database-config";
 
 const valueFormatter = (number: number) => `${round(number, 7)}`;
 
@@ -53,6 +54,7 @@ const PieChartCard = memo(
 		url,
 	}: PieChartCardProps) => {
 		const filter = useRootStore(getFilterDetails);
+		const pingStatus = useRootStore(getPingStatus);
 		const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 
 		const fetchData = useCallback(async () => {
@@ -67,8 +69,13 @@ const PieChartCard = memo(
 		}, [filter, url]);
 
 		useEffect(() => {
-			if (filter.timeLimit.start && filter.timeLimit.end) fetchData();
-		}, [filter, fetchData]);
+			if (
+				filter.timeLimit.start &&
+				filter.timeLimit.end &&
+				pingStatus === "success"
+			)
+				fetchData();
+		}, [filter, fetchData, pingStatus]);
 
 		const updatedData = data as any[];
 
@@ -76,7 +83,7 @@ const PieChartCard = memo(
 
 		return (
 			<Card containerClass={containerClass} heading={heading}>
-				{isLoading || !isFetched ? (
+				{(isLoading || !isFetched) && pingStatus === "pending" ? (
 					<div className="animate-pulse h-9 w-1/3 bg-secondary/[0.9] rounded"></div>
 				) : updatedData?.length ? (
 					<>
