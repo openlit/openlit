@@ -1,8 +1,6 @@
-"use client";
-
-import React, { ReactNode, createContext, useContext, useState } from "react";
-import { merge, set } from "lodash";
+import { set } from "lodash";
 import { addDays, addMonths, addWeeks } from "date-fns";
+import { lens } from "@dhmk/zustand-lens";
 
 export const TIME_RANGE_TYPE: Record<"24H" | "7D" | "1M" | "3M", string> = {
 	"24H": "24H",
@@ -22,10 +20,6 @@ export interface FilterType {
 	limit: number;
 	offset: number;
 }
-
-const FilterContext = createContext<
-	[FilterType, (key: string, value: any) => void] | undefined
->(undefined);
 
 function getTimeLimitObject(value: string, keyPrefix: string) {
 	let object = {};
@@ -58,9 +52,14 @@ const INITIAL_FILTER: FilterType = {
 	offset: 0,
 };
 
-export function FilterProvider({ children }: { children: ReactNode }) {
-	const [filter, setFilter] = useState(INITIAL_FILTER);
-	const updateFilter = (key: string, value: any) => {
+export type FilterStore = {
+	details: FilterType;
+	updateFilter: (key: string, value: any) => void;
+};
+
+export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
+	details: INITIAL_FILTER,
+	updateFilter: (key: string, value: any) => {
 		let object = {};
 		switch (key) {
 			case "timeLimit.type":
@@ -76,20 +75,6 @@ export function FilterProvider({ children }: { children: ReactNode }) {
 		}
 
 		set(object, key, value);
-		setFilter((e) => merge({}, e, object));
-	};
-
-	return (
-		<FilterContext.Provider value={[filter, updateFilter]}>
-			{children}
-		</FilterContext.Provider>
-	);
-}
-
-export function useFilter() {
-	const context = useContext(FilterContext);
-	if (context === undefined) {
-		throw new Error("useFilter must be used within a FilterProvider");
-	}
-	return context;
-}
+		setStore({ details: { ...getStore().details, ...object } });
+	},
+}));

@@ -1,15 +1,16 @@
 "use client";
 import RequestTable from "./request-table";
-import { useFilter } from "../filter-context";
 import { useCallback, useEffect } from "react";
 import RequestFilter, { FilterConfigProps } from "./request-filter";
 import { RequestProvider } from "./request-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import RequestDetails from "./request-details";
 import toast from "react-hot-toast";
+import { getFilterDetails } from "@/selectors/filter";
+import { useRootStore } from "@/store";
 
 export default function RequestPage() {
-	const [filter] = useFilter();
+	const filter = useRootStore(getFilterDetails);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({

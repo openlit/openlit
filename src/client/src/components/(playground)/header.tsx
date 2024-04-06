@@ -1,4 +1,3 @@
-"use client";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Dropdown from "../common/drop-down";

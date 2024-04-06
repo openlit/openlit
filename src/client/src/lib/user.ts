@@ -4,17 +4,15 @@ import { getCurrentUser } from "./session";
 import { User } from "@prisma/client";
 import { getHashedPassword, doesPasswordMatches } from "@/utils/user";
 
-function exclude<User>(
+function exclude<User extends Record<string, unknown>, K extends keyof User>(
 	user: User,
-	keys: string[] = ["password"]
-): Omit<User, string> {
-	// @ts-expect-error
+	keys: K[] = ["password"] as K[]
+): Omit<User, K> {
 	return Object.fromEntries(
-		// @ts-expect-error
 		Object.entries(user).filter(([key]) =>
-			typeof keys.includes === "function" ? !keys.includes(key) : true
+			typeof keys.includes === "function" ? !keys.includes(key as K) : true
 		)
-	);
+	) as Omit<User, K>;
 }
 
 export const getUserByEmail = async ({
@@ -33,8 +31,7 @@ export const getUserByEmail = async ({
 
 	if (!user) throw new Error("No user with this email exists");
 
-	// @ts-expect-error
-	return exclude(user, selectPassword && []);
+	return exclude(user, selectPassword ? [] : undefined);
 };
 
 export const getUserById = async ({
@@ -51,8 +48,7 @@ export const getUserById = async ({
 		},
 	});
 
-	// @ts-expect-error
-	return exclude(user, selectPassword && []);
+	return exclude(user, selectPassword ? [] : undefined);
 };
 
 export const createNewUser = async (
@@ -78,8 +74,7 @@ export const createNewUser = async (
 	});
 
 	if (createdUser?.id) {
-		// @ts-expect-error
-		return exclude(createdUser, options?.selectPassword && []);
+		return exclude(createdUser, options?.selectPassword ? [] : undefined);
 	}
 
 	throw new Error("Cannot create a user!");

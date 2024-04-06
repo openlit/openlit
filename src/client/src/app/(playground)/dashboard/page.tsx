@@ -1,5 +1,5 @@
 "use client";
-import Filter from "../filter";
+import Filter from "../../../components/(playground)/filter";
 import DataCharts from "./data-charts";
 import NumberStats from "./number-stats";
 import RequestsPerTime from "./requests-per-time";

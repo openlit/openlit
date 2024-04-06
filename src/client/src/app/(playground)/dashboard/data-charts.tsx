@@ -1,11 +1,12 @@
 import { memo, useCallback, useEffect } from "react";
-import { useFilter } from "../filter-context";
 import Card from "@/components/common/card";
 import { DonutChart } from "@tremor/react";
 import Legend from "@/components/common/legend";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { round } from "lodash";
 import { getChartColors } from "@/constants/chart-colors";
+import { useRootStore } from "@/store";
+import { getFilterDetails } from "@/selectors/filter";
 
 const valueFormatter = (number: number) => `${round(number, 7)}`;
 
@@ -51,7 +52,7 @@ const PieChartCard = memo(
 		indexKey,
 		url,
 	}: PieChartCardProps) => {
-		const [filter] = useFilter();
+		const filter = useRootStore(getFilterDetails);
 		const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 
 		const fetchData = useCallback(async () => {

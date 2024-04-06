@@ -1,13 +1,14 @@
 import StatCard from "@/components/(playground)/stat-card";
 import { AreaChart, BarList, LineChart } from "@tremor/react";
 import { useCallback, useEffect } from "react";
-import { useFilter } from "../filter-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import Card from "@/components/common/card";
 import { getChartColors } from "@/constants/chart-colors";
+import { getFilterDetails } from "@/selectors/filter";
+import { useRootStore } from "@/store";
 
 function TopModels() {
-	const [filter] = useFilter();
+	const filter = useRootStore(getFilterDetails);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 
 	const fetchData = useCallback(async () => {
@@ -56,7 +57,7 @@ function TopModels() {
 }
 
 function ModelsPerTime() {
-	const [filter] = useFilter();
+	const filter = useRootStore(getFilterDetails);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
@@ -108,7 +109,7 @@ function ModelsPerTime() {
 }
 
 function TokensPerTime() {
-	const [filter] = useFilter();
+	const filter = useRootStore(getFilterDetails);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
