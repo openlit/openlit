@@ -11,27 +11,20 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_except
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-# pylint: disable=too-many-arguments, too-many-statements
-def init(llm, environment, application_name, tracer, pricing_info, trace_content):
+def embed(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Initializes the instrumentation process by patching the Cohete client
-    methods to gather telemetry data during its execution.
+    Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        llm: Reference to the Cohere client being instrumented.
-        environment (str): Identifier for the environment (e.g., 'production', 'development').
-        application_name (str): Name of the application using the instrumented client.
-        tracer: OpenTelemetry tracer object used for creating spans.
-        pricing_info (dict): Contains pricing information for calculating the cost of operations.
-        trace_content (bool): Flag to control tracing of prompts and response.
+        wrapper_identifier: Identifier for the wrapper, unused here.
+        version: Version of the Anthropic package being instrumented.
+        tracer: The OpenTelemetry tracer instance.
+
+    Returns:
+        A function that wraps the original method.
     """
 
-    # Backup original functions for later restoration if needed
-    original_embed = llm.embed
-    original_chat = llm.chat
-    original_chat_stream = llm.chat_stream
-
-    def embeddings_generate(*args, **kwargs):
+    def wrapper(wrapped, instance, args, kwargs):
         """
         A patched version of the 'embed' method, enabling telemetry data collection.
 
@@ -49,7 +42,7 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
         # Sections handling exceptions ensure observability without disrupting operations
         try:
             start_time = time.time()
-            response = original_embed(*args, **kwargs)
+            response = wrapped(*args, **kwargs)
             end_time = time.time()
 
             try:
@@ -58,7 +51,8 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
                     duration = end_time - start_time
 
                     # Get prompt from kwargs and store as a single string
-                    prompt = " ".join(kwargs.get("texts", []))
+                    # prompt = " ".join(kwargs.get("texts", []))
+
 
                     # Calculate cost of the operation
                     cost = get_embed_model_cost(kwargs.get("model", "embed-english-v2.0"), pricing_info, response.meta.billed_units.input_tokens)
@@ -78,8 +72,8 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
                     span.set_attribute("gen_ai.usage.prompt_tokens", response.meta.billed_units.input_tokens)
                     span.set_attribute("gen_ai.usage.total_tokens", response.meta.billed_units.input_tokens)
                     span.set_attribute("gen_ai.usage.cost", cost)
-                    if trace_content:
-                        span.set_attribute("gen_ai.content.prompt", prompt)
+                    # if trace_content:
+                    #     span.set_attribute("gen_ai.content.prompt", prompt)
 
                 # Return original response
                 return response
@@ -95,7 +89,22 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
             handle_exception(tracer, e, "cohere.embed")
             raise e
 
-    def chat_generate(*args, **kwargs):
+    return wrapper
+
+def chat(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+    """
+    Generates a wrapper around the `messages.create` method to collect telemetry.
+
+    Args:
+        wrapper_identifier: Identifier for the wrapper, unused here.
+        version: Version of the Anthropic package being instrumented.
+        tracer: The OpenTelemetry tracer instance.
+
+    Returns:
+        A function that wraps the original method.
+    """
+
+    def wrapper(wrapped, instance, args, kwargs):
         """
         A patched version of the 'chat' method, enabling telemetry data collection.
 
@@ -113,7 +122,7 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
         # Sections handling exceptions ensure observability without disrupting operations
         try:
             start_time = time.time()
-            response = original_chat(*args, **kwargs)
+            response = wrapped(*args, **kwargs)
             end_time = time.time()
 
             try:
@@ -142,7 +151,7 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
                     span.set_attribute("gen_ai.response.finish_reason", response.response_id)
                     span.set_attribute("gen_ai.usage.prompt_tokens", response.meta["billed_units"]["input_tokens"])
                     span.set_attribute("gen_ai.usage.completion_tokens", response.meta["billed_units"]["output_tokens"])
-                    span.set_attribute("gen_ai.usage.total_tokens", response.token_count["billed_tokens"])
+                    span.set_attribute("gen_ai.usage.total_tokens", response.meta["billed_units"]["input_tokens"] + response.meta["billed_units"]["output_tokens"])
                     span.set_attribute("gen_ai.usage.cost", cost)
                     if trace_content:
                         span.set_attribute("gen_ai.content.prompt", kwargs.get("message", ""))
@@ -162,8 +171,22 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
             handle_exception(tracer, e, "cohere.chat")
             raise e
 
-    # pylint: disable=too-many-locals
-    def patched_chat_stream(*args, **kwargs):
+    return wrapper
+
+def chat_stream(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+    """
+    Generates a wrapper around the `messages.create` method to collect telemetry.
+
+    Args:
+        wrapper_identifier: Identifier for the wrapper, unused here.
+        version: Version of the Anthropic package being instrumented.
+        tracer: The OpenTelemetry tracer instance.
+
+    Returns:
+        A function that wraps the original method.
+    """
+
+    def wrapper(wrapped, instance, args, kwargs):
         """
         A patched version of the 'chat_stream' method, enabling telemetry data collection.
 
@@ -187,14 +210,13 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
 
             try:
                 # Loop through streaming events capturing relevant details
-                for event in original_chat_stream(*args, **kwargs):
+                for event in wrapped(*args, **kwargs):
                     # Collect message IDs and aggregated response from events
                     if event.event_type == "stream-end":
                         llmresponse = event.response.text
                         response_id = event.response.response_id
                         prompt_tokens = event.response.meta["billed_units"]["input_tokens"]
                         completion_tokens = event.response.meta["billed_units"]["output_tokens"]
-                        total_tokens = event.response.token_count["billed_tokens"]
                         finish_reason = event.finish_reason
                     yield event
 
@@ -226,12 +248,11 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
                         span.set_attribute("gen_ai.response.finish_reason", finish_reason)
                         span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                         span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
-                        span.set_attribute("gen_ai.usage.total_tokens", total_tokens)
+                        span.set_attribute("gen_ai.usage.total_tokens", prompt_tokens + completion_tokens)
                         span.set_attribute("gen_ai.usage.cost", cost)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", kwargs.get("message", ""))
                             span.set_attribute("gen_ai.content.completion", llmresponse)
-
 
                 except Exception as e:
                     handle_exception(tracer, e, "cohere.chat")
@@ -243,6 +264,4 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
 
         return stream_generator()
 
-    llm.embed = embeddings_generate
-    llm.chat = chat_generate
-    llm.chat_stream = patched_chat_stream
+    return wrapper

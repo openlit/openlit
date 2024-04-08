@@ -85,6 +85,13 @@ def init(llm=None, environment="default", application_name="default", tracer=Non
             trace_content=trace_content
         )
 
+        CohereInstrumentor().instrument(
+            environment=OpenLMTConfig.environment,
+            application_name=OpenLMTConfig.application_name,
+            tracer=tracer,
+            pricing_info=OpenLMTConfig.pricing_info,
+            trace_content=trace_content
+        )
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
