@@ -6,7 +6,7 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from .mistral import chat, chat_stream, embeddings
-from .async_mistral import init as init_async_mistral
+from .async_mistral import async_chat, async_chat_stream, async_embeddings
 
 _instruments = ("mistralai >= 0.1.0",)
 
@@ -48,23 +48,23 @@ class MistralInstrumentor(BaseInstrumentor):
 
         # Async
         wrap_function_wrapper(
-            "mistralai.client",  
+            "mistralai.async_client",  
             "MistralAsyncClient.chat",  
-            chat("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+            async_chat("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
         )
 
         #sync
         wrap_function_wrapper(
-            "mistralai.client",  
+            "mistralai.async_client",  
             "MistralAsyncClient.chat_stream",  
-            chat_stream("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+            async_chat_stream("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
         )
 
         #sync
         wrap_function_wrapper(
-            "mistralai.client",  
+            "mistralai.async_client",  
             "MistralAsyncClient.embeddings",  
-            embeddings("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+            async_embeddings("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
         )
 
     @staticmethod
