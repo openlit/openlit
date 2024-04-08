@@ -1,105 +1,126 @@
-# pylint: disable=line-too-long
-"""
-The __init__.py module for the OpenLMT package.
-This module sets up the OpenLMT configuration and instrumentation for various large language models (LLMs).
-"""
-
-from typing import Any
+from typing import Optional, Dict, Any
 import logging
 
-# Essential imports for tracing, helper functions, and type hinting
+# Import internal modules for setting up tracing and fetching pricing info.
 from .otel.__tracing import setup_tracing
 from .__helpers import fetch_pricing_info
 
-# Import instrumentors which are responsible for adding tracing to the operations performed by the LLMs
+# Instrumentors for various large language models.
 from .openai import OpenAIInstrumentor
 from .anthropic import AnthropicInstrumentor
 from .cohere import CohereInstrumentor
 from .mistral import MistralInstrumentor
 
-# Initialize logging to handle and log errors smoothly
+# Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
 
-# pylint: disable=too-few-public-methods
 class OpenLMTConfig:
     """
-    Configuration class for the OpenLMT package.
+    A Singleton Configuration class for OpenLMT.
+    
+    This class maintains a single instance of configuration settings including
+    environment details, application name, and tracing information throughout the OpenLMT package.
     
     Attributes:
-        environment: A string specifying the deployment environment.
-        application_name: The name of the application using the library.
-        pricing_info: A dictionary storing pricing information.
+        environment (str): Deployment environment of the application.
+        application_name (str): Name of the application using OpenLMT.
+        pricing_info (Dict[str, Any]): Pricing information.
+        tracer (Optional[Any]): Tracer instance for OpenTelemetry.
+        otlp_endpoint (Optional[str]): Endpoint for OTLP.
+        otlp_headers (Optional[Dict[str, str]]): Headers for OTLP.
+        disable_batch (bool): Flag to disable batch span processing in tracing.
+        trace_content (bool): Flag to enable or disable tracing of content.
     """
+    _instance = None
+    
+    def __new__(cls):
+        """Ensures that only one instance of the configuration exists."""
+        if cls._instance is None:
+            cls._instance = super(OpenLMTConfig, cls).__new__(cls)
+            cls.reset_to_defaults()
+        return cls._instance
+    
+    @classmethod
+    def reset_to_defaults(cls):
+        """Resets configuration to default values."""
+        cls.environment = "default"
+        cls.application_name = "default"
+        cls.pricing_info = fetch_pricing_info()
+        cls.tracer = None
+        cls.otlp_endpoint = None
+        cls.otlp_headers = None
+        cls.disable_batch = False
+        cls.trace_content = True
 
-    environment = None
-    application_name = None
-    pricing_info = {}
+    @classmethod
+    def update_config(cls, environment, application_name, tracer, otlp_endpoint, otlp_headers, disable_batch, trace_content):
+        """
+        Updates the configuration based on provided parameters.
+        
+        Args:
+            environment (str): Deployment environment.
+            application_name (str): Application name.
+            tracer: Tracer instance.
+            otlp_endpoint (str): OTLP endpoint.
+            otlp_headers (Dict[str, str]): OTLP headers.
+            disable_batch (bool): Disable batch span processing flag.
+            trace_content (bool): Enable or disable content tracing.
+        """
+        cls.environment = environment
+        cls.application_name = application_name
+        cls.pricing_info = fetch_pricing_info()
+        cls.tracer = tracer
+        cls.otlp_endpoint = otlp_endpoint
+        cls.otlp_headers = otlp_headers
+        cls.disable_batch = disable_batch
+        cls.trace_content = trace_content
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None, otlp_headers=None, disable_batch=False, trace_content=True):
     """
-    Initializes the OpenLMT configuration with the provided parameters and sets up tracing.
+    Initializes the OpenLMT configuration and setups tracing.
+    
+    This function sets up the OpenLMT environment with provided configurations 
+    and initializes instrumentors for tracing.
     
     Args:
-        environment: The deployment environment of the application.
-        application_name: Name of the application.
-        tracer: Optional custom tracer instance.
-        otlp_endpoint: Endpoint for OpenTelemetry Protocol (OTLP) exporter.
-        otlp_headers: Headers for OTLP exporter.
-        disable_batch: Flag to disable batch span processing.
-        trace_content: Flag to disable tracing of prompts and response
+        environment (str): Deployment environment.
+        application_name (str): Application name.
+        tracer: Tracer instance (Optional).
+        otlp_endpoint (str): OTLP endpoint for exporter (Optional).
+        otlp_headers (Dict[str, str]): OTLP headers for exporter (Optional).
+        disable_batch (bool): Flag to disable batch span processing (Optional).
+        trace_content (bool): Flag to trace content (Optional).
     """
-
     try:
-        # Set up the basic configuration
-        OpenLMTConfig.environment = environment
-        OpenLMTConfig.application_name = application_name
-        OpenLMTConfig.pricing_info = fetch_pricing_info()
-
-        # Initialize tracing for the application
-        tracer = setup_tracing(application_name=application_name, tracer=tracer,
-                            otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers,
-                            disable_batch=disable_batch)
-
+        # Retrieve or create the single configuration instance.
+        config = OpenLMTConfig()
+        
+        # Setup tracing based on the provided or default configuration.
+        tracer = setup_tracing(
+            application_name=application_name,
+            tracer=tracer,
+            otlp_endpoint=otlp_endpoint,
+            otlp_headers=otlp_headers,
+            disable_batch=disable_batch
+        )
+        
         if not tracer:
-            logger.error("OpenLMT setup failed. Auto Instrumentation of the LLM client will not proceed.")
+            logger.error("OpenLMT setup failed. Tracing will not be available.")
             return
+        
+        # Update global configuration with the provided settings.
+        config.update_config(environment, application_name, tracer, otlp_endpoint, otlp_headers, disable_batch, trace_content)
+        
+        # Dynamically initialize instrumentors for different LLMs.
+        instrumentors = [AnthropicInstrumentor(), MistralInstrumentor(), CohereInstrumentor(), OpenAIInstrumentor()]
+        for instrumentor in instrumentors:
+            instrumentor.instrument(
+                environment=config.environment,
+                application_name=config.application_name,
+                tracer=config.tracer,
+                pricing_info=config.pricing_info,
+                trace_content=config.trace_content
+            )
 
-        AnthropicInstrumentor().instrument(
-            environment=OpenLMTConfig.environment,
-            application_name=OpenLMTConfig.application_name,
-            tracer=tracer,
-            pricing_info=OpenLMTConfig.pricing_info,
-            trace_content=trace_content
-        )
-
-        MistralInstrumentor().instrument(
-            environment=OpenLMTConfig.environment,
-            application_name=OpenLMTConfig.application_name,
-            tracer=tracer,
-            pricing_info=OpenLMTConfig.pricing_info,
-            trace_content=trace_content
-        )
-
-        CohereInstrumentor().instrument(
-            environment=OpenLMTConfig.environment,
-            application_name=OpenLMTConfig.application_name,
-            tracer=tracer,
-            pricing_info=OpenLMTConfig.pricing_info,
-            trace_content=trace_content
-        )
-
-        OpenAIInstrumentor().instrument(
-            environment=OpenLMTConfig.environment,
-            application_name=OpenLMTConfig.application_name,
-            tracer=tracer,
-            pricing_info=OpenLMTConfig.pricing_info,
-            trace_content=trace_content
-        )
-
-    # pylint: disable=broad-exception-caught
     except Exception as e:
-        # Log any error that occurs during the initialization process
-        logger.error("Error during OpenLMT initialization: %s", e)
-
-    # If the LLM doesn't match any known clients, return None
-    return None
+        logger.error(f"Error during OpenLMT initialization: {e}")

@@ -250,7 +250,7 @@ def async_embeddings(gen_ai_endpoint, version, environment, application_name, tr
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-       """
+        """
         Wraps the 'embeddings' API call to add telemetry.
 
         This collects metrics such as execution time, cost, and token usage, and handles errors
