@@ -11,7 +11,7 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_mod
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def chatCompletions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def chat_completions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
@@ -385,7 +385,7 @@ def finetune(wrapper_identifier, version, environment, application_name, tracer,
     return wrapper
 
 
-def imageGenerate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def image_generate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
@@ -475,7 +475,7 @@ def imageGenerate(wrapper_identifier, version, environment, application_name, tr
 
     return wrapper
 
-def imageVariatons(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def image_variatons(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
@@ -563,7 +563,7 @@ def imageVariatons(wrapper_identifier, version, environment, application_name, t
     
     return wrapper
 
-def audioCreate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def audio_create(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 

@@ -13,7 +13,6 @@ from .__helpers import fetch_pricing_info
 
 # Import instrumentors which are responsible for adding tracing to the operations performed by the LLMs
 from .openai import OpenAIInstrumentor
-from .azure_openai import AzureOpenAIInstrumentor
 from .anthropic import AnthropicInstrumentor
 from .cohere import CohereInstrumentor
 from .mistral import MistralInstrumentor

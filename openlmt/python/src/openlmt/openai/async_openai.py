@@ -11,7 +11,7 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_mod
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def async_chatCompletions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def async_chat_completions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
@@ -384,7 +384,7 @@ def async_finetune(wrapper_identifier, version, environment, application_name, t
 
     return wrapper
 
-def async_imageGenerate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def async_image_generate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
@@ -474,7 +474,7 @@ def async_imageGenerate(wrapper_identifier, version, environment, application_na
 
     return wrapper
 
-def async_imageVariatons(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def async_image_variatons(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
@@ -562,7 +562,7 @@ def async_imageVariatons(wrapper_identifier, version, environment, application_n
     
     return wrapper
 
-def async_audioCreate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def async_audio_create(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 

@@ -11,7 +11,7 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_image_mod
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def chatCompletions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_chat_completions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
@@ -237,7 +237,7 @@ def chatCompletions(wrapper_identifier, version, environment, application_name, 
 
     return wrapper
 
-def completions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_completions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
@@ -424,7 +424,7 @@ def completions(wrapper_identifier, version, environment, application_name, trac
 
     return wrapper
 
-def embedding(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_embedding(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
@@ -499,7 +499,7 @@ def embedding(wrapper_identifier, version, environment, application_name, tracer
 
     return wrapper
 
-def imageGenerate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_image_generate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 

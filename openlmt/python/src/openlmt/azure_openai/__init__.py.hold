@@ -5,8 +5,8 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from .azure_openai import chatCompletions, completions, embedding, imageGenerate
-from .async_azure_openai import async_chatCompletions, async_completions, async_embedding, async_imageGenerate
+from ..openai.azure_openai import chatCompletions, completions, embedding, imageGenerate
+from ..openai.async_azure_openai import async_chatCompletions, async_completions, async_embedding, async_imageGenerate
 
 _instruments = ("openai >= 0.3.11",)
 
