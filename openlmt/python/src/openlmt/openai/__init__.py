@@ -5,11 +5,15 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from .openai import chat_completions, embedding, finetune, image_generate, image_variatons, audio_create
-from .async_openai import async_chat_completions, async_embedding, async_finetune, async_image_generate, async_image_variatons, async_audio_create
+from .openai import chat_completions, embedding, finetune
+from .openai import image_generate, image_variatons, audio_create
+from .async_openai import async_chat_completions, async_embedding, async_finetune
+from .async_openai import async_image_generate, async_image_variatons, async_audio_create
 
-from .azure_openai import azure_chat_completions, azure_completions, azure_image_generate, azure_embedding
-from .async_azure_openai import azure_async_chat_completions, azure_async_completions, azure_async_image_generate, azure_async_embedding
+from .azure_openai import azure_chat_completions, azure_completions
+from .azure_openai import azure_image_generate, azure_embedding
+from .async_azure_openai import azure_async_chat_completions, azure_async_completions
+from .async_azure_openai import azure_async_image_generate, azure_async_embedding
 
 _instruments = ("openai >= 0.3.11",)
 
@@ -79,21 +83,24 @@ class OpenAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "openai.resources.completions",  
             "AsyncCompletions.create",  
-            azure_async_completions("azure_openai.completions", version, environment, application_name,
+            azure_async_completions("azure_openai.completions", version,
+                                    environment, application_name,
                                     tracer, pricing_info, trace_content),
         )
 
         wrap_function_wrapper(
             "openai.resources.images",  
             "Images.create_variation",  
-            image_variatons("openai.images.variations", version, environment, application_name,
+            image_variatons("openai.images.variations", version,
+                            environment, application_name,
                             tracer, pricing_info, trace_content),
         )
 
         wrap_function_wrapper(
             "openai.resources.images",  
             "AsyncImages.create_variation",  
-            async_image_variatons("openai.images.variations", version, environment, application_name,
+            async_image_variatons("openai.images.variations", version,
+                                  environment, application_name,
                                   tracer, pricing_info, trace_content),
         )
 

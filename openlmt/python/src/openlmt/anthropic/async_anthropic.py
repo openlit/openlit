@@ -71,8 +71,9 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                             finish_reason = event.delta.stop_reason
                         yield event
 
-                    # Sections handling exceptions ensure observability without disrupting operations
+                    # Section handling exception ensure observability without disrupting operation
                     try:
+                        # pylint: disable=no-else-return
                         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                             end_time = time.time()
                             # Calculate total duration of operation
@@ -149,6 +150,7 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                 end_time = time.time()
 
                 try:
+                    # pylint: disable=no-else-return
                     with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
@@ -162,6 +164,7 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
 
                             if isinstance(content, list):
                                 content_str = ", ".join(
+                                    # pylint: disable=no-else-return
                                     f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                     if "type" in item else f'text: {item["text"]}'
                                     for item in content
@@ -202,7 +205,8 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute("gen_ai.usage.completion_tokens",
                                            response.usage.output_tokens)
                         span.set_attribute("gen_ai.usage.total_tokens",
-                                           response.usage.input_tokens + response.usage.output_tokens)
+                                           response.usage.input_tokens +
+                                           response.usage.output_tokens)
                         span.set_attribute("gen_ai.usage.cost", cost)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", prompt)

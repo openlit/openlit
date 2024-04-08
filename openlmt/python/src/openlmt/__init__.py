@@ -1,6 +1,7 @@
 """
 The __init__.py module for the OpenLMT package.
-This module sets up the OpenLMT configuration and instrumentation for various large language models (LLMs).
+This module sets up the OpenLMT configuration and instrumentation for various
+large language models (LLMs).
 """
 from typing import Optional, Dict, Any
 import logging
@@ -61,7 +62,7 @@ class OpenLMTConfig:
                       otlp_headers, disable_batch, trace_content):
         """
         Updates the configuration based on provided parameters.
-        
+
         Args:
             environment (str): Deployment environment.
             application_name (str): Application name.

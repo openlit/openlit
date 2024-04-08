@@ -266,6 +266,7 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
 
                 # Sections handling exceptions ensure observability without disrupting operations
                 try:
+                    # pylint: disable=no-else-return
                     with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         end_time = time.time()
                         # Calculate total duration of operation

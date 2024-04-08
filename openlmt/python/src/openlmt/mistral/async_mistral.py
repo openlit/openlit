@@ -66,6 +66,7 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
 
                         if isinstance(content, list):
                             content_str = ", ".join(
+                                # pylint: disable=no-else-return
                                 f"{item['type']}: {item['text'] if 'text' in item else item['image_url']}"
                                 if 'type' in item else f"text: {item['text']}"
                                 for item in content
@@ -110,8 +111,8 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("gen_ai.usage.cost", cost)
                     if trace_content:
                         span.set_attribute("gen_ai.content.prompt", prompt)
-                        span.set_attribute("gen_ai.content.completion",
-                                           response.choices[0].message.content if response.choices[0].message.content else "")
+                        # pylint: disable=no-else-return
+                        span.set_attribute("gen_ai.content.completion", response.choices[0].message.content if response.choices[0].message.content else "")
 
                 # Return original response
                 return response
@@ -185,6 +186,7 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
 
                 # Sections handling exceptions ensure observability without disrupting operations
                 try:
+                    # pylint: disable=no-else-return
                     with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         end_time = time.time()
                         # Calculate total duration of operation
@@ -199,6 +201,7 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
 
                             if isinstance(content, list):
                                 content_str = ", ".join(
+                                    # pylint: disable=no-else-return
                                     f"{item['type']}: {item['text'] if 'text' in item else item['image_url']}"
                                     if 'type' in item else f"text: {item['text']}"
                                     for item in content
