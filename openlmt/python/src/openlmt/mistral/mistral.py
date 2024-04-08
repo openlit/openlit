@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, no-else-return
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
 Module for monitoring Mistral API calls.
 """
@@ -66,7 +66,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
 
                         if isinstance(content, list):
                             content_str = ", ".join(
-                                # pylint: disable=no-else-return
+                                # pylint: disable=line-too-long
                                 f"{item['type']}: {item['text'] if 'text' in item else item['image_url']}"
                                 if 'type' in item else f"text: {item['text']}"
                                 for item in content
@@ -109,7 +109,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute("gen_ai.usage.cost", cost)
                     if trace_content:
                         span.set_attribute("gen_ai.content.prompt", prompt)
-                        # pylint: disable=no-else-return
+                        # pylint: disable=line-too-long
                         span.set_attribute("gen_ai.content.completion", response.choices[0].message.content if response.choices[0].message.content else "")
 
 
@@ -185,7 +185,7 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
 
                 # Sections handling exceptions ensure observability without disrupting operations
                 try:
-                    # pylint: disable=no-else-return
+                    # pylint: disable=line-too-long
                     with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         end_time = time.time()
                         # Calculate total duration of operation

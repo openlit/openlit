@@ -5,6 +5,3 @@ max-locals=25
 
 # Maximum number of arguments for function / method
 max-args=25
-
-[FORMAT]
-max-line-length=125

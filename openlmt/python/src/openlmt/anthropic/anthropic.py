@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, no-else-return
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
 Module for monitoring Anthropic API calls.
 """
@@ -80,7 +80,7 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
 
                     # Section handling exception ensure observability without disrupting operation
                     try:
-                        # pylint: disable=no-else-return
+                        # pylint: disable=line-too-long
                         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                             end_time = time.time()
                             # Calculate total duration of operation
@@ -156,7 +156,7 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                 end_time = time.time()
 
                 try:
-                    # pylint: disable=no-else-return
+                    # pylint: disable=line-too-long
                     with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
@@ -170,7 +170,7 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
 
                             if isinstance(content, list):
                                 content_str = ", ".join(
-                                    # pylint: disable=no-else-return
+                                    # pylint: disable=line-too-long
                                     f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                     if "type" in item else f'text: {item["text"]}'
                                     for item in content
