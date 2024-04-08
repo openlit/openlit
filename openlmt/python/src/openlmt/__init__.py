@@ -58,7 +58,7 @@ class OpenLMTConfig:
         cls.trace_content = True
 
     @classmethod
-    def update_config(cls, environment, application_name, tracer, otlp_endpoint, 
+    def update_config(cls, environment, application_name, tracer, otlp_endpoint,
                       otlp_headers, disable_batch, trace_content):
         """
         Updates the configuration based on provided parameters.
