@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
 Module for monitoring OpenAI API calls.
 """
@@ -206,7 +207,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                             # Set span attributes for when n > 0
                             else:
                                 i = 0
-                                while i < kwargs["n"] and trace_content == True:
+                                while i < kwargs["n"] and trace_content is True:
                                     attribute_name = f"gen_ai.content.completion.{i}"
                                     span.set_attribute(attribute_name, response.choices[i].message.content)
                                     i += 1

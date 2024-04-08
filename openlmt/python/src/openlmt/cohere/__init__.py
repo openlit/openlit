@@ -26,19 +26,22 @@ class CohereInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "cohere.client",  
             "Client.chat",  
-            chat("cohere.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+            chat("cohere.chat", version, environment, application_name,
+                 tracer, pricing_info, trace_content),
         )
 
         wrap_function_wrapper(
             "cohere.client",  
             "Client.chat_stream",  
-            chat_stream("cohere.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+            chat_stream("cohere.chat", version, environment, application_name,
+                        tracer, pricing_info, trace_content),
         )
 
         wrap_function_wrapper(
             "cohere.client",  
             "Client.embed",  
-            embed("cohere.embed", version, environment, application_name, tracer, pricing_info, trace_content),
+            embed("cohere.embed", version, environment, application_name,
+                  tracer, pricing_info, trace_content),
         )
 
     @staticmethod

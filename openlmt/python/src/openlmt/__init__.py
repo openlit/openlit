@@ -1,3 +1,7 @@
+"""
+The __init__.py module for the OpenLMT package.
+This module sets up the OpenLMT configuration and instrumentation for various large language models (LLMs).
+"""
 from typing import Optional, Dict, Any
 import logging
 
@@ -32,14 +36,14 @@ class OpenLMTConfig:
         trace_content (bool): Flag to enable or disable tracing of content.
     """
     _instance = None
-    
+
     def __new__(cls):
         """Ensures that only one instance of the configuration exists."""
         if cls._instance is None:
             cls._instance = super(OpenLMTConfig, cls).__new__(cls)
             cls.reset_to_defaults()
         return cls._instance
-    
+
     @classmethod
     def reset_to_defaults(cls):
         """Resets configuration to default values."""
@@ -53,7 +57,8 @@ class OpenLMTConfig:
         cls.trace_content = True
 
     @classmethod
-    def update_config(cls, environment, application_name, tracer, otlp_endpoint, otlp_headers, disable_batch, trace_content):
+    def update_config(cls, environment, application_name, tracer, otlp_endpoint, 
+                      otlp_headers, disable_batch, trace_content):
         """
         Updates the configuration based on provided parameters.
         
@@ -75,7 +80,8 @@ class OpenLMTConfig:
         cls.disable_batch = disable_batch
         cls.trace_content = trace_content
 
-def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None, otlp_headers=None, disable_batch=False, trace_content=True):
+def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
+         otlp_headers=None, disable_batch=False, trace_content=True):
     """
     Initializes the OpenLMT configuration and setups tracing.
     
@@ -94,7 +100,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     try:
         # Retrieve or create the single configuration instance.
         config = OpenLMTConfig()
-        
+
         # Setup tracing based on the provided or default configuration.
         tracer = setup_tracing(
             application_name=application_name,
@@ -103,16 +109,19 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             otlp_headers=otlp_headers,
             disable_batch=disable_batch
         )
-        
+
         if not tracer:
             logger.error("OpenLMT setup failed. Tracing will not be available.")
             return
-        
+
         # Update global configuration with the provided settings.
-        config.update_config(environment, application_name, tracer, otlp_endpoint, otlp_headers, disable_batch, trace_content)
-        
+        config.update_config(environment, application_name, tracer, otlp_endpoint,
+                             otlp_headers, disable_batch, trace_content)
+
         # Dynamically initialize instrumentors for different LLMs.
-        instrumentors = [AnthropicInstrumentor(), MistralInstrumentor(), CohereInstrumentor(), OpenAIInstrumentor()]
+        instrumentors = [AnthropicInstrumentor(), MistralInstrumentor(),
+                         CohereInstrumentor(), OpenAIInstrumentor()]
+
         for instrumentor in instrumentors:
             instrumentor.instrument(
                 environment=config.environment,
@@ -122,5 +131,6 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
                 trace_content=config.trace_content
             )
 
+    # pylint: disable=broad-exception-caught
     except Exception as e:
-        logger.error(f"Error during OpenLMT initialization: {e}")
+        logger.error("Error during OpenLMT initialization: %s", e)

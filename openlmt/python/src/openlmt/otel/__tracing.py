@@ -33,6 +33,7 @@ def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, o
         return tracer
 
     # Proceed with setting up a new tracer or configuration only if TRACER_SET is False.
+    # pylint: disable=global-statement
     global TRACER_SET
 
     try:
@@ -53,12 +54,13 @@ def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, o
             else:
                 span_exporter = ConsoleSpanExporter()
                 span_processor = SimpleSpanProcessor(span_exporter)
-            
+
             trace.get_tracer_provider().add_span_processor(span_processor)
-            
+
             TRACER_SET = True
 
         return trace.get_tracer(__name__)
 
+    # pylint: disable=bare-except
     except:
         return None

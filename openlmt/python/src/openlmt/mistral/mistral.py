@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long, broad-exception-caught
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
 Module for monitoring Mistral API calls.
 """
@@ -114,7 +114,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer, pricin
         except Exception as e:
             handle_exception(tracer, e, gen_ai_endpoint)
             raise e
-    
+
     return wrapper
 
 def chat_stream(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
@@ -231,7 +231,7 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name, tracer,
                 raise e
 
         return stream_generator()
-    
+
     return wrapper
 
 def embeddings(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
@@ -314,5 +314,5 @@ def embeddings(gen_ai_endpoint, version, environment, application_name, tracer, 
         except Exception as e:
             handle_exception(tracer, e, gen_ai_endpoint)
             raise e
-    
+
     return wrapper

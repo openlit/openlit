@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long, broad-exception-caught
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
 Module for monitoring Mistral API calls.
 """

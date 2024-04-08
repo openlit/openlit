@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long, broad-exception-caught
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
 Module for monitoring Anthropic API calls.
 """
@@ -200,5 +200,5 @@ def async_messages(gen_ai_endpoint, version, environment, application_name, trac
             except Exception as e:
                 handle_exception(tracer, e, gen_ai_endpoint)
                 raise e
-    
+
     return wrapper

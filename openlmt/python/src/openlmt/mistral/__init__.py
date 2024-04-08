@@ -28,42 +28,48 @@ class MistralInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "mistralai.client",  
             "MistralClient.chat",  
-            chat("mistral.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+            chat("mistral.chat", version, environment, application_name,
+                 tracer, pricing_info, trace_content),
         )
 
         #sync
         wrap_function_wrapper(
             "mistralai.client",  
             "MistralClient.chat_stream",  
-            chat_stream("mistral.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+            chat_stream("mistral.chat", version, environment, application_name,
+                        tracer, pricing_info, trace_content),
         )
 
         #sync
         wrap_function_wrapper(
             "mistralai.client",  
             "MistralClient.embeddings",  
-            embeddings("mistral.embeddings", version, environment, application_name, tracer, pricing_info, trace_content),
+            embeddings("mistral.embeddings", version, environment, application_name,
+                       tracer, pricing_info, trace_content),
         )
 
         # Async
         wrap_function_wrapper(
             "mistralai.async_client",  
             "MistralAsyncClient.chat",  
-            async_chat("mistral.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+            async_chat("mistral.chat", version, environment, application_name,
+                       tracer, pricing_info, trace_content),
         )
 
         #sync
         wrap_function_wrapper(
             "mistralai.async_client",  
             "MistralAsyncClient.chat_stream",  
-            async_chat_stream("mistral.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+            async_chat_stream("mistral.chat", version, environment, application_name,
+                              tracer, pricing_info, trace_content),
         )
 
         #sync
         wrap_function_wrapper(
             "mistralai.async_client",  
             "MistralAsyncClient.embeddings",  
-            async_embeddings("mistral.embeddings", version, environment, application_name, tracer, pricing_info, trace_content),
+            async_embeddings("mistral.embeddings", version, environment, application_name,
+                             tracer, pricing_info, trace_content),
         )
 
     @staticmethod
