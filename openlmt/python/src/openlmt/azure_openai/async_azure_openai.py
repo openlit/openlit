@@ -11,28 +11,20 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_image_mod
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-# pylint: disable=too-many-locals, too-many-arguments, too-many-statements
-def init(llm, environment, application_name, tracer, pricing_info, trace_content):
+def async_chatCompletions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Initializes the instrumentation process by patching the Azure OpenAI client
-    methods to gather telemetry data during its execution.
+    Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        llm: Reference to the Azure OpenAI client being instrumented.
-        environment (str): Identifier for the environment (e.g., 'production', 'development').
-        application_name (str): Name of the application using the instrumented client.
-        tracer: OpenTelemetry tracer object used for creating spans.
-        pricing_info (dict): Contains pricing information for calculating the cost of operations.
-        trace_content (bool): Flag to control tracing of prompts and response.
+        wrapper_identifier: Identifier for the wrapper, unused here.
+        version: Version of the Anthropic package being instrumented.
+        tracer: The OpenTelemetry tracer instance.
+
+    Returns:
+        A function that wraps the original method.
     """
 
-    # Backup original functions for later restoration if needed
-    original_chat_create = llm.chat.completions.create
-    original_completions_create = llm.completions.create
-    original_embeddings_create = llm.embeddings.create
-    original_images_create = llm.images.generate
-
-    async def llm_chat_completions(*args, **kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         A patched version of the 'chat.completions.create' method, enabling telemetry data collection.
 
@@ -61,7 +53,7 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
 
                 try:
                     # Loop through streaming events capturing relevant details
-                    async for chunk in await original_chat_create(*args, **kwargs):
+                    async for chunk in await wrapped(*args, **kwargs):
                         # Collect message IDs and aggregated response from events
                         # pylint: disable=line-too-long
                         if len(chunk.choices) > 0:
@@ -143,7 +135,7 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
         # Handling for non-streaming responses
         else:
             try:
-                response = await original_chat_create(*args, **kwargs)
+                response = await wrapped(*args, **kwargs)
                 end_time = time.time()
 
                 try:
@@ -243,7 +235,22 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
                 handle_exception(tracer, e, "azure.openai.chat.completions")
                 raise e
 
-    async def llm_completions(*args, **kwargs):
+    return wrapper
+
+def async_completions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+    """
+    Generates a wrapper around the `messages.create` method to collect telemetry.
+
+    Args:
+        wrapper_identifier: Identifier for the wrapper, unused here.
+        version: Version of the Anthropic package being instrumented.
+        tracer: The OpenTelemetry tracer instance.
+
+    Returns:
+        A function that wraps the original method.
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         A patched version of the 'chat.completions' method, enabling telemetry data collection.
 
@@ -272,7 +279,7 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
 
                 try:
                     # Loop through streaming events capturing relevant details
-                    async for chunk in await original_completions_create(*args, **kwargs):
+                    async for chunk in await wrapped(*args, **kwargs):
                         # Collect message IDs and aggregated response from events
                         if len(chunk.choices) > 0:
                             if hasattr(chunk.choices[0], "text"):
@@ -335,7 +342,7 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
         # Handling for non-streaming responses
         else:
             try:
-                response = original_completions_create(*args, **kwargs)
+                response = wrapped(*args, **kwargs)
                 end_time = time.time()
 
                 try:
@@ -415,7 +422,22 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
                 handle_exception(tracer, e, "azure.openai.completions")
                 raise e
 
-    async def patched_embeddings_create(*args, **kwargs):
+    return wrapper
+
+def async_embedding(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+    """
+    Generates a wrapper around the `messages.create` method to collect telemetry.
+
+    Args:
+        wrapper_identifier: Identifier for the wrapper, unused here.
+        version: Version of the Anthropic package being instrumented.
+        tracer: The OpenTelemetry tracer instance.
+
+    Returns:
+        A function that wraps the original method.
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         A patched version of the 'embeddings' method, enabling telemetry data collection.
 
@@ -433,7 +455,7 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
        # Sections handling exceptions ensure observability without disrupting operations
         try:
             start_time = time.time()
-            response = await original_embeddings_create(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             end_time = time.time()
 
             try:
@@ -475,7 +497,22 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
             handle_exception(tracer, e, "azure.openai.embeddings")
             raise e
 
-    async def patched_image_create(*args, **kwargs):
+    return wrapper
+
+def async_imageGenerate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+    """
+    Generates a wrapper around the `messages.create` method to collect telemetry.
+
+    Args:
+        wrapper_identifier: Identifier for the wrapper, unused here.
+        version: Version of the Anthropic package being instrumented.
+        tracer: The OpenTelemetry tracer instance.
+
+    Returns:
+        A function that wraps the original method.
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         A patched version of the 'images.generate' method, enabling telemetry data collection.
 
@@ -493,7 +530,7 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
         # Sections handling exceptions ensure observability without disrupting operations
         try:
             start_time = time.time()
-            response = await original_images_create(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             end_time = time.time()
 
             try:
@@ -549,7 +586,5 @@ def init(llm, environment, application_name, tracer, pricing_info, trace_content
             handle_exception(tracer, e, "azure.openai.images.generate")
             raise e
 
-    llm.chat.completions.create = llm_chat_completions
-    llm.completions.create = llm_completions
-    llm.embeddings.create = patched_embeddings_create
-    llm.images.generate = patched_image_create
+    return wrapper
+

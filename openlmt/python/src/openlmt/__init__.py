@@ -93,6 +93,14 @@ def init(llm=None, environment="default", application_name="default", tracer=Non
             trace_content=trace_content
         )
 
+        AzureOpenAIInstrumentor().instrument(
+            environment=OpenLMTConfig.environment,
+            application_name=OpenLMTConfig.application_name,
+            tracer=tracer,
+            pricing_info=OpenLMTConfig.pricing_info,
+            trace_content=trace_content
+        )
+
     # pylint: disable=broad-exception-caught
     except Exception as e:
         # Log any error that occurs during the initialization process
