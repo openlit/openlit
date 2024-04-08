@@ -16,26 +16,15 @@ const getClickHouseFactoryOptions = (
 	connectionObject: ClickHouseConnectionInfo
 ) => ({
 	create: async (): Promise<ClickHouseClient> => {
-		return new Promise(async (resolve, reject) => {
+		return new Promise(async (resolve) => {
 			const client: ClickHouseClient = createClient(connectionObject);
-
-			const [err, result] = await asaw(
-				client.ping()
-			);
-			if (err || !result.success) {
-				client.close();
-				return reject(result.error?.toString() || "Unable to ping the db");
-			}
-
 			return resolve(client);
 		});
 	},
 	destroy: (client: ClickHouseClient) => client.close(),
 	validate: (client: ClickHouseClient): Promise<boolean> => {
 		return new Promise(async (resolve, reject) => {
-			const [err, result] = await asaw(
-				client.ping()
-			);
+			const [err, result] = await asaw(client.ping());
 			if (err || !result.success) {
 				client.close();
 				return reject(result.error?.toString() || "Unable to ping the db");
