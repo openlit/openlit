@@ -11,12 +11,12 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_except
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def embed(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def embed(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -46,7 +46,7 @@ def embed(wrapper_identifier, version, environment, application_name, tracer, pr
             end_time = time.time()
 
             try:
-                with tracer.start_as_current_span("cohere.embed", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -59,8 +59,8 @@ def embed(wrapper_identifier, version, environment, application_name, tracer, pr
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "cohere")
-                    span.set_attribute("gen_ai.type", "Embedding")
-                    span.set_attribute("gen_ai.endpoint", "cohere.embed")
+                    span.set_attribute("gen_ai.type", "embedding")
+                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
@@ -79,24 +79,24 @@ def embed(wrapper_identifier, version, environment, application_name, tracer, pr
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, "cohere.embed")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "cohere.embed")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper
 
-def chat(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def chat(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -126,7 +126,7 @@ def chat(wrapper_identifier, version, environment, application_name, tracer, pri
             end_time = time.time()
 
             try:
-                with tracer.start_as_current_span("cohere.chat", kind=SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -136,14 +136,14 @@ def chat(wrapper_identifier, version, environment, application_name, tracer, pri
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "cohere")
                     span.set_attribute("gen_ai.type", "chat")
-                    span.set_attribute("gen_ai.endpoint", "cohere.chat")
+                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model", kwargs.get("model", "command"))
                     span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 0.3))
                     span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                    span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                    span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                     span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0.0))
                     span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0.0))
                     span.set_attribute("gen_ai.request.is_stream", False)
@@ -161,24 +161,24 @@ def chat(wrapper_identifier, version, environment, application_name, tracer, pri
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, "cohere.chat")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "cohere.chat")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper
 
-def chat_stream(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def chat_stream(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -222,7 +222,7 @@ def chat_stream(wrapper_identifier, version, environment, application_name, trac
 
                 # Sections handling exceptions ensure observability without disrupting operations
                 try:
-                    with tracer.start_as_current_span("cohere.chat", kind= SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         end_time = time.time()
                         # Calculate total duration of operation
                         duration = end_time - start_time
@@ -233,14 +233,14 @@ def chat_stream(wrapper_identifier, version, environment, application_name, trac
                         # Set Span attributes
                         span.set_attribute("gen_ai.system", "cohere")
                         span.set_attribute("gen_ai.type", "chat")
-                        span.set_attribute("gen_ai.endpoint", "cohere.chat")
+                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model", kwargs.get("model", "command"))
                         span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 0.3))
                         span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                        span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                        span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0.0))
                         span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0.0))
                         span.set_attribute("gen_ai.request.is_stream", True)
@@ -255,11 +255,11 @@ def chat_stream(wrapper_identifier, version, environment, application_name, trac
                             span.set_attribute("gen_ai.content.completion", llmresponse)
 
                 except Exception as e:
-                    handle_exception(tracer, e, "cohere.chat")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     logger.error("Error in patched message creation: %s", e)
 
             except Exception as e:
-                handle_exception(tracer, e, "cohere.chat")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 raise e
 
         return stream_generator()

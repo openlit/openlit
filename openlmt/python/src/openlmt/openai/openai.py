@@ -11,12 +11,12 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_mod
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def chat_completions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def chat_completions(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -66,7 +66,7 @@ def chat_completions(wrapper_identifier, version, environment, application_name,
 
                     # Sections handling exceptions ensure observability without disrupting operations
                     try:
-                        with tracer.start_as_current_span("openai.chat.completions" , kind= SpanKind.CLIENT) as span:
+                        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                             end_time = time.time()
                             # Calculate total duration of operation
                             duration = end_time - start_time
@@ -100,7 +100,7 @@ def chat_completions(wrapper_identifier, version, environment, application_name,
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "openai")
                             span.set_attribute("gen_ai.type", "chat")
-                            span.set_attribute("gen_ai.endpoint", "openai.chat.completions")
+                            span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                             span.set_attribute("gen_ai.response.id", response_id)
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
@@ -112,7 +112,7 @@ def chat_completions(wrapper_identifier, version, environment, application_name,
                             span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
                             span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
                             span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                            span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                            span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
@@ -124,11 +124,11 @@ def chat_completions(wrapper_identifier, version, environment, application_name,
 
 
                     except Exception as e:
-                        handle_exception(tracer, e, "openai.chat.completions")
+                        handle_exception(tracer, e, gen_ai_endpoint)
                         logger.error("Error in patched message creation: %s", e)
 
                 except Exception as e:
-                    handle_exception(tracer, e, "openai.chat.completions")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     raise e
 
             return stream_generator()
@@ -140,7 +140,7 @@ def chat_completions(wrapper_identifier, version, environment, application_name,
                 end_time = time.time()
 
                 try:
-                    with tracer.start_as_current_span("openai.chat.completions", kind= SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
 
@@ -165,7 +165,7 @@ def chat_completions(wrapper_identifier, version, environment, application_name,
                         # Set base span attribues
                         span.set_attribute("gen_ai.system", "openai")
                         span.set_attribute("gen_ai.type", "chat")
-                        span.set_attribute("gen_ai.endpoint", "openai.chat.completions")
+                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.response.id", response.id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
@@ -177,7 +177,7 @@ def chat_completions(wrapper_identifier, version, environment, application_name,
                         span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
                         span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
                         span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                        span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                        span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", prompt)
@@ -224,24 +224,24 @@ def chat_completions(wrapper_identifier, version, environment, application_name,
                     return response
 
                 except Exception as e:
-                    handle_exception(tracer, e, "openai.chat.completions")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     logger.error("Error in patched message creation: %s", e)
 
                     # Return original response
                     return response
 
             except Exception as e:
-                handle_exception(tracer, e, "openai.chat.completions")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 raise e
 
     return wrapper
 
-def embedding(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def embedding(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -271,7 +271,7 @@ def embedding(wrapper_identifier, version, environment, application_name, tracer
             end_time = time.time()
 
             try:
-                with tracer.start_as_current_span("openai.embeddings", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -280,8 +280,8 @@ def embedding(wrapper_identifier, version, environment, application_name, tracer
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "openai")
-                    span.set_attribute("gen_ai.type", "Embedding")
-                    span.set_attribute("gen_ai.endpoint", "openai.embeddings")
+                    span.set_attribute("gen_ai.type", "embedding")
+                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
@@ -299,24 +299,24 @@ def embedding(wrapper_identifier, version, environment, application_name, tracer
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, "openai.embeddings")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "openai.embeddings")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper
 
-def finetune(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def finetune(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -346,14 +346,14 @@ def finetune(wrapper_identifier, version, environment, application_name, tracer,
             end_time = time.time()
 
             try:
-                with tracer.start_as_current_span("openai.fine.tuning", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "openai")
-                    span.set_attribute("gen_ai.type", "Fine Tuning")
-                    span.set_attribute("gen_ai.endpoint", "openai.fine.tuning")
+                    span.set_attribute("gen_ai.type", "fine_tuning")
+                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
@@ -372,25 +372,25 @@ def finetune(wrapper_identifier, version, environment, application_name, tracer,
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, "openai.fine.tuning")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "openai.fine.tuning")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper
 
 
-def image_generate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def image_generate(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -421,7 +421,7 @@ def image_generate(wrapper_identifier, version, environment, application_name, t
             images_count = 0
 
             try:
-                with tracer.start_as_current_span("openai.images.generate", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -437,8 +437,8 @@ def image_generate(wrapper_identifier, version, environment, application_name, t
                     for items in response.data:
                         # Set Span attributes
                         span.set_attribute("gen_ai.system", "openai")
-                        span.set_attribute("gen_ai.type", "Image")
-                        span.set_attribute("gen_ai.endpoint", "openai.images.generate")
+                        span.set_attribute("gen_ai.type", "image")
+                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.response.id", response.created)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
@@ -463,24 +463,24 @@ def image_generate(wrapper_identifier, version, environment, application_name, t
                     return response
 
             except Exception as e:
-                handle_exception(tracer, e, "openai.images.generate")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "openai.images.generate")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper
 
-def image_variatons(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def image_variatons(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -511,7 +511,7 @@ def image_variatons(wrapper_identifier, version, environment, application_name, 
             images_count = 0
 
             try:
-                with tracer.start_as_current_span("openai.images.create.variation", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -527,8 +527,8 @@ def image_variatons(wrapper_identifier, version, environment, application_name, 
                     for items in response.data:
                         # Set Span attributes
                         span.set_attribute("gen_ai.system", "openai")
-                        span.set_attribute("gen_ai.type", "Image")
-                        span.set_attribute("gen_ai.endpoint", "openai.images.create.variation")
+                        span.set_attribute("gen_ai.type", "image")
+                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.response.id", response.created)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
@@ -551,24 +551,24 @@ def image_variatons(wrapper_identifier, version, environment, application_name, 
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, "openai.images.create.variation")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "openai.images.create.variation")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
     
     return wrapper
 
-def audio_create(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def audio_create(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -598,7 +598,7 @@ def audio_create(wrapper_identifier, version, environment, application_name, tra
             end_time = time.time()
 
             try:
-                with tracer.start_as_current_span("openai.audio.speech.create", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -607,8 +607,8 @@ def audio_create(wrapper_identifier, version, environment, application_name, tra
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "openai")
-                    span.set_attribute("gen_ai.type", "Audio")
-                    span.set_attribute("gen_ai.endpoint", "openai.audio.speech.create")
+                    span.set_attribute("gen_ai.type", "audio")
+                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
@@ -625,14 +625,14 @@ def audio_create(wrapper_identifier, version, environment, application_name, tra
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, "openai.audio.speech.create")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "openai.audio.speech.create")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper

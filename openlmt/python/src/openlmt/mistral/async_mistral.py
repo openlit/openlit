@@ -11,12 +11,12 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_except
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def async_chat(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def async_chat(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -46,7 +46,7 @@ def async_chat(wrapper_identifier, version, environment, application_name, trace
             end_time = time.time()
 
             try:
-                with tracer.start_as_current_span("mistral.chat", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -74,7 +74,7 @@ def async_chat(wrapper_identifier, version, environment, application_name, trace
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "mistral")
                     span.set_attribute("gen_ai.type", "chat")
-                    span.set_attribute("gen_ai.endpoint", "mistral.chat")
+                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.response.id", response.id)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
@@ -83,7 +83,7 @@ def async_chat(wrapper_identifier, version, environment, application_name, trace
                     span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 0.7))
                     span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", 1))
                     span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                    span.set_attribute("gen_ai.openai.request.seed", kwargs.get("random_seed", ""))
+                    span.set_attribute("gen_ai.request.seed", kwargs.get("random_seed", ""))
                     span.set_attribute("gen_ai.request.is_stream", False)
                     span.set_attribute("gen_ai.response.finish_reason", response.choices[0].finish_reason)
                     span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
@@ -98,24 +98,24 @@ def async_chat(wrapper_identifier, version, environment, application_name, trace
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, "mistral.chat")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "mistral.chat")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper
 
-def async_chat_stream(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def async_chat_stream(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -159,7 +159,7 @@ def async_chat_stream(wrapper_identifier, version, environment, application_name
 
                 # Sections handling exceptions ensure observability without disrupting operations
                 try:
-                    with tracer.start_as_current_span("mistral.chat", kind= SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         end_time = time.time()
                         # Calculate total duration of operation
                         duration = end_time - start_time
@@ -188,7 +188,7 @@ def async_chat_stream(wrapper_identifier, version, environment, application_name
                         # Set Span attributes
                         span.set_attribute("gen_ai.system", "mistral")
                         span.set_attribute("gen_ai.type", "chat")
-                        span.set_attribute("gen_ai.endpoint", "mistral.chat")
+                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.response.id", response_id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
@@ -197,7 +197,7 @@ def async_chat_stream(wrapper_identifier, version, environment, application_name
                         span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 0.7))
                         span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", 1))
                         span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                        span.set_attribute("gen_ai.openai.request.seed", kwargs.get("random_seed", ""))
+                        span.set_attribute("gen_ai.request.seed", kwargs.get("random_seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", True)
                         span.set_attribute("gen_ai.response.finish_reason", finish_reason)
                         span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
@@ -209,23 +209,23 @@ def async_chat_stream(wrapper_identifier, version, environment, application_name
                             span.set_attribute("gen_ai.content.completion", llmresponse)
 
                 except Exception as e:
-                    handle_exception(tracer, e, "mistral.chat")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     logger.error("Error in patched message creation: %s", e)
 
             except Exception as e:
-                handle_exception(tracer, e, "mistral.chat")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 raise e
 
         return stream_generator()
 
     return wrapper
 
-def async_embeddings(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def async_embeddings(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -255,7 +255,7 @@ def async_embeddings(wrapper_identifier, version, environment, application_name,
             end_time = time.time()
 
             try:
-                with tracer.start_as_current_span("mistral.embeddings", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -267,8 +267,8 @@ def async_embeddings(wrapper_identifier, version, environment, application_name,
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "mistral")
-                    span.set_attribute("gen_ai.type", "Embedding")
-                    span.set_attribute("gen_ai.endpoint", "mistral.embeddings")
+                    span.set_attribute("gen_ai.type", "embedding")
+                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
@@ -286,14 +286,14 @@ def async_embeddings(wrapper_identifier, version, environment, application_name,
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, "mistral.embeddings")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "mistral.embeddings")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper

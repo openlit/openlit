@@ -11,12 +11,12 @@ from ..__helpers import get_chat_model_cost, handle_exception
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def async_messages(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def async_messages(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -72,7 +72,7 @@ def async_messages(wrapper_identifier, version, environment, application_name, t
 
                     # Sections handling exceptions ensure observability without disrupting operations
                     try:
-                        with tracer.start_as_current_span("anthropic.messages", kind= SpanKind.CLIENT) as span:
+                        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                             end_time = time.time()
                             # Calculate total duration of operation
                             duration = end_time - start_time
@@ -102,7 +102,7 @@ def async_messages(wrapper_identifier, version, environment, application_name, t
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "anthropic")
                             span.set_attribute("gen_ai.type", "chat")
-                            span.set_attribute("gen_ai.endpoint", "anthropic.messages")
+                            span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                             span.set_attribute("gen_ai.response.id", response_id)
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
@@ -123,11 +123,11 @@ def async_messages(wrapper_identifier, version, environment, application_name, t
                                 span.set_attribute("gen_ai.content.completion", llmresponse)
 
                     except Exception as e:
-                        handle_exception(tracer, e, "anthropic.messages")
+                        handle_exception(tracer, e, gen_ai_endpoint)
                         logger.error("Error in patched message creation: %s", e)
 
                 except Exception as e:
-                    handle_exception(tracer, e, "anthropic.messages")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     raise e
 
             return stream_generator()
@@ -139,7 +139,7 @@ def async_messages(wrapper_identifier, version, environment, application_name, t
                 end_time = time.time()
 
                 try:
-                    with tracer.start_as_current_span("anthropic.messages", kind=SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
 
@@ -167,7 +167,7 @@ def async_messages(wrapper_identifier, version, environment, application_name, t
                         # Set Span attribues
                         span.set_attribute("gen_ai.system", "anthropic")
                         span.set_attribute("gen_ai.type", "chat")
-                        span.set_attribute("gen_ai.endpoint", "anthropic.messages")
+                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.response.id", response.id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
@@ -191,14 +191,14 @@ def async_messages(wrapper_identifier, version, environment, application_name, t
                     return response
 
                 except Exception as e:
-                    handle_exception(tracer, e, "anthropic.messages")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     logger.error("Error in patched message creation: %s", e)
 
                     # Return original response
                     return response
 
             except Exception as e:
-                handle_exception(tracer, e, "anthropic.messages")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 raise e
     
     return wrapper

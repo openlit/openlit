@@ -11,12 +11,12 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_image_mod
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def azure_chat_completions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_chat_completions(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -67,7 +67,7 @@ def azure_chat_completions(wrapper_identifier, version, environment, application
 
                     # Sections handling exceptions ensure observability without disrupting operations
                     try:
-                        with tracer.start_as_current_span("azure.openai.chat.completions" , kind= SpanKind.CLIENT) as span:
+                        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                             end_time = time.time()
                             # Calculate total duration of operation
                             duration = end_time - start_time
@@ -101,7 +101,7 @@ def azure_chat_completions(wrapper_identifier, version, environment, application
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "Azuure.OpenAI")
                             span.set_attribute("gen_ai.type", "chat")
-                            span.set_attribute("gen_ai.endpoint", "azure.openai.chat.completions")
+                            span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                             span.set_attribute("gen_ai.response.id", response_id)
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
@@ -112,7 +112,7 @@ def azure_chat_completions(wrapper_identifier, version, environment, application
                             span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
                             span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
                             span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                            span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                            span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
@@ -123,11 +123,11 @@ def azure_chat_completions(wrapper_identifier, version, environment, application
                                 span.set_attribute("gen_ai.content.completion", llmresponse)
 
                     except Exception as e:
-                        handle_exception(tracer, e, "azure.openai.chat.completions")
+                        handle_exception(tracer, e, gen_ai_endpoint)
                         logger.error("Error in patched message creation: %s", e)
 
                 except Exception as e:
-                    handle_exception(tracer, e, "azure.openai.chat.completions")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     raise e
 
             return stream_generator()
@@ -139,7 +139,7 @@ def azure_chat_completions(wrapper_identifier, version, environment, application
                 end_time = time.time()
 
                 try:
-                    with tracer.start_as_current_span("azure.openai.chat.completions", kind= SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
 
@@ -167,7 +167,7 @@ def azure_chat_completions(wrapper_identifier, version, environment, application
                         # Set base span attribues
                         span.set_attribute("gen_ai.system", "OpenAI")
                         span.set_attribute("gen_ai.type", "chat")
-                        span.set_attribute("gen_ai.endpoint", "azure.openai.chat.completions")
+                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.response.id", response.id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
@@ -178,7 +178,7 @@ def azure_chat_completions(wrapper_identifier, version, environment, application
                         span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
                         span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
                         span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                        span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                        span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", prompt)
@@ -225,24 +225,24 @@ def azure_chat_completions(wrapper_identifier, version, environment, application
                     return response
 
                 except Exception as e:
-                    handle_exception(tracer, e, "azure.openai.chat.completions")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     logger.error("Error in patched message creation: %s", e)
 
                     # Return original response
                     return response
 
             except Exception as e:
-                handle_exception(tracer, e, "azure.openai.chat.completions")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 raise e
 
     return wrapper
 
-def azure_completions(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_completions(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -292,7 +292,7 @@ def azure_completions(wrapper_identifier, version, environment, application_name
 
                     # Sections handling exceptions ensure observability without disrupting operations
                     try:
-                        with tracer.start_as_current_span("azure.openai.completions" , kind= SpanKind.CLIENT) as span:
+                        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                             end_time = time.time()
                             # Calculate total duration of operation
                             duration = end_time - start_time
@@ -308,7 +308,7 @@ def azure_completions(wrapper_identifier, version, environment, application_name
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "azure_openai")
                             span.set_attribute("gen_ai.type", "chat")
-                            span.set_attribute("gen_ai.endpoint", "azure.openai.completions")
+                            span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                             span.set_attribute("gen_ai.response.id", response_id)
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
@@ -319,7 +319,7 @@ def azure_completions(wrapper_identifier, version, environment, application_name
                             span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
                             span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
                             span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                            span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                            span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
@@ -330,11 +330,11 @@ def azure_completions(wrapper_identifier, version, environment, application_name
                                 span.set_attribute("gen_ai.content.completion", llmresponse)
 
                     except Exception as e:
-                        handle_exception(tracer, e, "azure.openai.completions")
+                        handle_exception(tracer, e, gen_ai_endpoint)
                         logger.error("Error in patched message creation: %s", e)
 
                 except Exception as e:
-                    handle_exception(tracer, e, "azure.openai.completions")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     raise e
 
             return stream_generator()
@@ -346,7 +346,7 @@ def azure_completions(wrapper_identifier, version, environment, application_name
                 end_time = time.time()
 
                 try:
-                    with tracer.start_as_current_span("azure.openai.completions", kind= SpanKind.CLIENT) as span:
+                    with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
 
@@ -356,7 +356,7 @@ def azure_completions(wrapper_identifier, version, environment, application_name
                         # Set base span attribues
                         span.set_attribute("gen_ai.system", "azure_openai")
                         span.set_attribute("gen_ai.type", "chat")
-                        span.set_attribute("gen_ai.endpoint", "azure.openai.completions")
+                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.response.id", response.id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
@@ -367,7 +367,7 @@ def azure_completions(wrapper_identifier, version, environment, application_name
                         span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
                         span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
                         span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                        span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                        span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
@@ -412,24 +412,24 @@ def azure_completions(wrapper_identifier, version, environment, application_name
                     return response
 
                 except Exception as e:
-                    handle_exception(tracer, e, "azure.openai.completions")
+                    handle_exception(tracer, e, gen_ai_endpoint)
                     logger.error("Error in patched message creation: %s", e)
 
                     # Return original response
                     return response
 
             except Exception as e:
-                handle_exception(tracer, e, "azure.openai.completions")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 raise e
 
     return wrapper
 
-def azure_embedding(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_embedding(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -459,7 +459,7 @@ def azure_embedding(wrapper_identifier, version, environment, application_name, 
             end_time = time.time()
 
             try:
-                with tracer.start_as_current_span("azure.openai.embeddings", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -468,8 +468,8 @@ def azure_embedding(wrapper_identifier, version, environment, application_name, 
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "azure_openai")
-                    span.set_attribute("gen_ai.type", "Embedding")
-                    span.set_attribute("gen_ai.endpoint", "azure.openai.embeddings")
+                    span.set_attribute("gen_ai.type", "embedding")
+                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
@@ -487,24 +487,24 @@ def azure_embedding(wrapper_identifier, version, environment, application_name, 
                     return response
 
             except Exception as e:
-                handle_exception(tracer, e, "azure.openai.embeddings")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "azure.openai.embeddings")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper
 
-def azure_image_generate(wrapper_identifier, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_image_generate(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
     Generates a wrapper around the `messages.create` method to collect telemetry.
 
     Args:
-        wrapper_identifier: Identifier for the wrapper, unused here.
+        gen_ai_endpoint: Identifier for the wrapper, unused here.
         version: Version of the Anthropic package being instrumented.
         tracer: The OpenTelemetry tracer instance.
 
@@ -535,7 +535,7 @@ def azure_image_generate(wrapper_identifier, version, environment, application_n
             images_count = 0
 
             try:
-                with tracer.start_as_current_span("azure.openai.images.generate", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -551,8 +551,8 @@ def azure_image_generate(wrapper_identifier, version, environment, application_n
                     for items in response.data:
                         # Set Span attributes
                         span.set_attribute("gen_ai.system", "azure_openai")
-                        span.set_attribute("gen_ai.type", "Image")
-                        span.set_attribute("gen_ai.endpoint", "azure.openai.images.generate")
+                        span.set_attribute("gen_ai.type", "image")
+                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.response.id", response.created)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
@@ -578,14 +578,14 @@ def azure_image_generate(wrapper_identifier, version, environment, application_n
                     return response
 
             except Exception as e:
-                handle_exception(tracer, e, "azure.openai.images.generate")
+                handle_exception(tracer, e, gen_ai_endpoint)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, "azure.openai.images.generate")
+            handle_exception(tracer, e, gen_ai_endpoint)
             raise e
 
     return wrapper
