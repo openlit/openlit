@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches
 """
 Module for monitoring OpenAI API calls.
 """
@@ -11,7 +11,8 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_mod
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def chat_completions(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def chat_completions(gen_ai_endpoint, version, environment, application_name,
+                     tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
 
@@ -98,10 +99,12 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name, tr
 
                             # Calculate tokens using input prompt and aggregated response
                             prompt_tokens = openai_tokens(prompt, kwargs.get("model", "gpt-3.5-turbo"))
-                            completion_tokens = openai_tokens(llmresponse, kwargs.get("model", "gpt-3.5-turbo"))
+                            completion_tokens = openai_tokens(llmresponse,
+                                                              kwargs.get("model", "gpt-3.5-turbo"))
 
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"), pricing_info, prompt_tokens, completion_tokens)
+                            cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"),
+                                                       pricing_info, prompt_tokens, completion_tokens)
 
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "openai")
@@ -111,18 +114,26 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name, tr
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
                             span.set_attribute("gen_ai.request_duration", duration)
-                            span.set_attribute("gen_ai.request.model", kwargs.get("model", "gpt-3.5-turbo"))
-                            span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
-                            span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", 1))
-                            span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                            span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
-                            span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
-                            span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
+                            span.set_attribute("gen_ai.request.model",
+                                               kwargs.get("model", "gpt-3.5-turbo"))
+                            span.set_attribute("gen_ai.request.user",
+                                               kwargs.get("user", ""))
+                            span.set_attribute("gen_ai.request.top_p",
+                                               kwargs.get("top_p", 1))
+                            span.set_attribute("gen_ai.request.max_tokens",
+                                               kwargs.get("max_tokens", ""))
+                            span.set_attribute("gen_ai.request.temperature",
+                                               kwargs.get("temperature", 1))
+                            span.set_attribute("gen_ai.request.presence_penalty",
+                                               kwargs.get("presence_penalty", 0))
+                            span.set_attribute("gen_ai.request.frequency_penalty",
+                                               kwargs.get("frequency_penalty", 0))
                             span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", prompt_tokens + completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               prompt_tokens + completion_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
                             if trace_content:
                                 span.set_attribute("gen_ai.content.prompt", prompt)
@@ -176,13 +187,20 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name, tr
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
-                        span.set_attribute("gen_ai.request.model", kwargs.get("model", "gpt-3.5-turbo"))
-                        span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", 1))
-                        span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                        span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
-                        span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
-                        span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
-                        span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
+                        span.set_attribute("gen_ai.request.model",
+                                           kwargs.get("model", "gpt-3.5-turbo"))
+                        span.set_attribute("gen_ai.request.top_p",
+                                           kwargs.get("top_p", 1))
+                        span.set_attribute("gen_ai.request.max_tokens",
+                                           kwargs.get("max_tokens", ""))
+                        span.set_attribute("gen_ai.request.user",
+                                           kwargs.get("user", ""))
+                        span.set_attribute("gen_ai.request.temperature",
+                                           kwargs.get("temperature", 1))
+                        span.set_attribute("gen_ai.request.presence_penalty",
+                                           kwargs.get("presence_penalty", 0))
+                        span.set_attribute("gen_ai.request.frequency_penalty",
+                                           kwargs.get("frequency_penalty", 0))
                         span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
                         if trace_content:
@@ -191,25 +209,33 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name, tr
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"), pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
+                            cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"),
+                                                       pricing_info, response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
-                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
-                            span.set_attribute("gen_ai.response.finish_reason", response.choices[0].finish_reason)
+                            span.set_attribute("gen_ai.usage.prompt_tokens",
+                                               response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens",
+                                               response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               response.usage.total_tokens)
+                            span.set_attribute("gen_ai.response.finish_reason",
+                                               response.choices[0].finish_reason)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
                                 if trace_content:
-                                    span.set_attribute("gen_ai.content.completion", response.choices[0].message.content)
+                                    span.set_attribute("gen_ai.content.completion",
+                                                       response.choices[0].message.content)
 
                             # Set span attributes for when n > 0
                             else:
                                 i = 0
                                 while i < kwargs["n"] and trace_content is True:
                                     attribute_name = f"gen_ai.content.completion.{i}"
-                                    span.set_attribute(attribute_name, response.choices[i].message.content)
+                                    span.set_attribute(attribute_name,
+                                                       response.choices[i].message.content)
                                     i += 1
 
                                 # Return original response
@@ -218,12 +244,18 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name, tr
                         # Set span attributes when tools is passed to the function call
                         elif "tools" in kwargs:
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"), pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
+                            cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"),
+                                                       pricing_info, response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
-                            span.set_attribute("gen_ai.content.completion", "Function called with tools")
-                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
+                            span.set_attribute("gen_ai.content.completion",
+                                               "Function called with tools")
+                            span.set_attribute("gen_ai.usage.prompt_tokens",
+                                               response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens",
+                                               response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               response.usage.total_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
                     # Return original response
@@ -242,7 +274,8 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name, tr
 
     return wrapper
 
-def embedding(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def embedding(gen_ai_endpoint, version, environment, application_name,
+              tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -288,7 +321,8 @@ def embedding(gen_ai_endpoint, version, environment, application_name, tracer, p
                     duration = end_time - start_time
 
                     # Calculate cost of the operation
-                    cost = get_embed_model_cost(kwargs.get("model", "text-embedding-ada-002"), pricing_info, response.usage.prompt_tokens)
+                    cost = get_embed_model_cost(kwargs.get("model", "text-embedding-ada-002"),
+                                                pricing_info, response.usage.prompt_tokens)
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "openai")
@@ -297,9 +331,12 @@ def embedding(gen_ai_endpoint, version, environment, application_name, tracer, p
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
-                    span.set_attribute("gen_ai.request.model", kwargs.get("model", "text-embedding-ada-002"))
-                    span.set_attribute("gen_ai.request.embedding_format", kwargs.get("encoding_format", "float"))
-                    span.set_attribute("gen_ai.request.embedding_dimension", kwargs.get("dimensions", ""))
+                    span.set_attribute("gen_ai.request.model",
+                                       kwargs.get("model", "text-embedding-ada-002"))
+                    span.set_attribute("gen_ai.request.embedding_format",
+                                       kwargs.get("encoding_format", "float"))
+                    span.set_attribute("gen_ai.request.embedding_dimension",
+                                       kwargs.get("dimensions", ""))
                     span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
                     span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
                     span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
@@ -323,7 +360,8 @@ def embedding(gen_ai_endpoint, version, environment, application_name, tracer, p
 
     return wrapper
 
-def finetune(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def finetune(gen_ai_endpoint, version, environment, application_name, 
+             tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for fine-tuning jobs to collect metrics.
     
@@ -375,13 +413,20 @@ def finetune(gen_ai_endpoint, version, environment, application_name, tracer, pr
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
-                    span.set_attribute("gen_ai.request.model", kwargs.get("model", "gpt-3.5-turbo"))
-                    span.set_attribute("gen_ai.request.training_file", kwargs.get("training_file", ""))
-                    span.set_attribute("gen_ai.request.validation_file", kwargs.get("validation_file", ""))
-                    span.set_attribute("gen_ai.request.fine_tune_batch_size", kwargs.get("hyperparameters.batch_size", "auto"))
-                    span.set_attribute("gen_ai.request.learning_rate_multiplier", kwargs.get("hyperparameters.learning_rate_multiplier", "auto"))
-                    span.set_attribute("gen_ai.request.fine_tune_n_epochs", kwargs.get("hyperparameters.n_epochs", "auto"))
-                    span.set_attribute("gen_ai.request.fine_tune_model_suffix", kwargs.get("suffix", ""))
+                    span.set_attribute("gen_ai.request.model",
+                                       kwargs.get("model", "gpt-3.5-turbo"))
+                    span.set_attribute("gen_ai.request.training_file",
+                                       kwargs.get("training_file", ""))
+                    span.set_attribute("gen_ai.request.validation_file",
+                                       kwargs.get("validation_file", ""))
+                    span.set_attribute("gen_ai.request.fine_tune_batch_size",
+                                       kwargs.get("hyperparameters.batch_size", "auto"))
+                    span.set_attribute("gen_ai.request.learning_rate_multiplier",
+                                       kwargs.get("hyperparameters.learning_rate_multiplier", "auto"))
+                    span.set_attribute("gen_ai.request.fine_tune_n_epochs",
+                                       kwargs.get("hyperparameters.n_epochs", "auto"))
+                    span.set_attribute("gen_ai.request.fine_tune_model_suffix",
+                                       kwargs.get("suffix", ""))
                     span.set_attribute("gen_ai.response.id", response.id)
                     span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
                     span.set_attribute("gen_ai.request.fine_tune_status", response.status)
@@ -403,7 +448,8 @@ def finetune(gen_ai_endpoint, version, environment, application_name, tracer, pr
     return wrapper
 
 
-def image_generate(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def image_generate(gen_ai_endpoint, version, environment, application_name,
+                   tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for image generation to collect metrics.
     
@@ -456,7 +502,8 @@ def image_generate(gen_ai_endpoint, version, environment, application_name, trac
                         image = "url"
 
                     # Calculate cost of the operation
-                    cost = get_image_model_cost(kwargs.get("model", "dall-e-2"), pricing_info, kwargs.get("size", "1024x1024"), kwargs.get("quality", "standard"))
+                    cost = get_image_model_cost(kwargs.get("model", "dall-e-2"), pricing_info,
+                                                kwargs.get("size", "1024x1024"), kwargs.get("quality", "standard"))
 
                     for items in response.data:
                         # Set Span attributes
@@ -467,11 +514,16 @@ def image_generate(gen_ai_endpoint, version, environment, application_name, trac
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
-                        span.set_attribute("gen_ai.request.model", kwargs.get("model", "dall-e-2"))
-                        span.set_attribute("gen_ai.request.image_size", kwargs.get("size", "1024x1024"))
-                        span.set_attribute("gen_ai.request.image_quality", kwargs.get("quality", "standard"))
-                        span.set_attribute("gen_ai.request.image_style", kwargs.get("style", "vivid"))
-                        span.set_attribute("gen_ai.content.revised_prompt", items.revised_prompt if items.revised_prompt else "")
+                        span.set_attribute("gen_ai.request.model",
+                                           kwargs.get("model", "dall-e-2"))
+                        span.set_attribute("gen_ai.request.image_size",
+                                           kwargs.get("size", "1024x1024"))
+                        span.set_attribute("gen_ai.request.image_quality",
+                                           kwargs.get("quality", "standard"))
+                        span.set_attribute("gen_ai.request.image_style",
+                                           kwargs.get("style", "vivid"))
+                        span.set_attribute("gen_ai.content.revised_prompt",
+                                           items.revised_prompt if items.revised_prompt else "")
                         span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
@@ -499,7 +551,8 @@ def image_generate(gen_ai_endpoint, version, environment, application_name, trac
 
     return wrapper
 
-def image_variatons(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def image_variatons(gen_ai_endpoint, version, environment, application_name,
+                    tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for creating image variations to collect metrics.
     
@@ -552,7 +605,8 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name, tra
                         image = "url"
 
                     # Calculate cost of the operation
-                    cost = get_image_model_cost(kwargs.get("model", "dall-e-2"), pricing_info, kwargs.get("size", "1024x1024"), "standard")
+                    cost = get_image_model_cost(kwargs.get("model", "dall-e-2"), pricing_info,
+                                                kwargs.get("size", "1024x1024"), "standard")
 
                     for items in response.data:
                         # Set Span attributes
@@ -565,7 +619,8 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name, tra
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model", kwargs.get("model", "dall-e-2"))
                         span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
-                        span.set_attribute("gen_ai.request.image_size", kwargs.get("size", "1024x1024"))
+                        span.set_attribute("gen_ai.request.image_size",
+                                           kwargs.get("size", "1024x1024"))
                         span.set_attribute("gen_ai.request.image_quality", "standard")
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", kwargs.get("image", ""))
@@ -590,10 +645,11 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name, tra
         except Exception as e:
             handle_exception(tracer, e, gen_ai_endpoint)
             raise e
-    
+
     return wrapper
 
-def audio_create(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def audio_create(gen_ai_endpoint, version, environment, application_name, 
+                 tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for creating speech audio to collect metrics.
     
@@ -639,7 +695,8 @@ def audio_create(gen_ai_endpoint, version, environment, application_name, tracer
                     duration = end_time - start_time
 
                     # Calculate cost of the operation
-                    cost = get_audio_model_cost(kwargs.get("model", "tts-1"), pricing_info, kwargs.get("input", ""))
+                    cost = get_audio_model_cost(kwargs.get("model", "tts-1"),
+                                                pricing_info, kwargs.get("input", ""))
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "openai")
@@ -650,7 +707,8 @@ def audio_create(gen_ai_endpoint, version, environment, application_name, tracer
                     span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model", kwargs.get("model", "tts-1"))
                     span.set_attribute("gen_ai.request.audio_voice", kwargs.get("voice", "alloy"))
-                    span.set_attribute("gen_ai.request.audio_response_format", kwargs.get("response_format", "mp3"))
+                    span.set_attribute("gen_ai.request.audio_response_format",
+                                       kwargs.get("response_format", "mp3"))
                     span.set_attribute("gen_ai.request.audio_speed", kwargs.get("speed", 1))
                     span.set_attribute("gen_ai.usage.cost", cost)
                     if trace_content:

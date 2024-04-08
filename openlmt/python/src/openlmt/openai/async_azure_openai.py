@@ -11,7 +11,8 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_image_mod
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def azure_async_chat_completions(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_async_chat_completions(gen_ai_endpoint, version, environment, application_name,
+                                 tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
 
@@ -99,10 +100,12 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
 
                             # Calculate tokens using input prompt and aggregated response
                             prompt_tokens = openai_tokens(prompt, kwargs.get("model", "gpt-3.5-turbo"))
-                            completion_tokens = openai_tokens(llmresponse, kwargs.get("model", "gpt-3.5-turbo"))
+                            completion_tokens = openai_tokens(llmresponse,
+                                                              kwargs.get("model", "gpt-3.5-turbo"))
 
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens)
+                            cost = get_chat_model_cost(model, pricing_info,
+                                                       prompt_tokens, completion_tokens)
 
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "Azuure.OpenAI")
@@ -113,16 +116,23 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                             span.set_attribute("gen_ai.application_name", application_name)
                             span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model", model)
-                            span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
-                            span.set_attribute("gen_ai.request.tool_choice", kwargs.get("tool_choice", ""))
-                            span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
-                            span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
-                            span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                            span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
+                            span.set_attribute("gen_ai.request.user",
+                                               kwargs.get("user", ""))
+                            span.set_attribute("gen_ai.request.tool_choice",
+                                               kwargs.get("tool_choice", ""))
+                            span.set_attribute("gen_ai.request.temperature",
+                                               kwargs.get("temperature", 1))
+                            span.set_attribute("gen_ai.request.presence_penalty",
+                                               kwargs.get("presence_penalty", 0))
+                            span.set_attribute("gen_ai.request.frequency_penalty",
+                                               kwargs.get("frequency_penalty", 0))
+                            span.set_attribute("gen_ai.request.seed",
+                                               kwargs.get("seed", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", prompt_tokens + completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               prompt_tokens + completion_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
                             if trace_content:
                                 span.set_attribute("gen_ai.content.prompt", prompt)
@@ -179,12 +189,18 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model", model)
-                        span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
-                        span.set_attribute("gen_ai.request.tool_choice", kwargs.get("tool_choice", ""))
-                        span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
-                        span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
-                        span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                        span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
+                        span.set_attribute("gen_ai.request.user",
+                                           kwargs.get("user", ""))
+                        span.set_attribute("gen_ai.request.tool_choice",
+                                           kwargs.get("tool_choice", ""))
+                        span.set_attribute("gen_ai.request.temperature",
+                                           kwargs.get("temperature", 1))
+                        span.set_attribute("gen_ai.request.presence_penalty",
+                                           kwargs.get("presence_penalty", 0))
+                        span.set_attribute("gen_ai.request.frequency_penalty",
+                                           kwargs.get("frequency_penalty", 0))
+                        span.set_attribute("gen_ai.request.seed",
+                                           kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", prompt)
@@ -192,25 +208,33 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
+                            cost = get_chat_model_cost(model, pricing_info,
+                                                       response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
-                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
-                            span.set_attribute("gen_ai.response.finish_reason", response.choices[0].finish_reason)
+                            span.set_attribute("gen_ai.usage.prompt_tokens",
+                                               response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens",
+                                               response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               response.usage.total_tokens)
+                            span.set_attribute("gen_ai.response.finish_reason",
+                                               response.choices[0].finish_reason)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
                                 if trace_content:
-                                    span.set_attribute("gen_ai.content.completion", response.choices[0].message.content)
+                                    span.set_attribute("gen_ai.content.completion",
+                                                       response.choices[0].message.content)
 
                             # Set span attributes for when n > 0
                             else:
                                 i = 0
                                 while i < kwargs["n"] and trace_content is True:
                                     attribute_name = f"gen_ai.content.completion.{i}"
-                                    span.set_attribute(attribute_name, response.choices[i].message.content)
+                                    span.set_attribute(attribute_name,
+                                                       response.choices[i].message.content)
                                     i += 1
 
                                 # Return original response
@@ -219,12 +243,18 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                         # Set span attributes when tools is passed to the function call
                         elif "tools" in kwargs:
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
+                            cost = get_chat_model_cost(model, pricing_info,
+                                                       response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
-                            span.set_attribute("gen_ai.content.completion", "Function called with tools")
-                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
+                            span.set_attribute("gen_ai.content.completion",
+                                               "Function called with tools")
+                            span.set_attribute("gen_ai.usage.prompt_tokens",
+                                               response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens",
+                                               response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               response.usage.total_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
                     # Return original response
@@ -243,7 +273,8 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
 
     return wrapper
 
-def azure_async_completions(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_async_completions(gen_ai_endpoint, version, environment, application_name,
+                            tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for completions to collect metrics.
 
@@ -315,7 +346,8 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                             completion_tokens = openai_tokens(llmresponse, "gpt-3.5-turbo")
 
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens)
+                            cost = get_chat_model_cost(model, pricing_info,
+                                                       prompt_tokens, completion_tokens)
 
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "azure_openai")
@@ -326,16 +358,23 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                             span.set_attribute("gen_ai.application_name", application_name)
                             span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model", model)
-                            span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
-                            span.set_attribute("gen_ai.request.tool_choice", kwargs.get("tool_choice", ""))
-                            span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
-                            span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
-                            span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                            span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
+                            span.set_attribute("gen_ai.request.user",
+                                               kwargs.get("user", ""))
+                            span.set_attribute("gen_ai.request.tool_choice",
+                                               kwargs.get("tool_choice", ""))
+                            span.set_attribute("gen_ai.request.temperature",
+                                               kwargs.get("temperature", 1))
+                            span.set_attribute("gen_ai.request.presence_penalty",
+                                               kwargs.get("presence_penalty", 0))
+                            span.set_attribute("gen_ai.request.frequency_penalty",
+                                               kwargs.get("frequency_penalty", 0))
+                            span.set_attribute("gen_ai.request.seed",
+                                               kwargs.get("seed", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", prompt_tokens + completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               prompt_tokens + completion_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
                             if trace_content:
                                 span.set_attribute("gen_ai.content.prompt", prompt)
@@ -373,32 +412,47 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
-                        span.set_attribute("gen_ai.request.model", kwargs.get("model", "gpt-3.5-turbo"))
-                        span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
-                        span.set_attribute("gen_ai.request.tool_choice", kwargs.get("tool_choice", ""))
-                        span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
-                        span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
-                        span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
-                        span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
+                        span.set_attribute("gen_ai.request.model",
+                                           kwargs.get("model", "gpt-3.5-turbo"))
+                        span.set_attribute("gen_ai.request.user",
+                                           kwargs.get("user", ""))
+                        span.set_attribute("gen_ai.request.tool_choice",
+                                           kwargs.get("tool_choice", ""))
+                        span.set_attribute("gen_ai.request.temperature",
+                                           kwargs.get("temperature", 1))
+                        span.set_attribute("gen_ai.request.presence_penalty",
+                                           kwargs.get("presence_penalty", 0))
+                        span.set_attribute("gen_ai.request.frequency_penalty",
+                                           kwargs.get("frequency_penalty", 0))
+                        span.set_attribute("gen_ai.request.seed",
+                                           kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
                         if trace_content:
-                            span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
+                            span.set_attribute("gen_ai.content.prompt",
+                                               kwargs.get("prompt", ""))
 
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
+                            cost = get_chat_model_cost(model, pricing_info,
+                                                       response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
-                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
-                            span.set_attribute("gen_ai.response.finish_reason", response.choices[0].finish_reason)
+                            span.set_attribute("gen_ai.usage.prompt_tokens",
+                                               response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens",
+                                               response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               response.usage.total_tokens)
+                            span.set_attribute("gen_ai.response.finish_reason",
+                                               response.choices[0].finish_reason)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
                                 if trace_content:
-                                    span.set_attribute("gen_ai.content.completion", response.choices[0].text)
+                                    span.set_attribute("gen_ai.content.completion",
+                                                       response.choices[0].text)
 
                             # Set span attributes for when n > 0
                             else:
@@ -412,12 +466,18 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                         # Set span attributes when tools is passed to the function call
                         elif "tools" in kwargs:
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
+                            cost = get_chat_model_cost(model, pricing_info,
+                                                       response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
-                            span.set_attribute("gen_ai.content.completion", "Function called with tools")
-                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
+                            span.set_attribute("gen_ai.content.completion",
+                                               "Function called with tools")
+                            span.set_attribute("gen_ai.usage.prompt_tokens",
+                                               response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens",
+                                               response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               response.usage.total_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
                     # Return original response
@@ -436,7 +496,8 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
 
     return wrapper
 
-def azure_async_embedding(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_async_embedding(gen_ai_endpoint, version, environment, application_name,
+                          tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -482,7 +543,8 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
                     duration = end_time - start_time
 
                     # Calculate cost of the operation
-                    cost = get_embed_model_cost("azure_" + response.model, pricing_info, response.usage.prompt_tokens)
+                    cost = get_embed_model_cost("azure_" + response.model, pricing_info,
+                                                response.usage.prompt_tokens)
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "azure_openai")
@@ -492,8 +554,10 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model", "azure_" + response.model)
-                    span.set_attribute("gen_ai.request.embedding_format", kwargs.get("encoding_format", "float"))
-                    span.set_attribute("gen_ai.request.embedding_dimension", kwargs.get("dimensions", ""))
+                    span.set_attribute("gen_ai.request.embedding_format",
+                                       kwargs.get("encoding_format", "float"))
+                    span.set_attribute("gen_ai.request.embedding_dimension",
+                                       kwargs.get("dimensions", ""))
                     span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
                     span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
                     span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
@@ -517,7 +581,8 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
 
     return wrapper
 
-def azure_async_image_generate(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def azure_async_image_generate(gen_ai_endpoint, version, environment, application_name,
+                               tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for image generation to collect metrics.
     
@@ -569,7 +634,9 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
                         image = "url"
 
                     # Calculate cost of the operation
-                    cost = get_image_model_cost("azure_" + kwargs.get("model", "dall-e-3"), pricing_info, kwargs.get("size", "1024x1024"), kwargs.get("quality", "standard"))
+                    cost = get_image_model_cost("azure_" + kwargs.get("model", "dall-e-3"),
+                                                pricing_info, kwargs.get("size", "1024x1024"),
+                                                kwargs.get("quality", "standard"))
 
                     for items in response.data:
                         # Set Span attributes
@@ -580,11 +647,16 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
-                        span.set_attribute("gen_ai.request.model", "azure_" + kwargs.get("model", "dall-e-3"))
-                        span.set_attribute("gen_ai.request.image_size", kwargs.get("size", "1024x1024"))
-                        span.set_attribute("gen_ai.request.image_quality", kwargs.get("quality", "standard"))
-                        span.set_attribute("gen_ai.request.image_style", kwargs.get("style", "vivid"))
-                        span.set_attribute("gen_ai.content.revised_prompt", items.revised_prompt if response.revised_prompt else "")
+                        span.set_attribute("gen_ai.request.model",
+                                           "azure_" + kwargs.get("model", "dall-e-3"))
+                        span.set_attribute("gen_ai.request.image_size",
+                                           kwargs.get("size", "1024x1024"))
+                        span.set_attribute("gen_ai.request.image_quality",
+                                           kwargs.get("quality", "standard"))
+                        span.set_attribute("gen_ai.request.image_style",
+                                           kwargs.get("style", "vivid"))
+                        span.set_attribute("gen_ai.content.revised_prompt",
+                                           items.revised_prompt if response.revised_prompt else "")
                         span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
