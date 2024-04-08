@@ -2,52 +2,46 @@
 """Initializer of Auto Instrumentation of Anthropic Functions"""
 
 from typing import Collection
-
+import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from wrapt import wrap_function_wrapper
 
-from .anthropic import init as init_anthropic
-from .async_anthropic import init as init_async_anthropic
+from .anthropic import messages
+from .async_anthropic import async_messages
 
-_instruments = ("anthropic >= 0.3.11",)
+_instruments = ("anthropic >= 0.21.0",)
 
 class AnthropicInstrumentor(BaseInstrumentor):
-    """An instrumentor for Anthropic's client library."""
+    """
+    An instrumentor for Anthropic's client library.
+    """
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        llm = kwargs.get("llm")
-        application_name = kwargs.get("application_name")
-        environment = kwargs.get("environment")
+        llm = kwargs.get("llm")  # Ensure llm object is used if necessary
+        application_name = kwargs.get("application_name", "default_application")
+        environment = kwargs.get("environment", "default_environment")
         tracer = kwargs.get("tracer")
-        pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
+        pricing_info = kwargs.get("pricing_info", {})
+        trace_content = kwargs.get("trace_content", False)
+        version = importlib.metadata.version("anthropic")
 
-        init_anthropic(llm, environment, application_name, tracer, pricing_info, trace_content)
-        return
+        #sync
+        wrap_function_wrapper(
+            "anthropic.resources.messages",  
+            "Messages.create",  
+            messages("anthropic.messages.create", version, environment, application_name, tracer, pricing_info, trace_content),
+        )
 
-    @staticmethod
+        #async
+        wrap_function_wrapper(
+            "anthropic.resources.messages",  
+            "AsyncMessages.create",  
+            async_messages("anthropic.messages.create", version, environment, application_name, tracer, pricing_info, trace_content),
+        )
+
     def _uninstrument(self, **kwargs):
-        pass
-
-class AsyncAnthropicInstrumentor(BaseInstrumentor):
-    """An instrumentor for Async Anthropic's client library."""
-
-    def instrumentation_dependencies(self) -> Collection[str]:
-        return _instruments
-
-    def _instrument(self, **kwargs):
-        llm = kwargs.get("llm")
-        application_name = kwargs.get("application_name")
-        environment = kwargs.get("environment")
-        tracer = kwargs.get("tracer")
-        pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
-
-        init_async_anthropic(llm, environment, application_name, tracer, pricing_info, trace_content)
-        return
-
-    @staticmethod
-    def _uninstrument(self, **kwargs):
+        # Proper uninstrumentation logic to revert patched methods
         pass

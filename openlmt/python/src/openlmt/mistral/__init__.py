@@ -1,10 +1,11 @@
 # pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of Mistral Functions"""
 from typing import Collection
-
+import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from wrapt import wrap_function_wrapper
 
-from .mistral import init as init_mistral
+from .mistral import chat, chat_stream, embeddings
 from .async_mistral import init as init_async_mistral
 
 _instruments = ("mistralai >= 0.1.0",)
@@ -22,31 +23,51 @@ class MistralInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
         trace_content = kwargs.get("trace_content")
+        version = importlib.metadata.version("mistralai")
 
-        init_mistral(llm, environment, application_name, tracer, pricing_info, trace_content)
-        return
+        #sync
+        wrap_function_wrapper(
+            "mistralai.client",  
+            "MistralClient.chat",  
+            chat("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+        )
+
+        #sync
+        wrap_function_wrapper(
+            "mistralai.client",  
+            "MistralClient.chat_stream",  
+            chat_stream("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+        )
+
+        #sync
+        wrap_function_wrapper(
+            "mistralai.client",  
+            "MistralClient.embeddings",  
+            embeddings("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+        )
+
+        # Async
+        wrap_function_wrapper(
+            "mistralai.client",  
+            "MistralAsyncClient.chat",  
+            chat("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+        )
+
+        #sync
+        wrap_function_wrapper(
+            "mistralai.client",  
+            "MistralAsyncClient.chat_stream",  
+            chat_stream("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+        )
+
+        #sync
+        wrap_function_wrapper(
+            "mistralai.client",  
+            "MistralAsyncClient.embeddings",  
+            embeddings("MistralClient.chat", version, environment, application_name, tracer, pricing_info, trace_content),
+        )
 
     @staticmethod
     def _uninstrument(self, **kwargs):
         pass
 
-class AsyncMistralInstrumentor(BaseInstrumentor):
-    """An instrumentor for Azure AsyncMistral's client library."""
-
-    def instrumentation_dependencies(self) -> Collection[str]:
-        return _instruments
-
-    def _instrument(self, **kwargs):
-        llm = kwargs.get("llm")
-        application_name = kwargs.get("application_name")
-        environment = kwargs.get("environment")
-        tracer = kwargs.get("tracer")
-        pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
-
-        init_async_mistral(llm, environment, application_name, tracer, pricing_info, trace_content)
-        return
-
-    @staticmethod
-    def _uninstrument(self, **kwargs):
-        pass
