@@ -93,7 +93,7 @@ def init(llm=None, environment="default", application_name="default", tracer=Non
             trace_content=trace_content
         )
 
-        AzureOpenAIInstrumentor().instrument(
+        OpenAIInstrumentor().instrument(
             environment=OpenLMTConfig.environment,
             application_name=OpenLMTConfig.application_name,
             tracer=tracer,
