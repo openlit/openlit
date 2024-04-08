@@ -12,7 +12,8 @@ from ..__helpers import get_chat_model_cost, handle_exception
 logger = logging.getLogger(__name__)
 
 
-def messages(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def messages(gen_ai_endpoint, version, environment, application_name, tracer,
+             pricing_info, trace_content):
     """
     Generates a telemetry wrapper for messages to collect metrics.
 
@@ -104,7 +105,9 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer, pr
                             prompt = "\n".join(formatted_messages)
 
                             # Calculate cost of the operation
-                            cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"), pricing_info, prompt_tokens, completion_tokens)
+                            cost = get_chat_model_cost(
+                                kwargs.get("model", "claude-3-sonnet-20240229"),
+                                pricing_info, prompt_tokens, completion_tokens)
 
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "anthropic")
@@ -114,16 +117,22 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer, pr
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
                             span.set_attribute("gen_ai.request_duration", duration)
-                            span.set_attribute("gen_ai.request.model", kwargs.get("model", "claude-3-sonnet-20240229"))
-                            span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
+                            span.set_attribute("gen_ai.request.model",
+                                               kwargs.get("model", "claude-3-sonnet-20240229"))
+                            span.set_attribute("gen_ai.request.max_tokens",
+                                               kwargs.get("max_tokens", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
-                            span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1.0))
-                            span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", ""))
-                            span.set_attribute("gen_ai.request.top_k", kwargs.get("top_k", ""))
+                            span.set_attribute("gen_ai.request.temperature",
+                                                kwargs.get("temperature", 1.0))
+                            span.set_attribute("gen_ai.request.top_p",
+                                               kwargs.get("top_p", ""))
+                            span.set_attribute("gen_ai.request.top_k",
+                                               kwargs.get("top_k", ""))
                             span.set_attribute("gen_ai.response.finish_reason", finish_reason)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens", prompt_tokens + completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens",
+                                               prompt_tokens + completion_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
                             if trace_content:
                                 span.set_attribute("gen_ai.content.prompt", prompt)
@@ -169,7 +178,9 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer, pr
                         prompt = "\n".join(formatted_messages)
 
                         # Calculate cost of the operation
-                        cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"), pricing_info, response.usage.input_tokens, response.usage.output_tokens)
+                        cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"),
+                                                   pricing_info, response.usage.input_tokens,
+                                                   response.usage.output_tokens)
 
                         # Set Span attribues
                         span.set_attribute("gen_ai.system", "anthropic")
@@ -179,20 +190,31 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer, pr
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
-                        span.set_attribute("gen_ai.request.model", kwargs.get("model", "claude-3-sonnet-20240229"))
-                        span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
+                        span.set_attribute("gen_ai.request.model",
+                                           kwargs.get("model", "claude-3-sonnet-20240229"))
+                        span.set_attribute("gen_ai.request.max_tokens",
+                                           kwargs.get("max_tokens", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
-                        span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1.0))
-                        span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", ""))
-                        span.set_attribute("gen_ai.request.top_k", kwargs.get("top_k", ""))
-                        span.set_attribute("gen_ai.response.finish_reason", response.stop_reason)
-                        span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.input_tokens)
-                        span.set_attribute("gen_ai.usage.completion_tokens", response.usage.output_tokens)
-                        span.set_attribute("gen_ai.usage.total_tokens", response.usage.input_tokens + response.usage.output_tokens)
+                        span.set_attribute("gen_ai.request.temperature",
+                                           kwargs.get("temperature", 1.0))
+                        span.set_attribute("gen_ai.request.top_p",
+                                           kwargs.get("top_p", ""))
+                        span.set_attribute("gen_ai.request.top_k",
+                                           kwargs.get("top_k", ""))
+                        span.set_attribute("gen_ai.response.finish_reason",
+                                           response.stop_reason)
+                        span.set_attribute("gen_ai.usage.prompt_tokens",
+                                           response.usage.input_tokens)
+                        span.set_attribute("gen_ai.usage.completion_tokens",
+                                           response.usage.output_tokens)
+                        span.set_attribute("gen_ai.usage.total_tokens",
+                                           response.usage.input_tokens +
+                                           response.usage.output_tokens)
                         span.set_attribute("gen_ai.usage.cost", cost)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", prompt)
-                            span.set_attribute("gen_ai.content.completion", response.content[0].text if response.content else "")
+                            span.set_attribute("gen_ai.content.completion",
+                                               response.content[0].text if response.content else "")
 
                     # Return original response
                     return response

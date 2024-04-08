@@ -11,7 +11,8 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_except
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def chat(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def chat(gen_ai_endpoint, version, environment, application_name, tracer,
+         pricing_info, trace_content):
     """
     Generates a telemetry wrapper for chat to collect metrics.
 
@@ -75,7 +76,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer, pricin
                     prompt = " ".join(formatted_messages)
 
                     # Calculate cost of the operation
-                    cost = get_chat_model_cost(kwargs.get("model", "mistral-small-latest"), pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
+                    cost = get_chat_model_cost(kwargs.get("model", "mistral-small-latest"),
+                                               pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "mistral")
@@ -85,20 +87,28 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer, pricin
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
-                    span.set_attribute("gen_ai.request.model", kwargs.get("model", "mistral-small-latest"))
-                    span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 0.7))
-                    span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", 1))
-                    span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                    span.set_attribute("gen_ai.request.seed", kwargs.get("random_seed", ""))
+                    span.set_attribute("gen_ai.request.model",
+                                       kwargs.get("model", "mistral-small-latest"))
+                    span.set_attribute("gen_ai.request.temperature",
+                                       kwargs.get("temperature", 0.7))
+                    span.set_attribute("gen_ai.request.top_p",
+                                       kwargs.get("top_p", 1))
+                    span.set_attribute("gen_ai.request.max_tokens",
+                                       kwargs.get("max_tokens", ""))
+                    span.set_attribute("gen_ai.request.seed",
+                                       kwargs.get("random_seed", ""))
                     span.set_attribute("gen_ai.request.is_stream", False)
-                    span.set_attribute("gen_ai.response.finish_reason", response.choices[0].finish_reason)
+                    span.set_attribute("gen_ai.response.finish_reason",
+                                       response.choices[0].finish_reason)
                     span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
-                    span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
+                    span.set_attribute("gen_ai.usage.completion_tokens",
+                                       response.usage.completion_tokens)
                     span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
                     span.set_attribute("gen_ai.usage.cost", cost)
                     if trace_content:
                         span.set_attribute("gen_ai.content.prompt", prompt)
-                        span.set_attribute("gen_ai.content.completion", response.choices[0].message.content if response.choices[0].message.content else "")
+                        span.set_attribute("gen_ai.content.completion", 
+                                           response.choices[0].message.content if response.choices[0].message.content else "")
 
 
                 # Return original response
@@ -117,7 +127,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer, pricin
 
     return wrapper
 
-def chat_stream(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def chat_stream(gen_ai_endpoint, version, environment, application_name,
+                tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for chat_stream to collect metrics.
 
@@ -196,7 +207,8 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name, tracer,
                         prompt = " ".join(formatted_messages)
 
                         # Calculate cost of the operation
-                        cost = get_chat_model_cost(kwargs.get("model", "mistral-small-latest"), pricing_info, prompt_tokens, completion_tokens)
+                        cost = get_chat_model_cost(kwargs.get("model", "mistral-small-latest"),
+                                                   pricing_info, prompt_tokens, completion_tokens)
 
                         # Set Span attributes
                         span.set_attribute("gen_ai.system", "mistral")
@@ -206,11 +218,16 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name, tracer,
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
-                        span.set_attribute("gen_ai.request.model", kwargs.get("model", "mistral-small-latest"))
-                        span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 0.7))
-                        span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", 1))
-                        span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                        span.set_attribute("gen_ai.request.seed", kwargs.get("random_seed", ""))
+                        span.set_attribute("gen_ai.request.model",
+                                           kwargs.get("model", "mistral-small-latest"))
+                        span.set_attribute("gen_ai.request.temperature",
+                                           kwargs.get("temperature", 0.7))
+                        span.set_attribute("gen_ai.request.top_p",
+                                           kwargs.get("top_p", 1))
+                        span.set_attribute("gen_ai.request.max_tokens",
+                                           kwargs.get("max_tokens", ""))
+                        span.set_attribute("gen_ai.request.seed",
+                                           kwargs.get("random_seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", True)
                         span.set_attribute("gen_ai.response.finish_reason", finish_reason)
                         span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
@@ -234,7 +251,8 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name, tracer,
 
     return wrapper
 
-def embeddings(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def embeddings(gen_ai_endpoint, version, environment, application_name,
+               tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -283,7 +301,8 @@ def embeddings(gen_ai_endpoint, version, environment, application_name, tracer, 
                     prompt = ', '.join(kwargs.get('input', []))
 
                     # Calculate cost of the operation
-                    cost = get_embed_model_cost(kwargs.get('model', "mistral-embed"), pricing_info, response.usage.prompt_tokens)
+                    cost = get_embed_model_cost(kwargs.get('model', "mistral-embed"),
+                                                pricing_info, response.usage.prompt_tokens)
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "mistral")
@@ -292,8 +311,10 @@ def embeddings(gen_ai_endpoint, version, environment, application_name, tracer, 
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
-                    span.set_attribute("gen_ai.request.model", kwargs.get('model', "mistral-embed"))
-                    span.set_attribute("gen_ai.request.embedding_format", kwargs.get("encoding_format", "float"))
+                    span.set_attribute("gen_ai.request.model",
+                                       kwargs.get('model', "mistral-embed"))
+                    span.set_attribute("gen_ai.request.embedding_format",
+                                       kwargs.get("encoding_format", "float"))
                     span.set_attribute("gen_ai.response.id", response.id)
                     span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
                     span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)

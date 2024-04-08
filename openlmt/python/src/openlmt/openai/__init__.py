@@ -136,14 +136,17 @@ def chat_wrapper(version, environment, application_name, tracer, pricing_info, t
     """
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
-        completion_func = chat_completions("openai.chat.completions", version, environment, application_name, tracer, pricing_info, trace_content)
+        completion_func = chat_completions("openai.chat.completions", version, environment,
+                                           application_name, tracer, pricing_info, trace_content)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
             base_url = getattr(instance, 'base_url', '')
             if 'azure.com' in base_url:
                 # Switch to the Azure-specific chat completions logic
-                completion_func = azure_chat_completions("azure_openai.chat.completions", version, environment, application_name, tracer, pricing_info, trace_content)
+                completion_func = azure_chat_completions("azure_openai.chat.completions",
+                                                         version, environment, application_name,
+                                                         tracer, pricing_info, trace_content)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -152,21 +155,27 @@ def chat_wrapper(version, environment, application_name, tracer, pricing_info, t
 
     return wrapper
 
-def async_chat_wrapper(version, environment, application_name, tracer, pricing_info, trace_content):
+def async_chat_wrapper(version, environment, application_name, tracer, pricing_info,
+                       trace_content):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
     """
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
-        completion_func = async_chat_completions("openai.chat.completions", version, environment, application_name, tracer, pricing_info, trace_content)
+        completion_func = async_chat_completions("openai.chat.completions", version, environment,
+                                                 application_name, tracer,
+                                                 pricing_info, trace_content)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
             base_url = getattr(instance, 'base_url', '')
             if 'azure.com' in base_url:
                 # Switch to the Azure-specific chat completions logic
-                completion_func = azure_async_chat_completions("azure_openai.chat.completions", version, environment, application_name, tracer, pricing_info, trace_content)
+                completion_func = azure_async_chat_completions("azure_openai.chat.completions",
+                                                               version, environment,
+                                                               application_name, tracer,
+                                                               pricing_info, trace_content)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -175,21 +184,25 @@ def async_chat_wrapper(version, environment, application_name, tracer, pricing_i
 
     return wrapper
 
-def image_generate_wrapper(version, environment, application_name, tracer, pricing_info, trace_content):
+def image_generate_wrapper(version, environment, application_name, tracer, pricing_info,
+                           trace_content):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
     """
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
-        completion_func = image_generate("openai.images.generate", version, environment, application_name, tracer, pricing_info, trace_content)
+        completion_func = image_generate("openai.images.generate", version, environment,
+                                         application_name, tracer, pricing_info, trace_content)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
             base_url = getattr(instance, 'base_url', '')
             if 'azure.com' in base_url:
                 # Switch to the Azure-specific chat completions logic
-                completion_func = azure_image_generate("azure_openai.images.generate", version, environment, application_name, tracer, pricing_info, trace_content)
+                completion_func = azure_image_generate("azure_openai.images.generate",
+                                                       version, environment, application_name,
+                                                       tracer, pricing_info, trace_content)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -198,21 +211,27 @@ def image_generate_wrapper(version, environment, application_name, tracer, prici
 
     return wrapper
 
-def async_image_generate_wrapper(version, environment, application_name, tracer, pricing_info, trace_content):
+def async_image_generate_wrapper(version, environment, application_name, tracer,
+                                 pricing_info, trace_content):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
     """
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
-        completion_func = async_image_generate("openai.images.generate", version, environment, application_name, tracer, pricing_info, trace_content)
+        completion_func = async_image_generate("openai.images.generate", version,
+                                               environment, application_name, tracer,
+                                               pricing_info, trace_content)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
             base_url = getattr(instance, 'base_url', '')
             if 'azure.com' in base_url:
                 # Switch to the Azure-specific chat completions logic
-                completion_func = azure_async_image_generate("azure_openai.images.generate", version, environment, application_name, tracer, pricing_info, trace_content)
+                completion_func = azure_async_image_generate("azure_openai.images.generate",
+                                                             version, environment,
+                                                             application_name, tracer,
+                                                             pricing_info, trace_content)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -221,21 +240,25 @@ def async_image_generate_wrapper(version, environment, application_name, tracer,
 
     return wrapper
 
-def embedding_wrapper(version, environment, application_name, tracer, pricing_info, trace_content):
+def embedding_wrapper(version, environment, application_name, tracer, pricing_info,
+                      trace_content):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
     """
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
-        completion_func = embedding("openai.embeddings", version, environment, application_name, tracer, pricing_info, trace_content)
+        completion_func = embedding("openai.embeddings", version, environment,
+                                    application_name, tracer, pricing_info, trace_content)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
             base_url = getattr(instance, 'base_url', '')
             if 'azure.com' in base_url:
                 # Switch to the Azure-specific chat completions logic
-                completion_func = azure_embedding("azure_openai.embeddings", version, environment, application_name, tracer, pricing_info, trace_content)
+                completion_func = azure_embedding("azure_openai.embeddings",
+                                                  version, environment, application_name,
+                                                  tracer, pricing_info, trace_content)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -244,21 +267,25 @@ def embedding_wrapper(version, environment, application_name, tracer, pricing_in
 
     return wrapper
 
-def async_embedding_wrapper(version, environment, application_name, tracer, pricing_info, trace_content):
+def async_embedding_wrapper(version, environment, application_name, tracer,
+                            pricing_info, trace_content):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
     """
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
-        completion_func = async_embedding("openai.embeddings", version, environment, application_name, tracer, pricing_info, trace_content)
+        completion_func = async_embedding("openai.embeddings", version, environment,
+                                          application_name, tracer, pricing_info, trace_content)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
             base_url = getattr(instance, 'base_url', '')
             if 'azure.com' in base_url:
                 # Switch to the Azure-specific chat completions logic
-                completion_func = azure_async_embedding("azure_openai.embeddings", version, environment, application_name, tracer, pricing_info, trace_content)
+                completion_func = azure_async_embedding("azure_openai.embeddings", version,
+                                                        environment, application_name, tracer,
+                                                        pricing_info, trace_content)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 

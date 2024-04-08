@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches
 """
 Module for monitoring OpenAI API calls.
 """
@@ -6,7 +6,8 @@ Module for monitoring OpenAI API calls.
 import time
 import logging
 from opentelemetry.trace import SpanKind
-from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_model_cost, get_image_model_cost, openai_tokens, handle_exception
+from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_model_cost
+from ..__helpers import get_image_model_cost, openai_tokens, handle_exception
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -71,8 +72,9 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                         yield chunk
                         response_id = chunk.id
 
-                    # Sections handling exceptions ensure observability without disrupting operations
+                    # Section handling exception ensure observability without disrupting operation
                     try:
+                        # pylint: disable=line-too-long
                         with tracer.start_as_current_span(gen_ai_endpoint , kind= SpanKind.CLIENT) as span:
                             end_time = time.time()
                             # Calculate total duration of operation
@@ -98,12 +100,15 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                             prompt = "\n".join(formatted_messages)
 
                             # Calculate tokens using input prompt and aggregated response
-                            prompt_tokens = openai_tokens(prompt, kwargs.get("model", "gpt-3.5-turbo"))
-                            completion_tokens = openai_tokens(llmresponse, kwargs.get("model", "gpt-3.5-turbo"))
+                            prompt_tokens = openai_tokens(prompt,
+                                                          kwargs.get("model", "gpt-3.5-turbo"))
+                            completion_tokens = openai_tokens(llmresponse,
+                                                              kwargs.get("model", "gpt-3.5-turbo"))
 
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"),
-                                                       pricing_info, prompt_tokens, completion_tokens)
+                                                       pricing_info, prompt_tokens,
+                                                       completion_tokens)
 
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "openai")
@@ -156,6 +161,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                 end_time = time.time()
 
                 try:
+                    # pylint: disable=line-too-long
                     with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
@@ -169,6 +175,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
 
                             if isinstance(content, list):
                                 content_str = ", ".join(
+                                    # pylint: disable=line-too-long
                                     f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                     if "type" in item else f'text: {item["text"]}'
                                     for item in content
@@ -233,7 +240,8 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                 i = 0
                                 while i < kwargs["n"] and trace_content is True:
                                     attribute_name = f"gen_ai.content.completion.{i}"
-                                    span.set_attribute(attribute_name, response.choices[i].message.content)
+                                    span.set_attribute(attribute_name,
+                                                       response.choices[i].message.content)
                                     i += 1
 
                                 # Return original response
@@ -359,7 +367,8 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
 
     return wrapper
 
-def async_finetune(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
+def async_finetune(gen_ai_endpoint, version, environment, application_name,
+                   tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for fine-tuning jobs to collect metrics.
     
@@ -420,7 +429,8 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name, trac
                     span.set_attribute("gen_ai.request.fine_tune_batch_size",
                                        kwargs.get("hyperparameters.batch_size", "auto"))
                     span.set_attribute("gen_ai.request.learning_rate_multiplier",
-                                       kwargs.get("hyperparameters.learning_rate_multiplier", "auto"))
+                                       kwargs.get("hyperparameters.learning_rate_multiplier",
+                                                  "auto"))
                     span.set_attribute("gen_ai.request.fine_tune_n_epochs",
                                        kwargs.get("hyperparameters.n_epochs", "auto"))
                     span.set_attribute("gen_ai.request.fine_tune_model_suffix",
@@ -645,7 +655,7 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
         except Exception as e:
             handle_exception(tracer, e, gen_ai_endpoint)
             raise e
-    
+
     return wrapper
 
 def async_audio_create(gen_ai_endpoint, version, environment, application_name,

@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches
 """
 Module for monitoring Azure OpenAI API calls.
 """
@@ -6,7 +6,8 @@ Module for monitoring Azure OpenAI API calls.
 import time
 import logging
 from opentelemetry.trace import SpanKind
-from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_image_model_cost, openai_tokens, handle_exception
+from ..__helpers import get_chat_model_cost, get_embed_model_cost
+from ..__helpers import get_image_model_cost, openai_tokens, handle_exception
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -72,8 +73,9 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
                         response_id = chunk.id
                         model = "azure_" + chunk.model
 
-                    # Sections handling exceptions ensure observability without disrupting operations
+                    # Section handling exception ensure observability without disrupting operation
                     try:
+                        # pylint: disable=line-too-long
                         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                             end_time = time.time()
                             # Calculate total duration of operation
@@ -156,6 +158,7 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
                 end_time = time.time()
 
                 try:
+                    # pylint: disable=line-too-long
                     with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
@@ -172,6 +175,7 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
 
                             if isinstance(content, list):
                                 content_str = ", ".join(
+                                    # pylint: disable=line-too-long
                                     f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                     if "type" in item else f'text: {item["text"]}'
                                     for item in content
@@ -234,7 +238,8 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
                                 i = 0
                                 while i < kwargs["n"] and trace_content is True:
                                     attribute_name = f"gen_ai.content.completion.{i}"
-                                    span.set_attribute(attribute_name, response.choices[i].message.content)
+                                    span.set_attribute(attribute_name,
+                                                       response.choices[i].message.content)
                                     i += 1
 
                                 # Return original response
@@ -333,8 +338,9 @@ def azure_completions(gen_ai_endpoint, version, environment, application_name,
                         response_id = chunk.id
                         model = "azure_" + chunk.model
 
-                    # Sections handling exceptions ensure observability without disrupting operations
+                    # Section handling exception ensure observability without disrupting operation
                     try:
+                        # pylint: disable=line-too-long
                         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                             end_time = time.time()
                             # Calculate total duration of operation
@@ -397,6 +403,7 @@ def azure_completions(gen_ai_endpoint, version, environment, application_name,
                 end_time = time.time()
 
                 try:
+                    # pylint: disable=line-too-long
                     with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                         # Calculate total duration of operation
                         duration = end_time - start_time
