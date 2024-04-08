@@ -17,7 +17,6 @@ class MistralInstrumentor(BaseInstrumentor):
         return _instruments
 
     def _instrument(self, **kwargs):
-        llm = kwargs.get("llm")
         application_name = kwargs.get("application_name")
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")

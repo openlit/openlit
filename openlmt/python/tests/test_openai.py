@@ -31,7 +31,7 @@ client = OpenAI(
 
 # Global initialization
 # pylint: disable=line-too-long
-openlmt.init(llm=client, environment="dokumetry-testing", application_name="dokumetry-python-test")
+openlmt.init(environment="dokumetry-testing", application_name="dokumetry-python-test")
 
 def test_completion_with_gpt_3_5_turbo_instruct():
     """

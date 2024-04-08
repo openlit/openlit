@@ -37,7 +37,7 @@ azure_image_model = os.getenv("AZURE_OPENAI_IMAGE_MODEL")
 
 # Global initialization
 # pylint: disable=line-too-long
-dokumetry.init(llm=client, environment="dokumetry-testing", application_name="dokumetry-python-test")
+dokumetry.init(environment="dokumetry-testing", application_name="dokumetry-python-test")
 
 def test_completion():
     """

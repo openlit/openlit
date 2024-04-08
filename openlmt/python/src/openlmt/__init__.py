@@ -26,23 +26,20 @@ class OpenLMTConfig:
     Configuration class for the OpenLMT package.
     
     Attributes:
-        llm: The large language model client instance.
         environment: A string specifying the deployment environment.
         application_name: The name of the application using the library.
         pricing_info: A dictionary storing pricing information.
     """
 
-    llm = None
     environment = None
     application_name = None
     pricing_info = {}
 
-def init(llm=None, environment="default", application_name="default", tracer=None, otlp_endpoint=None, otlp_headers=None, disable_batch=False, trace_content=True):
+def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None, otlp_headers=None, disable_batch=False, trace_content=True):
     """
     Initializes the OpenLMT configuration with the provided parameters and sets up tracing.
     
     Args:
-        llm: Instance of the LLM client to be instrumented.
         environment: The deployment environment of the application.
         application_name: Name of the application.
         tracer: Optional custom tracer instance.
@@ -54,7 +51,6 @@ def init(llm=None, environment="default", application_name="default", tracer=Non
 
     try:
         # Set up the basic configuration
-        OpenLMTConfig.llm = llm
         OpenLMTConfig.environment = environment
         OpenLMTConfig.application_name = application_name
         OpenLMTConfig.pricing_info = fetch_pricing_info()

@@ -20,7 +20,6 @@ class AnthropicInstrumentor(BaseInstrumentor):
         return _instruments
 
     def _instrument(self, **kwargs):
-        llm = kwargs.get("llm")  # Ensure llm object is used if necessary
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
         tracer = kwargs.get("tracer")

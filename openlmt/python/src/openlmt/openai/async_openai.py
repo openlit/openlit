@@ -1,4 +1,3 @@
-# pylint: disable=duplicate-code, line-too-long, broad-exception-caught
 """
 Module for monitoring OpenAI API calls.
 """
@@ -13,27 +12,33 @@ logger = logging.getLogger(__name__)
 
 def async_chat_completions(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Generates a wrapper around the `messages.create` method to collect telemetry.
+    Generates a telemetry wrapper for chat completions to collect metrics.
 
     Args:
-        gen_ai_endpoint: Identifier for the wrapper, unused here.
-        version: Version of the Anthropic package being instrumented.
-        tracer: The OpenTelemetry tracer instance.
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI usage.
+        trace_content: Flag indicating whether to trace the actual content.
 
     Returns:
-        A function that wraps the original method.
+        A function that wraps the chat completions method to add telemetry.
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
-        A patched version of the 'chat.completions' method, enabling telemetry data collection.
-
-        This method wraps the original call to 'chat.completions', adding a telemetry layer that
-        captures execution time, error handling, and other metrics.
+        Wraps the 'chat.completions' API call to add telemetry.
+        
+        This collects metrics such as execution time, cost, and token usage, and handles errors
+        gracefully, adding details to the trace for observability.
 
         Args:
-            *args: Variable positional arguments passed to the original method.
-            **kwargs: Variable keyword arguments passed to the original method.
+            wrapped: The original 'chat.completions' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'chat.completions' method.
+            kwargs: Keyword arguments for the 'chat.completions' method.
 
         Returns:
             The response from the original 'chat.completions' method.
@@ -238,31 +243,38 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
 
 def async_embedding(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Generates a wrapper around the `messages.create` method to collect telemetry.
-
+    Generates a telemetry wrapper for embeddings to collect metrics.
+    
     Args:
-        gen_ai_endpoint: Identifier for the wrapper, unused here.
-        version: Version of the Anthropic package being instrumented.
-        tracer: The OpenTelemetry tracer instance.
-
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI usage.
+        trace_content: Flag indicating whether to trace the actual content.
+    
     Returns:
-        A function that wraps the original method.
+        A function that wraps the embeddings method to add telemetry.
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
-        A patched version of the 'embeddings' method, enabling telemetry data collection.
+        Wraps the 'embeddings' API call to add telemetry.
 
-        This method wraps the original call to 'embeddings', adding a telemetry layer that
-        captures execution time, error handling, and other metrics.
+        This collects metrics such as execution time, cost, and token usage, and handles errors
+        gracefully, adding details to the trace for observability.
 
         Args:
-            *args: Variable positional arguments passed to the original method.
-            **kwargs: Variable keyword arguments passed to the original method.
+            wrapped: The original 'embeddings' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'embeddings' method.
+            kwargs: Keyword arguments for the 'embeddings' method.
 
         Returns:
             The response from the original 'embeddings' method.
         """
+
         # Sections handling exceptions ensure observability without disrupting operations
         try:
             start_time = time.time()
@@ -313,27 +325,33 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name, tra
 
 def async_finetune(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Generates a wrapper around the `messages.create` method to collect telemetry.
-
+    Generates a telemetry wrapper for fine-tuning jobs to collect metrics.
+    
     Args:
-        gen_ai_endpoint: Identifier for the wrapper, unused here.
-        version: Version of the Anthropic package being instrumented.
-        tracer: The OpenTelemetry tracer instance.
-
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI usage.
+        trace_content: Flag indicating whether to trace the actual content.
+    
     Returns:
-        A function that wraps the original method.
+        A function that wraps the fine tuning creation method to add telemetry.
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
-        A patched version of the 'fine_tuning.jobs.create' method, enabling telemetry data collection.
+        Wraps the 'fine_tuning.jobs.create' API call to add telemetry.
 
-        This method wraps the original call to 'fine_tuning.jobs.create', adding a telemetry layer that
-        captures execution time, error handling, and other metrics.
+        This collects metrics such as execution time, usage stats, and handles errors
+        gracefully, adding details to the trace for observability.
 
         Args:
-            *args: Variable positional arguments passed to the original method.
-            **kwargs: Variable keyword arguments passed to the original method.
+            wrapped: The original 'fine_tuning.jobs.create' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the method.
+            kwargs: Keyword arguments for the method.
 
         Returns:
             The response from the original 'fine_tuning.jobs.create' method.
@@ -386,27 +404,33 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name, trac
 
 def async_image_generate(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Generates a wrapper around the `messages.create` method to collect telemetry.
-
+    Generates a telemetry wrapper for image generation to collect metrics.
+    
     Args:
-        gen_ai_endpoint: Identifier for the wrapper, unused here.
-        version: Version of the Anthropic package being instrumented.
-        tracer: The OpenTelemetry tracer instance.
-
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI image generation.
+        trace_content: Flag indicating whether to trace the input prompt and generated images.
+    
     Returns:
-        A function that wraps the original method.
+        A function that wraps the image generation method to add telemetry.
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
-        A patched version of the 'images.generate' method, enabling telemetry data collection.
+        Wraps the 'images.generate' API call to add telemetry.
 
-        This method wraps the original call to 'images.generate', adding a telemetry layer that
-        captures execution time, error handling, and other metrics.
+        This collects metrics such as execution time, cost, and handles errors
+        gracefully, adding details to the trace for observability.
 
         Args:
-            *args: Variable positional arguments passed to the original method.
-            **kwargs: Variable keyword arguments passed to the original method.
+            wrapped: The original 'images.generate' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'images.generate' method.
+            kwargs: Keyword arguments for the 'images.generate' method.
 
         Returns:
             The response from the original 'images.generate' method.
@@ -476,27 +500,33 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
 
 def async_image_variatons(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Generates a wrapper around the `messages.create` method to collect telemetry.
-
+    Generates a telemetry wrapper for creating image variations to collect metrics.
+    
     Args:
-        gen_ai_endpoint: Identifier for the wrapper, unused here.
-        version: Version of the Anthropic package being instrumented.
-        tracer: The OpenTelemetry tracer instance.
-
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of generating image variations.
+        trace_content: Flag indicating whether to trace the input image and generated variations.
+    
     Returns:
-        A function that wraps the original method.
+        A function that wraps the image variations creation method to add telemetry.
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
-        A patched version of the 'images.create.variations' method, enabling telemetry data collection.
+        Wraps the 'images.create.variations' API call to add telemetry.
 
-        This method wraps the original call to 'images.create.variations', adding a telemetry layer that
-        captures execution time, error handling, and other metrics.
+        This collects metrics such as execution time, cost, and handles errors
+        gracefully, adding details to the trace for observability.
 
         Args:
-            *args: Variable positional arguments passed to the original method.
-            **kwargs: Variable keyword arguments passed to the original method.
+            wrapped: The original 'images.create.variations' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the method.
+            kwargs: Keyword arguments for the method.
 
         Returns:
             The response from the original 'images.create.variations' method.
@@ -564,27 +594,33 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
 
 def async_audio_create(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Generates a wrapper around the `messages.create` method to collect telemetry.
-
+    Generates a telemetry wrapper for creating speech audio to collect metrics.
+    
     Args:
-        gen_ai_endpoint: Identifier for the wrapper, unused here.
-        version: Version of the Anthropic package being instrumented.
-        tracer: The OpenTelemetry tracer instance.
-
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of generating speech audio.
+        trace_content: Flag indicating whether to trace the input text and generated audio.
+    
     Returns:
-        A function that wraps the original method.
+        A function that wraps the speech audio creation method to add telemetry.
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
-        A patched version of the 'audio.speech.create' method, enabling telemetry data collection.
+        Wraps the 'audio.speech.create' API call to add telemetry.
 
-        This method wraps the original call to 'audio.speech.create', adding a telemetry layer that
-        captures execution time, error handling, and other metrics.
+        This collects metrics such as execution time, cost, and handles errors
+        gracefully, adding details to the trace for observability.
 
         Args:
-            *args: Variable positional arguments passed to the original method.
-            **kwargs: Variable keyword arguments passed to the original method.
+            wrapped: The original 'audio.speech.create' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'audio.speech.create' method.
+            kwargs: Keyword arguments for the 'audio.speech.create' method.
 
         Returns:
             The response from the original 'audio.speech.create' method.

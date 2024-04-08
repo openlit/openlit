@@ -13,27 +13,33 @@ logger = logging.getLogger(__name__)
 
 def embed(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Generates a wrapper around the `messages.create` method to collect telemetry.
-
+    Generates a telemetry wrapper for embeddings to collect metrics.
+    
     Args:
-        gen_ai_endpoint: Identifier for the wrapper, unused here.
-        version: Version of the Anthropic package being instrumented.
-        tracer: The OpenTelemetry tracer instance.
-
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI usage.
+        trace_content: Flag indicating whether to trace the actual content.
+    
     Returns:
-        A function that wraps the original method.
+        A function that wraps the embeddings method to add telemetry.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        A patched version of the 'embed' method, enabling telemetry data collection.
+        Wraps the 'embed' API call to add telemetry.
 
-        This method wraps the original call to 'embed', adding a telemetry layer that
-        captures execution time, error handling, and other metrics.
+        This collects metrics such as execution time, cost, and token usage, and handles errors
+        gracefully, adding details to the trace for observability.
 
         Args:
-            *args: Variable positional arguments passed to the original method.
-            **kwargs: Variable keyword arguments passed to the original method.
+            wrapped: The original 'embed' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'embed' method.
+            kwargs: Keyword arguments for the 'embed' method.
 
         Returns:
             The response from the original 'embed' method.
@@ -93,27 +99,33 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer, prici
 
 def chat(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Generates a wrapper around the `messages.create` method to collect telemetry.
+    Generates a telemetry wrapper for chat to collect metrics.
 
     Args:
-        gen_ai_endpoint: Identifier for the wrapper, unused here.
-        version: Version of the Anthropic package being instrumented.
-        tracer: The OpenTelemetry tracer instance.
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI usage.
+        trace_content: Flag indicating whether to trace the actual content.
 
     Returns:
-        A function that wraps the original method.
+        A function that wraps the chat method to add telemetry.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        A patched version of the 'chat' method, enabling telemetry data collection.
-
-        This method wraps the original call to 'chat', adding a telemetry layer that
-        captures execution time, error handling, and other metrics.
+        Wraps the 'chat' API call to add telemetry.
+        
+        This collects metrics such as execution time, cost, and token usage, and handles errors
+        gracefully, adding details to the trace for observability.
 
         Args:
-            *args: Variable positional arguments passed to the original method.
-            **kwargs: Variable keyword arguments passed to the original method.
+            wrapped: The original 'chat' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'chat' method.
+            kwargs: Keyword arguments for the 'chat' method.
 
         Returns:
             The response from the original 'chat' method.
@@ -175,27 +187,33 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer, pricin
 
 def chat_stream(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, trace_content):
     """
-    Generates a wrapper around the `messages.create` method to collect telemetry.
+    Generates a telemetry wrapper for chat_stream to collect metrics.
 
     Args:
-        gen_ai_endpoint: Identifier for the wrapper, unused here.
-        version: Version of the Anthropic package being instrumented.
-        tracer: The OpenTelemetry tracer instance.
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI usage.
+        trace_content: Flag indicating whether to trace the actual content.
 
     Returns:
-        A function that wraps the original method.
+        A function that wraps the chat method to add telemetry.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        A patched version of the 'chat_stream' method, enabling telemetry data collection.
-
-        This method wraps the original call to 'chat_stream', adding a telemetry layer that
-        captures execution time, error handling, and other metrics.
+        Wraps the 'chat_stream' API call to add telemetry.
+        
+        This collects metrics such as execution time, cost, and token usage, and handles errors
+        gracefully, adding details to the trace for observability.
 
         Args:
-            *args: Variable positional arguments passed to the original method.
-            **kwargs: Variable keyword arguments passed to the original method.
+            wrapped: The original 'chat_stream' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'chat_stream' method.
+            kwargs: Keyword arguments for the 'chat_stream' method.
 
         Returns:
             The response from the original 'chat_stream' method.
