@@ -21,8 +21,9 @@ class AzureOpenAIInstrumentor(BaseInstrumentor):
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
+        trace_content = kwargs.get("trace_content")
 
-        init_azure_openai(llm, environment, application_name, tracer, pricing_info)
+        init_azure_openai(llm, environment, application_name, tracer, pricing_info, trace_content)
         return
 
     @staticmethod
@@ -41,8 +42,9 @@ class AsyncAzureOpenAIInstrumentor(BaseInstrumentor):
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
+        trace_content = kwargs.get("trace_content")
 
-        init_async_azure_openai(llm, environment, application_name, tracer, pricing_info)
+        init_async_azure_openai(llm, environment, application_name, tracer, pricing_info, trace_content)
         return
 
     @staticmethod

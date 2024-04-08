@@ -12,7 +12,7 @@ from ..__helpers import get_chat_model_cost, handle_exception
 logger = logging.getLogger(__name__)
 
 # pylint: disable=too-many-arguments, too-many-statements
-def init(llm, environment, application_name, tracer, pricing_info):
+def init(llm, environment, application_name, tracer, pricing_info, trace_content):
     """
     Initializes the instrumentation process by patching the Anthropic client
     methods to gather telemetry data during its execution.
@@ -23,6 +23,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
         application_name (str): Name of the application using the instrumented client.
         tracer: OpenTelemetry tracer object used for creating spans.
         pricing_info (dict): Contains pricing information for calculating the cost of operations.
+        trace_content (bool): Flag to control tracing of prompts and response.
     """
 
     # Backup original messages.create function for later restoration if needed
@@ -114,17 +115,18 @@ def init(llm, environment, application_name, tracer, pricing_info):
                             span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model", kwargs.get("model", "claude-3-sonnet-20240229"))
                             span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                            span.set_attribute("gen_ai.content.prompt", prompt)
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1.0))
                             span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", ""))
                             span.set_attribute("gen_ai.request.top_k", kwargs.get("top_k", ""))
                             span.set_attribute("gen_ai.response.finish_reason", finish_reason)
-                            span.set_attribute("gen_ai.content.completion", llmresponse)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
                             span.set_attribute("gen_ai.usage.total_tokens", prompt_tokens + completion_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
+                            if trace_content:
+                                span.set_attribute("gen_ai.content.prompt", prompt)
+                                span.set_attribute("gen_ai.content.completion", llmresponse)
 
                     except Exception as e:
                         handle_exception(tracer, e, "anthropic.messages")
@@ -178,17 +180,18 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model", kwargs.get("model", "claude-3-sonnet-20240229"))
                         span.set_attribute("gen_ai.request.max_tokens", kwargs.get("max_tokens", ""))
-                        span.set_attribute("gen_ai.content.prompt", prompt)
                         span.set_attribute("gen_ai.request.is_stream", False)
                         span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1.0))
                         span.set_attribute("gen_ai.request.top_p", kwargs.get("top_p", ""))
                         span.set_attribute("gen_ai.request.top_k", kwargs.get("top_k", ""))
                         span.set_attribute("gen_ai.response.finish_reason", response.stop_reason)
-                        span.set_attribute("gen_ai.content.completion", response.content[0].text if response.content else "")
                         span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.input_tokens)
                         span.set_attribute("gen_ai.usage.completion_tokens", response.usage.output_tokens)
                         span.set_attribute("gen_ai.usage.total_tokens", response.usage.input_tokens + response.usage.output_tokens)
                         span.set_attribute("gen_ai.usage.cost", cost)
+                        if trace_content:
+                            span.set_attribute("gen_ai.content.prompt", prompt)
+                            span.set_attribute("gen_ai.content.completion", response.content[0].text if response.content else "")
 
                     # Return original response
                     return response

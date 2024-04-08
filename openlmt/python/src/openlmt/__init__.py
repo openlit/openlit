@@ -44,7 +44,7 @@ class OpenLMTConfig:
     application_name = None
     pricing_info = {}
 
-def init(llm, environment="default", application_name="default", tracer=None, otlp_endpoint=None, otlp_headers=None, disable_batch=False):
+def init(llm, environment="default", application_name="default", tracer=None, otlp_endpoint=None, otlp_headers=None, disable_batch=False, trace_content=True):
     """
     Initializes the OpenLMT configuration with the provided parameters and sets up tracing.
     
@@ -56,6 +56,7 @@ def init(llm, environment="default", application_name="default", tracer=None, ot
         otlp_endpoint: Endpoint for OpenTelemetry Protocol (OTLP) exporter.
         otlp_headers: Headers for OTLP exporter.
         disable_batch: Flag to disable batch span processing.
+        trace_content: Flag to disable tracing of prompts and response
     """
 
     try:
@@ -83,6 +84,7 @@ def init(llm, environment="default", application_name="default", tracer=None, ot
                 application_name=OpenLMTConfig.application_name,
                 tracer=tracer,
                 pricing_info=OpenLMTConfig.pricing_info,
+                trace_content=trace_content
             )
 
     # pylint: disable=broad-exception-caught

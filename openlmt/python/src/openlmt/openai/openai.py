@@ -12,7 +12,7 @@ from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_mod
 logger = logging.getLogger(__name__)
 
 # pylint: disable=too-many-locals, too-many-arguments, too-many-statements
-def init(llm, environment, application_name, tracer, pricing_info):
+def init(llm, environment, application_name, tracer, pricing_info, trace_content):
     """
     Initializes the instrumentation process by patching the OpenAI client
     methods to gather telemetry data during its execution.
@@ -23,6 +23,7 @@ def init(llm, environment, application_name, tracer, pricing_info):
         application_name (str): Name of the application using the instrumented client.
         tracer: OpenTelemetry tracer object used for creating spans.
         pricing_info (dict): Contains pricing information for calculating the cost of operations.
+        trace_content (bool): Flag to control tracing of prompts and response.
     """
 
     # Backup original functions for later restoration if needed
@@ -123,12 +124,14 @@ def init(llm, environment, application_name, tracer, pricing_info):
                             span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
                             span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
-                            span.set_attribute("gen_ai.content.prompt", prompt)
-                            span.set_attribute("gen_ai.content.completion", llmresponse)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
                             span.set_attribute("gen_ai.usage.total_tokens", prompt_tokens + completion_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
+                            if trace_content:
+                                span.set_attribute("gen_ai.content.prompt", prompt)
+                                span.set_attribute("gen_ai.content.completion", llmresponse)
+
 
                     except Exception as e:
                         handle_exception(tracer, e, "openai.chat.completions")
@@ -186,7 +189,8 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
                         span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
-                        span.set_attribute("gen_ai.content.prompt", prompt)
+                        if trace_content:
+                            span.set_attribute("gen_ai.content.prompt", prompt)
 
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
@@ -201,12 +205,13 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
-                                span.set_attribute("gen_ai.content.completion", response.choices[0].message.content)
+                                if trace_content:
+                                    span.set_attribute("gen_ai.content.completion", response.choices[0].message.content)
 
                             # Set span attributes for when n > 0
                             else:
                                 i = 0
-                                while i < kwargs["n"]:
+                                while i < kwargs["n"] and trace_content == True:
                                     attribute_name = f"gen_ai.content.completion.{i}"
                                     span.set_attribute(attribute_name, response.choices[i].message.content)
                                     i += 1
@@ -276,13 +281,14 @@ def init(llm, environment, application_name, tracer, pricing_info):
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model", kwargs.get("model", "text-embedding-ada-002"))
-                    span.set_attribute("gen_ai.content.prompt", kwargs.get("input", ""))
                     span.set_attribute("gen_ai.request.embedding_format", kwargs.get("encoding_format", "float"))
                     span.set_attribute("gen_ai.request.embedding_dimension", kwargs.get("dimensions", ""))
                     span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
                     span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
                     span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
                     span.set_attribute("gen_ai.usage.cost", cost)
+                    if trace_content:
+                        span.set_attribute("gen_ai.content.prompt", kwargs.get("input", ""))
 
                 # Return original response
                 return response
@@ -401,15 +407,16 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model", kwargs.get("model", "dall-e-2"))
-                        span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
                         span.set_attribute("gen_ai.request.image_size", kwargs.get("size", "1024x1024"))
                         span.set_attribute("gen_ai.request.image_quality", kwargs.get("quality", "standard"))
                         span.set_attribute("gen_ai.request.image_style", kwargs.get("style", "vivid"))
                         span.set_attribute("gen_ai.content.revised_prompt", items.revised_prompt if items.revised_prompt else "")
                         span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
+                        if trace_content:
+                            span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
 
-                        attribute_name = f"gen_ai.response.image.{images_count}"
-                        span.set_attribute(attribute_name, getattr(items, image))
+                            attribute_name = f"gen_ai.response.image.{images_count}"
+                            span.set_attribute(attribute_name, getattr(items, image))
 
                         images_count+=1
 
@@ -475,13 +482,14 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model", kwargs.get("model", "dall-e-2"))
-                        span.set_attribute("gen_ai.content.prompt", kwargs.get("image", ""))
                         span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
                         span.set_attribute("gen_ai.request.image_size", kwargs.get("size", "1024x1024"))
                         span.set_attribute("gen_ai.request.image_quality", "standard")
+                        if trace_content:
+                            span.set_attribute("gen_ai.content.prompt", kwargs.get("image", ""))
 
-                        attribute_name = f"gen_ai.response.image.{images_count}"
-                        span.set_attribute(attribute_name, getattr(items, image))
+                            attribute_name = f"gen_ai.response.image.{images_count}"
+                            span.set_attribute(attribute_name, getattr(items, image))
 
                         images_count+=1
 
@@ -538,11 +546,13 @@ def init(llm, environment, application_name, tracer, pricing_info):
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model", kwargs.get("model", "tts-1"))
-                    span.set_attribute("gen_ai.content.prompt", kwargs.get("input", ""))
                     span.set_attribute("gen_ai.request.audio_voice", kwargs.get("voice", "alloy"))
                     span.set_attribute("gen_ai.request.audio_response_format", kwargs.get("response_format", "mp3"))
                     span.set_attribute("gen_ai.request.audio_speed", kwargs.get("speed", 1))
                     span.set_attribute("gen_ai.usage.cost", cost)
+                    if trace_content:
+                        span.set_attribute("gen_ai.content.prompt", kwargs.get("input", ""))
+
 
                 # Return original response
                 return response

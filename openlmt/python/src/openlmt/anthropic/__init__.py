@@ -22,8 +22,9 @@ class AnthropicInstrumentor(BaseInstrumentor):
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
+        trace_content = kwargs.get("trace_content")
 
-        init_anthropic(llm, environment, application_name, tracer, pricing_info)
+        init_anthropic(llm, environment, application_name, tracer, pricing_info, trace_content)
         return
 
     @staticmethod
@@ -42,8 +43,9 @@ class AsyncAnthropicInstrumentor(BaseInstrumentor):
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
+        trace_content = kwargs.get("trace_content")
 
-        init_async_anthropic(llm, environment, application_name, tracer, pricing_info)
+        init_async_anthropic(llm, environment, application_name, tracer, pricing_info, trace_content)
         return
 
     @staticmethod
