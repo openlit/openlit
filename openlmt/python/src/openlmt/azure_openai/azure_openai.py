@@ -106,27 +106,27 @@ def init(llm, environment, application_name, tracer, pricing_info):
                             cost = get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens)
 
                             # Set Span attributes
-                            span.set_attribute("llm.provider", "Azuure.OpenAI")
-                            span.set_attribute("llm.generation", "chat")
-                            span.set_attribute("llm.endpoint", "azure.openai.chat.completions")
-                            span.set_attribute("llm.req.id", response_id)
-                            span.set_attribute("llm.environment", environment)
-                            span.set_attribute("llm.application.name", application_name)
-                            span.set_attribute("llm.request.duration", duration)
-                            span.set_attribute("llm.model", model)
-                            span.set_attribute("llm.user", kwargs.get("user", ""))
-                            span.set_attribute("llm.tool.choice", kwargs.get("tool_choice", ""))
-                            span.set_attribute("llm.temperature", kwargs.get("temperature", 1))
-                            span.set_attribute("llm.presence.penalty", kwargs.get("presence_penalty", 0))
-                            span.set_attribute("llm.frequency.penalty", kwargs.get("frequency_penalty", 0))
-                            span.set_attribute("llm.seed", kwargs.get("seed", ""))
-                            span.set_attribute("llm.stream", True)
-                            span.set_attribute("llm.prompt", prompt)
-                            span.set_attribute("llm.response", llmresponse)
-                            span.set_attribute("llm.promptTokens", prompt_tokens)
-                            span.set_attribute("llm.completionTokens", completion_tokens)
-                            span.set_attribute("llm.totalTokens", prompt_tokens + completion_tokens)
-                            span.set_attribute("llm.cost", cost)
+                            span.set_attribute("gen_ai.system", "Azuure.OpenAI")
+                            span.set_attribute("gen_ai.type", "chat")
+                            span.set_attribute("gen_ai.endpoint", "azure.openai.chat.completions")
+                            span.set_attribute("gen_ai.response.id", response_id)
+                            span.set_attribute("gen_ai.environment", environment)
+                            span.set_attribute("gen_ai.application_name", application_name)
+                            span.set_attribute("gen_ai.request_duration", duration)
+                            span.set_attribute("gen_ai.request.model", model)
+                            span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
+                            span.set_attribute("gen_ai.request.tool_choice", kwargs.get("tool_choice", ""))
+                            span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
+                            span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
+                            span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
+                            span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                            span.set_attribute("gen_ai.request.is_stream", True)
+                            span.set_attribute("gen_ai.content.prompt", prompt)
+                            span.set_attribute("gen_ai.content.completion", llmresponse)
+                            span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens", prompt_tokens + completion_tokens)
+                            span.set_attribute("gen_ai.usage.cost", cost)
 
                     except Exception as e:
                         handle_exception(tracer, e, "azure.openai.chat.completions")
@@ -171,43 +171,43 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         prompt = "\n".join(formatted_messages)
 
                         # Set base span attribues
-                        span.set_attribute("llm.provider", "OpenAI")
-                        span.set_attribute("llm.generation", "chat")
-                        span.set_attribute("llm.endpoint", "azure.openai.chat.completions")
-                        span.set_attribute("llm.req.id", response.id)
-                        span.set_attribute("llm.environment", environment)
-                        span.set_attribute("llm.application.name", application_name)
-                        span.set_attribute("llm.request.duration", duration)
-                        span.set_attribute("llm.model", model)
-                        span.set_attribute("llm.user", kwargs.get("user", ""))
-                        span.set_attribute("llm.tool.choice", kwargs.get("tool_choice", ""))
-                        span.set_attribute("llm.temperature", kwargs.get("temperature", 1))
-                        span.set_attribute("llm.presence.penalty", kwargs.get("presence_penalty", 0))
-                        span.set_attribute("llm.frequency.penalty", kwargs.get("frequency_penalty", 0))
-                        span.set_attribute("llm.seed", kwargs.get("seed", ""))
-                        span.set_attribute("llm.stream", False)
-                        span.set_attribute("llm.prompt", prompt)
+                        span.set_attribute("gen_ai.system", "OpenAI")
+                        span.set_attribute("gen_ai.type", "chat")
+                        span.set_attribute("gen_ai.endpoint", "azure.openai.chat.completions")
+                        span.set_attribute("gen_ai.response.id", response.id)
+                        span.set_attribute("gen_ai.environment", environment)
+                        span.set_attribute("gen_ai.application_name", application_name)
+                        span.set_attribute("gen_ai.request_duration", duration)
+                        span.set_attribute("gen_ai.request.model", model)
+                        span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
+                        span.set_attribute("gen_ai.request.tool_choice", kwargs.get("tool_choice", ""))
+                        span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
+                        span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
+                        span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
+                        span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                        span.set_attribute("gen_ai.request.is_stream", False)
+                        span.set_attribute("gen_ai.content.prompt", prompt)
 
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
 
-                            span.set_attribute("llm.promptTokens", response.usage.prompt_tokens)
-                            span.set_attribute("llm.completionTokens", response.usage.completion_tokens)
-                            span.set_attribute("llm.totalTokens", response.usage.total_tokens)
-                            span.set_attribute("llm.finish.reason", response.choices[0].finish_reason)
-                            span.set_attribute("llm.cost", cost)
+                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
+                            span.set_attribute("gen_ai.response.finish_reason", response.choices[0].finish_reason)
+                            span.set_attribute("gen_ai.usage.cost", cost)
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
-                                span.set_attribute("llm.response", response.choices[0].message.content)
+                                span.set_attribute("gen_ai.content.completion", response.choices[0].message.content)
 
                             # Set span attributes for when n > 0
                             else:
                                 i = 0
                                 while i < kwargs["n"]:
-                                    attribute_name = f"llm.response.{i}"
+                                    attribute_name = f"gen_ai.content.completion.{i}"
                                     span.set_attribute(attribute_name, response.choices[i].message.content)
                                     i += 1
 
@@ -219,11 +219,11 @@ def init(llm, environment, application_name, tracer, pricing_info):
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
 
-                            span.set_attribute("llm.response", "Function called with tools")
-                            span.set_attribute("llm.promptTokens", response.usage.prompt_tokens)
-                            span.set_attribute("llm.completionTokens", response.usage.completion_tokens)
-                            span.set_attribute("llm.totalTokens", response.usage.total_tokens)
-                            span.set_attribute("llm.cost", cost)
+                            span.set_attribute("gen_ai.content.completion", "Function called with tools")
+                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
+                            span.set_attribute("gen_ai.usage.cost", cost)
 
                     # Return original response
                     return response
@@ -295,27 +295,27 @@ def init(llm, environment, application_name, tracer, pricing_info):
                             cost = get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens)
 
                             # Set Span attributes
-                            span.set_attribute("llm.provider", "Azure.OpenAI")
-                            span.set_attribute("llm.generation", "chat")
-                            span.set_attribute("llm.endpoint", "azure.openai.completions")
-                            span.set_attribute("llm.req.id", response_id)
-                            span.set_attribute("llm.environment", environment)
-                            span.set_attribute("llm.application.name", application_name)
-                            span.set_attribute("llm.request.duration", duration)
-                            span.set_attribute("llm.model", model)
-                            span.set_attribute("llm.user", kwargs.get("user", ""))
-                            span.set_attribute("llm.tool.choice", kwargs.get("tool_choice", ""))
-                            span.set_attribute("llm.temperature", kwargs.get("temperature", 1))
-                            span.set_attribute("llm.presence.penalty", kwargs.get("presence_penalty", 0))
-                            span.set_attribute("llm.frequency.penalty", kwargs.get("frequency_penalty", 0))
-                            span.set_attribute("llm.seed", kwargs.get("seed", ""))
-                            span.set_attribute("llm.stream", True)
-                            span.set_attribute("llm.prompt", prompt)
-                            span.set_attribute("llm.response", llmresponse)
-                            span.set_attribute("llm.promptTokens", prompt_tokens)
-                            span.set_attribute("llm.completionTokens", completion_tokens)
-                            span.set_attribute("llm.totalTokens", prompt_tokens + completion_tokens)
-                            span.set_attribute("llm.cost", cost)
+                            span.set_attribute("gen_ai.system", "azure_openai")
+                            span.set_attribute("gen_ai.type", "chat")
+                            span.set_attribute("gen_ai.endpoint", "azure.openai.completions")
+                            span.set_attribute("gen_ai.response.id", response_id)
+                            span.set_attribute("gen_ai.environment", environment)
+                            span.set_attribute("gen_ai.application_name", application_name)
+                            span.set_attribute("gen_ai.request_duration", duration)
+                            span.set_attribute("gen_ai.request.model", model)
+                            span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
+                            span.set_attribute("gen_ai.request.tool_choice", kwargs.get("tool_choice", ""))
+                            span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
+                            span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
+                            span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
+                            span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                            span.set_attribute("gen_ai.request.is_stream", True)
+                            span.set_attribute("gen_ai.content.prompt", prompt)
+                            span.set_attribute("gen_ai.content.completion", llmresponse)
+                            span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens", prompt_tokens + completion_tokens)
+                            span.set_attribute("gen_ai.usage.cost", cost)
 
                     except Exception as e:
                         handle_exception(tracer, e, "azure.openai.completions")
@@ -342,43 +342,43 @@ def init(llm, environment, application_name, tracer, pricing_info):
                         model = "azure_" + response.model
 
                         # Set base span attribues
-                        span.set_attribute("llm.provider", "Azure.OpenAI")
-                        span.set_attribute("llm.generation", "chat")
-                        span.set_attribute("llm.endpoint", "azure.openai.completions")
-                        span.set_attribute("llm.req.id", response.id)
-                        span.set_attribute("llm.environment", environment)
-                        span.set_attribute("llm.application.name", application_name)
-                        span.set_attribute("llm.request.duration", duration)
-                        span.set_attribute("llm.model", kwargs.get("model", "gpt-3.5-turbo"))
-                        span.set_attribute("llm.user", kwargs.get("user", ""))
-                        span.set_attribute("llm.tool.choice", kwargs.get("tool_choice", ""))
-                        span.set_attribute("llm.temperature", kwargs.get("temperature", 1))
-                        span.set_attribute("llm.presence.penalty", kwargs.get("presence_penalty", 0))
-                        span.set_attribute("llm.frequency.penalty", kwargs.get("frequency_penalty", 0))
-                        span.set_attribute("llm.seed", kwargs.get("seed", ""))
-                        span.set_attribute("llm.stream", False)
-                        span.set_attribute("llm.prompt", kwargs.get("prompt", ""))
+                        span.set_attribute("gen_ai.system", "azure_openai")
+                        span.set_attribute("gen_ai.type", "chat")
+                        span.set_attribute("gen_ai.endpoint", "azure.openai.completions")
+                        span.set_attribute("gen_ai.response.id", response.id)
+                        span.set_attribute("gen_ai.environment", environment)
+                        span.set_attribute("gen_ai.application_name", application_name)
+                        span.set_attribute("gen_ai.request_duration", duration)
+                        span.set_attribute("gen_ai.request.model", kwargs.get("model", "gpt-3.5-turbo"))
+                        span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
+                        span.set_attribute("gen_ai.request.tool_choice", kwargs.get("tool_choice", ""))
+                        span.set_attribute("gen_ai.request.temperature", kwargs.get("temperature", 1))
+                        span.set_attribute("gen_ai.request.presence_penalty", kwargs.get("presence_penalty", 0))
+                        span.set_attribute("gen_ai.request.frequency_penalty", kwargs.get("frequency_penalty", 0))
+                        span.set_attribute("gen_ai.openai.request.seed", kwargs.get("seed", ""))
+                        span.set_attribute("gen_ai.request.is_stream", False)
+                        span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
 
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
 
-                            span.set_attribute("llm.promptTokens", response.usage.prompt_tokens)
-                            span.set_attribute("llm.completionTokens", response.usage.completion_tokens)
-                            span.set_attribute("llm.totalTokens", response.usage.total_tokens)
-                            span.set_attribute("llm.finish.reason", response.choices[0].finish_reason)
-                            span.set_attribute("llm.cost", cost)
+                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
+                            span.set_attribute("gen_ai.response.finish_reason", response.choices[0].finish_reason)
+                            span.set_attribute("gen_ai.usage.cost", cost)
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
-                                span.set_attribute("llm.response", response.choices[0].text)
+                                span.set_attribute("gen_ai.content.completion", response.choices[0].text)
 
                             # Set span attributes for when n > 0
                             else:
                                 i = 0
                                 while i < kwargs["n"]:
-                                    attribute_name = f"llm.response.{i}"
+                                    attribute_name = f"gen_ai.content.completion.{i}"
                                     span.set_attribute(attribute_name, response.choices[i].text)
                                     i += 1
                                 return response
@@ -388,11 +388,11 @@ def init(llm, environment, application_name, tracer, pricing_info):
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info, response.usage.prompt_tokens, response.usage.completion_tokens)
 
-                            span.set_attribute("llm.response", "Function called with tools")
-                            span.set_attribute("llm.promptTokens", response.usage.prompt_tokens)
-                            span.set_attribute("llm.completionTokens", response.usage.completion_tokens)
-                            span.set_attribute("llm.totalTokens", response.usage.total_tokens)
-                            span.set_attribute("llm.cost", cost)
+                            span.set_attribute("gen_ai.content.completion", "Function called with tools")
+                            span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
+                            span.set_attribute("gen_ai.usage.completion_tokens", response.usage.completion_tokens)
+                            span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
+                            span.set_attribute("gen_ai.usage.cost", cost)
 
                     # Return original response
                     return response
@@ -438,20 +438,20 @@ def init(llm, environment, application_name, tracer, pricing_info):
                     cost = get_embed_model_cost("azure_" + response.model, pricing_info, response.usage.prompt_tokens)
 
                     # Set Span attributes
-                    span.set_attribute("llm.provider", "Azure.OpenAI")
-                    span.set_attribute("llm.generation", "Embedding")
-                    span.set_attribute("llm.endpoint", "azure.openai.embeddings")
-                    span.set_attribute("llm.environment", environment)
-                    span.set_attribute("llm.application.name", application_name)
-                    span.set_attribute("llm.request.duration", duration)
-                    span.set_attribute("llm.model", "azure_" + response.model)
-                    span.set_attribute("llm.prompt", kwargs.get("input", ""))
-                    span.set_attribute("llm.embedding.format", kwargs.get("encoding_format", "float"))
-                    span.set_attribute("llm.embedding.dimensions", kwargs.get("dimensions", ""))
-                    span.set_attribute("llm.user", kwargs.get("user", ""))
-                    span.set_attribute("llm.promptTokens", response.usage.prompt_tokens)
-                    span.set_attribute("llm.totalTokens", response.usage.total_tokens)
-                    span.set_attribute("llm.cost", cost)
+                    span.set_attribute("gen_ai.system", "azure_openai")
+                    span.set_attribute("gen_ai.type", "Embedding")
+                    span.set_attribute("gen_ai.endpoint", "azure.openai.embeddings")
+                    span.set_attribute("gen_ai.environment", environment)
+                    span.set_attribute("gen_ai.application_name", application_name)
+                    span.set_attribute("gen_ai.request_duration", duration)
+                    span.set_attribute("gen_ai.request.model", "azure_" + response.model)
+                    span.set_attribute("gen_ai.content.prompt", kwargs.get("input", ""))
+                    span.set_attribute("gen_ai.request.embedding_format", kwargs.get("encoding_format", "float"))
+                    span.set_attribute("gen_ai.request.embedding_dimension", kwargs.get("dimensions", ""))
+                    span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
+                    span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
+                    span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
+                    span.set_attribute("gen_ai.usage.cost", cost)
 
                     # Return original response
                     return response
@@ -505,27 +505,27 @@ def init(llm, environment, application_name, tracer, pricing_info):
 
                     for items in response.data:
                         # Set Span attributes
-                        span.set_attribute("llm.provider", "Azure.OpenAI")
-                        span.set_attribute("llm.generation", "Image")
-                        span.set_attribute("llm.endpoint", "azure.openai.images.generate")
-                        span.set_attribute("llm.req.id", response.created)
-                        span.set_attribute("llm.environment", environment)
-                        span.set_attribute("llm.application.name", application_name)
-                        span.set_attribute("llm.request.duration", duration)
-                        span.set_attribute("llm.model", "azure_" + kwargs.get("model", "dall-e-3"))
-                        span.set_attribute("llm.prompt", kwargs.get("prompt", ""))
-                        span.set_attribute("llm.image.size", kwargs.get("size", "1024x1024"))
-                        span.set_attribute("llm.image.quality", kwargs.get("quality", "standard"))
-                        span.set_attribute("llm.image.style", kwargs.get("style", "vivid"))
-                        span.set_attribute("llm.revised.prompt", items.revised_prompt if response.revised_prompt else "")
-                        span.set_attribute("llm.user", kwargs.get("user", ""))
+                        span.set_attribute("gen_ai.system", "azure_openai")
+                        span.set_attribute("gen_ai.type", "Image")
+                        span.set_attribute("gen_ai.endpoint", "azure.openai.images.generate")
+                        span.set_attribute("gen_ai.response.id", response.created)
+                        span.set_attribute("gen_ai.environment", environment)
+                        span.set_attribute("gen_ai.application_name", application_name)
+                        span.set_attribute("gen_ai.request_duration", duration)
+                        span.set_attribute("gen_ai.request.model", "azure_" + kwargs.get("model", "dall-e-3"))
+                        span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
+                        span.set_attribute("gen_ai.request.image_size", kwargs.get("size", "1024x1024"))
+                        span.set_attribute("gen_ai.request.image_quality", kwargs.get("quality", "standard"))
+                        span.set_attribute("gen_ai.request.image_style", kwargs.get("style", "vivid"))
+                        span.set_attribute("gen_ai.content.revised_prompt", items.revised_prompt if response.revised_prompt else "")
+                        span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
 
-                        attribute_name = f"llm.image.{images_count}"
+                        attribute_name = f"gen_ai.response.image.{images_count}"
                         span.set_attribute(attribute_name, getattr(items, image))
 
                         images_count+=1
 
-                    span.set_attribute("llm.cost", len(response.data) * cost)
+                    span.set_attribute("gen_ai.usage.cost", len(response.data) * cost)
 
                     # Return original response
                     return response
