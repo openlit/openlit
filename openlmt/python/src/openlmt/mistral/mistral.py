@@ -46,7 +46,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer, pricin
             end_time = time.time()
 
             try:
-                with tracer.start_as_current_span(gen_ai_endpoint", kind= SpanKind.CLIENT) as span:
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
