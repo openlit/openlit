@@ -15,6 +15,7 @@ from .openai import OpenAIInstrumentor
 from .anthropic import AnthropicInstrumentor
 from .cohere import CohereInstrumentor
 from .mistral import MistralInstrumentor
+from .langchain import LangChainInstrumentor
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
@@ -121,7 +122,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
 
         # Dynamically initialize instrumentors for different LLMs.
         instrumentors = [AnthropicInstrumentor(), MistralInstrumentor(),
-                         CohereInstrumentor(), OpenAIInstrumentor()]
+                         CohereInstrumentor(), OpenAIInstrumentor(), LangChainInstrumentor()]
 
         for instrumentor in instrumentors:
             instrumentor.instrument(
