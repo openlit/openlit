@@ -53,7 +53,7 @@ const StatCard = memo(
 
 		return (
 			<Card
-				isLoading={(isLoading || !isFetched) && pingStatus === "pending"}
+				isLoading={(isLoading || !isFetched) || pingStatus === "pending"}
 				text={`${textPrefix}${round(
 					(data as Record<any, any>)?.[dataKey] || 0,
 					roundTo

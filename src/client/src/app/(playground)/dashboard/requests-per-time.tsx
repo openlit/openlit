@@ -48,7 +48,7 @@ export default function RequestsPerTime() {
 				className="h-40"
 				connectNulls
 				data={
-					(isLoading || !isFetched) && pingStatus === "pending"
+					(isLoading || !isFetched) || pingStatus === "pending"
 						? []
 						: (data as any[]) || []
 				}
@@ -57,7 +57,7 @@ export default function RequestsPerTime() {
 				colors={colors}
 				yAxisWidth={40}
 				noDataText={
-					(isLoading || !isFetched) && pingStatus === "pending"
+					(isLoading || !isFetched) || pingStatus === "pending"
 						? "Loading ..."
 						: "No data available"
 				}

@@ -1,53 +1,54 @@
-import { DokuParams, DATA_TABLE_NAME, dataCollector } from "./common";
+import { getFilterWhereCondition } from "@/helpers/doku";
+import { DokuParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "./common";
+import { getTraceMappingKeyFullPath } from "@/helpers/trace";
 
 export async function getTotalCost(params: DokuParams) {
-	const { start, end } = params.timeLimit;
-
 	const query = `SELECT
-		sum(usageCost) AS total_usage_cost
-		FROM ${DATA_TABLE_NAME} 
-		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
+			sum(toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
+				"cost"
+			)}'])) AS total_usage_cost
+		FROM ${OTEL_TRACES_TABLE_NAME} 
+		WHERE ${getFilterWhereCondition(params)}`;
 
 	return dataCollector({ query });
 }
 
 export async function getAverageCost(params: DokuParams) {
-	const { start, end } = params.timeLimit;
-
 	const query = `SELECT
-		avg(usageCost) AS average_usage_cost
-		FROM ${DATA_TABLE_NAME} 
-		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
+			avg(toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
+				"cost"
+			)}'])) AS average_usage_cost
+		FROM ${OTEL_TRACES_TABLE_NAME} 
+		WHERE ${getFilterWhereCondition(params)}`;
 
 	return dataCollector({ query });
 }
 
 export async function getCostByApplication(params: DokuParams) {
-	const { start, end } = params.timeLimit;
-
 	const query = `SELECT
-			applicationName,
-			sum(usageCost) AS cost,
-			100.0 * sum(usageCost) / sum(sum(usageCost)) OVER () AS percentage
-		FROM
-			${DATA_TABLE_NAME}
-		WHERE
-			time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
-		GROUP BY
-			applicationName;`;
+		DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
+				"applicationName"
+			)}'] As applicationName,
+			SUM(toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
+				"cost"
+			)}'])) AS cost
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params)}
+		GROUP BY applicationName;`;
 
 	return dataCollector({ query });
 }
 
 export async function getCostByEnvironment(params: DokuParams) {
-	const { start, end } = params.timeLimit;
-
 	const query = `SELECT 
-			DISTINCT environment as environment, 
-			SUM(usageCost) AS cost,
-			SUM(usageCost) * 100.0 / SUM(usageCost) AS percentage
-		FROM ${DATA_TABLE_NAME} 
-		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
+			DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
+				"environment"
+			)}'] as environment, 
+			SUM(toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
+				"cost"
+			)}'])) AS cost
+		FROM ${OTEL_TRACES_TABLE_NAME} 
+		WHERE ${getFilterWhereCondition(params)}
 		GROUP BY environment`;
 
 	return dataCollector({ query });

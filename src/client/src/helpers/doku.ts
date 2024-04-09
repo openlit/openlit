@@ -1,4 +1,5 @@
-import { ValueOf } from "./types";
+import { SPAN_KIND } from "@/constants/traces";
+import { ValueOf } from "../utils/types";
 
 export const validateMetricsRequestType = {
 	// Request
@@ -128,4 +129,20 @@ export const validateMetricsRequest = (
 	}
 
 	return { success: true };
+};
+
+export const getFilterWhereCondition = (filter: any) => {
+	const whereArray: string[] = [];
+	try {
+		const { start, end } = filter.timeLimit || {};
+		if (start && end) {
+			whereArray.push(
+				`Timestamp >= parseDateTimeBestEffort('${start}') AND Timestamp <= parseDateTimeBestEffort('${end}')`
+			);
+		}
+
+		const { spanKind = SPAN_KIND.SPAN_KIND_CLIENT } = filter;
+		whereArray.push(`SpanKind='${spanKind}'`);
+	} catch {}
+	return whereArray.join(" AND ");
 };

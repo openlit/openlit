@@ -117,7 +117,7 @@ function ManageKeys() {
 							</td>
 						</tr>
 					))}
-					{isLoading && pingStatus === "pending" && (
+					{isLoading || pingStatus === "pending" && (
 						<tr className="border-b border-secondary animate-pulse">
 							<td className="px-6 py-3 w-1/3 font-medium ">
 								<div className="h-2 w-2/3 bg-secondary/[0.9] rounded"></div>

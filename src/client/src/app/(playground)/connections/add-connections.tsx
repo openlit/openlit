@@ -2,7 +2,7 @@ import { FormEventHandler, Fragment, useCallback } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { CONNECTIONS, CONNECTIONS_FORM_FIELD } from "./constant";
-import { CONNECTION_PLATFORM_TYPE } from "@/utils/connection";
+import { CONNECTION_PLATFORM_TYPE } from "@/helpers/connection";
 import FormBuilder from "@/components/common/form-builder";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import toast from "react-hot-toast";

@@ -83,7 +83,7 @@ const PieChartCard = memo(
 
 		return (
 			<Card containerClass={containerClass} heading={heading}>
-				{(isLoading || !isFetched) && pingStatus === "pending" ? (
+				{isLoading || !isFetched || pingStatus === "pending" ? (
 					<div className="animate-pulse h-9 w-1/3 bg-secondary/[0.9] rounded"></div>
 				) : updatedData?.length ? (
 					<>

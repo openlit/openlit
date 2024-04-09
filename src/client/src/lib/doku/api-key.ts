@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { normalizeAPIKeys } from "@/utils/api-key";
+import { normalizeAPIKeys } from "@/helpers/api-key";
 import {
 	API_KEY_TABLE_NAME,
 	RESTRICTED_API_KEY_DELETION_NAMES,

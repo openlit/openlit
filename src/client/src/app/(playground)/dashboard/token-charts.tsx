@@ -44,7 +44,7 @@ function TopModels() {
 
 	return (
 		<Card containerClass="rounded-l-lg w-1/2 h-full" heading="Top models">
-			{(isLoading || !isFetched) && pingStatus === "pending" ? (
+			{(isLoading || !isFetched) || pingStatus === "pending" ? (
 				<div className="flex w-full items-center justify-center h-40">
 					Loading...
 				</div>
@@ -55,7 +55,7 @@ function TopModels() {
 			) : (
 				<BarList
 					data={
-						(isLoading || !isFetched) && pingStatus === "pending"
+						(isLoading || !isFetched) || pingStatus === "pending"
 							? []
 							: updatedData
 					}
@@ -114,14 +114,14 @@ function ModelsPerTime() {
 				connectNulls
 				colors={colors}
 				data={
-					(isLoading || !isFetched) && pingStatus === "pending"
+					(isLoading || !isFetched) || pingStatus === "pending"
 						? []
 						: updatedDataWithType
 				}
 				index="request_time"
 				categories={modelsArr}
 				noDataText={
-					(isLoading || !isFetched) && pingStatus === "pending"
+					(isLoading || !isFetched) || pingStatus === "pending"
 						? "Loading ..."
 						: "No data available"
 				}
@@ -168,7 +168,7 @@ function TokensPerTime() {
 				className="h-4/5"
 				colors={colors}
 				data={
-					(isLoading || !isFetched) && pingStatus === "pending"
+					(isLoading || !isFetched) || pingStatus === "pending"
 						? []
 						: updatedDataWithType
 				}
@@ -176,7 +176,7 @@ function TokensPerTime() {
 				categories={["totaltokens", "prompttokens", "completiontokens"]}
 				yAxisWidth={40}
 				noDataText={
-					(isLoading || !isFetched) && pingStatus === "pending"
+					(isLoading || !isFetched) || pingStatus === "pending"
 						? "Loading ..."
 						: "No data available"
 				}

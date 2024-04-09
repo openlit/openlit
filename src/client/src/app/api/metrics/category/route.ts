@@ -3,7 +3,7 @@ import { getResultGenerationByCategories } from "@/lib/doku/category";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/utils/doku";
+} from "@/helpers/doku";
 
 export async function POST(request: Request) {
 	const formData = await request.json();

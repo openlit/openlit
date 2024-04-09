@@ -4,8 +4,12 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
 import asaw from "@/utils/asaw";
-import { createNewUser, getUserByEmail, updateUser } from "@/lib/user";
-import { doesPasswordMatches } from "@/utils/user";
+import {
+	createNewUser,
+	getUserByEmail,
+	updateUser,
+	doesPasswordMatches,
+} from "@/lib/user";
 
 const prisma = new PrismaClient();
 

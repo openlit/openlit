@@ -13,6 +13,7 @@ export const DATA_TABLE_NAME = "DOKU_LLM_DATA";
 export const API_KEY_TABLE_NAME = "DOKU_APIKEYS";
 export const CONNECTION_TABLE_NAME = "DOKU_CONNECTIONS";
 export const RESTRICTED_API_KEY_DELETION_NAMES = ["doku-client-internal"];
+export const OTEL_TRACES_TABLE_NAME = "otel_traces";
 
 export type TimeLimit = {
 	start: Date;
@@ -25,8 +26,8 @@ export interface DokuParams {
 
 export type DokuRequestParams = DokuParams & {
 	config?: {
-		endpoints?: boolean;
-		maxUsageCost?: boolean;
+		providers?: boolean;
+		maxCost?: boolean;
 		models?: boolean;
 		totalRows?: boolean;
 	};

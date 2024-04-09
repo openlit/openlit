@@ -1,4 +1,4 @@
-import { CONNECTION_PLATFORM } from "@/utils/connection";
+import { CONNECTION_PLATFORM } from "@/helpers/connection";
 
 export const CONNECTIONS = {
 	grafana: {

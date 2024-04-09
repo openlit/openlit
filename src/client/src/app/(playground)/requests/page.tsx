@@ -20,8 +20,8 @@ export default function RequestPage() {
 				timeLimit: filter.timeLimit,
 				// TODO: send config true based on if the config has not already been fetched or when the timeLimit is changed
 				config: {
-					endpoints: true,
-					maxUsageCost: true,
+					providers: true,
+					maxCost: true,
 					models: true,
 					totalRows: true,
 				},
@@ -55,7 +55,7 @@ export default function RequestPage() {
 			<RequestTable
 				data={(data as any)?.records || []}
 				isFetched={isFetched || pingStatus !== "pending"}
-				isLoading={isLoading && pingStatus === "pending"}
+				isLoading={isLoading || pingStatus === "pending"}
 			/>
 			<RequestDetails />
 		</RequestProvider>

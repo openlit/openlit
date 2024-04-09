@@ -1,5 +1,7 @@
 import { differenceInDays, differenceInYears } from "date-fns";
-import { DokuParams, DATA_TABLE_NAME, dataCollector } from "./common";
+import { DokuParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "./common";
+import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { getFilterWhereCondition } from "@/helpers/doku";
 
 export type TOKEN_TYPE = "total" | "prompt" | "completion";
 
@@ -8,18 +10,16 @@ export type TokenParams = DokuParams & {
 };
 
 export async function getAverageTokensPerRequest(params: TokenParams) {
-	const { start, end } = params.timeLimit;
-
 	const query = `SELECT
-		AVG(${
+		AVG(toInt64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
 			params.type === "total"
 				? "totalTokens"
 				: params.type === "prompt"
 				? "promptTokens"
 				: "completionTokens"
-		}) AS total_tokens
-		FROM ${DATA_TABLE_NAME} 
-		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
+		)}'])) AS total_tokens
+		FROM ${OTEL_TRACES_TABLE_NAME} 
+		WHERE ${getFilterWhereCondition(params)}`;
 
 	return dataCollector({ query });
 }
@@ -34,12 +34,18 @@ export async function getTokensPerTime(params: DokuParams) {
 	}
 
 	const query = `SELECT
-		CAST(SUM(totalTokens) AS INTEGER) AS totaltokens,
-		CAST(SUM(promptTokens) AS INTEGER) AS prompttokens,
-		CAST(SUM(completionTokens) AS INTEGER) AS completiontokens,
-		formatDateTime(DATE_TRUNC('${dateTrunc}', time), '%Y/%m/%d %R') AS request_time
-		FROM ${DATA_TABLE_NAME} 
-		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
+		SUM(toInt64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
+			"totalTokens"
+		)}'])) AS totaltokens,
+		SUM(toInt64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
+			"promptTokens"
+		)}'])) AS prompttokens,
+		SUM(toInt64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
+			"completionTokens"
+		)}'])) AS completiontokens,
+		formatDateTime(DATE_TRUNC('${dateTrunc}', Timestamp), '%Y/%m/%d %R') AS request_time
+		FROM ${OTEL_TRACES_TABLE_NAME} 
+		WHERE ${getFilterWhereCondition(params)}
 		GROUP BY request_time
 		ORDER BY request_time`;
 

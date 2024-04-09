@@ -1,17 +1,15 @@
-import { DokuParams, DATA_TABLE_NAME, dataCollector } from "./common";
+import { getFilterWhereCondition } from "@/helpers/doku";
+import { DokuParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "./common";
+import { getTraceMappingKeyFullPath } from "@/helpers/trace";
 
 export async function getResultGenerationByEndpoint(params: DokuParams) {
-	const { start, end } = params.timeLimit;
-
 	const query = `
     SELECT
-      substringIndex(endpoint, '.', 1) AS provider,
-      CAST(count(*) AS INTEGER) AS count,
-      round(100.0 * count(*) / sum(count(*)) OVER (), 2) AS percentage
+      SpanAttributes['${getTraceMappingKeyFullPath("provider")}'] AS provider,
+      CAST(COUNT(*) AS INTEGER) AS count
     FROM
-        ${DATA_TABLE_NAME}
-    WHERE
-        time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
+        ${OTEL_TRACES_TABLE_NAME}
+    WHERE ${getFilterWhereCondition(params)}
     GROUP BY provider;
   `;
 

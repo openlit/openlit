@@ -2,7 +2,7 @@ import { DokuParams } from "@/lib/doku/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/utils/doku";
+} from "@/helpers/doku";
 import { getResultGenerationByEndpoint } from "@/lib/doku/endpoint";
 
 export async function POST(request: Request) {

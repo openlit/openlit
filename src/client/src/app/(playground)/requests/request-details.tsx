@@ -7,6 +7,7 @@ import {
 	ClipboardDocumentListIcon,
 	ClockIcon,
 	CogIcon,
+	CpuChipIcon,
 	CurrencyDollarIcon,
 	GlobeAltIcon,
 	LanguageIcon,
@@ -19,6 +20,8 @@ import Image from "next/image";
 import { round } from "lodash";
 import { format } from "date-fns";
 import { ArrowTopRightOnSquareIcon } from "@heroicons/react/24/solid";
+import { normalizeTrace } from "@/helpers/trace";
+import { TransformedTraceRow } from "@/constants/traces";
 
 export default function RequestDetails() {
 	const [request, updateRequest] = useRequest();
@@ -28,6 +31,8 @@ export default function RequestDetails() {
 	};
 
 	if (!request) return null;
+
+	const normalizedItem: TransformedTraceRow = normalizeTrace(request);
 
 	return (
 		<Transition.Root show as={Fragment}>
@@ -61,12 +66,12 @@ export default function RequestDetails() {
 										<div className="p-4 bg-secondary relative">
 											<div className="flex flex-col">
 												<Dialog.Title className="text-2xl font-bold leading-7 text-tertiary">
-													{request.applicationName}
+													{normalizedItem.applicationName}
 												</Dialog.Title>
 												<div className="flex items-center mt-3 text-tertiary/[.7]">
 													<BeakerIcon className="w-4 mr-3" />
 													<p className="text-sm leading-none mb-1">
-														{request.endpoint}
+														{normalizedItem.provider}
 													</p>
 												</div>
 											</div>
@@ -97,60 +102,74 @@ export default function RequestDetails() {
 													<CalendarDaysIcon className="w-3" />
 													<span>Request Time : </span>
 													<span>
-														{format(request.time, "MMM do, y  HH:mm:ss a")}
+														{format(
+															normalizedItem.time,
+															"MMM do, y  HH:mm:ss a"
+														)}
 													</span>
 												</div>
 												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 													<ClockIcon className="w-3" />
 													<span>Request duration : </span>
-													<span>{round(request.requestDuration, 4)}s</span>
+													<span>
+														{round(normalizedItem.requestDuration, 4)}s
+													</span>
 												</div>
 												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 													<CogIcon className="w-3" />
 													<span>Model : </span>
-													<span>{request.model}</span>
+													<span>{normalizedItem.model}</span>
 												</div>
 												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 													<CurrencyDollarIcon className="w-3" />
 													<span>Usage cost : </span>
-													<span>{round(request.usageCost, 6)}</span>
+													<span>{round(normalizedItem.cost, 6)}</span>
 												</div>
-												{request.promptTokens > 0 && (
+												{normalizedItem.promptTokens > 0 && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<ClipboardDocumentCheckIcon className="w-3" />
 														<span>Prompt tokens : </span>
-														<span>{request.promptTokens}</span>
+														<span>{normalizedItem.promptTokens}</span>
 													</div>
 												)}
-												{request.totalTokens > 0 && (
+												{normalizedItem.totalTokens > 0 && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<ClipboardDocumentListIcon className="w-3" />
 														<span>Total tokens : </span>
-														<span>{request.totalTokens}</span>
+														<span>{normalizedItem.totalTokens}</span>
 													</div>
 												)}
-												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
-													<LanguageIcon className="w-3" />
-													<span>Source Language : </span>
-													<span>{request.sourceLanguage}</span>
-												</div>
+												{normalizedItem.sourceLanguage && (
+													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
+														<LanguageIcon className="w-3" />
+														<span>Source Language : </span>
+														<span>{normalizedItem.sourceLanguage}</span>
+													</div>
+												)}
 												<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 													<GlobeAltIcon className="w-3" />
 													<span>Environment : </span>
-													<span>{request.environment}</span>
+													<span>{normalizedItem.environment}</span>
 												</div>
-												{request.audioVoice && (
+												{normalizedItem.audioVoice && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<SpeakerWaveIcon className="w-3" />
 														<span>Audio voice : </span>
-														<span>{request.audioVoice}</span>
+														<span>{normalizedItem.audioVoice}</span>
 													</div>
 												)}
-												{request.imageSize && (
+												{normalizedItem.imageSize && (
 													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
 														<PhotoIcon className="w-3" />
 														<span>Image size : </span>
-														<span>{request.imageSize}</span>
+														<span>{normalizedItem.imageSize}</span>
+													</div>
+												)}
+												{normalizedItem.type && (
+													<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary/[0.1] text-primary font-medium">
+														<CpuChipIcon className="w-3" />
+														<span>Type : </span>
+														<span>{normalizedItem.type}</span>
 													</div>
 												)}
 											</div>
@@ -159,46 +178,46 @@ export default function RequestDetails() {
 													Prompt :{" "}
 												</span>
 												<code className="text-sm inline-flex text-left items-center bg-tertiary text-secondary rounded-md p-4">
-													{request.prompt}
+													{normalizedItem.prompt}
 												</code>
 											</div>
-											{request.revisedPrompt && (
+											{normalizedItem.revisedPrompt && (
 												<div className="flex flex-col space-y-3 mt-4">
 													<span className="text-sm text-tertiary/[0.8] font-medium">
 														Revised Prompt :{" "}
 													</span>
 													<code className="text-sm inline-flex text-left items-center bg-tertiary text-secondary rounded-md p-4">
-														{request.revisedPrompt}
+														{normalizedItem.revisedPrompt}
 													</code>
 												</div>
 											)}
-											{request.response && (
+											{normalizedItem.response && (
 												<div className="flex flex-col space-y-3 mt-4">
 													<span className="text-sm text-tertiary/[0.8] font-medium">
 														Response :{" "}
 													</span>
 													<code className="text-sm inline-flex text-left items-center bg-tertiary text-secondary rounded-md p-4">
-														{request.response}
+														{normalizedItem.response}
 													</code>
 												</div>
 											)}
-											{request.image && request.imageSize && (
+											{normalizedItem.image && normalizedItem.imageSize && (
 												<a
-													href={request.image}
+													href={normalizedItem.image}
 													target="_blank"
 													rel="noopener noreferrer"
 													className="flex items-center justify-center aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-secondary/[0.3] lg:aspect-none lg:h-80 mt-4 group relative p-4 text-center text-tertiary/[0.5]"
 												>
 													<Image
-														src={request.image}
-														alt={request.applicationName}
+														src={normalizedItem.image}
+														alt={normalizedItem.applicationName}
 														className="h-full w-full object-cover object-center lg:h-full lg:w-full"
 														width={parseInt(
-															request.imageSize.split("x")[0],
+															normalizedItem.imageSize.split("x")[0],
 															10
 														)}
 														height={parseInt(
-															request.imageSize.split("x")[1],
+															normalizedItem.imageSize.split("x")[1],
 															10
 														)}
 													/>

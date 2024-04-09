@@ -1,21 +1,20 @@
 import { differenceInDays, differenceInYears } from "date-fns";
-import { DokuParams, DATA_TABLE_NAME, dataCollector } from "./common";
+import { DokuParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "./common";
+import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { getFilterWhereCondition } from "@/helpers/doku";
 
 export type ModelDokuParams = DokuParams & {
 	top: number;
 };
 
 export async function getTopModels(params: ModelDokuParams) {
-	const { start, end } = params.timeLimit;
-
 	const query = `SELECT
-			model,
-			CAST(COUNT(model) AS INTEGER) AS model_count,
-			CAST(COUNT(*) AS INTEGER) AS total
+			SpanAttributes['${getTraceMappingKeyFullPath("model")}'] AS model,
+			COUNT(SpanAttributes['${getTraceMappingKeyFullPath("model")}']) AS model_count,
+			COUNT(*) AS total
 		FROM
-			${DATA_TABLE_NAME}
-		WHERE
-			time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
+			${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params)}
 		GROUP BY
 			model
 		ORDER BY
@@ -36,13 +35,12 @@ export async function getModelsPerTime(params: DokuParams) {
 	}
 
 	const query = `SELECT
-			model,
-			CAST(COUNT(*) AS INTEGER) AS model_count,
-			formatDateTime(DATE_TRUNC('${dateTrunc}', time), '%Y/%m/%d %R') AS request_time
+			SpanAttributes['${getTraceMappingKeyFullPath("model")}'] as model,
+			COUNT(*) AS model_count,
+			formatDateTime(DATE_TRUNC('${dateTrunc}', Timestamp), '%Y/%m/%d %R') AS request_time
 		FROM
-			${DATA_TABLE_NAME}
-		WHERE
-		time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
+			${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params)}
 		GROUP BY
 			model, request_time
 		ORDER BY

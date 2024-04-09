@@ -1,5 +1,3 @@
-import { RESTRICTED_API_KEY_DELETION_NAMES } from "@/lib/doku/common";
-
 export function maskingKey(key: string) {
 	return key.slice(0, 3) + "..." + key.slice(-3);
 }

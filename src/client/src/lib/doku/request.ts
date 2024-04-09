@@ -1,11 +1,15 @@
+import { SPAN_KIND } from "@/constants/traces";
 import {
-	DATA_TABLE_NAME,
 	DokuParams,
 	dataCollector,
 	DokuRequestParams,
 	DataCollectorType,
+	OTEL_TRACES_TABLE_NAME,
 } from "./common";
 import { differenceInDays, differenceInYears } from "date-fns";
+import { ValueOf } from "@/utils/types";
+import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { getFilterWhereCondition } from "@/helpers/doku";
 
 export async function getRequestPerTime(params: DokuParams) {
 	const { start, end } = params.timeLimit;
@@ -17,12 +21,11 @@ export async function getRequestPerTime(params: DokuParams) {
 	}
 
 	const query = `SELECT
-		CAST(COUNT(endpoint) AS INTEGER) AS total,
-			formatDateTime(DATE_TRUNC('${dateTrunc}', time), '%Y/%m/%d %R') AS request_time
+		COUNT(*) AS total,
+			formatDateTime(DATE_TRUNC('${dateTrunc}', Timestamp), '%Y/%m/%d %R') AS request_time
 		FROM
-			${DATA_TABLE_NAME}
-		WHERE
-			time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
+			${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params)}
 		GROUP BY
 			request_time
 		ORDER BY
@@ -33,53 +36,56 @@ export async function getRequestPerTime(params: DokuParams) {
 }
 
 export async function getTotalRequests(params: DokuParams) {
-	const { start, end } = params.timeLimit;
-
 	const query = `SELECT
-		CAST(COUNT(endpoint) AS INTEGER) AS total_requests
-		FROM ${DATA_TABLE_NAME} 
-		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
+		COUNT(*) AS total_requests
+		FROM ${OTEL_TRACES_TABLE_NAME} 
+		WHERE ${getFilterWhereCondition(params)}
+		`;
 
 	return dataCollector({ query });
 }
 
 export async function getAverageRequestDuration(params: DokuParams) {
-	const { start, end } = params.timeLimit;
-
 	const query = `SELECT
-			AVG(requestDuration) AS average_duration
+			AVG(toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
+				"requestDuration"
+			)}'])) AS average_duration
 		FROM
-			${DATA_TABLE_NAME}
-		WHERE
-			time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}');
+			${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params)};
 		`;
 
 	return dataCollector({ query });
 }
 
 export async function getRequestsConfig(params: DokuRequestParams) {
-	const { start, end } = params.timeLimit;
-	const { endpoints, maxUsageCost, models, totalRows } = params.config || {};
+	const { providers, maxCost, models, totalRows } = params.config || {};
 
 	const select = [
-		endpoints && "ARRAY_AGG(DISTINCT endpoint) AS endpoints",
-		maxUsageCost && "MAX(usageCost) AS maxUsageCost",
-		models && "ARRAY_AGG(DISTINCT model) AS models",
-		totalRows && "CAST(COUNT(*) AS INTEGER) AS totalRows",
+		providers &&
+			`ARRAY_AGG(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
+				"provider"
+			)}']) AS providers`,
+		maxCost &&
+			`MAX(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS maxCost`,
+		models &&
+			`ARRAY_AGG(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
+				"model"
+			)}']) AS models`,
+		totalRows && `COUNT(*) AS totalRows`,
 	]
 		.filter(Boolean)
 		.join(", ");
 
 	if (select.length === 0) return [];
 
-	const query = `SELECT ${select} FROM ${DATA_TABLE_NAME} 
-			WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')`;
+	const query = `SELECT ${select} FROM ${OTEL_TRACES_TABLE_NAME} 
+			WHERE ${getFilterWhereCondition(params)}`;
 
 	return dataCollector({ query });
 }
 
 export async function getRequests(params: DokuRequestParams) {
-	const { start, end } = params.timeLimit;
 	const { limit = 10, offset = 0 } = params;
 	let config: unknown = {};
 
@@ -89,9 +95,9 @@ export async function getRequests(params: DokuRequestParams) {
 			((configValues as DataCollectorType)?.data as Array<any>)?.[0] || {};
 	}
 
-	const query = `SELECT *	FROM ${DATA_TABLE_NAME} 
-		WHERE time >= parseDateTimeBestEffort('${start}') AND time <= parseDateTimeBestEffort('${end}')
-		ORDER BY time desc
+	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
+		WHERE ${getFilterWhereCondition(params)}
+		ORDER BY Timestamp desc
 		LIMIT ${limit}
 		OFFSET ${offset}`;
 

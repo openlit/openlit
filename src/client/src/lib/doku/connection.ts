@@ -1,4 +1,4 @@
-import { validateConnectionRequest } from "@/utils/connection";
+import { validateConnectionRequest } from "@/helpers/connection";
 import { CONNECTION_TABLE_NAME, dataCollector } from "./common";
 
 export async function getConnection() {

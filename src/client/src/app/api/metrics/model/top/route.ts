@@ -2,7 +2,7 @@ import { ModelDokuParams, getTopModels } from "@/lib/doku/model";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/utils/doku";
+} from "@/helpers/doku";
 
 export async function POST(request: Request) {
 	const formData = await request.json();

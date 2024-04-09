@@ -45,11 +45,11 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		text: "API keys",
 		link: "/api-keys",
 	},
-	{
-		leftIcon: <LinkIcon className={ICON_CLASSES} />,
-		text: "Connections",
-		link: "/connections",
-	},
+	// {
+	// 	leftIcon: <LinkIcon className={ICON_CLASSES} />,
+	// 	text: "Connections",
+	// 	link: "/connections",
+	// },
 	{
 		leftIcon: <WrenchScrewdriverIcon className={ICON_CLASSES} />,
 		text: "Settings",
