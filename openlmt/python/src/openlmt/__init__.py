@@ -83,7 +83,7 @@ class OpenLMTConfig:
         cls.trace_content = trace_content
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
-         otlp_headers=None, disable_batch=False, trace_content=True):
+         otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None):
     """
     Initializes the OpenLMT configuration and setups tracing.
     
@@ -98,7 +98,18 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         otlp_headers (Dict[str, str]): OTLP headers for exporter (Optional).
         disable_batch (bool): Flag to disable batch span processing (Optional).
         trace_content (bool): Flag to trace content (Optional).
+        disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
+                                            Valid values include ["openai", "anthropic", 
+                                            "langchain", "cohere", "mistral"].
     """
+    disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
+
+    # Check for invalid instrumentor names
+    VALID_INSTRUMENTORS = {"openai", "anthropic", "langchain", "cohere", "mistral"}
+    invalid_instrumentors = set(disabled_instrumentors) - VALID_INSTRUMENTORS
+    for invalid_name in invalid_instrumentors:
+        logger.warning("Invalid instrumentor name detected and ignored: '%s'", invalid_name)
+
     try:
         # Retrieve or create the single configuration instance.
         config = OpenLMTConfig()
@@ -124,14 +135,25 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         instrumentors = [AnthropicInstrumentor(), MistralInstrumentor(),
                          CohereInstrumentor(), OpenAIInstrumentor(), LangChainInstrumentor()]
 
-        for instrumentor in instrumentors:
-            instrumentor.instrument(
-                environment=config.environment,
-                application_name=config.application_name,
-                tracer=config.tracer,
-                pricing_info=config.pricing_info,
-                trace_content=config.trace_content
-            )
+        # Map instrumentor names to their instances
+        instrumentor_instances = {
+            "openai": OpenAIInstrumentor(),
+            "anthropic": AnthropicInstrumentor(),
+            "cohere": CohereInstrumentor(),
+            "mistral": MistralInstrumentor(),
+            "langchain": LangChainInstrumentor()
+        }
+
+        # Initialize and instrument only the enabled instrumentors
+        for name, instrumentor in instrumentor_instances.items():
+            if name not in disabled_instrumentors:
+                instrumentor.instrument(
+                    environment=config.environment,
+                    application_name=config.application_name,
+                    tracer=config.tracer,
+                    pricing_info=config.pricing_info,
+                    trace_content=config.trace_content
+                )
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
