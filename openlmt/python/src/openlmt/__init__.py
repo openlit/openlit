@@ -105,8 +105,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
 
     # Check for invalid instrumentor names
-    VALID_INSTRUMENTORS = {"openai", "anthropic", "langchain", "cohere", "mistral"}
-    invalid_instrumentors = set(disabled_instrumentors) - VALID_INSTRUMENTORS
+    valid_instruments = {"openai", "anthropic", "langchain", "cohere", "mistral"}
+    invalid_instrumentors = set(disabled_instrumentors) - valid_instruments
     for invalid_name in invalid_instrumentors:
         logger.warning("Invalid instrumentor name detected and ignored: '%s'", invalid_name)
 
@@ -130,10 +130,6 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         # Update global configuration with the provided settings.
         config.update_config(environment, application_name, tracer, otlp_endpoint,
                              otlp_headers, disable_batch, trace_content)
-
-        # Dynamically initialize instrumentors for different LLMs.
-        instrumentors = [AnthropicInstrumentor(), MistralInstrumentor(),
-                         CohereInstrumentor(), OpenAIInstrumentor(), LangChainInstrumentor()]
 
         # Map instrumentor names to their instances
         instrumentor_instances = {
