@@ -3,7 +3,6 @@
 Module for monitoring Anthropic API calls.
 """
 
-import time
 import logging
 from opentelemetry.trace import SpanKind
 from ..__helpers import get_chat_model_cost, handle_exception
@@ -48,8 +47,6 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
 
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
-        # Record start time for measuring request duration
-        start_time = time.time()
 
         # pylint: disable=no-else-return
         if streaming:
@@ -80,10 +77,6 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
 
                         # Handling exception ensure observability without disrupting operation
                         try:
-                            end_time = time.time()
-                            # Calculate total duration of operation
-                            duration = end_time - start_time
-
                             # Format 'messages' into a single string
                             message_prompt = kwargs.get("messages", "")
                             formatted_messages = []
@@ -115,7 +108,6 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                             span.set_attribute("gen_ai.response.id", response_id)
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
-                            span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model",
                                                 kwargs.get("model", "claude-3-sonnet-20240229"))
                             span.set_attribute("gen_ai.request.max_tokens",
@@ -149,16 +141,11 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
 
         # Handling for non-streaming responses
         else:
-            # pylint: disable=line-too-long
             with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
                 try:
                     response = await wrapped(*args, **kwargs)
-                    end_time = time.time()
 
                     try:
-                        # Calculate total duration of operation
-                        duration = end_time - start_time
-
                         # Format 'messages' into a single string
                         message_prompt = kwargs.get("messages", "")
                         formatted_messages = []
@@ -190,7 +177,6 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute("gen_ai.response.id", response.id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
                                             kwargs.get("model", "claude-3-sonnet-20240229"))
                         span.set_attribute("gen_ai.request.max_tokens",

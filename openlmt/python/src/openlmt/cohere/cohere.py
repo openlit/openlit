@@ -3,7 +3,6 @@
 Module for monitoring Cohere API calls.
 """
 
-import time
 import logging
 from opentelemetry.trace import SpanKind
 from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
@@ -49,14 +48,9 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Get prompt from kwargs and store as a single string
                     prompt = " ".join(kwargs.get("texts", []))
 
@@ -72,7 +66,6 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model",
                                         kwargs.get("model", "embed-english-v2.0"),)
                     span.set_attribute("gen_ai.request.embedding_format",
@@ -144,14 +137,9 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
         with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Calculate cost of the operation
                     cost = get_chat_model_cost(kwargs.get("model", "command"),
                                                 pricing_info,
@@ -164,7 +152,6 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model",
                                         kwargs.get("model", "command"))
                     span.set_attribute("gen_ai.request.temperature",
@@ -245,9 +232,6 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'chat_stream' method.
         """
 
-        # Record start time for measuring request duration
-        start_time = time.time()
-
         def stream_generator():
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 # Placeholder for aggregating streaming response
@@ -267,10 +251,6 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
 
                     # Handling exception ensure observability without disrupting operation
                     try:
-                        end_time = time.time()
-                        # Calculate total duration of operation
-                        duration = end_time - start_time
-
                         # Calculate cost of the operation
                         cost = get_chat_model_cost(kwargs.get("model", "command"),
                                                     pricing_info, prompt_tokens, completion_tokens)
@@ -281,7 +261,6 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
                                             kwargs.get("model", "command"))
                         span.set_attribute("gen_ai.request.temperature",
