@@ -200,8 +200,8 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute("gen_ai.usage.cost", cost)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", prompt)
-                            span.set_attribute("gen_ai.content.completion",
-                                                response.content[0].text if response.content else "")
+                            # pylint: disable=line-too-long
+                            span.set_attribute("gen_ai.content.completion", response.content[0].text if response.content else "")
 
                         # Return original response
                         return response
