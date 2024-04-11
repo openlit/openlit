@@ -11,7 +11,6 @@ from ..__helpers import get_chat_model_cost, handle_exception
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-
 def messages(gen_ai_endpoint, version, environment, application_name, tracer,
              pricing_info, trace_content):
     """
@@ -56,32 +55,31 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
         if streaming:
             # Special handling for streaming response to accommodate the nature of data flow
             def stream_generator():
-                # Placeholder for aggregating streaming response
-                llmresponse = ""
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                    # Placeholder for aggregating streaming response
+                    llmresponse = ""
 
-                try:
-                    # Loop through streaming events capturing relevant details
-                    for event in wrapped(*args, **kwargs):
-
-                        # Collect message IDs and input token from events
-                        if event.type == "message_start":
-                            response_id = event.message.id
-                            prompt_tokens = event.message.usage.input_tokens
-
-                        # Aggregate response content
-                        if event.type == "content_block_delta":
-                            llmresponse += event.delta.text
-
-                        # Collect output tokens and stop reason from events
-                        if event.type == "message_delta":
-                            completion_tokens = event.usage.output_tokens
-                            finish_reason = event.delta.stop_reason
-                        yield event
-
-                    # Handling exception ensure observability without disrupting operation
                     try:
-                        # pylint: disable=line-too-long
-                        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                        # Loop through streaming events capturing relevant details
+                        for event in wrapped(*args, **kwargs):
+
+                            # Collect message IDs and input token from events
+                            if event.type == "message_start":
+                                response_id = event.message.id
+                                prompt_tokens = event.message.usage.input_tokens
+
+                            # Aggregate response content
+                            if event.type == "content_block_delta":
+                                llmresponse += event.delta.text
+
+                            # Collect output tokens and stop reason from events
+                            if event.type == "message_delta":
+                                completion_tokens = event.usage.output_tokens
+                                finish_reason = event.delta.stop_reason
+                            yield event
+
+                        # Handling exception ensure observability without disrupting operation
+                        try:
                             end_time = time.time()
                             # Calculate total duration of operation
                             duration = end_time - start_time
@@ -119,45 +117,45 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                             span.set_attribute("gen_ai.application_name", application_name)
                             span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model",
-                                               kwargs.get("model", "claude-3-sonnet-20240229"))
+                                                kwargs.get("model", "claude-3-sonnet-20240229"))
                             span.set_attribute("gen_ai.request.max_tokens",
-                                               kwargs.get("max_tokens", ""))
+                                                kwargs.get("max_tokens", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.request.temperature",
                                                 kwargs.get("temperature", 1.0))
                             span.set_attribute("gen_ai.request.top_p",
-                                               kwargs.get("top_p", ""))
+                                                kwargs.get("top_p", ""))
                             span.set_attribute("gen_ai.request.top_k",
-                                               kwargs.get("top_k", ""))
+                                                kwargs.get("top_k", ""))
                             span.set_attribute("gen_ai.response.finish_reason", finish_reason)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
                             span.set_attribute("gen_ai.usage.total_tokens",
-                                               prompt_tokens + completion_tokens)
+                                                prompt_tokens + completion_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
                             if trace_content:
                                 span.set_attribute("gen_ai.content.prompt", prompt)
                                 span.set_attribute("gen_ai.content.completion", llmresponse)
 
+                        except Exception as e:
+                            handle_exception(span, e)
+                            logger.error("Error in patched message creation: %s", e)
+
                     except Exception as e:
                         handle_exception(span, e)
-                        logger.error("Error in patched message creation: %s", e)
-
-                except Exception as e:
-                    handle_exception(span, e)
-                    raise e
+                        raise e
 
             return stream_generator()
 
         # Handling for non-streaming responses
         else:
-            try:
-                response = wrapped(*args, **kwargs)
-                end_time = time.time()
-
+            # pylint: disable=line-too-long
+            with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
                 try:
-                    # pylint: disable=line-too-long
-                    with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
+                    response = wrapped(*args, **kwargs)
+                    end_time = time.time()
+
+                    try:
                         # Calculate total duration of operation
                         duration = end_time - start_time
 
@@ -182,8 +180,8 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
 
                         # Calculate cost of the operation
                         cost = get_chat_model_cost(kwargs.get("model", "claude-3-sonnet-20240229"),
-                                                   pricing_info, response.usage.input_tokens,
-                                                   response.usage.output_tokens)
+                                                    pricing_info, response.usage.input_tokens,
+                                                    response.usage.output_tokens)
 
                         # Set Span attribues
                         span.set_attribute("gen_ai.system", "anthropic")
@@ -194,43 +192,43 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
-                                           kwargs.get("model", "claude-3-sonnet-20240229"))
+                                            kwargs.get("model", "claude-3-sonnet-20240229"))
                         span.set_attribute("gen_ai.request.max_tokens",
-                                           kwargs.get("max_tokens", ""))
+                                            kwargs.get("max_tokens", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
                         span.set_attribute("gen_ai.request.temperature",
-                                           kwargs.get("temperature", 1.0))
+                                            kwargs.get("temperature", 1.0))
                         span.set_attribute("gen_ai.request.top_p",
-                                           kwargs.get("top_p", ""))
+                                            kwargs.get("top_p", ""))
                         span.set_attribute("gen_ai.request.top_k",
-                                           kwargs.get("top_k", ""))
+                                            kwargs.get("top_k", ""))
                         span.set_attribute("gen_ai.response.finish_reason",
-                                           response.stop_reason)
+                                            response.stop_reason)
                         span.set_attribute("gen_ai.usage.prompt_tokens",
-                                           response.usage.input_tokens)
+                                            response.usage.input_tokens)
                         span.set_attribute("gen_ai.usage.completion_tokens",
-                                           response.usage.output_tokens)
+                                            response.usage.output_tokens)
                         span.set_attribute("gen_ai.usage.total_tokens",
-                                           response.usage.input_tokens +
-                                           response.usage.output_tokens)
+                                            response.usage.input_tokens +
+                                            response.usage.output_tokens)
                         span.set_attribute("gen_ai.usage.cost", cost)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", prompt)
                             span.set_attribute("gen_ai.content.completion",
-                                               response.content[0].text if response.content else "")
+                                                response.content[0].text if response.content else "")
 
-                    # Return original response
-                    return response
+                        # Return original response
+                        return response
+
+                    except Exception as e:
+                        handle_exception(span, e)
+                        logger.error("Error in patched message creation: %s", e)
+
+                        # Return original response
+                        return response
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
-
-                    # Return original response
-                    return response
-
-            except Exception as e:
-                handle_exception(span, e)
-                raise e
+                    raise e
 
     return wrapper

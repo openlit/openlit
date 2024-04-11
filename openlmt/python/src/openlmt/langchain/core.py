@@ -53,14 +53,13 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         on the span based on the function's execution and response, and ensures
         errors are handled and logged appropriately.
         """
-
-        try:
-            start_time = time.time()
-            response = wrapped(*args, **kwargs)
-            end_time = time.time()
-
+        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             try:
-                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                start_time = time.time()
+                response = wrapped(*args, **kwargs)
+                end_time = time.time()
+
+                try:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -72,18 +71,18 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.retrieval.source", response[0].metadata["source"])
 
-                return response
+                    return response
+
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error("Error in patched message creation: %s", e)
+
+                    # Return original response
+                    return response
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in patched message creation: %s", e)
-
-                # Return original response
-                return response
-
-        except Exception as e:
-            handle_exception(span, e)
-            raise e
+                raise e
 
     return wrapper
 
@@ -130,13 +129,13 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
         each hub call.
         """
 
-        try:
-            start_time = time.time()
-            response = wrapped(*args, **kwargs)
-            end_time = time.time()
-
+        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             try:
-                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                start_time = time.time()
+                response = wrapped(*args, **kwargs)
+                end_time = time.time()
+
+                try:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -149,17 +148,17 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute("gen_ai.hub.owner", response.metadata["lc_hub_owner"])
                     span.set_attribute("gen_ai.hub.repo", response.metadata["lc_hub_repo"])
 
-                return response
+                    return response
+
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error("Error in patched message creation: %s", e)
+
+                    # Return original response
+                    return response
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in patched message creation: %s", e)
-
-                # Return original response
-                return response
-
-        except Exception as e:
-            handle_exception(span, e)
-            raise e
+                raise e
 
     return wrapper
