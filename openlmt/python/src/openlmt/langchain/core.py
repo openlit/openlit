@@ -3,7 +3,6 @@
 Module for monitoring Langchain aapplications.
 """
 
-import time
 import logging
 from opentelemetry.trace import SpanKind
 from ..__helpers import handle_exception
@@ -55,20 +54,14 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         """
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             try:
-                start_time = time.time()
                 response = wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     span.set_attribute("gen_ai.system", "langchain")
                     span.set_attribute("gen_ai.type", "retrieval")
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.retrieval.source", response[0].metadata["source"])
 
                     return response
@@ -131,20 +124,14 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             try:
-                start_time = time.time()
                 response = wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     span.set_attribute("gen_ai.system", "langchain")
                     span.set_attribute("gen_ai.type", "retrieval")
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.hub.owner", response.metadata["lc_hub_owner"])
                     span.set_attribute("gen_ai.hub.repo", response.metadata["lc_hub_repo"])
 
