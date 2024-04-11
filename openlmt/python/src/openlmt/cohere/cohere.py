@@ -46,7 +46,7 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
             The response from the original 'embed' method.
         """
 
-        # Sections handling exceptions ensure observability without disrupting operations
+        # Handling exception ensure observability without disrupting operation
         try:
             start_time = time.time()
             response = wrapped(*args, **kwargs)
@@ -141,7 +141,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
             The response from the original 'chat' method.
         """
 
-        # Sections handling exceptions ensure observability without disrupting operations
+        # Handling exception ensure observability without disrupting operation
         try:
             start_time = time.time()
             response = wrapped(*args, **kwargs)
@@ -264,7 +264,7 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                         finish_reason = event.finish_reason
                     yield event
 
-                # Sections handling exceptions ensure observability without disrupting operations
+                # Handling exception ensure observability without disrupting operation
                 try:
                     # pylint: disable=line-too-long
                     with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:

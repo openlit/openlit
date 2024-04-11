@@ -539,7 +539,7 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            # Sections handling exceptions ensure observability without disrupting operations
+            # Handling exception ensure observability without disrupting operation
             try:
                 start_time = time.time()
                 response = await wrapped(*args, **kwargs)
@@ -627,7 +627,7 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            # Sections handling exceptions ensure observability without disrupting operations
+            # Handling exception ensure observability without disrupting operation
             try:
                 start_time = time.time()
                 response = await wrapped(*args, **kwargs)

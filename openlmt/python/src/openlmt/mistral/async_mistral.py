@@ -46,14 +46,14 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'chat' method.
         """
 
-        # Sections handling exceptions ensure observability without disrupting operations
-        try:
-            start_time = time.time()
-            response = await wrapped(*args, **kwargs)
-            end_time = time.time()
-
+        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            # Handling exception ensure observability without disrupting operation
             try:
-                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                start_time = time.time()
+                response = await wrapped(*args, **kwargs)
+                end_time = time.time()
+
+                try:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -78,8 +78,8 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
 
                     # Calculate cost of the operation
                     cost = get_chat_model_cost(kwargs.get("model", "mistral-small-latest"),
-                                               pricing_info, response.usage.prompt_tokens,
-                                               response.usage.completion_tokens)
+                                                pricing_info, response.usage.prompt_tokens,
+                                                response.usage.completion_tokens)
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "mistral")
@@ -90,43 +90,43 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model",
-                                       kwargs.get("model", "mistral-small-latest"))
+                                        kwargs.get("model", "mistral-small-latest"))
                     span.set_attribute("gen_ai.request.temperature",
-                                       kwargs.get("temperature", 0.7))
+                                        kwargs.get("temperature", 0.7))
                     span.set_attribute("gen_ai.request.top_p",
-                                       kwargs.get("top_p", 1))
+                                        kwargs.get("top_p", 1))
                     span.set_attribute("gen_ai.request.max_tokens",
-                                       kwargs.get("max_tokens", ""))
+                                        kwargs.get("max_tokens", ""))
                     span.set_attribute("gen_ai.request.seed",
-                                       kwargs.get("random_seed", ""))
+                                        kwargs.get("random_seed", ""))
                     span.set_attribute("gen_ai.request.is_stream", False)
                     span.set_attribute("gen_ai.response.finish_reason",
-                                       response.choices[0].finish_reason)
+                                        response.choices[0].finish_reason)
                     span.set_attribute("gen_ai.usage.prompt_tokens",
-                                       response.usage.prompt_tokens)
+                                        response.usage.prompt_tokens)
                     span.set_attribute("gen_ai.usage.completion_tokens",
-                                       response.usage.completion_tokens)
+                                        response.usage.completion_tokens)
                     span.set_attribute("gen_ai.usage.total_tokens",
-                                       response.usage.total_tokens)
+                                        response.usage.total_tokens)
                     span.set_attribute("gen_ai.usage.cost", cost)
                     if trace_content:
                         span.set_attribute("gen_ai.content.prompt", prompt)
                         # pylint: disable=line-too-long
                         span.set_attribute("gen_ai.content.completion", response.choices[0].message.content if response.choices[0].message.content else "")
 
-                # Return original response
-                return response
+                    # Return original response
+                    return response
+
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error("Error in patched message creation: %s", e)
+
+                    # Return original response
+                    return response
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in patched message creation: %s", e)
-
-                # Return original response
-                return response
-
-        except Exception as e:
-            handle_exception(span, e)
-            raise e
+                raise e
 
     return wrapper
 
@@ -169,25 +169,25 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
         start_time = time.time()
 
         async def stream_generator():
-            # Placeholder for aggregating streaming response
-            llmresponse = ""
+            # pylint: disable=line-too-long
+            with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                # Placeholder for aggregating streaming response
+                llmresponse = ""
 
-            try:
-                # Loop through streaming events capturing relevant details
-                async for event in wrapped(*args, **kwargs):
-                    response_id = event.id
-                    llmresponse += event.choices[0].delta.content
-                    if event.usage is not None:
-                        prompt_tokens = event.usage.prompt_tokens
-                        completion_tokens = event.usage.completion_tokens
-                        total_tokens = event.usage.total_tokens
-                        finish_reason = event.choices[0].finish_reason
-                    yield event
-
-                # Sections handling exceptions ensure observability without disrupting operations
                 try:
-                    # pylint: disable=line-too-long
-                    with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                    # Loop through streaming events capturing relevant details
+                    async for event in wrapped(*args, **kwargs):
+                        response_id = event.id
+                        llmresponse += event.choices[0].delta.content
+                        if event.usage is not None:
+                            prompt_tokens = event.usage.prompt_tokens
+                            completion_tokens = event.usage.completion_tokens
+                            total_tokens = event.usage.total_tokens
+                            finish_reason = event.choices[0].finish_reason
+                        yield event
+
+                    # Handling exception ensure observability without disrupting operation
+                    try:
                         end_time = time.time()
                         # Calculate total duration of operation
                         duration = end_time - start_time
@@ -213,7 +213,7 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
 
                         # Calculate cost of the operation
                         cost = get_chat_model_cost(kwargs.get("model", "mistral-small-latest"),
-                                                   pricing_info, prompt_tokens, completion_tokens)
+                                                    pricing_info, prompt_tokens, completion_tokens)
 
                         # Set Span attributes
                         span.set_attribute("gen_ai.system", "mistral")
@@ -224,15 +224,15 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
-                                           kwargs.get("model", "mistral-small-latest"))
+                                            kwargs.get("model", "mistral-small-latest"))
                         span.set_attribute("gen_ai.request.temperature",
-                                           kwargs.get("temperature", 0.7))
+                                            kwargs.get("temperature", 0.7))
                         span.set_attribute("gen_ai.request.top_p",
-                                           kwargs.get("top_p", 1))
+                                            kwargs.get("top_p", 1))
                         span.set_attribute("gen_ai.request.max_tokens",
-                                           kwargs.get("max_tokens", ""))
+                                            kwargs.get("max_tokens", ""))
                         span.set_attribute("gen_ai.request.seed",
-                                           kwargs.get("random_seed", ""))
+                                            kwargs.get("random_seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", True)
                         span.set_attribute("gen_ai.response.finish_reason", finish_reason)
                         span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
@@ -243,20 +243,20 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
                             span.set_attribute("gen_ai.content.prompt", prompt)
                             span.set_attribute("gen_ai.content.completion", llmresponse)
 
+                    except Exception as e:
+                        handle_exception(span, e)
+                        logger.error("Error in patched message creation: %s", e)
+
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
-
-            except Exception as e:
-                handle_exception(span, e)
-                raise e
+                    raise e
 
         return stream_generator()
 
     return wrapper
 
-def async_embeddings(gen_ai_endpoint, version, environment, application_name, tracer,
-                     pricing_info, trace_content):
+def async_embeddings(gen_ai_endpoint, version, environment, application_name,
+                     tracer, pricing_info, trace_content):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -290,14 +290,14 @@ def async_embeddings(gen_ai_endpoint, version, environment, application_name, tr
             The response from the original 'embeddings' method.
         """
 
-        # Sections handling exceptions ensure observability without disrupting operations
-        try:
-            start_time = time.time()
-            response = await wrapped(*args, **kwargs)
-            end_time = time.time()
-
+        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            # Handling exception ensure observability without disrupting operation
             try:
-                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                start_time = time.time()
+                response = await wrapped(*args, **kwargs)
+                end_time = time.time()
+
+                try:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -316,31 +316,30 @@ def async_embeddings(gen_ai_endpoint, version, environment, application_name, tr
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model",
-                                       kwargs.get('model', "mistral-embed"))
+                                        kwargs.get('model', "mistral-embed"))
                     span.set_attribute("gen_ai.request.embedding_format",
-                                       kwargs.get("encoding_format", "float"))
+                                        kwargs.get("encoding_format", "float"))
                     span.set_attribute("gen_ai.response.id", response.id)
                     span.set_attribute("gen_ai.usage.prompt_tokens",
-                                       response.usage.prompt_tokens)
+                                        response.usage.prompt_tokens)
                     span.set_attribute("gen_ai.usage.total_tokens",
-                                       response.usage.total_tokens)
+                                        response.usage.total_tokens)
                     span.set_attribute("gen_ai.usage.cost", cost)
                     if trace_content:
                         span.set_attribute("gen_ai.content.prompt", prompt)
 
+                    # Return original response
+                    return response
 
-                # Return original response
-                return response
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error("Error in patched message creation: %s", e)
+
+                    # Return original response
+                    return response
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in patched message creation: %s", e)
-
-                # Return original response
-                return response
-
-        except Exception as e:
-            handle_exception(span, e)
-            raise e
+                raise e
 
     return wrapper

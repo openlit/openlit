@@ -315,7 +315,7 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            # Sections handling exceptions ensure observability without disrupting operations
+            # Handling exception ensure observability without disrupting operation
             try:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
@@ -401,7 +401,7 @@ def finetune(gen_ai_endpoint, version, environment, application_name,
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            # Sections handling exceptions ensure observability without disrupting operations
+            # Handling exception ensure observability without disrupting operation
             try:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
@@ -489,7 +489,7 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            # Sections handling exceptions ensure observability without disrupting operations
+            # Handling exception ensure observability without disrupting operation
             try:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
@@ -593,7 +593,7 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            # Sections handling exceptions ensure observability without disrupting operations
+            # Handling exception ensure observability without disrupting operation
             try:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
@@ -692,7 +692,7 @@ def audio_create(gen_ai_endpoint, version, environment, application_name,
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            # Sections handling exceptions ensure observability without disrupting operations
+            # Handling exception ensure observability without disrupting operation
             try:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
