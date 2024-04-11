@@ -75,7 +75,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
 
                         # Section handling exception ensure observability without disrupting operation
                         try:
-                            #pylint: disable=line-too-long
+                            # pylint: disable=line-too-long
                             end_time = time.time()
                             # Calculate total duration of operation
                             duration = end_time - start_time
@@ -100,15 +100,15 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                             prompt = "\n".join(formatted_messages)
 
                             # Calculate tokens using input prompt and aggregated response
-                            prompt_tokens = openai_tokens(prompt, kwargs.get("model",
-                                                                                "gpt-3.5-turbo"))
+                            prompt_tokens = openai_tokens(prompt,
+                                                          kwargs.get("model", "gpt-3.5-turbo"))
                             completion_tokens = openai_tokens(llmresponse,
-                                                                kwargs.get("model", "gpt-3.5-turbo"))
+                                                              kwargs.get("model", "gpt-3.5-turbo"))
 
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"),
-                                                        pricing_info, prompt_tokens,
-                                                        completion_tokens)
+                                                       pricing_info, prompt_tokens,
+                                                       completion_tokens)
 
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "openai")
@@ -143,7 +143,6 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                                 span.set_attribute("gen_ai.content.prompt", prompt)
                                 span.set_attribute("gen_ai.content.completion", llmresponse)
 
-
                         except Exception as e:
                             handle_exception(span, e)
                             logger.error("Error in patched message creation: %s", e)
@@ -156,7 +155,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
 
         # Handling for non-streaming responses
         else:
-            #pylint: disable=line-too-long
+            # pylint: disable=line-too-long
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 try:
                     response = wrapped(*args, **kwargs)
@@ -175,7 +174,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
 
                             if isinstance(content, list):
                                 content_str = ", ".join(
-                                    #pylint: disable=line-too-long
+                                    # pylint: disable=line-too-long
                                     f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                     if "type" in item else f'text: {item["text"]}'
                                     for item in content
@@ -315,8 +314,8 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'embeddings' method.
         """
 
-        # Sections handling exceptions ensure observability without disrupting operations
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            # Sections handling exceptions ensure observability without disrupting operations
             try:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
@@ -401,8 +400,8 @@ def finetune(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'fine_tuning.jobs.create' method.
         """
 
-        # Sections handling exceptions ensure observability without disrupting operations
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            # Sections handling exceptions ensure observability without disrupting operations
             try:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
@@ -454,7 +453,6 @@ def finetune(gen_ai_endpoint, version, environment, application_name,
 
     return wrapper
 
-
 def image_generate(gen_ai_endpoint, version, environment, application_name,
                    tracer, pricing_info, trace_content):
     """
@@ -490,8 +488,8 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'images.generate' method.
         """
 
-        # Sections handling exceptions ensure observability without disrupting operations
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            # Sections handling exceptions ensure observability without disrupting operations
             try:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
@@ -509,8 +507,8 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
                         image = "url"
 
                     # Calculate cost of the operation
-                    cost = get_image_model_cost(kwargs.get("model", "dall-e-2"), pricing_info,
-                                                kwargs.get("size", "1024x1024"),
+                    cost = get_image_model_cost(kwargs.get("model", "dall-e-2"),
+                                                pricing_info, kwargs.get("size", "1024x1024"),
                                                 kwargs.get("quality", "standard"))
 
                     for items in response.data:
@@ -523,15 +521,15 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
-                                        kwargs.get("model", "dall-e-2"))
+                                            kwargs.get("model", "dall-e-2"))
                         span.set_attribute("gen_ai.request.image_size",
-                                        kwargs.get("size", "1024x1024"))
+                                            kwargs.get("size", "1024x1024"))
                         span.set_attribute("gen_ai.request.image_quality",
-                                        kwargs.get("quality", "standard"))
+                                            kwargs.get("quality", "standard"))
                         span.set_attribute("gen_ai.request.image_style",
-                                        kwargs.get("style", "vivid"))
+                                            kwargs.get("style", "vivid"))
                         span.set_attribute("gen_ai.content.revised_prompt",
-                                        items.revised_prompt if items.revised_prompt else "")
+                                            items.revised_prompt if items.revised_prompt else "")
                         span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
@@ -625,8 +623,10 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
-                        span.set_attribute("gen_ai.request.model", kwargs.get("model", "dall-e-2"))
-                        span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
+                        span.set_attribute("gen_ai.request.model",
+                                            kwargs.get("model", "dall-e-2"))
+                        span.set_attribute("gen_ai.request.user",
+                                            kwargs.get("user", ""))
                         span.set_attribute("gen_ai.request.image_size",
                                             kwargs.get("size", "1024x1024"))
                         span.set_attribute("gen_ai.request.image_quality", "standard")

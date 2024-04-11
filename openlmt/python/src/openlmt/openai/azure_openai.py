@@ -56,27 +56,27 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
         if streaming:
             # Special handling for streaming response to accommodate the nature of data flow
             def stream_generator():
-                # Placeholder for aggregating streaming response
-                llmresponse = ""
+                # pylint: disable=line-too-long
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                    # Placeholder for aggregating streaming response
+                    llmresponse = ""
 
-                try:
-                    # Loop through streaming events capturing relevant details
-                    for chunk in wrapped(*args, **kwargs):
-                        # Collect message IDs and aggregated response from events
-                        # pylint: disable=line-too-long
-                        if len(chunk.choices) > 0:
-                            if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
-                                content = chunk.choices[0].delta.content
-                                if content:
-                                    llmresponse += content
-                        yield chunk
-                        response_id = chunk.id
-                        model = "azure_" + chunk.model
-
-                    # Section handling exception ensure observability without disrupting operation
                     try:
-                        # pylint: disable=line-too-long
-                        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                        # Loop through streaming events capturing relevant details
+                        for chunk in wrapped(*args, **kwargs):
+                            # Collect message IDs and aggregated response from events
+                            # pylint: disable=line-too-long
+                            if len(chunk.choices) > 0:
+                                if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
+                                    content = chunk.choices[0].delta.content
+                                    if content:
+                                        llmresponse += content
+                            yield chunk
+                            response_id = chunk.id
+                            model = "azure_" + chunk.model
+
+                        # Section handling exception ensure observability without disrupting operation
+                        try:
                             end_time = time.time()
                             # Calculate total duration of operation
                             duration = end_time - start_time
@@ -108,7 +108,7 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
 
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                       prompt_tokens, completion_tokens)
+                                                        prompt_tokens, completion_tokens)
 
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "Azuure.OpenAI")
@@ -120,46 +120,46 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
                             span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model", model)
                             span.set_attribute("gen_ai.request.user",
-                                               kwargs.get("user", ""))
+                                                kwargs.get("user", ""))
                             span.set_attribute("gen_ai.request.tool_choice",
-                                               kwargs.get("tool_choice", ""))
+                                                kwargs.get("tool_choice", ""))
                             span.set_attribute("gen_ai.request.temperature",
-                                               kwargs.get("temperature", 1))
+                                                kwargs.get("temperature", 1))
                             span.set_attribute("gen_ai.request.presence_penalty",
-                                               kwargs.get("presence_penalty", 0))
+                                                kwargs.get("presence_penalty", 0))
                             span.set_attribute("gen_ai.request.frequency_penalty",
                                                 kwargs.get("frequency_penalty", 0))
                             span.set_attribute("gen_ai.request.seed",
-                                               kwargs.get("seed", ""))
+                                                kwargs.get("seed", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
                             span.set_attribute("gen_ai.usage.total_tokens",
-                                               prompt_tokens + completion_tokens)
+                                                prompt_tokens + completion_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
                             if trace_content:
                                 span.set_attribute("gen_ai.content.prompt", prompt)
                                 span.set_attribute("gen_ai.content.completion", llmresponse)
 
+                        except Exception as e:
+                            handle_exception(span, e)
+                            logger.error("Error in patched message creation: %s", e)
+
                     except Exception as e:
                         handle_exception(span, e)
-                        logger.error("Error in patched message creation: %s", e)
-
-                except Exception as e:
-                    handle_exception(span, e)
-                    raise e
+                        raise e
 
             return stream_generator()
 
         # Handling for non-streaming responses
         else:
-            try:
-                response = wrapped(*args, **kwargs)
-                end_time = time.time()
-
+            # pylint: disable=line-too-long
+            with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 try:
-                    # pylint: disable=line-too-long
-                    with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                    response = wrapped(*args, **kwargs)
+                    end_time = time.time()
+
+                    try:
                         # Calculate total duration of operation
                         duration = end_time - start_time
 
@@ -195,17 +195,17 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model", model)
                         span.set_attribute("gen_ai.request.user",
-                                           kwargs.get("user", ""))
+                                            kwargs.get("user", ""))
                         span.set_attribute("gen_ai.request.tool_choice",
-                                           kwargs.get("tool_choice", ""))
+                                            kwargs.get("tool_choice", ""))
                         span.set_attribute("gen_ai.request.temperature",
-                                           kwargs.get("temperature", 1))
+                                            kwargs.get("temperature", 1))
                         span.set_attribute("gen_ai.request.presence_penalty",
-                                           kwargs.get("presence_penalty", 0))
+                                            kwargs.get("presence_penalty", 0))
                         span.set_attribute("gen_ai.request.frequency_penalty",
-                                           kwargs.get("frequency_penalty", 0))
+                                            kwargs.get("frequency_penalty", 0))
                         span.set_attribute("gen_ai.request.seed",
-                                           kwargs.get("seed", ""))
+                                            kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", prompt)
@@ -214,24 +214,24 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                       response.usage.prompt_tokens,
-                                                       response.usage.completion_tokens)
+                                                        response.usage.prompt_tokens,
+                                                        response.usage.completion_tokens)
 
                             span.set_attribute("gen_ai.usage.prompt_tokens",
-                                               response.usage.prompt_tokens)
+                                                response.usage.prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens",
-                                               response.usage.completion_tokens)
+                                                response.usage.completion_tokens)
                             span.set_attribute("gen_ai.usage.total_tokens",
-                                               response.usage.total_tokens)
+                                                response.usage.total_tokens)
                             span.set_attribute("gen_ai.response.finish_reason",
-                                               response.choices[0].finish_reason)
+                                                response.choices[0].finish_reason)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
                                 if trace_content:
                                     span.set_attribute("gen_ai.content.completion",
-                                                       response.choices[0].message.content)
+                                                        response.choices[0].message.content)
 
                             # Set span attributes for when n > 0
                             else:
@@ -239,7 +239,7 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
                                 while i < kwargs["n"] and trace_content is True:
                                     attribute_name = f"gen_ai.content.completion.{i}"
                                     span.set_attribute(attribute_name,
-                                                       response.choices[i].message.content)
+                                                        response.choices[i].message.content)
                                     i += 1
 
                                 # Return original response
@@ -249,32 +249,32 @@ def azure_chat_completions(gen_ai_endpoint, version, environment, application_na
                         elif "tools" in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                       response.usage.prompt_tokens,
-                                                       response.usage.completion_tokens)
+                                                        response.usage.prompt_tokens,
+                                                        response.usage.completion_tokens)
 
                             span.set_attribute("gen_ai.content.completion",
-                                               "Function called with tools")
+                                                "Function called with tools")
                             span.set_attribute("gen_ai.usage.prompt_tokens",
-                                               response.usage.prompt_tokens)
+                                                response.usage.prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens",
-                                               response.usage.completion_tokens)
+                                                response.usage.completion_tokens)
                             span.set_attribute("gen_ai.usage.total_tokens",
-                                               response.usage.total_tokens)
+                                                response.usage.total_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
-                    # Return original response
-                    return response
+                        # Return original response
+                        return response
+
+                    except Exception as e:
+                        handle_exception(span, e)
+                        logger.error("Error in patched message creation: %s", e)
+
+                        # Return original response
+                        return response
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
-
-                    # Return original response
-                    return response
-
-            except Exception as e:
-                handle_exception(span, e)
-                raise e
+                    raise e
 
     return wrapper
 
@@ -322,26 +322,26 @@ def azure_completions(gen_ai_endpoint, version, environment, application_name,
         if streaming:
             # Special handling for streaming response to accommodate the nature of data flow
             def stream_generator():
-                # Placeholder for aggregating streaming response
-                llmresponse = ""
+                # pylint: disable=line-too-long
+                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                    # Placeholder for aggregating streaming response
+                    llmresponse = ""
 
-                try:
-                    # Loop through streaming events capturing relevant details
-                    for chunk in wrapped(*args, **kwargs):
-                        # Collect message IDs and aggregated response from events
-                        if len(chunk.choices) > 0:
-                            if hasattr(chunk.choices[0], "text"):
-                                content = chunk.choices[0].text
-                                if content:
-                                    llmresponse += content
-                        yield chunk
-                        response_id = chunk.id
-                        model = "azure_" + chunk.model
-
-                    # Section handling exception ensure observability without disrupting operation
                     try:
-                        # pylint: disable=line-too-long
-                        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                        # Loop through streaming events capturing relevant details
+                        for chunk in wrapped(*args, **kwargs):
+                            # Collect message IDs and aggregated response from events
+                            if len(chunk.choices) > 0:
+                                if hasattr(chunk.choices[0], "text"):
+                                    content = chunk.choices[0].text
+                                    if content:
+                                        llmresponse += content
+                            yield chunk
+                            response_id = chunk.id
+                            model = "azure_" + chunk.model
+
+                        # Section handling exception ensure observability without disrupting operation
+                        try:
                             end_time = time.time()
                             # Calculate total duration of operation
                             duration = end_time - start_time
@@ -353,7 +353,7 @@ def azure_completions(gen_ai_endpoint, version, environment, application_name,
 
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                       prompt_tokens, completion_tokens)
+                                                        prompt_tokens, completion_tokens)
 
                             # Set Span attributes
                             span.set_attribute("gen_ai.system", "azure_openai")
@@ -365,46 +365,46 @@ def azure_completions(gen_ai_endpoint, version, environment, application_name,
                             span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model", model)
                             span.set_attribute("gen_ai.request.user",
-                                               kwargs.get("user", ""))
+                                                kwargs.get("user", ""))
                             span.set_attribute("gen_ai.request.tool_choice",
-                                               kwargs.get("tool_choice", ""))
+                                                kwargs.get("tool_choice", ""))
                             span.set_attribute("gen_ai.request.temperature",
-                                               kwargs.get("temperature", 1))
+                                                kwargs.get("temperature", 1))
                             span.set_attribute("gen_ai.request.presence_penalty",
-                                               kwargs.get("presence_penalty", 0))
+                                                kwargs.get("presence_penalty", 0))
                             span.set_attribute("gen_ai.request.frequency_penalty",
-                                               kwargs.get("frequency_penalty", 0))
+                                                kwargs.get("frequency_penalty", 0))
                             span.set_attribute("gen_ai.request.seed",
-                                               kwargs.get("seed", ""))
+                                                kwargs.get("seed", ""))
                             span.set_attribute("gen_ai.request.is_stream", True)
                             span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
                             span.set_attribute("gen_ai.usage.total_tokens",
-                                               prompt_tokens + completion_tokens)
+                                                prompt_tokens + completion_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
                             if trace_content:
                                 span.set_attribute("gen_ai.content.prompt", prompt)
                                 span.set_attribute("gen_ai.content.completion", llmresponse)
 
+                        except Exception as e:
+                            handle_exception(span, e)
+                            logger.error("Error in patched message creation: %s", e)
+
                     except Exception as e:
                         handle_exception(span, e)
-                        logger.error("Error in patched message creation: %s", e)
-
-                except Exception as e:
-                    handle_exception(span, e)
-                    raise e
+                        raise e
 
             return stream_generator()
 
         # Handling for non-streaming responses
         else:
-            try:
-                response = wrapped(*args, **kwargs)
-                end_time = time.time()
-
+            # pylint: disable=line-too-long
+            with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 try:
-                    # pylint: disable=line-too-long
-                    with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                    response = wrapped(*args, **kwargs)
+                    end_time = time.time()
+
+                    try:
                         # Calculate total duration of operation
                         duration = end_time - start_time
 
@@ -420,39 +420,39 @@ def azure_completions(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
-                                           kwargs.get("model", "gpt-3.5-turbo"))
+                                            kwargs.get("model", "gpt-3.5-turbo"))
                         span.set_attribute("gen_ai.request.user",
-                                           kwargs.get("user", ""))
+                                            kwargs.get("user", ""))
                         span.set_attribute("gen_ai.request.tool_choice",
-                                           kwargs.get("tool_choice", ""))
+                                            kwargs.get("tool_choice", ""))
                         span.set_attribute("gen_ai.request.temperature",
-                                           kwargs.get("temperature", 1))
+                                            kwargs.get("temperature", 1))
                         span.set_attribute("gen_ai.request.presence_penalty",
-                                           kwargs.get("presence_penalty", 0))
+                                            kwargs.get("presence_penalty", 0))
                         span.set_attribute("gen_ai.request.frequency_penalty",
-                                           kwargs.get("frequency_penalty", 0))
+                                            kwargs.get("frequency_penalty", 0))
                         span.set_attribute("gen_ai.request.seed",
-                                           kwargs.get("seed", ""))
+                                            kwargs.get("seed", ""))
                         span.set_attribute("gen_ai.request.is_stream", False)
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt",
-                                               kwargs.get("prompt", ""))
+                                                kwargs.get("prompt", ""))
 
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                       response.usage.prompt_tokens,
-                                                       response.usage.completion_tokens)
+                                                        response.usage.prompt_tokens,
+                                                        response.usage.completion_tokens)
 
                             span.set_attribute("gen_ai.usage.prompt_tokens",
-                                               response.usage.prompt_tokens)
+                                                response.usage.prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens",
-                                               response.usage.completion_tokens)
+                                                response.usage.completion_tokens)
                             span.set_attribute("gen_ai.usage.total_tokens",
-                                               response.usage.total_tokens)
+                                                response.usage.total_tokens)
                             span.set_attribute("gen_ai.response.finish_reason",
-                                               response.choices[0].finish_reason)
+                                                response.choices[0].finish_reason)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
                             # Set span attributes for when n = 1 (default)
@@ -474,32 +474,32 @@ def azure_completions(gen_ai_endpoint, version, environment, application_name,
                         elif "tools" in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                       response.usage.prompt_tokens,
-                                                       response.usage.completion_tokens)
+                                                        response.usage.prompt_tokens,
+                                                        response.usage.completion_tokens)
 
                             span.set_attribute("gen_ai.content.completion",
-                                               "Function called with tools")
+                                                "Function called with tools")
                             span.set_attribute("gen_ai.usage.prompt_tokens",
-                                               response.usage.prompt_tokens)
+                                                response.usage.prompt_tokens)
                             span.set_attribute("gen_ai.usage.completion_tokens",
-                                               response.usage.completion_tokens)
+                                                response.usage.completion_tokens)
                             span.set_attribute("gen_ai.usage.total_tokens",
-                                               response.usage.total_tokens)
+                                                response.usage.total_tokens)
                             span.set_attribute("gen_ai.usage.cost", cost)
 
-                    # Return original response
-                    return response
+                        # Return original response
+                        return response
+
+                    except Exception as e:
+                        handle_exception(span, e)
+                        logger.error("Error in patched message creation: %s", e)
+
+                        # Return original response
+                        return response
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
-
-                    # Return original response
-                    return response
-
-            except Exception as e:
-                handle_exception(span, e)
-                raise e
+                    raise e
 
     return wrapper
 
@@ -538,20 +538,20 @@ def azure_embedding(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'embeddings' method.
         """
 
-        # Sections handling exceptions ensure observability without disrupting operations
-        try:
-            start_time = time.time()
-            response = wrapped(*args, **kwargs)
-            end_time = time.time()
-
+        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            # Sections handling exceptions ensure observability without disrupting operations
             try:
-                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                start_time = time.time()
+                response = wrapped(*args, **kwargs)
+                end_time = time.time()
+
+                try:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
                     # Calculate cost of the operation
                     cost = get_embed_model_cost("azure_" + response.model,
-                                                pricing_info, response.usage.prompt_tokens)
+                                                 pricing_info, response.usage.prompt_tokens)
 
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "azure_openai")
@@ -562,15 +562,15 @@ def azure_embedding(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model", "azure_" + response.model)
                     span.set_attribute("gen_ai.request.embedding_format",
-                                       kwargs.get("encoding_format", "float"))
+                                        kwargs.get("encoding_format", "float"))
                     span.set_attribute("gen_ai.request.embedding_dimension",
-                                       kwargs.get("dimensions", ""))
+                                        kwargs.get("dimensions", ""))
                     span.set_attribute("gen_ai.request.user",
-                                       kwargs.get("user", ""))
+                                        kwargs.get("user", ""))
                     span.set_attribute("gen_ai.usage.prompt_tokens",
-                                       response.usage.prompt_tokens)
+                                        response.usage.prompt_tokens)
                     span.set_attribute("gen_ai.usage.total_tokens",
-                                       response.usage.total_tokens)
+                                        response.usage.total_tokens)
                     span.set_attribute("gen_ai.usage.cost", cost)
                     if trace_content:
                         span.set_attribute("gen_ai.content.prompt", kwargs.get("input", ""))
@@ -578,16 +578,16 @@ def azure_embedding(gen_ai_endpoint, version, environment, application_name,
                     # Return original response
                     return response
 
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error("Error in patched message creation: %s", e)
+
+                    # Return original response
+                    return response
+
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in patched message creation: %s", e)
-
-                # Return original response
-                return response
-
-        except Exception as e:
-            handle_exception(span, e)
-            raise e
+                raise e
 
     return wrapper
 
@@ -626,15 +626,15 @@ def azure_image_generate(gen_ai_endpoint, version, environment, application_name
             The response from the original 'images.generate' method.
         """
 
-        # Sections handling exceptions ensure observability without disrupting operations
-        try:
-            start_time = time.time()
-            response = wrapped(*args, **kwargs)
-            end_time = time.time()
-            images_count = 0
-
+        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            # Sections handling exceptions ensure observability without disrupting operations
             try:
-                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+                start_time = time.time()
+                response = wrapped(*args, **kwargs)
+                end_time = time.time()
+                images_count = 0
+
+                try:
                     # Calculate total duration of operation
                     duration = end_time - start_time
 
@@ -659,17 +659,16 @@ def azure_image_generate(gen_ai_endpoint, version, environment, application_name
                         span.set_attribute("gen_ai.application_name", application_name)
                         span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
-                                           "azure_" + kwargs.get("model", "dall-e-3"))
+                                            "azure_" + kwargs.get("model", "dall-e-3"))
                         span.set_attribute("gen_ai.request.image_size",
                                             kwargs.get("size", "1024x1024"))
                         span.set_attribute("gen_ai.request.image_quality",
-                                           kwargs.get("quality", "standard"))
+                                            kwargs.get("quality", "standard"))
                         span.set_attribute("gen_ai.request.image_style",
-                                           kwargs.get("style", "vivid"))
+                                            kwargs.get("style", "vivid"))
                         span.set_attribute("gen_ai.content.revised_prompt",
-                                           items.revised_prompt if response.revised_prompt else "")
+                                            items.revised_prompt if response.revised_prompt else "")
                         span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
-
                         if trace_content:
                             span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
 
@@ -683,15 +682,15 @@ def azure_image_generate(gen_ai_endpoint, version, environment, application_name
                     # Return original response
                     return response
 
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error("Error in patched message creation: %s", e)
+
+                    # Return original response
+                    return response
+
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in patched message creation: %s", e)
-
-                # Return original response
-                return response
-
-        except Exception as e:
-            handle_exception(span, e)
-            raise e
+                raise e
 
     return wrapper
