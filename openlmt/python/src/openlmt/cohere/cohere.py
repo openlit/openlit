@@ -94,14 +94,14 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, gen_ai_endpoint)
+                handle_exception(span, e)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, gen_ai_endpoint)
+            handle_exception(span, e)
             raise e
 
     return wrapper
@@ -198,14 +198,14 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, gen_ai_endpoint)
+                handle_exception(span, e)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, gen_ai_endpoint)
+            handle_exception(span, e)
             raise e
 
     return wrapper
@@ -308,11 +308,11 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                             span.set_attribute("gen_ai.content.completion", llmresponse)
 
                 except Exception as e:
-                    handle_exception(tracer, e, gen_ai_endpoint)
+                    handle_exception(span, e)
                     logger.error("Error in patched message creation: %s", e)
 
             except Exception as e:
-                handle_exception(tracer, e, gen_ai_endpoint)
+                handle_exception(span, e)
                 raise e
 
         return stream_generator()

@@ -119,10 +119,9 @@ def fetch_pricing_info():
         logger.error("Unexpected error occurred while fetching pricing info: %s", err)
     return {}
 
-def handle_exception(tracer,e, endpoint):
+def handle_exception(span,e):
     """Handles Exception when LLM Function fails or trace creation fails."""
-    with tracer.start_as_current_span(endpoint, kind=SpanKind.INTERNAL) as span:
-        # Record the exception details within the span
-        span.record_exception(e)
-        # Mark the exception as having propagated beyond expected scope
-        span.set_attribute("exception.escaped", True)
+    # Record the exception details within the span
+    span.record_exception(e)
+    # Mark the exception as having propagated beyond expected scope
+    span.set_attribute("exception.escaped", True)

@@ -145,11 +145,11 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
 
 
                     except Exception as e:
-                        handle_exception(tracer, e, gen_ai_endpoint)
+                        handle_exception(span, e)
                         logger.error("Error in patched message creation: %s", e)
 
                 except Exception as e:
-                    handle_exception(tracer, e, gen_ai_endpoint)
+                    handle_exception(span, e)
                     raise e
 
             return stream_generator()
@@ -268,14 +268,14 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                     return response
 
                 except Exception as e:
-                    handle_exception(tracer, e, gen_ai_endpoint)
+                    handle_exception(span, e)
                     logger.error("Error in patched message creation: %s", e)
 
                     # Return original response
                     return response
 
             except Exception as e:
-                handle_exception(tracer, e, gen_ai_endpoint)
+                handle_exception(span, e)
                 raise e
 
     return wrapper
@@ -355,14 +355,14 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, gen_ai_endpoint)
+                handle_exception(span, e)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, gen_ai_endpoint)
+            handle_exception(span, e)
             raise e
 
     return wrapper
@@ -443,14 +443,14 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name,
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, gen_ai_endpoint)
+                handle_exception(span, e)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, gen_ai_endpoint)
+            handle_exception(span, e)
             raise e
 
     return wrapper
@@ -547,14 +547,14 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                     return response
 
             except Exception as e:
-                handle_exception(tracer, e, gen_ai_endpoint)
+                handle_exception(span, e)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, gen_ai_endpoint)
+            handle_exception(span, e)
             raise e
 
     return wrapper
@@ -646,14 +646,14 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, gen_ai_endpoint)
+                handle_exception(span, e)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, gen_ai_endpoint)
+            handle_exception(span, e)
             raise e
 
     return wrapper
@@ -728,14 +728,14 @@ def async_audio_create(gen_ai_endpoint, version, environment, application_name,
                 return response
 
             except Exception as e:
-                handle_exception(tracer, e, gen_ai_endpoint)
+                handle_exception(span, e)
                 logger.error("Error in patched message creation: %s", e)
 
                 # Return original response
                 return response
 
         except Exception as e:
-            handle_exception(tracer, e, gen_ai_endpoint)
+            handle_exception(span, e)
             raise e
 
     return wrapper
