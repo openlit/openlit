@@ -75,7 +75,7 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                             response_id = chunk.id
                             model = "azure_" + chunk.model
 
-                        # Section handling exception ensure observability without disrupting operation
+                        # Handling exception ensure observability without disrupting operation
                         try:
                             end_time = time.time()
                             # Calculate total duration of operation
@@ -340,7 +340,7 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                             response_id = chunk.id
                             model = "azure_" + chunk.model
 
-                        # Section handling exception ensure observability without disrupting operation
+                        # Handling exception ensure observability without disrupting operation
                         try:
                             end_time = time.time()
                             # Calculate total duration of operation

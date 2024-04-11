@@ -78,7 +78,7 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                             finish_reason = event.delta.stop_reason
                         yield event
 
-                    # Section handling exception ensure observability without disrupting operation
+                    # Handling exception ensure observability without disrupting operation
                     try:
                         # pylint: disable=line-too-long
                         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:

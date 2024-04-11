@@ -73,7 +73,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                             yield chunk
                             response_id = chunk.id
 
-                        # Section handling exception ensure observability without disrupting operation
+                        # Handling exception ensure observability without disrupting operation
                         try:
                             # pylint: disable=line-too-long
                             end_time = time.time()

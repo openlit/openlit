@@ -6,7 +6,6 @@ This module has functions to calculate model costs based on tokens and to fetch 
 import logging
 import requests
 import tiktoken
-from opentelemetry.trace import SpanKind
 
 # Set up logging
 logger = logging.getLogger(__name__)
