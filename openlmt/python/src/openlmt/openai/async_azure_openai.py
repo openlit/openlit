@@ -3,7 +3,6 @@
 Module for monitoring Azure OpenAI API calls.
 """
 
-import time
 import logging
 from opentelemetry.trace import SpanKind
 from ..__helpers import get_chat_model_cost, get_embed_model_cost
@@ -48,8 +47,6 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
         """
 
         # Check if streaming is enabled for the API call
-        start_time = time.time()
-        # Record start time for measuring request duration
         streaming = kwargs.get("stream", False)
 
         # pylint: disable=no-else-return
@@ -77,10 +74,6 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
 
                         # Handling exception ensure observability without disrupting operation
                         try:
-                            end_time = time.time()
-                            # Calculate total duration of operation
-                            duration = end_time - start_time
-
                             # Format 'messages' into a single string
                             message_prompt = kwargs.get("messages", "")
                             formatted_messages = []
@@ -117,7 +110,6 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                             span.set_attribute("gen_ai.response.id", response_id)
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
-                            span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model", model)
                             span.set_attribute("gen_ai.request.user",
                                                 kwargs.get("user", ""))
@@ -157,12 +149,8 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 try:
                     response = await wrapped(*args, **kwargs)
-                    end_time = time.time()
 
                     try:
-                        # Calculate total duration of operation
-                        duration = end_time - start_time
-
                         # Find base model from response
                         model = "azure_" + response.model
 
@@ -192,7 +180,6 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                         span.set_attribute("gen_ai.response.id", response.id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model", model)
                         span.set_attribute("gen_ai.request.user",
                                             kwargs.get("user", ""))
@@ -314,8 +301,6 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
         """
 
         # Check if streaming is enabled for the API call
-        start_time = time.time()
-        # Record start time for measuring request duration
         streaming = kwargs.get("stream", False)
 
         # pylint: disable=no-else-return
@@ -342,9 +327,6 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
 
                         # Handling exception ensure observability without disrupting operation
                         try:
-                            end_time = time.time()
-                            # Calculate total duration of operation
-                            duration = end_time - start_time
                             prompt = kwargs.get("prompt", "")
 
                             # Calculate tokens using input prompt and aggregated response
@@ -362,7 +344,6 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                             span.set_attribute("gen_ai.response.id", response_id)
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
-                            span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model", model)
                             span.set_attribute("gen_ai.request.user",
                                                 kwargs.get("user", ""))
@@ -402,12 +383,8 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 try:
                     response = wrapped(*args, **kwargs)
-                    end_time = time.time()
 
                     try:
-                        # Calculate total duration of operation
-                        duration = end_time - start_time
-
                         # Find base model from response
                         model = "azure_" + response.model
 
@@ -418,7 +395,6 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                         span.set_attribute("gen_ai.response.id", response.id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
                                             kwargs.get("model", "gpt-3.5-turbo"))
                         span.set_attribute("gen_ai.request.user",
@@ -541,14 +517,9 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Calculate cost of the operation
                     cost = get_embed_model_cost("azure_" + response.model,
                                                  pricing_info, response.usage.prompt_tokens)
@@ -559,7 +530,6 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model", "azure_" + response.model)
                     span.set_attribute("gen_ai.request.embedding_format",
                                         kwargs.get("encoding_format", "float"))
@@ -629,15 +599,10 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                end_time = time.time()
                 images_count = 0
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Find Image format
                     if "response_format" in kwargs and kwargs["response_format"] == "b64_json":
                         image = "b64_json"
@@ -657,7 +622,6 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
                         span.set_attribute("gen_ai.response.id", response.created)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
                                             "azure_" + kwargs.get("model", "dall-e-3"))
                         span.set_attribute("gen_ai.request.image_size",

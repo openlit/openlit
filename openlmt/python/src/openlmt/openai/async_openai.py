@@ -3,7 +3,6 @@
 Module for monitoring OpenAI API calls.
 """
 
-import time
 import logging
 from opentelemetry.trace import SpanKind
 from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_model_cost
@@ -49,8 +48,6 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
 
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
-        # Record start time for measuring request duration
-        start_time = time.time()
 
         # pylint: disable=no-else-return
         if streaming:
@@ -75,11 +72,6 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
 
                         # Handling exception ensure observability without disrupting operation
                         try:
-                            # pylint: disable=line-too-long
-                            end_time = time.time()
-                            # Calculate total duration of operation
-                            duration = end_time - start_time
-
                             # Format 'messages' into a single string
                             message_prompt = kwargs.get("messages", "")
                             formatted_messages = []
@@ -117,7 +109,6 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                             span.set_attribute("gen_ai.response.id", response_id)
                             span.set_attribute("gen_ai.environment", environment)
                             span.set_attribute("gen_ai.application_name", application_name)
-                            span.set_attribute("gen_ai.request_duration", duration)
                             span.set_attribute("gen_ai.request.model",
                                                 kwargs.get("model", "gpt-3.5-turbo"))
                             span.set_attribute("gen_ai.request.user",
@@ -159,12 +150,8 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 try:
                     response = await wrapped(*args, **kwargs)
-                    end_time = time.time()
 
                     try:
-                        # Calculate total duration of operation
-                        duration = end_time - start_time
-
                         # Format 'messages' into a single string
                         message_prompt = kwargs.get("messages", "")
                         formatted_messages = []
@@ -191,7 +178,6 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                         span.set_attribute("gen_ai.response.id", response.id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
                                             kwargs.get("model", "gpt-3.5-turbo"))
                         span.set_attribute("gen_ai.request.top_p",
@@ -317,14 +303,9 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Calculate cost of the operation
                     cost = get_embed_model_cost(kwargs.get("model", "text-embedding-ada-002"),
                                                 pricing_info, response.usage.prompt_tokens)
@@ -335,7 +316,6 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model",
                                         kwargs.get("model", "text-embedding-ada-002"))
                     span.set_attribute("gen_ai.request.embedding_format",
@@ -403,21 +383,15 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name,
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Set Span attributes
                     span.set_attribute("gen_ai.system", "openai")
                     span.set_attribute("gen_ai.type", "fine_tuning")
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model",
                                         kwargs.get("model", "gpt-3.5-turbo"))
                     span.set_attribute("gen_ai.request.training_file",
@@ -491,15 +465,10 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                end_time = time.time()
                 images_count = 0
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Find Image format
                     if "response_format" in kwargs and kwargs["response_format"] == "b64_json":
                         image = "b64_json"
@@ -519,7 +488,6 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                         span.set_attribute("gen_ai.response.id", response.created)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
                                             kwargs.get("model", "dall-e-2"))
                         span.set_attribute("gen_ai.request.image_size",
@@ -595,15 +563,10 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                end_time = time.time()
                 images_count = 0
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Find Image format
                     if "response_format" in kwargs and kwargs["response_format"] == "b64_json":
                         image = "b64_json"
@@ -622,7 +585,6 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
                         span.set_attribute("gen_ai.response.id", response.created)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
                                             kwargs.get("model", "dall-e-2"))
                         span.set_attribute("gen_ai.request.user",
@@ -694,14 +656,9 @@ def async_audio_create(gen_ai_endpoint, version, environment, application_name,
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Calculate cost of the operation
                     cost = get_audio_model_cost(kwargs.get("model", "tts-1"),
                                                 pricing_info, kwargs.get("input", ""))
@@ -712,7 +669,6 @@ def async_audio_create(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model", kwargs.get("model", "tts-1"))
                     span.set_attribute("gen_ai.request.audio_voice", kwargs.get("voice", "alloy"))
                     span.set_attribute("gen_ai.request.audio_response_format",
