@@ -3,7 +3,6 @@
 Module for monitoring Mistral API calls.
 """
 
-import time
 import logging
 from opentelemetry.trace import SpanKind
 from ..__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
@@ -49,14 +48,9 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Format 'messages' into a single string
                     message_prompt = kwargs.get('messages', "")
                     formatted_messages = []
@@ -88,7 +82,6 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("gen_ai.response.id", response.id)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model",
                                         kwargs.get("model", "mistral-small-latest"))
                     span.set_attribute("gen_ai.request.temperature",
@@ -165,9 +158,6 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'chat_stream' method.
         """
 
-        # Record start time for measuring request duration
-        start_time = time.time()
-
         async def stream_generator():
             # pylint: disable=line-too-long
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
@@ -188,10 +178,6 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
 
                     # Handling exception ensure observability without disrupting operation
                     try:
-                        end_time = time.time()
-                        # Calculate total duration of operation
-                        duration = end_time - start_time
-
                         # Format 'messages' into a single string
                         message_prompt = kwargs.get('messages', "")
                         formatted_messages = []
@@ -222,7 +208,6 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute("gen_ai.response.id", response_id)
                         span.set_attribute("gen_ai.environment", environment)
                         span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request_duration", duration)
                         span.set_attribute("gen_ai.request.model",
                                             kwargs.get("model", "mistral-small-latest"))
                         span.set_attribute("gen_ai.request.temperature",
@@ -293,14 +278,9 @@ def async_embeddings(gen_ai_endpoint, version, environment, application_name,
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             # Handling exception ensure observability without disrupting operation
             try:
-                start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 try:
-                    # Calculate total duration of operation
-                    duration = end_time - start_time
-
                     # Get prompt from kwargs and store as a single string
                     prompt = ', '.join(kwargs.get('input', []))
 
@@ -314,7 +294,6 @@ def async_embeddings(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
                     span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request_duration", duration)
                     span.set_attribute("gen_ai.request.model",
                                         kwargs.get('model', "mistral-embed"))
                     span.set_attribute("gen_ai.request.embedding_format",
