@@ -56,6 +56,7 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             response = wrapped(*args, **kwargs)
+
             # pylint: disable=protected-access
             forward_params = instance._forward_params
 

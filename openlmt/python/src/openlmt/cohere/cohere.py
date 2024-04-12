@@ -47,64 +47,58 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            # Handling exception ensure observability without disrupting operation
+            response = wrapped(*args, **kwargs)
+
             try:
-                response = wrapped(*args, **kwargs)
-
-                try:
-                    # Get prompt from kwargs and store as a single string
-                    prompt = " ".join(kwargs.get("texts", []))
+                # Get prompt from kwargs and store as a single string
+                prompt = " ".join(kwargs.get("texts", []))
 
 
-                    # Calculate cost of the operation
-                    cost = get_embed_model_cost(kwargs.get("model", "embed-english-v2.0"),
-                                                pricing_info,
-                                                response.meta.billed_units.input_tokens)
+                # Calculate cost of the operation
+                cost = get_embed_model_cost(kwargs.get("model", "embed-english-v2.0"),
+                                            pricing_info,
+                                            response.meta.billed_units.input_tokens)
 
-                    # Set Span attributes
-                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                       SemanticConvetion.GEN_AI_SYSTEM_COHERE)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                       SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                       gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                       environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                       application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                       kwargs.get("model", "embed-english-v2.0"),)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_FORMAT,
-                                       kwargs.get("embedding_types", "float"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
-                                       kwargs.get("input_type", ""))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
-                                       kwargs.get("user", ""))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
-                                       response.id)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                       response.meta.billed_units.input_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                       response.meta.billed_units.input_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                       cost)
-                    if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                           prompt)
+                # Set Span attributes
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_COHERE)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                    SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                    gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    kwargs.get("model", "embed-english-v2.0"),)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_FORMAT,
+                                    kwargs.get("embedding_types", "float"))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
+                                    kwargs.get("input_type", ""))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
+                                    kwargs.get("user", ""))
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                                    response.id)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    response.meta.billed_units.input_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    response.meta.billed_units.input_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                    cost)
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                        prompt)
 
-                    # Return original response
-                    return response
-
-                except Exception as e:
-                    handle_exception(span, e)
-                    logger.error("Error in trace creation: %s", e)
-
-                    # Return original response
-                    return response
+                # Return original response
+                return response
 
             except Exception as e:
                 handle_exception(span, e)
-                raise e
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
 
     return wrapper
 
@@ -144,74 +138,68 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
-            # Handling exception ensure observability without disrupting operation
+            response = wrapped(*args, **kwargs)
+
             try:
-                response = wrapped(*args, **kwargs)
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(kwargs.get("model", "command"),
+                                            pricing_info,
+                                            response.meta["billed_units"]["input_tokens"],
+                                            response.meta["billed_units"]["output_tokens"])
 
-                try:
-                    # Calculate cost of the operation
-                    cost = get_chat_model_cost(kwargs.get("model", "command"),
-                                               pricing_info,
-                                               response.meta["billed_units"]["input_tokens"],
-                                               response.meta["billed_units"]["output_tokens"])
+                # Set Span attributes
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_COHERE)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                    SemanticConvetion.GEN_AI_TYPE_CHAT)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                    gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    kwargs.get("model", "command"))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
+                                    kwargs.get("temperature", 0.3))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
+                                    kwargs.get("max_tokens", ""))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
+                                    kwargs.get("seed", ""))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+                                    kwargs.get("frequency_penalty", 0.0))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
+                                    kwargs.get("presence_penalty", 0.0))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                                    False)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                                    response.response_id)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                                    response.response_id)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    response.meta["billed_units"]["input_tokens"])
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                    response.meta["billed_units"]["output_tokens"])
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    response.meta["billed_units"]["input_tokens"] +
+                                    response.meta["billed_units"]["output_tokens"])
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                    cost)
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                        kwargs.get("message", ""))
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                        response.text)
 
-                    # Set Span attributes
-                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                       SemanticConvetion.GEN_AI_SYSTEM_COHERE)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                       SemanticConvetion.GEN_AI_TYPE_CHAT)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                       gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                       environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                       application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                       kwargs.get("model", "command"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                       kwargs.get("temperature", 0.3))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                       kwargs.get("max_tokens", ""))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
-                                       kwargs.get("seed", ""))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                       kwargs.get("frequency_penalty", 0.0))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                       kwargs.get("presence_penalty", 0.0))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
-                                       False)
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
-                                       response.response_id)
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                       response.response_id)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                       response.meta["billed_units"]["input_tokens"])
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                       response.meta["billed_units"]["output_tokens"])
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                       response.meta["billed_units"]["input_tokens"] +
-                                       response.meta["billed_units"]["output_tokens"])
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                       cost)
-                    if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                           kwargs.get("message", ""))
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                           response.text)
-
-                    # Return original response
-                    return response
-
-                except Exception as e:
-                    handle_exception(span, e)
-                    logger.error("Error in trace creation: %s", e)
-
-                    # Return original response
-                    return response
+                # Return original response
+                return response
 
             except Exception as e:
                 handle_exception(span, e)
-                raise e
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
 
     return wrapper
 
@@ -255,74 +243,69 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                 # Placeholder for aggregating streaming response
                 llmresponse = ""
 
+                # Loop through streaming events capturing relevant details
+                for event in wrapped(*args, **kwargs):
+                    # Collect message IDs and aggregated response from events
+                    if event.event_type == "stream-end":
+                        llmresponse = event.response.text
+                        response_id = event.response.response_id
+                        prompt_tokens = event.response.meta["billed_units"]["input_tokens"]
+                        completion_tokens = event.response.meta["billed_units"]["output_tokens"]
+                        finish_reason = event.finish_reason
+                    yield event
+
+                # Handling exception ensure observability without disrupting operation
                 try:
-                    # Loop through streaming events capturing relevant details
-                    for event in wrapped(*args, **kwargs):
-                        # Collect message IDs and aggregated response from events
-                        if event.event_type == "stream-end":
-                            llmresponse = event.response.text
-                            response_id = event.response.response_id
-                            prompt_tokens = event.response.meta["billed_units"]["input_tokens"]
-                            completion_tokens = event.response.meta["billed_units"]["output_tokens"]
-                            finish_reason = event.finish_reason
-                        yield event
+                    # Calculate cost of the operation
+                    cost = get_chat_model_cost(kwargs.get("model", "command"),
+                                                pricing_info, prompt_tokens, completion_tokens)
 
-                    # Handling exception ensure observability without disrupting operation
-                    try:
-                        # Calculate cost of the operation
-                        cost = get_chat_model_cost(kwargs.get("model", "command"),
-                                                   pricing_info, prompt_tokens, completion_tokens)
-
-                        # Set Span attributes
-                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                           SemanticConvetion.GEN_AI_SYSTEM_COHERE)
-                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                           SemanticConvetion.GEN_AI_TYPE_CHAT)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                           gen_ai_endpoint)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                           environment)
-                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                           application_name)
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                           kwargs.get("model", "command"))
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                           kwargs.get("temperature", 0.3))
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                           kwargs.get("max_tokens", ""))
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
-                                           kwargs.get("seed", ""))
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                           kwargs.get("frequency_penalty", 0.0))
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                           kwargs.get("presence_penalty", 0.0))
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
-                                           True)
-                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
-                                           response_id)
-                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                           finish_reason)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                           prompt_tokens)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                           completion_tokens)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                           prompt_tokens + completion_tokens)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                           cost)
-                        if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                               kwargs.get("message", ""))
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                               llmresponse)
-
-                    except Exception as e:
-                        handle_exception(span, e)
-                        logger.error("Error in trace creation: %s", e)
+                    # Set Span attributes
+                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                        SemanticConvetion.GEN_AI_SYSTEM_COHERE)
+                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                        SemanticConvetion.GEN_AI_TYPE_CHAT)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                        gen_ai_endpoint)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                        environment)
+                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                        application_name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                        kwargs.get("model", "command"))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
+                                        kwargs.get("temperature", 0.3))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
+                                        kwargs.get("max_tokens", ""))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
+                                        kwargs.get("seed", ""))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+                                        kwargs.get("frequency_penalty", 0.0))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
+                                        kwargs.get("presence_penalty", 0.0))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                                        True)
+                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                                        response_id)
+                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                                        finish_reason)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                        prompt_tokens)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                        completion_tokens)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                        prompt_tokens + completion_tokens)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                        cost)
+                    if trace_content:
+                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                            kwargs.get("message", ""))
+                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                            llmresponse)
 
                 except Exception as e:
                     handle_exception(span, e)
-                    raise e
+                    logger.error("Error in trace creation: %s", e)
 
         return stream_generator()
 

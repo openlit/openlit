@@ -54,35 +54,31 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         errors are handled and logged appropriately.
         """
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            response = wrapped(*args, **kwargs)
+
             try:
-                response = wrapped(*args, **kwargs)
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    "langchain")
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                    gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_RETRIEVAL_SOURCE,
+                                    response[0].metadata["source"])
 
-                try:
-                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                       "langchain")
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                       gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                       environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                       SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                       application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_RETRIEVAL_SOURCE,
-                                       response[0].metadata["source"])
-
-                    return response
-
-                except Exception as e:
-                    handle_exception(span, e)
-                    logger.error("Error in trace creation: %s", e)
-
-                    # Return original response
-                    return response
+                # Return original response
+                return response
 
             except Exception as e:
                 handle_exception(span, e)
-                raise e
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
 
     return wrapper
 
@@ -130,36 +126,31 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            response = wrapped(*args, **kwargs)
+
             try:
-                response = wrapped(*args, **kwargs)
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                    gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_HUB_OWNER,
+                                    response.metadata["lc_hub_owner"])
+                span.set_attribute(SemanticConvetion.GEN_AI_HUB_REPO,
+                                    response.metadata["lc_hub_repo"])
 
-                try:
-                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                       SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                       gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                       environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                       SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                       application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_HUB_OWNER,
-                                       response.metadata["lc_hub_owner"])
-                    span.set_attribute(SemanticConvetion.GEN_AI_HUB_REPO,
-                                       response.metadata["lc_hub_repo"])
-
-                    return response
-
-                except Exception as e:
-                    handle_exception(span, e)
-                    logger.error("Error in trace creation: %s", e)
-
-                    # Return original response
-                    return response
+                return response
 
             except Exception as e:
                 handle_exception(span, e)
-                raise e
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
 
     return wrapper
