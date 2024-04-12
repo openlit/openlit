@@ -6,8 +6,8 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlmt.anthropic.anthropic import messages
-from openlmt.anthropic.async_anthropic import async_messages
+from openlmt.instrumentation.anthropic.anthropic import messages
+from openlmt.instrumentation.anthropic.async_anthropic import async_messages
 
 _instruments = ("anthropic >= 0.21.0",)
 

@@ -5,7 +5,7 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlmt.pinecone.pinecone import general_wrap
+from openlmt.instrumentation.pinecone.pinecone import general_wrap
 
 _instruments = ("pinecone-client >= 2.2.0",)
 

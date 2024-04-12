@@ -5,7 +5,7 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlmt.cohere.cohere import chat, chat_stream, embed
+from openlmt.instrumentation.cohere.cohere import chat, chat_stream, embed
 
 _instruments = ("cohere >= 5.0.0",)
 

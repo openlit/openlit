@@ -5,7 +5,7 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlmt.transformers.transformers import text_wrap
+from openlmt.instrumentation.transformers.transformers import text_wrap
 
 _instruments = ("transformers >= 4.39.3",)
 

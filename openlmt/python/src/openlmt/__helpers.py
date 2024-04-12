@@ -8,7 +8,6 @@ import requests
 import tiktoken
 from opentelemetry.trace import Status, StatusCode
 
-
 # Set up logging
 logger = logging.getLogger(__name__)
 

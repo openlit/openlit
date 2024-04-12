@@ -7,18 +7,18 @@ from typing import Optional, Dict, Any
 import logging
 
 # Import internal modules for setting up tracing and fetching pricing info.
-from .otel.__tracing import setup_tracing
-from .__helpers import fetch_pricing_info
+from openlmt.otel.__tracing import setup_tracing
+from openlmt.__helpers import fetch_pricing_info
 
 # Instrumentors for various large language models.
-from .openai import OpenAIInstrumentor
-from .anthropic import AnthropicInstrumentor
-from .cohere import CohereInstrumentor
-from .mistral import MistralInstrumentor
-from .langchain import LangChainInstrumentor
-from .chroma import ChromaInstrumentor
-from .pinecone import PineconeInstrumentor
-from .transformers import TransformersInstrumentor
+from openlmt.instrumentation.openai import OpenAIInstrumentor
+from openlmt.instrumentation.anthropic import AnthropicInstrumentor
+from openlmt.instrumentation.cohere import CohereInstrumentor
+from openlmt.instrumentation.mistral import MistralInstrumentor
+from openlmt.instrumentation.langchain import LangChainInstrumentor
+from openlmt.instrumentation.chroma import ChromaInstrumentor
+from openlmt.instrumentation.pinecone import PineconeInstrumentor
+from openlmt.instrumentation.transformers import TransformersInstrumentor
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)

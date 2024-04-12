@@ -5,8 +5,8 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlmt.mistral.mistral import chat, chat_stream, embeddings
-from openlmt.mistral.async_mistral import async_chat, async_chat_stream, async_embeddings
+from openlmt.instrumentation.mistral.mistral import chat, chat_stream, embeddings
+from openlmt.instrumentation.mistral.async_mistral import async_chat, async_chat_stream, async_embeddings
 
 _instruments = ("mistralai >= 0.1.0",)
 
