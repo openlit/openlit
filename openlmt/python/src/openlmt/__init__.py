@@ -107,7 +107,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
 
     # Check for invalid instrumentor names
-    valid_instruments = { 
+    valid_instruments = {
         "openai", "anthropic", "langchain",
         "cohere", "mistral", "chroma",
         "pinecone"
