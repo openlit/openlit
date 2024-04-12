@@ -6,6 +6,8 @@ This module has functions to calculate model costs based on tokens and to fetch 
 import logging
 import requests
 import tiktoken
+from opentelemetry.trace import Status, StatusCode
+
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -122,5 +124,6 @@ def handle_exception(span,e):
     """Handles Exception when LLM Function fails or trace creation fails."""
     # Record the exception details within the span
     span.record_exception(e)
+    span.set_status(Status(StatusCode.ERROR))
     # Mark the exception as having propagated beyond expected scope
     span.set_attribute("exception.escaped", True)

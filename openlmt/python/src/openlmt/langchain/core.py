@@ -61,6 +61,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("gen_ai.type", "retrieval")
                     span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
                     span.set_attribute("gen_ai.environment", environment)
+                    span.set_attribute("gen_ai.type", "framework")
                     span.set_attribute("gen_ai.application_name", application_name)
                     span.set_attribute("gen_ai.retrieval.source", response[0].metadata["source"])
 
@@ -68,7 +69,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
+                    logger.error("Error in trace creation: %s", e)
 
                     # Return original response
                     return response
@@ -139,7 +140,7 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
+                    logger.error("Error in trace creation: %s", e)
 
                     # Return original response
                     return response

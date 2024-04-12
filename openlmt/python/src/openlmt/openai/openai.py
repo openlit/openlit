@@ -136,7 +136,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
 
                         except Exception as e:
                             handle_exception(span, e)
-                            logger.error("Error in patched message creation: %s", e)
+                            logger.error("Error in trace creation: %s", e)
 
                     except Exception as e:
                         handle_exception(span, e)
@@ -254,7 +254,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
 
                     except Exception as e:
                         handle_exception(span, e)
-                        logger.error("Error in patched message creation: %s", e)
+                        logger.error("Error in trace creation: %s", e)
 
                         # Return original response
                         return response
@@ -334,7 +334,7 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
+                    logger.error("Error in trace creation: %s", e)
 
                     # Return original response
                     return response
@@ -416,7 +416,7 @@ def finetune(gen_ai_endpoint, version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
+                    logger.error("Error in trace creation: %s", e)
 
                     # Return original response
                     return response
@@ -514,7 +514,7 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
+                    logger.error("Error in trace creation: %s", e)
 
                     # Return original response
                     return response
@@ -607,7 +607,7 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
+                    logger.error("Error in trace creation: %s", e)
 
                     # Return original response
                     return response
@@ -683,7 +683,7 @@ def audio_create(gen_ai_endpoint, version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
+                    logger.error("Error in trace creation: %s", e)
 
                     # Return original response
                     return response

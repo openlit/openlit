@@ -24,6 +24,13 @@ class ChromaInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("chromadb")
 
         wrap_function_wrapper(
+            "chromadb.db",  
+            "DB.create_collection",  
+            general_wrap("chroma.create_collection", version, environment, application_name,
+                 tracer, pricing_info, trace_content),
+        )
+
+        wrap_function_wrapper(
             "chromadb",  
             "Collection.add",  
             general_wrap("chroma.add", version, environment, application_name,

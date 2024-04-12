@@ -17,6 +17,7 @@ from .cohere import CohereInstrumentor
 from .mistral import MistralInstrumentor
 from .langchain import LangChainInstrumentor
 from .chroma import ChromaInstrumentor
+from .pinecone import PineconeInstrumentor
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
@@ -106,7 +107,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
 
     # Check for invalid instrumentor names
-    valid_instruments = {"openai", "anthropic", "langchain", "cohere", "mistral", "chroma"}
+    valid_instruments = {"openai", "anthropic", "langchain", "cohere", "mistral", "chroma", "pinecone"}
     invalid_instrumentors = set(disabled_instrumentors) - valid_instruments
     for invalid_name in invalid_instrumentors:
         logger.warning("Invalid instrumentor name detected and ignored: '%s'", invalid_name)
@@ -139,7 +140,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "cohere": CohereInstrumentor(),
             "mistral": MistralInstrumentor(),
             "langchain": LangChainInstrumentor(),
-            "chroma": ChromaInstrumentor()
+            "chroma": ChromaInstrumentor(),
+            "pinecone": PineconeInstrumentor()
         }
 
         # Initialize and instrument only the enabled instrumentors

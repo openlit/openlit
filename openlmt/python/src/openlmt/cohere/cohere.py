@@ -88,7 +88,7 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
+                    logger.error("Error in trace creation: %s", e)
 
                     # Return original response
                     return response
@@ -186,7 +186,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in patched message creation: %s", e)
+                    logger.error("Error in trace creation: %s", e)
 
                     # Return original response
                     return response
@@ -287,7 +287,7 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
 
                     except Exception as e:
                         handle_exception(span, e)
-                        logger.error("Error in patched message creation: %s", e)
+                        logger.error("Error in trace creation: %s", e)
 
                 except Exception as e:
                     handle_exception(span, e)
