@@ -75,6 +75,7 @@ class SemanticConvetion:
     GEN_AI_TYPE_IMAGE = "image"
     GEN_AI_TYPE_AUDIO = "audio"
     GEN_AI_TYPE_VECTORDB = "vectordb"
+    GEN_AI_TYPE_FRAMEWORK = "framework"
 
     GEN_AI_SYSTEM_HUGGING_FACE = "huggingface"
     GEN_AI_SYSTEM_OPENAI = "openai"
@@ -82,6 +83,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_ANTHROPIC = "anthropic"
     GEN_AI_SYSTEM_COHERE = "cohere"
     GEN_AI_SYSTEM_MISTRAL = "mistral"
+    GEN_AI_SYSTEM_LANGCHAIN = "langchain"
 
     # Vector DB
     DB_SYSTEM = "db.system"

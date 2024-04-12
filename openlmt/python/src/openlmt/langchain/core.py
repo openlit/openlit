@@ -60,14 +60,12 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 try:
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                        "langchain")
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                       "retrieval")
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                        gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                        environment)
                     span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                       "framework")
+                                       SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
                     span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                        application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_RETRIEVAL_SOURCE,
@@ -137,15 +135,13 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
 
                 try:
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                       "langchain")
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                       "retrieval")
+                                       SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                        gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                        environment)
                     span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                       "framework")
+                                       SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
                     span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                        application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_HUB_OWNER,
