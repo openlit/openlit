@@ -108,8 +108,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
 
     # Check for invalid instrumentor names
     valid_instruments = { 
-        "openai", "anthropic", "langchain", 
-        "cohere", "mistral", "chroma", 
+        "openai", "anthropic", "langchain",
+        "cohere", "mistral", "chroma",
         "pinecone"
     }
     invalid_instrumentors = set(disabled_instrumentors) - valid_instruments
