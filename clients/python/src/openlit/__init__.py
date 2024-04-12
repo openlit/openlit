@@ -23,7 +23,7 @@ from openlit.instrumentation.transformers import TransformersInstrumentor
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
 
-class openLITConfig:
+class OpenlitConfig:
     """
     A Singleton Configuration class for openLIT.
     
@@ -45,7 +45,7 @@ class openLITConfig:
     def __new__(cls):
         """Ensures that only one instance of the configuration exists."""
         if cls._instance is None:
-            cls._instance = super(openLITConfig, cls).__new__(cls)
+            cls._instance = super(OpenlitConfig, cls).__new__(cls)
             cls.reset_to_defaults()
         return cls._instance
 
@@ -119,7 +119,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
 
     try:
         # Retrieve or create the single configuration instance.
-        config = openLITConfig()
+        config = OpenlitConfig()
 
         # Setup tracing based on the provided or default configuration.
         tracer = setup_tracing(
