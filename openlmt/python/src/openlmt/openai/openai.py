@@ -342,7 +342,7 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                        gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                        environment)
                     span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                        application_name)
