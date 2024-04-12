@@ -1,4 +1,5 @@
 class SemanticConvetion:
+
     # GenAI General
     GEN_AI_ENDPOINT = "gen_ai.endpoint"
     GEN_AI_SYSTEM = "gen_ai.system"
@@ -8,6 +9,7 @@ class SemanticConvetion:
     GEN_AI_HUB_OWNER = "gen_ai.hub.owner"
     GEN_AI_HUB_REPO = "gen_ai.hub.repo"
     GEN_AI_RETRIEVAL_SOURCE = "gen_ai.retrieval.source"
+
     # GenAI Request
     GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
     GEN_AI_REQUEST_TEMPERATURE = "gen_ai.request.temperature"
@@ -32,7 +34,7 @@ class SemanticConvetion:
     GEN_AI_REQUEST_FINETUNE_BATCH_SIZE = "gen_ai.request.fine_tune_batch_size"
     GEN_AI_REQUEST_VALIDATION_FILE = "gen_ai.request.validation_file"
     GEN_AI_REQUEST_TRAINING_FILE = "gen_ai.request.training_file"
-    
+
     # GenAI Usage
     GEN_AI_USAGE_PROMPT_TOKENS = "gen_ai.usage.prompt_tokens"
     GEN_AI_USAGE_COMPLETION_TOKENS = "gen_ai.usage.completion_tokens"
