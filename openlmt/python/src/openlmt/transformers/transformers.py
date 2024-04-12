@@ -53,8 +53,11 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
         on the span based on the function's execution and response, and ensures
         errors are handled and logged appropriately.
         """
+
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             response = wrapped(*args, **kwargs)
+            # pylint: disable=protected-access
+            forward_params = instance._forward_params
 
             try:
                 if args and len(args) > 0:
@@ -64,20 +67,28 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 prompt_tokens = general_tokens(prompt)
 
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_HUGGING_FACE)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_CHAT)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, instance.model.config.name_or_path)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                   gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                   SemanticConvetion.GEN_AI_SYSTEM_HUGGING_FACE)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                   environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                   application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                   SemanticConvetion.GEN_AI_TYPE_CHAT)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                   instance.model.config.name_or_path)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                                instance._forward_params.get("temperature"))
+                                   forward_params.get("temperature"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                                instance._forward_params.get("top_p"))
+                                   forward_params.get("top_p"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                                instance._forward_params.get("max_length"))
-                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, prompt)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS, prompt_tokens)
+                                   forward_params.get("max_length"))
+                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                   prompt)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                   prompt_tokens)
 
                 i = 0
                 completion_tokens = 0
@@ -87,16 +98,21 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                     else:
                         attribute_name = SemanticConvetion.GEN_AI_CONTENT_COMPLETION
                     if i == 0:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, completion["generated_text"])
+                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                           completion["generated_text"])
                         completion_tokens += general_tokens(completion["generated_text"])
                     else:
-                        span.set_attribute(attribute_name, completion["generated_text"])
+                        span.set_attribute(attribute_name,
+                                           completion["generated_text"])
                         completion_tokens += general_tokens(completion["generated_text"])
                     i=i+1
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS, completion_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS, prompt_tokens + completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                   completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                   prompt_tokens + completion_tokens)
                 span.set_status(Status(StatusCode.OK))
 
+                # Return original response
                 return response
 
             except Exception as e:

@@ -5,7 +5,7 @@ Module for monitoring Pinecone.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from ..__helpers import handle_exception
+from openlmt.__helpers import handle_exception
 from openlmt.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -68,47 +68,74 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_VECTORDB)
-                span.set_attribute(SemanticConvetion.DB_SYSTEM, SemanticConvetion.DB_SYSTEM_PINECONE)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                   gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                   environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                   application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                   SemanticConvetion.GEN_AI_TYPE_VECTORDB)
+                span.set_attribute(SemanticConvetion.DB_SYSTEM,
+                                   SemanticConvetion.DB_SYSTEM_PINECONE)
 
                 if gen_ai_endpoint == "pinecone.create_index":
-                    span.set_attribute(SemanticConvetion.DB_OPERATION, SemanticConvetion.DB_OPERATION_CREATE_INDEX)
-                    span.set_attribute(SemanticConvetion.DB_INDEX_NAME, kwargs.get("name", ""))
-                    span.set_attribute(SemanticConvetion.DB_INDEX_DIMENSION, kwargs.get("dimensions", ""))
-                    span.set_attribute(SemanticConvetion.DB_INDEX_METRIC, kwargs.get("metric", ""))
-                    span.set_attribute(SemanticConvetion.DB_INDEX_SPEC, str(kwargs.get("spec", "")))
+                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                                       SemanticConvetion.DB_OPERATION_CREATE_INDEX)
+                    span.set_attribute(SemanticConvetion.DB_INDEX_NAME,
+                                       kwargs.get("name", ""))
+                    span.set_attribute(SemanticConvetion.DB_INDEX_DIMENSION,
+                                       kwargs.get("dimensions", ""))
+                    span.set_attribute(SemanticConvetion.DB_INDEX_METRIC,
+                                       kwargs.get("metric", ""))
+                    span.set_attribute(SemanticConvetion.DB_INDEX_SPEC,
+                                       str(kwargs.get("spec", "")))
 
                 elif gen_ai_endpoint == "pinecone.query":
-                    span.set_attribute(SemanticConvetion.DB_OPERATION, SemanticConvetion.DB_OPERATION_QUERY)
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT, str(kwargs.get("vector")))
-                    span.set_attribute(SemanticConvetion.DB_N_RESULTS, kwargs.get("top_k", ""))
-                    span.set_attribute(SemanticConvetion.DB_FILTER, str(kwargs.get("filter", "")))
-                    span.set_attribute(SemanticConvetion.DB_NAMESPACE, str(kwargs.get("namespace", "")))
+                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                                       SemanticConvetion.DB_OPERATION_QUERY)
+                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                                       str(kwargs.get("vector")))
+                    span.set_attribute(SemanticConvetion.DB_N_RESULTS,
+                                       kwargs.get("top_k", ""))
+                    span.set_attribute(SemanticConvetion.DB_FILTER,
+                                       str(kwargs.get("filter", "")))
+                    span.set_attribute(SemanticConvetion.DB_NAMESPACE,
+                                       str(kwargs.get("namespace", "")))
 
                 elif gen_ai_endpoint == "pinecone.update":
-                    span.set_attribute(SemanticConvetion.DB_OPERATION, SemanticConvetion.DB_OPERATION_UPDATE)
-                    span.set_attribute(SemanticConvetion.DB_UPDATE_ID, kwargs.get("id",""))
-                    span.set_attribute(SemanticConvetion.DB_UPDATE_VALUES, str(kwargs.get("values",[])))
-                    span.set_attribute(SemanticConvetion.DB_NAMESPACE, str(kwargs.get("namespace", "")))
-                    span.set_attribute(SemanticConvetion.DB_UPDATE_METADATA, str(kwargs.get("set_metadata", "")))
+                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                                       SemanticConvetion.DB_OPERATION_UPDATE)
+                    span.set_attribute(SemanticConvetion.DB_UPDATE_ID,
+                                       kwargs.get("id",""))
+                    span.set_attribute(SemanticConvetion.DB_UPDATE_VALUES,
+                                       str(kwargs.get("values",[])))
+                    span.set_attribute(SemanticConvetion.DB_NAMESPACE,
+                                       str(kwargs.get("namespace", "")))
+                    span.set_attribute(SemanticConvetion.DB_UPDATE_METADATA,
+                                       str(kwargs.get("set_metadata", "")))
 
                 elif gen_ai_endpoint == "pinecone.upsert":
-                    span.set_attribute(SemanticConvetion.DB_OPERATION, SemanticConvetion.DB_OPERATION_UPSERT)
+                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                                       SemanticConvetion.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("vectors")))
 
                 elif gen_ai_endpoint == "pinecone.delete":
-                    span.set_attribute(SemanticConvetion.DB_OPERATION, SemanticConvetion.DB_OPERATION_DELETE)
-                    span.set_attribute(SemanticConvetion.DB_ID_COUNT, object_count(kwargs.get("ids")))
-                    span.set_attribute(SemanticConvetion.DB_FILTER, str(kwargs.get("filter", "")))
-                    span.set_attribute(SemanticConvetion.DB_DELETE_ALL, kwargs.get("delete_all", False))
-                    span.set_attribute(SemanticConvetion.DB_NAMESPACE, kwargs.get("namespace", ""))
+                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                                       SemanticConvetion.DB_OPERATION_DELETE)
+                    span.set_attribute(SemanticConvetion.DB_ID_COUNT,
+                                       object_count(kwargs.get("ids")))
+                    span.set_attribute(SemanticConvetion.DB_FILTER,
+                                       str(kwargs.get("filter", "")))
+                    span.set_attribute(SemanticConvetion.DB_DELETE_ALL,
+                                       kwargs.get("delete_all", False))
+                    span.set_attribute(SemanticConvetion.DB_NAMESPACE,
+                                       kwargs.get("namespace", ""))
 
                 span.set_status(Status(StatusCode.OK))
 
+                # Return original response
                 return response
 
             except Exception as e:

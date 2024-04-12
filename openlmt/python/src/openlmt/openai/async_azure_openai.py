@@ -5,8 +5,8 @@ Module for monitoring Azure OpenAI API calls.
 
 import logging
 from opentelemetry.trace import SpanKind
-from ..__helpers import get_chat_model_cost, get_embed_model_cost
-from ..__helpers import get_image_model_cost, openai_tokens, handle_exception
+from openlmt.__helpers import get_chat_model_cost, get_embed_model_cost
+from openlmt.__helpers import get_image_model_cost, openai_tokens, handle_exception
 from openlmt.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -63,8 +63,8 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                         # Loop through streaming events capturing relevant details
                         async for chunk in await wrapped(*args, **kwargs):
                             # Collect message IDs and aggregated response from events
-                            # pylint: disable=line-too-long
                             if len(chunk.choices) > 0:
+                                # pylint: disable=line-too-long
                                 if hasattr(chunk.choices[0], "delta") and hasattr(chunk.choices[0].delta, "content"):
                                     content = chunk.choices[0].delta.content
                                     if content:
@@ -102,37 +102,50 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
 
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                        prompt_tokens, completion_tokens)
+                                                       prompt_tokens, completion_tokens)
 
                             # Set Span attributes
-                            span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
-                            span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_CHAT)
-                            span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
-                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response_id)
-                            span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
-                            span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
-                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, model)
+                            span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                               SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
+                            span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                               SemanticConvetion.GEN_AI_TYPE_CHAT)
+                            span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                               gen_ai_endpoint)
+                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                                               response_id)
+                            span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                                environment)
+                            span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                               application_name)
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                               model)
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
-                                                kwargs.get("user", ""))
+                                               kwargs.get("user", ""))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOOL_CHOICE,
-                                                kwargs.get("tool_choice", ""))
+                                               kwargs.get("tool_choice", ""))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                                kwargs.get("temperature", 1))
+                                               kwargs.get("temperature", 1))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                                kwargs.get("presence_penalty", 0))
+                                               kwargs.get("presence_penalty", 0))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                                kwargs.get("frequency_penalty", 0))
+                                               kwargs.get("frequency_penalty", 0))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
-                                                kwargs.get("seed", ""))
-                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, True)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS, prompt_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS, completion_tokens)
+                                               kwargs.get("seed", ""))
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                                               True)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                               prompt_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                               completion_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                                prompt_tokens + completion_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
+                                               prompt_tokens + completion_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                               cost)
                             if trace_content:
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, prompt)
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, llmresponse)
+                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                                   prompt)
+                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                                   llmresponse)
 
                         except Exception as e:
                             handle_exception(span, e)
@@ -175,51 +188,61 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                         prompt = "\n".join(formatted_messages)
 
                         # Set base span attribues
-                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
-                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_CHAT)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
-                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response.id)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
-                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, model)
+                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                           SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
+                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                           SemanticConvetion.GEN_AI_TYPE_CHAT)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                           gen_ai_endpoint)
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                                           response.id)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                           environment)
+                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                           application_name)
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                           model)
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
-                                            kwargs.get("user", ""))
+                                           kwargs.get("user", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOOL_CHOICE,
-                                            kwargs.get("tool_choice", ""))
+                                           kwargs.get("tool_choice", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                            kwargs.get("temperature", 1))
+                                           kwargs.get("temperature", 1))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                            kwargs.get("presence_penalty", 0))
+                                           kwargs.get("presence_penalty", 0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                            kwargs.get("frequency_penalty", 0))
+                                           kwargs.get("frequency_penalty", 0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
-                                            kwargs.get("seed", ""))
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, False)
+                                           kwargs.get("seed", ""))
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                                           False)
                         if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, prompt)
+                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                               prompt)
 
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                        response.usage.prompt_tokens,
-                                                        response.usage.completion_tokens)
+                                                       response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                                response.usage.prompt_tokens)
+                                               response.usage.prompt_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                                response.usage.completion_tokens)
+                                               response.usage.completion_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                                response.usage.total_tokens)
+                                               response.usage.total_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                                response.choices[0].finish_reason)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
+                                               response.choices[0].finish_reason)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                               cost)
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
                                 if trace_content:
                                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                        response.choices[0].message.content)
+                                                       response.choices[0].message.content)
 
                             # Set span attributes for when n > 0
                             else:
@@ -227,7 +250,7 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                                 while i < kwargs["n"] and trace_content is True:
                                     attribute_name = f"gen_ai.content.completion.{i}"
                                     span.set_attribute(attribute_name,
-                                                        response.choices[i].message.content)
+                                                       response.choices[i].message.content)
                                     i += 1
 
                                 # Return original response
@@ -237,18 +260,19 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                         elif "tools" in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                        response.usage.prompt_tokens,
-                                                        response.usage.completion_tokens)
+                                                       response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
                             span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                "Function called with tools")
+                                               "Function called with tools")
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                                response.usage.prompt_tokens)
+                                               response.usage.prompt_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                                response.usage.completion_tokens)
+                                               response.usage.completion_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                                response.usage.total_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
+                                               response.usage.total_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                               cost)
 
                         # Return original response
                         return response
@@ -331,42 +355,57 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                             prompt = kwargs.get("prompt", "")
 
                             # Calculate tokens using input prompt and aggregated response
-                            prompt_tokens = openai_tokens(prompt, "gpt-3.5-turbo")
-                            completion_tokens = openai_tokens(llmresponse, "gpt-3.5-turbo")
+                            prompt_tokens = openai_tokens(prompt,
+                                                          "gpt-3.5-turbo")
+                            completion_tokens = openai_tokens(llmresponse,
+                                                              "gpt-3.5-turbo")
 
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                        prompt_tokens, completion_tokens)
+                                                       prompt_tokens, completion_tokens)
 
                             # Set Span attributes
-                            span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
-                            span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_CHAT)
-                            span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
-                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response_id)
-                            span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
-                            span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
-                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, model)
+                            span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                               SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
+                            span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                               SemanticConvetion.GEN_AI_TYPE_CHAT)
+                            span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                               gen_ai_endpoint)
+                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                                               response_id)
+                            span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                               environment)
+                            span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                               application_name)
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                               model)
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
-                                                kwargs.get("user", ""))
+                                               kwargs.get("user", ""))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOOL_CHOICE,
-                                                kwargs.get("tool_choice", ""))
+                                               kwargs.get("tool_choice", ""))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                                kwargs.get("temperature", 1))
+                                               kwargs.get("temperature", 1))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                                kwargs.get("presence_penalty", 0))
+                                               kwargs.get("presence_penalty", 0))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                                kwargs.get("frequency_penalty", 0))
+                                               kwargs.get("frequency_penalty", 0))
                             span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
-                                                kwargs.get("seed", ""))
-                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, True)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS, prompt_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS, completion_tokens)
+                                               kwargs.get("seed", ""))
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                                               True)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                               prompt_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                               completion_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                                prompt_tokens + completion_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
+                                               prompt_tokens + completion_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                               cost)
                             if trace_content:
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, prompt)
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, llmresponse)
+                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                                   prompt)
+                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                                   llmresponse)
 
                         except Exception as e:
                             handle_exception(span, e)
@@ -390,60 +429,69 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                         model = "azure_" + response.model
 
                         # Set base span attribues
-                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
-                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_CHAT)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
-                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response.id)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
-                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                           SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
+                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                           SemanticConvetion.GEN_AI_TYPE_CHAT)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                           gen_ai_endpoint)
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                                           response.id)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                           environment)
+                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                           application_name)
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                            kwargs.get("model", "gpt-3.5-turbo"))
+                                           kwargs.get("model", "gpt-3.5-turbo"))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
-                                            kwargs.get("user", ""))
+                                           kwargs.get("user", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOOL_CHOICE,
-                                            kwargs.get("tool_choice", ""))
+                                           kwargs.get("tool_choice", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                            kwargs.get("temperature", 1))
+                                           kwargs.get("temperature", 1))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                            kwargs.get("presence_penalty", 0))
+                                          kwargs.get("presence_penalty", 0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                            kwargs.get("frequency_penalty", 0))
+                                           kwargs.get("frequency_penalty", 0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
-                                            kwargs.get("seed", ""))
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, False)
+                                           kwargs.get("seed", ""))
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                                           False)
                         if trace_content:
                             span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                                kwargs.get("prompt", ""))
+                                               kwargs.get("prompt", ""))
 
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                        response.usage.prompt_tokens,
-                                                        response.usage.completion_tokens)
+                                                       response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                                response.usage.prompt_tokens)
+                                               response.usage.prompt_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                                response.usage.completion_tokens)
+                                               response.usage.completion_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                                response.usage.total_tokens)
+                                               response.usage.total_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                                response.choices[0].finish_reason)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
+                                               response.choices[0].finish_reason)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                               cost)
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
                                 if trace_content:
                                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                        response.choices[0].text)
+                                                       response.choices[0].text)
 
                             # Set span attributes for when n > 0
                             else:
                                 i = 0
                                 while i < kwargs["n"] and trace_content is True:
                                     attribute_name = f"gen_ai.content.completion.{i}"
-                                    span.set_attribute(attribute_name, response.choices[i].text)
+                                    span.set_attribute(attribute_name,
+                                                       response.choices[i].text)
                                     i += 1
                                 return response
 
@@ -451,18 +499,19 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                         elif "tools" in kwargs:
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(model, pricing_info,
-                                                        response.usage.prompt_tokens,
-                                                        response.usage.completion_tokens)
+                                                       response.usage.prompt_tokens,
+                                                       response.usage.completion_tokens)
 
                             span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                "Function called with tools")
+                                               "Function called with tools")
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                                response.usage.prompt_tokens)
+                                               response.usage.prompt_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                                response.usage.completion_tokens)
+                                               response.usage.completion_tokens)
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                                response.usage.total_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
+                                               response.usage.total_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                               cost)
 
                         # Return original response
                         return response
@@ -523,28 +572,35 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
                 try:
                     # Calculate cost of the operation
                     cost = get_embed_model_cost("azure_" + response.model,
-                                                 pricing_info, response.usage.prompt_tokens)
+                                                pricing_info, response.usage.prompt_tokens)
 
                     # Set Span attributes
-                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, "azure_" + response.model)
+                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                       SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
+                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                       SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                       gen_ai_endpoint)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                       environment)
+                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                       application_name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                       "azure_" + response.model)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_FORMAT,
-                                        kwargs.get("encoding_format", "float"))
+                                       kwargs.get("encoding_format", "float"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
-                                        kwargs.get("dimensions", ""))
+                                       kwargs.get("dimensions", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
-                                        kwargs.get("user", ""))
+                                       kwargs.get("user", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                        response.usage.prompt_tokens)
+                                       response.usage.prompt_tokens)
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                        response.usage.total_tokens)
+                                       response.usage.total_tokens)
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, kwargs.get("input", ""))
+                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                           kwargs.get("input", ""))
 
                     # Return original response
                     return response
@@ -617,32 +673,42 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
 
                     for items in response.data:
                         # Set Span attributes
-                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
-                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_IMAGE)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
-                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response.created)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
-                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                           SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
+                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                           SemanticConvetion.GEN_AI_TYPE_IMAGE)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                           gen_ai_endpoint)
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                                           response.created)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                           environment)
+                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                           application_name)
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                            "azure_" + kwargs.get("model", "dall-e-3"))
+                                           "azure_" + kwargs.get("model", "dall-e-3"))
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
-                                            kwargs.get("size", "1024x1024"))
+                                           kwargs.get("size", "1024x1024"))
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY,
-                                            kwargs.get("quality", "standard"))
+                                           kwargs.get("quality", "standard"))
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_STYLE,
-                                            kwargs.get("style", "vivid"))
+                                           kwargs.get("style", "vivid"))
                         span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_REVISED_PROMPT,
-                                            items.revised_prompt if response.revised_prompt else "")
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER, kwargs.get("user", ""))
+                                           items.revised_prompt if response.revised_prompt else "")
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
+                                           kwargs.get("user", ""))
                         if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, kwargs.get("prompt", ""))
+                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                               kwargs.get("prompt", ""))
 
                             attribute_name = f"gen_ai.response.image.{images_count}"
-                            span.set_attribute(attribute_name, getattr(items, image))
+                            span.set_attribute(attribute_name,
+                                               getattr(items, image))
 
                         images_count+=1
 
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, len(response.data) * cost)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                       len(response.data) * cost)
 
                     # Return original response
                     return response
