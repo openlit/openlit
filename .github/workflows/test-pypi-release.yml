@@ -1,4 +1,4 @@
-name: Test Release OpenLMT Python
+name: Test Release openLIT Python
 
 on:
   workflow_dispatch:
@@ -19,27 +19,27 @@ jobs:
         python-version: '3.x'
     
     - name: Install dependencies
-      working-directory: openlmt/python
+      working-directory: clients/python
       run: |
         python -m pip install --upgrade pip
         pip install build
     
     - name: Remove Main pyproject.toml from repository
-      working-directory: openlmt/python
+      working-directory: clients/python
       run: rm pyproject.toml
 
     - name: Create a new pyproject.toml
-      working-directory: openlmt/python
+      working-directory: clients/python
       run: |
         cat <<EOF > pyproject.toml
         [tool.poetry]
-        name = "openlmt"
+        name = "openlit"
         version = "0.0.${{ github.run_number }}"
         description = "OpenTelemetry-native Python library for Automatic Instrumentation of LLM Applications"
         authors = ["Doku Labs"]
-        repository = "https://github.com/dokulabs/doku/tree/main/openlmt/python"
+        repository = "https://github.com/dokulabs/doku/tree/main/clients/python"
         readme = "README.md"
-        homepage = "https://github.com/dokulabs/doku/tree/main/openlmt/python"
+        homepage = "https://github.com/dokulabs/doku/tree/main/clients/python"
         keywords = ["OpenTelemetry", "llm", "tracing", "openai", "anthropic", "claude", "cohere", "llm monitoring", "observability", "monitoring", "gpt", "Generative AI", "chatGPT"]
 
         [tool.poetry.dependencies]
@@ -60,7 +60,7 @@ jobs:
         EOF
     
     - name: Build package
-      working-directory: openlmt/python
+      working-directory: clients/python
       run: python -m build
     
     - name: Publish package
@@ -69,4 +69,4 @@ jobs:
         user: __token__
         repository_url: https://test.pypi.org/legacy/
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        packages-dir: openlmt/python
+        packages-dir: clients/python

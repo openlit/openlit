@@ -9,10 +9,10 @@ updates:
     schedule:
       interval: "weekly"
   - package-ecosystem: "pip"
-    directory: "/openlmt/python" 
+    directory: "/clients/python" 
     schedule:
       interval: "weekly"
   - package-ecosystem: "pip"
-    directory: "/openlmt/python/tests/" 
+    directory: "/clients/python/tests/" 
     schedule:
       interval: "weekly"
