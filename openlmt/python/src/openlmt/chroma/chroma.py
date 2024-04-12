@@ -99,7 +99,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("db.query.filter", str(kwargs.get("where", "")))
                     span.set_attribute("db.query.where_document",
                                        str(kwargs.get("where_document", "")))
-                
+
                 elif gen_ai_endpoint == "chroma.update":
                     span.set_attribute("db.operation", "update")
                     span.set_attribute("db.update.vector_count",
@@ -110,7 +110,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        object_count(kwargs.get("ids")))
                     span.set_attribute("db.update.documents_count",
                                        object_count(kwargs.get("documents")))
-                
+
                 elif gen_ai_endpoint == "chroma.upsert":
                     span.set_attribute("db.operation", "upsert")
                     span.set_attribute("db.upsert.vector_count",
@@ -128,7 +128,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        object_count(kwargs.get("ids")))
                     span.set_attribute("db.delete.filter", str(kwargs.get("where", "")))
                     span.set_attribute("db.delete.delete_all", kwargs.get("delete_all", False))
-                    span.set_attribute("db.delete.where_document", str(kwargs.get("where_document", "")))
+                    span.set_attribute("db.delete.where_document",
+                                       str(kwargs.get("where_document", "")))
 
                 elif gen_ai_endpoint == "chroma.peek":
                     span.set_attribute("db.operation", "peek")

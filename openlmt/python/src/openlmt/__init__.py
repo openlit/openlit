@@ -107,7 +107,11 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
 
     # Check for invalid instrumentor names
-    valid_instruments = {"openai", "anthropic", "langchain", "cohere", "mistral", "chroma", "pinecone"}
+    valid_instruments = { 
+        "openai", "anthropic", "langchain", 
+        "cohere", "mistral", "chroma", 
+        "pinecone"
+    }
     invalid_instrumentors = set(disabled_instrumentors) - valid_instruments
     for invalid_name in invalid_instrumentors:
         logger.warning("Invalid instrumentor name detected and ignored: '%s'", invalid_name)
