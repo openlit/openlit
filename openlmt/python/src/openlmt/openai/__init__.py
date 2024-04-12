@@ -7,13 +7,13 @@ from wrapt import wrap_function_wrapper
 
 from openlmt.openai.openai import chat_completions, embedding, finetune
 from openlmt.openai.openai import image_generate, image_variatons, audio_create
-from openlmt.openai..async_openai import async_chat_completions, async_embedding, async_finetune
-from openlmt.openai..async_openai import async_image_generate, async_image_variatons, async_audio_create
+from openlmt.openai.async_openai import async_chat_completions, async_embedding, async_finetune
+from openlmt.openai.async_openai import async_image_generate, async_image_variatons, async_audio_create
 
-from openlmt.openai..azure_openai import azure_chat_completions, azure_completions
-from openlmt.openai..azure_openai import azure_image_generate, azure_embedding
-from openlmt.openai..async_azure_openai import azure_async_chat_completions, azure_async_completions
-from openlmt.openai..async_azure_openai import azure_async_image_generate, azure_async_embedding
+from openlmt.openai.azure_openai import azure_chat_completions, azure_completions
+from openlmt.openai.azure_openai import azure_image_generate, azure_embedding
+from openlmt.openai.async_azure_openai import azure_async_chat_completions, azure_async_completions
+from openlmt.openai.async_azure_openai import azure_async_image_generate, azure_async_embedding
 
 _instruments = ("openai >= 0.3.11",)
 
