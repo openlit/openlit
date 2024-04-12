@@ -5,7 +5,7 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from .chroma import general_wrap
+from openlmt.chroma.chroma import general_wrap
 
 _instruments = ("chromadb >= 0.4.0",)
 

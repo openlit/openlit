@@ -6,7 +6,7 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from .core import general_wrap, hub
+from openlmt.langchain.core import general_wrap, hub
 
 _instruments = ("langchain >= 0.1.1", "langchain-openai >= 0.1.1",
                 "langchain-core > 0.1.1", "langchain-community >= 0.0.31")
