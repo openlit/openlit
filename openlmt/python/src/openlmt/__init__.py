@@ -18,6 +18,7 @@ from .mistral import MistralInstrumentor
 from .langchain import LangChainInstrumentor
 from .chroma import ChromaInstrumentor
 from .pinecone import PineconeInstrumentor
+from .transformers import TransformersInstrumentor
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
@@ -110,7 +111,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     valid_instruments = {
         "openai", "anthropic", "langchain",
         "cohere", "mistral", "chroma",
-        "pinecone"
+        "pinecone", "transformers"
     }
     invalid_instrumentors = set(disabled_instrumentors) - valid_instruments
     for invalid_name in invalid_instrumentors:
@@ -145,7 +146,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "mistral": MistralInstrumentor(),
             "langchain": LangChainInstrumentor(),
             "chroma": ChromaInstrumentor(),
-            "pinecone": PineconeInstrumentor()
+            "pinecone": PineconeInstrumentor(),
+            "transformers": TransformersInstrumentor()
         }
 
         # Initialize and instrument only the enabled instrumentors

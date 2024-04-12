@@ -6,6 +6,7 @@ Module for monitoring Pinecone.
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from ..__helpers import handle_exception
+from openlmt.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -67,10 +68,10 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                span.set_attribute("gen_ai.environment", environment)
-                span.set_attribute("gen_ai.application_name", application_name)
-                span.set_attribute("gen_ai.type", "vectordb")
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE, "vectordb")
                 span.set_attribute("db.system", "pinecone")
 
                 if gen_ai_endpoint == "pinecone.create_index":

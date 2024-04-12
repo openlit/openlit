@@ -21,7 +21,7 @@ class CohereInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
         trace_content = kwargs.get("trace_content")
-        version = importlib.metadata.version("mistralai")
+        version = importlib.metadata.version("cohere")
 
         wrap_function_wrapper(
             "cohere.client",  

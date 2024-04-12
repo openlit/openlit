@@ -6,6 +6,7 @@ Module for monitoring Langchain applications.
 import logging
 from opentelemetry.trace import SpanKind
 from ..__helpers import handle_exception
+from openlmt.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -57,13 +58,13 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 response = wrapped(*args, **kwargs)
 
                 try:
-                    span.set_attribute("gen_ai.system", "langchain")
-                    span.set_attribute("gen_ai.type", "retrieval")
-                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                    span.set_attribute("gen_ai.environment", environment)
-                    span.set_attribute("gen_ai.type", "framework")
-                    span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.retrieval.source", response[0].metadata["source"])
+                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, "langchain")
+                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE, "retrieval")
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE, "framework")
+                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_RETRIEVAL_SOURCE, response[0].metadata["source"])
 
                     return response
 
@@ -128,13 +129,13 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
                 response = wrapped(*args, **kwargs)
 
                 try:
-                    span.set_attribute("gen_ai.system", "langchain")
-                    span.set_attribute("gen_ai.type", "retrieval")
-                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                    span.set_attribute("gen_ai.environment", environment)
-                    span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.hub.owner", response.metadata["lc_hub_owner"])
-                    span.set_attribute("gen_ai.hub.repo", response.metadata["lc_hub_repo"])
+                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, "langchain")
+                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE, "retrieval")
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_HUB_OWNER, response.metadata["lc_hub_owner"])
+                    span.set_attribute(SemanticConvetion.GEN_AI_HUB_REPO, response.metadata["lc_hub_repo"])
 
                     return response
 

@@ -31,6 +31,23 @@ def openai_tokens(text, model):
     num_tokens = len(encoding.encode(text))
     return num_tokens
 
+def general_tokens(text):
+    """
+    Calculate the number of tokens a given text would take up.
+    
+    Args:
+        text (str): The input text to be encoded.
+        model (str): The model identifier used for encoding.
+        
+    Returns:
+        int: The number of tokens the text is encoded into.
+    """
+
+    encoding = tiktoken.get_encoding("gpt2")
+
+    num_tokens = len(encoding.encode(text))
+    return num_tokens
+
 def get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens):
     """
     Retrieve the cost of processing for a given model based on prompt and tokens.
@@ -125,5 +142,3 @@ def handle_exception(span,e):
     # Record the exception details within the span
     span.record_exception(e)
     span.set_status(Status(StatusCode.ERROR))
-    # Mark the exception as having propagated beyond expected scope
-    span.set_attribute("exception.escaped", True)

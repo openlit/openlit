@@ -6,6 +6,7 @@ Module for monitoring Anthropic API calls.
 import logging
 from opentelemetry.trace import SpanKind
 from ..__helpers import get_chat_model_cost, handle_exception
+from openlmt.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -102,32 +103,32 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                                 pricing_info, prompt_tokens, completion_tokens)
 
                             # Set Span attributes
-                            span.set_attribute("gen_ai.system", "anthropic")
-                            span.set_attribute("gen_ai.type", "chat")
-                            span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                            span.set_attribute("gen_ai.response.id", response_id)
-                            span.set_attribute("gen_ai.environment", environment)
-                            span.set_attribute("gen_ai.application_name", application_name)
-                            span.set_attribute("gen_ai.request.model",
+                            span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC)
+                            span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_CHAT)
+                            span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response_id)
+                            span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                            span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                                 kwargs.get("model", "claude-3-sonnet-20240229"))
-                            span.set_attribute("gen_ai.request.max_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
                                                 kwargs.get("max_tokens", ""))
-                            span.set_attribute("gen_ai.request.is_stream", True)
-                            span.set_attribute("gen_ai.request.temperature",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, True)
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
                                                 kwargs.get("temperature", 1.0))
-                            span.set_attribute("gen_ai.request.top_p",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
                                                 kwargs.get("top_p", ""))
-                            span.set_attribute("gen_ai.request.top_k",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
                                                 kwargs.get("top_k", ""))
-                            span.set_attribute("gen_ai.response.finish_reason", finish_reason)
-                            span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON, finish_reason)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS, prompt_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS, completion_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                                 prompt_tokens + completion_tokens)
-                            span.set_attribute("gen_ai.usage.cost", cost)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
                             if trace_content:
-                                span.set_attribute("gen_ai.content.prompt", prompt)
-                                span.set_attribute("gen_ai.content.completion", llmresponse)
+                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, prompt)
+                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, llmresponse)
 
                         except Exception as e:
                             handle_exception(span, e)
@@ -171,37 +172,37 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                                                     response.usage.output_tokens)
 
                         # Set Span attribues
-                        span.set_attribute("gen_ai.system", "anthropic")
-                        span.set_attribute("gen_ai.type", "chat")
-                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                        span.set_attribute("gen_ai.response.id", response.id)
-                        span.set_attribute("gen_ai.environment", environment)
-                        span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request.model",
+                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC)
+                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_CHAT)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response.id)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                             kwargs.get("model", "claude-3-sonnet-20240229"))
-                        span.set_attribute("gen_ai.request.max_tokens",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
                                             kwargs.get("max_tokens", ""))
-                        span.set_attribute("gen_ai.request.is_stream", False)
-                        span.set_attribute("gen_ai.request.temperature",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, False)
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
                                             kwargs.get("temperature", 1.0))
-                        span.set_attribute("gen_ai.request.top_p",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
                                             kwargs.get("top_p", ""))
-                        span.set_attribute("gen_ai.request.top_k",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
                                             kwargs.get("top_k", ""))
-                        span.set_attribute("gen_ai.response.finish_reason",
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                             response.stop_reason)
-                        span.set_attribute("gen_ai.usage.prompt_tokens",
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                             response.usage.input_tokens)
-                        span.set_attribute("gen_ai.usage.completion_tokens",
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
                                             response.usage.output_tokens)
-                        span.set_attribute("gen_ai.usage.total_tokens",
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                             response.usage.input_tokens +
                                             response.usage.output_tokens)
-                        span.set_attribute("gen_ai.usage.cost", cost)
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
                         if trace_content:
-                            span.set_attribute("gen_ai.content.prompt", prompt)
+                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, prompt)
                             # pylint: disable=line-too-long
-                            span.set_attribute("gen_ai.content.completion", response.content[0].text if response.content else "")
+                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response.content[0].text if response.content else "")
 
                         # Return original response
                         return response

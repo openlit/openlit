@@ -7,6 +7,7 @@ import logging
 from opentelemetry.trace import SpanKind
 from ..__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_model_cost
 from ..__helpers import get_image_model_cost, openai_tokens, handle_exception
+from openlmt.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -103,36 +104,36 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                                                        completion_tokens)
 
                             # Set Span attributes
-                            span.set_attribute("gen_ai.system", "openai")
-                            span.set_attribute("gen_ai.type", "chat")
-                            span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                            span.set_attribute("gen_ai.response.id", response_id)
-                            span.set_attribute("gen_ai.environment", environment)
-                            span.set_attribute("gen_ai.application_name", application_name)
-                            span.set_attribute("gen_ai.request.model",
+                            span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                            span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_CHAT)
+                            span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response_id)
+                            span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                            span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                                 kwargs.get("model", "gpt-3.5-turbo"))
-                            span.set_attribute("gen_ai.request.user",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                                 kwargs.get("user", ""))
-                            span.set_attribute("gen_ai.request.top_p",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
                                                 kwargs.get("top_p", 1))
-                            span.set_attribute("gen_ai.request.max_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
                                                 kwargs.get("max_tokens", ""))
-                            span.set_attribute("gen_ai.request.temperature",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
                                                 kwargs.get("temperature", 1))
-                            span.set_attribute("gen_ai.request.presence_penalty",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
                                                 kwargs.get("presence_penalty", 0))
-                            span.set_attribute("gen_ai.request.frequency_penalty",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
                                                 kwargs.get("frequency_penalty", 0))
-                            span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
-                            span.set_attribute("gen_ai.request.is_stream", True)
-                            span.set_attribute("gen_ai.usage.prompt_tokens", prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens", completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED, kwargs.get("seed", ""))
+                            span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, True)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS, prompt_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS, completion_tokens)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                                 prompt_tokens + completion_tokens)
-                            span.set_attribute("gen_ai.usage.cost", cost)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
                             if trace_content:
-                                span.set_attribute("gen_ai.content.prompt", prompt)
-                                span.set_attribute("gen_ai.content.completion", llmresponse)
+                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, prompt)
+                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, llmresponse)
 
                         except Exception as e:
                             handle_exception(span, e)
@@ -172,30 +173,30 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                         prompt = "\n".join(formatted_messages)
 
                         # Set base span attribues
-                        span.set_attribute("gen_ai.system", "openai")
-                        span.set_attribute("gen_ai.type", "chat")
-                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                        span.set_attribute("gen_ai.response.id", response.id)
-                        span.set_attribute("gen_ai.environment", environment)
-                        span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request.model",
+                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_CHAT)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response.id)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                             kwargs.get("model", "gpt-3.5-turbo"))
-                        span.set_attribute("gen_ai.request.top_p",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
                                             kwargs.get("top_p", 1))
-                        span.set_attribute("gen_ai.request.max_tokens",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
                                             kwargs.get("max_tokens", ""))
-                        span.set_attribute("gen_ai.request.user",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                             kwargs.get("user", ""))
-                        span.set_attribute("gen_ai.request.temperature",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
                                             kwargs.get("temperature", 1))
-                        span.set_attribute("gen_ai.request.presence_penalty",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
                                             kwargs.get("presence_penalty", 0))
-                        span.set_attribute("gen_ai.request.frequency_penalty",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
                                             kwargs.get("frequency_penalty", 0))
-                        span.set_attribute("gen_ai.request.seed", kwargs.get("seed", ""))
-                        span.set_attribute("gen_ai.request.is_stream", False)
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED, kwargs.get("seed", ""))
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, False)
                         if trace_content:
-                            span.set_attribute("gen_ai.content.prompt", prompt)
+                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, prompt)
 
                         # Set span attributes when tools is not passed to the function call
                         if "tools" not in kwargs:
@@ -204,20 +205,20 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                                                         pricing_info, response.usage.prompt_tokens,
                                                         response.usage.completion_tokens)
 
-                            span.set_attribute("gen_ai.usage.prompt_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                                 response.usage.prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
                                                 response.usage.completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                                 response.usage.total_tokens)
-                            span.set_attribute("gen_ai.response.finish_reason",
+                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                                 response.choices[0].finish_reason)
-                            span.set_attribute("gen_ai.usage.cost", cost)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
 
                             # Set span attributes for when n = 1 (default)
                             if "n" not in kwargs or kwargs["n"] == 1:
                                 if trace_content:
-                                    span.set_attribute("gen_ai.content.completion",
+                                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                                         response.choices[0].message.content)
 
                             # Set span attributes for when n > 0
@@ -239,15 +240,15 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                                                         pricing_info, response.usage.prompt_tokens,
                                                         response.usage.completion_tokens)
 
-                            span.set_attribute("gen_ai.content.completion",
+                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                                 "Function called with tools")
-                            span.set_attribute("gen_ai.usage.prompt_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                                 response.usage.prompt_tokens)
-                            span.set_attribute("gen_ai.usage.completion_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
                                                 response.usage.completion_tokens)
-                            span.set_attribute("gen_ai.usage.total_tokens",
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                                 response.usage.total_tokens)
-                            span.set_attribute("gen_ai.usage.cost", cost)
+                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
 
                         # Return original response
                         return response
@@ -311,23 +312,23 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                                                 pricing_info, response.usage.prompt_tokens)
 
                     # Set Span attributes
-                    span.set_attribute("gen_ai.system", "openai")
-                    span.set_attribute("gen_ai.type", "embedding")
-                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                    span.set_attribute("gen_ai.environment", environment)
-                    span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request.model",
+                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "text-embedding-ada-002"))
-                    span.set_attribute("gen_ai.request.embedding_format",
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_FORMAT,
                                         kwargs.get("encoding_format", "float"))
-                    span.set_attribute("gen_ai.request.embedding_dimension",
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
                                         kwargs.get("dimensions", ""))
-                    span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
-                    span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
-                    span.set_attribute("gen_ai.usage.total_tokens", response.usage.total_tokens)
-                    span.set_attribute("gen_ai.usage.cost", cost)
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER, kwargs.get("user", ""))
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS, response.usage.prompt_tokens)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS, response.usage.total_tokens)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
                     if trace_content:
-                        span.set_attribute("gen_ai.content.prompt", kwargs.get("input", ""))
+                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, kwargs.get("input", ""))
 
                     # Return original response
                     return response
@@ -387,29 +388,29 @@ def finetune(gen_ai_endpoint, version, environment, application_name,
 
                 try:
                     # Set Span attributes
-                    span.set_attribute("gen_ai.system", "openai")
-                    span.set_attribute("gen_ai.type", "fine_tuning")
-                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                    span.set_attribute("gen_ai.environment", environment)
-                    span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request.model",
+                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE, "fine_tuning")
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "gpt-3.5-turbo"))
-                    span.set_attribute("gen_ai.request.training_file",
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TRAINING_FILE,
                                         kwargs.get("training_file", ""))
-                    span.set_attribute("gen_ai.request.validation_file",
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_VALIDATION_FILE,
                                         kwargs.get("validation_file", ""))
-                    span.set_attribute("gen_ai.request.fine_tune_batch_size",
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FINETUNE_BATCH_SIZE,
                                         kwargs.get("hyperparameters.batch_size", "auto"))
-                    span.set_attribute("gen_ai.request.learning_rate_multiplier",
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FINETUNE_MODEL_LRM,
                                         kwargs.get("hyperparameters.learning_rate_multiplier",
                                                     "auto"))
-                    span.set_attribute("gen_ai.request.fine_tune_n_epochs",
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FINETUNE_MODEL_EPOCHS,
                                         kwargs.get("hyperparameters.n_epochs", "auto"))
-                    span.set_attribute("gen_ai.request.fine_tune_model_suffix",
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FINETUNE_MODEL_SUFFIX,
                                         kwargs.get("suffix", ""))
-                    span.set_attribute("gen_ai.response.id", response.id)
-                    span.set_attribute("gen_ai.usage.prompt_tokens", response.usage.prompt_tokens)
-                    span.set_attribute("gen_ai.request.fine_tune_status", response.status)
+                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response.id)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS, response.usage.prompt_tokens)
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FINETUNE_STATUS, response.status)
 
                     # Return original response
                     return response
@@ -482,32 +483,32 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
 
                     for items in response.data:
                         # Set Span attributes
-                        span.set_attribute("gen_ai.system", "openai")
-                        span.set_attribute("gen_ai.type", "image")
-                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                        span.set_attribute("gen_ai.response.id", response.created)
-                        span.set_attribute("gen_ai.environment", environment)
-                        span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request.model",
+                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_IMAGE)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response.created)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                             kwargs.get("model", "dall-e-2"))
-                        span.set_attribute("gen_ai.request.image_size",
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
                                             kwargs.get("size", "1024x1024"))
-                        span.set_attribute("gen_ai.request.image_quality",
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY,
                                             kwargs.get("quality", "standard"))
-                        span.set_attribute("gen_ai.request.image_style",
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_STYLE,
                                             kwargs.get("style", "vivid"))
-                        span.set_attribute("gen_ai.content.revised_prompt",
+                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_REVISED_PROMPT,
                                             items.revised_prompt if items.revised_prompt else "")
-                        span.set_attribute("gen_ai.request.user", kwargs.get("user", ""))
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER, kwargs.get("user", ""))
                         if trace_content:
-                            span.set_attribute("gen_ai.content.prompt", kwargs.get("prompt", ""))
+                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, kwargs.get("prompt", ""))
 
                             attribute_name = f"gen_ai.response.image.{images_count}"
                             span.set_attribute(attribute_name, getattr(items, image))
 
                         images_count+=1
 
-                    span.set_attribute("gen_ai.usage.cost", len(response.data) * cost)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, len(response.data) * cost)
 
                     # Return original response
                     return response
@@ -579,28 +580,28 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
 
                     for items in response.data:
                         # Set Span attributes
-                        span.set_attribute("gen_ai.system", "openai")
-                        span.set_attribute("gen_ai.type", "image")
-                        span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                        span.set_attribute("gen_ai.response.id", response.created)
-                        span.set_attribute("gen_ai.environment", environment)
-                        span.set_attribute("gen_ai.application_name", application_name)
-                        span.set_attribute("gen_ai.request.model",
+                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE, SemanticConvetion.GEN_AI_TYPE_IMAGE)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, response.created)
+                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                             kwargs.get("model", "dall-e-2"))
-                        span.set_attribute("gen_ai.request.user",
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                             kwargs.get("user", ""))
-                        span.set_attribute("gen_ai.request.image_size",
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
                                             kwargs.get("size", "1024x1024"))
-                        span.set_attribute("gen_ai.request.image_quality", "standard")
+                        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY, "standard")
                         if trace_content:
-                            span.set_attribute("gen_ai.content.prompt", kwargs.get("image", ""))
+                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, kwargs.get(SemanticConvetion.GEN_AI_TYPE_IMAGE, ""))
 
                             attribute_name = f"gen_ai.response.image.{images_count}"
                             span.set_attribute(attribute_name, getattr(items, image))
 
                         images_count+=1
 
-                    span.set_attribute("gen_ai.usage.cost", len(response.data) * cost)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, len(response.data) * cost)
 
                     # Return original response
                     return response
@@ -664,19 +665,19 @@ def audio_create(gen_ai_endpoint, version, environment, application_name,
                                                 pricing_info, kwargs.get("input", ""))
 
                     # Set Span attributes
-                    span.set_attribute("gen_ai.system", "openai")
-                    span.set_attribute("gen_ai.type", "audio")
-                    span.set_attribute("gen_ai.endpoint", gen_ai_endpoint)
-                    span.set_attribute("gen_ai.environment", environment)
-                    span.set_attribute("gen_ai.application_name", application_name)
-                    span.set_attribute("gen_ai.request.model", kwargs.get("model", "tts-1"))
-                    span.set_attribute("gen_ai.request.audio_voice", kwargs.get("voice", "alloy"))
-                    span.set_attribute("gen_ai.request.audio_response_format",
+                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE, "audio")
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT, environment)
+                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME, application_name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, kwargs.get("model", "tts-1"))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_VOICE, kwargs.get("voice", "alloy"))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
                                         kwargs.get("response_format", "mp3"))
-                    span.set_attribute("gen_ai.request.audio_speed", kwargs.get("speed", 1))
-                    span.set_attribute("gen_ai.usage.cost", cost)
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_SPEED, kwargs.get("speed", 1))
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
                     if trace_content:
-                        span.set_attribute("gen_ai.content.prompt", kwargs.get("input", ""))
+                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT, kwargs.get("input", ""))
 
                     # Return original response
                     return response
