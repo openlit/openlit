@@ -11,6 +11,10 @@ from ..__helpers import handle_exception
 logger = logging.getLogger(__name__)
 
 def object_count(obj):
+    """
+    Counts Length of object if it exists, Else returns None
+    """
+
     if obj:
         return len(obj)
 
@@ -82,7 +86,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute("db.query.n_results", kwargs.get("top_k", ""))
                     span.set_attribute("db.query.filter", str(kwargs.get("filter", "")))
                     span.set_attribute("db.query.namespace", str(kwargs.get("namespace", "")))
-                
+
                 elif gen_ai_endpoint == "pinecone.update":
                     span.set_attribute("db.operation", "update")
                     span.set_attribute("db.update.id", kwargs.get("id",""))
@@ -92,7 +96,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "pinecone.upsert":
                     span.set_attribute("db.operation", "upsert")
-                    span.set_attribute("db.upsert.vector_count", object_count(kwargs.get("vectors")))
+                    span.set_attribute("db.upsert.vector_count",
+                                       object_count(kwargs.get("vectors")))
 
                 elif gen_ai_endpoint == "pinecone.delete":
                     span.set_attribute("db.operation", "delete")

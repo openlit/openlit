@@ -11,6 +11,10 @@ from openlmt.__helpers import handle_exception
 logger = logging.getLogger(__name__)
 
 def object_count(obj):
+    """
+    Counts Length of object if it exists, Else returns None
+    """
+
     if obj:
         return len(obj)
 
@@ -71,42 +75,57 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 if gen_ai_endpoint == "chroma.add":
                     span.set_attribute("db.operation", "add")
-                    span.set_attribute("db.add.ids_count", object_count(kwargs.get("ids")))
-                    span.set_attribute("db.add.vector_count", object_count(kwargs.get("embeddings")))
-                    span.set_attribute("db.add.metadatas_count", object_count(kwargs.get("metadatas")))
-                    span.set_attribute("db.add.documents_count", object_count(kwargs.get("documents")))
+                    span.set_attribute("db.add.ids_count",
+                                       object_count(kwargs.get("ids")))
+                    span.set_attribute("db.add.vector_count",
+                                       object_count(kwargs.get("embeddings")))
+                    span.set_attribute("db.add.metadatas_count",
+                                       object_count(kwargs.get("metadatas")))
+                    span.set_attribute("db.add.documents_count",
+                                       object_count(kwargs.get("documents")))
 
                 elif gen_ai_endpoint == "chroma.get":
                     span.set_attribute("db.operation", "get")
                     span.set_attribute("db.get.ids_count", object_count(kwargs.get("ids")))
                     span.set_attribute("db.get.limit", kwargs.get("limit"))
                     span.set_attribute("db.get.offset", kwargs.get("offset"))
-                    span.set_attribute("db.get.where_document", str(kwargs.get("where_document", "")))
+                    span.set_attribute("db.get.where_document",
+                                       str(kwargs.get("where_document", "")))
 
                 elif gen_ai_endpoint == "chroma.query":
                     span.set_attribute("db.operation", "query")
                     span.set_attribute("db.query.statement", str(kwargs.get("query_texts")))
                     span.set_attribute("db.query.n_results", kwargs.get("n_results", ""))
                     span.set_attribute("db.query.filter", str(kwargs.get("where", "")))
-                    span.set_attribute("db.query.where_document", str(kwargs.get("where_document", "")))
+                    span.set_attribute("db.query.where_document",
+                                       str(kwargs.get("where_document", "")))
                 
                 elif gen_ai_endpoint == "chroma.update":
                     span.set_attribute("db.operation", "update")
-                    span.set_attribute("db.update.vector_count", object_count(kwargs.get("embeddings")))
-                    span.set_attribute("db.update.metadatas_count", object_count(kwargs.get("metadatas")))
-                    span.set_attribute("db.update.ids_count", object_count(kwargs.get("ids")))
-                    span.set_attribute("db.update.documents_count", object_count(kwargs.get("documents")))
+                    span.set_attribute("db.update.vector_count",
+                                       object_count(kwargs.get("embeddings")))
+                    span.set_attribute("db.update.metadatas_count",
+                                       object_count(kwargs.get("metadatas")))
+                    span.set_attribute("db.update.ids_count",
+                                       object_count(kwargs.get("ids")))
+                    span.set_attribute("db.update.documents_count",
+                                       object_count(kwargs.get("documents")))
                 
                 elif gen_ai_endpoint == "chroma.upsert":
                     span.set_attribute("db.operation", "upsert")
-                    span.set_attribute("db.upsert.vector_count", object_count(kwargs.get("embeddings")))
-                    span.set_attribute("db.upsert.metadatas_count", object_count(kwargs.get("metadatas")))
-                    span.set_attribute("db.upsert.ids_count", object_count(kwargs.get("ids")))
-                    span.set_attribute("db.upsert.documents_count", object_count(kwargs.get("documents")))
+                    span.set_attribute("db.upsert.vector_count",
+                                       object_count(kwargs.get("embeddings")))
+                    span.set_attribute("db.upsert.metadatas_count",
+                                       object_count(kwargs.get("metadatas")))
+                    span.set_attribute("db.upsert.ids_count",
+                                       object_count(kwargs.get("ids")))
+                    span.set_attribute("db.upsert.documents_count",
+                                       object_count(kwargs.get("documents")))
 
                 elif gen_ai_endpoint == "chroma.delete":
                     span.set_attribute("db.operation", "delete")
-                    span.set_attribute("db.delete.ids_count", object_count(kwargs.get("ids")))
+                    span.set_attribute("db.delete.ids_count",
+                                       object_count(kwargs.get("ids")))
                     span.set_attribute("db.delete.filter", str(kwargs.get("where", "")))
                     span.set_attribute("db.delete.delete_all", kwargs.get("delete_all", False))
                     span.set_attribute("db.delete.where_document", str(kwargs.get("where_document", "")))
@@ -126,4 +145,3 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 return response
 
     return wrapper
-
