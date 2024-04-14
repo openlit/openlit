@@ -7,7 +7,8 @@ from typing import Optional, Dict, Any
 import logging
 
 # Import internal modules for setting up tracing and fetching pricing info.
-from openlit.otel.__tracing import setup_tracing
+from openlit.otel.tracing import setup_tracing
+from openlit.otel.metrics import setup_meter
 from openlit.__helpers import fetch_pricing_info
 
 # Instrumentors for various large language models.
@@ -56,14 +57,16 @@ class OpenlitConfig:
         cls.application_name = "default"
         cls.pricing_info = fetch_pricing_info()
         cls.tracer = None
+        cls.metrics_dict = {}
         cls.otlp_endpoint = None
         cls.otlp_headers = None
         cls.disable_batch = False
         cls.trace_content = True
+        cls.disable_metrics = False
 
     @classmethod
     def update_config(cls, environment, application_name, tracer, otlp_endpoint,
-                      otlp_headers, disable_batch, trace_content):
+                      otlp_headers, disable_batch, trace_content, metrics_dict, disable_metrics):
         """
         Updates the configuration based on provided parameters.
 
@@ -71,6 +74,7 @@ class OpenlitConfig:
             environment (str): Deployment environment.
             application_name (str): Application name.
             tracer: Tracer instance.
+            meter: Metric Instance
             otlp_endpoint (str): OTLP endpoint.
             otlp_headers (Dict[str, str]): OTLP headers.
             disable_batch (bool): Disable batch span processing flag.
@@ -80,13 +84,15 @@ class OpenlitConfig:
         cls.application_name = application_name
         cls.pricing_info = fetch_pricing_info()
         cls.tracer = tracer
+        cls.metrics_dict = metrics_dict
         cls.otlp_endpoint = otlp_endpoint
         cls.otlp_headers = otlp_headers
         cls.disable_batch = disable_batch
         cls.trace_content = trace_content
+        cls.disable_metrics = disable_metrics
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
-         otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None):
+         otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None, meter=None, disable_metrics=False):
     """
     Initializes the openLIT configuration and setups tracing.
     
@@ -131,12 +137,20 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         )
 
         if not tracer:
-            logger.error("openLIT setup failed. Tracing will not be available.")
+            logger.error("openLIT tracing setup failed. Tracing will not be available.")
+            return
+
+        # Setup meter and receive metrics_dict instead of meter
+        metrics_dict = setup_meter(application_name=application_name, meter=meter,
+                                otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers)
+        
+        if not metrics_dict:
+            logger.error("openLIT metrics setup failed. Metrics will not be available.")
             return
 
         # Update global configuration with the provided settings.
         config.update_config(environment, application_name, tracer, otlp_endpoint,
-                             otlp_headers, disable_batch, trace_content)
+                             otlp_headers, disable_batch, trace_content, metrics_dict, disable_metrics)
 
         # Map instrumentor names to their instances
         instrumentor_instances = {
@@ -158,7 +172,9 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
                     application_name=config.application_name,
                     tracer=config.tracer,
                     pricing_info=config.pricing_info,
-                    trace_content=config.trace_content
+                    trace_content=config.trace_content,
+                    metrics_dict=config.metrics_dict,
+                    disable_metrics=config.disable_metrics
                 )
 
     # pylint: disable=broad-exception-caught

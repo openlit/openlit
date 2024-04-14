@@ -25,6 +25,7 @@ class SemanticConvetion:
     GEN_AI_HUB_OWNER = "gen_ai.hub.owner"
     GEN_AI_HUB_REPO = "gen_ai.hub.repo"
     GEN_AI_RETRIEVAL_SOURCE = "gen_ai.retrieval.source"
+    GEN_AI_REQUESTS = "gen_ai.total.requests"
 
     # GenAI Request
     GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
@@ -74,6 +75,7 @@ class SemanticConvetion:
     GEN_AI_TYPE_EMBEDDING = "embedding"
     GEN_AI_TYPE_IMAGE = "image"
     GEN_AI_TYPE_AUDIO = "audio"
+    GEN_AI_TYPE_FINETUNING = "fine_tuning"
     GEN_AI_TYPE_VECTORDB = "vectordb"
     GEN_AI_TYPE_FRAMEWORK = "framework"
 

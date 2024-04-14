@@ -4,7 +4,7 @@ Module for monitoring Langchain applications.
 """
 
 import logging
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import SpanKind, Status, StatusCode
 from openlit.__helpers import handle_exception
 from openlit.semcov import SemanticConvetion
 
@@ -69,6 +69,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_RETRIEVAL_SOURCE,
                                     response[0].metadata["source"])
+                span.set_status(Status(StatusCode.OK))
 
                 # Return original response
                 return response
@@ -143,6 +144,7 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
                                     response.metadata["lc_hub_owner"])
                 span.set_attribute(SemanticConvetion.GEN_AI_HUB_REPO,
                                     response.metadata["lc_hub_repo"])
+                span.set_status(Status(StatusCode.OK))
 
                 return response
 

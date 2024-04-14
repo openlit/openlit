@@ -31,57 +31,59 @@ class OpenAIInstrumentor(BaseInstrumentor):
         application_name = kwargs.get("application_name")
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
+        metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info")
         trace_content = kwargs.get("trace_content")
+        disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("openai")
 
         wrap_function_wrapper(
             "openai.resources.chat.completions",  
             "Completions.create",  
             chat_wrapper(version, environment, application_name,
-                         tracer, pricing_info, trace_content),
+                         tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.chat.completions",  
             "AsyncCompletions.create",  
             async_chat_wrapper(version, environment, application_name,
-                               tracer, pricing_info, trace_content),
+                               tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.images",  
             "Images.generate",  
             image_generate_wrapper(version, environment, application_name,
-                                   tracer, pricing_info, trace_content),
+                                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.images",  
             "AsyncImages.generate",  
             async_image_generate_wrapper(version, environment, application_name,
-                                         tracer, pricing_info, trace_content),
+                                         tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.embeddings",  
             "Embeddings.create",  
             embedding_wrapper(version, environment, application_name,
-                              tracer, pricing_info, trace_content),
+                              tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.embeddings",  
             "AsyncEmbeddings.create",  
             async_embedding_wrapper(version, environment, application_name,
-                                    tracer, pricing_info, trace_content),
+                                    tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.completions",  
             "Completions.create",  
             azure_completions("azure_openai.completions", version, environment, application_name,
-                              tracer, pricing_info, trace_content),
+                              tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
@@ -89,7 +91,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "AsyncCompletions.create",  
             azure_async_completions("azure_openai.completions", version,
                                     environment, application_name,
-                                    tracer, pricing_info, trace_content),
+                                    tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
@@ -97,7 +99,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "Images.create_variation",  
             image_variatons("openai.images.variations", version,
                             environment, application_name,
-                            tracer, pricing_info, trace_content),
+                            tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
@@ -105,42 +107,43 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "AsyncImages.create_variation",  
             async_image_variatons("openai.images.variations", version,
                                   environment, application_name,
-                                  tracer, pricing_info, trace_content),
+                                  tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.audio.speech",  
             "Speech.create",  
             audio_create("openai.audio.speech", version, environment, application_name,
-                         tracer, pricing_info, trace_content),
+                         tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.audio.speech",  
             "AsyncSpeech.create",  
             async_audio_create("openai.audio.speech", version, environment, application_name,
-                               tracer, pricing_info, trace_content),
+                               tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.fine_tuning.jobs",  
             "Jobs.create",  
             finetune("openai.audio.speech", version, environment, application_name,
-                     tracer, pricing_info, trace_content),
+                     tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "openai.resources.fine_tuning.jobs",  
             "AsyncJobs.create",  
             async_finetune("openai.fine_tuning.jo", version, environment, application_name,
-                           tracer, pricing_info, trace_content),
+                           tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
     @staticmethod
     def _uninstrument(self, **kwargs):
         pass
 
-def chat_wrapper(version, environment, application_name, tracer, pricing_info, trace_content):
+def chat_wrapper(version, environment, application_name, tracer, pricing_info, trace_content,
+                 metrics, disable_metrics):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
@@ -148,7 +151,8 @@ def chat_wrapper(version, environment, application_name, tracer, pricing_info, t
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
         completion_func = chat_completions("openai.chat.completions", version, environment,
-                                           application_name, tracer, pricing_info, trace_content)
+                                           application_name, tracer, pricing_info, trace_content,
+                                           metrics, disable_metrics)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
@@ -157,7 +161,8 @@ def chat_wrapper(version, environment, application_name, tracer, pricing_info, t
                 # Switch to the Azure-specific chat completions logic
                 completion_func = azure_chat_completions("azure_openai.chat.completions",
                                                          version, environment, application_name,
-                                                         tracer, pricing_info, trace_content)
+                                                         tracer, pricing_info, trace_content,
+                                                         metrics, disable_metrics)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -167,7 +172,7 @@ def chat_wrapper(version, environment, application_name, tracer, pricing_info, t
     return wrapper
 
 def async_chat_wrapper(version, environment, application_name, tracer, pricing_info,
-                       trace_content):
+                       trace_content, metrics, disable_metrics):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
@@ -176,7 +181,7 @@ def async_chat_wrapper(version, environment, application_name, tracer, pricing_i
         # Default to using the standard OpenAI chat completions
         completion_func = async_chat_completions("openai.chat.completions", version, environment,
                                                  application_name, tracer,
-                                                 pricing_info, trace_content)
+                                                 pricing_info, trace_content, metrics, disable_metrics)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
@@ -186,7 +191,7 @@ def async_chat_wrapper(version, environment, application_name, tracer, pricing_i
                 completion_func = azure_async_chat_completions("azure_openai.chat.completions",
                                                                version, environment,
                                                                application_name, tracer,
-                                                               pricing_info, trace_content)
+                                                               pricing_info, trace_content, metrics, disable_metrics)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -196,7 +201,7 @@ def async_chat_wrapper(version, environment, application_name, tracer, pricing_i
     return wrapper
 
 def image_generate_wrapper(version, environment, application_name, tracer, pricing_info,
-                           trace_content):
+                           trace_content, metrics, disable_metrics):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
@@ -204,7 +209,7 @@ def image_generate_wrapper(version, environment, application_name, tracer, prici
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
         completion_func = image_generate("openai.images.generate", version, environment,
-                                         application_name, tracer, pricing_info, trace_content)
+                                         application_name, tracer, pricing_info, trace_content, metrics, disable_metrics)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
@@ -213,7 +218,7 @@ def image_generate_wrapper(version, environment, application_name, tracer, prici
                 # Switch to the Azure-specific chat completions logic
                 completion_func = azure_image_generate("azure_openai.images.generate",
                                                        version, environment, application_name,
-                                                       tracer, pricing_info, trace_content)
+                                                       tracer, pricing_info, trace_content, metrics, disable_metrics)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -223,7 +228,7 @@ def image_generate_wrapper(version, environment, application_name, tracer, prici
     return wrapper
 
 def async_image_generate_wrapper(version, environment, application_name, tracer,
-                                 pricing_info, trace_content):
+                                 pricing_info, trace_content, metrics, disable_metrics):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
@@ -232,7 +237,7 @@ def async_image_generate_wrapper(version, environment, application_name, tracer,
         # Default to using the standard OpenAI chat completions
         completion_func = async_image_generate("openai.images.generate", version,
                                                environment, application_name, tracer,
-                                               pricing_info, trace_content)
+                                               pricing_info, trace_content, metrics, disable_metrics)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
@@ -242,7 +247,7 @@ def async_image_generate_wrapper(version, environment, application_name, tracer,
                 completion_func = azure_async_image_generate("azure_openai.images.generate",
                                                              version, environment,
                                                              application_name, tracer,
-                                                             pricing_info, trace_content)
+                                                             pricing_info, trace_content, metrics, disable_metrics)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -252,7 +257,7 @@ def async_image_generate_wrapper(version, environment, application_name, tracer,
     return wrapper
 
 def embedding_wrapper(version, environment, application_name, tracer, pricing_info,
-                      trace_content):
+                      trace_content, metrics, disable_metrics):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
@@ -260,7 +265,7 @@ def embedding_wrapper(version, environment, application_name, tracer, pricing_in
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
         completion_func = embedding("openai.embeddings", version, environment,
-                                    application_name, tracer, pricing_info, trace_content)
+                                    application_name, tracer, pricing_info, trace_content, metrics, disable_metrics)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
@@ -269,7 +274,7 @@ def embedding_wrapper(version, environment, application_name, tracer, pricing_in
                 # Switch to the Azure-specific chat completions logic
                 completion_func = azure_embedding("azure_openai.embeddings",
                                                   version, environment, application_name,
-                                                  tracer, pricing_info, trace_content)
+                                                  tracer, pricing_info, trace_content, metrics, disable_metrics)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 
@@ -279,7 +284,7 @@ def embedding_wrapper(version, environment, application_name, tracer, pricing_in
     return wrapper
 
 def async_embedding_wrapper(version, environment, application_name, tracer,
-                            pricing_info, trace_content):
+                            pricing_info, trace_content, metrics, disable_metrics):
     """
     Decorator for making a custom wrapper execute conditionally,
     based on whether the instance is for Azure OpenAI or not.
@@ -287,7 +292,7 @@ def async_embedding_wrapper(version, environment, application_name, tracer,
     def wrapper(wrapped, instance, args, kwargs):
         # Default to using the standard OpenAI chat completions
         completion_func = async_embedding("openai.embeddings", version, environment,
-                                          application_name, tracer, pricing_info, trace_content)
+                                          application_name, tracer, pricing_info, trace_content, metrics, disable_metrics)
 
         # Check if it's an Azure instance by inspecting `base_url`
         try:
@@ -296,7 +301,7 @@ def async_embedding_wrapper(version, environment, application_name, tracer,
                 # Switch to the Azure-specific chat completions logic
                 completion_func = azure_async_embedding("azure_openai.embeddings", version,
                                                         environment, application_name, tracer,
-                                                        pricing_info, trace_content)
+                                                        pricing_info, trace_content, metrics, disable_metrics)
         except AttributeError:
             pass  # base_url attribute not found, proceed with the default
 

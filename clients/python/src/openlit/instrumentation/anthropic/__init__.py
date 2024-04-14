@@ -23,8 +23,10 @@ class AnthropicInstrumentor(BaseInstrumentor):
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
         tracer = kwargs.get("tracer")
+        metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
         trace_content = kwargs.get("trace_content", False)
+        disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("anthropic")
 
         #sync
@@ -32,7 +34,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
             "anthropic.resources.messages",  
             "Messages.create",  
             messages("anthropic.messages", version, environment, application_name,
-                     tracer, pricing_info, trace_content),
+                     tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         #async
@@ -40,7 +42,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
             "anthropic.resources.messages",  
             "AsyncMessages.create",  
             async_messages("anthropic.messages", version, environment, application_name,
-                            tracer, pricing_info, trace_content),
+                            tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

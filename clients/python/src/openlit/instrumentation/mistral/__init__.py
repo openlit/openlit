@@ -21,8 +21,10 @@ class MistralInstrumentor(BaseInstrumentor):
         application_name = kwargs.get("application_name")
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
+        metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info")
         trace_content = kwargs.get("trace_content")
+        disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("mistralai")
 
         #sync
@@ -30,7 +32,7 @@ class MistralInstrumentor(BaseInstrumentor):
             "mistralai.client",  
             "MistralClient.chat",  
             chat("mistral.chat", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         #sync
@@ -38,7 +40,7 @@ class MistralInstrumentor(BaseInstrumentor):
             "mistralai.client",  
             "MistralClient.chat_stream",  
             chat_stream("mistral.chat", version, environment, application_name,
-                        tracer, pricing_info, trace_content),
+                        tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         #sync
@@ -46,7 +48,7 @@ class MistralInstrumentor(BaseInstrumentor):
             "mistralai.client",  
             "MistralClient.embeddings",  
             embeddings("mistral.embeddings", version, environment, application_name,
-                       tracer, pricing_info, trace_content),
+                       tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         # Async
@@ -54,7 +56,7 @@ class MistralInstrumentor(BaseInstrumentor):
             "mistralai.async_client",  
             "MistralAsyncClient.chat",  
             async_chat("mistral.chat", version, environment, application_name,
-                       tracer, pricing_info, trace_content),
+                       tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         #sync
@@ -62,7 +64,7 @@ class MistralInstrumentor(BaseInstrumentor):
             "mistralai.async_client",  
             "MistralAsyncClient.chat_stream",  
             async_chat_stream("mistral.chat", version, environment, application_name,
-                              tracer, pricing_info, trace_content),
+                              tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         #sync
@@ -70,7 +72,7 @@ class MistralInstrumentor(BaseInstrumentor):
             "mistralai.async_client",  
             "MistralAsyncClient.embeddings",  
             async_embeddings("mistral.embeddings", version, environment, application_name,
-                             tracer, pricing_info, trace_content),
+                             tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
     @staticmethod

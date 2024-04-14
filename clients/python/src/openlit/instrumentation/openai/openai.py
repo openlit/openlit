@@ -4,7 +4,7 @@ Module for monitoring OpenAI API calls.
 """
 
 import logging
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import SpanKind, Status, StatusCode
 from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_model_cost
 from openlit.__helpers import get_image_model_cost, openai_tokens, handle_exception
 from openlit.semcov import SemanticConvetion
@@ -13,7 +13,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def chat_completions(gen_ai_endpoint, version, environment, application_name,
-                     tracer, pricing_info, trace_content):
+                     tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
 
@@ -148,6 +148,15 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                             span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                                 llmresponse)
 
+                        span.set_status(Status(StatusCode.OK))
+
+                        if disable_metrics is False:
+                            metrics["genai_requests"].add(1)
+                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens)
+                            metrics["genai_completion_tokens"].add(completion_tokens)
+                            metrics["genai_prompt_tokens"].add(prompt_tokens)
+                            metrics["genai_cost"].record(cost)
+
                     except Exception as e:
                         handle_exception(span, e)
                         logger.error("Error in trace creation: %s", e)
@@ -269,6 +278,15 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
 
+                    span.set_status(Status(StatusCode.OK))
+
+                    if disable_metrics is False:
+                        metrics["genai_requests"].add(1)
+                        metrics["genai_total_tokens"].add(response.usage.total_tokens)
+                        metrics["genai_completion_tokens"].add(response.usage.completion_tokens)
+                        metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens)
+                        metrics["genai_cost"].record(cost)
+
                     # Return original response
                     return response
 
@@ -282,7 +300,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
     return wrapper
 
 def embedding(gen_ai_endpoint, version, environment, application_name,
-              tracer, pricing_info, trace_content):
+              tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -353,6 +371,14 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
                                         kwargs.get("input", ""))
 
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    metrics["genai_requests"].add(1)
+                    metrics["genai_total_tokens"].add(response.usage.total_tokens)
+                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens)
+                    metrics["genai_cost"].record(cost)
+
                 # Return original response
                 return response
 
@@ -366,7 +392,7 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
     return wrapper
 
 def finetune(gen_ai_endpoint, version, environment, application_name,
-             tracer, pricing_info, trace_content):
+             tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for fine-tuning jobs to collect metrics.
     
@@ -409,7 +435,7 @@ def finetune(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
                 span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    "fine_tuning")
+                                    SemanticConvetion.GEN_AI_TYPE_FINETUNING)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -437,6 +463,10 @@ def finetune(gen_ai_endpoint, version, environment, application_name,
                                     response.usage.prompt_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FINETUNE_STATUS,
                                     response.status)
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    metrics["genai_requests"].add(1)
 
                 # Return original response
                 return response
@@ -451,7 +481,7 @@ def finetune(gen_ai_endpoint, version, environment, application_name,
     return wrapper
 
 def image_generate(gen_ai_endpoint, version, environment, application_name,
-                   tracer, pricing_info, trace_content):
+                   tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for image generation to collect metrics.
     
@@ -539,6 +569,11 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
 
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     len(response.data) * cost)
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    metrics["genai_requests"].add(1)
+                    metrics["genai_cost"].record(cost)
 
                 # Return original response
                 return response
@@ -553,7 +588,7 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
     return wrapper
 
 def image_variatons(gen_ai_endpoint, version, environment, application_name,
-                    tracer, pricing_info, trace_content):
+                    tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for creating image variations to collect metrics.
     
@@ -636,6 +671,11 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
 
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     len(response.data) * cost)
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    metrics["genai_requests"].add(1)
+                    metrics["genai_cost"].record(cost)
 
                 # Return original response
                 return response
@@ -650,7 +690,7 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
     return wrapper
 
 def audio_create(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content):
+                 tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for creating speech audio to collect metrics.
     
@@ -716,6 +756,12 @@ def audio_create(gen_ai_endpoint, version, environment, application_name,
                 if trace_content:
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
                                         kwargs.get("input", ""))
+
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    metrics["genai_requests"].add(1)
+                    metrics["genai_cost"].record(cost)
 
                 # Return original response
                 return response

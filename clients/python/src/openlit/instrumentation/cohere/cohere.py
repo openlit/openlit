@@ -4,7 +4,7 @@ Module for monitoring Cohere API calls.
 """
 
 import logging
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import SpanKind, Status, StatusCode
 from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 from openlit.semcov import SemanticConvetion
 
@@ -12,7 +12,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def embed(gen_ai_endpoint, version, environment, application_name, tracer,
-          pricing_info, trace_content):
+          pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -90,6 +90,14 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
                                         prompt)
 
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    metrics["genai_requests"].add(1)
+                    metrics["genai_total_tokens"].add(response.meta.billed_units.input_tokens)
+                    metrics["genai_prompt_tokens"].add(response.meta.billed_units.input_tokens)
+                    metrics["genai_cost"].record(cost)
+
                 # Return original response
                 return response
 
@@ -103,7 +111,7 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
     return wrapper
 
 def chat(gen_ai_endpoint, version, environment, application_name, tracer,
-         pricing_info, trace_content):
+         pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat to collect metrics.
 
@@ -191,6 +199,19 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                         response.text)
 
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                        metrics["genai_requests"].add(1)
+                        metrics["genai_total_tokens"].add(
+                            response.meta["billed_units"]["input_tokens"] +
+                            response.meta["billed_units"]["output_tokens"])
+                        metrics["genai_completion_tokens"].add(
+                            response.meta["billed_units"]["output_tokens"])
+                        metrics["genai_prompt_tokens"].add(
+                            response.meta["billed_units"]["input_tokens"])
+                        metrics["genai_cost"].record(cost)
+
                 # Return original response
                 return response
 
@@ -204,7 +225,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
     return wrapper
 
 def chat_stream(gen_ai_endpoint, version, environment, application_name,
-                tracer, pricing_info, trace_content):
+                tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat_stream to collect metrics.
 
@@ -302,6 +323,15 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                                             kwargs.get("message", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                             llmresponse)
+
+                    span.set_status(Status(StatusCode.OK))
+
+                    if disable_metrics is False:
+                        metrics["genai_requests"].add(1)
+                        metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens)
+                        metrics["genai_completion_tokens"].add(completion_tokens)
+                        metrics["genai_prompt_tokens"].add(prompt_tokens)
+                        metrics["genai_cost"].record(cost)
 
                 except Exception as e:
                     handle_exception(span, e)

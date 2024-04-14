@@ -4,7 +4,7 @@ Module for monitoring Anthropic API calls.
 """
 
 import logging
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import SpanKind, Status, StatusCode
 from openlit.__helpers import get_chat_model_cost, handle_exception
 from openlit.semcov import SemanticConvetion
 
@@ -12,7 +12,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def messages(gen_ai_endpoint, version, environment, application_name, tracer,
-             pricing_info, trace_content):
+             pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for messages to collect metrics.
 
@@ -143,6 +143,15 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                             span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                                 llmresponse)
 
+                        span.set_status(Status(StatusCode.OK))
+
+                        if disable_metrics is False:
+                            metrics["genai_requests"].add(1)
+                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens)
+                            metrics["genai_completion_tokens"].add(completion_tokens)
+                            metrics["genai_prompt_tokens"].add(prompt_tokens)
+                            metrics["genai_cost"].record(cost)
+
                     except Exception as e:
                         handle_exception(span, e)
                         logger.error("Error in trace creation: %s", e)
@@ -220,6 +229,19 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                                             prompt)
                         # pylint: disable=line-too-long
                         span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response.content[0].text if response.content else "")
+
+                    span.set_status(Status(StatusCode.OK))
+
+                    if disable_metrics is False:
+                        metrics["genai_requests"].add(1)
+                        metrics["genai_total_tokens"].add(
+                            response.usage.input_tokens +
+                            response.usage.output_tokens)
+                        metrics["genai_completion_tokens"].add(
+                            response.usage.output_tokens)
+                        metrics["genai_prompt_tokens"].add(
+                            response.usage.input_tokens)
+                        metrics["genai_cost"].record(cost)
 
                     # Return original response
                     return response

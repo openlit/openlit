@@ -19,29 +19,31 @@ class CohereInstrumentor(BaseInstrumentor):
         application_name = kwargs.get("application_name")
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
+        metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info")
         trace_content = kwargs.get("trace_content")
+        disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("cohere")
 
         wrap_function_wrapper(
             "cohere.client",  
             "Client.chat",  
             chat("cohere.chat", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "cohere.client",  
             "Client.chat_stream",  
             chat_stream("cohere.chat", version, environment, application_name,
-                        tracer, pricing_info, trace_content),
+                        tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "cohere.client",  
             "Client.embed",  
             embed("cohere.embed", version, environment, application_name,
-                  tracer, pricing_info, trace_content),
+                  tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
     @staticmethod

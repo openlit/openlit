@@ -12,7 +12,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def text_wrap(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content):
+                 tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
 
@@ -88,8 +88,9 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                                    forward_params.get("max_length"))
                 span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
                                    prompt)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                   prompt_tokens)
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    prompt_tokens)
 
                 i = 0
                 completion_tokens = 0
@@ -99,12 +100,14 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                     else:
                         attribute_name = SemanticConvetion.GEN_AI_CONTENT_COMPLETION
                     if i == 0:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                           completion["generated_text"])
+                        if trace_content:
+                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                            completion["generated_text"])
                         completion_tokens += general_tokens(completion["generated_text"])
                     else:
-                        span.set_attribute(attribute_name,
-                                           completion["generated_text"])
+                        if trace_content:
+                            span.set_attribute(attribute_name,
+                                            completion["generated_text"])
                         completion_tokens += general_tokens(completion["generated_text"])
                     i=i+1
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
@@ -113,6 +116,16 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                                    prompt_tokens + completion_tokens)
                 span.set_status(Status(StatusCode.OK))
 
+                if disable_metrics is False:
+                    metrics["genai_requests"].add(1)
+                    metrics["genai_total_tokens"].add(
+                        prompt_tokens +
+                        completion_tokens)
+                    metrics["genai_completion_tokens"].add(
+                        completion_tokens)
+                    metrics["genai_prompt_tokens"].add(
+                        prompt_tokens)
+                
                 # Return original response
                 return response
 
