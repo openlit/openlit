@@ -1,3 +1,6 @@
+"""
+Setups up OpenTelemetry Meter
+"""
 import os
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
@@ -23,6 +26,7 @@ def setup_meter(application_name="default", meter=None, otlp_endpoint=None, otlp
         A dictionary containing the meter and created metrics for easy access.
     """
 
+    # pylint: disable=global-statement
     global METER_SET
 
     try:
@@ -79,6 +83,5 @@ def setup_meter(application_name="default", meter=None, otlp_endpoint=None, otlp
         return metrics_dict
 
     # pylint: disable=bare-except
-    except Exception as e:
-        print(e)
+    except:
         return None
