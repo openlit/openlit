@@ -147,7 +147,7 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                                                 llmresponse)
 
                         span.set_status(Status(StatusCode.OK))
-                        
+
                         if disable_metrics is False:
                             metrics["genai_requests"].add(1)
                             metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens)

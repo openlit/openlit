@@ -23,64 +23,60 @@ def setup_meter(application_name="default", meter=None, otlp_endpoint=None, otlp
         A dictionary containing the meter and created metrics for easy access.
     """
 
-    if meter is not None:
-        return meter
-
     global METER_SET
 
     try:
-        if not METER_SET:
+        if meter is None and not METER_SET:
             resource = Resource.create(attributes={SERVICE_NAME: application_name})
-    
+
             otlp_endpoint = otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
             otlp_headers = otlp_headers or os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
 
             if otlp_endpoint:
-                # Ensure to parse or convert otlp_headers from string to a dictionary if it's a string.
                 metric_exporter = OTLPMetricExporter(endpoint=otlp_endpoint, headers=otlp_headers)
             else:
                 metric_exporter = ConsoleMetricExporter()
 
             metric_reader = PeriodicExportingMetricReader(metric_exporter)
-            
-            # The MeterProvider now takes a list of metric readers upon instantiation.
-            meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
-            
-            metrics.set_meter_provider(meter_provider)
-            
-            # Get a meter instance for your application
-            meter = metrics.get_meter(__name__, version="0.1.0")
-            
-            # Define and create the metrics
-            metrics_dict = {
-                "genai_requests": meter.create_counter(
-                    name=SemanticConvetion.GEN_AI_REQUESTS,
-                    description="Number of requests to OpenAI",
-                    unit="1",
-                ),
-                "genai_prompt_tokens": meter.create_counter(
-                    name=SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                    description="Number of prompt tokens processed.",
-                    unit="1",
-                ),
-                "genai_completion_tokens": meter.create_counter(
-                    name=SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                    description="Number of completion tokens processed.",
-                    unit="1",
-                ),
-                "genai_total_tokens": meter.create_counter(
-                    name=SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                    description="Number of total tokens processed.",
-                    unit="1",
-                ),
-                "genai_cost": meter.create_histogram(
-                    name=SemanticConvetion.GEN_AI_USAGE_COST,
-                    description="The distribution of OpenAI request costs.",
-                    unit="USD",
-                ),
-            }
 
-            return metrics_dict
+            meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+
+            metrics.set_meter_provider(meter_provider)
+
+            meter = metrics.get_meter(__name__, version="0.1.0")
+
+            METER_SET = True
+
+        # Define and create the metrics
+        metrics_dict = {
+            "genai_requests": meter.create_counter(
+                name=SemanticConvetion.GEN_AI_REQUESTS,
+                description="Number of requests to OpenAI",
+                unit="1",
+            ),
+            "genai_prompt_tokens": meter.create_counter(
+                name=SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                description="Number of prompt tokens processed.",
+                unit="1",
+            ),
+            "genai_completion_tokens": meter.create_counter(
+                name=SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                description="Number of completion tokens processed.",
+                unit="1",
+            ),
+            "genai_total_tokens": meter.create_counter(
+                name=SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                description="Number of total tokens processed.",
+                unit="1",
+            ),
+            "genai_cost": meter.create_histogram(
+                name=SemanticConvetion.GEN_AI_USAGE_COST,
+                description="The distribution of OpenAI request costs.",
+                unit="USD",
+            ),
+        }
+
+        return metrics_dict
 
     # pylint: disable=bare-except
     except Exception as e:

@@ -125,7 +125,7 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                         completion_tokens)
                     metrics["genai_prompt_tokens"].add(
                         prompt_tokens)
-                
+
                 # Return original response
                 return response
 

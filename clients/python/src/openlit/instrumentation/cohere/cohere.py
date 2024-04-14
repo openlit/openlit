@@ -202,15 +202,15 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                        metrics["genai_requests"].add(1)
-                        metrics["genai_total_tokens"].add(
-                            response.meta["billed_units"]["input_tokens"] +
-                            response.meta["billed_units"]["output_tokens"])
-                        metrics["genai_completion_tokens"].add(
-                            response.meta["billed_units"]["output_tokens"])
-                        metrics["genai_prompt_tokens"].add(
-                            response.meta["billed_units"]["input_tokens"])
-                        metrics["genai_cost"].record(cost)
+                    metrics["genai_requests"].add(1)
+                    metrics["genai_total_tokens"].add(
+                        response.meta["billed_units"]["input_tokens"] +
+                        response.meta["billed_units"]["output_tokens"])
+                    metrics["genai_completion_tokens"].add(
+                        response.meta["billed_units"]["output_tokens"])
+                    metrics["genai_prompt_tokens"].add(
+                        response.meta["billed_units"]["input_tokens"])
+                    metrics["genai_cost"].record(cost)
 
                 # Return original response
                 return response

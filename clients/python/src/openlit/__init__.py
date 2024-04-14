@@ -92,7 +92,8 @@ class OpenlitConfig:
         cls.disable_metrics = disable_metrics
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
-         otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None, meter=None, disable_metrics=False):
+         otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
+         meter=None, disable_metrics=False):
     """
     Initializes the openLIT configuration and setups tracing.
     
@@ -143,14 +144,15 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         # Setup meter and receive metrics_dict instead of meter
         metrics_dict = setup_meter(application_name=application_name, meter=meter,
                                 otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers)
-        
+
         if not metrics_dict:
             logger.error("openLIT metrics setup failed. Metrics will not be available.")
             return
 
         # Update global configuration with the provided settings.
         config.update_config(environment, application_name, tracer, otlp_endpoint,
-                             otlp_headers, disable_batch, trace_content, metrics_dict, disable_metrics)
+                             otlp_headers, disable_batch, trace_content,
+                             metrics_dict, disable_metrics)
 
         # Map instrumentor names to their instances
         instrumentor_instances = {
