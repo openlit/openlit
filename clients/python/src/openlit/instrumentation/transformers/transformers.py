@@ -120,7 +120,7 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 if disable_metrics is False:
                     attributes = {
-                        TELEMETRY_SDK_NAME: 
+                        TELEMETRY_SDK_NAME:
                             "openlit",
                         SemanticConvetion.GEN_AI_APPLICATION_NAME:
                             application_name,

@@ -50,7 +50,7 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
 
             # Initialize the TracerProvider with the created resource.
             trace.set_tracer_provider(TracerProvider(resource=resource))
-            
+
             # Only set environment variables if you have a non-None value or if there's an existing env variable.
             if otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""):
                 os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_endpoint if otlp_endpoint is not None else os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
@@ -61,7 +61,7 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
             # Configure the span exporter and processor based on whether the endpoint is effectively set.
             if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
                 span_exporter = OTLPSpanExporter()
-                
+
                 span_processor = BatchSpanProcessor(span_exporter) if not disable_batch else SimpleSpanProcessor(span_exporter)
             else:
                 span_exporter = ConsoleSpanExporter()
