@@ -9,10 +9,10 @@ updates:
     schedule:
       interval: "weekly"
   - package-ecosystem: "pip"
-    directory: "/clients/python" 
+    directory: "/sdk/python" 
     schedule:
       interval: "weekly"
   - package-ecosystem: "pip"
-    directory: "/clients/python/tests/" 
+    directory: "/sdk/python/tests/" 
     schedule:
       interval: "weekly"
