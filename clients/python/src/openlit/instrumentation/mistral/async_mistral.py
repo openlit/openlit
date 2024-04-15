@@ -121,6 +121,21 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
+                    attributes = {
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            kwargs.get("model", "mistral-small-latest")
+                    }
+
                     metrics["genai_requests"].add(1, attributes)
                     metrics["genai_total_tokens"].add(response.usage.total_tokens, attributes)
                     metrics["genai_completion_tokens"].add(response.usage.completion_tokens, attributes)
@@ -261,6 +276,21 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
                     span.set_status(Status(StatusCode.OK))
 
                     if disable_metrics is False:
+                        attributes = {
+                            TELEMETRY_SDK_NAME:
+                                "openlit",
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                application_name,
+                            SemanticConvetion.GEN_AI_SYSTEM:
+                                SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                environment,
+                            SemanticConvetion.GEN_AI_TYPE:
+                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                                kwargs.get("model", "mistral-small-latest")
+                        }
+
                         metrics["genai_requests"].add(1, attributes)
                         metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, attributes)
                         metrics["genai_completion_tokens"].add(completion_tokens, attributes)
@@ -352,6 +382,21 @@ def async_embeddings(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
+                    attributes = {
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            kwargs.get('model', "mistral-embed")
+                    }
+
                     metrics["genai_requests"].add(1, attributes)
                     metrics["genai_total_tokens"].add(response.usage.total_tokens, attributes)
                     metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, attributes)

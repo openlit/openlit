@@ -121,12 +121,18 @@ def chat(gen_ai_endpoint, version, environment, application_name,
 
                 if disable_metrics is False:
                     attributes = {
-                        TELEMETRY_SDK_NAME: "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                        SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
-                        SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get("model", "mistral-small-latest")
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            kwargs.get("model", "mistral-small-latest")
                     }
 
                     metrics["genai_requests"].add(1, attributes)
@@ -270,12 +276,18 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
 
                     if disable_metrics is False:
                         attributes = {
-                            TELEMETRY_SDK_NAME: "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                            SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
-                            SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get("model", "mistral-small-latest")
+                            TELEMETRY_SDK_NAME:
+                                "openlit",
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                application_name,
+                            SemanticConvetion.GEN_AI_SYSTEM:
+                                SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                environment,
+                            SemanticConvetion.GEN_AI_TYPE:
+                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                                kwargs.get("model", "mistral-small-latest")
                         }
 
                         metrics["genai_requests"].add(1, attributes)
@@ -370,12 +382,18 @@ def embeddings(gen_ai_endpoint, version, environment, application_name,
 
                 if disable_metrics is False:
                     attributes = {
-                        TELEMETRY_SDK_NAME: "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                        SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
-                        SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get('model', "mistral-embed")
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            kwargs.get('model', "mistral-embed")
                     }
 
                     metrics["genai_requests"].add(1, attributes)

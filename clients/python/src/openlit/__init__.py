@@ -141,7 +141,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             return
 
         # Setup meter and receive metrics_dict instead of meter
-        metrics_dict = setup_meter(application_name=application_name, 
+        metrics_dict = setup_meter(application_name=application_name,
                                    environment=environment, meter=meter,
                                    otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers)
 

@@ -152,12 +152,18 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
 
                         if disable_metrics is False:
                             attributes = {
-                                TELEMETRY_SDK_NAME: "openlit",
-                                SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
-                                SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                                SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
-                                SemanticConvetion.GEN_AI_REQUEST_MODEL: model
+                                TELEMETRY_SDK_NAME:
+                                    "openlit",
+                                SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                    application_name,
+                                SemanticConvetion.GEN_AI_SYSTEM:
+                                    SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                                SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                    environment,
+                                SemanticConvetion.GEN_AI_TYPE:
+                                    SemanticConvetion.GEN_AI_TYPE_CHAT,
+                                SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                                    model
                             }
 
                             metrics["genai_requests"].add(1, attributes)
@@ -293,12 +299,18 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
 
                     if disable_metrics is False:
                         attributes = {
-                            TELEMETRY_SDK_NAME: "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                            SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
-                            SemanticConvetion.GEN_AI_REQUEST_MODEL: model
+                            TELEMETRY_SDK_NAME:
+                                "openlit",
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                application_name,
+                            SemanticConvetion.GEN_AI_SYSTEM:
+                                SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                environment,
+                            SemanticConvetion.GEN_AI_TYPE:
+                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                                model
                         }
 
                         metrics["genai_requests"].add(1, attributes)
@@ -440,12 +452,18 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
 
                         if disable_metrics is False:
                             attributes = {
-                                TELEMETRY_SDK_NAME: "openlit",
-                                SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
-                                SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                                SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
-                                SemanticConvetion.GEN_AI_REQUEST_MODEL: model
+                                TELEMETRY_SDK_NAME:
+                                    "openlit",
+                                SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                    application_name,
+                                SemanticConvetion.GEN_AI_SYSTEM:
+                                    SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                                SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                    environment,
+                                SemanticConvetion.GEN_AI_TYPE:
+                                    SemanticConvetion.GEN_AI_TYPE_CHAT,
+                                SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                                    model
                             }
 
                             metrics["genai_requests"].add(1, attributes)
@@ -560,12 +578,18 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
 
                     if disable_metrics is False:
                         attributes = {
-                            TELEMETRY_SDK_NAME: "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                            SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
-                            SemanticConvetion.GEN_AI_REQUEST_MODEL: model
+                            TELEMETRY_SDK_NAME:
+                                "openlit",
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                application_name,
+                            SemanticConvetion.GEN_AI_SYSTEM:
+                                SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                environment,
+                            SemanticConvetion.GEN_AI_TYPE:
+                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                                model
                         }
 
                         metrics["genai_requests"].add(1, attributes)
@@ -662,12 +686,18 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
 
                 if disable_metrics is False:
                     attributes = {
-                        TELEMETRY_SDK_NAME: "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                        SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
-                        SemanticConvetion.GEN_AI_REQUEST_MODEL: "azure_" + response.model
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            "azure_" + response.model
                     }
 
                     metrics["genai_requests"].add(1, attributes)
@@ -781,12 +811,18 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
 
                 if disable_metrics is False:
                     attributes = {
-                        TELEMETRY_SDK_NAME: "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                        SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_IMAGE,
-                        SemanticConvetion.GEN_AI_REQUEST_MODEL: "azure_" + kwargs.get("model", "dall-e-3")
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_IMAGE,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            "azure_" + kwargs.get("model", "dall-e-3")
                     }
 
                     metrics["genai_requests"].add(1, attributes)

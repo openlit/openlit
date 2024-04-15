@@ -149,12 +149,18 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
 
                         if disable_metrics is False:
                             attributes = {
-                                TELEMETRY_SDK_NAME: "openlit",
-                                SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC,
-                                SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                                SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
-                                SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get("model", "claude-3-sonnet-20240229")
+                                TELEMETRY_SDK_NAME:
+                                    "openlit",
+                                SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                    application_name,
+                                SemanticConvetion.GEN_AI_SYSTEM:
+                                    SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC,
+                                SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                    environment,
+                                SemanticConvetion.GEN_AI_TYPE:
+                                    SemanticConvetion.GEN_AI_TYPE_CHAT,
+                                SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                                    kwargs.get("model", "claude-3-sonnet-20240229")
                             }
 
                             metrics["genai_requests"].add(1, attributes)
@@ -246,12 +252,18 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
 
                     if disable_metrics is False:
                         attributes = {
-                            TELEMETRY_SDK_NAME: "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                            SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
-                            SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get("model", "claude-3-sonnet-20240229")
+                            TELEMETRY_SDK_NAME:
+                                "openlit",
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                application_name,
+                            SemanticConvetion.GEN_AI_SYSTEM:
+                                SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC,
+                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                environment,
+                            SemanticConvetion.GEN_AI_TYPE:
+                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                                kwargs.get("model", "claude-3-sonnet-20240229")
                         }
 
                         metrics["genai_requests"].add(1, attributes)
