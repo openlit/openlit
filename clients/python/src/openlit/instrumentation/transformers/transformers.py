@@ -5,6 +5,7 @@ Module for monitoring ChromaDB.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import handle_exception, general_tokens
 from openlit.semcov import SemanticConvetion
 
@@ -68,6 +69,7 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 prompt_tokens = general_tokens(prompt)
 
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                    gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
@@ -117,14 +119,23 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1, {"source": "openlit"})
+                    attributes = {
+                        TELEMETRY_SDK_NAME: "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_HUGGING_FACE,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                        SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL: instance.model.config.name_or_path
+                    }
+
+                    metrics["genai_requests"].add(1, attributes)
                     metrics["genai_total_tokens"].add(
                         prompt_tokens +
-                        completion_tokens, {"source": "openlit"})
+                        completion_tokens, attributes)
                     metrics["genai_completion_tokens"].add(
-                        completion_tokens, {"source": "openlit"})
+                        completion_tokens, attributes)
                     metrics["genai_prompt_tokens"].add(
-                        prompt_tokens, {"source": "openlit"})
+                        prompt_tokens, attributes)
 
                 # Return original response
                 return response

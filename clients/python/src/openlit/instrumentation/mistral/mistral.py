@@ -5,6 +5,7 @@ Module for monitoring Mistral API calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 from openlit.semcov import SemanticConvetion
 
@@ -75,6 +76,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                             response.usage.completion_tokens)
 
                 # Set Span attributes
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_MISTRAL)
                 span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -118,11 +120,20 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1, {"source": "openlit"})
-                    metrics["genai_total_tokens"].add(response.usage.total_tokens, {"source": "openlit"})
-                    metrics["genai_completion_tokens"].add(response.usage.completion_tokens, {"source": "openlit"})
-                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, {"source": "openlit"})
-                    metrics["genai_cost"].record(cost, {"source": "openlit"})
+                    attributes = {
+                        TELEMETRY_SDK_NAME: "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                        SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get("model", "mistral-small-latest")
+                    }
+
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_total_tokens"].add(response.usage.total_tokens, attributes)
+                    metrics["genai_completion_tokens"].add(response.usage.completion_tokens, attributes)
+                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response
                 return response
@@ -214,6 +225,7 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                                                 pricing_info, prompt_tokens, completion_tokens)
 
                     # Set Span attributes
+                    span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_MISTRAL)
                     span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -257,10 +269,19 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                     span.set_status(Status(StatusCode.OK))
 
                     if disable_metrics is False:
-                        metrics["genai_requests"].add(1, {"source": "openlit"})
-                        metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, {"source": "openlit"})
-                        metrics["genai_completion_tokens"].add(completion_tokens, {"source": "openlit"})
-                        metrics["genai_prompt_tokens"].add(prompt_tokens, {"source": "openlit"})
+                        attributes = {
+                            TELEMETRY_SDK_NAME: "openlit",
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                            SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                            SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get("model", "mistral-small-latest")
+                        }
+
+                        metrics["genai_requests"].add(1, attributes)
+                        metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, attributes)
+                        metrics["genai_completion_tokens"].add(completion_tokens, attributes)
+                        metrics["genai_prompt_tokens"].add(prompt_tokens, attributes)
                         metrics["genai_cost"].record(cost)
 
                 except Exception as e:
@@ -318,6 +339,7 @@ def embeddings(gen_ai_endpoint, version, environment, application_name,
                                             pricing_info, response.usage.prompt_tokens)
 
                 # Set Span attributes
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_MISTRAL)
                 span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -347,10 +369,19 @@ def embeddings(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1, {"source": "openlit"})
-                    metrics["genai_total_tokens"].add(response.usage.total_tokens, {"source": "openlit"})
-                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, {"source": "openlit"})
-                    metrics["genai_cost"].record(cost, {"source": "openlit"})
+                    attributes = {
+                        TELEMETRY_SDK_NAME: "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                        SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get('model', "mistral-embed")
+                    }
+
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_total_tokens"].add(response.usage.total_tokens, attributes)
+                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response
                 return response

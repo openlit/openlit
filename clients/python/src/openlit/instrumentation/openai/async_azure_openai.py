@@ -5,6 +5,7 @@ Module for monitoring Azure OpenAI API calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import get_chat_model_cost, get_embed_model_cost
 from openlit.__helpers import get_image_model_cost, openai_tokens, handle_exception
 from openlit.semcov import SemanticConvetion
@@ -104,6 +105,7 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                                                     prompt_tokens, completion_tokens)
 
                         # Set Span attributes
+                        span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                         span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                             SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
                         span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -149,11 +151,20 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                         span.set_status(Status(StatusCode.OK))
 
                         if disable_metrics is False:
-                            metrics["genai_requests"].add(1, {"source": "openlit"})
-                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, {"source": "openlit"})
-                            metrics["genai_completion_tokens"].add(completion_tokens, {"source": "openlit"})
-                            metrics["genai_prompt_tokens"].add(prompt_tokens, {"source": "openlit"})
-                            metrics["genai_cost"].record(cost, {"source": "openlit"})
+                            attributes = {
+                                TELEMETRY_SDK_NAME: "openlit",
+                                SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                                SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                                SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
+                                SemanticConvetion.GEN_AI_REQUEST_MODEL: model
+                            }
+
+                            metrics["genai_requests"].add(1, attributes)
+                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, attributes)
+                            metrics["genai_completion_tokens"].add(completion_tokens, attributes)
+                            metrics["genai_prompt_tokens"].add(prompt_tokens, attributes)
+                            metrics["genai_cost"].record(cost, attributes)
 
                     except Exception as e:
                         handle_exception(span, e)
@@ -191,6 +202,7 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                     prompt = "\n".join(formatted_messages)
 
                     # Set base span attribues
+                    span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
                     span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -280,11 +292,20 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                     span.set_status(Status(StatusCode.OK))
 
                     if disable_metrics is False:
-                        metrics["genai_requests"].add(1, {"source": "openlit"})
-                        metrics["genai_total_tokens"].add(response.usage.total_tokens, {"source": "openlit"})
-                        metrics["genai_completion_tokens"].add(response.usage.completion_tokens, {"source": "openlit"})
-                        metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, {"source": "openlit"})
-                        metrics["genai_cost"].record(cost, {"source": "openlit"})
+                        attributes = {
+                            TELEMETRY_SDK_NAME: "openlit",
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                            SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                            SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL: model
+                        }
+
+                        metrics["genai_requests"].add(1, attributes)
+                        metrics["genai_total_tokens"].add(response.usage.total_tokens, attributes)
+                        metrics["genai_completion_tokens"].add(response.usage.completion_tokens, attributes)
+                        metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, attributes)
+                        metrics["genai_cost"].record(cost, attributes)
 
                     # Return original response
                     return response
@@ -372,6 +393,7 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                                                     prompt_tokens, completion_tokens)
 
                         # Set Span attributes
+                        span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                         span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                             SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
                         span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -417,11 +439,20 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                         span.set_status(Status(StatusCode.OK))
 
                         if disable_metrics is False:
-                            metrics["genai_requests"].add(1, {"source": "openlit"})
-                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, {"source": "openlit"})
-                            metrics["genai_completion_tokens"].add(completion_tokens, {"source": "openlit"})
-                            metrics["genai_prompt_tokens"].add(prompt_tokens, {"source": "openlit"})
-                            metrics["genai_cost"].record(cost, {"source": "openlit"})
+                            attributes = {
+                                TELEMETRY_SDK_NAME: "openlit",
+                                SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                                SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                                SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
+                                SemanticConvetion.GEN_AI_REQUEST_MODEL: model
+                            }
+
+                            metrics["genai_requests"].add(1, attributes)
+                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, attributes)
+                            metrics["genai_completion_tokens"].add(completion_tokens, attributes)
+                            metrics["genai_prompt_tokens"].add(prompt_tokens, attributes)
+                            metrics["genai_cost"].record(cost, attributes)
 
                     except Exception as e:
                         handle_exception(span, e)
@@ -440,6 +471,7 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                     model = "azure_" + response.model
 
                     # Set base span attribues
+                    span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
                     span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -453,7 +485,7 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                     span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                        kwargs.get("model", "gpt-3.5-turbo"))
+                                        model)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOOL_CHOICE,
@@ -527,11 +559,20 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                     span.set_status(Status(StatusCode.OK))
 
                     if disable_metrics is False:
-                        metrics["genai_requests"].add(1, {"source": "openlit"})
-                        metrics["genai_total_tokens"].add(response.usage.total_tokens, {"source": "openlit"})
-                        metrics["genai_completion_tokens"].add(response.usage.completion_tokens, {"source": "openlit"})
-                        metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, {"source": "openlit"})
-                        metrics["genai_cost"].record(cost, {"source": "openlit"})
+                        attributes = {
+                            TELEMETRY_SDK_NAME: "openlit",
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                            SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                            SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL: model
+                        }
+
+                        metrics["genai_requests"].add(1, attributes)
+                        metrics["genai_total_tokens"].add(response.usage.total_tokens, attributes)
+                        metrics["genai_completion_tokens"].add(response.usage.completion_tokens, attributes)
+                        metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, attributes)
+                        metrics["genai_cost"].record(cost, attributes)
 
                     # Return original response
                     return response
@@ -589,6 +630,7 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
                                             pricing_info, response.usage.prompt_tokens)
 
                 # Set Span attributes
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
                 span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -619,10 +661,19 @@ def azure_async_embedding(gen_ai_endpoint, version, environment, application_nam
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1, {"source": "openlit"})
-                    metrics["genai_total_tokens"].add(response.usage.total_tokens, {"source": "openlit"})
-                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, {"source": "openlit"})
-                    metrics["genai_cost"].record(cost, {"source": "openlit"})
+                    attributes = {
+                        TELEMETRY_SDK_NAME: "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                        SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL: "azure_" + response.model
+                    }
+
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_total_tokens"].add(response.usage.total_tokens, attributes)
+                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response
                 return response
@@ -689,6 +740,7 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
 
                 for items in response.data:
                     # Set Span attributes
+                    span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI)
                     span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -728,8 +780,17 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1, {"source": "openlit"})
-                    metrics["genai_cost"].record(cost, {"source": "openlit"})
+                    attributes = {
+                        TELEMETRY_SDK_NAME: "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_OPENAI,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                        SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_IMAGE,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL: "azure_" + kwargs.get("model", "dall-e-3")
+                    }
+
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response
                 return response

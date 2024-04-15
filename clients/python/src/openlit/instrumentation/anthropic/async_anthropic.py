@@ -5,6 +5,7 @@ Module for monitoring Anthropic API calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import get_chat_model_cost, handle_exception
 from openlit.semcov import SemanticConvetion
 
@@ -103,6 +104,7 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                         )
 
                         # Set Span attributes
+                        span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                         span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                             SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC)
                         span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -146,11 +148,20 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                         span.set_status(Status(StatusCode.OK))
 
                         if disable_metrics is False:
-                            metrics["genai_requests"].add(1, {"source": "openlit"})
-                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, {"source": "openlit"})
-                            metrics["genai_completion_tokens"].add(completion_tokens, {"source": "openlit"})
-                            metrics["genai_prompt_tokens"].add(prompt_tokens, {"source": "openlit"})
-                            metrics["genai_cost"].record(cost, {"source": "openlit"})
+                            attributes = {
+                                TELEMETRY_SDK_NAME: "openlit",
+                                SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC,
+                                SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                                SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
+                                SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get("model", "claude-3-sonnet-20240229")
+                            }
+
+                            metrics["genai_requests"].add(1, attributes)
+                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, attributes)
+                            metrics["genai_completion_tokens"].add(completion_tokens, attributes)
+                            metrics["genai_prompt_tokens"].add(prompt_tokens, attributes)
+                            metrics["genai_cost"].record(cost, attributes)
 
                     except Exception as e:
                         handle_exception(span, e)
@@ -189,6 +200,7 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                                                 response.usage.output_tokens)
 
                     # Set Span attribues
+                    span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC)
                     span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -233,15 +245,24 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                     span.set_status(Status(StatusCode.OK))
 
                     if disable_metrics is False:
-                        metrics["genai_requests"].add(1, {"source": "openlit"})
+                        attributes = {
+                            TELEMETRY_SDK_NAME: "openlit",
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC,
+                            SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                            SemanticConvetion.GEN_AI_TYPE: SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL: kwargs.get("model", "claude-3-sonnet-20240229")
+                        }
+
+                        metrics["genai_requests"].add(1, attributes)
                         metrics["genai_total_tokens"].add(
                             response.usage.input_tokens +
-                            response.usage.output_tokens, {"source": "openlit"})
+                            response.usage.output_tokens, attributes)
                         metrics["genai_completion_tokens"].add(
-                            response.usage.output_tokens, {"source": "openlit"})
+                            response.usage.output_tokens, attributes)
                         metrics["genai_prompt_tokens"].add(
-                            response.usage.input_tokens, {"source": "openlit"})
-                        metrics["genai_cost"].record(cost, {"source": "openlit"})
+                            response.usage.input_tokens, attributes)
+                        metrics["genai_cost"].record(cost, attributes)
 
                     # Return original response
                     return response

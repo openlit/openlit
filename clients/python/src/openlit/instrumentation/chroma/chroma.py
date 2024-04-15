@@ -5,6 +5,7 @@ Module for monitoring ChromaDB.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import handle_exception
 from openlit.semcov import SemanticConvetion
 
@@ -67,6 +68,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                    gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
