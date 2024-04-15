@@ -164,7 +164,9 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                             }
 
                             metrics["genai_requests"].add(1, attributes)
-                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, attributes)
+                            metrics["genai_total_tokens"].add(
+                                prompt_tokens + completion_tokens, attributes
+                            )
                             metrics["genai_completion_tokens"].add(completion_tokens, attributes)
                             metrics["genai_prompt_tokens"].add(prompt_tokens, attributes)
                             metrics["genai_cost"].record(cost, attributes)

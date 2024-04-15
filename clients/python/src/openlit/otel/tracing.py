@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code, line-too-long
 """
 Setups up OpenTelemetry tracer
 """
@@ -60,6 +61,7 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
             # Configure the span exporter and processor based on whether the endpoint is effectively set.
             if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
                 span_exporter = OTLPSpanExporter()
+                
                 span_processor = BatchSpanProcessor(span_exporter) if not disable_batch else SimpleSpanProcessor(span_exporter)
             else:
                 span_exporter = ConsoleSpanExporter()
@@ -72,6 +74,5 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
         return trace.get_tracer(__name__)
 
     # pylint: disable=bare-except
-    except Exception as e:
-        print(e)
+    except:
         return None

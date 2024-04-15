@@ -149,22 +149,24 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
 
                         if disable_metrics is False:
                             attributes = {
-                                TELEMETRY_SDK_NAME: 
+                                TELEMETRY_SDK_NAME:
                                     "openlit",
-                                SemanticConvetion.GEN_AI_APPLICATION_NAME: 
+                                SemanticConvetion.GEN_AI_APPLICATION_NAME:
                                     application_name,
-                                SemanticConvetion.GEN_AI_SYSTEM: 
+                                SemanticConvetion.GEN_AI_SYSTEM:
                                     SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC,
-                                SemanticConvetion.GEN_AI_ENVIRONMENT: 
+                                SemanticConvetion.GEN_AI_ENVIRONMENT:
                                     environment,
-                                SemanticConvetion.GEN_AI_TYPE: 
+                                SemanticConvetion.GEN_AI_TYPE:
                                     SemanticConvetion.GEN_AI_TYPE_CHAT,
-                                SemanticConvetion.GEN_AI_REQUEST_MODEL: 
+                                SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                     kwargs.get("model", "claude-3-sonnet-20240229")
                             }
 
                             metrics["genai_requests"].add(1, attributes)
-                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, attributes)
+                            metrics["genai_total_tokens"].add(
+                                prompt_tokens + completion_tokens, attributes
+                            )
                             metrics["genai_completion_tokens"].add(completion_tokens, attributes)
                             metrics["genai_prompt_tokens"].add(prompt_tokens, attributes)
                             metrics["genai_cost"].record(cost, attributes)
@@ -252,17 +254,17 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
 
                     if disable_metrics is False:
                         attributes = {
-                            TELEMETRY_SDK_NAME: 
+                            TELEMETRY_SDK_NAME:
                                 "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME: 
+                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
                                 application_name,
-                            SemanticConvetion.GEN_AI_SYSTEM: 
+                            SemanticConvetion.GEN_AI_SYSTEM:
                                 SemanticConvetion.GEN_AI_SYSTEM_ANTHROPIC,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT: 
+                            SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
-                            SemanticConvetion.GEN_AI_TYPE: 
+                            SemanticConvetion.GEN_AI_TYPE:
                                 SemanticConvetion.GEN_AI_TYPE_CHAT,
-                            SemanticConvetion.GEN_AI_REQUEST_MODEL: 
+                            SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                 kwargs.get("model", "claude-3-sonnet-20240229")
                         }
 
