@@ -117,14 +117,14 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1)
+                    metrics["genai_requests"].add(1, {"source": "openlit"})
                     metrics["genai_total_tokens"].add(
                         prompt_tokens +
-                        completion_tokens)
+                        completion_tokens, {"source": "openlit"})
                     metrics["genai_completion_tokens"].add(
-                        completion_tokens)
+                        completion_tokens, {"source": "openlit"})
                     metrics["genai_prompt_tokens"].add(
-                        prompt_tokens)
+                        prompt_tokens, {"source": "openlit"})
 
                 # Return original response
                 return response

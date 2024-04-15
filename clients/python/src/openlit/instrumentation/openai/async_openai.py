@@ -150,11 +150,11 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                         span.set_status(Status(StatusCode.OK))
 
                         if disable_metrics is False:
-                            metrics["genai_requests"].add(1)
-                            metrics["genai_total_tokens"].add(response.usage.total_tokens)
-                            metrics["genai_completion_tokens"].add(response.usage.completion_tokens)
-                            metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens)
-                            metrics["genai_cost"].record(cost)
+                            metrics["genai_requests"].add(1, {"source": "openlit"})
+                            metrics["genai_total_tokens"].add(prompt_tokens + completion_tokens, {"source": "openlit"})
+                            metrics["genai_completion_tokens"].add(completion_tokens, {"source": "openlit"})
+                            metrics["genai_prompt_tokens"].add(prompt_tokens, {"source": "openlit"})
+                            metrics["genai_cost"].record(cost, {"source": "openlit"})
 
                     except Exception as e:
                         handle_exception(span, e)
@@ -282,11 +282,11 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                     span.set_status(Status(StatusCode.OK))
 
                     if disable_metrics is False:
-                        metrics["genai_requests"].add(1)
-                        metrics["genai_total_tokens"].add(response.usage.total_tokens)
-                        metrics["genai_completion_tokens"].add(response.usage.completion_tokens)
-                        metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens)
-                        metrics["genai_cost"].record(cost)
+                        metrics["genai_requests"].add(1, {"source": "openlit"})
+                        metrics["genai_total_tokens"].add(response.usage.total_tokens, {"source": "openlit"})
+                        metrics["genai_completion_tokens"].add(response.usage.completion_tokens, {"source": "openlit"})
+                        metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, {"source": "openlit"})
+                        metrics["genai_cost"].record(cost, {"source": "openlit"})
 
                     # Return original response
                     return response
@@ -375,10 +375,10 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1)
-                    metrics["genai_total_tokens"].add(response.usage.total_tokens)
-                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens)
-                    metrics["genai_cost"].record(cost)
+                    metrics["genai_requests"].add(1, {"source": "openlit"})
+                    metrics["genai_total_tokens"].add(response.usage.total_tokens, {"source": "openlit"})
+                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, {"source": "openlit"})
+                    metrics["genai_cost"].record(cost, {"source": "openlit"})
 
                 # Return original response
                 return response
@@ -572,8 +572,8 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1)
-                    metrics["genai_cost"].record(cost)
+                    metrics["genai_requests"].add(1, {"source": "openlit"})
+                    metrics["genai_cost"].record(cost, {"source": "openlit"})
 
                 # Return original response
                 return response
@@ -673,8 +673,8 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1)
-                    metrics["genai_cost"].record(cost)
+                    metrics["genai_requests"].add(1, {"source": "openlit"})
+                    metrics["genai_cost"].record(cost, {"source": "openlit"})
 
                 # Return original response
                 return response
@@ -759,8 +759,8 @@ def async_audio_create(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1)
-                    metrics["genai_cost"].record(cost)
+                    metrics["genai_requests"].add(1, {"source": "openlit"})
+                    metrics["genai_cost"].record(cost, {"source": "openlit"})
 
                 # Return original response
                 return response
