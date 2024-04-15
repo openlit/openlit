@@ -5,15 +5,16 @@ import os
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, ConsoleMetricExporter
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 
 from openlit.semcov import SemanticConvetion
 
 # Global flag to check if the meter provider initialization is complete.
 METER_SET = False
 
-def setup_meter(application_name="default", meter=None, otlp_endpoint=None, otlp_headers=None):
+def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_headers):
     """
     Sets up OpenTelemetry metrics with a counter for total requests.
 
@@ -31,13 +32,23 @@ def setup_meter(application_name="default", meter=None, otlp_endpoint=None, otlp
 
     try:
         if meter is None and not METER_SET:
-            resource = Resource.create(attributes={SERVICE_NAME: application_name})
+            # Create a resource with the service name attribute.
+            resource = Resource(attributes={
+                SERVICE_NAME: application_name,
+                DEPLOYMENT_ENVIRONMENT: environment,
+                TELEMETRY_SDK_NAME: "openlit"}
+            )
 
-            otlp_endpoint = otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-            otlp_headers = otlp_headers or os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
+            # Only set environment variables if you have a non-None value or if there's an existing env variable.
+            if otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""):
+                os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_endpoint if otlp_endpoint is not None else os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
-            if otlp_endpoint:
-                metric_exporter = OTLPMetricExporter(endpoint=otlp_endpoint, headers=otlp_headers)
+            if otlp_headers or os.getenv("OTEL_EXPORTER_OTLP_HEADERS", ""):
+                os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = otlp_headers if otlp_headers is not None else os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
+
+            # Configure the span exporter and processor based on whether the endpoint is effectively set.
+            if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+                metric_exporter = OTLPMetricExporter()
             else:
                 metric_exporter = ConsoleMetricExporter()
 

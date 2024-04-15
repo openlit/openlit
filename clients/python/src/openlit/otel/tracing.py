@@ -1,19 +1,21 @@
-# pylint: disable=line-too-long
 """
 Setups up OpenTelemetry tracer
 """
 
 import os
 from opentelemetry import trace
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, ConsoleSpanExporter
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
 
 # Global flag to check if the tracer provider initialization is complete.
 TRACER_SET = False
 
-def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, otlp_headers=None, disable_batch=False):
+def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_headers, disable_batch):
     """
     Sets up tracing with OpenTelemetry. Initializes the tracer provider and configures the span processor and exporter.
 
@@ -39,17 +41,25 @@ def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, o
     try:
         if not TRACER_SET:
             # Create a resource with the service name attribute.
-            resource = Resource(attributes={SERVICE_NAME: application_name})
+            resource = Resource(attributes={
+                SERVICE_NAME: application_name,
+                DEPLOYMENT_ENVIRONMENT: environment,
+                TELEMETRY_SDK_NAME: "openlit"}
+            )
 
             # Initialize the TracerProvider with the created resource.
             trace.set_tracer_provider(TracerProvider(resource=resource))
+            
+            # Only set environment variables if you have a non-None value or if there's an existing env variable.
+            if otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""):
+                os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_endpoint if otlp_endpoint is not None else os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
-            otlp_endpoint = otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-            otlp_headers = otlp_headers or os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
+            if otlp_headers or os.getenv("OTEL_EXPORTER_OTLP_HEADERS", ""):
+                os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = otlp_headers if otlp_headers is not None else os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
 
-            # Configure span exporter and processor based on provided parameters or defaults.
-            if otlp_endpoint:
-                span_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, headers=otlp_headers)
+            # Configure the span exporter and processor based on whether the endpoint is effectively set.
+            if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+                span_exporter = OTLPSpanExporter()
                 span_processor = BatchSpanProcessor(span_exporter) if not disable_batch else SimpleSpanProcessor(span_exporter)
             else:
                 span_exporter = ConsoleSpanExporter()
@@ -62,5 +72,6 @@ def setup_tracing(application_name="default", tracer=None, otlp_endpoint=None, o
         return trace.get_tracer(__name__)
 
     # pylint: disable=bare-except
-    except:
+    except Exception as e:
+        print(e)
         return None

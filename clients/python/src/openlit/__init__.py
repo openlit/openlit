@@ -131,9 +131,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         # Setup tracing based on the provided or default configuration.
         tracer = setup_tracing(
             application_name=application_name,
-            tracer=tracer,
-            otlp_endpoint=otlp_endpoint,
-            otlp_headers=otlp_headers,
+            environment=environment, tracer=tracer,
+            otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers,
             disable_batch=disable_batch
         )
 
@@ -142,8 +141,9 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             return
 
         # Setup meter and receive metrics_dict instead of meter
-        metrics_dict = setup_meter(application_name=application_name, meter=meter,
-                                otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers)
+        metrics_dict = setup_meter(application_name=application_name, 
+                                   environment=environment, meter=meter,
+                                   otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers)
 
         if not metrics_dict:
             logger.error("openLIT metrics setup failed. Metrics will not be available.")
