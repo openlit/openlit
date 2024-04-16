@@ -9,16 +9,17 @@ cohere>=5.0.0
 openai>=1.1.1
 anthropic>=0.21.0
 mistralai>=0.1.0
-transformers
+transformers>=4.39.3
+tensorflow>=2.16.1
 
 # Vector DBs
 chromadb>=0.4.0
 pinecone-client>=2.2.0
 
 # Frameworks
-langchain
-langchainhub
-langchain_community
+langchain>=0.1.16
+langchainhub>=0.1.15
+langchain_community>=0.0.33
 
 # Utilities
 bs4
