@@ -4,9 +4,7 @@ Mistral Test Suite
 
 This module contains a suite of tests for Mistral functionality 
 using the Mistral Python library. It includes tests for various 
-Mistral API endpoints such as text summarization, text generation 
-with a prompt,text embeddings creation, and chat-based 
-language understanding.
+Mistral API endpoints such as chat and embeddings creation.
 
 The tests are designed to cover different aspects of Mistral's 
 capabilities and serve as a validation mechanism for the integration 
@@ -17,8 +15,6 @@ Mistral client and Doku monitoring.
 
 Environment Variables:
     - Mistral_API_TOKEN: Mistral API api_key for authentication.
-    - DOKU_URL: Doku URL for monitoring data submission.
-    - DOKU_TOKEN: Doku authentication api_key.
 
 Note: Ensure the environment variables are properly set before running the tests.
 """
@@ -37,7 +33,7 @@ client = MistralClient(
 # pylint: disable=line-too-long
 openlit.init(environment="dokumetry-testing", application_name="dokumetry-python-test")
 
-def test_chat():
+def test_sync_mistral_chat():
     """
     Test the 'chat' function of the Mistral client.
     """
@@ -53,7 +49,7 @@ def test_chat():
     )
     assert message.object == 'chat.completion'
 
-def test_embeddings():
+def test_sync_mistral_embeddings():
     """
     Test the 'embeddings' function of the Mistral client.
     """
