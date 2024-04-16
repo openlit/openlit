@@ -7,8 +7,6 @@ upsert, update, get, peek and delete.
 These tests validate integration with OpenLIT.
 """
 
-import os
-import pytest
 import chromadb
 import openlit
 
@@ -34,16 +32,16 @@ def test_db_chroma():
         metadatas=[{"source": "my_source"}, {"source": "my_source"}],
         ids=["id1", "id2"]
     )
-    assert db_add == None
+    assert db_add is None
 
     query = collection.query(
         query_texts=["This is a query document"],
         n_results=2
     )
-    assert query.ids == [['id1', 'id2']]
+    assert query["ids"] == [['id1', 'id2']]
 
     db_delete = collection.delete(
         ids=["id2"],
         where={"source": "my_source"}
     )
-    assert db_delete == None
+    assert db_delete is None
