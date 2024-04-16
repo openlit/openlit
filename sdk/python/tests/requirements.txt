@@ -9,6 +9,7 @@ cohere>=5.0.0
 openai>=1.1.1
 anthropic>=0.21.0
 mistralai>=0.1.0
+transformers
 
 # Vector DBs
 chromadb>=0.4.0
