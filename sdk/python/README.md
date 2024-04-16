@@ -76,7 +76,7 @@ Whether it's big or small, we love contributions 💚. Check out our [Contributi
 
 Unsure where to start? Here are a few ways to get involved:
 
-- Join our [Slack channel](https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) to discuss ideas, share feedback, and connect with both our team and the wider OpenLIT community.
+- Join our [Slack channel](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) to discuss ideas, share feedback, and connect with both our team and the wider OpenLIT community.
 
 Your input helps us grow and improve, and we're here to support you every step of the way.
 
@@ -85,6 +85,6 @@ Your input helps us grow and improve, and we're here to support you every step o
 Connect with the OpenLIT community and maintainers for support, discussions, and updates:
 
 - 🌟 If you like it, Leave a star on our [GitHub](https://github.com/open-lit/openlit/)
-- 🌍 Join our [Slack](https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) Community for live interactions and questions.
+- 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) Community for live interactions and questions.
 - 🐞 Report bugs on our [GitHub Issues](https://github.com/open-lit/openlit/issues) to help us improve OpenLIT.
 - 𝕏 Follow us on [X](https://twitter.com/openlit) for the latest updates and news.
