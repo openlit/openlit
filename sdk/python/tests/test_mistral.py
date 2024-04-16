@@ -65,7 +65,6 @@ def test_sync_mistral_embeddings():
     )
     assert response.object == 'list'
 
-@pytest.mark.asyncio
 async def test_async_mistral_chat():
     """
     Tests asynchronous chat with the 'open-mistral-7b' model.
@@ -85,7 +84,7 @@ async def test_async_mistral_chat():
     )
     assert message.object == 'chat.completion'
 
-async def main() -> None:
+async def test_async_mistral_embeddings() -> None:
     """
     Tests asynchronous embedding creation with the 'mistral-embed' model.
 
@@ -99,4 +98,5 @@ async def main() -> None:
     )
     assert response.object == 'list'
 
-asyncio.run(main())
+asyncio.run(test_async_mistral_embeddings())
+asyncio.run(test_async_mistral_chat())
