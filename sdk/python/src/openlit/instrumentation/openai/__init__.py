@@ -19,7 +19,7 @@ from openlit.instrumentation.openai.async_azure_openai import azure_async_comple
 from openlit.instrumentation.openai.async_azure_openai import azure_async_image_generate
 from openlit.instrumentation.openai.async_azure_openai import azure_async_embedding
 
-_instruments = ("openai >= 0.3.11",)
+_instruments = ("openai >= 1.1.1",)
 
 class OpenAIInstrumentor(BaseInstrumentor):
     """An instrumentor for OpenAI's client library."""

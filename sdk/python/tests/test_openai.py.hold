@@ -9,7 +9,8 @@ and audio speech generation. These tests validate integration with OpenLIT.
 Environment Variables:
     - OPENAI_API_TOKEN: OpenAI API key for authentication.
 
-Note: Ensure the environment variables are properly set before running the tests.
+Note: Ensure the environment is properly configured for OpenAI access and OpenLIT monitoring
+prior to running these tests.
 """
 
 import os

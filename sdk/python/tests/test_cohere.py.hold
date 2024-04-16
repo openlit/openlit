@@ -8,7 +8,8 @@ These tests validate integration with OpenLIT.
 Environment Variables:
     - COHERE_API_TOKEN: Cohere API api_key for authentication.
 
-Note: Ensure the environment variables are properly set before running the tests.
+Note: Ensure the environment is properly configured for Cohere access and OpenLIT monitoring
+prior to running these tests.
 """
 
 import os
