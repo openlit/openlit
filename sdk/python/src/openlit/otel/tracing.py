@@ -51,16 +51,21 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
             # Initialize the TracerProvider with the created resource.
             trace.set_tracer_provider(TracerProvider(resource=resource))
 
-            # Only set environment variables if you have a non-None value or if there's an existing env variable.
-            if otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""):
-                os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_endpoint if otlp_endpoint is not None else os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+            # Only set environment variables if you have a non-None value.
+            if otlp_endpoint is not None:
+                os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = otlp_endpoint
 
-            if otlp_headers or os.getenv("OTEL_EXPORTER_OTLP_HEADERS", ""):
-                os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = otlp_headers if otlp_headers is not None else os.getenv("OTEL_EXPORTER_OTLP_HEADERS")
+            if otlp_headers is not None:
+                if isinstance(otlp_headers, dict):
+                    headers_str = ','.join(f"{key}={value}" for key, value in otlp_headers.items())
+                else:
+                    headers_str = otlp_headers
+
+                os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = headers_str
 
             # Configure the span exporter and processor based on whether the endpoint is effectively set.
             if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-                span_exporter = OTLPSpanExporter()
+                span_exporter = OTLPSpanExporter(headers=otlp_headers)
 
                 span_processor = BatchSpanProcessor(span_exporter) if not disable_batch else SimpleSpanProcessor(span_exporter)
             else:
