@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, no-member
 """
 This module contains tests for Cohere functionality using the Cohere Python library.
 
