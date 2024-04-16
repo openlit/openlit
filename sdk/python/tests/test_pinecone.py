@@ -33,18 +33,21 @@ def test_db_pinecone():
     verifies correct behavior of these operations by asserting expected outcomes at
     each step.
 
-    - Documents are added to the index with specific metadata and ids,
-      and the absence of an error response is verified.
-    - A query operation is performed, and its results are verified to match the
-      expected document ids.
-    - A delete operation targets a specific document by id, and successful deletion
-      is implicitly verified by the absence of an error response.
+    - Vectors are upserted into the index with unique IDs and vector values. The test
+      verifies that the upsert operation reports the correct number of vectors inserted.
+    - A query operation is performed using a vector similar to one of the upserted vectors.
+      The test verifies that the query successfully executes within the specified namespace
+      and that the results match expected document vectors.
+    - A delete operation targets specific vectors by ID within a namespace, and the test
+      verifies that the delete operation completes successfully by asserting the absence
+      of an error response.
     
-    The test ensures the basic CRUD operations perform as expected in ChromaDB.
+    The test ensures the basic CRUD operations perform as expected in Pinecone.
     Raises:
-        AssertionError: If the responses from the ChromaDB operations do not meet the expected outcomes.
+        AssertionError: If the responses from the Pinecone operations do not meet the expected outcomes.
     """
 
+    # Upsert vectors to the index
     db_upsert = index.upsert(
         vectors=[
             {"id": "vec1", "values": [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]},
@@ -56,6 +59,7 @@ def test_db_pinecone():
     )
     assert db_upsert == {'upserted_count': 4}
 
+    # Query the vectors from the index
     db_query = index.query(
         namespace="python-tests",
         vector=[0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3],
@@ -64,7 +68,8 @@ def test_db_pinecone():
     )
     assert db_query["namespace"] == "python-tests"
 
-    db_delete = index.delete(ids=["vec1", "vec2"], namespace='ns1')
+    # Delete the vectors from the index
+    db_delete = index.delete(ids=["vec1", "vec2", "vec3", "vec4"], namespace='python-tests')
     assert db_delete == {}
 
 
