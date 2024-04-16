@@ -12,6 +12,7 @@ Note: Ensure the environment variables are properly set before running the tests
 """
 
 import os
+import pytest
 from anthropic import Anthropic, AsyncAnthropic
 import openlit
 
