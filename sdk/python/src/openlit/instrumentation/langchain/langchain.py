@@ -70,7 +70,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_RETRIEVAL_SOURCE,
-                                    response[0].metadata[TELEMETRY_SDK_NAME])
+                                    response[0].metadata["source"])
                 span.set_status(Status(StatusCode.OK))
 
                 # Return original response
