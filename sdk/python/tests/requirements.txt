@@ -9,6 +9,9 @@ pylint>=3.0.2
 mistralai>=0.1.0
 chromadb>=0.4.0
 pinecone-client>=2.2.0
+langchain_community
+langchain
+bs4
 tiktoken>=0.1.1
 opentelemetry-api>=1.24.0
 opentelemetry-sdk>=1.24.0
