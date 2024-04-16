@@ -22,6 +22,7 @@ import os
 from openai import OpenAI, AsyncOpenAI
 import openlit
 import asyncio
+import pytest
 
 # Global sync client
 sync_client = OpenAI(
@@ -134,23 +135,25 @@ def test_sync_openai_audio_speech_create():
         input='LLM Observability!')
     assert audio_speech_resp is not None and isinstance(audio_speech_resp, object)
 
-def test_async_openai_chat_completions():
+@pytest.mark.asyncio
+async def test_async_openai_chat_completions():
     """
     Test chat completion with the 'gpt-3.5-turbo' model.
 
     Raises:
         AssertionError: If the chat completion response object is not as expected.
     """
-    async def main() -> None:
-        chat_completions_resp = async_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            max_tokens=1,
-            messages=[{"role": "user", "content": "What is LLM Observability?"}]
-        )
-        assert chat_completions_resp.object == 'chat.completion'
-    asyncio.run(main())
 
-def test_async_openai_embeddings():
+    chat_completions_resp = await async_client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        max_tokens=1,
+        messages=[{"role": "user", "content": "What is LLM Observability?"}]
+    )
+    assert chat_completions_resp.object == 'chat.completion'
+
+
+@pytest.mark.asyncio
+async def test_async_openai_embeddings():
     """
     Test embedding creation with the 'text-embedding-ada-002' model.
 
@@ -158,11 +161,9 @@ def test_async_openai_embeddings():
         AssertionError: If the embedding response object is not as expected.
     """
 
-    async def main() -> None:
-        embeddings_resp = async_client.embeddings.create(
-            model="text-embedding-ada-002",
-            input="The quick brown fox jumped over the lazy dog",
-            encoding_format="float"
-        )
-        assert embeddings_resp.data[0].object == 'embedding'
-    asyncio.run(main())
+    embeddings_resp = await async_client.embeddings.create(
+        model="text-embedding-ada-002",
+        input="The quick brown fox jumped over the lazy dog",
+        encoding_format="float"
+    )
+    assert embeddings_resp.data[0].object == 'embedding'
