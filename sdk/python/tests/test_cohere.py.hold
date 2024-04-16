@@ -15,10 +15,10 @@ import os
 import cohere
 import openlit
 
-# Global cohere client
+# Initialize synchronous Cohere client
 sync_client = cohere.Client(os.getenv("COHERE_API_TOKEN"))
 
-# Global cohere initialization
+# Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="dokumetry-testing", application_name="dokumetry-python-test")
 
 def test_embed():
