@@ -1,12 +1,12 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, no-member
 """
-This module contains tests for ChromaDB functionality using the ChromaDB Python library.
+This module contains tests for Langchain functionality using the langchain Python library.
 
-Tests cover various API endpoints, including create_collection, add, query,
-upsert, update, get, peek and delete. 
+Tests cover various functions, including WebBaseLoader, TextSplitter,
+and Prompt pull from Hub. 
 These tests validate integration with OpenLIT.
 
-Note: Ensure the environment is properly configured for ChromaDB access and OpenLIT monitoring
+Note: Ensure the environment is properly configured for Langchain and OpenLIT monitoring
 prior to running these tests.
 """
 
@@ -20,6 +20,23 @@ import openlit
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
 def test_langchain():
+    """
+    Verifies the functionality of LangChain operations including document loading, text splitting,
+    and prompt pulling from the Hub. Each operation is tested to ensure it functions as intended,
+    confirming the efficient use of the LangChain library for processing and interacting with text data.
+
+    Steps involved in the test:
+    - Documents are loaded using the WebBaseLoader, focusing on specific content from a provided URL.
+    - The loaded documents are then split into smaller chunks using the RecursiveCharacterTextSplitter.
+    - A prompt is retrieved from the LangChain Hub to verify the functionality of pulling resources from the Hub.
+
+    This test checks for the expected outcomes and metadata from each operation to confirm that the LangChain library
+    is working as expected within the intended use cases.
+
+    Raises:
+        AssertionError: If the outcomes from the LangChain operations deviate from what is expected.
+    """
+
     docs = WebBaseLoader(
       web_paths=("https://lilianweng.github.io/posts/2023-06-23-agent/",),
       bs_kwargs={
@@ -30,7 +47,8 @@ def test_langchain():
     ).load()
     assert docs[0].metadata["source"] == "https://lilianweng.github.io/posts/2023-06-23-agent/"
 
-    splits = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200).split_documents(docs)
+    texts = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    splits = texts.split_documents(docs)
     assert splits[0].metadata["source"] == "https://lilianweng.github.io/posts/2023-06-23-agent/"
 
     prompt = hub.pull("rlm/rag-prompt")
