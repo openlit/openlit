@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, no-name-in-module
 """
 This module contains tests for Anthropic functionality using the Anthropic Python library.
 
