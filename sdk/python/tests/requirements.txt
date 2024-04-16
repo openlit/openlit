@@ -10,7 +10,6 @@ openai>=1.1.1
 anthropic>=0.21.0
 mistralai>=0.1.0
 transformers>=4.39.3
-tensorflow>=2.16.1
 
 # Vector DBs
 chromadb>=0.4.0
@@ -24,6 +23,8 @@ langchain_community>=0.0.33
 # Utilities
 bs4
 tiktoken>=0.1.1
+tensorflow>=2.16.1
+tf_keras>=2.16.0
 
 # OpenTelemetry
 opentelemetry-api>=1.24.0
