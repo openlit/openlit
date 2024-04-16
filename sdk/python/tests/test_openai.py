@@ -37,7 +37,7 @@ async_client = AsyncOpenAI(
 
 # Global initialization
 # pylint: disable=line-too-long
-openlit.init(environment="dokumetry-testing", application_name="dokumetry-python-test")
+openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
 def test_sync_openai_chat_completions():
     """
@@ -151,8 +151,6 @@ async def test_async_openai_chat_completions():
         messages=[{"role": "user", "content": "What is LLM Observability?"}]
     )
     assert chat_completions_resp.object == 'chat.completion'
-    await asyncio.sleep(30)
-
 
 @pytest.mark.asyncio
 async def test_async_openai_embeddings():
@@ -169,4 +167,36 @@ async def test_async_openai_embeddings():
         encoding_format="float"
     )
     assert embeddings_resp.data[0].object == 'embedding'
-    await asyncio.sleep(30)
+
+@pytest.mark.asyncio
+async def test_async_openai_image_variations():
+    """
+    Test image variation creation with 'dall-e-2' model.
+
+    Raises:
+        AssertionError: If the image variation response created timestamp is not present.
+    """
+
+    image_variation_resp = await async_client.images.create_variation(
+        image=open("tests/test-image-for-openai.png", "rb"),
+        model='dall-e-2',
+        n=1,
+        size="256x256"
+    )
+    assert image_variation_resp.created is not None
+
+@pytest.mark.asyncio
+async def test_async_openai_audio_speech_create():
+    """
+    Test audio speech generation with 'tts-1' model.
+
+    Raises:
+        AssertionError: If the audio speech response is not present or not an instance of an object.
+    """
+
+    audio_speech_resp = await async_client.audio.speech.create(
+        model='tts-1',
+        voice='alloy',
+        input='LLM Observability!')
+    assert audio_speech_resp is not None and isinstance(audio_speech_resp, object)
+    await asyncio.sleep(60)
