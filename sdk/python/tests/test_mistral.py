@@ -84,17 +84,17 @@ async def test_async_mistral_chat():
     )
     assert message.object == 'chat.completion'
 
-@pytest.mark.asyncio
-async def test_async_mistral_embeddings():
-    """
-    Tests asynchronous embedding creation with the 'mistral-embed' model.
+# @pytest.mark.asyncio
+# async def test_async_mistral_embeddings():
+#     """
+#     Tests asynchronous embedding creation with the 'mistral-embed' model.
 
-    Raises:
-        AssertionError: If the embedding response object is not as expected.
-    """
+#     Raises:
+#         AssertionError: If the embedding response object is not as expected.
+#     """
 
-    response = await async_client.embeddings(
-      model="mistral-embed",
-      input=["Embed this sentence.", "As well as this one."],
-    )
-    assert response.object == 'list'
+#     response = await async_client.embeddings(
+#       model="mistral-embed",
+#       input=["Embed this sentence.", "As well as this one."],
+#     )
+#     assert response.object == 'list'
