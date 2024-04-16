@@ -23,18 +23,22 @@ def test_langchain():
     """
     Verifies the functionality of LangChain operations including document loading, text splitting,
     and prompt pulling from the Hub. Each operation is tested to ensure it functions as intended,
-    confirming the efficient use of the LangChain library for processing and interacting with text data.
+    confirming the efficient use of the LangChain library for processing and interacting
+    with text data.
 
     Steps involved in the test:
-    - Documents are loaded using the WebBaseLoader, focusing on specific content from a provided URL.
-    - The loaded documents are then split into smaller chunks using the RecursiveCharacterTextSplitter.
-    - A prompt is retrieved from the LangChain Hub to verify the functionality of pulling resources from the Hub.
+    - Documents are loaded using the WebBaseLoader, focusing on specific content from
+      a provided URL.
+    - The loaded documents are then split into smaller chunks using
+      the RecursiveCharacterTextSplitter.
+    - A prompt is retrieved from the LangChain Hub to verify the functionality of
+      pulling resources from the Hub.
 
-    This test checks for the expected outcomes and metadata from each operation to confirm that the LangChain library
-    is working as expected within the intended use cases.
+    This test checks for the expected outcomes and metadata from each operation to
+    confirm that the LangChain library is working as expected within the intended use cases.
 
     Raises:
-        AssertionError: If the outcomes from the LangChain operations deviate from what is expected.
+      AssertionError: If the outcomes from the LangChain operations deviate from what is expected.
     """
 
     docs = WebBaseLoader(
