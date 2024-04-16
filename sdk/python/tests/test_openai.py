@@ -1,16 +1,10 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, consider-using-with
 """
-OpenAI Test Suite
+This module contains tests for OpenAI functionality using the OpenAI Python library.
 
-This module contains a suite of tests for OpenAI functionality using the OpenAI Python library.
-It includes tests for various OpenAI API endpoints such as completions, chat completions,
-embeddings creation, fine-tuning job creation, image generation, image variation creation,
-and audio speech generation.
-
-The tests are designed to cover different aspects of OpenAI's capabilities and serve as a
-validation mechanism for the integration with the Doku monitoring system.
-
-Global client and initialization are set up for the OpenAI client and Doku monitoring.
+Tests cover various API endpoints, including completions, chat completions,
+embeddings, fine-tuning job creation, image generation, image variation creation,
+and audio speech generation. These tests validate integration with OpenLIT.
 
 Environment Variables:
     - OPENAI_API_TOKEN: OpenAI API key for authentication.
@@ -21,27 +15,25 @@ Note: Ensure the environment variables are properly set before running the tests
 import os
 import time
 import pytest
-import asyncio
-import openlit
 from openai import OpenAI, AsyncOpenAI
+import openlit
 
-# Global sync client
+# Initialize synchronous OpenAI client
 sync_client = OpenAI(
     api_key=os.getenv("OPENAI_API_TOKEN"),
 )
 
-# Global async client
+# Initialize asynchronous OpenAI client
 async_client = AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_TOKEN"),
 )
 
-# Global initialization
-# pylint: disable=line-too-long
+# Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
 def test_sync_openai_chat_completions():
     """
-    Test chat completion with the 'gpt-3.5-turbo' model.
+    Tests synchronous chat completions with the 'gpt-3.5-turbo' model.
 
     Raises:
         AssertionError: If the chat completion response object is not as expected.
@@ -56,7 +48,7 @@ def test_sync_openai_chat_completions():
 
 def test_sync_openai_embeddings():
     """
-    Test embedding creation with the 'text-embedding-ada-002' model.
+    Tests synchronous embedding creation with the 'text-embedding-ada-002' model.
 
     Raises:
         AssertionError: If the embedding response object is not as expected.
@@ -92,7 +84,7 @@ def test_sync_openai_embeddings():
 
 def test_sync_openai_image_generation():
     """
-    Test image generation with 'dall-e-2' model.
+    Tests synchronous image generation with the 'dall-e-2' model.
 
     Raises:
         AssertionError: If the image generation response created timestamp is not present.
@@ -108,7 +100,7 @@ def test_sync_openai_image_generation():
 
 def test_sync_openai_image_variations():
     """
-    Test image variation creation with 'dall-e-2' model.
+    Tests synchronous image variation creation with the 'dall-e-2' model
 
     Raises:
         AssertionError: If the image variation response created timestamp is not present.
@@ -124,7 +116,7 @@ def test_sync_openai_image_variations():
 
 def test_sync_openai_audio_speech_create():
     """
-    Test audio speech generation with 'tts-1' model.
+    Tests synchronous audio speech generation with the 'tts-1' model.
 
     Raises:
         AssertionError: If the audio speech response is not present or not an instance of an object.
@@ -139,7 +131,7 @@ def test_sync_openai_audio_speech_create():
 @pytest.mark.asyncio
 async def test_async_openai_chat_completions():
     """
-    Test chat completion with the 'gpt-3.5-turbo' model.
+    Tests asynchronous chat completions with the 'gpt-3.5-turbo' model.
 
     Raises:
         AssertionError: If the chat completion response object is not as expected.
@@ -155,7 +147,7 @@ async def test_async_openai_chat_completions():
 @pytest.mark.asyncio
 async def test_async_openai_embeddings():
     """
-    Test embedding creation with the 'text-embedding-ada-002' model.
+    Tests asynchronous embedding creation with the 'text-embedding-ada-002' model.
 
     Raises:
         AssertionError: If the embedding response object is not as expected.
@@ -171,7 +163,7 @@ async def test_async_openai_embeddings():
 @pytest.mark.asyncio
 async def test_async_openai_image_variations():
     """
-    Test image variation creation with 'dall-e-2' model.
+    Tests asynchronous image variation creation with the 'dall-e-2' model.
 
     Raises:
         AssertionError: If the image variation response created timestamp is not present.
@@ -188,7 +180,7 @@ async def test_async_openai_image_variations():
 @pytest.mark.asyncio
 async def test_async_openai_audio_speech_create():
     """
-    Test audio speech generation with 'tts-1' model.
+    Tests asynchronous audio speech generation with the 'tts-1' model.
 
     Raises:
         AssertionError: If the audio speech response is not present or not an instance of an object.
@@ -199,4 +191,5 @@ async def test_async_openai_audio_speech_create():
         voice='alloy',
         input='LLM Observability!')
     assert audio_speech_resp is not None and isinstance(audio_speech_resp, object)
-    await asyncio.sleep(60)
+
+time.sleep(45)
