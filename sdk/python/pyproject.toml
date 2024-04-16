@@ -2,10 +2,10 @@
 name = "openlit"
 version = "0.0.1"
 description = "OpenTelemetry-native Python library for Automatic Instrumentation of LLM Applications"
-authors = ["Doku Labs"]
-repository = "https://github.com/dokulabs/doku/tree/main/openlit/python"
+authors = ["OpenLIT"]
+repository = "https://github.com/open-lit/openlit/tree/main/openlit/python"
 readme = "README.md"
-homepage = "https://github.com/dokulabs/doku/tree/main/openlit/python"
+homepage = "https://github.com/open-lit/openlit/tree/main/openlit/python"
 keywords = ["OpenTelemetry", "llm", "tracing", "openai", "anthropic", "claude", "cohere", "llm monitoring", "observability", "monitoring", "gpt", "Generative AI", "chatGPT"]
 
 [tool.poetry.dependencies]

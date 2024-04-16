@@ -1,152 +1,54 @@
-# Doku Python SDK - dokumetry
+# OpenLIT: OpenTelemetry-native Observability for LLMs
 
-[![Doku Python Package](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
-[![Documentation](https://img.shields.io/badge/Documentation-orange?logo=Google-Docs&logoColor=white)](https://docs.dokulabs.com/)
-[![License](https://img.shields.io/github/license/dokulabs/dokumetry-python?label=license&logo=github&color=f80&logoColor=fff%22%20alt=%22License)](https://github.com/dokulabs/dokumetry-python/blob/main/LICENSE)
-[![Downloads](https://static.pepy.tech/badge/dokumetry/month)](https://pepy.tech/project/dokumetry)
-[![GitHub Last Commit](https://img.shields.io/github/last-commit/dokulabs/dokumetry-python)](https://github.com/dokulabs/dokumetry-python/pulse)
-[![GitHub Contributors](https://img.shields.io/github/contributors/dokulabs/dokumetry-python)](https://github.com/dokulabs/dokumetry-python/graphs/contributors)
+OpenLIT SDKs are OpenTelemetry native Auto instrumentation library for LLMs, that enables integrating observability into your GenAI-driven applications. OpenLIT is designed to be lightweight, easy to use, and powerful, giving developers the insights needed to optimize and understand their AI applications.
 
-[![Library Version](https://img.shields.io/github/tag/dokulabs/dokumetry-python.svg?&label=Library%20Version&logo=python)](https://github.com/dokulabs/dokumetry-python/tags)
+Whether you're developing conversational agents, content generation tools, or advanced AI solutions that rely on the robust capabilities of LLMs and vector search, OpenLIT provides the observability tools you need to ensure high performance and reliability.
 
-[![Tests](https://github.com/dokulabs/dokumetry-python/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/dokulabs/dokumetry-python/actions/workflows/tests.yml)
-[![Pylint](https://github.com/dokulabs/dokumetry-python/actions/workflows/pylint.yml/badge.svg?branch=main)](https://github.com/dokulabs/dokumetry-python/actions/workflows/pylint.yml)
-[![CodeQL](https://github.com/dokulabs/dokumetry-python/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/dokulabs/dokumetry-python/actions/workflows/github-code-scanning/codeql)
-
-[Doku Python SDK](https://pypi.org/project/dokumetry/) (`dokumetry`) is your workhorse for collecting and transmitting language learning model (LLM) usage data and metrics with zero added latency. Simplicity is at the core of `dokumetry`, enabling you to kickstart comprehensive LLM observability with just two lines of code. It’s designed to blend seamlessly into your projects, supporting integration with leading LLM platforms:
-
+## What can be Auto Instrumented?
+LLMs
 - ✅ OpenAI
 - ✅ Anthropic
 - ✅ Cohere
 - ✅ Mistral
 - ✅ Azure OpenAI
+- ✅ HuggingFace Transformers
 
-Deployed as the backbone for all your LLM monitoring needs, `dokumetry` channels crucial usage data directly to Doku, streamlining the tracking process. Unlock efficient and effective observability for your LLM applications with DokuMetry.
+Vector DBs
+- ✅ ChromaDB
+- ✅ Pinecone
 
-## 🔥 Features
-
-- **Effortless Integration:** With `dokumetry`, observability comes easy. Elevate your LLM observability by integrating this powerhouse into your projects using just two lines of code. 
-
-- **Zero Latency Impact:** We value the performance of your applications. `dokumetry` is engineered to capture and send data without hampering your application’s speed, ensuring a seamless user experience.
-
-- - **Customizable Data Labeling:** Enhance your LLM analytics with customizable environment and application tags. `dokumetry` allows you to append these labels to your data, offering you the capability to sift through your observability data with ease. Drill down and view metrics in Doku, segmented by these specific tags for a more insightful analysis.
+Frameworks
+- ✅ Langchain
 
 ## 💿 Installation
 
 ```bash
-pip install dokumetry
+pip install openlit
 ```
 
-## ⚡️ Quick Start
+## ⚡ Quick Integration
 
-### OpenAI
-
-```
-from openai import OpenAI
-import dokumetry
-
-client = OpenAI(
-    api_key="YOUR_OPENAI_KEY"
-)
-
-# Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-dokumetry.init(llm=client, doku_url="YOUR_INGESTER_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
-
-chat_completion = client.chat.completions.create(
-    messages=[
-        {
-            "role": "user",
-            "content": "What is LLM Observability and Monitoring?",
-        }
-    ],
-    model="gpt-3.5-turbo",
-)
+```python
+import openlit
+openlit.init()
 ```
 
-### Anthropic
+Out of the box, OpenLIT logs traces and metrics straight to your console. To send telemetry data to an HTTP OTel endpoint, like the OpenTelemetry Collector, add `otlp_endpoint` with the correct endpoint. Alternatively, set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as described in OpenTelemetry docs to configure the endpoint.
 
-```
-from anthropic import Anthropic
-import dokumetry
-
-client = Anthropic(
-  # This is the default and can be omitted
-  api_key="YOUR_ANTHROPIC_API_KEY",
-)
-
-# Pass the above `client` object along with your Doku Ingester URL and API key and this will make sure that all Anthropic calls are automatically tracked.
-dokumetry.init(llm=client, doku_url="YOUR_INGESTER_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
-
-message = client.messages.create(
-  max_tokens=1024,
-  messages=[
-      {
-          "role": "user",
-          "content": "What is LLM Observability and Monitoring?",
-      }
-  ],
-  model="claude-3-opus-20240229",
-)
-print(message.content)
-
-```
-
-### Cohere
-
-```
-import cohere
-import dokumetry
-
-# initialize the Cohere Client with an API Key
-co = cohere.Client('YOUR_COHERE_API_KEY')
-
-# Pass the above `co` object along with your Doku Ingester URL and API key and this will make sure that all Cohere calls are automatically tracked.
-dokumetry.init(llm=co, doku_url="YOUR_INGESTER_DOKU_URL", api_key="YOUR_DOKU_TOKEN")
-
-# generate a prediction for a prompt
-prediction = co.chat(message='What is LLM Observability and Monitoring?', model='command')
-
-# print the predicted text
-print(f'Chatbot: {prediction.text}')
-```
-
-## Supported Parameters
-
-| Parameter         | Description                                               | Required      |
-|-------------------|-----------------------------------------------------------|---------------|
-| llm               | Language Learning Model (LLM) Object to track             | Yes           |
-| doku_url          | URL of your Doku Instance                                 | Yes           |
-| api_key           | Your Doku API key                                         | Yes           |
-| environment       | Custom environment tag to include in your metrics         | Optional      |
-| application_name  | Custom application name tag for your metrics              | Optional      |
-| skip_resp         | Skip response from the Doku Ingester for faster execution | Optional      |
+For telemetry delivery to OpenTelemetry backends requiring authentication, `otlp_headers` comes to the rescue. Alternatively, set the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as described in OpenTelemetry docs to configure headers.
 
 
-## Semantic Versioning
-This package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) conventions, though certain backwards-incompatible changes may be released as minor versions:
+Below are the arguments you can pass to `openlit.init()`:
 
-Changes that only affect static types, without breaking runtime behavior.
-Changes to library internals which are technically public but not intended or documented for external use. (Please open a GitHub issue to let us know if you are relying on such internals).
-Changes that we do not expect to impact the vast majority of users in practice.
-We take backwards-compatibility seriously and work hard to ensure you can rely on a smooth upgrade experience.
-
-## Requirements
-Python >= 3.7 is supported.
-
-If you are interested in other runtime environments, please open or upvote an issue on GitHub.
-
-## Security
-
-Doku Python Library (`dokumetry`) sends the observability data over HTTP/HTTPS to the Doku Ingester which uses key based authentication mechanism to ensure the security of your data. Be sure to keep your API keys confidential and manage permissions diligently. Refer to our [Security Policy](SECURITY)
-
-## Contributing
-
-We welcome contributions to the Doku Python Library (`dokumetry`) project. Please refer to [CONTRIBUTING](CONTRIBUTING) for detailed guidelines on how you can participate.
-
-## License
-
-Doku Python Library (`dokumetry`) is available under the [Apache-2.0 license](LICENSE).
-
-## Support
-
-For support, issues, or feature requests, submit an issue through the [GitHub issues](https://github.com/dokulabs/doku/issues) associated with the Doku Repository and add `dokumetry-python` label.
+| Argument                | Description                                                                                   | Default Value  | Required |
+|-------------------------|-----------------------------------------------------------------------------------------------|----------------|----------|
+| `environment`           | The deployment environment of the application.                                                | `"default"`    |    Yes   |
+| `application_name`      | Identifies the name of your application.                                                      | `"default"`    |    Yes   |
+| `tracer`                | An instance of OpenTelemetry Tracer for tracing operations.                                   | `None`         |    No    |
+| `meter`                 | An OpenTelemetry Metrics instance for capturing metrics.                                      | `None`         |    No    |
+| `otlp_endpoint`         | Specifies the OTLP endpoint for transmitting telemetry data.                                  | `None`         |    No    |
+| `otlp_headers`          | Defines headers for the OTLP exporter, useful for backends requiring authentication.          | `None`         |    No    |
+| `disable_batch`         | A flag to disable batch span processing, favoring immediate dispatch.                         | `False`        |    No    |
+| `trace_content`         | Enables tracing of content for deeper insights.                                               | `True`         |    No    |
+| `disabled_instrumentors`| List of instrumentors to disable. Choices: `["openai", "anthropic", "langchain", "cohere", "mistral", "transformers", "chroma", "pinecone"]`. | `None` |    No    |
+| `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |

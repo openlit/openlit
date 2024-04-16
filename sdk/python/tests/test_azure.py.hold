@@ -8,9 +8,9 @@ embeddings creation, fine-tuning job creation, image generation, image variation
 and audio speech generation.
 
 The tests are designed to cover different aspects of OpenAI's capabilities and serve as a
-validation mechanism for the integration with the Doku monitoring system.
+validation mechanism for the integration with the OpenLIT monitoring system.
 
-Global client and initialization are set up for the OpenAI client and Doku monitoring.
+Global client and initialization are set up for the OpenAI client and OpenLIT monitoring.
 
 Environment Variables:
     - AZURE_OPENAI_API_TOKEN: OpenAI API key for authentication.
@@ -21,7 +21,7 @@ prior to running these tests.
 
 import os
 from openai import AzureOpenAI
-import dokumetry
+import openlit
 
 # Global client
 client = AzureOpenAI(
@@ -36,7 +36,7 @@ azure_image_model = os.getenv("AZURE_OPENAI_IMAGE_MODEL")
 
 # Global initialization
 # pylint: disable=line-too-long
-dokumetry.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
 def test_completion():
     """

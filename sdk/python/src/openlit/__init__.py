@@ -104,13 +104,13 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         environment (str): Deployment environment.
         application_name (str): Application name.
         tracer: Tracer instance (Optional).
+        meter: OpenTelemetry Metrics Instance (Optional).
         otlp_endpoint (str): OTLP endpoint for exporter (Optional).
         otlp_headers (Dict[str, str]): OTLP headers for exporter (Optional).
         disable_batch (bool): Flag to disable batch span processing (Optional).
         trace_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
-                                            Valid values include ["openai", "anthropic", 
-                                            "langchain", "cohere", "mistral"].
+        disable_metrics (bool): Flag to disable metrics (Optional)
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
 

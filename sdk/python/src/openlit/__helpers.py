@@ -124,7 +124,7 @@ def get_audio_model_cost(model, pricing_info, prompt):
 
 def fetch_pricing_info():
     """Fetches pricing information from a specified URL."""
-    pricing_url = "https://raw.githubusercontent.com/patcher9/doku/main/assets/pricing.json"
+    pricing_url = "https://raw.githubusercontent.com/open-lit/openlit/main/assets/pricing.json"
     try:
          # Set a timeout of 10 seconds for both the connection and the read
         response = requests.get(pricing_url, timeout=20)
