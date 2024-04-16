@@ -19,11 +19,11 @@ Note: Ensure the environment variables are properly set before running the tests
 """
 
 import os
-from openai import OpenAI, AsyncOpenAI
-import openlit
 import time
-import asyncio
 import pytest
+import asyncio
+import openlit
+from openai import OpenAI, AsyncOpenAI
 
 # Global sync client
 sync_client = OpenAI(
@@ -151,7 +151,7 @@ async def test_async_openai_chat_completions():
         messages=[{"role": "user", "content": "What is LLM Observability?"}]
     )
     assert chat_completions_resp.object == 'chat.completion'
-    time.sleep(30)
+    await asyncio.sleep(30)
 
 
 @pytest.mark.asyncio
@@ -169,4 +169,4 @@ async def test_async_openai_embeddings():
         encoding_format="float"
     )
     assert embeddings_resp.data[0].object == 'embedding'
-    time.sleep(30)
+    await asyncio.sleep(30)
