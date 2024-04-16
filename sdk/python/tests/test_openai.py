@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, consider-using-with
+# pylint: disable=duplicate-code, consider-using-with, no-name-in-module
 """
 This module contains tests for OpenAI functionality using the OpenAI Python library.
 
