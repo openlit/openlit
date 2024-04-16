@@ -13,7 +13,6 @@ Note: Ensure the environment variables are properly set before running the tests
 """
 
 import os
-import asyncio
 import pytest
 from openai import OpenAI, AsyncOpenAI
 import openlit
@@ -143,7 +142,6 @@ async def test_async_openai_chat_completions():
         messages=[{"role": "user", "content": "What is LLM Observability?"}]
     )
     assert chat_completions_resp.object == 'chat.completion'
-    await asyncio.sleep(30)
 
 @pytest.mark.asyncio
 async def test_async_openai_embeddings():
@@ -160,7 +158,6 @@ async def test_async_openai_embeddings():
         encoding_format="float"
     )
     assert embeddings_resp.data[0].object == 'embedding'
-    await asyncio.sleep(30)
 
 @pytest.mark.asyncio
 async def test_async_openai_image_variations():
@@ -178,7 +175,6 @@ async def test_async_openai_image_variations():
         size="256x256"
     )
     assert image_variation_resp.created is not None
-    await asyncio.sleep(30)
 
 @pytest.mark.asyncio
 async def test_async_openai_audio_speech_create():
@@ -194,4 +190,3 @@ async def test_async_openai_audio_speech_create():
         voice='alloy',
         input='LLM Observability!')
     assert audio_speech_resp is not None and isinstance(audio_speech_resp, object)
-    await asyncio.sleep(30)
