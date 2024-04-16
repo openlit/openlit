@@ -15,9 +15,9 @@ chromadb>=0.4.0
 pinecone-client>=2.2.0
 
 # Frameworks
-langchain_community
 langchain
 langchainhub
+langchain_community
 
 # Utilities
 bs4
