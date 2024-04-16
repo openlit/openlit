@@ -29,7 +29,7 @@ async_client = MistralAsyncClient(
 )
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="dokumetry-testing", application_name="dokumetry-python-test")
+openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
 def test_sync_mistral_chat():
     """
