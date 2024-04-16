@@ -2,8 +2,7 @@
 """
 This module contains tests for ChromaDB functionality using the ChromaDB Python library.
 
-Tests cover various API endpoints, including create_collection, add, query,
-upsert, update, get, peek and delete. 
+Tests cover various API endpoints, including upsert, query and delete.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -28,8 +27,8 @@ def test_db_pinecone():
     """
     Tests basic operations within a Pinecone index.
 
-    This includes adding documents to the index,
-    querying the index, and deleting documents from the index. The test
+    This includes adding vectors to the index,
+    querying the index, and deleting vectors from the index. The test
     verifies correct behavior of these operations by asserting expected outcomes at
     each step.
 
@@ -37,14 +36,14 @@ def test_db_pinecone():
       verifies that the upsert operation reports the correct number of vectors inserted.
     - A query operation is performed using a vector similar to one of the upserted vectors.
       The test verifies that the query successfully executes within the specified namespace
-      and that the results match expected document vectors.
+      and that the results match expected vectors vectors.
     - A delete operation targets specific vectors by ID within a namespace, and the test
       verifies that the delete operation completes successfully by asserting the absence
       of an error response.
     
     The test ensures the basic CRUD operations perform as expected in Pinecone.
     Raises:
-        AssertionError: If the responses from the Pinecone operations do not meet the expected outcomes.
+      AssertionError: If the responses from Pinecone operations do not meet the expected outcomes.
     """
 
     # Upsert vectors to the index
@@ -57,7 +56,7 @@ def test_db_pinecone():
         ],
         namespace="python-tests"
     )
-    assert db_upsert == {'upserted_count': 4}
+    assert db_upsert.upserted_count == 4
 
     # Query the vectors from the index
     db_query = index.query(
@@ -71,5 +70,3 @@ def test_db_pinecone():
     # Delete the vectors from the index
     db_delete = index.delete(ids=["vec1", "vec2", "vec3", "vec4"], namespace='python-tests')
     assert db_delete == {}
-
-

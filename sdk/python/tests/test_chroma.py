@@ -38,7 +38,7 @@ def test_db_chroma():
     
     The test ensures the basic CRUD operations perform as expected in ChromaDB.
     Raises:
-        AssertionError: If the responses from the ChromaDB operations do not meet the expected outcomes.
+      AssertionError: If the responses from ChromaDB operations do not meet the expected outcomes.
     """
 
     # Create a new collection named "openlit"
