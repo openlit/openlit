@@ -13,6 +13,7 @@ Note: Ensure the environment variables are properly set before running the tests
 
 import os
 import pytest
+import asyncio
 from mistralai.client import MistralClient
 from mistralai.async_client import MistralAsyncClient
 from mistralai.models.chat_completion import ChatMessage
@@ -84,8 +85,7 @@ async def test_async_mistral_chat():
     )
     assert message.object == 'chat.completion'
 
-@pytest.mark.asyncio
-async def test_async_mistral_embeddings():
+async def main() -> None:
     """
     Tests asynchronous embedding creation with the 'mistral-embed' model.
 
@@ -98,3 +98,5 @@ async def test_async_mistral_embeddings():
       input=["Embed this sentence.", "As well as this one."],
     )
     assert response.object == 'list'
+
+asyncio.run(main())
