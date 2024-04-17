@@ -88,6 +88,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
 
     # Vector DB
+    DB_REQUESTS = "db.total.requests"
     DB_SYSTEM = "db.system"
     DB_SYSTEM_CHROMA = "chroma"
     DB_SYSTEM_PINECONE = "pinecone"

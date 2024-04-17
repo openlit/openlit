@@ -95,6 +95,11 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 description="The distribution of OpenAI request costs.",
                 unit="USD",
             ),
+            "db_requests": meter.create_counter(
+                name=SemanticConvetion.DB_REQUESTS,
+                description="Number of requests to VectorDBs",
+                unit="1",
+            ),
         }
 
         return metrics_dict

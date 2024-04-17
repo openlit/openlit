@@ -23,7 +23,7 @@ def object_count(obj):
     return None
 
 def general_wrap(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content):
+                 tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
 
@@ -83,6 +83,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                    instance.name)
 
                 if gen_ai_endpoint == "chroma.add":
+                    db_operation = SemanticConvetion.DB_OPERATION_ADD
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_GET)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
@@ -95,6 +96,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        object_count(kwargs.get("documents")))
 
                 elif gen_ai_endpoint == "chroma.get":
+                    db_operation = SemanticConvetion.DB_OPERATION_GET
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_GET)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
@@ -107,6 +109,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        str(kwargs.get("where_document", "")))
 
                 elif gen_ai_endpoint == "chroma.query":
+                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
@@ -119,6 +122,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        str(kwargs.get("where_document", "")))
 
                 elif gen_ai_endpoint == "chroma.update":
+                    db_operation = SemanticConvetion.DB_OPERATION_UPDATE
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_UPDATE)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
@@ -131,6 +135,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        object_count(kwargs.get("documents")))
 
                 elif gen_ai_endpoint == "chroma.upsert":
+                    db_operation = SemanticConvetion.DB_OPERATION_UPSERT
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
@@ -143,6 +148,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        object_count(kwargs.get("documents")))
 
                 elif gen_ai_endpoint == "chroma.delete":
+                    db_operation = SemanticConvetion.DB_OPERATION_DELETE
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
@@ -155,10 +161,29 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        str(kwargs.get("where_document", "")))
 
                 elif gen_ai_endpoint == "chroma.peek":
+                    db_operation = SemanticConvetion.DB_OPERATION_PEEK
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_PEEK)
 
                 span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    attributes = {
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.DB_SYSTEM:
+                            SemanticConvetion.DB_SYSTEM_CHROMA,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_VECTORDB,
+                        SemanticConvetion.DB_OPERATION:
+                            db_operation
+                    }
+
+                    metrics["db_requests"].add(1, attributes)
 
                 return response
 

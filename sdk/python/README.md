@@ -4,7 +4,7 @@ OpenLIT Python SDK is an **OpenTelemetry-native** auto-instrumentation library f
 
 Whether you're directly using LLM Libraries like OpenAI, Anthropic or building complex RAG Agents using Langchain, OpenLIT seamlessly integrates observability into your applications, ensuring enhanced performance and reliability across diverse scenarios.
 
-This project adheres to the Semantic Conventions proposed by the OpenTelemetry community. You can check out the current definitions [here](src/openlit/semcov/__init__.py).
+This project adheres to the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) proposed by the OpenTelemetry community. You can check out the current definitions [here](src/openlit/semcov/__init__.py).
 
 ## What can be Auto Instrumented?
 

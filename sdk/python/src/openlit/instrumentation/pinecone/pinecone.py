@@ -23,7 +23,7 @@ def object_count(obj):
     return None
 
 def general_wrap(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content):
+                 tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Wraps a Pinecone operation to trace and log its execution metrics.
 
@@ -82,6 +82,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                    SemanticConvetion.DB_SYSTEM_PINECONE)
 
                 if gen_ai_endpoint == "pinecone.create_index":
+                    db_operation = SemanticConvetion.DB_OPERATION_CREATE_INDEX
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_CREATE_INDEX)
                     span.set_attribute(SemanticConvetion.DB_INDEX_NAME,
@@ -94,6 +95,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        str(kwargs.get("spec", "")))
 
                 elif gen_ai_endpoint == "pinecone.query":
+                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
@@ -106,6 +108,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        str(kwargs.get("namespace", "")))
 
                 elif gen_ai_endpoint == "pinecone.update":
+                    db_operation = SemanticConvetion.DB_OPERATION_UPDATE
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_UPDATE)
                     span.set_attribute(SemanticConvetion.DB_UPDATE_ID,
@@ -118,12 +121,14 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        str(kwargs.get("set_metadata", "")))
 
                 elif gen_ai_endpoint == "pinecone.upsert":
+                    db_operation = SemanticConvetion.DB_OPERATION_UPSERT
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("vectors")))
 
                 elif gen_ai_endpoint == "pinecone.delete":
+                    db_operation = SemanticConvetion.DB_OPERATION_DELETE
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
@@ -136,6 +141,24 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("namespace", ""))
 
                 span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    attributes = {
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.DB_SYSTEM:
+                            SemanticConvetion.DB_SYSTEM_PINECONE,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_VECTORDB,
+                        SemanticConvetion.DB_OPERATION:
+                            db_operation
+                    }
+
+                    metrics["db_requests"].add(1, attributes)
 
                 # Return original response
                 return response

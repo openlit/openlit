@@ -19,63 +19,65 @@ class ChromaInstrumentor(BaseInstrumentor):
         application_name = kwargs.get("application_name")
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
+        metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info")
         trace_content = kwargs.get("trace_content")
+        disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("chromadb")
 
         wrap_function_wrapper(
             "chromadb.db",  
             "DB.create_collection",  
             general_wrap("chroma.create_collection", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "chromadb",  
             "Collection.add",  
             general_wrap("chroma.add", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "chromadb",  
             "Collection.get",  
             general_wrap("chroma.get", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "chromadb",  
             "Collection.peek",  
             general_wrap("chroma.peek", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "chromadb",  
             "Collection.query",  
             general_wrap("chroma.query", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "chromadb",  
             "Collection.update",  
             general_wrap("chroma.update", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "chromadb",  
             "Collection.upsert",  
             general_wrap("chroma.upsert", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "chromadb",  
             "Collection.delete",  
             general_wrap("chroma.delete", version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
 
