@@ -1,4 +1,4 @@
-import { Tab } from "@headlessui/react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 
@@ -21,36 +21,24 @@ const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 const Filter = () => {
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
-	const handleChange = (index: number) => {
-		const selectedTab = TIME_RANGE_TABS[index].key;
-		updateFilter("timeLimit.type", selectedTab);
+	const handleChange = (key: string) => {
+		updateFilter("timeLimit.type", key);
 	};
 
-	const DEFAULT_CHECKED_INDEX = TIME_RANGE_TABS.findIndex(
-		({ key }) => key === (filter.timeLimit.type || DEFAULT_TIME_RANGE)
-	);
-
 	return (
-		<div className="flex pb-3 pt-2">
-			<Tab.Group selectedIndex={DEFAULT_CHECKED_INDEX} onChange={handleChange}>
-				<Tab.List className="flex space-x-1 rounded-xl bg-secondary/[0.8] p-1">
-					{TIME_RANGE_TABS.map(({ label, key }) => (
-						<Tab
-							key={key}
-							className={({ selected }) =>
-								`w-full rounded-lg px-2.5 py-1 text-sm ring-white/60 ring-offset-2 focus:outline-none ${
-									selected
-										? "bg-primary/[0.2] text-primary shadow ring-offset-primary"
-										: "text-tertiary/[0.7] hover:bg-primary/[0.2] hover:text-primary/[0.7]"
-								}`
-							}
-						>
-							{label}
-						</Tab>
-					))}
-				</Tab.List>
-			</Tab.Group>
-		</div>
+		<Tabs
+			defaultValue={DEFAULT_TIME_RANGE}
+			className="w-[400px]"
+			onValueChange={handleChange}
+		>
+			<TabsList>
+				{TIME_RANGE_TABS.map(({ label, key }) => (
+					<TabsTrigger key={key} value={key}>
+						{label}
+					</TabsTrigger>
+				))}
+			</TabsList>
+		</Tabs>
 	);
 };
 

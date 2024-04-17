@@ -1,39 +1,66 @@
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import Dropdown from "../common/drop-down";
 import DatabaseConfigSwitch from "./database-config-switch";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Moon, Sun, User } from "lucide-react";
+import { useRootStore } from "@/store";
+import { getUserDetails } from "@/selectors/user";
+import useTheme from "@/utils/hooks/useTheme";
+import Link from "next/link";
 
-function UserDropdownTrigger() {
+const ThemeToggleSwitch = () => {
+	const { toggleTheme } = useTheme();
 	return (
-		<span className="w-6 h-6 rounded-full bg-tertiary/[0.3] shadow overflow-hidden">
-			<svg
-				className="w-full h-full text-secondary"
-				fill="currentColor"
-				viewBox="0 0 24 24"
-			>
-				<path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"></path>
-			</svg>
-		</span>
+		<Button
+			variant="ghost"
+			size={"icon"}
+			className="rounded-full dark:text-white"
+			onClick={toggleTheme}
+		>
+			<Moon className="dark:hidden block size-5" />
+			<Sun className="dark:block hidden size-5" />
+		</Button>
 	);
-}
+};
 
 export default function Header() {
 	const pathname = usePathname();
+	const onClickSignout = () => signOut();
+	const user = useRootStore(getUserDetails);
+
 	return (
-		<div className="relative flex shrink-0 px-4 p-3 mb-3 border-b border-secondary text-tertiary items-center">
-			<div className="flex flex-1 overflow-y-auto capitalize text-xl font-semibold">
+		<header className="flex h-[57px] items-center gap-1 border-b dark:border-tertiary px-4 sm:px-6">
+			<h1 className="flex flex-1 text-xl font-semibold capitalize dark:text-white">
 				{pathname.substring(1).replaceAll("-", " ")}
-			</div>
+			</h1>
 			<DatabaseConfigSwitch />
-			<Dropdown
-				triggerComponent={<UserDropdownTrigger />}
-				itemList={[
-					{
-						label: "Signout",
-						onClick: signOut,
-					},
-				]}
-			/>
-		</div>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="p-0.5 size-8 overflow-hidden rounded-full"
+					>
+						<User className="overflow-hidden rounded-full dark:text-white" />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem disabled>{user?.email}</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem asChild>
+						<Link href="/profile">Edit details</Link>
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={onClickSignout}>Logout</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+			<ThemeToggleSwitch />
+		</header>
 	);
 }

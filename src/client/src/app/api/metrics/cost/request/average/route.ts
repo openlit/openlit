@@ -1,19 +1,16 @@
-import { DokuParams } from "@/lib/doku/common";
-import { getAverageCost } from "@/lib/doku/cost";
+import { MetricParams, TimeLimit } from "@/lib/platform/common";
+import { getAverageCost } from "@/lib/platform/cost";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/doku";
+} from "@/helpers/platform";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
-	const timeLimit = formData.timeLimit;
+	const timeLimit = formData.timeLimit as TimeLimit;
 
-	const params: DokuParams = {
-		timeLimit: {
-			start: timeLimit.start,
-			end: timeLimit.end,
-		},
+	const params: MetricParams = {
+		timeLimit,
 	};
 
 	const validationParam = validateMetricsRequest(

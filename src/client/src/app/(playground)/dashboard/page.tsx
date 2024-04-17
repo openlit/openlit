@@ -9,9 +9,9 @@ export default function PlaygroundPage() {
 	return (
 		<>
 			<Filter />
-			<div className="flex flex-col grow w-full h-full rounded overflow-y-auto py-2">
+			<div className="flex flex-col grow w-full h-full rounded overflow-y-auto py-2 gap-4 md:gap-8">
 				<NumberStats />
-				<div className="flex flex-col gap-6">
+				<div className="flex flex-col gap-4 md:gap-8">
 					<RequestsPerTime />
 					<DataCharts />
 					<TokenCharts />

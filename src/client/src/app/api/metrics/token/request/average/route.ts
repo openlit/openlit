@@ -1,18 +1,19 @@
-import { type TokenParams, getAverageTokensPerRequest } from "@/lib/doku/token";
+import {
+	type TokenParams,
+	getAverageTokensPerRequest,
+} from "@/lib/platform/token";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/doku";
+} from "@/helpers/platform";
+import { TimeLimit } from "@/lib/platform/common";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
-	const timeLimit = formData.timeLimit;
+	const timeLimit = formData.timeLimit as TimeLimit;
 
 	const params: TokenParams = {
-		timeLimit: {
-			start: timeLimit.start,
-			end: timeLimit.end,
-		},
+		timeLimit,
 		type: formData.type,
 	};
 

@@ -6,12 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-const ALLOWED_CONNECTIVITY_ALERT = [
-	"/dashboard",
-	"/requests",
-	"/connections",
-	"/api-keys",
-];
+const ALLOWED_CONNECTIVITY_ALERT = ["/dashboard", "/requests"];
 
 export default function ClickhouseConnectivityWrapper() {
 	const pingDetails = useRootStore(getPingDetails);
@@ -23,7 +18,7 @@ export default function ClickhouseConnectivityWrapper() {
 
 	if (pingDetails.error && ALLOWED_CONNECTIVITY_ALERT.includes(pathname)) {
 		return (
-			<div className="p-4 mb-4 text-red-800 border border-red-300 rounded-md bg-red-50 dark:bg-gray-800 dark:text-red-400 dark:border-red-800">
+			<div className="p-4 mb-4 text-red-800 border border-red-300 rounded-md bg-red-50 dark:bg-red-950 dark:text-red-400 dark:border-red-800 w-full">
 				<div className="flex">
 					<div className="flex flex-col grow">
 						<h3 className="text-lg font-medium">
@@ -34,7 +29,7 @@ export default function ClickhouseConnectivityWrapper() {
 							active clickhouse database.
 						</div>
 						<Link
-							href="/settings?tab=database"
+							href="/database-config"
 							className="inline-flex my-2 border rounded md py-2 px-4 text-center bg-primary cursor-pointer text-white hover:bg-tertiary outline-none self-start text-sm"
 						>
 							Take me there!

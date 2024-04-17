@@ -1,18 +1,18 @@
-import {
-	BeakerIcon,
-	CalendarDaysIcon,
-	ClipboardDocumentCheckIcon,
-	ClipboardDocumentListIcon,
-	ClockIcon,
-	CogIcon,
-	CurrencyDollarIcon,
-} from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import { fill, round } from "lodash";
 import { useRequest } from "./request-context";
 import { ReactNode } from "react";
 import { normalizeTrace } from "@/helpers/trace";
 import { TraceRow, TransformedTraceRow } from "@/constants/traces";
+import {
+	Boxes,
+	Braces,
+	CalendarDays,
+	CircleDollarSign,
+	Clock,
+	PyramidIcon,
+	TicketPlus,
+} from "lucide-react";
 
 type RenderRowProps = {
 	item: TraceRow;
@@ -47,7 +47,7 @@ const RowItem = ({
 				>
 					{text}
 				</span>
-				<span className="text-xs text-ellipsis overflow-hidden whitespace-nowrap  text-tertiary/[0.4]">
+				<span className="text-xs text-ellipsis overflow-hidden whitespace-nowrap text-stone-500 dark:text-stone-500">
 					{label}
 				</span>
 			</div>
@@ -64,24 +64,25 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 
 	return (
 		<div className="flex flex-col mb-4">
-			<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-secondary text-primary font-medium">
+			<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-stone-200 dark:bg-stone-900 text-stone-950 dark:text-stone-200 font-medium">
 				<div className="flex items-center pr-3">
-					<CalendarDaysIcon className="w-4" />
+					<CalendarDays size="16" />
 					<p className="text-xs leading-none ml-2">
-						{/* {format(normalizedItem.time, "MMM do, y  HH:mm:ss a")} */}
 						{format(normalizedItem.time, "MMM do, y  HH:mm:ss a")}
 					</p>
 				</div>
 				<div className="flex items-center pl-3 border-l border-tertiary/[0.2]">
-					<ClockIcon className="w-4" />
+					<Clock size="16" />
 					<p className="text-xs leading-none ml-2">
 						{round(normalizedItem.requestDuration, 4)}s
 					</p>
 				</div>
 			</div>
 			<div
-				className={`flex items-stretch h-16 border border-secondary relative items-center px-3 rounded-b cursor-pointer ${
-					request?.id === normalizedItem.id && "bg-secondary/[0.7]"
+				className={`flex items-stretch h-16 relative items-center px-3 rounded-b cursor-pointer  dark:text-stone-100 text-stone-950 ${
+					request?.TraceId === normalizedItem.id
+						? "bg-stone-200 dark:bg-stone-950"
+						: "bg-stone-100 dark:bg-stone-800"
 				}`}
 				onClick={onClick}
 			>
@@ -93,35 +94,35 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 				/>
 				<RowItem
 					containerClass="w-3/12"
-					icon={<BeakerIcon className="w-4" />}
+					icon={<PyramidIcon size="16" />}
 					label="LLM client"
 					text={normalizedItem.provider}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
-					icon={<CogIcon className="w-4" />}
+					icon={<Boxes size="16" />}
 					label="Model"
 					text={normalizedItem.model}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
-					icon={<CurrencyDollarIcon className="w-4" />}
+					icon={<CircleDollarSign size="16" />}
 					label="Usage cost"
 					text={`${round(normalizedItem.cost, 6)}`}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
-					icon={<ClipboardDocumentCheckIcon className="w-4" />}
+					icon={<Braces size="16" />}
 					label="Prompt Tokens"
 					text={`${normalizedItem.promptTokens || "-"}`}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
-					icon={<ClipboardDocumentListIcon className="w-4" />}
+					icon={<TicketPlus size="16" />}
 					label="Total Tokens"
 					text={`${normalizedItem.totalTokens || "-"}`}
 					textClass="text-sm"

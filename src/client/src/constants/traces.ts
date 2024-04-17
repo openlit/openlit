@@ -12,6 +12,7 @@ export const TraceMapping: Record<
 		path: string;
 		prefix?: string;
 		isRoot?: boolean;
+		multiplier?: number;
 	}
 > = {
 	// Root Key
@@ -25,8 +26,8 @@ export const TraceMapping: Record<
 	id: {
 		label: "Id",
 		type: "string",
-		path: "request.id",
-		prefix: SpanAttributesPrefix,
+		path: "TraceId",
+		isRoot: true,
 	},
 	provider: {
 		label: "Provider",
@@ -155,9 +156,10 @@ export const TraceMapping: Record<
 	},
 	requestDuration: {
 		label: "Request Duration",
-		type: "float",
-		path: "request_duration",
-		prefix: SpanAttributesPrefix,
+		type: "integer",
+		path: "Duration",
+		isRoot: true,
+		multiplier: 10e-10,
 	},
 	prompt: {
 		label: "Prompt",

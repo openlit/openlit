@@ -1,6 +1,6 @@
 "use client";
 import CodeBlock from "@/components/common/code-block";
-import { Tab } from "@headlessui/react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function GettingStarted() {
 	const code = [
@@ -8,12 +8,12 @@ export default function GettingStarted() {
 			key: "python",
 			text: "Python",
 			component: (
-				<div className="flex flex-col border border-secondary text-sm rounded-b-lg p-3 text-tertiary">
+				<div className="flex flex-col text-sm rounded-b-lg p-3 text-stone-950 dark:text-stone-100">
 					<p>
 						Install the{" "}
 						<a
 							href="https://pypi.org/project/dokumetry/"
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+							className="text-primary/[0.7] hover:text-primary italic px-1"
 						>
 							dokumetry
 						</a>{" "}
@@ -36,7 +36,7 @@ dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU
 					<p className="mt-2">
 						Example Usage for monitoring{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+							className="text-primary/[0.7] hover:text-primary italic px-1"
 							href="https://platform.openai.com/docs/introduction"
 						>
 							OpenAI
@@ -69,7 +69,7 @@ chat_completion = client.chat.completions.create(
 					<p className="mt-2">
 						Refer to the{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+							className="text-primary/[0.7] hover:text-primary italic px-1"
 							href="https://github.com/dokulabs/dokumetry-python"
 						>
 							dokumetry python sdk
@@ -83,12 +83,12 @@ chat_completion = client.chat.completions.create(
 			key: "node",
 			text: "NodeJs",
 			component: (
-				<div className="flex flex-col border border-secondary text-sm rounded-b-lg p-3 text-tertiary">
+				<div className="flex flex-col text-sm rounded-b-lg p-3 text-stone-950 dark:text-stone-100">
 					<p>
 						Install the{" "}
 						<a
 							href="https://www.npmjs.com/package/dokumetry"
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+							className="text-primary/[0.7] hover:text-primary italic px-1"
 						>
 							dokumetry
 						</a>{" "}
@@ -111,7 +111,7 @@ DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DO
 					<p className="mt-2">
 						Example Usage for monitoring{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+							className="text-primary/[0.7] hover:text-primary italic px-1"
 							href="https://platform.openai.com/docs/introduction"
 						>
 							OpenAI
@@ -143,7 +143,7 @@ main();`}
 					<p className="mt-2">
 						Refer to the{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+							className="text-primary/[0.7] hover:text-primary italic px-1"
 							href="https://github.com/dokulabs/dokumetry-node"
 						>
 							dokumetry nodejs sdk
@@ -157,25 +157,25 @@ main();`}
 
 	return (
 		<div className="flex flex-col w-full flex-1 overflow-auto relative">
-			<p className="mb-5 text-sm font-medium border-l-4 border-primary p-3 text-primary bg-secondary/[0.5]">
+			<p className="mb-5 text-sm font-medium border-l-4 border-primary p-3 text-primary bg-red-50 dark:bg-red-950">
 				Doku is an open-source observability tool engineered for Large Language
 				Models (LLMs). Designed for ease of integration into existing LLM
 				applications, Doku offers unparalleled insights into usage, performance,
 				and overhead—allowing you to analyze, optimize, and scale your AI
 				applications and LLM usage effectively.
 			</p>
-			<p className="mb-5 text-tertiary text-sm">
+			<p className="mb-5 text-stone-950 dark:text-stone-100 text-sm">
 				With the <span className="text-primary">dokumetry</span> SDKs for
 				<a
 					href="https://pypi.org/project/dokumetry/"
-					className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+					className="text-primary/[0.7] hover:text-primary italic px-1"
 				>
 					Python
 				</a>{" "}
 				and{" "}
 				<a
 					href="https://www.npmjs.com/package/dokumetry"
-					className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+					className="text-primary/[0.7] hover:text-primary italic px-1"
 				>
 					NodeJS
 				</a>{" "}
@@ -184,36 +184,20 @@ main();`}
 				conveying LLM usage data directly to your Doku instance, requiring
 				minimal effort on your part.
 			</p>
-			<div className="w-full">
-				<Tab.Group>
-					<Tab.List className="flex space-x-1 bg-white sticky top-0 z-20">
-						{code.map((item) => (
-							<Tab
-								key={item.key}
-								className={({ selected }) =>
-									`w-auto py-2 px-3 text-sm font-medium leading-5 outline-none border-b-2 ${
-										selected
-											? "text-primary border-primary"
-											: "text-tertiary/[0.3] border-white"
-									}`
-								}
-							>
-								{item.text}
-							</Tab>
-						))}
-					</Tab.List>
-					<Tab.Panels className="w-full mt-3">
-						{code.map((item, idx) => (
-							<Tab.Panel
-								key={idx}
-								className={`rounded-xl bg-white outline-none`}
-							>
-								{item.component}
-							</Tab.Panel>
-						))}
-					</Tab.Panels>
-				</Tab.Group>
-			</div>
+			<Tabs className="w-full" defaultValue={code[0].key}>
+				<TabsList>
+					{code.map((item) => (
+						<TabsTrigger key={item.key} value={item.key}>
+							{item.text}
+						</TabsTrigger>
+					))}
+				</TabsList>
+				{code.map((item) => (
+					<TabsContent key={item.key} value={item.key} className="w-full">
+						{item.component}
+					</TabsContent>
+				))}
+			</Tabs>
 		</div>
 	);
 }

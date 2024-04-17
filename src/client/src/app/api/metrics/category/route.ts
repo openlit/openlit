@@ -1,19 +1,16 @@
-import { DokuParams } from "@/lib/doku/common";
-import { getResultGenerationByCategories } from "@/lib/doku/category";
+import { MetricParams, TimeLimit } from "@/lib/platform/common";
+import { getResultGenerationByCategories } from "@/lib/platform/category";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/doku";
+} from "@/helpers/platform";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
-	const timeLimit = formData.timeLimit;
+	const timeLimit = formData.timeLimit as TimeLimit;
 
-	const params: DokuParams = {
-		timeLimit: {
-			start: timeLimit.start,
-			end: timeLimit.end,
-		},
+	const params: MetricParams = {
+		timeLimit,
 	};
 
 	const validationParam = validateMetricsRequest(

@@ -5,6 +5,12 @@ import {
 	TransformedTraceRow,
 } from "@/constants/traces";
 
+export const integerParser = (value: string, multiplier?: number) =>
+	parseInt((value || "0") as string, 10) * (multiplier || 1);
+
+export const floatParser = (value: string, multiplier?: number) =>
+	parseFloat((value || "0") as string) * (multiplier || 1);
+
 export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 	return Object.keys(TraceMapping).reduce(
 		(acc: TransformedTraceRow, traceKey: TraceMappingKeyType) => {
@@ -16,9 +22,15 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 			}
 
 			if (TraceMapping[traceKey].type === "integer") {
-				acc[traceKey] = parseInt((value || "0") as string, 10);
-			} else if (TraceMapping[traceKey].type === "integer") {
-				acc[traceKey] = parseFloat((value || "0") as string);
+				acc[traceKey] = integerParser(
+					value as string,
+					TraceMapping[traceKey].multiplier
+				);
+			} else if (TraceMapping[traceKey].type === "float") {
+				acc[traceKey] = floatParser(
+					(value || "0") as string,
+					TraceMapping[traceKey].multiplier
+				);
 			} else {
 				acc[traceKey] = value;
 			}
@@ -29,5 +41,6 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 };
 
 export const getTraceMappingKeyFullPath = (key: TraceMappingKeyType) => {
-	return [TraceMapping[key].prefix || "", TraceMapping[key].path].join(".");
+	if (!TraceMapping[key].prefix) return TraceMapping[key].path;
+	return [TraceMapping[key].prefix, TraceMapping[key].path].join(".");
 };
