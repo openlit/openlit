@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "openlit"
+version = "0.0.1"
+description = "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects"
+authors = ["OpenLIT"]
+repository = "https://github.com/open-lit/openlit/tree/main/openlit/python"
+readme = "README.md"
+homepage = "https://github.com/open-lit/openlit/tree/main/openlit/python"
+keywords = ["OpenTelemetry", "otel", "otlp","llm", "tracing", "openai", "anthropic", "claude", "cohere", "llm monitoring", "observability", "monitoring", "gpt", "Generative AI", "chatGPT"]
+
+[tool.poetry.dependencies]
+python = "^3.7.1"
+requests = "^2.26.0"
+tiktoken = "^0.1.1"
+opentelemetry-api = "^1.24.0"
+opentelemetry-sdk = "^1.24.0"
+opentelemetry-exporter-otlp = "^1.24.0"
+opentelemetry-instrumentation = "^0.45b0"
+
+[build-system]
+requires = ["poetry-core>=1.1.0"]
+build-backend = "poetry.core.masonry.api"
