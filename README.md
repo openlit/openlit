@@ -1,5 +1,5 @@
 <div align="center">
-<img src="https://github.com/openlit/.github/blob/main/profile/assets/github-readme-connections-banner.gif?raw=true" alt="OpenLIT Logo" width="30%"><h1>
+<img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
 OpenTelemetry-native LLM Application Observability</h1>
 
 **[Documentation](https://docs.openlit.io/) | [Quickstart](#-Getting Started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python)**
