@@ -1,8 +1,9 @@
 name: Release on PYPI
 
 on:
+  workflow_dispatch:
   push:
-    tags: [ '*.*.*' ]
+    tags: [ 'openlit-py-*.*.*' ]
 
 permissions:
   contents: write
