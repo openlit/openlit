@@ -7,7 +7,7 @@ from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.cohere.cohere import chat, chat_stream, embed
 
-_instruments = ("cohere >= 5.0.0",)
+_instruments = ("cohere >= 5.3.2",)
 
 class CohereInstrumentor(BaseInstrumentor):
     """An instrumentor for Cohere's client library."""

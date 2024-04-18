@@ -1,62 +1,57 @@
 version: '3.8'
 
 services:
-  # clickhouse:
-  #   image: clickhouse/clickhouse-server:24.2.2
-  #   container_name: clickhouse
-  #   environment:
-  #     CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}   
-  #     CLICKHOUSE_USER: ${DOKU_DB_USER:-default}                   
-  #   volumes:
-  #     - clickhouse-data:/var/lib/clickhouse
-  #   ports:
-  #     - "9000:9000" 
-  #     - "8123:8123" 
-  #   restart: always
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.2.2
+    container_name: clickhouse
+    environment:
+      CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}   
+      CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}                   
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    ports:
+      - "9000:9000" 
+      - "8123:8123" 
+    restart: always
+  
+  openlit:
+    image: ghcr.io/openlit/openlit-client:latest
+    container_name: openlit
+    environment:
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: 8123
+      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
+      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
+      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+      SQLITE_DATABASE_URL: file:/app/client/data/data.db
+    ports:
+      - "3000:3000"
+    depends_on:
+      - clickhouse
+    volumes:
+      - openlit-data:/app/client/data
+    restart: always
 
-  # doku-ingester:
-  #   image: ghcr.io/dokulabs/doku-ingester:latest
-  #   container_name: doku-ingester
-  #   environment:
-  #     DOKU_DB_HOST: clickhouse   
-  #     DOKU_DB_PORT: 9000 
-  #     DOKU_DB_NAME: ${DOKU_DB_NAME:-default}     
-  #     DOKU_DB_USER: ${DOKU_DB_USER:-default}              
-  #     DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
-  #   ports:
-  #     - "9044:9044"           
-  #   depends_on:
-  #     - clickhouse
-  #   restart: always
-  
-  # doku-client:
-  #   image: ghcr.io/dokulabs/doku-client:latest
-  #   container_name: doku-client
-  #   environment:
-  #     INIT_DB_HOST: clickhouse
-  #     INIT_DB_PORT: 8123
-  #     INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
-  #     INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
-  #     INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
-  #     SQLITE_DATABASE_URL: file:/app/client/data/data.db
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - clickhouse
-  #   volumes:
-  #     - doku-client-data:/app/client/data
-  #   restart: always
-  
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.94.0
+    container_name: otel-collector
+    environment:
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: 8123
+      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
+      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
+      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
     ports:
       - "4317:4317" 
       - "4318:4318" 
       - "8888:8888" 
       - "55679:55679" 
+    depends_on:
+      - clickhouse
     volumes:
       - ./assets/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    restart: always
 
 volumes:
   clickhouse-data:
-  doku-client-data:
+  openlit-data:

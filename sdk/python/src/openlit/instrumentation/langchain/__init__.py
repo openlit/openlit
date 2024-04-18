@@ -7,8 +7,7 @@ from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.langchain.langchain import general_wrap, hub
 
-_instruments = ("langchain >= 0.1.1", "langchain-openai >= 0.1.1",
-                "langchain-core > 0.1.1", "langchain-community >= 0.0.31")
+_instruments = ("langchain >= 0.1.1",)
 
 WRAPPED_METHODS = [
     {

@@ -1,17 +1,17 @@
 ---
 title: 'Configuration'
-description: 'Configuring Options for Doku'
+description: 'Configuring Options for OpenLIT'
 icon: 'sliders'
 ---
 
-This guide covers all the available environment variables to fine-tune Doku according to your needs.
+This guide covers all the available environment variables to fine-tune OpenLIT according to your needs.
 
-## Doku Client
+## OpenLIT Client
 
 ### Environment Varibales
 
 <ResponseField name="INIT_DB_HOST" required>
-  Sets the host address of the ClickHouse server for Doku Client to connect
+  Sets the host address of the ClickHouse server for OpenLIT Client to connect
 
   **Example**:
   ```yaml
@@ -29,7 +29,7 @@ This guide covers all the available environment variables to fine-tune Doku acco
 </ResponseField>
 
 <ResponseField name="INIT_DB_DATABASE" required>
-  Sets the name of the database in Clickhouse to be used by Doku
+  Sets the name of the database in Clickhouse to be used by OpenLIT
 
   **Example**:
   ```yaml
@@ -71,16 +71,16 @@ INIT_DB_HOST="127.0.0.1"
 INIT_DB_PORT="8123"
 INIT_DB_DATABASE="default"
 INIT_DB_USERNAME="default"
-INIT_DB_PASSWORD="DOKU"
+INIT_DB_PASSWORD="OPENLIT"
 SQLITE_DATABASE_URL="file:/app/client/data/data.db"
 ```
 
-## Doku Ingester
+## OpenLIT Ingester
 
 ### Environment Varibales
 
 <ResponseField name="DOKU_DB_HOST" required>
-  Sets the host address of the ClickHouse server for Doku Ingester to connect
+  Sets the host address of the ClickHouse server for OpenLIT Ingester to connect
 
   **Example**:
   ```yaml
@@ -98,7 +98,7 @@ SQLITE_DATABASE_URL="file:/app/client/data/data.db"
 </ResponseField>
 
 <ResponseField name="DOKU_DB_NAME" required>
- Sets the name of the database in Clickhouse to be used by Doku
+ Sets the name of the database in Clickhouse to be used by OpenLIT
 
   **Example**:
   ```yaml
@@ -120,7 +120,7 @@ SQLITE_DATABASE_URL="file:/app/client/data/data.db"
 
   **Example**:
   ```yaml
-  export DOKU_DB_PASSWORD=DOKU
+  export DOKU_DB_PASSWORD=OPENLIT
   ```
 </ResponseField>
 
@@ -188,14 +188,14 @@ DOKU_DB_HOST="127.0.0.1"
 DOKU_DB_PORT="9000"
 DOKU_DB_NAME="default"
 DOKU_DB_USER="default"
-DOKU_DB_PASSWORD="DOKU"
+DOKU_DB_PASSWORD="OPENLIT"
 ```
 
 ---
 
 <CardGroup cols={2}>
 <Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
-Integrate your LLM Provider with Doku 
+Integrate your LLM Provider with OpenLIT 
 </Card>
 <Card title="Connections" href="/latest/connections/intro" icon='link'>
 Connect to your existing Observablity Platform

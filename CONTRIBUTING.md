@@ -1,6 +1,6 @@
-# Contributing to Doku
+# Contributing to OpenLIT
 
-We welcome contributions to the Doku project and are grateful for every contribution from bug reports to new features. If you are looking to contribute to the codebase, improve documentation, report issues, or suggest new features, this document is a set of guidelines to help you get started.
+We welcome contributions to the OpenLIT project and are grateful for every contribution from bug reports to new features. If you are looking to contribute to the codebase, improve documentation, report issues, or suggest new features, this document is a set of guidelines to help you get started.
 
 ## Getting Started
 
@@ -11,16 +11,16 @@ Before you begin:
 
 ## Contributing Workflow
 
-Here's how you can contribute to Doku:
+Here's how you can contribute to OpenLIT:
 
 1. **Fork the Repository**
-   - Click the "Fork" button at the top right corner of the [Doku repository](https://github.com/dokulabs/doku).
+   - Click the "Fork" button at the top right corner of the [OpenLIT repository](https://github.com/openlit/openlit).
 
 2. **Clone the Forked Repository**
    - Clone your fork to your local machine:
 
      ```
-     git clone https://github.com/YOUR_USERNAME/doku.git
+     git clone https://github.com/YOUR_USERNAME/openlit.git
      ```
 
 3. **Create Your Feature Branch**
@@ -74,4 +74,4 @@ We are committed to fostering an open and welcoming environment. By participatin
 
 If you have any questions or need further clarification about contributing, feel free to open an issue for discussion or ask for help on a specific topic.
 
-Thank you for your interest in contributing to Doku!
+Thank you for your interest in contributing to OpenLIT!
