@@ -1,6 +1,6 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
-OpenTelemetry Auto-Instrumentation for GenAI & LLM Application</h1>
+OpenTelemetry Auto-Instrumentation for GenAI & LLM Applications</h1>
 
 **[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python)**
 
