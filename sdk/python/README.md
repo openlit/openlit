@@ -1,4 +1,19 @@
-# OpenLIT: OpenTelemetry-native Observability for LLMs
+<div align="center">
+<img src="https://github.com/dokulabs/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="Doku Logo" width="30%"><h1>
+OpenTelemetry Auto-Instrumentation for GenAI LLM Application</h1>
+
+**[Documentation](https://docs.dokulabs.com/) | [Quickstart](#-getting-started-with-doku) | [Python SDK](https://github.com/dokulabs/doku/tree/main/sdk/python)**
+
+[![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://github.com/open-lit/openlit)
+[![License](https://img.shields.io/github/license/open-lit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/open-lit/openlit/blob/main/LICENSE)
+[![Downloads](https://static.pepy.tech/badge/dokumetry/month)](https://pepy.tech/project/dokumetry)
+[![GitHub Last Commit](https://img.shields.io/github/last-commit/open-lit/openlit)](https://github.com/open-lit/openlit/pulse)
+[![GitHub Contributors](https://img.shields.io/github/contributors/dokulabs/doku)](https://github.com/open-lit/openlit/graphs/contributors)
+
+[![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
+[![X](https://img.shields.io/badge/follow-%40dokulabs-1DA1F2?logo=x&style=social)](https://twitter.com/doku_labs)
+
+</div>
 
 OpenLIT Python SDK is an **OpenTelemetry-native** Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects. Designed with simplicity and efficiency, OpenLIT offers the ability to embed observability into your GenAI-driven projects effortlessly using just **a single line of code**.
 
