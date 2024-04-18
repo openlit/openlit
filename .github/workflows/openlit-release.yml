@@ -1,4 +1,4 @@
-name: Release Doku
+name: Release OpenLIT
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    name: Client Docker Image
+    name: OpenLIT Image
     runs-on: ubuntu-latest
     outputs: 
       version: ${{ steps.set-version-output.outputs.version }}
@@ -75,12 +75,12 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
           annotations: |
             ${{ steps.meta.outputs.annotations }},
-            io.artifacthub.package.logo-url=https://github.com/dokulabs/.github/blob/main/profile/assets/logo-orange-bg.jpg?raw=true,
-            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/dokulabs/doku/main/README.md,
+            io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/logo-orange-bg.jpg?raw=true,
+            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/openlit/openlit/main/README.md,
             io.artifacthub.package.license=Apache-2.0,
-            org.opencontainers.image.vendor=Doku Labs,
-            io.artifacthub.package.maintainers=[{'name':'Doku Labs','email':'developers@dokulabs.com'}],
-            io.artifacthub.package.keywords='Monitoring, Observability, LLMs, OpenAI'
+            org.opencontainers.image.vendor=OpenLIT,
+            io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
+            io.artifacthub.package.keywords='Monitoring, Observability, LLMs, OpenAI, OpenTelemetry, Tracing'
       
       - name: Sign the published Docker image
         env:
