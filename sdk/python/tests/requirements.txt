@@ -18,7 +18,6 @@ pinecone-client>=2.2.0
 # Frameworks
 langchain>=0.1.16
 langchainhub>=0.1.15
-langchain_community>=0.0.33
 
 # Utilities
 bs4
