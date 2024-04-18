@@ -61,7 +61,7 @@ jobs:
       run: python -m build
     
     - name: Publish package
-      uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+      uses: pypa/gh-action-pypi-publish@81e9d935c883d0b210363ab89cf05f3894778450
       with:
         user: __token__
         repository_url: https://test.pypi.org/legacy/
