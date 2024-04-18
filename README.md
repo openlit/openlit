@@ -1,6 +1,6 @@
 <div align="center">
-<img src="https://github.com/dokulabs/.github/blob/main/profile/assets/favicon.png?raw=true" alt="Doku Logo" width="10%"><h1>OpenLIT:
-OpenTelemetry-native LLM Application Observability</h1>
+<img src="https://github.com/dokulabs/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="Doku Logo" width="50%"><h2>
+OpenTelemetry-native LLM Application Observability</h2>
 
 <!-- **[Documentation](https://docs.dokulabs.com/) | [Quickstart](#-getting-started-with-doku) | [Python SDK](https://github.com/dokulabs/dokumetry-python) | [Node SDK](https://github.com/dokulabs/dokumetry-node) | [Helm Chart](https://github.com/dokulabs/helm)** -->
 
