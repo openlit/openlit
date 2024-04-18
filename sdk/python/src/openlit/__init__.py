@@ -92,13 +92,14 @@ class OpenlitConfig:
         cls.trace_content = trace_content
         cls.disable_metrics = disable_metrics
 
-def instrument_if_available(instrumentor_name, instrumentor_instance, config, disabled_instrumentors, module_name_map):
+def instrument_if_available(instrumentor_name, instrumentor_instance, config,
+                            disabled_instrumentors, module_name_map):
     """Instruments the specified instrumentor if its library is available."""
     if instrumentor_name in disabled_instrumentors:
         return
 
     module_name = module_name_map.get(instrumentor_name)
-    
+
     if not module_name or find_spec(module_name) is not None:
         try:
             instrumentor_instance.instrument(
@@ -110,8 +111,10 @@ def instrument_if_available(instrumentor_name, instrumentor_instance, config, di
                 metrics_dict=config.metrics_dict,
                 disable_metrics=config.disable_metrics
             )
+
+        # pylint: disable=broad-exception-caught
         except Exception as e:
-            logger.error(f"Failed to instrument {instrumentor_name}: {e}")
+            logger.error("Failed to instrument %s: %s", instrumentor_name, e)
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
@@ -197,7 +200,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
 
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
-            instrument_if_available(name, instrumentor, config, disabled_instrumentors, module_name_map)
+            instrument_if_available(name, instrumentor, config,
+                                    disabled_instrumentors, module_name_map)
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
