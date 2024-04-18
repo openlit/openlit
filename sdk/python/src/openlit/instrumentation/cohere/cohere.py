@@ -173,8 +173,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(kwargs.get("model", "command"),
                                             pricing_info,
-                                            response.meta["billed_units"]["input_tokens"],
-                                            response.meta["billed_units"]["output_tokens"])
+                                            response.meta.billed_units.input_tokens,
+                                            response.meta.billed_units.output_tokens)
 
                 # Set Span attributes
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
@@ -207,12 +207,12 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                     response.response_id)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                    response.meta["billed_units"]["input_tokens"])
+                                    response.meta.billed_units.input_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                    response.meta["billed_units"]["output_tokens"])
+                                    response.meta.billed_units.output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                    response.meta["billed_units"]["input_tokens"] +
-                                    response.meta["billed_units"]["output_tokens"])
+                                    response.meta.billed_units.input_tokens +
+                                    response.meta.billed_units.output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
@@ -241,12 +241,12 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
 
                     metrics["genai_requests"].add(1, attributes)
                     metrics["genai_total_tokens"].add(
-                        response.meta["billed_units"]["input_tokens"] +
-                        response.meta["billed_units"]["output_tokens"], attributes)
+                        response.meta.billed_units.input_tokens +
+                        response.meta.billed_units.output_tokens, attributes)
                     metrics["genai_completion_tokens"].add(
-                        response.meta["billed_units"]["output_tokens"], attributes)
+                        response.meta.billed_units.output_tokens, attributes)
                     metrics["genai_prompt_tokens"].add(
-                        response.meta["billed_units"]["input_tokens"], attributes)
+                        response.meta.billed_units.input_tokens, attributes)
                     metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response
@@ -307,8 +307,8 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                     if event.event_type == "stream-end":
                         llmresponse = event.response.text
                         response_id = event.response.response_id
-                        prompt_tokens = event.response.meta["billed_units"]["input_tokens"]
-                        completion_tokens = event.response.meta["billed_units"]["output_tokens"]
+                        prompt_tokens = event.response.meta.billed_units.input_tokens
+                        completion_tokens = event.response.meta.billed_units.output_tokens
                         finish_reason = event.finish_reason
                     yield event
 
