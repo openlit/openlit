@@ -1,6 +1,6 @@
 <div align="center">
 <img src="https://github.com/dokulabs/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="Doku Logo" width="30%"><h1>
-OpenTelemetry Auto-Instrumentation for GenAI LLM Application</h1>
+OpenTelemetry Auto-Instrumentation for GenAI & LLM Application</h1>
 
 **[Documentation](https://docs.dokulabs.com/) | [Quickstart](#-getting-started-with-doku) | [Python SDK](https://github.com/dokulabs/doku/tree/main/sdk/python)**
 
