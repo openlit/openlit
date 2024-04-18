@@ -3,8 +3,12 @@ name: Python Tests
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'sdk/python/**'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'sdk/python/**'
   workflow_dispatch:
   schedule:
     - cron: '0 0 1-31/15 * *'
@@ -26,9 +30,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@0d103c3126aa41d772a8362f6aa67afac040f80c # v3.1.0
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v3

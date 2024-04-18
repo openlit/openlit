@@ -3,8 +3,9 @@ The __init__.py module for the openLIT package.
 This module sets up the openLIT configuration and instrumentation for various
 large language models (LLMs).
 """
-from typing import Optional, Dict, Any
+from typing import Dict
 import logging
+from importlib.util import find_spec
 
 # Import internal modules for setting up tracing and fetching pricing info.
 from openlit.otel.tracing import setup_tracing
@@ -91,6 +92,30 @@ class OpenlitConfig:
         cls.trace_content = trace_content
         cls.disable_metrics = disable_metrics
 
+def instrument_if_available(instrumentor_name, instrumentor_instance, config,
+                            disabled_instrumentors, module_name_map):
+    """Instruments the specified instrumentor if its library is available."""
+    if instrumentor_name in disabled_instrumentors:
+        return
+
+    module_name = module_name_map.get(instrumentor_name)
+
+    if not module_name or find_spec(module_name) is not None:
+        try:
+            instrumentor_instance.instrument(
+                environment=config.environment,
+                application_name=config.application_name,
+                tracer=config.tracer,
+                pricing_info=config.pricing_info,
+                trace_content=config.trace_content,
+                metrics_dict=config.metrics_dict,
+                disable_metrics=config.disable_metrics
+            )
+
+        # pylint: disable=broad-exception-caught
+        except Exception as e:
+            logger.error("Failed to instrument %s: %s", instrumentor_name, e)
+
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
          meter=None, disable_metrics=False):
@@ -115,12 +140,19 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
 
     # Check for invalid instrumentor names
-    valid_instruments = {
-        "openai", "anthropic", "langchain",
-        "cohere", "mistral", "chroma",
-        "pinecone", "transformers"
+
+    module_name_map = {
+        "openai": "openai",
+        "anthropic": "anthropic",  
+        "cohere": "cohere",  
+        "mistral": "mistralai",  
+        "langchain": "langchain",
+        "chroma": "chromadb",
+        "pinecone": "pincone",
+        "transformers": "transformers"
     }
-    invalid_instrumentors = set(disabled_instrumentors) - valid_instruments
+
+    invalid_instrumentors = [name for name in disabled_instrumentors if name not in module_name_map]
     for invalid_name in invalid_instrumentors:
         logger.warning("Invalid instrumentor name detected and ignored: '%s'", invalid_name)
 
@@ -168,16 +200,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
 
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
-            if name not in disabled_instrumentors:
-                instrumentor.instrument(
-                    environment=config.environment,
-                    application_name=config.application_name,
-                    tracer=config.tracer,
-                    pricing_info=config.pricing_info,
-                    trace_content=config.trace_content,
-                    metrics_dict=config.metrics_dict,
-                    disable_metrics=config.disable_metrics
-                )
+            instrument_if_available(name, instrumentor, config,
+                                    disabled_instrumentors, module_name_map)
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
