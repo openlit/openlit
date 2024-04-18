@@ -79,6 +79,5 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
         return trace.get_tracer(__name__)
 
     # pylint: disable=bare-except
-    except Exception as e:
-        print(e)
+    except:
         return None

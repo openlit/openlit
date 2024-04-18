@@ -1,4 +1,4 @@
-name: Test Release openLIT Python
+name: Release on Test PYPI
 
 on:
   workflow_dispatch:
