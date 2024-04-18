@@ -5,6 +5,7 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+
 processors:
   batch:
   memory_limiter:
@@ -13,15 +14,17 @@ processors:
     # 25% of limit up to 2G
     spike_limit_mib: 512
     check_interval: 5s
+
 extensions:
   zpages: {}
+
 exporters:
   clickhouse:
-    endpoint: tcp://146.190.11.107:9000?dial_timeout=10s
-    database: openlit
-    username: default
-    password: DOKU
-    ttl: 72h
+    endpoint: tcp://${env:INIT_DB_HOST}:${env:INIT_DB_PORT}?dial_timeout=10s
+    database: ${env:INIT_DB_DATABASE}
+    username: ${env:INIT_DB_USERNAME}
+    password: ${env:INIT_DB_PASSWORD}
+    ttl: 730h
     logs_table_name: otel_logs
     traces_table_name: otel_traces
     metrics_table_name: otel_metrics
@@ -31,6 +34,7 @@ exporters:
       initial_interval: 5s
       max_interval: 30s
       max_elapsed_time: 300s
+
 service:
   pipelines:
     logs:

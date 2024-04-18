@@ -1,21 +1,21 @@
 <div align="center">
-<img src="https://github.com/dokulabs/.github/blob/main/profile/assets/github-readme-connections-banner.gif?raw=true" alt="Doku Logo" width="30%"><h1>
+<img src="https://github.com/openlit/.github/blob/main/profile/assets/github-readme-connections-banner.gif?raw=true" alt="OpenLIT Logo" width="30%"><h1>
 OpenTelemetry-native LLM Application Observability</h1>
 
-**[Documentation](https://docs.dokulabs.com/) | [Quickstart](#-getting-started-with-doku) | [Python SDK](https://github.com/dokulabs/doku/tree/main/sdk/python)**
+**[Documentation](https://docs.openlit.io/) | [Quickstart](#-Getting Started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python)**
 
 [![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://github.com/openlit/openlit)
 [![License](https://img.shields.io/github/license/openlit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/openlit/openlit/blob/main/LICENSE)
 [![Downloads](https://static.pepy.tech/badge/dokumetry/month)](https://pepy.tech/project/dokumetry)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/openlit/openlit)](https://github.com/openlit/openlit/pulse)
-[![GitHub Contributors](https://img.shields.io/github/contributors/dokulabs/doku)](https://github.com/openlit/openlit/graphs/contributors)
+[![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
-[![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
-[![X](https://img.shields.io/badge/follow-%40dokulabs-1DA1F2?logo=x&style=social)](https://twitter.com/doku_labs)
+[![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
+[![X](https://img.shields.io/badge/follow-%40OpenLIT-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
 
 </div>
 
-![Doku Banner](https://raw.githubusercontent.com/dokulabs/.github/main/profile/assets/banner.gif)
+![OpenLIT Banner](https://raw.githubusercontent.com/openlit/.github/main/profile/assets/banner.gif)
 
 OpenLIT is an **OpenTelemetry-native** GenAI and LLM Application Observability tool. It's designed to make the integration process of observability into GenAI projects as easy as pie – literally, with just **a single line of code**. Whether you're working with popular LLM Libraries such as OpenAI and HuggingFace or leveraging vector databases like ChromaDB, OpenLIT ensures your applications are monitored seamlessly, providing critical insights to improve performance and reliability.
 
