@@ -4,19 +4,14 @@ OpenTelemetry-native LLM Application Observability</h1>
 
 <!-- **[Documentation](https://docs.dokulabs.com/) | [Quickstart](#-getting-started-with-doku) | [Python SDK](https://github.com/dokulabs/dokumetry-python) | [Node SDK](https://github.com/dokulabs/dokumetry-node) | [Helm Chart](https://github.com/dokulabs/helm)** -->
 
-<!-- [![Doku](https://img.shields.io/badge/Doku-orange)](https://github.com/dokulabs/doku)
-[![License](https://img.shields.io/github/license/dokulabs/doku?label=License&logo=github&color=f80&logoColor=white)](https://github.com/dokulabs/doku/blob/main/LICENSE)
+[![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://github.com/open-lit/openlit)
+[![License](https://img.shields.io/github/license/open-lit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/open-lit/openlit/blob/main/LICENSE)
 [![Downloads](https://static.pepy.tech/badge/dokumetry/month)](https://pepy.tech/project/dokumetry)
-[![GitHub Last Commit](https://img.shields.io/github/last-commit/dokulabs/doku)](https://github.com/dokulabs/doku/pulse)
-[![GitHub Contributors](https://img.shields.io/github/contributors/dokulabs/doku)](https://github.com/dokulabs/doku/graphs/contributors)
+[![GitHub Last Commit](https://img.shields.io/github/last-commit/open-lit/openlit)](https://github.com/open-lit/openlit/pulse)
+[![GitHub Contributors](https://img.shields.io/github/contributors/dokulabs/doku)](https://github.com/open-lit/openlit/graphs/contributors)
 
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
 [![X](https://img.shields.io/badge/follow-%40dokulabs-1DA1F2?logo=x&style=social)](https://twitter.com/doku_labs)
-
-[![Doku Version](https://img.shields.io/github/tag/dokulabs/doku.svg?&label=Doku%20Version&logo=docker)](https://github.com/dokulabs/doku/tags)
-[![Helm Version](https://img.shields.io/github/tag/dokulabs/helm.svg?&label=Chart%20Version&logo=helm)](https://github.com/dokulabs/helm/tags)
-[![Python Library Version](https://img.shields.io/github/tag/dokulabs/dokumetry-python.svg?&label=dokumetry%20version&logo=python)](https://pypi.org/project/dokumetry/)
-[![NPM Package Version](https://img.shields.io/github/tag/dokulabs/dokumetry-node.svg?&label=dokumetry%20version&logo=npm)](https://www.npmjs.com/package/dokumetry) -->
 
 </div>
 
@@ -43,8 +38,7 @@ pip install openlit
 ### Step 2: Instrument your Application
 Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **one line of code**: 
 
-For Python
-```python python
+```python
 import openlit
 
 openlit.init()
@@ -52,11 +46,22 @@ openlit.init()
 
 This will Auto instrument you code for collecting LLM Observability data.
 
-### Step 2: Send to OTLP Backend
+### Step 2: Send Telemetry to OTLP Backend
 
 By default, OpenLIT directs traces and metrics straight to your console. To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
 
 To send telemetry to OpenTelemetry backends requiring authentication, set the `otlp_headers` parameter with its desired value. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as recommended in the OpenTelemetry documentation.
+
+Here is how you can send telemetry from OpenLIT to Grafana Cloud
+
+```
+openlit.init(
+  otlp_endpoint="https://otlp-gateway-prod-us-east-0.grafana.net/otlp", 
+  otlp_headers="Authorization=Basic%20<base64 encoded Instance ID and API Token>"
+)
+```
+
+You can also choose to set these values using `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` environment variables
 
 ## 🌱 Contributing
 
