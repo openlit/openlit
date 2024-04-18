@@ -14,24 +14,6 @@ services:
       - "8123:8123" 
     restart: always
 
-  doku-ingester:
-    image: doku-ingester
-    build:
-      context: ./ingester
-      dockerfile: Dockerfile
-    container_name: doku-ingester
-    environment:
-      DOKU_DB_HOST: clickhouse   
-      DOKU_DB_PORT: 9000 
-      DOKU_DB_NAME: ${DOKU_DB_NAME:-default}     
-      DOKU_DB_USER: ${DOKU_DB_USER:-default}              
-      DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
-    ports:
-      - "9044:9044"           
-    depends_on:
-      - clickhouse
-    restart: always
-  
   doku-client:
     image: doku-client
     build:
