@@ -1,10 +1,10 @@
 {
   "$schema": "https://mintlify.com/schema.json",
   "versions": ["latest"],
-  "name": "Doku",
+  "name": "OpenLIT",
   "logo": {
-    "dark": "https://github.com/dokulabs/.github/blob/main/profile/assets/dark-bg-with-text-logo.jpg?raw=true",
-    "light": "https://github.com/dokulabs/.github/blob/main/profile/assets/light-bg-with-text-logo.jpg?raw=true"
+    "dark": "https://github.com/openlit/.github/blob/main/profile/assets/dark-bg-with-text-logo.jpg?raw=true",
+    "light": "https://github.com/openlit/.github/blob/main/profile/assets/light-bg-with-text-logo.jpg?raw=true"
   },
   "favicon": "favicon.png",
   "colors": {
@@ -19,7 +19,7 @@
   "topbarCtaButton": 
   {
     "name": "Website",
-    "url": "https://dokulabs.com/"
+    "url": "https://openlit.io/"
   },
   "modeToggle": {
     "default": "light"
@@ -32,12 +32,12 @@
     {
       "name": "Community",
       "icon": "slack",
-      "url": "https://dokulabs.slack.com"
+      "url": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ"
     },
     {
       "name": "GitHub",
       "icon": "github",
-      "url": "https://github.com/dokulabs/"
+      "url": "https://github.com/openlit/"
     }
   ],
   "navigation": [
@@ -187,9 +187,9 @@
     }
   },
   "footerSocials": {
-    "github": "https://github.com/dokulabs/",
-    "slack": "https://join.slack.com/t/dokulabs/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ",
-    "twitter": "https://twitter.com/doku_labs",
+    "github": "https://github.com/openlit/",
+    "slack": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ",
+    "twitter": "https://twitter.com/openlit_io",
     "discord": "https://discord.gg/pGKEqmDE"
   }
 }
