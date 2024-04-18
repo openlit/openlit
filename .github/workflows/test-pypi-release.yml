@@ -66,4 +66,4 @@ jobs:
         user: __token__
         repository_url: https://test.pypi.org/legacy/
         password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        packages_dir: sdk/python
+        packages_dir: sdk/python/src
