@@ -3,9 +3,9 @@ name = "openlit"
 version = "0.0.2"
 description = "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects"
 authors = ["OpenLIT"]
-repository = "https://github.com/open-lit/openlit/tree/main/openlit/python"
+repository = "https://github.com/openlit/openlit/tree/main/openlit/python"
 readme = "README.md"
-homepage = "https://github.com/open-lit/openlit/tree/main/openlit/python"
+homepage = "https://github.com/openlit/openlit/tree/main/openlit/python"
 keywords = ["OpenTelemetry", "otel", "otlp","llm", "tracing", "openai", "anthropic", "claude", "cohere", "llm monitoring", "observability", "monitoring", "gpt", "Generative AI", "chatGPT"]
 
 [tool.poetry.dependencies]
