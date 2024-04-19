@@ -3,48 +3,18 @@ title: 'Grafana Cloud'
 description: 'LLM Observability with Grafana Cloud and OpenLIT'
 ---
 
-<Frame>
-  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/grafana-dashboard-1.jpg?raw=true"  />
-  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/grafana-dashboard-2.jpg?raw=true" />
-</Frame>
+To send OpenTelemetry data collected by OpenLIt from your LLM Application, You need to set the `otlp_endpoint` and `otlp_headers` arguments according to your needs.
 
-You can [send data using OpenTelemetry Protocol (OTLP)](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/) to Grafana Cloud drectly from the OpenLIT SDK.
+```python
+import openlit
 
-To start sending Traces and Metrics, Follow the below steps
-1. Create an Access Policy token with the metrics:write and traces:write scopes, depending on the data you will be sending.
-2. Open the Cloud Portal, and click Configure on the OpenTelemetry card. 
-3. Click on Generate Now in the Password / API Token section. As a result, the Environment Variable section will be populated with environment variables necessary to send data directly to Grafana Cloud.
-
-4. Configure the OpenLIT SDK to use environment variables to push directly to Grafana Cloud
-
-```
-export OTEL_EXPORTER_OTLP_ENDPOINT=<OTLP Endpoint URL>
-export OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64 instanceID:token>
+openlit.init(otlp_endpoint="otlp_backend_endpoint", otlp_headers="otlp_backend_token")
 ```
 
-<Tip>
-Make sure to replace the space after `Basic` with `%20`:
+Alternatively, you can configure the OTLP endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` and the OTLP headers by setting the Appli`OTEL_EXPORTER_OTLP_HEADERS` environmentcation variable as recommended in the OpenTelemetry documentation.
 
-`OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64 instanceID:token>`
-</Tip>
+Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
 
-You can automatically obtain these values from the Grafana Cloud Portal.
-click on Generate Now in the Password / API Token section. As a result, the Environment Variable section will be populated with environment variables necessary to send data directly to Grafana Cloud.
-
-```shell 
-curl --request POST \
-  --url https://<YOUR_DOKU_INGESTER_URL>/api/connections \
-  --header 'Authorization: <DOKU_API_KEY>' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "Platform": "grafana",
-  "MetricsUrl": "<YOUR_GRAFANA_CLOUD_INFLUX_TELEGRAF_URL>",
-  "MetricsUsername": "<YOUR_GRAFANA_CLOUD_PROMETHEUS_USERNAME>",
-  "LogsUrl": "<YOUR_GRAFANA_CLOUD_LOGS_URL>",
-  "LogsUsername": "<YOUR_GRAFANA_CLOUD_LOGS_USERNAME>",
-  "ApiKey": "<YOUR_GRAFANA_CLOUD_API_KEY>"
-}'
-```
 
 ## Grafana Resources
 
@@ -1542,9 +1512,6 @@ curl --request POST \
 
 <CardGroup cols={2}>
 <Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
-Integrate your LLM Provider with Doku 
-</Card>
-<Card title="API Reference" href="/latest/api-reference/introduction" icon='code'>
-OpenAPI specification for API Endpoints in Doku 
+Start Monitoringyour LLM Application 
 </Card>
 </CardGroup>

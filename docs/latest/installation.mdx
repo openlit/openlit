@@ -27,17 +27,17 @@ OpenLIT flexibly adapts to your preferred environment. Select a deployment metho
 
 ## Kubernetes
 
-Deploy OpenLIT on your Kubernetes cluster using the [OpenLIT Helm chart](https://github.com/dokulabs/helm/tree/main/charts/doku) for a reliable and scalable solution.
+Deploy OpenLIT on your Kubernetes cluster using the [OpenLIT Helm chart](https://github.com/openlit/helm/tree/main/charts/openlit) for a reliable and scalable solution.
 <Steps>
   <Step title="Helm Repo Setup">
   ```shell shell
-  helm repo add dokulabs https://dokulabs.github.io/helm/
+  helm repo add openlit https://openlit.github.io/helm/
   helm repo update
   ```
   </Step>
   <Step title="Installing the Helm Chart">
   ```shell shell
-  helm install doku dokulabs/doku --version="0.1.3"
+  helm install openlit openlit/openlit --version="1.0.0"
   ```
   </Step>
 </Steps>
@@ -46,63 +46,13 @@ Deploy OpenLIT on your Kubernetes cluster using the [OpenLIT Helm chart](https:/
 For a quick and straightforward setup, Docker Compose can be used to deploy OpenLIT.
 
 <Steps>
-  <Step title="Create `docker-compose.yml`">
-  ```yaml
-  version: '3.8'
-
-  services:
-    clickhouse:
-      image: clickhouse/clickhouse-server:24.2.2
-      container_name: clickhouse
-      environment:
-        CLICKHOUSE_PASSWORD: ${DOKU_DB_PASSWORD:-OPENLIT}   
-        CLICKHOUSE_USER: ${DOKU_DB_USER:-default}                   
-      volumes:
-        - clickhouse-data:/var/lib/clickhouse
-      ports:
-        - "9000:9000" 
-        - "8123:8123" 
-      restart: always
-
-    doku-ingester:
-      image: ghcr.io/dokulabs/doku-ingester:0.1.3
-      container_name: doku-ingester
-      environment:
-        DOKU_DB_HOST: clickhouse   
-        DOKU_DB_PORT: 9000 
-        DOKU_DB_NAME: ${DOKU_DB_NAME:-default}     
-        DOKU_DB_USER: ${DOKU_DB_USER:-default}              
-        DOKU_DB_PASSWORD: ${DOKU_DB_PASSWORD:-OPENLIT}
-      ports:
-        - "9044:9044"           
-      depends_on:
-        - clickhouse
-      restart: always
-    
-    doku-client:
-      image: ghcr.io/dokulabs/doku-client:0.1.3
-      container_name: doku-client
-      environment:
-        INIT_DB_HOST: clickhouse
-        INIT_DB_PORT: 8123
-        INIT_DB_DATABASE: ${DOKU_DB_NAME:-default}
-        INIT_DB_USERNAME: ${DOKU_DB_USER:-default}
-        INIT_DB_PASSWORD: ${DOKU_DB_PASSWORD:-DOKU}
-        SQLITE_DATABASE_URL: file:/app/client/data/data.db
-      ports:
-        - "3000:3000"
-      depends_on:
-        - clickhouse
-      volumes:
-        - doku-client-data:/app/client/data
-      restart: always
-
-  volumes:
-    clickhouse-data:
-    doku-client-data:
+  <Step title="Git Clone OpenLIT Repository">
+  ```shell
+  git clone git@github.com:openlit/openlit.git
   ```
   </Step>
    <Step title="Start Docker Compose">
+   From the root directory of the OpenLIT Repo, Run the below command
    ```shell
    docker-compose up -d
    ```
