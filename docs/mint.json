@@ -45,9 +45,7 @@
       "group": "Introduction",
       "pages": [
         "latest/introduction",
-        "latest/quickstart",
-        "latest/installation",
-        "latest/configuration"
+        "latest/quickstart"
       ],
       "version": "latest"
     },
@@ -57,85 +55,31 @@
       "pages": [
         "latest/integrations/introduction",
         {
-          "group": "OpenAI",
+          "group": "LLMs",
           "version": "latest",
           "pages": [
-            "latest/integrations/openai/introduction",
-            {
-              "group": "Examples",
-              "version": "latest",
-              "pages": [
-                "latest/integrations/openai/examples/chatCompletions",
-                "latest/integrations/openai/examples/image",
-                "latest/integrations/openai/examples/embeddings",
-                "latest/integrations/openai/examples/audio",
-                "latest/integrations/openai/examples/fine-tuning",
-                "latest/integrations/openai/examples/completions"
-              ]
-            }
+            "latest/integrations/openai",
+            "latest/integrations/anthropic",
+            "latest/integrations/cohere",
+            "latest/integrations/mistral",
+            "latest/integrations/azure-openai",
+            "latest/integrations/huggingface"
           ]
         },
         {
-          "group": "Cohere",
+          "group": "VectorDBs",
           "version": "latest",
           "pages": [
-            "latest/integrations/cohere/introduction",
-            {
-              "group": "Examples",
-              "version": "latest",
-              "pages": [
-                "latest/integrations/cohere/examples/cochat",
-                "latest/integrations/cohere/examples/generate",
-                "latest/integrations/cohere/examples/summarize",
-                "latest/integrations/cohere/examples/embed"
-              ]
-            }
+            "latest/integrations/chromadb",
+            "latest/integrations/pinecone"
           ]
         },
         {
-          "group": "Anthropic",
+          "group": "Frameworks",
           "version": "latest",
           "pages": [
-            "latest/integrations/anthropic/introduction",
-            {
-              "group": "Examples",
-              "version": "latest",
-              "pages": [
-                "latest/integrations/anthropic/examples/messages"
-              ]
-            }
-          ]
-        },
-        {
-          "group": "Mistral",
-          "version": "latest",
-          "pages": [
-            "latest/integrations/mistral/introduction",
-            {
-              "group": "Examples",
-              "version": "latest",
-              "pages": [
-                "latest/integrations/mistral/examples/mistral-chat",
-                "latest/integrations/mistral/examples/embedding"
-              ]
-            }
-          ]
-        },
-        {
-          "group": "Azure OpenAI",
-          "version": "latest",
-          "pages": [
-            "latest/integrations/azure-openai/introduction",
-            {
-              "group": "Examples",
-              "version": "latest",
-              "pages": [
-                "latest/integrations/azure-openai/examples/chat",
-                "latest/integrations/azure-openai/examples/image",
-                "latest/integrations/azure-openai/examples/embeddings",
-                "latest/integrations/azure-openai/examples/completions"
-              ]
-            }
+            "latest/integrations/langchain",
+            "latest/integrations/litellm"
           ]
         }
       ]
@@ -144,12 +88,16 @@
       "group": "Connections",
       "pages": [
         "latest/connections/intro",
-        "latest/connections/grafanaoss",
-        "latest/connections/grafanacloud",
-        "latest/connections/datadog",
-        "latest/connections/new-relic",
-        "latest/connections/signoz",
-        "latest/connections/dynatrace"
+        {
+          "group": "Platforms",
+          "icon": "key",
+          "pages": [
+            "latest/api-reference/endpoint/api-keys/create",
+            "latest/api-reference/endpoint/api-keys/get",
+            "latest/api-reference/endpoint/api-keys/delete"
+          ],
+          "version": "latest"
+        }
       ],
       "version": "latest"
     },

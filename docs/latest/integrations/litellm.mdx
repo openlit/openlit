@@ -1,15 +1,15 @@
 ---
-title: 'OpenAI Integration'
-sidebarTitle: 'Get Started'
+title: 'LiteLLM Integration'
+sidebarTitle: 'LiteLLM'
 ---
 
-DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor OpenAI usage data and metrics from your Python/NodeJS code. 
+DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Anthropic usage data and metrics from your Python/NodeJS code. 
 
 ## Get Started 
 
-The integration is compatible with  
-- OpenAI Python SDK client `>=1.13.0` 
-- OpenAI JS/TS SDK client `>=4.28.0`
+The integration is compatible with 
+- Anthropic Python SDK client `>=0.19.0`
+- Anthropic JS/TS SDK client `>=0.9.0`
 
 <Tabs>
   <Tab title="Python">
@@ -18,12 +18,14 @@ The integration is compatible with
     ```
 
     ```python
-    from openai import OpenAI
+    from anthropic import Anthropic
     import dokumetry
 
-    client = OpenAI()
+    anthropic = Anthropic(
+        api_key="anthropic_api_key",
+    )
 
-    dokumetry.init(llm = client, doku_url = "YOUR_DOKU_INGESTER_URL", api_key = "YOUR_DOKU_TOKEN")
+    dokumetry.init(llm = anthropic, doku_url = "YOUR_DOKU_INGESTER_URL", api_key = "YOUR_DOKU_TOKEN")
     ```
   </Tab>
   <Tab title="Javascript">
@@ -32,34 +34,30 @@ The integration is compatible with
     ```
 
     ```javascript
-    import OpenAI from "openai";
+    import Anthropic from '@anthropic-ai/sdk';
     import DokuMetry from 'dokumetry';
 
-    const client = new OpenAI();
+    const anthropic = new Anthropic({
+      apiKey: 'anthropic_api_key', 
+    });
 
-    DokuMetry.init({llm: client, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
+    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
     ```
   </Tab>
 </Tabs>
 
 ## Supported Endpoints
 
-The following OpenAI Endpoints are supported for monitoring with DokuMetry
+The following Anthropic Endpoints are supported for monitoring with DokuMetry
 
-- [Chat completions](/latest/integrations/openai/examples/chatCompletions)
-- [Image Create](/latest/integrations/openai/examples/image#create-image) and [Image Variations](/latest/integrations/openai/examples/image#create-image-variation)
-- [Audio Speech Create](/latest/integrations/openai/examples/audio)
-- [Embeddings](/latest/integrations/openai/examples/embeddings)
-- [Fine Tunings](/latest/integrations/openai/examples/fine-tuning)
-- [Completions](/latest/integrations/openai/examples/completions)
+- [messages](/latest/integrations/anthropic/examples/messages)
 
 ## Parameters
-
 <Tabs>
   <Tab title="Python">
   | Parameter         | Description                                               | Required      |
   |-------------------|-----------------------------------------------------------|---------------|
-  | llm               | OpenAI Object to track                                    | Yes           |
+  | llm               | Anthropic Object to track                                 | Yes           |
   | doku_url          | URL of your Doku Ingester                                 | Yes           |
   | api_key           | Your Doku API key                                         | Yes           |
   | environment       | Custom environment tag to include in your metrics         | Optional      |
@@ -69,7 +67,7 @@ The following OpenAI Endpoints are supported for monitoring with DokuMetry
   <Tab title="NodeJS">
   | Parameter         | Description                                               | Required      |
   |-------------------|-----------------------------------------------------------|---------------|
-  | llm               | OpenAI Object to track                                    | Yes           |
+  | llm               | Anthropic Object to track                                 | Yes           |
   | dokuUrl           | URL of your Doku Ingester                                 | Yes           |
   | apiKey            | Your Doku API key                                         | Yes           |
   | environment       | Custom environment tag to include in your metrics         | Optional      |
