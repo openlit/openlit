@@ -2,7 +2,7 @@ name: Release OpenLIT
 
 on:
   push:
-    tags: [ '*.*.*' ]
+    tags: [ 'openlit-*.*.*' ]
 
 env:
   REGISTRY: ghcr.io
