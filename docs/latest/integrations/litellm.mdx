@@ -1,85 +1,40 @@
 ---
-title: 'LiteLLM Integration'
+title: 'Monitor LiteLLM using OpenTelemetry'
 sidebarTitle: 'LiteLLM'
 ---
 
-DokuMetry SDKs (`dokumetry`) empowers you to effortlessly track and monitor Anthropic usage data and metrics from your Python/NodeJS code. 
+OpenLIT SDKs provide OpenTelemetry Auto-Instrumentation for monitoring LLM Application using LiteLLM which includes performance and operation stats.
 
 ## Get Started 
 
-The integration is compatible with 
-- Anthropic Python SDK client `>=0.19.0`
-- Anthropic JS/TS SDK client `>=0.9.0`
+<Steps>
+    <Step title="Install the OpenLIT Python SDK using pip">
+      ```shell
+      pip install openlit
+      ```
+    </Step>
+    <Step title="Add the following two lines to your application code:">
+      Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **one line of code**: 
 
-<Tabs>
-  <Tab title="Python">
-    ```shell
-    pip install dokumetry==0.1.1
-    ```
+      ```python
+      import openlit
 
-    ```python
-    from anthropic import Anthropic
-    import dokumetry
+      openlit.init(otlp_endpoint="otlp_backend_endpoint", otlp_headers="otlp_backend_token")
+      ```
 
-    anthropic = Anthropic(
-        api_key="anthropic_api_key",
-    )
+      Alternatively, you can configure the OTLP endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` and the OTLP headers by setting the Appli`OTEL_EXPORTER_OTLP_HEADERS` environmentcation variable as recommended in the OpenTelemetry documentation.
 
-    dokumetry.init(llm = anthropic, doku_url = "YOUR_DOKU_INGESTER_URL", api_key = "YOUR_DOKU_TOKEN")
-    ```
-  </Tab>
-  <Tab title="Javascript">
-    ```shell
-    npm install dokumetry@0.1.1
-    ```
+      If your aim is primarily to test or develop without sending telemetry data to an external backend, you can initialize OpenLIT without any parameters. This approach directs all telemetry output to your console, enabling quick diagnostics and local debugging:
+      
+      ```python
+      import openlit
 
-    ```javascript
-    import Anthropic from '@anthropic-ai/sdk';
-    import DokuMetry from 'dokumetry';
-
-    const anthropic = new Anthropic({
-      apiKey: 'anthropic_api_key', 
-    });
-
-    DokuMetry.init({llm: anthropic, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
-    ```
-  </Tab>
-</Tabs>
-
-## Supported Endpoints
-
-The following Anthropic Endpoints are supported for monitoring with DokuMetry
-
-- [messages](/latest/integrations/anthropic/examples/messages)
-
-## Parameters
-<Tabs>
-  <Tab title="Python">
-  | Parameter         | Description                                               | Required      |
-  |-------------------|-----------------------------------------------------------|---------------|
-  | llm               | Anthropic Object to track                                 | Yes           |
-  | doku_url          | URL of your Doku Ingester                                 | Yes           |
-  | api_key           | Your Doku API key                                         | Yes           |
-  | environment       | Custom environment tag to include in your metrics         | Optional      |
-  | application_name  | Custom application name tag for your metrics              | Optional      |
-  | skip_resp         | Skip response from the Doku Ingester for faster execution | Optional      |
-  </Tab>
-  <Tab title="NodeJS">
-  | Parameter         | Description                                               | Required      |
-  |-------------------|-----------------------------------------------------------|---------------|
-  | llm               | Anthropic Object to track                                 | Yes           |
-  | dokuUrl           | URL of your Doku Ingester                                 | Yes           |
-  | apiKey            | Your Doku API key                                         | Yes           |
-  | environment       | Custom environment tag to include in your metrics         | Optional      |
-  | applicationName   | Custom application name tag for your metrics              | Optional      |
-  | skipResp          | Skip response from the Doku Ingester for faster execution | Optional      |
-  </Tab>
-</Tabs>
-
-## Advanced Usage
-When using DokuMetry in Production environments, It is recommened to set Skip response parameter to `true` for faster porcessing. 
-
-To filter your LLM Usage according application or the environment, set the Application name and Environment paramaters with the actual values.
+      openlit.init()
+      ```
+      
+      Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
+    </Step>
+</Steps>
 
 ---
 

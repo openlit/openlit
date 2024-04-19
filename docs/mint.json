@@ -88,43 +88,12 @@
       "group": "Connections",
       "pages": [
         "latest/connections/intro",
-        {
-          "group": "Platforms",
-          "icon": "key",
-          "pages": [
-            "latest/api-reference/endpoint/api-keys/create",
-            "latest/api-reference/endpoint/api-keys/get",
-            "latest/api-reference/endpoint/api-keys/delete"
-          ],
-          "version": "latest"
-        }
-      ],
-      "version": "latest"
-    },
-    {
-      "group": "API Reference",
-      "pages": [
-        "latest/api-reference/introduction",
-        {
-          "group": "API Keys",
-          "icon": "key",
-          "pages": [
-            "latest/api-reference/endpoint/api-keys/create",
-            "latest/api-reference/endpoint/api-keys/get",
-            "latest/api-reference/endpoint/api-keys/delete"
-          ],
-          "version": "latest"
-        },
-        {
-          "group": "Connections",
-          "icon": "link",
-          "pages": [
-            "latest/api-reference/endpoint/connections/create",
-            "latest/api-reference/endpoint/connections/delete",
-            "latest/api-reference/endpoint/connections/get"
-          ],
-          "version": "latest"
-        }
+        "latest/connections/datadog",
+        "latest/connections/grafana-tempo",
+        "latest/connections/grafanacloud",
+        "latest/connections/dynatrace",
+        "latest/connections/signoz",
+        "latest/connections/new-relic"
       ],
       "version": "latest"
     }
