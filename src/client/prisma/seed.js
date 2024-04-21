@@ -2,9 +2,9 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 async function main() {
 	console.log("Inside seeding.....");
-	// const defaultPassword = "openlitlabsuser"; ⤵
+	// const defaultPassword = "openlituser"; ⤵
 	const hashedPassword =
-		"$2a$10$oYqdiSB.FPPTJPvKPFh2oe2aMTlGOPyJTuO/WoPDOtX8UTLAo0bPS";
+		"$2a$10$gh6Odw7fhLRrE1A1OxaHfeWOWKiZEEQpkOAhhCQ.RHx8VWOngwlHO";
 	const user = await prisma.user.upsert({
 		where: { email: "user@openlit.io" },
 		update: {},
