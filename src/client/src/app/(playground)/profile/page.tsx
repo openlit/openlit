@@ -5,8 +5,8 @@ import { getUserDetails, setUser } from "@/selectors/user";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { User } from "@prisma/client";
-import { FormEventHandler, MouseEventHandler, useState } from "react";
-import toast from "react-hot-toast";
+import { FormEventHandler } from "react";
+import { toast } from "sonner";
 
 const PROFILE_TOAST_ID = "profile-details";
 

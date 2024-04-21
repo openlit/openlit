@@ -9,7 +9,6 @@ import {
 	CommandParams,
 } from "@clickhouse/client-common";
 
-export const RESTRICTED_API_KEY_DELETION_NAMES = ["doku-client-internal"];
 export const OTEL_TRACES_TABLE_NAME = "otel_traces";
 
 export type TimeLimit = {

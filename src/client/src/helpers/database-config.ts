@@ -2,7 +2,7 @@ import { DatabaseConfigWithActive } from "@/constants/dbConfig";
 import { useRootStore } from "@/store";
 import { deleteData, getData } from "@/utils/api";
 import asaw from "@/utils/asaw";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 export const fetchDatabaseConfigList = async () => {
 	useRootStore.getState().databaseConfig.setIsLoading(true);

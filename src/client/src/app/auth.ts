@@ -75,7 +75,7 @@ export const authOptions = {
 				email: {
 					label: "Email",
 					type: "email",
-					placeholder: "doku@doku.com",
+					placeholder: "openlit@openlit.io",
 				},
 				password: { label: "Password", type: "password" },
 			},
@@ -101,7 +101,7 @@ export const authOptions = {
 				email: {
 					label: "Email",
 					type: "email",
-					placeholder: "doku@doku.com",
+					placeholder: "openlit@openlit.io",
 				},
 				password: { label: "Password", type: "password" },
 			},

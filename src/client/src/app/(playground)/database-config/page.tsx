@@ -22,7 +22,7 @@ import {
 	useCallback,
 	useState,
 } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 function ModifyDatabaseConfig({
 	dbConfig,
@@ -258,7 +258,7 @@ function DatabaseList({
 				)}
 			</div>
 			{isLoadingList && (
-				<div className="flex absolute w-full left-0 top-0 h-full bg-secondary/[0.1] animate-pulse z-10" />
+				<div className="flex absolute w-full left-0 top-0 h-full animate-pulse z-10" />
 			)}
 		</div>
 	);

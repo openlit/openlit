@@ -149,8 +149,8 @@ export const getFilterWhereCondition = (filter: any) => {
 			});
 		}
 
-		const { spanKind = SPAN_KIND.SPAN_KIND_CLIENT } = filter;
-		whereArray.push(`SpanKind='${spanKind}'`);
+		const { statusCode = "STATUS_CODE_OK" } = filter;
+		whereArray.push(`StatusCode='${statusCode}'`);
 	} catch {}
 	return whereArray.join(" AND ");
 };

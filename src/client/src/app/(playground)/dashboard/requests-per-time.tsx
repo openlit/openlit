@@ -9,13 +9,13 @@ import {
 	ResponsiveContainer,
 } from "recharts";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import toast from "react-hot-toast";
-import { getChartColors } from "@/constants/chart-colors";
 import { useRootStore } from "@/store";
 import { getFilterDetails } from "@/selectors/filter";
 import { getPingStatus } from "@/selectors/database-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { COLORS } from "../../../../colors";
+import IntermediateState from "@/components/(playground)/intermediate-state";
+import { toast } from "sonner";
 
 export default function RequestsPerTime() {
 	const filter = useRootStore(getFilterDetails);
@@ -46,7 +46,7 @@ export default function RequestsPerTime() {
 			fetchData();
 	}, [filter, fetchData, pingStatus]);
 
-	const colors = getChartColors(1);
+	const updatedData = (data as any[]) || [];
 
 	return (
 		<Card>
@@ -58,12 +58,12 @@ export default function RequestsPerTime() {
 			<CardContent>
 				<ResponsiveContainer className="h-40" width="100%" height="100%">
 					{isLoading || !isFetched || pingStatus === "pending" ? (
-						<div className="flex w-full items-center justify-center h-40">
-							Loading...
-						</div>
+						<IntermediateState type="loading" />
+					) : updatedData.length === 0 ? (
+						<IntermediateState type="nodata" />
 					) : (
 						<LineChart
-							data={(data as any[]) || []}
+							data={updatedData}
 							margin={{
 								top: 5,
 								right: 30,

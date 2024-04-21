@@ -45,7 +45,7 @@ Follow the steps below to get Doku Client running in your environment. Both Dock
     ```
 
 3. Login to Doku UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
-    - Email as `user@dokulabs.com`
+    - Email as `user@openlit.io`
     - Password as `dokulabsuser`
 
 You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/main/charts/doku) to deploy Doku Client in Kubernetes
@@ -85,7 +85,7 @@ You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/mai
     ```
 6. **(Optional) Seed the database**
     
-    If desired, seed the database to create a default user (`user@dokulabs.com` with the password `dokulabsuser`) and database configuration.
+    If desired, seed the database to create a default user (`user@openlit.io` with the password `dokulabsuser`) and database configuration.
     ```sh
     npx prisma db seed
     ```
@@ -96,7 +96,7 @@ You can also use the [Doku Helm Chart](https://github.com/dokulabs/helm/tree/mai
     npm run dev
     ```
 8. Login to Doku UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
-    - Email as `user@dokulabs.com`
+    - Email as `user@openlit.io`
     - Password as `dokulabsuser`
 
 ## Configuration
@@ -113,7 +113,7 @@ To configure Doku Client, you can pass the following environment values, each ta
 | `INIT_DB_PASSWORD`   | Password for authenticating with ClickHouse.                                |          | `default`                             |
 | `SQLITE_DATABASE_URL`| Location of the SQLITE database for Doku Client data storage.               |    ✓     | `file:/app/client/data/data.db`       |
 
-For more detailed information on configuration options and additional settings, please visit the Doku documentation page: [Doku Configuration Details](https://docs.dokulabs.com/latest/configuration).
+For more detailed information on configuration options and additional settings, please visit the Doku documentation page: [Doku Configuration Details](https://docs.openlit.io/latest/configuration).
 
 ## Security
 

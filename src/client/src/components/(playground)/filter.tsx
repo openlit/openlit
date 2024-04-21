@@ -28,7 +28,7 @@ const Filter = () => {
 	return (
 		<Tabs
 			defaultValue={DEFAULT_TIME_RANGE}
-			className="w-[400px]"
+			className="w-[400px] mb-4 md:mb-4"
 			onValueChange={handleChange}
 		>
 			<TabsList>

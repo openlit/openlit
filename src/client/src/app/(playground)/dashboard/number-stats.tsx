@@ -11,7 +11,7 @@ import {
 
 function NumberStats() {
 	return (
-		<div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-5">
+		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
 			<StatCard
 				dataKey="total_requests"
 				heading="Total requests"

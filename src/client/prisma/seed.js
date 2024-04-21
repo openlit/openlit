@@ -2,14 +2,14 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 async function main() {
 	console.log("Inside seeding.....");
-	// const defaultPassword = "dokulabsuser"; ⤵
+	// const defaultPassword = "openlitlabsuser"; ⤵
 	const hashedPassword =
-		"$2a$10$XmL4Q45wWgPzMJXlM5L70eFyYvUGgIeRRm5f4.OOlcaIM/sQB6j/S";
+		"$2a$10$oYqdiSB.FPPTJPvKPFh2oe2aMTlGOPyJTuO/WoPDOtX8UTLAo0bPS";
 	const user = await prisma.user.upsert({
-		where: { email: "user@dokulabs.com" },
+		where: { email: "user@openlit.io" },
 		update: {},
 		create: {
-			email: "user@dokulabs.com",
+			email: "user@openlit.io",
 			password: hashedPassword,
 			name: "User",
 		},

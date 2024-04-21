@@ -7,6 +7,7 @@ import { getPingStatus } from "@/selectors/database-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LucideIcon, TrendingDown, TrendingUp } from "lucide-react";
+import IntermediateState from "./intermediate-state";
 
 type StatCardProps = {
 	heading?: string;
@@ -70,16 +71,16 @@ const StatCard = memo(
 		);
 		const previousData =
 			(data as Record<any, any>)?.[`previous_${dataKey}`] || 0;
-		const changePercent =
-			doesPreviousDataKeyExist &&
-			round(((currentData - previousData) / (previousData || 1)) * 100, 2);
+		const changePercent = doesPreviousDataKeyExist
+			? round(((currentData - previousData) / (previousData || 1)) * 100, 2)
+			: 0;
 
 		const value = (data as Record<any, any>)?.[dataKey] || 0;
 
 		return (
 			<Card className="relative overflow-hidden">
 				<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-					<CardTitle className="text-sm font-medium text-tertiary dark:text-white">
+					<CardTitle className="text-sm font-medium text-stone-950 dark:text-white">
 						{heading}
 					</CardTitle>
 					{IconComponent && (
@@ -90,7 +91,9 @@ const StatCard = memo(
 				</CardHeader>
 				<CardContent>
 					{isLoadingData ? (
-						<Skeleton className={`h-4 w-full rounded-xl ${loadingClass}`} />
+						<IntermediateState type="loading">
+							<Skeleton className={`h-4 w-full rounded-xl ${loadingClass}`} />
+						</IntermediateState>
 					) : (
 						<div
 							className={`font-semibold text-primary ${

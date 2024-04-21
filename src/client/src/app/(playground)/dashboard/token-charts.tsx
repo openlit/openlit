@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { COLORS } from "../../../../colors";
+import IntermediateState from "@/components/(playground)/intermediate-state";
 
 function TopModels() {
 	const filter = useRootStore(getFilterDetails);
@@ -60,16 +61,16 @@ function TopModels() {
 	return (
 		<Card className="col-span-1">
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-				<CardTitle className="text-sm font-medium text-tertiary dark:text-white">
+				<CardTitle className="text-sm font-medium text-stone-950 dark:text-white">
 					Top models
 				</CardTitle>
 			</CardHeader>
 			<CardContent>
 				<ResponsiveContainer width="100%" height="100%">
 					{isLoading || !isFetched || pingStatus === "pending" ? (
-						<div className="flex w-full items-center justify-center h-40">
-							Loading...
-						</div>
+						<IntermediateState type="loading" />
+					) : updatedData.length === 0 ? (
+						<IntermediateState type="nodata" />
 					) : (
 						<BarChart
 							width={500}
@@ -140,26 +141,28 @@ function ModelsPerTime() {
 			fetchData();
 	}, [filter, fetchData, pingStatus]);
 
-	const activeItem = (data as any[])?.[activeIndex];
+	const updatedData = (data as any[]) || [];
+
+	const activeItem = updatedData?.[activeIndex];
 
 	return (
 		<Card className="col-span-2">
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-				<CardTitle className="text-sm font-medium text-tertiary dark:text-white">
+				<CardTitle className="text-sm font-medium text-stone-950 dark:text-white">
 					Models per time
 				</CardTitle>
 			</CardHeader>
 			<CardContent>
 				<ResponsiveContainer className="h-40" width="100%" height="100%">
 					{isLoading || !isFetched || pingStatus === "pending" ? (
-						<div className="flex w-full items-center justify-center h-40">
-							Loading...
-						</div>
+						<IntermediateState type="loading" />
+					) : updatedData.length === 0 ? (
+						<IntermediateState type="nodata" />
 					) : (
 						<BarChart
 							width={500}
 							height={300}
-							data={data as any[]}
+							data={updatedData}
 							margin={{
 								top: 20,
 								right: 10,
@@ -241,15 +244,15 @@ function TokensPerTime() {
 	return (
 		<Card className="w-full flex flex-col col-span-3">
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-				<CardTitle className="text-sm font-medium text-tertiary dark:text-white">
+				<CardTitle className="text-sm font-medium text-stone-950 dark:text-white">
 					Tokens usage
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="grow">
 				{isLoading || !isFetched || pingStatus === "pending" ? (
-					<div className="flex w-full items-center justify-center h-40">
-						Loading...
-					</div>
+					<IntermediateState type="loading" />
+				) : updatedDataWithType.length === 0 ? (
+					<IntermediateState type="nodata" />
 				) : (
 					<ResponsiveContainer width="100%" height="100%">
 						<AreaChart
@@ -307,8 +310,8 @@ function TokensPerTime() {
 function TokenCharts() {
 	return (
 		<div className="flex flex-col w-full gap-4">
-			<div className="grid mb-4 w-full gap-4 grid-cols-4 md:gap-8">
-				<div className="flex flex-col gap-4 md:gap-8 col-span-1">
+			<div className="grid w-full gap-4 grid-cols-4">
+				<div className="flex flex-col gap-4 col-span-1">
 					<StatCard
 						dataKey="total_tokens"
 						extraParams={{ type: "prompt" }}
@@ -328,7 +331,7 @@ function TokenCharts() {
 				</div>
 				<TokensPerTime />
 			</div>
-			<div className="grid gap-4 grid-cols-3 md:gap-8">
+			<div className="grid gap-4 grid-cols-3">
 				<TopModels />
 				<ModelsPerTime />
 			</div>

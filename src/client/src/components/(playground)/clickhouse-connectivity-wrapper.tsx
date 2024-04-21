@@ -30,7 +30,7 @@ export default function ClickhouseConnectivityWrapper() {
 						</div>
 						<Link
 							href="/database-config"
-							className="inline-flex my-2 border rounded md py-2 px-4 text-center bg-primary cursor-pointer text-white hover:bg-tertiary outline-none self-start text-sm"
+							className="inline-flex my-2 border rounded md py-2 px-4 text-center bg-primary cursor-pointer text-white hover:bg-stone-950 outline-none self-start text-sm"
 						>
 							Take me there!
 						</Link>

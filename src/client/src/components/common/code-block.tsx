@@ -27,7 +27,7 @@ export default function CodeBlock({
 			</SyntaxHighlighter>
 			{copy && (
 				<Copy
-					className="w-4 h-4 absolute right-3 top-4 hidden group-hover:inline-block z-10 text-secondary hover:text-primary cursor-pointer"
+					className="w-4 h-4 absolute right-3 top-4 hidden group-hover:inline-block z-10 text-stone-400 hover:text-primary cursor-pointer"
 					onClick={onClickCopy}
 				/>
 			)}

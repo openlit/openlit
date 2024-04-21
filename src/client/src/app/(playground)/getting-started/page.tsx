@@ -13,7 +13,7 @@ export default function GettingStarted() {
 						Install the{" "}
 						<a
 							href="https://pypi.org/project/dokumetry/"
-							className="text-primary/[0.7] hover:text-primary italic px-1"
+							className="text-primary italic px-1"
 						>
 							dokumetry
 						</a>{" "}
@@ -36,7 +36,7 @@ dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU
 					<p className="mt-2">
 						Example Usage for monitoring{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary italic px-1"
+							className="text-primary italic px-1"
 							href="https://platform.openai.com/docs/introduction"
 						>
 							OpenAI
@@ -69,7 +69,7 @@ chat_completion = client.chat.completions.create(
 					<p className="mt-2">
 						Refer to the{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary italic px-1"
+							className="text-primary italic px-1"
 							href="https://github.com/dokulabs/dokumetry-python"
 						>
 							dokumetry python sdk
@@ -88,7 +88,7 @@ chat_completion = client.chat.completions.create(
 						Install the{" "}
 						<a
 							href="https://www.npmjs.com/package/dokumetry"
-							className="text-primary/[0.7] hover:text-primary italic px-1"
+							className="text-primary italic px-1"
 						>
 							dokumetry
 						</a>{" "}
@@ -111,7 +111,7 @@ DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DO
 					<p className="mt-2">
 						Example Usage for monitoring{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary italic px-1"
+							className="text-primary italic px-1"
 							href="https://platform.openai.com/docs/introduction"
 						>
 							OpenAI
@@ -143,7 +143,7 @@ main();`}
 					<p className="mt-2">
 						Refer to the{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary italic px-1"
+							className="text-primary italic px-1"
 							href="https://github.com/dokulabs/dokumetry-node"
 						>
 							dokumetry nodejs sdk
@@ -168,14 +168,14 @@ main();`}
 				With the <span className="text-primary">dokumetry</span> SDKs for
 				<a
 					href="https://pypi.org/project/dokumetry/"
-					className="text-primary/[0.7] hover:text-primary italic px-1"
+					className="text-primary italic px-1"
 				>
 					Python
 				</a>{" "}
 				and{" "}
 				<a
 					href="https://www.npmjs.com/package/dokumetry"
-					className="text-primary/[0.7] hover:text-primary italic px-1"
+					className="text-primary italic px-1"
 				>
 					NodeJS
 				</a>{" "}

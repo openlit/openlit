@@ -13,6 +13,7 @@ import {
 	PyramidIcon,
 	TicketPlus,
 } from "lucide-react";
+import IntermediateState from "@/components/(playground)/intermediate-state";
 
 type RenderRowProps = {
 	item: TraceRow;
@@ -63,15 +64,15 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 	const normalizedItem: TransformedTraceRow = normalizeTrace(item);
 
 	return (
-		<div className="flex flex-col mb-4">
-			<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-stone-200 dark:bg-stone-900 text-stone-950 dark:text-stone-200 font-medium">
+		<div className="flex flex-col gap-4">
+			<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-stone-200 dark:bg-stone-900 text-stone-500 dark:text-stone-400 font-medium">
 				<div className="flex items-center pr-3">
 					<CalendarDays size="16" />
 					<p className="text-xs leading-none ml-2">
 						{format(normalizedItem.time, "MMM do, y  HH:mm:ss a")}
 					</p>
 				</div>
-				<div className="flex items-center pl-3 border-l border-tertiary/[0.2]">
+				<div className="flex items-center pl-3 border-l border-stone-200">
 					<Clock size="16" />
 					<p className="text-xs leading-none ml-2">
 						{round(normalizedItem.requestDuration, 4)}s
@@ -95,7 +96,7 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 				<RowItem
 					containerClass="w-3/12"
 					icon={<PyramidIcon size="16" />}
-					label="LLM client"
+					label="Client"
 					text={normalizedItem.provider}
 					textClass="text-sm"
 				/>
@@ -164,7 +165,7 @@ const RenderRowLoader = () => {
 					<div className="h-3 w-3 mr-2 rounded-full bg-secondary/[0.9] rounded" />
 					<div className="h-1 w-40 bg-secondary/[0.9] rounded" />
 				</div>
-				<div className="flex items-center pl-3 border-l border-tertiary/[0.2]">
+				<div className="flex items-center pl-3 border-l border-stone-200">
 					<div className="h-3 w-3 mr-2 rounded-full bg-secondary/[0.9] rounded" />
 					<div className="h-1 w-14 bg-secondary/[0.9] rounded" />
 				</div>
@@ -182,9 +183,7 @@ const RenderRowLoader = () => {
 };
 
 const NoDataBoundary = () => (
-	<div className="border border-secondary flex h-full items-center p-4 justify-center text-tertiary/[0.5]">
-		No data available
-	</div>
+	<IntermediateState type="nodata" />
 );
 
 export default function RequestTable({
@@ -197,7 +196,7 @@ export default function RequestTable({
 	isLoading: boolean;
 }) {
 	return (
-		<div className="flex flex-col flex-1 p-2 w-full relative sm:rounded-lg overflow-hidden mt-3">
+		<div className="flex flex-col flex-1 w-full relative overflow-hidden">
 			<div className="overflow-auto h-full">
 				<div
 					className={`flex flex-col w-full h-full text-sm text-left relative ${

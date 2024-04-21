@@ -2,7 +2,7 @@ import PieChartCard from "@/components/(playground)/pie-chart-card";
 
 export default function DataCharts() {
 	return (
-		<div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 			<PieChartCard
 				categoryKey="count"
 				heading="Generation by categories"

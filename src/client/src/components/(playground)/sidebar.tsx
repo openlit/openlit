@@ -54,7 +54,7 @@ const SIDEBAR_BOTTOM_ITEMS: SidebarItemProps[] = [
 	},
 	{
 		text: "Documentation",
-		link: "https://docs.dokulabs.com/",
+		link: "https://docs.openlit.io/",
 		target: "_blank",
 		icon: <BookText className={ICON_CLASSES} />,
 	},
@@ -104,28 +104,28 @@ export default function Sidebar() {
 	return (
 		<aside
 			aria-label="Sidebar"
-			className="inset-y fixed left-0 z-10 flex h-full flex-col border-r dark:border-tertiary"
+			className="inset-y fixed left-0 z-10 flex h-full flex-col border-r dark:border-stone-800"
 		>
-			<div className="flex border-b dark:border-tertiary p-2">
+			<div className="flex border-b dark:border-stone-800 p-2">
 				<Button variant="ghost" size="icon" aria-label="Home">
 					<Image
 						className="size-10 flex-shrink-0 transition duration-75"
 						src="/images/logo.png"
-						alt="Doku's Logo"
+						alt="openlit's Logo"
 						priority
 						width={24}
 						height={24}
 					/>
 				</Button>
 			</div>
-			<nav className="grid gap-1 p-2">
+			<nav className="grid gap-1 p-2 pt-4">
 				{SIDEBAR_ITEMS.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-top-${index}`}
-						className={`hover:text-primary hover:bg-primary/[.09] ${
+						className={`${
 							item.link === pathname
-								? "text-primary bg-primary/[.09] dark:bg-primary dark:text-white"
-								: "text-tertiary/[0.8] dark:text-white"
+								? "text-white bg-primary dark:bg-primary dark:text-white"
+								: "text-stone-600 dark:text-white"
 						}`}
 						{...item}
 					/>
@@ -135,10 +135,10 @@ export default function Sidebar() {
 				{SIDEBAR_BOTTOM_ITEMS.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-bottom-${index}`}
-						className={`hover:text-primary hover:bg-primary/[.09] ${
+						className={`${
 							item.link === pathname
-								? "text-primary bg-primary/[.09] dark:bg-primary dark:text-white"
-								: "text-tertiary/[0.8] dark:text-white"
+								? "text-white bg-primary dark:bg-primary dark:text-white"
+								: "text-stone-600 dark:text-white"
 						}`}
 						{...item}
 					/>
