@@ -21,7 +21,7 @@ jobs:
       packages: write
       id-token: write
     env:
-      IMAGE_NAME: ${{ github.repository }}-client
+      IMAGE_NAME: ${{ github.repository }}
 
     steps:
       - name: Get current date and time
