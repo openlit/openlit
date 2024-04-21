@@ -40,7 +40,7 @@ services:
     container_name: otel-collector
     environment:
       INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: 8123
+      INIT_DB_PORT: 9000
       INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
       INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
       INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
@@ -52,7 +52,7 @@ services:
     depends_on:
       - clickhouse
     volumes:
-      - ./assets/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+      - ../assets/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
     restart: always
 
 volumes:
