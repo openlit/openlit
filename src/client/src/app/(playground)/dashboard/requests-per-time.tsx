@@ -58,9 +58,9 @@ export default function RequestsPerTime() {
 			<CardContent>
 				<ResponsiveContainer className="h-40" width="100%" height="100%">
 					{isLoading || !isFetched || pingStatus === "pending" ? (
-						<IntermediateState type="loading" />
+						<IntermediateState type="loading" classNames="h-40" />
 					) : updatedData.length === 0 ? (
-						<IntermediateState type="nodata" />
+						<IntermediateState type="nodata" classNames="h-40" />
 					) : (
 						<LineChart
 							data={updatedData}
@@ -82,7 +82,7 @@ export default function RequestsPerTime() {
 								stroke="currentColor"
 								domain={[0, "dataMax + 15"]}
 							/>
-							<Tooltip />
+							<Tooltip labelClassName="dark:text-stone-700" />
 							<Line
 								type="monotone"
 								dataKey="total"

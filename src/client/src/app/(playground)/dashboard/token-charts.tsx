@@ -68,9 +68,9 @@ function TopModels() {
 			<CardContent>
 				<ResponsiveContainer width="100%" height="100%">
 					{isLoading || !isFetched || pingStatus === "pending" ? (
-						<IntermediateState type="loading" />
+						<IntermediateState type="loading" classNames="h-40" />
 					) : updatedData.length === 0 ? (
-						<IntermediateState type="nodata" />
+						<IntermediateState type="nodata" classNames="h-40" />
 					) : (
 						<BarChart
 							width={500}
@@ -155,9 +155,9 @@ function ModelsPerTime() {
 			<CardContent>
 				<ResponsiveContainer className="h-40" width="100%" height="100%">
 					{isLoading || !isFetched || pingStatus === "pending" ? (
-						<IntermediateState type="loading" />
+						<IntermediateState type="loading" classNames="h-40" />
 					) : updatedData.length === 0 ? (
-						<IntermediateState type="nodata" />
+						<IntermediateState type="nodata" classNames="h-40" />
 					) : (
 						<BarChart
 							width={500}
@@ -277,7 +277,7 @@ function TokensPerTime() {
 								stroke="currentColor"
 								domain={[0, "dataMax + 15"]}
 							/>
-							<Tooltip />
+							<Tooltip labelClassName="dark:text-stone-700" />
 							<Area
 								type="monotone"
 								dataKey="totaltokens"
