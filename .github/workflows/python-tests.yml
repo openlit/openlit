@@ -1,0 +1,48 @@
+name: Python Tests
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'sdk/python/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'sdk/python/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1-31/15 * *'
+
+env:
+  OPENAI_API_TOKEN: ${{ secrets.OPENAI_API_TOKEN }}
+  COHERE_API_TOKEN: ${{ secrets.COHERE_API_TOKEN }}
+  ANTHROPIC_API_TOKEN: ${{ secrets.ANTHROPIC_API_TOKEN }}
+  MISTRAL_API_TOKEN: ${{ secrets.MISTRAL_API_TOKEN }}
+  PINECONE_API_TOKEN: ${{ secrets.PINECONE_API_TOKEN }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      working-directory: sdk/python
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r tests/requirements.txt
+
+    - name: PyTest
+      working-directory: sdk/python
+      run: |
+        pytest

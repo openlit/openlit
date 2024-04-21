@@ -24,10 +24,9 @@ Describe what you thought would happen.
 Pictures can say a thousand words and can be super helpful!
 
 ### 💻 Your Setup
-- Doku Version: [e.g., 0.0.1]
-- DokuMetry SDK: [Python or NodeJS]
-- DokuMetry SDK Version: [e.g., 0.0.3]
-- Deployment Method: [Helm, Linux, Windows, Docker]
+- OpenLIT Version: [e.g., 0.0.1]
+- OpenLIT SDK Version: [e.g., 0.0.3]
+- Deployment Method: [Helm, Docker]
 
 ### 📝 Additional Notes
 Got more to say? Tell us here.
