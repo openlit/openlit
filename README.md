@@ -15,7 +15,7 @@ OpenTelemetry-native LLM Application Observability</h1>
 
 </div>
 
-![OpenLIT Banner](https://raw.githubusercontent.com/openlit/.github/main/profile/assets/banner.gif)
+![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/github-readme-repo-banner.png?raw=true)
 
 OpenLIT is an **OpenTelemetry-native** GenAI and LLM Application Observability tool. It's designed to make the integration process of observability into GenAI projects as easy as pie – literally, with just **a single line of code**. Whether you're working with popular LLM Libraries such as OpenAI and HuggingFace or leveraging vector databases like ChromaDB, OpenLIT ensures your applications are monitored seamlessly, providing critical insights to improve performance and reliability.
 
