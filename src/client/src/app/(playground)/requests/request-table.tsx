@@ -64,8 +64,8 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 	const normalizedItem: TransformedTraceRow = normalizeTrace(item);
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-stone-200 dark:bg-stone-900 text-stone-500 dark:text-stone-400 font-medium">
+		<div className="flex flex-col">
+			<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-stone-200 dark:bg-stone-800 text-stone-500 dark:text-stone-400 font-medium">
 				<div className="flex items-center pr-3">
 					<CalendarDays size="16" />
 					<p className="text-xs leading-none ml-2">
@@ -83,7 +83,7 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 				className={`flex items-stretch h-16 relative items-center px-3 rounded-b cursor-pointer  dark:text-stone-100 text-stone-950 ${
 					request?.TraceId === normalizedItem.id
 						? "bg-stone-200 dark:bg-stone-950"
-						: "bg-stone-100 dark:bg-stone-800"
+						: "border border-stone-200 dark:border-stone-800"
 				}`}
 				onClick={onClick}
 			>
@@ -182,9 +182,7 @@ const RenderRowLoader = () => {
 	);
 };
 
-const NoDataBoundary = () => (
-	<IntermediateState type="nodata" />
-);
+const NoDataBoundary = () => <IntermediateState type="nodata" />;
 
 export default function RequestTable({
 	data,
@@ -199,7 +197,7 @@ export default function RequestTable({
 		<div className="flex flex-col flex-1 w-full relative overflow-hidden">
 			<div className="overflow-auto h-full">
 				<div
-					className={`flex flex-col w-full h-full text-sm text-left relative ${
+					className={`flex flex-col w-full h-full text-sm text-left relative gap-4 ${
 						isFetched && isLoading ? "animate-pulse" : ""
 					}`}
 				>

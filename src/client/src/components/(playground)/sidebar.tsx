@@ -109,7 +109,7 @@ export default function Sidebar() {
 			<div className="flex border-b dark:border-stone-800 p-2">
 				<Button variant="ghost" size="icon" aria-label="Home">
 					<Image
-						className="size-10 flex-shrink-0 transition duration-75"
+						className="size-10 flex-shrink-0 transition duration-75 p-1"
 						src="/images/logo.png"
 						alt="openlit's Logo"
 						priority

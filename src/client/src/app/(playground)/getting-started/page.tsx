@@ -32,8 +32,7 @@ export default function GettingStarted() {
 					<CodeBlock
 						className="text-xs"
 						code={`openlit.init(
-	otlp_endpoint="https://otlp-gateway-prod-us-east-0.grafana.net/otlp", 
-	otlp_headers="Authorization=Basic%20<base64 encoded Instance ID and API Token>"
+	otlp_endpoint="YOUR_OTEL_EXPORTER_OTLP_ENDPOINT"
 )`}
 						language="python"
 					/>
@@ -42,11 +41,7 @@ export default function GettingStarted() {
 						<span className="text-primary italic px-1">
 							OTEL_EXPORTER_OTLP_ENDPOINT
 						</span>{" "}
-						and{" "}
-						<span className="text-primary italic px-1">
-							OTEL_EXPORTER_OTLP_HEADERS
-						</span>{" "}
-						environment variables
+						environment variable
 					</p>
 					<CodeBlock
 						className="text-xs"
@@ -55,8 +50,7 @@ export default function GettingStarted() {
 					/>
 					<CodeBlock
 						className="text-xs"
-						code={`export OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp"
-export OTEL_EXPORTER_OTLP_HEADERS = "Authorization=Basic%20<base64 encoded Instance ID and API Token>"`}
+						code={`export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_EXPORTER_OTLP_ENDPOINT"`}
 						language="python"
 					/>
 
