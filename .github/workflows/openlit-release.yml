@@ -35,6 +35,12 @@ jobs:
         uses: sigstore/cosign-installer@e1523de7571e31dbe865fd2e80c5c7c23ae71eb4 #v3.4.0
         with:
           cosign-release: 'v2.2.2'
+      
+      - name: Extract version from tag
+        id: extract_version
+        run: echo "::set-output name=version::${GITHUB_REF#refs/tags/openlit-}"
+        env:
+          GITHUB_REF: ${{ github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d70bba72b1f3fd22344832f00baa16ece964efeb # v3.3.0
@@ -59,8 +65,11 @@ jobs:
         uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+          TAG_VERSION: ${{ steps.extract_version.outputs.version }}
 
       - name: Build and push Docker image
         id: build-and-push
@@ -70,7 +79,7 @@ jobs:
           provenance: false
           file: ./src/client/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.extract_version.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64/v8
           annotations: |
@@ -84,6 +93,6 @@ jobs:
       
       - name: Sign the published Docker image
         env:
-          TAGS: ${{ steps.meta.outputs.tags }}
+          TAGS: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.extract_version.outputs.version }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
