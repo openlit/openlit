@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    name: OpenLIT Image
+    name: Docker
     runs-on: ubuntu-latest
     outputs: 
       version: ${{ steps.set-version-output.outputs.version }}
