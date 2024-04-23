@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Get current date and time
         id: datetime
-        run: echo "::set-output name=datetime::$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        run: echo "datetime=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
   
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
       
       - name: Extract version from tag
         id: extract_version
-        run: echo "::set-output name=version::${GITHUB_REF#refs/tags/openlit-}"
+        run: echo "version=${GITHUB_REF#refs/tags/openlit-}" >> $GITHUB_ENV
         env:
           GITHUB_REF: ${{ github.ref }}
 
@@ -64,10 +64,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern=${{ env.version }}
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
-          TAG_VERSION: ${{ steps.extract_version.outputs.version }}
 
       - name: Build and push Docker image
         id: build-and-push
@@ -77,7 +76,7 @@ jobs:
           provenance: false
           file: ./src/client/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.extract_version.outputs.version }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.version }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64/v8
           annotations: |
@@ -91,6 +90,6 @@ jobs:
       
       - name: Sign the published Docker image
         env:
-          TAGS: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.extract_version.outputs.version }}
+          TAGS: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.version }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
