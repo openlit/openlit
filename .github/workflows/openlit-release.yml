@@ -22,10 +22,6 @@ jobs:
       IMAGE_NAME: ${{ github.repository }}
 
     steps:
-      - name: Get current date and time
-        id: datetime
-        run: echo "datetime=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
-  
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -76,7 +72,7 @@ jobs:
           provenance: false
           file: ./src/client/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.version }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64/v8
           annotations: |
@@ -90,6 +86,6 @@ jobs:
       
       - name: Sign the published Docker image
         env:
-          TAGS: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.version }}
+          TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
