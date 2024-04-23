@@ -14,8 +14,6 @@ jobs:
   release:
     name: Docker
     runs-on: ubuntu-latest
-    outputs: 
-      version: ${{ steps.set-version-output.outputs.version }}
     permissions:
       contents: write
       packages: write
