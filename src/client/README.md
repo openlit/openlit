@@ -8,7 +8,7 @@
 ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) 
 ![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white) 
 ![Clickhouse](https://img.shields.io/badge/clickhouse-faff69?style=for-the-badge&logo=clickhouse)
-![Headless](https://img.shields.io/badge/headlessui-6dc0fd?style=for-the-badge&logo=headlessui)
+![Shadcn/ui](https://img.shields.io/badge/shadcn/ui-000000.svg?style=for-the-badge&logo=shadcn/ui&logoColor=white)
 ![Next-Auth](https://img.shields.io/badge/next-auth-2cfefe?style=for-the-badge&logo=next-auth)
 
 OpenLIT Client serves as the frontend UI for displaying visualizations and observability data for Large Language Models (LLM), drawing data from ClickHouse. The platform leverages the power of modern web technologies like Next.js and TailwindCSS to offer an intuitive and responsive user experience.

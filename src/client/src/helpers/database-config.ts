@@ -2,7 +2,7 @@ import { DatabaseConfigWithActive } from "@/constants/dbConfig";
 import { useRootStore } from "@/store";
 import { deleteData, getData } from "@/utils/api";
 import asaw from "@/utils/asaw";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 export const fetchDatabaseConfigList = async () => {
 	useRootStore.getState().databaseConfig.setIsLoading(true);
@@ -50,7 +50,7 @@ export const changeActiveDatabaseConfig = async (databaseConfigId: string) => {
 		return;
 	}
 
-	const list = useRootStore.getState().databaseConfig.list;
+	const list = useRootStore.getState().databaseConfig.list || [];
 	const updatedList = list.reduce((acc: DatabaseConfigWithActive[], item) => {
 		if (item.id === databaseConfigId) acc.push({ ...item, isCurrent: true });
 		else acc.push({ ...item, isCurrent: false });
@@ -74,7 +74,7 @@ export const deleteDatabaseConfig = async (databaseConfigId: string) => {
 		return;
 	}
 
-	const list = useRootStore.getState().databaseConfig.list;
+	const list = useRootStore.getState().databaseConfig.list || [];
 	const updatedList = list.filter((item) => item.id !== databaseConfigId);
 	useRootStore.getState().databaseConfig.setList(updatedList);
 };

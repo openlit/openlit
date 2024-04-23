@@ -1,19 +1,22 @@
-import {
-	BeakerIcon,
-	CalendarDaysIcon,
-	ClipboardDocumentCheckIcon,
-	ClipboardDocumentListIcon,
-	ClockIcon,
-	CogIcon,
-	CurrencyDollarIcon,
-} from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import { fill, round } from "lodash";
-import { DisplayDataRequestMappingKeys, useRequest } from "./request-context";
+import { useRequest } from "./request-context";
 import { ReactNode } from "react";
+import { normalizeTrace } from "@/helpers/trace";
+import { TraceRow, TransformedTraceRow } from "@/constants/traces";
+import {
+	Boxes,
+	Braces,
+	CalendarDays,
+	CircleDollarSign,
+	Clock,
+	PyramidIcon,
+	TicketPlus,
+} from "lucide-react";
+import IntermediateState from "@/components/(playground)/intermediate-state";
 
 type RenderRowProps = {
-	item: Record<(typeof DisplayDataRequestMappingKeys)[number], any>;
+	item: TraceRow;
 	isLoading?: boolean;
 };
 
@@ -34,14 +37,18 @@ const RowItem = ({
 		<div
 			className={`flex ${containerClass} shrink-0 flex-1 relative h-full justify-center items-center p-2 space-x-2`}
 		>
-			{icon && <div className="flex self-start mt-2">{icon}</div>}
+			{icon && (
+				<div className="flex self-start" style={{ marginTop: "2px" }}>
+					{icon}
+				</div>
+			)}
 			<div className="flex flex-col w-full justify-center space-y-1">
 				<span
-					className={`leading-none text-ellipsis py-2 overflow-hidden whitespace-nowrap ${textClass}`}
+					className={`leading-none text-ellipsis pb-2 overflow-hidden whitespace-nowrap ${textClass}`}
 				>
 					{text}
 				</span>
-				<span className="text-xs text-ellipsis overflow-hidden whitespace-nowrap  text-tertiary/[0.4]">
+				<span className="text-xs text-ellipsis overflow-hidden whitespace-nowrap text-stone-500 dark:text-stone-500">
 					{label}
 				</span>
 			</div>
@@ -54,67 +61,71 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 
 	const onClick = () => !isLoading && updateRequest(item);
 
+	const normalizedItem: TransformedTraceRow = normalizeTrace(item);
+
 	return (
-		<div className="flex flex-col mb-4">
-			<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-secondary text-primary font-medium">
+		<div className="flex flex-col">
+			<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-stone-200 dark:bg-stone-800 text-stone-500 dark:text-stone-400 font-medium">
 				<div className="flex items-center pr-3">
-					<CalendarDaysIcon className="w-4" />
+					<CalendarDays size="16" />
 					<p className="text-xs leading-none ml-2">
-						{format(item.time, "MMM do, y  HH:mm:ss a")}
+						{format(normalizedItem.time, "MMM do, y  HH:mm:ss a")}
 					</p>
 				</div>
-				<div className="flex items-center pl-3 border-l border-tertiary/[0.2]">
-					<ClockIcon className="w-4" />
+				<div className="flex items-center pl-3 border-l border-stone-200">
+					<Clock size="16" />
 					<p className="text-xs leading-none ml-2">
-						{round(item.requestDuration, 4)}s
+						{round(normalizedItem.requestDuration, 4)}s
 					</p>
 				</div>
 			</div>
 			<div
-				className={`flex items-stretch h-16 border border-secondary relative items-center px-3 rounded-b cursor-pointer ${
-					request?.id === item.id && "bg-secondary/[0.7]"
+				className={`flex items-stretch h-16 relative items-center px-3 rounded-b cursor-pointer  dark:text-stone-100 text-stone-950 ${
+					request?.TraceId === normalizedItem.id
+						? "bg-stone-200 dark:bg-stone-950"
+						: "border border-stone-200 dark:border-stone-800"
 				}`}
 				onClick={onClick}
 			>
 				<RowItem
 					containerClass="w-3/12"
 					label="App name"
-					text={item.applicationName}
+					text={normalizedItem.applicationName}
 					textClass="font-medium"
 				/>
 				<RowItem
 					containerClass="w-3/12"
-					icon={<BeakerIcon className="w-4" />}
-					label="LLM client"
-					text={item.endpoint}
+					icon={<PyramidIcon size="16" />}
+					label="Client"
+					text={normalizedItem.provider}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
-					icon={<CogIcon className="w-4" />}
+					icon={<Boxes size="16" />}
 					label="Model"
-					text={item.model}
+					text={normalizedItem.model}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
-					icon={<CurrencyDollarIcon className="w-4" />}
+					icon={<CircleDollarSign size="16" />}
 					label="Usage cost"
-					text={`${round(item.usageCost, 6)}`}
+					text={`${round(normalizedItem.cost, 6)}`}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
-					icon={<ClipboardDocumentCheckIcon className="w-4" />}
+					icon={<Braces size="16" />}
 					label="Prompt Tokens"
-					text={`${item.promptTokens || "-"}`}
+					text={`${normalizedItem.promptTokens || "-"}`}
 					textClass="text-sm"
 				/>
 				<RowItem
 					containerClass="w-1.5/12"
-					icon={<ClipboardDocumentListIcon className="w-4" />}
+					icon={<TicketPlus size="16" />}
 					label="Total Tokens"
-					text={`${item.totalTokens || "-"}`}
+					text={`${normalizedItem.totalTokens || "-"}`}
 					textClass="text-sm"
 				/>
 			</div>
@@ -154,7 +165,7 @@ const RenderRowLoader = () => {
 					<div className="h-3 w-3 mr-2 rounded-full bg-secondary/[0.9] rounded" />
 					<div className="h-1 w-40 bg-secondary/[0.9] rounded" />
 				</div>
-				<div className="flex items-center pl-3 border-l border-tertiary/[0.2]">
+				<div className="flex items-center pl-3 border-l border-stone-200">
 					<div className="h-3 w-3 mr-2 rounded-full bg-secondary/[0.9] rounded" />
 					<div className="h-1 w-14 bg-secondary/[0.9] rounded" />
 				</div>
@@ -171,11 +182,7 @@ const RenderRowLoader = () => {
 	);
 };
 
-const NoDataBoundary = () => (
-	<div className="border border-secondary flex h-full items-center p-4 justify-center text-tertiary/[0.5]">
-		No data available
-	</div>
-);
+const NoDataBoundary = () => <IntermediateState type="nodata" />;
 
 export default function RequestTable({
 	data,
@@ -187,10 +194,10 @@ export default function RequestTable({
 	isLoading: boolean;
 }) {
 	return (
-		<div className="flex flex-col flex-1 p-2 w-full relative sm:rounded-lg overflow-hidden mt-3">
+		<div className="flex flex-col flex-1 w-full relative overflow-hidden">
 			<div className="overflow-auto h-full">
 				<div
-					className={`flex flex-col w-full h-full text-sm text-left relative ${
+					className={`flex flex-col w-full h-full text-sm text-left relative gap-4 ${
 						isFetched && isLoading ? "animate-pulse" : ""
 					}`}
 				>

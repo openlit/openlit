@@ -1,5 +1,13 @@
-import { CheckIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { MouseEventHandler } from "react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Trash2 } from "lucide-react";
 
 export type SideTabItemProps = {
 	id: string;
@@ -16,7 +24,15 @@ export type SideTabsProps = {
 	selectedTabId: string;
 	onClickItemDelete?: MouseEventHandler<SVGSVGElement>;
 	onClickItemChangeActive?: MouseEventHandler<HTMLDivElement>;
+	addButton?: boolean;
 };
+
+const ADD_NEW_ID = "ADD_NEW_ID";
+
+const getCommonCardClasses = (isActive: boolean) =>
+	`item-element-card flex flex-col p-4 text-sm cursor-pointer relative group w-64 hover:bg-stone-100 dark:hover:bg-stone-700 ${
+		isActive ? "bg-stone-100 dark:bg-stone-700" : ""
+	}`;
 
 export default function SideTabs({
 	items,
@@ -24,57 +40,74 @@ export default function SideTabs({
 	selectedTabId,
 	onClickItemDelete,
 	onClickItemChangeActive,
+	addButton,
 }: SideTabsProps) {
 	return (
-		<ul className="shrink-0 w-1/5 border-r border-secondary overflow-y-auto">
-			{items.map((item) => (
-				<li
-					key={item.id}
-					className={`flex flex-col p-2 text-sm cursor-pointer border-b border-secondary relative group hover:bg-secondary/[0.3] ${
-						selectedTabId === item.id
-							? "bg-secondary/[0.5] text-primary"
-							: "bg-tertiary/[0.02] text-tertiary/[0.8]"
-					}`}
-					data-item-id={item.id}
+		<div className="grid grid-flow-col">
+			<ul className="grid grid-flow-col gap-4 shrink-0 w-full overflow-y-auto">
+				{items.map((item) => (
+					<Card
+						className={getCommonCardClasses(selectedTabId === item.id)}
+						data-item-id={item.id}
+						key={item.id}
+						onClick={onClickTab}
+					>
+						<li className={`flex flex-col `}>
+							<span className="text-ellipsis overflow-hidden whitespace-nowrap mb-3">
+								{item.name}
+							</span>
+							{item.badge && (
+								<Badge
+									variant="default"
+									className={`mr-auto ${
+										item.isCurrent
+											? "border-primary bg-primary text-white dark:border-primary dark:bg-primary dark:text-white hover:bg-primary dark:hover:bg-primary"
+											: ""
+									}`}
+								>
+									{item.badge}
+								</Badge>
+							)}
+							{item.enableDeletion && onClickItemDelete && (
+								<Trash2
+									className="w-3 h-3 absolute right-4 top-4 hidden group-hover:inline text-stone-400 dark:text-white"
+									onClick={onClickItemDelete}
+								/>
+							)}
+							{item.enableActiveChange && onClickItemChangeActive && (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<div
+											className="absolute right-1 bottom-3 inline scale-50"
+											onClick={onClickItemChangeActive}
+										>
+											<Switch
+												className="data-[state=checked]:bg-primary dark:data-[state=checked]:bg-primary"
+												thumbClassName="bg-white dark:bg-white"
+												checked={!!item.isCurrent}
+											/>
+										</div>
+									</TooltipTrigger>
+									<TooltipContent side="bottom" sideOffset={5}>
+										Mark {item.name} as the active database config
+									</TooltipContent>
+								</Tooltip>
+							)}
+						</li>
+					</Card>
+				))}
+			</ul>
+			{addButton && (
+				<Card
+					className={`${getCommonCardClasses(
+						selectedTabId === ADD_NEW_ID
+					)} items-center justify-center text-stone-400 dark:text-stone-400`}
+					data-item-id={ADD_NEW_ID}
 					onClick={onClickTab}
 				>
-					{selectedTabId === item.id && (
-						<span className="absolute h-full right-0 top-0 w-0.5 bg-primary" />
-					)}
-					<span className="text-ellipsis overflow-hidden whitespace-nowrap">
-						{item.name}
-					</span>
-					{item.badge && (
-						<span
-							className={`mt-1 space-x-1 px-3 py-1 rounded-full text-xs font-medium max-w-fit ${
-								selectedTabId === item.id
-									? "bg-primary/[0.1] text-primary"
-									: "bg-tertiary/[0.1] text-tertiary/[0.5]"
-							}`}
-						>
-							{item.badge}
-						</span>
-					)}
-					{item.enableDeletion && onClickItemDelete && (
-						<TrashIcon
-							className="w-3 h-3 absolute right-2 top-2 hidden group-hover:inline text-tertiary/[0.6] hover:text-primary"
-							onClick={onClickItemDelete}
-						/>
-					)}
-					{item.enableActiveChange && onClickItemChangeActive && (
-						<div
-							className={`flex items-center justify-center w-4 h-4 absolute right-2 bottom-2 border  rounded-full cursor-pointer ${
-								item.isCurrent
-									? "border-primary bg-primary text-white"
-									: "border-tertiary/[0.3]"
-							}`}
-							onClick={onClickItemChangeActive}
-						>
-							{item.isCurrent && <CheckIcon className="w-3 h-3" />}
-						</div>
-					)}
-				</li>
-			))}
-		</ul>
+					Add new
+				</Card>
+			)}
+		</div>
 	);
 }

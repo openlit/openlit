@@ -1,18 +1,16 @@
-import { ModelDokuParams, getTopModels } from "@/lib/doku/model";
+import { ModelMetricParams, getTopModels } from "@/lib/platform/model";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/utils/doku";
+} from "@/helpers/platform";
+import { TimeLimit } from "@/lib/platform/common";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
-	const timeLimit = formData.timeLimit;
+	const timeLimit = formData.timeLimit as TimeLimit;
 
-	const params: ModelDokuParams = {
-		timeLimit: {
-			start: timeLimit.start,
-			end: timeLimit.end,
-		},
+	const params: ModelMetricParams = {
+		timeLimit,
 		top: formData.top || 3,
 	};
 

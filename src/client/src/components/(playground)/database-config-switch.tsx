@@ -1,37 +1,25 @@
 import { DatabaseConfigWithActive } from "@/constants/dbConfig";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
-import Dropdown from "../common/drop-down";
-import { MouseEventHandler, useEffect } from "react";
-import { changeActiveDatabaseConfig, fetchDatabaseConfigList } from "@/helpers/database-config";
-
-function ActiveDatabase({
-	activeDatabase,
-}: {
-	activeDatabase: DatabaseConfigWithActive;
-}) {
-	return (
-		<div className="flex-1 w-40 bg-secondary py-1 px-2 text-primary outline-none focus:ring-0 text-sm cursor-pointer">
-			{activeDatabase.name}
-		</div>
-	);
-}
+import { useEffect } from "react";
+import {
+	changeActiveDatabaseConfig,
+	fetchDatabaseConfigList,
+} from "@/helpers/database-config";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 
 export default function DatabaseConfigSwitch() {
-	const list = useRootStore(getDatabaseConfigList);
+	const list = useRootStore(getDatabaseConfigList) || [];
 	const activeDatabase = list.find((item) => !!item.isCurrent);
-	const onClickItem: MouseEventHandler<HTMLAnchorElement> = (event) => {
-		const { id } = (event.target as HTMLAnchorElement).dataset;
-		if (!id) return;
+	const onClickItem = (id: string) => {
 		changeActiveDatabaseConfig(id);
 	};
-	const itemList = list
-		.filter((item) => item.id !== activeDatabase?.id)
-		.map(({ id, name }) => ({
-			label: name,
-			id,
-			onClick: onClickItem,
-		}));
 
 	useEffect(() => {
 		fetchDatabaseConfigList();
@@ -40,11 +28,33 @@ export default function DatabaseConfigSwitch() {
 	if (!activeDatabase) return null;
 
 	return (
-		<div className="flex mr-5">
-			<Dropdown
-				triggerComponent={<ActiveDatabase activeDatabase={activeDatabase} />}
-				itemList={itemList}
-			/>
+		<div className="flex mr-6">
+			<Select onValueChange={onClickItem} defaultValue={activeDatabase.id}>
+				<SelectTrigger
+					id="model"
+					className="items-center [&_[data-description]]:hidden  dark:text-white"
+				>
+					<SelectValue placeholder={activeDatabase.name} />
+				</SelectTrigger>
+				<SelectContent>
+					{list.map((item) => (
+						<SelectItem key={item.id} value={item.id}>
+							<div className="flex items-start text-muted-foreground ">
+								<div className="grid">
+									<p>
+										<span className="font-medium text-foreground">
+											{item.name}
+										</span>
+									</p>
+									<p className="text-xs" data-description>
+										{item.environment}
+									</p>
+								</div>
+							</div>
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
 		</div>
 	);
 }

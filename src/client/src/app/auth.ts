@@ -4,8 +4,12 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
 import asaw from "@/utils/asaw";
-import { createNewUser, getUserByEmail, updateUser } from "@/lib/user";
-import { doesPasswordMatches } from "@/utils/user";
+import {
+	createNewUser,
+	getUserByEmail,
+	updateUser,
+	doesPasswordMatches,
+} from "@/lib/user";
 
 const prisma = new PrismaClient();
 
@@ -71,7 +75,7 @@ export const authOptions = {
 				email: {
 					label: "Email",
 					type: "email",
-					placeholder: "doku@doku.com",
+					placeholder: "openlit@openlit.io",
 				},
 				password: { label: "Password", type: "password" },
 			},
@@ -97,7 +101,7 @@ export const authOptions = {
 				email: {
 					label: "Email",
 					type: "email",
-					placeholder: "doku@doku.com",
+					placeholder: "openlit@openlit.io",
 				},
 				password: { label: "Password", type: "password" },
 			},

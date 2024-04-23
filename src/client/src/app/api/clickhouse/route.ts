@@ -1,4 +1,4 @@
-import { pingClickhouse } from "@/lib/doku/clickhouse";
+import { pingClickhouse } from "@/lib/platform/clickhouse";
 import asaw from "@/utils/asaw";
 
 export async function POST() {

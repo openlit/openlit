@@ -43,6 +43,7 @@ export default function useFetchWrapper() {
 				}
 
 				if (response.err) {
+					setData(null);
 					setError(response.err);
 					if (typeof failureCb === "function") failureCb(response.err);
 				} else {
@@ -53,6 +54,7 @@ export default function useFetchWrapper() {
 			} catch (error) {
 				const updatedError = (error as any).toString().replaceAll("Error:", "");
 				setError(updatedError);
+				setData(null);
 				if (typeof failureCb === "function") failureCb(updatedError);
 			}
 
