@@ -89,12 +89,16 @@
       "group": "Connections",
       "pages": [
         "latest/connections/intro",
-        "latest/connections/datadog",
+        "latest/connections/otelcol",
         "latest/connections/grafana-tempo",
         "latest/connections/grafanacloud",
-        "latest/connections/dynatrace",
+        "latest/connections/datadog",
+        "latest/connections/new-relic",
         "latest/connections/signoz",
-        "latest/connections/new-relic"
+        "latest/connections/dynatrace",
+        "latest/connections/openobserve",
+        "latest/connections/jaeger",
+        "latest/connections/highlight"
       ],
       "version": "latest"
     }
