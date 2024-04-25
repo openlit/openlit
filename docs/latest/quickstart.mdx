@@ -4,10 +4,25 @@ description: 'Quickly start **monitoring** your **LLM Applications** in just **a
 icon: 'bolt'
 ---
 
-This guide will walk you through setting up OpenTelemetry Auto Instrumentation for monitoring your LLM Application. In just a few steps, you'll be able to track and analyze the performance and usage of your GenAI and LLM Applications. 
+This guide will walk you through setting up OpenTelemetry Auto Instrumentation for monitoring your LLM Application using OpenLIT. In just a few steps, you'll be able to track and analyze the performance and usage of your LLM Applications. 
 In this guide, we'll show how you can send OpenTelemetry traces and metrics from your LLM Applications to Grafana Cloud
 
 <Steps>
+    <Step title="Deploy OpenLIT">
+      <Steps>
+        <Step title="Git Clone OpenLIT Repository">
+        ```shell
+        git clone git@github.com:openlit/openlit.git
+        ```
+        </Step>
+        <Step title="Start Docker Compose">
+        From the root directory of the [OpenLIT Repo](https://github.com/openlit/openlit), Run the below command:
+        ```shell
+        docker-compose up -d
+        ```
+        </Step>
+      </Steps>
+    </Step>
     <Step title="Install the OpenLIT Python SDK using pip">
       ```shell
       pip install openlit
@@ -15,23 +30,47 @@ In this guide, we'll show how you can send OpenTelemetry traces and metrics from
     </Step>
     <Step title="Add the following two lines to your application code:">
       Add the snippet below to your Python application.
-      
+      <Tabs>
+      <Tab title="Setup using function arguments">
       ```python
-      openlit.init(
-        otlp_endpoint="https://otlp-gateway-prod-us-east-0.grafana.net/otlp", 
-        otlp_headers="Authorization=Basic%20<base64 encoded Instance ID and API Token>"
-      )
+      import openlit
+
+      openlit.init(otlp_endpoint="http://127.0.0.1:4318")
       ```
 
-      Alternatively, You can also choose to set these values using `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` environment variables
+      Example Usage for monitoring `OpenAI` Usage:
 
       ```python
+      from openai import OpenAI
+      import openlit
+
+      openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+      client = OpenAI(
+          api_key="YOUR_OPENAI_KEY"
+      )
+
+      chat_completion = client.chat.completions.create(
+          messages=[
+              {
+                  "role": "user",
+                  "content": "What is LLM Observability",
+              }
+          ],
+          model="gpt-3.5-turbo",
+      )
+      ```
+      </Tab>
+      <Tab title="Setup using Environment Variables">
+      ```python
+      import openlit
+
       openlit.init()
       ```
 
-      ```env
-      export OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp"
-      export OTEL_EXPORTER_OTLP_HEADERS = "Authorization=Basic%20<base64 encoded Instance ID and API Token>"
+      Run the following command to configure the OTEL export endpoint:
+      ```shell
+      export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
       ```
 
       Example Usage for monitoring `OpenAI` Usage:
@@ -56,21 +95,22 @@ In this guide, we'll show how you can send OpenTelemetry traces and metrics from
           model="gpt-3.5-turbo",
       )
       ```
-      
+      </Tab>
+      </Tabs>
       Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
     </Step>
-    <Step title="Visualize and Analyze in Grafana">
-    With the LLM Observability data now being collected and sent to your chosen OpenTelemetry backend, the next step is to visualize and analyze this data to glean insights into your application's performance, behavior, and identify areas of improvement. Here is how you would use the data in Grafana, follow these detailed instructions to explore your LLM application's Telemetry data.
+    <Step title="Visualize and Analyze">
+    With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
 
-    - Select the **Explore** option from Grafana's sidebar.
-    - At the top, ensure the correct Tempo data source is selected from the dropdown menu.
-    - Use the **Query** field to specify any particular traces you are interested in, or leave it empty to browse through all the available traces.
-    - You can adjust the time range to focus on specific periods of interest.
-    - Hit **Run Query** to fetch your trace data. You'll see a visual representation of your traces along with detailed information on particular spans when clicked.
+    Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start exploring.
+    <Frame>
+      <img src="https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true" />
+      <img src="https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-2.png?raw=true" />
+    </Frame>
     </Step>
 </Steps>
 
-You're all set! Following these steps should have you on your way to effectively monitoring your LLM applications. 
+You're all set! Following these steps should have you on your way to effectively monitoring your LLM applications with OpenTelemetry. If you wish to send telemetry to any other backend, Refer to our [Connections](./connections/intro). 
 
 If you have any questions or need support, reach out to our [community](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ).
 

@@ -45,7 +45,8 @@
       "group": "Introduction",
       "pages": [
         "latest/introduction",
-        "latest/quickstart"
+        "latest/quickstart",
+        "latest/configuration"
       ],
       "version": "latest"
     },
