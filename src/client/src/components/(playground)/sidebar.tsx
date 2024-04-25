@@ -1,109 +1,100 @@
 import { ReactElement } from "react";
-import {
-	AcademicCapIcon,
-	ArrowTopRightOnSquareIcon,
-	CircleStackIcon,
-	HomeModernIcon,
-	KeyIcon,
-} from "@heroicons/react/24/solid";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LinkIcon, WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+	BookText,
+	DatabaseBackup,
+	FileJson2,
+	LayoutDashboard,
+	SquarePlay,
+} from "lucide-react";
 
 type SidebarItemProps = {
 	className?: string;
-	leftIcon?: ReactElement;
+	icon?: ReactElement;
 	text: string;
 	link?: string;
 	onClick?: any;
 	target?: string;
-	rightIcon?: ReactElement;
 };
 
 const ICON_CLASSES =
-	"flex-shrink-0 w-6 h-6 transition duration-75 transition duration-75";
+	"flex-shrink-0 size-5 transition duration-75 transition duration-75";
 
 const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
-		leftIcon: <AcademicCapIcon className={ICON_CLASSES} />,
-		text: "Getting started",
-		link: "/getting-started",
-	},
-	{
-		leftIcon: <HomeModernIcon className={ICON_CLASSES} />,
+		icon: <LayoutDashboard className={ICON_CLASSES} />,
 		text: "Dashboard",
 		link: "/dashboard",
 	},
 	{
-		leftIcon: <CircleStackIcon className={ICON_CLASSES} />,
+		icon: <FileJson2 className={ICON_CLASSES} />,
 		text: "Requests",
 		link: "/requests",
 	},
 	{
-		leftIcon: <KeyIcon className={ICON_CLASSES} />,
-		text: "API keys",
-		link: "/api-keys",
-	},
-	{
-		leftIcon: <LinkIcon className={ICON_CLASSES} />,
-		text: "Connections",
-		link: "/connections",
-	},
-	{
-		leftIcon: <WrenchScrewdriverIcon className={ICON_CLASSES} />,
+		icon: <DatabaseBackup className={ICON_CLASSES} />,
 		text: "Settings",
-		link: "/settings",
+		link: "/database-config",
 	},
 ];
 
 const SIDEBAR_BOTTOM_ITEMS: SidebarItemProps[] = [
 	{
+		icon: <SquarePlay className={ICON_CLASSES} />,
+		text: "Getting started",
+		link: "/getting-started",
+	},
+	{
 		text: "Documentation",
-		link: "https://docs.dokulabs.com/",
+		link: "https://docs.openlit.io/",
 		target: "_blank",
-		className: "justify-center text-sm text-primary hover:bg-primary/[0.1]",
-		rightIcon: (
-			<ArrowTopRightOnSquareIcon
-				className={
-					"flex-shrink-0 w-3 h-3 transition duration-75 transition duration-75 ml-3"
-				}
-			/>
-		),
+		icon: <BookText className={ICON_CLASSES} />,
 	},
 ];
 
 const SidebarItem = (props: SidebarItemProps) => {
-	if (props.target || !props.link)
-		return (
-			<a
-				href={props.link}
-				className={`flex items-center p-2 cursor-pointer ${
-					props.className || ""
-				}`}
-				onClick={props.onClick}
-				target={props.target}
-			>
-				{props.leftIcon}
-				<span className={`${props.leftIcon && "ml-5"} text-nowrap`}>
-					{props.text}
-				</span>
-				{props.rightIcon}
-			</a>
-		);
 	return (
-		<Link
-			className={`flex items-center p-2 cursor-pointer ${
-				props.className || ""
-			}`}
-			href={props.link}
-		>
-			{props.leftIcon}
-			<span className={`${props.leftIcon && "ml-5"} text-nowrap`}>
+		<Tooltip>
+			<TooltipTrigger asChild>
+				{!props.target && props.link ? (
+					<Link
+						className={`${props.className || ""} ${buttonVariants({
+							variant: "ghost",
+							size: "icon",
+						})}`}
+						href={props.link}
+						aria-label={props.text}
+					>
+						{props.icon}
+					</Link>
+				) : (
+					<a
+						href={props.link}
+						className={`flex items-center p-2 ${
+							props.className || ""
+						} ${buttonVariants({
+							variant: "ghost",
+							size: "icon",
+						})}`}
+						onClick={props.onClick}
+						target={props.target}
+					>
+						{props.icon}
+					</a>
+				)}
+			</TooltipTrigger>
+			<TooltipContent side="right" sideOffset={5}>
 				{props.text}
-			</span>
-			{props.rightIcon}
-		</Link>
+			</TooltipContent>
+		</Tooltip>
 	);
 };
 
@@ -112,57 +103,47 @@ export default function Sidebar() {
 
 	return (
 		<aside
-			className={`flex flex-col flex-shrink-0 w-48 h-full font-normal duration-75 transition-width`}
 			aria-label="Sidebar"
+			className="inset-y fixed left-0 z-10 flex h-full flex-col border-r dark:border-stone-800"
 		>
-			<div className="relative flex flex-col flex-1 min-h-0 gap-2">
-				<div className="flex shrink-0 pt-2 relative items-center">
-					<SidebarItem
-						className="w-full text-tertiary font-bold text-2xl"
-						link="/"
-						leftIcon={
-							<Image
-								className="flex-shrink-0 w-10 h-10 transition duration-75"
-								src="/images/logo.png"
-								alt="Doku's Logo"
-								priority
-								width={24}
-								height={24}
-							/>
-						}
-						text="Doku"
+			<div className="flex border-b dark:border-stone-800 p-2">
+				<Button variant="ghost" size="icon" aria-label="Home">
+					<Image
+						className="size-10 flex-shrink-0 transition duration-75 p-1"
+						src="/images/logo.png"
+						alt="openlit's Logo"
+						priority
+						width={24}
+						height={24}
 					/>
-				</div>
-				<div className="w-full margin-y-2" />
-				<ul className="flex-1 pt-2 text-sm">
-					{SIDEBAR_ITEMS.map((item, index) => (
-						<li key={`sidebar-${index}`}>
-							<SidebarItem
-								className={
-									item.link === pathname
-										? "border-r-4 border-primary text-primary bg-primary/[.09]"
-										: "text-tertiary/[0.8] hover:text-primary"
-								}
-								{...item}
-							/>
-						</li>
-					))}
-				</ul>
-				<ul className="shrink-0 bg-secondary/[0.9]">
-					{SIDEBAR_BOTTOM_ITEMS.map((item, index) => (
-						<li key={`sidebar-${index}`}>
-							<SidebarItem
-								className={
-									item.link === pathname
-										? "border-r-4 border-primary text-primary bg-primary/[.09]"
-										: "text-tertiary/[0.5] justify-center text-sm"
-								}
-								{...item}
-							/>
-						</li>
-					))}
-				</ul>
+				</Button>
 			</div>
+			<nav className="grid gap-1 p-2 pt-4">
+				{SIDEBAR_ITEMS.map((item, index) => (
+					<SidebarItem
+						key={`sidebar-top-${index}`}
+						className={`${
+							item.link === pathname
+								? "text-white bg-primary dark:bg-primary dark:text-white"
+								: "text-stone-600 dark:text-white"
+						}`}
+						{...item}
+					/>
+				))}
+			</nav>
+			<nav className="mt-auto grid gap-1 p-2">
+				{SIDEBAR_BOTTOM_ITEMS.map((item, index) => (
+					<SidebarItem
+						key={`sidebar-bottom-${index}`}
+						className={`${
+							item.link === pathname
+								? "text-white bg-primary dark:bg-primary dark:text-white"
+								: "text-stone-600 dark:text-white"
+						}`}
+						{...item}
+					/>
+				))}
+			</nav>
 		</aside>
 	);
 }

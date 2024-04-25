@@ -1,7 +1,7 @@
-import { DocumentDuplicateIcon } from "@heroicons/react/24/outline";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
 import copyToCB from "copy-to-clipboard";
+import { Copy } from "lucide-react";
 
 export default function CodeBlock({
 	className = "",
@@ -26,8 +26,8 @@ export default function CodeBlock({
 				{code}
 			</SyntaxHighlighter>
 			{copy && (
-				<DocumentDuplicateIcon
-					className="w-4 h-4 absolute right-3 top-4 hidden group-hover:inline-block z-10 text-secondary hover:text-primary cursor-pointer"
+				<Copy
+					className="w-4 h-4 absolute right-3 top-4 hidden group-hover:inline-block z-10 text-stone-400 hover:text-primary cursor-pointer"
 					onClick={onClickCopy}
 				/>
 			)}

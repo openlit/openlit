@@ -63,9 +63,7 @@ export const config = {
 		"/register",
 		"/getting-started",
 		"/dashboard",
-		"/api-keys",
 		"/requests",
-		"/settings",
-		"/connections",
+		"/database-config",
 	],
 };

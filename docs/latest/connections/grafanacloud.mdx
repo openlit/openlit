@@ -1,31 +1,20 @@
 ---
 title: 'Grafana Cloud'
-description: 'LLM Observability with Grafana Cloud and Doku'
+description: 'LLM Observability with Grafana Cloud and OpenLIT'
 ---
 
-<Frame>
-  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/grafana-dashboard-1.jpg?raw=true"  />
-  <img src="https://github.com/dokulabs/doku/blob/main/docs/images/grafana-dashboard-2.jpg?raw=true" />
-</Frame>
+To send OpenTelemetry data collected by OpenLIt from your LLM Application, You need to set the `otlp_endpoint` and `otlp_headers` arguments according to your needs.
 
-Doku can automatically send LLM usage data from Doku to Grafana Cloud using the [Grafana Cloud Influx Telegraf](https://grafana.com/docs/grafana-cloud/send-data/metrics/metrics-influxdb/push-from-telegraf/) and [Loki Push HTTP API](https://grafana.com/docs/loki/latest/reference/api/#push-log-entries-to-loki)
+```python
+import openlit
 
-Make the following curl request to Doku to add a connection for Grafana Cloud. See more on the [Connections API](/latest/api-reference/endpoint/connections/create)
-
-```shell 
-curl --request POST \
-  --url https://<YOUR_DOKU_INGESTER_URL>/api/connections \
-  --header 'Authorization: <DOKU_API_KEY>' \
-  --header 'Content-Type: application/json' \
-  --data '{
-  "Platform": "grafana",
-  "MetricsUrl": "<YOUR_GRAFANA_CLOUD_INFLUX_TELEGRAF_URL>",
-  "MetricsUsername": "<YOUR_GRAFANA_CLOUD_PROMETHEUS_USERNAME>",
-  "LogsUrl": "<YOUR_GRAFANA_CLOUD_LOGS_URL>",
-  "LogsUsername": "<YOUR_GRAFANA_CLOUD_LOGS_USERNAME>",
-  "ApiKey": "<YOUR_GRAFANA_CLOUD_API_KEY>"
-}'
+openlit.init(otlp_endpoint="otlp_backend_endpoint", otlp_headers="otlp_backend_token")
 ```
+
+Alternatively, you can configure the OTLP endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` and the OTLP headers by setting the Appli`OTEL_EXPORTER_OTLP_HEADERS` environmentcation variable as recommended in the OpenTelemetry documentation.
+
+Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
+
 
 ## Grafana Resources
 
@@ -51,1411 +40,59 @@ curl --request POST \
     "editable": true,
     "fiscalYearStartMonth": 0,
     "graphTooltip": 0,
-    "id": 14,
-    "links": [
-      {
-        "icon": "info",
-        "tags": [],
-        "targetBlank": true,
-        "title": "Doku Documentation",
-        "tooltip": "",
-        "type": "link",
-        "url": "https://docs.dokulabs.com/"
-      },
-      {
-        "icon": "info",
-        "tags": [],
-        "targetBlank": true,
-        "title": "Doku Community",
-        "tooltip": "",
-        "type": "link",
-        "url": "https://dokulabs.slack.com/"
-      },
-      {
-        "icon": "info",
-        "tags": [],
-        "targetBlank": true,
-        "title": "Dokulabs GitHub",
-        "tooltip": "",
-        "type": "link",
-        "url": "https://github.com/dokulabs/"
-      }
-    ],
-    "liveNow": false,
+    "id": 12,
+    "links": [],
     "panels": [
       {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
+        "collapsed": false,
         "gridPos": {
-          "h": 4,
-          "w": 11,
-          "x": 0,
-          "y": 0
-        },
-        "id": 23,
-        "options": {
-          "code": {
-            "language": "plaintext",
-            "showLineNumbers": false,
-            "showMiniMap": false
-          },
-          "content": "---\n---\n---\n---\n---\n---",
-          "mode": "markdown"
-        },
-        "pluginVersion": "10.4.0-65875",
-        "transparent": true,
-        "type": "text"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "gridPos": {
-          "h": 4,
-          "w": 2,
-          "x": 11,
-          "y": 0
-        },
-        "id": 2,
-        "options": {
-          "code": {
-            "language": "plaintext",
-            "showLineNumbers": false,
-            "showMiniMap": false
-          },
-          "content": "![Doku Logo](https://github.com/dokulabs/.github/blob/main/profile/assets/favicon.png?raw=true)",
-          "mode": "markdown"
-        },
-        "pluginVersion": "10.4.0-65875",
-        "transparent": true,
-        "type": "text"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "gridPos": {
-          "h": 4,
-          "w": 11,
-          "x": 13,
-          "y": 0
-        },
-        "id": 22,
-        "options": {
-          "code": {
-            "language": "plaintext",
-            "showLineNumbers": false,
-            "showMiniMap": false
-          },
-          "content": "---\n---\n---\n---\n---\n---",
-          "mode": "markdown"
-        },
-        "pluginVersion": "10.4.0-65875",
-        "transparent": true,
-        "type": "text"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "This panel shows the total number of requests sent to Large Language Models (LLM) Platforms in the selected time interval.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            },
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 3,
-          "w": 6,
-          "x": 0,
-          "y": 4
-        },
-        "id": 3,
-        "options": {
-          "colorMode": "background",
-          "graphMode": "area",
-          "justifyMode": "auto",
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showPercentChange": false,
-          "textMode": "auto",
-          "wideLayout": true
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "count_over_time(doku_llm_requestDuration{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}[$__interval])",
-            "format": "table",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "__auto",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT count(*) FROM DOKU\nWHERE $__timeFilter(time)",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "name": "COUNT",
-                  "parameters": [
-                    {
-                      "name": "environment",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
-            "useBackend": false
-          }
-        ],
-        "title": "Total Requests",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "sum"
-                  ],
-                  "operation": "aggregate"
-                },
-                "job": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "stat"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "This panel shows the average time taken to process each request by the Large Language Models (LLM), offering a snapshot of system performance and efficiency.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 5
-                }
-              ]
-            },
-            "unit": "s",
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 3,
-          "w": 4,
-          "x": 6,
-          "y": 4
-        },
-        "id": 4,
-        "options": {
-          "colorMode": "background",
-          "graphMode": "area",
-          "justifyMode": "auto",
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showPercentChange": false,
-          "textMode": "auto",
-          "wideLayout": true
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "doku_llm_requestDuration{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "format": "table",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "__auto",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT AVG(requestduration) FROM doku\nWHERE $__timeFilter(time)",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "name": "AVG",
-                  "parameters": [
-                    {
-                      "name": "requestduration",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
-            "useBackend": false
-          }
-        ],
-        "title": "Avg Request Duration",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "mean"
-                  ],
-                  "operation": "aggregate"
-                },
-                "job": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "stat"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "This panel shows the average count of Total tokens used per LLM request",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 1000
-                }
-              ]
-            },
-            "unit": "none",
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 3,
-          "w": 4,
-          "x": 10,
-          "y": 4
-        },
-        "id": 5,
-        "options": {
-          "colorMode": "background",
-          "graphMode": "area",
-          "justifyMode": "auto",
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showPercentChange": false,
-          "textMode": "auto",
-          "wideLayout": true
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "doku_llm_totalTokens{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "format": "table",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "__auto",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT AVG(totaltokens) FROM doku\nWHERE $__timeFilter(time)",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "name": "AVG",
-                  "parameters": [
-                    {
-                      "name": "totaltokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
-            "useBackend": false
-          }
-        ],
-        "title": "Avg Tokens per Request",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "mean"
-                  ],
-                  "operation": "aggregate"
-                },
-                "job": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "stat"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "This panel shows the average cost incurred per request to the LLM, helping monitor and optimize budget allocation for LLM usage.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 5
-                }
-              ]
-            },
-            "unit": "currencyUSD",
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 3,
-          "w": 4,
-          "x": 14,
-          "y": 4
-        },
-        "id": 6,
-        "options": {
-          "colorMode": "background",
-          "graphMode": "area",
-          "justifyMode": "auto",
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showPercentChange": false,
-          "textMode": "auto",
-          "wideLayout": true
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "doku_llm_usageCost{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "format": "table",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "__auto",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT AVG(usagecost) FROM doku \nWHERE $__timeFilter(time)",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "name": "AVG",
-                  "parameters": [
-                    {
-                      "name": "usagecost",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
-            "useBackend": false
-          }
-        ],
-        "title": "Avg Cost / Request",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "mean"
-                  ],
-                  "operation": "aggregate"
-                },
-                "job": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "stat"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "This panel shows the total cost on LLM requests over the selected period.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "continuous-BlPu"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                }
-              ]
-            },
-            "unit": "currencyUSD",
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 3,
-          "w": 6,
-          "x": 18,
-          "y": 4
-        },
-        "id": 10,
-        "options": {
-          "colorMode": "background",
-          "graphMode": "area",
-          "justifyMode": "auto",
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showPercentChange": false,
-          "textMode": "auto",
-          "wideLayout": true
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "doku_llm_usageCost{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "format": "table",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "__auto",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT SUM(usagecost) FROM doku\nWHERE $__timeFilter(time)",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "name": "SUM",
-                  "parameters": [
-                    {
-                      "name": "usagecost",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
-            "useBackend": false
-          }
-        ],
-        "title": "Total Cost",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "sum"
-                  ],
-                  "operation": "aggregate"
-                },
-                "job": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "stat"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "This panel shows the count of API requests made to LLMs over the selected time.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "continuous-BlPu"
-            },
-            "custom": {
-              "axisBorderShow": false,
-              "axisCenteredZero": false,
-              "axisColorMode": "series",
-              "axisGridShow": true,
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 54,
-              "gradientMode": "hue",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "insertNulls": false,
-              "lineInterpolation": "smooth",
-              "lineStyle": {
-                "dash": [
-                  10,
-                  10
-                ],
-                "fill": "dash"
-              },
-              "lineWidth": 2,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "always",
-              "spanNulls": true,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "fieldMinMax": false,
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                }
-              ]
-            },
-            "unit": "none",
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 5,
+          "h": 1,
           "w": 24,
           "x": 0,
-          "y": 7
+          "y": 0
         },
-        "id": 17,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": false
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "none"
-          }
-        },
-        "pluginVersion": "10.2.3",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "count(count_over_time(doku_llm_requestDuration{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}[$__interval]))",
-            "format": "time_series",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "Requests",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT\n  DATE_TRUNC('day', \"time\") AS \"time\",\n  COUNT(endpoint) AS total_requests\nFROM \n  doku\nWHERE\n  $__timeFilter(\"time\")\nGROUP BY \n  DATE_TRUNC('day', \"time\")\nORDER BY \n  \"time\";",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "alias": "\"Prompt Tokens\"",
-                  "parameters": [
-                    {
-                      "name": "prompttokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                },
-                {
-                  "alias": "\"time\"",
-                  "parameters": [
-                    {
-                      "name": "\"time\"",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                },
-                {
-                  "alias": "\"Completion Tokens\"",
-                  "parameters": [
-                    {
-                      "name": "completiontokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                },
-                {
-                  "alias": "\"Total Tokens\"",
-                  "parameters": [
-                    {
-                      "name": "totaltokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
-            "useBackend": false
-          }
-        ],
-        "title": "Total Requests overtime",
-        "transformations": [],
-        "type": "timeseries"
+        "id": 11,
+        "panels": [],
+        "title": "Row title",
+        "type": "row"
       },
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "grafanacloud-prom"
+          "uid": "${metricsDatasource}"
         },
-        "description": "This panel illustrates the distribution of LLM requests across different usage categories: Chat Generations, Embeddings, Image Generations, Audio Generations, and Fine Tuning. It visualizes the relative volume of requests, helping to identify which types of operations are most frequently performed and providing insights into usage patterns by category.",
+        "description": "This panel displays the total number of successful requests made to the GenAI system. A successful request is one that is completed without errors, indicating seamless operation and effective utilization of the GenAI service. Tracking this helps in understanding the reliability and performance of the GenAI system.",
         "fieldConfig": {
           "defaults": {
             "color": {
-              "fixedColor": "blue",
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              }
+              "mode": "palette-classic-by-name"
             },
             "mappings": [],
-            "unit": "none",
-            "unitScale": true
-          },
-          "overrides": [
-            {
-              "__systemRef": "hideSeriesFrom",
-              "matcher": {
-                "id": "byNames",
-                "options": {
-                  "mode": "exclude",
-                  "names": [
-                    "Value (sum)",
-                    "Chat"
-                  ],
-                  "prefix": "All except:",
-                  "readOnly": true
-                }
-              },
-              "properties": [
-                {
-                  "id": "custom.hideFrom",
-                  "value": {
-                    "legend": false,
-                    "tooltip": false,
-                    "viz": true
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 6,
-          "x": 0,
-          "y": 12
-        },
-        "id": 12,
-        "options": {
-          "displayLabels": [
-            "name",
-            "value"
-          ],
-          "legend": {
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true,
-            "values": []
-          },
-          "pieType": "pie",
-          "reduceOptions": {
-            "calcs": [
-              "allValues"
-            ],
-            "fields": "",
-            "values": true
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "asc"
-          }
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "count_over_time(doku_llm_requestDuration{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}[$__interval])",
-            "format": "table",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "__auto",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT \n    category,\n    CAST(COUNT(*) AS INTEGER) AS Requests,\n    ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage\n    FROM \n        (\n            SELECT \n                CASE\n                  WHEN endpoint LIKE 'openai.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE 'openai.completions%' THEN 'Chat'\n                  WHEN endpoint LIKE 'anthropic.messages%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.summarize%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.generate%' THEN 'Chat'\n                  WHEN endpoint LIKE 'cohere.chat%' THEN 'Chat'\n                  WHEN endpoint LIKE '%embed%' THEN 'Embeddings'\n                  WHEN endpoint LIKE 'openai.images%' THEN 'Image'\n                  WHEN endpoint LIKE 'openai.audio%' THEN 'Audio'\n                  WHEN endpoint LIKE 'openai.fine_tuning%' THEN 'Fine Tuning'\n                END AS category,\n                endpoint\n            FROM doku\n            WHERE $__timeFilter(time)\n        ) AS subquery\n    GROUP BY category",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "parameters": [],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "useBackend": false
-          }
-        ],
-        "title": "Usage by Category",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "sum"
-                  ],
-                  "operation": "aggregate"
-                },
-                "generation": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "piechart"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "Displays the cost breakdown by provider (OpenAI, Cohere, Anthropic) for LLM requests, offering insights into financial deployment across different services.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              }
-            },
-            "mappings": [],
-            "unit": "currencyUSD",
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 6,
-          "x": 6,
-          "y": 12
-        },
-        "id": 16,
-        "options": {
-          "displayLabels": [
-            "name",
-            "value"
-          ],
-          "legend": {
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true,
-            "values": []
-          },
-          "pieType": "pie",
-          "reduceOptions": {
-            "calcs": [
-              "allValues"
-            ],
-            "fields": "",
-            "values": true
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "asc"
-          }
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "doku_llm_usageCost{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "format": "table",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "__auto",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT\n  CASE\n    WHEN endpoint LIKE 'openai.%' THEN 'OpenAI'\n    WHEN endpoint LIKE 'cohere.%' THEN 'Cohere'\n    WHEN endpoint LIKE 'anthropic.%' THEN 'Anthropic'\n  END AS provider,\n  SUM(usageCost) AS total_cost\nFROM\n  doku\nWHERE $__timeFilter(time)\nGROUP BY\n  provider\nORDER BY\n  total_cost DESC;",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "parameters": [],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "useBackend": false
-          }
-        ],
-        "title": "Usage cost by Provider",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "sum"
-                  ],
-                  "operation": "aggregate"
-                },
-                "generation": {
-                  "aggregations": []
-                },
-                "platform": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "piechart"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "This panel presents a pie chart detailing the distribution of expenses for LLM requests by various applications. It shows how budget allocations are consumed by different applications, enabling a deeper understanding of cost drivers and facilitating cost optimization efforts.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              }
-            },
-            "mappings": [],
-            "unit": "currencyUSD",
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 6,
-          "x": 12,
-          "y": 12
-        },
-        "id": 24,
-        "options": {
-          "displayLabels": [
-            "name",
-            "value"
-          ],
-          "legend": {
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true,
-            "values": []
-          },
-          "pieType": "pie",
-          "reduceOptions": {
-            "calcs": [
-              "allValues"
-            ],
-            "fields": "/.*/",
-            "values": true
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "asc"
-          }
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "doku_llm_usageCost{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "format": "table",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "__auto",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT\n  CASE\n    WHEN endpoint LIKE 'openai.%' THEN 'OpenAI'\n    WHEN endpoint LIKE 'cohere.%' THEN 'Cohere'\n    WHEN endpoint LIKE 'anthropic.%' THEN 'Anthropic'\n  END AS provider,\n  SUM(usageCost) AS total_cost\nFROM\n  doku\nWHERE $__timeFilter(time)\nGROUP BY\n  provider\nORDER BY\n  total_cost DESC;",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "parameters": [],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "useBackend": false
-          }
-        ],
-        "title": "Usage cost by Application",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "sum"
-                  ],
-                  "operation": "aggregate"
-                },
-                "applicationName": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "piechart"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "Visualizes the allocation of LLM request expenses across different environments, such as development, staging, and production. This breakdown helps in tracking and managing costs with respect to operational environments.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              }
-            },
-            "mappings": [],
-            "unit": "currencyUSD",
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 6,
-          "x": 18,
-          "y": 12
-        },
-        "id": 25,
-        "options": {
-          "displayLabels": [
-            "name",
-            "value"
-          ],
-          "legend": {
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true,
-            "values": []
-          },
-          "pieType": "pie",
-          "reduceOptions": {
-            "calcs": [
-              "allValues"
-            ],
-            "fields": "/.*/",
-            "values": true
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "asc"
-          }
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "doku_llm_usageCost{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "format": "table",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "__auto",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT\n  CASE\n    WHEN endpoint LIKE 'openai.%' THEN 'OpenAI'\n    WHEN endpoint LIKE 'cohere.%' THEN 'Cohere'\n    WHEN endpoint LIKE 'anthropic.%' THEN 'Anthropic'\n  END AS provider,\n  SUM(usageCost) AS total_cost\nFROM\n  doku\nWHERE $__timeFilter(time)\nGROUP BY\n  provider\nORDER BY\n  total_cost DESC;",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "parameters": [],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "useBackend": false
-          }
-        ],
-        "title": "Usage cost by Environment",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "sum"
-                  ],
-                  "operation": "aggregate"
-                },
-                "applicationName": {
-                  "aggregations": []
-                },
-                "environment": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "piechart"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "This panel shows the average count of Prompt tokens used per LLM request",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "continuous-YlBl"
-            },
-            "mappings": [],
+            "min": 0,
             "thresholds": {
               "mode": "absolute",
               "steps": [
                 {
-                  "color": "green"
+                  "color": "green",
+                  "value": null
                 },
                 {
                   "color": "red",
-                  "value": 5
+                  "value": 80
                 }
               ]
             },
-            "unit": "none",
-            "unitScale": true
+            "unit": "none"
           },
           "overrides": []
         },
         "gridPos": {
-          "h": 3,
-          "w": 6,
+          "h": 4,
+          "w": 12,
           "x": 0,
-          "y": 21
+          "y": 1
         },
-        "id": 9,
+        "id": 1,
         "options": {
           "colorMode": "background",
           "graphMode": "area",
@@ -1472,131 +109,46 @@ curl --request POST \
           "textMode": "auto",
           "wideLayout": true
         },
-        "pluginVersion": "10.4.0-65875",
+        "pluginVersion": "11.1.0-69372",
         "targets": [
           {
             "datasource": {
               "type": "prometheus",
-              "uid": "grafanacloud-prom"
+              "uid": "${metricsDatasource}"
             },
             "disableTextWrap": false,
             "editorMode": "code",
-            "expr": "doku_llm_promptTokens{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "format": "table",
+            "expr": "sum by() (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
             "fullMetaSearch": false,
             "includeNullMetadata": true,
+            "instant": false,
             "legendFormat": "__auto",
             "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT AVG(prompttokens) FROM doku WHERE \n  $__timeFilter(\"time\")",
             "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "name": "AVG",
-                  "parameters": [
-                    {
-                      "name": "prompttokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
             "useBackend": false
           }
         ],
-        "title": "Avg Prompt Tokens / Request",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "mean"
-                  ],
-                  "operation": "aggregate"
-                },
-                "job": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
+        "title": "Total Successful GenAI Requests",
         "type": "stat"
       },
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "grafanacloud-prom"
+          "uid": "${metricsDatasource}"
         },
-        "description": "Provides a time-series analysis of token consumption for LLM requests, highlighting trends in usage intensity and complexity over time.",
+        "description": "This panel displays the total count of successful VectorDB requests. It indicates requests that have been processed completely without any errors, showcasing VectorDB's effectiveness and reliability. Watching this helps gauge how well VectorDB is performing and its success in handling operations.",
         "fieldConfig": {
           "defaults": {
             "color": {
-              "mode": "continuous-BlYlRd"
+              "mode": "thresholds"
             },
-            "custom": {
-              "axisBorderShow": false,
-              "axisCenteredZero": false,
-              "axisColorMode": "series",
-              "axisGridShow": true,
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 50,
-              "gradientMode": "hue",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "insertNulls": 86400000,
-              "lineInterpolation": "smooth",
-              "lineStyle": {
-                "dash": [
-                  10,
-                  10
-                ],
-                "fill": "dash"
-              },
-              "lineWidth": 1,
-              "pointSize": 6,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "always",
-              "spanNulls": true,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "fieldMinMax": false,
             "mappings": [],
             "thresholds": {
               "mode": "absolute",
               "steps": [
                 {
-                  "color": "green"
+                  "color": "green",
+                  "value": null
                 },
                 {
                   "color": "red",
@@ -1604,211 +156,15 @@ curl --request POST \
                 }
               ]
             },
-            "unit": "none",
-            "unitScale": true
+            "unit": "none"
           },
           "overrides": []
         },
         "gridPos": {
-          "h": 6,
-          "w": 18,
-          "x": 6,
-          "y": 21
-        },
-        "id": 11,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "none"
-          }
-        },
-        "pluginVersion": "10.2.3",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "avg(doku_llm_completionTokens{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"})",
-            "format": "time_series",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "legendFormat": "Completion Tokens",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT prompttokens AS \"Prompt Tokens\", \"time\" AS \"time\", completiontokens AS \"Completion Tokens\", totaltokens AS \"Total Tokens\" FROM doku",
-            "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "alias": "\"Prompt Tokens\"",
-                  "parameters": [
-                    {
-                      "name": "prompttokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                },
-                {
-                  "alias": "\"time\"",
-                  "parameters": [
-                    {
-                      "name": "\"time\"",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                },
-                {
-                  "alias": "\"Completion Tokens\"",
-                  "parameters": [
-                    {
-                      "name": "completiontokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                },
-                {
-                  "alias": "\"Total Tokens\"",
-                  "parameters": [
-                    {
-                      "name": "totaltokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
-            "useBackend": false
-          },
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "grafanacloud-prom"
-            },
-            "disableTextWrap": false,
-            "editorMode": "builder",
-            "expr": "avg(doku_llm_promptTokens)",
-            "format": "time_series",
-            "fullMetaSearch": false,
-            "hide": false,
-            "includeNullMetadata": true,
-            "legendFormat": "Prompt Tokens",
-            "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT prompttokens AS \"Prompt Tokens\", \"time\" AS \"time\", completiontokens AS \"Completion Tokens\", totaltokens AS \"Total Tokens\" FROM doku",
-            "refId": "B",
-            "sql": {
-              "columns": [
-                {
-                  "alias": "\"Prompt Tokens\"",
-                  "parameters": [
-                    {
-                      "name": "prompttokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                },
-                {
-                  "alias": "\"time\"",
-                  "parameters": [
-                    {
-                      "name": "\"time\"",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                },
-                {
-                  "alias": "\"Completion Tokens\"",
-                  "parameters": [
-                    {
-                      "name": "completiontokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                },
-                {
-                  "alias": "\"Total Tokens\"",
-                  "parameters": [
-                    {
-                      "name": "totaltokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
-            "useBackend": false
-          }
-        ],
-        "title": "Token usage overtime",
-        "type": "timeseries"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "grafanacloud-prom"
-        },
-        "description": "This panel shows the average count of Completion tokens used per LLM request",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "continuous-BlPu"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green"
-                }
-              ]
-            },
-            "unit": "none",
-            "unitScale": true
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 3,
-          "w": 6,
-          "x": 0,
-          "y": 24
+          "h": 4,
+          "w": 12,
+          "x": 12,
+          "y": 1
         },
         "id": 7,
         "options": {
@@ -1827,91 +183,46 @@ curl --request POST \
           "textMode": "auto",
           "wideLayout": true
         },
-        "pluginVersion": "10.4.0-65875",
+        "pluginVersion": "11.1.0-69372",
         "targets": [
           {
             "datasource": {
               "type": "prometheus",
-              "uid": "grafanacloud-prom"
+              "uid": "${metricsDatasource}"
             },
             "disableTextWrap": false,
             "editorMode": "code",
-            "expr": "doku_llm_completionTokens{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "format": "table",
+            "expr": "sum(db_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
             "fullMetaSearch": false,
             "includeNullMetadata": true,
+            "instant": false,
             "legendFormat": "__auto",
             "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT AVG(completiontokens) FROM doku WHERE \n  $__timeFilter(\"time\")",
             "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "name": "AVG",
-                  "parameters": [
-                    {
-                      "name": "completiontokens",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
             "useBackend": false
           }
         ],
-        "title": "Avg Completion Tokens / Request",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "mean"
-                  ],
-                  "operation": "aggregate"
-                },
-                "job": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          }
-        ],
+        "title": "Total Successful VectorDB Requests",
         "type": "stat"
       },
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "grafanacloud-prom"
+          "uid": "${metricsDatasource}"
         },
-        "description": "Displays the frequency of model usage over time, identifying the most utilised models and showcasing usage trends across different periods",
+        "description": "This panel displays the total number of tokens consumed by GenAI requests, providing a direct measure of usage. Monitoring this helps in assessing the demand on GenAI services and guiding resource allocation or optimization strategies.",
         "fieldConfig": {
           "defaults": {
             "color": {
-              "fixedColor": "purple",
-              "mode": "continuous-YlBl"
+              "mode": "palette-classic-by-name"
             },
             "mappings": [],
             "thresholds": {
               "mode": "absolute",
               "steps": [
                 {
-                  "color": "green"
+                  "color": "green",
+                  "value": null
                 },
                 {
                   "color": "red",
@@ -1919,120 +230,822 @@ curl --request POST \
                 }
               ]
             },
-            "unit": "none",
-            "unitScale": true
+            "unit": "none"
           },
           "overrides": []
         },
         "gridPos": {
-          "h": 6,
-          "w": 12,
+          "h": 4,
+          "w": 8,
           "x": 0,
-          "y": 27
+          "y": 5
         },
-        "id": 13,
+        "id": 3,
         "options": {
-          "displayMode": "lcd",
-          "maxVizHeight": 165,
-          "minVizHeight": 0,
-          "minVizWidth": 75,
-          "namePlacement": "left",
-          "orientation": "horizontal",
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
           "reduceOptions": {
             "calcs": [
-              "allValues"
+              "lastNotNull"
             ],
             "fields": "",
-            "values": true
+            "values": false
           },
-          "showUnfilled": true,
-          "sizing": "auto",
-          "valueMode": "color"
+          "showPercentChange": false,
+          "textMode": "auto",
+          "wideLayout": true
         },
-        "pluginVersion": "10.4.0-65875",
+        "pluginVersion": "11.1.0-69372",
         "targets": [
           {
             "datasource": {
               "type": "prometheus",
-              "uid": "grafanacloud-prom"
+              "uid": "${metricsDatasource}"
             },
             "disableTextWrap": false,
             "editorMode": "code",
-            "expr": "topk(5,count by(model) (sum_over_time(doku_llm_requestDuration{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}[$__interval])))",
-            "format": "table",
+            "expr": "sum(gen_ai_usage_tokens_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
             "fullMetaSearch": false,
             "includeNullMetadata": true,
+            "instant": false,
             "legendFormat": "__auto",
             "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT \n  model,\n  total_count,\n  percentage_usage\nFROM \n  (\n    SELECT \n      model,\n      COUNT(*) AS total_count,\n      ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER(), 2) AS percentage_usage\n    FROM \n      doku\n    WHERE $__timeFilter(time)\n    GROUP BY \n      model\n    ORDER BY \n      percentage_usage DESC\n  ) sub\nLIMIT 5;",
             "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "parameters": [
-                    {
-                      "name": "model",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
-            },
-            "table": "doku",
             "useBackend": false
           }
         ],
-        "title": "Top models by usage",
-        "transformations": [
-          {
-            "id": "groupBy",
-            "options": {
-              "fields": {
-                "Value": {
-                  "aggregations": [
-                    "sum"
-                  ],
-                  "operation": "aggregate"
-                },
-                "model": {
-                  "aggregations": [],
-                  "operation": "groupby"
-                }
-              }
-            }
-          },
-          {
-            "id": "sortBy",
-            "options": {
-              "fields": {},
-              "sort": [
+        "title": "Total Usage Tokens",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the total cost incurred from using GenAI models. It reflects the financial impact of operational activities, offering insights into budgetary allocation and efficiency. Tracking this helps in effective cost management and financial planning for GenAI usage.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "continuous-BlPu"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
                 {
-                  "desc": true,
-                  "field": "Value (sum)"
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
                 }
               ]
-            }
+            },
+            "unit": "currencyUSD"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 8,
+          "x": 8,
+          "y": 5
+        },
+        "id": 2,
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": false,
+          "textMode": "auto",
+          "wideLayout": true
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum(gen_ai_usage_cost_USD_sum{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
           }
         ],
+        "title": "Total Usage Cost",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the average cost per use of the GenAI models and related services. It provides insights into the cost-effectiveness of interactions with GenAI, helping to identify trends in expense per operation. Monitoring this assists in optimizing budget allocation and improving cost efficiency in GenAI utilization.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 0.5
+                },
+                {
+                  "color": "red",
+                  "value": 1
+                }
+              ]
+            },
+            "unit": "currencyUSD"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 8,
+          "x": 16,
+          "y": 5
+        },
+        "id": 5,
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": false,
+          "textMode": "auto",
+          "wideLayout": true
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "avg by() (gen_ai_usage_cost_USD_sum{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "Avg Usage Cost",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "tempo",
+          "uid": "${traceDatasource}"
+        },
+        "description": "This panel displays the distribution of request durations for both GenAI and VectorDB services. It highlights how long requests take to complete, from the shortest to the longest durations, offering insights into system performance and efficiency. Understanding this distribution helps in identifying bottlenecks and optimizing response times for both services.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "fixedColor": "blue",
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "stacking": {
+                "group": "A",
+                "mode": "none"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 10
+                }
+              ]
+            },
+            "unit": "s"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 24,
+          "x": 0,
+          "y": 9
+        },
+        "id": 4,
+        "options": {
+          "legend": {
+            "calcs": [],
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          }
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "tempo",
+              "uid": "${traceDatasource}"
+            },
+            "filters": [
+              {
+                "id": "status",
+                "operator": "=",
+                "scope": "intrinsic",
+                "tag": "status",
+                "value": "ok",
+                "valueType": "keyword"
+              },
+              {
+                "id": "f755ab99",
+                "operator": "=",
+                "scope": "span",
+                "tag": "telemetry.sdk.name",
+                "value": [
+                  "openlit"
+                ],
+                "valueType": "string"
+              }
+            ],
+            "limit": 20,
+            "query": "{status=ok && span.telemetry.sdk.name=\"openlit\" && span.gen_ai.application_name=~\"$application\" && span.gen_ai.environment=~\"$environment\"}",
+            "queryType": "traceql",
+            "refId": "A",
+            "tableType": "traces"
+          }
+        ],
+        "title": "Request Duration Distribution",
+        "type": "histogram"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the ranking of GenAI models based on their usage frequency. It identifies which models are most popular or in-demand, providing insights into user preferences and operational trends. Analyzing this helps in resource allocation, optimizing model availability, and understanding which GenAI features are driving usage.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "continuous-BlYlRd"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 14,
+          "w": 14,
+          "x": 0,
+          "y": 16
+        },
+        "id": 17,
+        "options": {
+          "displayMode": "gradient",
+          "maxVizHeight": 300,
+          "minVizHeight": 16,
+          "minVizWidth": 8,
+          "namePlacement": "auto",
+          "orientation": "horizontal",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showUnfilled": true,
+          "sizing": "auto",
+          "valueMode": "text"
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "topk(5, sum by(gen_ai_request_model) (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"}))",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "Top GenAI Models by Usage",
         "type": "bargauge"
       },
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "grafanacloud-prom"
+          "uid": "${metricsDatasource}"
         },
-        "description": "Breaks down token usage across different LLM models, offering insights into which models are driving the highest token consumption.",
+        "description": "This panel displays the distribution of GenAI requests across different platforms such as OpenAI, Cohere, Anthropic, etc. It shows where requests are being sent, giving insights into platform popularity and usage patterns. Monitoring this helps in understanding platform preferences, and it can guide strategic decisions for integration or diversification of GenAI services.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 5,
+          "x": 14,
+          "y": 16
+        },
+        "id": 16,
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum by(gen_ai_system) (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "GenAI Requests by Platform",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the breakdown of GenAI requests by type, such as Chat, Embedding, Image, Audio, and Fine Tuning. It reveals the diversity in usage, highlighting which types of requests are most common. Understanding this distribution assists in optimizing resources for the most demanded services and planning for future needs based on usage trends.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 5,
+          "x": 19,
+          "y": 16
+        },
+        "id": 13,
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum by(gen_ai_type) (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "GenAI Requests by Type",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the distribution of GenAI requests based on the environment, such as production, development, testing, etc. It shows where the requests are being utilized, providing a clear picture of operational focus and deployment strategies. Tracking this helps in aligning resources appropriately and optimizing the performance across different environments.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 5,
+          "x": 14,
+          "y": 23
+        },
+        "id": 15,
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum by(gen_ai_environment) (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "GenAI Requests by Environment",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the breakdown of GenAI requests by application name, offering insights into which applications are leveraging GenAI services the most. This identification helps in understanding application-specific demand, guiding resource allocation, and supporting targeted optimization efforts for enhanced efficiency in application performance.\"",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 5,
+          "x": 19,
+          "y": 23
+        },
+        "id": 19,
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum by(gen_ai_application_name) (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "GenAI Requests by Application",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the distribution of requests across different VectorDB systems, such as Chroma, Pinecone, etc. It highlights which VectorDB services are most frequently used, providing insights into system preference and usage patterns. Monitoring this helps in evaluating the performance and scalability of each VectorDB system, guiding strategic decisions for technology adoption and integration.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "continuous-BlYlRd"
+            },
+            "mappings": [],
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 14,
+          "x": 0,
+          "y": 30
+        },
+        "id": 18,
+        "options": {
+          "displayMode": "gradient",
+          "maxVizHeight": 300,
+          "minVizHeight": 16,
+          "minVizWidth": 8,
+          "namePlacement": "auto",
+          "orientation": "horizontal",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showUnfilled": true,
+          "sizing": "auto",
+          "valueMode": "text"
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum by(db_system) (db_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "VectorDB Usage by System",
+        "type": "bargauge"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the breakdown of database requests based on the type of operation, such as add, updates, deletes, and queries. It provides insights into the operational dynamics of database interactions, highlighting the most common actions performed. Understanding this distribution helps in optimizing database performance and planning for capacity based on operational needs.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 10,
+          "x": 14,
+          "y": 30
+        },
+        "id": 14,
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum by(db_operation) (db_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "DB Requests by Operation",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays a comparative graph showing the average number of tokens consumed for completions and prompts against the average usage cost. It provides a visual representation of the relationship between the volume of data processed (in tokens) and the financial implications of using GenAI services. Analyzing this comparison helps in assessing cost-effectiveness and guiding strategic decisions for efficient resource utilization.",
         "fieldConfig": {
           "defaults": {
             "color": {
@@ -2044,26 +1057,22 @@ curl --request POST \
               "axisColorMode": "text",
               "axisLabel": "",
               "axisPlacement": "auto",
-              "barAlignment": 0,
+              "barAlignment": 1,
               "drawStyle": "line",
-              "fillOpacity": 23,
-              "gradientMode": "hue",
+              "fillOpacity": 30,
+              "gradientMode": "opacity",
               "hideFrom": {
                 "legend": false,
                 "tooltip": false,
                 "viz": false
               },
               "insertNulls": false,
-              "lineInterpolation": "linear",
+              "lineInterpolation": "smooth",
               "lineStyle": {
-                "dash": [
-                  10,
-                  10
-                ],
-                "fill": "dash"
+                "fill": "solid"
               },
-              "lineWidth": 1,
-              "pointSize": 9,
+              "lineWidth": 2,
+              "pointSize": 5,
               "scaleDistribution": {
                 "type": "linear"
               },
@@ -2082,7 +1091,8 @@ curl --request POST \
               "mode": "absolute",
               "steps": [
                 {
-                  "color": "green"
+                  "color": "green",
+                  "value": null
                 },
                 {
                   "color": "red",
@@ -2090,18 +1100,17 @@ curl --request POST \
                 }
               ]
             },
-            "unit": "none",
-            "unitScale": true
+            "unit": "none"
           },
           "overrides": []
         },
         "gridPos": {
-          "h": 6,
-          "w": 12,
-          "x": 12,
-          "y": 27
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 39
         },
-        "id": 14,
+        "id": 6,
         "options": {
           "legend": {
             "calcs": [],
@@ -2114,165 +1123,310 @@ curl --request POST \
             "sort": "none"
           }
         },
-        "pluginVersion": "10.4.0-65875",
         "targets": [
           {
             "datasource": {
               "type": "prometheus",
-              "uid": "grafanacloud-prom"
+              "uid": "${metricsDatasource}"
             },
             "disableTextWrap": false,
             "editorMode": "code",
-            "expr": "sum_over_time(doku_llm_totalTokens{job=\"doku\", applicationName=~\"$Application\", environment=~\"$Environment\"}[$__interval])",
-            "format": "time_series",
+            "expr": "avg(gen_ai_usage_prompt_tokens_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
             "fullMetaSearch": false,
             "includeNullMetadata": true,
-            "legendFormat": "{{model}}",
+            "instant": false,
+            "legendFormat": "Prompt Tokens",
             "range": true,
-            "rawQuery": true,
-            "rawSql": "SELECT \n  DATE_TRUNC('day', \"time\") AS \"time\",\n  model,\n  COUNT(*) AS \"Model:\"\nFROM \n  doku\nWHERE \n  $__timeFilter(\"time\")\nGROUP BY \n  1, model\nORDER BY \n  \"time\" ASC, model;",
             "refId": "A",
-            "sql": {
-              "columns": [
-                {
-                  "parameters": [
-                    {
-                      "name": "model",
-                      "type": "functionParameter"
-                    }
-                  ],
-                  "type": "function"
-                }
-              ],
-              "groupBy": [
-                {
-                  "property": {
-                    "type": "string"
-                  },
-                  "type": "groupBy"
-                }
-              ],
-              "limit": 50
+            "useBackend": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
             },
-            "table": "doku",
+            "disableTextWrap": false,
+            "editorMode": "builder",
+            "expr": "avg(gen_ai_usage_completion_tokens_total{telemetry_sdk_name=\"openlit\"})",
+            "fullMetaSearch": false,
+            "hide": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "Completion Tokens",
+            "range": true,
+            "refId": "B",
+            "useBackend": false
+          },
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "builder",
+            "expr": "avg(gen_ai_usage_cost_USD_bucket{telemetry_sdk_name=\"openlit\"})",
+            "fullMetaSearch": false,
+            "hide": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "Usage Cost",
+            "range": true,
+            "refId": "C",
             "useBackend": false
           }
         ],
-        "title": "Token usage by model",
-        "transformations": [],
+        "title": "Average Token Consumption vs. Average Usage Cost Comparison",
         "type": "timeseries"
       },
       {
-        "datasource": {
-          "type": "loki",
-          "uid": "grafanacloud-logs"
-        },
-        "description": "Displays a log of all prompt messages sent to the LLM, providing insights into the inputs and interactions leading up to LLM responses.",
+        "collapsed": false,
         "gridPos": {
-          "h": 8,
-          "w": 12,
+          "h": 1,
+          "w": 24,
           "x": 0,
-          "y": 33
+          "y": 47
         },
-        "id": 26,
-        "options": {
-          "dedupStrategy": "none",
-          "enableLogDetails": true,
-          "prettifyLogMessage": true,
-          "showCommonLabels": false,
-          "showLabels": false,
-          "showTime": true,
-          "sortOrder": "Descending",
-          "wrapLogMessage": false
-        },
-        "pluginVersion": "10.4.0-65875",
-        "targets": [
-          {
-            "datasource": {
-              "type": "loki",
-              "uid": "grafanacloud-logs"
-            },
-            "editorMode": "code",
-            "expr": "{job=\"doku\", type=\"prompt\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "hide": false,
-            "queryType": "range",
-            "refId": "B"
-          }
-        ],
-        "title": "Prompts",
-        "transformations": [
-          {
-            "id": "extractFields",
-            "options": {
-              "format": "auto",
-              "source": "labels"
-            }
-          }
-        ],
-        "transparent": true,
-        "type": "logs"
+        "id": 10,
+        "panels": [],
+        "title": "GenAI Requests",
+        "type": "row"
       },
       {
         "datasource": {
-          "type": "loki",
-          "uid": "grafanacloud-logs"
+          "type": "tempo",
+          "uid": "${traceDatasource}"
         },
-        "description": "Displays a log of all responses from the LLM, offering a comprehensive view of how the model interprets prompts and the information it generates.",
+        "description": "This panel displays a detailed table of GenAI request traces, providing comprehensive insights into each request's timing, source, type, and outcome. It allows for the in-depth analysis of individual requests, facilitating troubleshooting, performance monitoring, and understanding user interactions with GenAI services. Tracking this helps in identifying patterns, potential issues, and opportunities for optimization.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "continuous-BlPu"
+            },
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "color-background"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                }
+              ]
+            },
+            "unit": "s"
+          },
+          "overrides": []
+        },
         "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 12,
-          "y": 33
+          "h": 16,
+          "w": 24,
+          "x": 0,
+          "y": 48
         },
-        "id": 27,
+        "id": 8,
         "options": {
-          "dedupStrategy": "none",
-          "enableLogDetails": true,
-          "prettifyLogMessage": true,
-          "showCommonLabels": false,
-          "showLabels": false,
-          "showTime": true,
-          "sortOrder": "Descending",
-          "wrapLogMessage": true
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true
         },
-        "pluginVersion": "10.4.0-65875",
+        "pluginVersion": "11.1.0-69372",
         "targets": [
           {
             "datasource": {
-              "type": "loki",
-              "uid": "grafanacloud-logs"
+              "type": "tempo",
+              "uid": "${traceDatasource}"
             },
-            "editorMode": "code",
-            "expr": "{job=\"doku\", type=\"response\", applicationName=~\"$Application\", environment=~\"$Environment\"}",
-            "hide": false,
-            "queryType": "range",
-            "refId": "B"
-          }
-        ],
-        "title": "Responses",
-        "transformations": [
-          {
-            "id": "extractFields",
-            "options": {
-              "format": "auto",
-              "source": "labels"
-            }
+            "filters": [
+              {
+                "id": "e7e29fde",
+                "operator": "!=",
+                "scope": "span",
+                "tag": "gen_ai.type",
+                "value": [
+                  "vectordb"
+                ],
+                "valueType": "string"
+              },
+              {
+                "id": "status",
+                "operator": "=",
+                "scope": "intrinsic",
+                "tag": "status",
+                "value": "ok",
+                "valueType": "keyword"
+              }
+            ],
+            "limit": 20,
+            "query": "{span.gen_ai.type!=\"vectordb\" && status=ok && span.gen_ai.application_name=~\"$application\" && span.gen_ai.environment=~\"$environment\"} | select(span.gen_ai.content.prompt, span.gen_ai.content.completion, span.gen_ai.usage.cost)",
+            "queryType": "traceql",
+            "refId": "A",
+            "tableType": "traces"
           }
         ],
         "transparent": true,
-        "type": "logs"
+        "type": "table"
+      },
+      {
+        "collapsed": false,
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 64
+        },
+        "id": 12,
+        "panels": [],
+        "title": "VectorDB Requests",
+        "type": "row"
+      },
+      {
+        "datasource": {
+          "type": "tempo",
+          "uid": "${traceDatasource}"
+        },
+        "description": "This panel displays a table with detailed traces of VectorDB requests, offering insights into specifics like request timing, source, operation type, and results. It's designed for thorough examination of VectorDB interactions, enabling precise troubleshooting, performance evaluation, and user behavior understanding. By monitoring these traces, users can spot trends, diagnose problems, and improve operational efficiency in handling VectorDB requests.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic-by-name"
+            },
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "color-background"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "s"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 15,
+          "w": 24,
+          "x": 0,
+          "y": 65
+        },
+        "id": 9,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "tempo",
+              "uid": "${traceDatasource}"
+            },
+            "filters": [
+              {
+                "id": "e7e29fde",
+                "operator": "=",
+                "scope": "span",
+                "tag": "gen_ai.type",
+                "value": [
+                  "vectordb"
+                ],
+                "valueType": "string"
+              },
+              {
+                "id": "status",
+                "operator": "=",
+                "scope": "intrinsic",
+                "tag": "status",
+                "value": "ok",
+                "valueType": "keyword"
+              }
+            ],
+            "limit": 20,
+            "query": "{span.gen_ai.type=\"vectordb\" && status=ok && span.gen_ai.application_name=~\"$application\" && span.gen_ai.environment=~\"$environment\"}",
+            "queryType": "traceql",
+            "refId": "A",
+            "tableType": "traces"
+          }
+        ],
+        "transparent": true,
+        "type": "table"
       }
     ],
     "refresh": "",
     "schemaVersion": 39,
-    "tags": [
-      "Doku",
-      "OpenAI",
-      "Cohere",
-      "Anthropic"
-    ],
+    "tags": [],
     "templating": {
       "list": [
+        {
+          "current": {
+            "selected": true,
+            "value": "grafanacloud-traces"
+          },
+          "hide": 0,
+          "includeAll": false,
+          "label": "Trace Datasource",
+          "multi": false,
+          "name": "traceDatasource",
+          "options": [],
+          "query": "tempo",
+          "queryValue": "",
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "type": "datasource"
+        },
+        {
+          "current": {
+            "selected": true,
+            "value": "grafanacloud-prom"
+          },
+          "hide": 0,
+          "includeAll": false,
+          "label": "Metrics Datasource",
+          "multi": false,
+          "name": "metricsDatasource",
+          "options": [],
+          "query": "prometheus",
+          "queryValue": "",
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "type": "datasource"
+        },
         {
           "current": {
             "selected": true,
@@ -2287,16 +1441,16 @@ curl --request POST \
             "type": "prometheus",
             "uid": "grafanacloud-prom"
           },
-          "definition": "label_values(applicationName)",
+          "definition": "label_values(gen_ai_application_name)",
           "hide": 0,
           "includeAll": true,
           "label": "Application",
           "multi": true,
-          "name": "Application",
+          "name": "application",
           "options": [],
           "query": {
             "qryType": 1,
-            "query": "label_values(applicationName)",
+            "query": "label_values(gen_ai_application_name)",
             "refId": "PrometheusVariableQueryEditor-VariableQuery"
           },
           "refresh": 1,
@@ -2319,22 +1473,22 @@ curl --request POST \
             "type": "prometheus",
             "uid": "grafanacloud-prom"
           },
-          "definition": "label_values(environment)",
+          "definition": "label_values(gen_ai_environment)",
           "hide": 0,
           "includeAll": true,
           "label": "Environment",
           "multi": true,
-          "name": "Environment",
+          "name": "environment",
           "options": [],
           "query": {
             "qryType": 1,
-            "query": "label_values(environment)",
+            "query": "label_values(gen_ai_environment)",
             "refId": "PrometheusVariableQueryEditor-VariableQuery"
           },
           "refresh": 1,
           "regex": "",
           "skipUrlSync": false,
-          "sort": 0,
+          "sort": 1,
           "type": "query"
         }
       ]
@@ -2343,11 +1497,12 @@ curl --request POST \
       "from": "now-24h",
       "to": "now"
     },
+    "timeRangeUpdatedDuringEditOrView": false,
     "timepicker": {},
-    "timezone": "",
-    "title": "Doku - LLM Monitoring",
-    "uid": "doku-llm-monitoring",
-    "version": 1,
+    "timezone": "browser",
+    "title": "GenAI Observability",
+    "uid": "cdiz9piuoa3gge",
+    "version": 21,
     "weekStart": ""
   }
     ```
@@ -2357,9 +1512,6 @@ curl --request POST \
 
 <CardGroup cols={2}>
 <Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
-Integrate your LLM Provider with Doku 
-</Card>
-<Card title="API Reference" href="/latest/api-reference/introduction" icon='code'>
-OpenAPI specification for API Endpoints in Doku 
+Start Monitoringyour LLM Application 
 </Card>
 </CardGroup>

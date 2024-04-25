@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getData } from "@/utils/api";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 export default function useClickhousePing() {
 	const [isSuccess, setIsSuccess] = useState<boolean>(false);

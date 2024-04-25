@@ -7,7 +7,7 @@ CREATE TABLE "databaseconfig" (
     "password" TEXT,
     "host" TEXT NOT NULL DEFAULT '127.0.0.1',
     "port" TEXT NOT NULL DEFAULT '8123',
-    "database" TEXT NOT NULL DEFAULT 'doku',
+    "database" TEXT NOT NULL DEFAULT 'openlit',
     "query" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,

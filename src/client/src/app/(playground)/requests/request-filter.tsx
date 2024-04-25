@@ -1,4 +1,4 @@
-import Pagination from "@/components/common/pagination";
+import RequestPagination from "@/components/(playground)/request-pagination";
 import { ceil } from "lodash";
 import Filter from "../../../components/(playground)/filter";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
@@ -27,18 +27,16 @@ export default function RequestFilter({
 	};
 
 	return (
-		<div className="flex items-center w-full">
+		<div className="flex items-center w-full justify-between">
 			<Filter />
 			{config && (
-				<div className="flex flex-grow justify-end pr-2">
-					<Pagination
-						currentPage={filter.offset / filter.limit + 1}
-						currentSize={filter.limit}
-						totalPage={ceil((config.totalRows || 0) / filter.limit)}
-						onClickPageAction={onClickPageAction}
-						onClickPageLimit={onClickPageLimit}
-					/>
-				</div>
+				<RequestPagination
+					currentPage={filter.offset / filter.limit + 1}
+					currentSize={filter.limit}
+					totalPage={ceil((config.totalRows || 0) / filter.limit)}
+					onClickPageAction={onClickPageAction}
+					onClickPageLimit={onClickPageLimit}
+				/>
 			)}
 		</div>
 	);

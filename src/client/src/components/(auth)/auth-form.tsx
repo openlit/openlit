@@ -2,10 +2,13 @@
 import { DEFAULT_LOGGED_IN_ROUTE } from "@/constants/route";
 import asaw from "@/utils/asaw";
 import { signIn } from "next-auth/react";
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const errors = {
 	AccessDenied: "Access denied for this account.",
@@ -71,69 +74,62 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 	}
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-secondary p-8">
-			<div className="z-10 w-full max-w-md overflow-hidden rounded-xl bg-tertiary text-secondary">
-				<div className="flex flex-col items-center justify-center space-y-3 px-4 py-6 pt-8 text-center">
-					<Image
-						alt="doku"
-						src="/images/doku-logo-with-name.png"
-						width={836}
-						height={298}
-					/>
-					<p className="text-sm">
-						{type === "login"
-							? "Use your email and password to sign in"
-							: "Create an account to enter"}
-					</p>
-				</div>
-				{error && <SignInError error={error as keyof typeof errors} />}
-				<form
-					action={type === "login" ? login : register}
-					className="flex flex-col space-y-4 px-4 py-8 sm:px-16"
-				>
-					<div className="flex flex-col w-full items-start">
-						<label htmlFor="email" className="block text-xs uppercase">
-							Email Address
-						</label>
-						<input
+		<div className="mx-auto grid gap-6 w-[350px] text-stone-900 dark:text-stone-100">
+			<div className="grid gap-2 text-center">
+				<h1 className="text-3xl font-bold">
+					{type === "login" ? "Login" : "Register"}
+				</h1>
+				<p className="text-balance text-muted-foreground">
+					{type === "login"
+						? "Use your email and password to sign in"
+						: "Create an account to enter"}
+				</p>
+			</div>
+			{error && <SignInError error={error as keyof typeof errors} />}
+			<form
+				action={type === "login" ? login : register}
+				className="flex flex-col space-y-4"
+			>
+				<div className="grid gap-4">
+					<div className="grid gap-2">
+						<Label htmlFor="email">Email</Label>
+						<Input
 							id="email"
 							name="email"
 							type="email"
-							placeholder="user@doku.com"
+							placeholder="user@openlit.io"
 							autoComplete="email"
 							required
-							className="mt-1 block w-full appearance-none px-3 py-2 placeholder-secondary/[0.3] focus:outline-none bg-secondary/[0.05]"
 						/>
 					</div>
-					<div className="flex flex-col w-full items-start">
-						<label htmlFor="password" className="block text-xs uppercase">
-							Password
-						</label>
-						<input
+					<div className="grid gap-2">
+						<div className="flex items-center">
+							<Label htmlFor="password">Password</Label>
+						</div>
+						<Input
 							autoComplete="current-password"
 							id="password"
 							name="password"
 							type="password"
 							placeholder="********"
 							required
-							className="mt-1 block w-full appearance-none px-3 py-2 placeholder-secondary/[0.3] focus:outline-none bg-secondary/[0.05]"
 						/>
 					</div>
-					<button type="submit" className="p-2 bg-primary text-white rounded">
+					<Button type="submit" className="w-full bg-primary dark:bg-primary text-white dark:text-white hover:dark:bg-primary">
 						{type === "login" ? "Sign in" : "Sign Up"}
-					</button>
-					<p className="text-center text-sm">
-						{type === "login"
-							? "Don't have an account? "
-							: "Already have an account?"}
-						<Link
-							href={type === "login" ? "/register" : "/login"}
-							className="font-semibold text-secondary"
-						>
-							{type === "login" ? " Sign up" : " Sign in"}
-						</Link>
-					</p>
-				</form>
+					</Button>
+				</div>
+			</form>
+			<div className="mt-4 text-center text-sm">
+				{type === "login"
+					? "Don't have an account? "
+					: "Already have an account?"}{" "}
+				<Link
+					href={type === "login" ? "/register" : "/login"}
+					className="ml-auto inline-block text-sm underline text-primary"
+				>
+					{type === "login" ? " Sign up" : " Sign in"}
+				</Link>
 			</div>
 		</div>
 	);

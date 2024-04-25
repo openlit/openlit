@@ -6,6 +6,7 @@ import { useRootStore } from "@/store";
 import { getIsUserFetched } from "@/selectors/user";
 import { fetchAndPopulateCurrentUserStore } from "@/helpers/user";
 import ClickhouseConnectivityWrapper from "@/components/(playground)/clickhouse-connectivity-wrapper";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default function PlaygroundLayout({
 	children,
@@ -19,17 +20,17 @@ export default function PlaygroundLayout({
 	}, [isFetched]);
 
 	return (
-		<div className="h-screen w-screen overflow-hidden flex bg-secondary/[.6]">
-			<Sidebar />
-			<main className="w-full h-full py-2 pr-2 overflow-hidden">
-				<div className="flex flex-col w-full h-full overflow-hidden rounded-lg bg-white/[0.9]">
+		<TooltipProvider>
+			<div className="flex h-screen w-full pl-[56px] overflow-hidden">
+				<Sidebar />
+				<div className="flex flex-col grow w-full">
 					<Header />
-					<div className="flex flex-col grow w-full h-full px-4 overflow-hidden">
+					<main className="flex flex-col grow flex-1 items-start p-4 sm:px-6 overflow-hidden">
 						<ClickhouseConnectivityWrapper />
 						{children}
-					</div>
+					</main>
 				</div>
-			</main>
-		</div>
+			</div>
+		</TooltipProvider>
 	);
 }

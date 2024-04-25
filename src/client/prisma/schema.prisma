@@ -79,7 +79,7 @@ model DatabaseConfig {
 	password        String?    
 	host            String                @default("127.0.0.1")
 	port            String                @default("8123")
-	database        String                @default("doku")
+	database        String                @default("openlit")
 	query           String?
   dbUsers         DatabaseConfigUser[]
   createdAt       DateTime              @default(now())

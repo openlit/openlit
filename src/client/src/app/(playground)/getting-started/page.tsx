@@ -1,6 +1,6 @@
 "use client";
 import CodeBlock from "@/components/common/code-block";
-import { Tab } from "@headlessui/react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function GettingStarted() {
 	const code = [
@@ -8,20 +8,22 @@ export default function GettingStarted() {
 			key: "python",
 			text: "Python",
 			component: (
-				<div className="flex flex-col border border-secondary text-sm rounded-b-lg p-3 text-tertiary">
+				<div className="flex flex-col text-sm rounded-b-lg text-stone-950 dark:text-stone-100">
 					<p>
 						Install the{" "}
 						<a
-							href="https://pypi.org/project/dokumetry/"
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+							className="text-primary italic px-1"
+							href="https://platform.openai.com/docs/introduction"
+							target="_blank"
+							rel="noopener noreferrer"
 						>
-							dokumetry
+							OpenLIT Python SDK
 						</a>{" "}
-						python sdk using pip:
+						using pip
 					</p>
 					<CodeBlock
 						className="text-xs"
-						code={`pip install dokumetry`}
+						code={`pip install openlit`}
 						language="bash"
 					/>
 					<p className="mt-2">
@@ -29,15 +31,36 @@ export default function GettingStarted() {
 					</p>
 					<CodeBlock
 						className="text-xs"
-						code={`import dokumetry
-dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")`}
+						code={`openlit.init(
+	otlp_endpoint="YOUR_OTEL_EXPORTER_OTLP_ENDPOINT"
+)`}
 						language="python"
 					/>
+					<p>
+						Alternatively, You can also choose to set these values using{" "}
+						<span className="text-primary italic px-1">
+							OTEL_EXPORTER_OTLP_ENDPOINT
+						</span>{" "}
+						environment variable
+					</p>
+					<CodeBlock
+						className="text-xs"
+						code={`openlit.init()`}
+						language="python"
+					/>
+					<CodeBlock
+						className="text-xs"
+						code={`export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_EXPORTER_OTLP_ENDPOINT"`}
+						language="python"
+					/>
+
 					<p className="mt-2">
 						Example Usage for monitoring{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
+							className="text-primary italic px-1"
 							href="https://platform.openai.com/docs/introduction"
+							target="_blank"
+							rel="noopener noreferrer"
 						>
 							OpenAI
 						</a>{" "}
@@ -46,107 +69,34 @@ dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU
 					<CodeBlock
 						className="text-xs"
 						code={`from openai import OpenAI
-import dokumetry
+import openlit
+
+openlit.init()
 
 client = OpenAI(
-    api_key="YOUR_OPENAI_KEY"
+	api_key="YOUR_OPENAI_KEY"
 )
 
-# Pass the above \`client\` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-dokumetry.init(llm=client, doku_url="YOUR_DOKU_INGESTER_URL", api_key="YOUR_DOKU_TOKEN")
-
 chat_completion = client.chat.completions.create(
-    messages=[
-        {
-            "role": "user",
-            "content": "What is LLM Observability",
-        }
-    ],
-    model="gpt-3.5-turbo",
+	messages=[
+		{
+			"role": "user",
+			"content": "What is LLM Observability",
+		}
+	],
+	model="gpt-3.5-turbo",
 )`}
 						language="python"
 					/>
 					<p className="mt-2">
 						Refer to the{" "}
 						<a
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
-							href="https://github.com/dokulabs/dokumetry-python"
+							className="text-primary italic px-1"
+							href="https://github.com/openlit/openlit/tree/main/sdk/python"
+							target="_blank"
+							rel="noopener noreferrer"
 						>
-							dokumetry python sdk
-						</a>{" "}
-						repository for more advanced configurations and use cases.
-					</p>
-				</div>
-			),
-		},
-		{
-			key: "node",
-			text: "NodeJs",
-			component: (
-				<div className="flex flex-col border border-secondary text-sm rounded-b-lg p-3 text-tertiary">
-					<p>
-						Install the{" "}
-						<a
-							href="https://www.npmjs.com/package/dokumetry"
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
-						>
-							dokumetry
-						</a>{" "}
-						nodejs sdk using npm:
-					</p>
-					<CodeBlock
-						className="text-xs"
-						code={`npm install dokumetry`}
-						language="bash"
-					/>
-					<p className="mt-2">
-						Add the following two lines to your application code:
-					</p>
-					<CodeBlock
-						className="text-xs"
-						code={`import DokuMetry from "dokumetry";
-DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"});`}
-						language="javascript"
-					/>
-					<p className="mt-2">
-						Example Usage for monitoring{" "}
-						<a
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
-							href="https://platform.openai.com/docs/introduction"
-						>
-							OpenAI
-						</a>{" "}
-						Usage:
-					</p>
-					<CodeBlock
-						className="text-xs"
-						code={`import OpenAI from "openai";
-import DokuMetry from "dokumetry";
-
-const openai = new OpenAI({
-  apiKey: "My API Key", // defaults to process.env["OPENAI_API_KEY"]
-});
-
-// Pass the above \`openai\` object along with your Doku Ingester URL and API key and this will make sure that all OpenAI calls are automatically tracked.
-DokuMetry.init({llm: openai, dokuUrl: "YOUR_DOKU_INGESTER_URL", apiKey: "YOUR_DOKU_TOKEN"})
-
-async function main() {
-  const chatCompletion = await openai.chat.completions.create({
-    messages: [{ role: "user", content: "What are the key to effective observability?" }],
-    model: "gpt-3.5-turbo",
-  });
-}
-
-main();`}
-						language="javascript"
-					/>
-					<p className="mt-2">
-						Refer to the{" "}
-						<a
-							className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
-							href="https://github.com/dokulabs/dokumetry-node"
-						>
-							dokumetry nodejs sdk
+							OpenLIT Python SDK
 						</a>{" "}
 						repository for more advanced configurations and use cases.
 					</p>
@@ -157,63 +107,40 @@ main();`}
 
 	return (
 		<div className="flex flex-col w-full flex-1 overflow-auto relative">
-			<p className="mb-5 text-sm font-medium border-l-4 border-primary p-3 text-primary bg-secondary/[0.5]">
-				Doku is an open-source observability tool engineered for Large Language
-				Models (LLMs). Designed for ease of integration into existing LLM
-				applications, Doku offers unparalleled insights into usage, performance,
-				and overhead—allowing you to analyze, optimize, and scale your AI
-				applications and LLM usage effectively.
+			<p className="mb-5 text-sm font-medium border-l-4 border-primary p-3 text-primary bg-red-50 dark:bg-red-950">
+				OpenLIT is an OpenTelemetry-native GenAI and LLM Application
+				Observability tool. It&apos;s designed to make the integration process
+				of observability into GenAI projects as easy as pie – literally, with
+				just a single line of code. Whether you&apos;re working with popular LLM
+				Libraries such as OpenAI and HuggingFace or leveraging vector databases
+				like ChromaDB, OpenLIT ensures your applications are monitored
+				seamlessly, providing critical insights to improve performance and
+				reliability.
 			</p>
-			<p className="mb-5 text-tertiary text-sm">
-				With the <span className="text-primary">dokumetry</span> SDKs for
-				<a
-					href="https://pypi.org/project/dokumetry/"
-					className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
-				>
-					Python
-				</a>{" "}
-				and{" "}
-				<a
-					href="https://www.npmjs.com/package/dokumetry"
-					className="text-primary/[0.7] hover:text-primary bg-secondary px-1"
-				>
-					NodeJS
-				</a>{" "}
-				, sending observability data to Doku is just two lines of code in your
-				application. Once integrated, the SDKs take care of capturing and
-				conveying LLM usage data directly to your Doku instance, requiring
-				minimal effort on your part.
+			<p className="mb-5 text-stone-950 dark:text-stone-100 text-sm">
+				This guide will walk you through setting up{" "}
+				<span className="text-primary">OpenTelemetry</span> Auto Instrumentation
+				for monitoring your LLM Application. In just a few steps, you’ll be able
+				to track and analyze the performance and usage of your{" "}
+				<span className="text-primary">GenAI</span> and{" "}
+				<span className="text-primary">LLM Applications</span>. In this guide,
+				we’ll show how you can send OpenTelemetry traces and metrics from your
+				LLM Applications to Grafana Cloud
 			</p>
-			<div className="w-full">
-				<Tab.Group>
-					<Tab.List className="flex space-x-1 bg-white sticky top-0 z-20">
-						{code.map((item) => (
-							<Tab
-								key={item.key}
-								className={({ selected }) =>
-									`w-auto py-2 px-3 text-sm font-medium leading-5 outline-none border-b-2 ${
-										selected
-											? "text-primary border-primary"
-											: "text-tertiary/[0.3] border-white"
-									}`
-								}
-							>
-								{item.text}
-							</Tab>
-						))}
-					</Tab.List>
-					<Tab.Panels className="w-full mt-3">
-						{code.map((item, idx) => (
-							<Tab.Panel
-								key={idx}
-								className={`rounded-xl bg-white outline-none`}
-							>
-								{item.component}
-							</Tab.Panel>
-						))}
-					</Tab.Panels>
-				</Tab.Group>
-			</div>
+			<Tabs className="w-full" defaultValue={code[0].key}>
+				{/* <TabsList>
+					{code.map((item) => (
+						<TabsTrigger key={item.key} value={item.key}>
+							{item.text}
+						</TabsTrigger>
+					))}
+				</TabsList> */}
+				{code.map((item) => (
+					<TabsContent key={item.key} value={item.key} className="w-full">
+						{item.component}
+					</TabsContent>
+				))}
+			</Tabs>
 		</div>
 	);
 }

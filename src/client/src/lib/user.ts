@@ -1,8 +1,8 @@
+import { compare, genSaltSync, hashSync } from "bcrypt-ts";
 import prisma from "./prisma";
 import asaw from "@/utils/asaw";
 import { getCurrentUser } from "./session";
 import { User } from "@prisma/client";
-import { getHashedPassword, doesPasswordMatches } from "@/utils/user";
 
 function exclude<User extends Record<string, unknown>, K extends keyof User>(
 	user: User,
@@ -134,4 +134,17 @@ export const updateUserProfile = async ({
 		data: updatedUserObject,
 		where: { id: user.id },
 	});
+};
+
+const getHashedPassword = (password: string): string => {
+	const salt = genSaltSync(10);
+	const hash = hashSync(password, salt);
+	return hash;
+};
+
+export const doesPasswordMatches = async (
+	password: string,
+	userPassword: string
+): Promise<boolean> => {
+	return await compare(password, userPassword);
 };
