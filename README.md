@@ -31,7 +31,14 @@ LIT stands for Learning Interpretability Tool. It refers to a visual, interactiv
 
 ## 🚀 Getting Started
 
-## Step 1: Install OpenLIT SDK
+## Step 1: Deploy OpenLIT
+
+From the root directory of the this Repo, Run the below command:
+```shell
+docker-compose up -d
+```
+
+## Step 2: Install OpenLIT SDK
 
 ```bash
 pip install openlit
@@ -43,10 +50,12 @@ Integrating the OpenLIT into LLM applications is straightforward. Start monitori
 ```python
 import openlit
 
-openlit.init()
+openlit.init(otlp_endpoint="http://127.0.0.1:4318")
 ```
 
-By default, OpenLIT directs traces and metrics straight to your console. To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
+To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
+
+> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, The SDK directs the trace directly to your console, which can be useful during development.
 
 To send telemetry to OpenTelemetry backends requiring authentication, set the `otlp_headers` parameter with its desired value. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as recommended in the OpenTelemetry documentation.
 
@@ -73,19 +82,12 @@ export OTEL_EXPORTER_OTLP_HEADERS = "Authorization=Basic%20<base64 encoded Insta
 ```
 
 ### Step 3: Visualize and Optimize!
-With the LLM Observability data now being collected and sent to your chosen OpenTelemetry backend, the next step is to visualize and analyze this data to glean insights into your application's performance, behavior, and identify areas of improvement. Here is how you would use the data in Grafana, follow these detailed instructions to explore your LLM application's Telemetry data.
+With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
 
-   - Select the **Explore** option from Grafana's sidebar.
-   - At the top, ensure the correct Tempo data source is selected from the dropdown menu.
-   - Use the **Query** field to specify any particular traces you are interested in, or leave it empty to browse through all the available traces.
-   - You can adjust the time range to focus on specific periods of interest.
-   - Hit **Run Query** to fetch your trace data. You'll see a visual representation of your traces along with detailed information on particular spans when clicked.
+Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start exploring.
 
-#### Next Steps
-
-- **Create Dashboards:** Beyond just exploring traces, consider creating dashboards in Grafana to monitor key performance indicators (KPIs) and metrics over time. Dashboards can be customized with various panels to display graphs, logs, and single stats that are most relevant to your application's performance and usage patterns.
-- **Set Alerts:** Grafana also allows you to set up alerts based on specific thresholds. This feature can be invaluable in proactively managing your application's health by notifying you of potential issues before they impact users.
-- **Iterate and Optimize:** Use the insights gained from your observability data to make informed decisions on optimizing your LLM application. This might involve refining model parameters, adjusting scaling strategies, or identifying and resolving bottlenecks.
+![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
+![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-2.png?raw=true)
 
 ## 🌱 Contributing
 
