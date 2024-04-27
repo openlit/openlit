@@ -59,54 +59,6 @@
         "tts-1-hd": 0.030
     },
     "chat": {
-        "ada": {
-            "promptPrice": 0.0004,
-            "completionPrice": 0.0004
-        },
-        "text-ada-001": {
-            "promptPrice": 0.0004,
-            "completionPrice": 0.0004
-        },
-        "babbage": {
-            "promptPrice": 0.0005,
-            "completionPrice": 0.0005
-        },
-        "babbage-002": {
-            "promptPrice": 0.0004,
-            "completionPrice": 0.0004
-        },
-        "text-babbage-001": {
-            "promptPrice": 0.0005,
-            "completionPrice": 0.0005
-        },
-        "curie": {
-            "promptPrice": 0.0020,
-            "completionPrice": 0.0020
-        },
-        "text-curie-001": {
-            "promptPrice": 0.0020,
-            "completionPrice": 0.0020
-        },
-        "davinci": {
-            "promptPrice": 0.0200,
-            "completionPrice": 0.0200
-        },
-        "davinci-002": {
-            "promptPrice": 0.0020,
-            "completionPrice": 0.0020
-        },
-        "text-davinci-001": {
-            "promptPrice": 0.0200,
-            "completionPrice": 0.0200
-        },
-        "text-davinci-002": {
-            "promptPrice": 0.0200,
-            "completionPrice": 0.0200
-        },
-        "text-davinci-003": {
-            "promptPrice": 0.0200,
-            "completionPrice": 0.0200
-        },
         "gpt-3.5-turbo": {
             "promptPrice": 0.0005,
             "completionPrice": 0.0015
@@ -134,6 +86,10 @@
         "gpt-4": {
             "promptPrice": 0.03,
             "completionPrice": 0.06
+        },
+        "gpt-4-turbo": {
+            "promptPrice": 0.01,
+            "completionPrice": 0.03
         },
         "gpt-4-32k": {
             "promptPrice": 0.06,
