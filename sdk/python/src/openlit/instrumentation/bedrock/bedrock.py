@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, protected-access
 """
 Module for monitoring Anthropic API calls.
 """
@@ -12,8 +12,6 @@ from botocore.exceptions import (
 )
 from urllib3.exceptions import ProtocolError as URLLib3ProtocolError
 from urllib3.exceptions import ReadTimeoutError as URLLib3ReadTimeoutError
-import io
-from typing import IO, Any, Callable, Collection, Dict, Optional, Tuple, TypeVar, cast
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import get_chat_model_cost, handle_exception, general_tokens
@@ -23,7 +21,6 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 class ReusableStreamingBody(StreamingBody):
-    """Wrapper around StreamingBody that allows the body to be read multiple times."""
 
     def __init__(self, raw_stream, content_length):
         super().__init__(raw_stream, content_length)
@@ -31,24 +28,16 @@ class ReusableStreamingBody(StreamingBody):
         self._buffer_cursor = 0
 
     def read(self, amt=None):
-        """Read at most amt bytes from the stream.
-
-        If the amt argument is omitted, read all data.
-        """
         if self._buffer is None:
             try:
                 self._buffer = self._raw_stream.read()
             except URLLib3ReadTimeoutError as e:
-                # TODO: the url will be None as urllib3 isn't setting it yet
                 raise ReadTimeoutError(endpoint_url=e.url, error=e)
             except URLLib3ProtocolError as e:
                 raise ResponseStreamingError(error=e)
 
             self._amount_read += len(self._buffer)
             if amt is None or (not self._buffer and amt > 0):
-                # If the server sends empty contents or
-                # we ask to read all of the contents, then we know
-                # we need to verify the content length.
                 self._verify_content_length()
 
         if amt is None:
@@ -114,11 +103,11 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
 
                     modelId = method_kwargs.get("modelId", "amazon.titan-text-express-v1")
                     if "stability" in modelId or "image" in modelId:
-                        type = "image"
+                        generation = "image"
                         span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
                                         SemanticConvetion.GEN_AI_TYPE_IMAGE)
                     else:
-                        type = "chat"
+                        generation = "chat"
                         span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
                                         SemanticConvetion.GEN_AI_TYPE_CHAT)
 
@@ -133,7 +122,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         modelId)
-                    if type == "chat":
+                    if generation == "chat":
                         if "amazon" in modelId:
                             span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                                response_body["inputTextTokenCount"])
@@ -144,7 +133,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                                response_body["inputTextTokenCount"])
                             span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                                response_body["results"][0]["completionReason"])
-                            
+
                             # Calculate cost of the operation
                             cost = get_chat_model_cost(modelId,
                                                     pricing_info, response_body["inputTextTokenCount"],
@@ -181,6 +170,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                                 request_body["prompt"])
                                 span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                                 response_body["outputs"][0]["text"])
+                    
+                    span.set_status(Status(StatusCode.OK))
 
                     return response
 
