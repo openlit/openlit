@@ -1,6 +1,6 @@
 # pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, protected-access
 """
-Module for monitoring Anthropic API calls.
+Module for monitoring Amazon Bedrock API calls.
 """
 
 import logging
