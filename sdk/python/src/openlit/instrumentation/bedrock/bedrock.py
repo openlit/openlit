@@ -20,32 +20,35 @@ from openlit.semcov import SemanticConvetion
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-class ReusableStreamingBody(StreamingBody):
-    """Get Streaming response"""
+class CustomStreamWrapper(StreamingBody):
+    """Handle streaming responses with the ability to read multiple times."""
 
-    def __init__(self, raw_stream, content_length):
-        super().__init__(raw_stream, content_length)
-        self._buffer = None
-        self._buffer_cursor = 0
+    def __init__(self, stream_source, length):
+        super().__init__(stream_source, length)
+        self._stream_data = None
+        self._read_position = 0
 
-    def read(self, amt=None):
-        if self._buffer is None:
+    def read(self, amount=None):
+        if self._stream_data is None:
             try:
-                self._buffer = self._raw_stream.read()
-            except URLLib3ReadTimeoutError as e:
-                raise ReadTimeoutError(endpoint_url=e.url, error=e)
-            except URLLib3ProtocolError as e:
-                raise ResponseStreamingError(error=e)
+                self._stream_data = self._raw_stream.read()
+            except URLLib3ReadTimeoutError as error:
+                raise ReadTimeoutError(endpoint_url=error.url, error=error)
+            except URLLib3ProtocolError as error:
+                raise ResponseStreamingError(error=error)
 
-            self._amount_read += len(self._buffer)
-            if amt is None or (not self._buffer and amt > 0):
+            self._amount_read += len(self._stream_data)
+            if amount is None or (not self._stream_data and amount > 0):
                 self._verify_content_length()
 
-        if amt is None:
-            return self._buffer[self._buffer_cursor:]
+        if amount is None:
+            data_chunk = self._stream_data[self._read_position:]
         else:
-            self._buffer_cursor += amt
-            return self._buffer[self._buffer_cursor-amt:self._buffer_cursor]
+            data_start = self._read_position
+            self._read_position += amount
+            data_chunk = self._stream_data[data_start:self._read_position]
+
+        return data_chunk
 
 
 def chat(gen_ai_endpoint, version, environment, application_name, tracer,
@@ -292,7 +295,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
 
                 try:
                     # Modify the response body to be reusable
-                    response["body"] = ReusableStreamingBody(
+                    response["body"] = CustomStreamWrapper(
                         response["body"]._raw_stream, response["body"]._content_length
                     )
                     request_body = json.loads(method_kwargs.get("body"))
