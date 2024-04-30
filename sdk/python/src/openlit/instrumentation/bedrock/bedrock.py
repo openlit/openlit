@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, protected-access
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, protected-access, too-many-branches
 """
 Module for monitoring Amazon Bedrock API calls.
 """
@@ -21,6 +21,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 class ReusableStreamingBody(StreamingBody):
+    """Get Streaming response"""
 
     def __init__(self, raw_stream, content_length):
         super().__init__(raw_stream, content_length)
@@ -79,10 +80,10 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
             Response from the original method.
         """
 
-        def handle_chat(span, modelId, request_body, response_body):
+        def handle_chat(span, model, request_body, response_body):
             prompt_tokens, completion_tokens, cost = 0, 0, 0
 
-            if "amazon" in modelId:
+            if "amazon" in model:
                 prompt_tokens = response_body["inputTextTokenCount"]
                 completion_tokens = response_body["results"][0]["tokenCount"]
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -96,7 +97,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     response_body["results"][0]["completionReason"])
 
                 # Calculate cost of the operation
-                cost = get_chat_model_cost(modelId,
+                cost = get_chat_model_cost(model,
                                         pricing_info, prompt_tokens,
                                         completion_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
@@ -108,7 +109,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                     response_body["results"][0]["outputText"])
 
-            elif "mistral" in modelId:
+            elif "mistral" in model:
                 prompt_tokens = general_tokens(request_body["prompt"])
                 completion_tokens = general_tokens(response_body["outputs"][0]["text"])
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -120,7 +121,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                     response_body["outputs"][0]["stop_reason"])
                 # Calculate cost of the operation
-                cost = get_chat_model_cost(modelId,
+                cost = get_chat_model_cost(model,
                                         pricing_info, prompt_tokens,
                                         completion_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
@@ -131,8 +132,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     request_body["prompt"])
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                     response_body["outputs"][0]["text"])
-            
-            elif "anthropic" in modelId:
+
+            elif "anthropic" in model:
                 prompt_tokens = response_body["usage"]["input_tokens"]
                 completion_tokens = response_body["usage"]["output_tokens"]
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -146,7 +147,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     response_body["stop_reason"])
 
                 # Calculate cost of the operation
-                cost = get_chat_model_cost(modelId,
+                cost = get_chat_model_cost(model,
                                         pricing_info, prompt_tokens,
                                         completion_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
@@ -176,7 +177,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
 
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                     response_body["content"][0]["text"])
-            elif "meta" in modelId:
+            elif "meta" in model:
                 prompt_tokens = response_body["prompt_token_count"]
                 completion_tokens = response_body["generation_token_count"]
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -190,7 +191,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     response_body["stop_reason"])
 
                 # Calculate cost of the operation
-                cost = get_chat_model_cost(modelId,
+                cost = get_chat_model_cost(model,
                                         pricing_info, prompt_tokens,
                                         completion_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
@@ -201,8 +202,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     request_body["prompt"])
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                     response_body["generation"])
-            
-            elif "cohere" in modelId and "command-r" not in modelId:
+
+            elif "cohere" in model and "command-r" not in model:
                 prompt_tokens = general_tokens(request_body["prompt"])
                 completion_tokens = general_tokens(response_body["generations"][0]["text"])
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -214,7 +215,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                     response_body["generations"][0]["finish_reason"])
                 # Calculate cost of the operation
-                cost = get_chat_model_cost(modelId,
+                cost = get_chat_model_cost(model,
                                         pricing_info, prompt_tokens,
                                         completion_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
@@ -225,7 +226,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     request_body["prompt"])
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
                                     response_body["generations"][0]["text"])
-            elif "ai21" in modelId:
+            elif "ai21" in model:
                 prompt_tokens = general_tokens(request_body["prompt"])
                 completion_tokens = general_tokens(response_body["completions"][0]["data"]["text"])
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -237,7 +238,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                     response_body["completions"][0]["finishReason"]["reason"])
                 # Calculate cost of the operation
-                cost = get_chat_model_cost(modelId,
+                cost = get_chat_model_cost(model,
                                         pricing_info, prompt_tokens,
                                         completion_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
@@ -264,7 +265,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     SemanticConvetion.GEN_AI_TYPE:
                         SemanticConvetion.GEN_AI_TYPE_CHAT,
                     SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                        modelId
+                        model
                 }
 
                 metrics["genai_requests"].add(1, attributes)
@@ -297,8 +298,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     request_body = json.loads(method_kwargs.get("body"))
                     response_body = json.loads(response.get("body").read())
 
-                    modelId = method_kwargs.get("modelId", "amazon.titan-text-express-v1")
-                    if "stability" in modelId or "image" in modelId:
+                    model = method_kwargs.get("modelId", "amazon.titan-text-express-v1")
+                    if "stability" in model or "image" in model:
                         generation = "image"
                         span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
                                         SemanticConvetion.GEN_AI_TYPE_IMAGE)
@@ -317,9 +318,9 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                        modelId)
+                                        model)
                     if generation == "chat":
-                        handle_chat(span, modelId, request_body, response_body)
+                        handle_chat(span, model, request_body, response_body)
 
                     return response
 
@@ -335,7 +336,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
 
         # Replace the original method with the instrumented one
         original_invoke_model = client.invoke_model
-        client.invoke_model = lambda *args, **kwargs: add_instrumentation(original_invoke_model, *args, **kwargs)
+        client.invoke_model = lambda *args, **kwargs: add_instrumentation(original_invoke_model,
+                                                                          *args, **kwargs)
 
         return client
 
