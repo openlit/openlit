@@ -6,10 +6,7 @@ Module for monitoring Amazon Bedrock API calls.
 import logging
 import json
 from botocore.response import StreamingBody
-from botocore.exceptions import (
-    ReadTimeoutError,
-    ResponseStreamingError,
-)
+from botocore.exceptions import ReadTimeoutError, ResponseStreamingError
 from urllib3.exceptions import ProtocolError as URLLib3ProtocolError
 from urllib3.exceptions import ReadTimeoutError as URLLib3ReadTimeoutError
 from opentelemetry.trace import SpanKind, Status, StatusCode
@@ -28,24 +25,24 @@ class CustomStreamWrapper(StreamingBody):
         self._stream_data = None
         self._read_position = 0
 
-    def read(self, amount=None):
+    def read(self, amt=None): 
         if self._stream_data is None:
             try:
                 self._stream_data = self._raw_stream.read()
             except URLLib3ReadTimeoutError as error:
-                raise ReadTimeoutError(endpoint_url=error.url, error=error)
+                raise ReadTimeoutError(endpoint_url=error.url, error=error) from error
             except URLLib3ProtocolError as error:
-                raise ResponseStreamingError(error=error)
+                raise ResponseStreamingError(error=error) from error
 
             self._amount_read += len(self._stream_data)
-            if amount is None or (not self._stream_data and amount > 0):
+            if amt is None or (not self._stream_data and amt > 0):
                 self._verify_content_length()
 
-        if amount is None:
+        if amt is None:
             data_chunk = self._stream_data[self._read_position:]
         else:
             data_start = self._read_position
-            self._read_position += amount
+            self._read_position += amt
             data_chunk = self._stream_data[data_start:self._read_position]
 
         return data_chunk
