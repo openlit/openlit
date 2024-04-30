@@ -25,7 +25,7 @@ class CustomStreamWrapper(StreamingBody):
         self._stream_data = None
         self._read_position = 0
 
-    def read(self, amt=None): 
+    def read(self, amt=None):
         if self._stream_data is None:
             try:
                 self._stream_data = self._raw_stream.read()
