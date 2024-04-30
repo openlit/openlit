@@ -190,6 +190,54 @@
         "mistral.mistral-large-2402-v1:0": {
             "promptPrice": 0.008,
             "completionPrice": 0.024
+        },
+        "anthropic.claude-3-haiku-20240307-v1:0": {
+            "promptPrice": 0.00025,
+            "completionPrice": 0.00125
+        },
+        "anthropic.claude-v2": {
+            "promptPrice": 0.008,
+            "completionPrice": 0.024
+        },
+        "anthropic.claude-3-sonnet-20240229-v1:0": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.015
+        },
+        "anthropic.claude-3-opus-20240229-v1:0": {
+            "promptPrice": 0.015,
+            "completionPrice": 0.075
+        },
+        "meta.llama3-8b-instruct-v1:0": {
+            "promptPrice": 0.0004,
+            "completionPrice": 0.0006
+        },
+        "meta.llama3-70b-instruct-v1:0": {
+            "promptPrice": 0.00265,
+            "completionPrice": 0.0035
+        },
+        "meta.llama2-13b-chat-v1": {
+            "promptPrice": 0.00075,
+            "completionPrice": 0.001
+        },
+        "meta.llama2-70b-chat-v1": {
+            "promptPrice": 0.00195,
+            "completionPrice": 0.00256
+        },
+        "cohere.command-text-v14": {
+            "promptPrice": 0.0015,
+            "completionPrice": 0.0020
+        },
+        "cohere.command-light-text-v14": {
+            "promptPrice": 0.0003,
+            "completionPrice": 0.0006
+        },
+        "ai21.j2-mid-v1": {
+            "promptPrice": 0.0125,
+            "completionPrice": 0.0125
+        },
+        "ai21.j2-ultra-v1": {
+            "promptPrice": 0.0188,
+            "completionPrice": 0.0188
         }
     }
 }

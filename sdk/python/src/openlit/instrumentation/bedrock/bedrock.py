@@ -79,6 +79,202 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
             Response from the original method.
         """
 
+        def handle_chat(span, modelId, request_body, response_body):
+            prompt_tokens, completion_tokens, cost = 0, 0, 0
+
+            if "amazon" in modelId:
+                prompt_tokens = response_body["inputTextTokenCount"]
+                completion_tokens = response_body["results"][0]["tokenCount"]
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                    completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    completion_tokens +
+                                    prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                                    response_body["results"][0]["completionReason"])
+
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(modelId,
+                                        pricing_info, prompt_tokens,
+                                        completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                            cost)
+
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                    request_body["inputText"])
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                    response_body["results"][0]["outputText"])
+
+            elif "mistral" in modelId:
+                prompt_tokens = general_tokens(request_body["prompt"])
+                completion_tokens = general_tokens(response_body["outputs"][0]["text"])
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                prompt_tokens + completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                                    response_body["outputs"][0]["stop_reason"])
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(modelId,
+                                        pricing_info, prompt_tokens,
+                                        completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                            cost)
+
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                    request_body["prompt"])
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                    response_body["outputs"][0]["text"])
+            
+            elif "anthropic" in modelId:
+                prompt_tokens = response_body["usage"]["input_tokens"]
+                completion_tokens = response_body["usage"]["output_tokens"]
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                    completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    completion_tokens +
+                                    prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                                    response_body["stop_reason"])
+
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(modelId,
+                                        pricing_info, prompt_tokens,
+                                        completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                            cost)
+
+                if trace_content:
+                    # Format 'messages' into a single string
+                    message_prompt = request_body["messages"]
+                    formatted_messages = []
+                    for message in message_prompt:
+                        role = message["role"]
+                        content = message["content"]
+
+                        if isinstance(content, list):
+                            content_str = ", ".join(
+                                # pylint: disable=line-too-long
+                                f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
+                                if "type" in item else f'text: {item["text"]}'
+                                for item in content
+                            )
+                            formatted_messages.append(f"{role}: {content_str}")
+                        else:
+                            formatted_messages.append(f"{role}: {content}")
+                    prompt = "\n".join(formatted_messages)
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                    prompt)
+
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                    response_body["content"][0]["text"])
+            elif "meta" in modelId:
+                prompt_tokens = response_body["prompt_token_count"]
+                completion_tokens = response_body["generation_token_count"]
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                    completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    completion_tokens +
+                                    prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                                    response_body["stop_reason"])
+
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(modelId,
+                                        pricing_info, prompt_tokens,
+                                        completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                            cost)
+
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                    request_body["prompt"])
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                    response_body["generation"])
+            
+            elif "cohere" in modelId and "command-r" not in modelId:
+                prompt_tokens = general_tokens(request_body["prompt"])
+                completion_tokens = general_tokens(response_body["generations"][0]["text"])
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                prompt_tokens + completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                                    response_body["generations"][0]["finish_reason"])
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(modelId,
+                                        pricing_info, prompt_tokens,
+                                        completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                            cost)
+
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                    request_body["prompt"])
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                    response_body["generations"][0]["text"])
+            elif "ai21" in modelId:
+                prompt_tokens = general_tokens(request_body["prompt"])
+                completion_tokens = general_tokens(response_body["completions"][0]["data"]["text"])
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                prompt_tokens + completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                                    response_body["completions"][0]["finishReason"]["reason"])
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(modelId,
+                                        pricing_info, prompt_tokens,
+                                        completion_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                            cost)
+
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                    request_body["prompt"])
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                    response_body["completions"][0]["data"]["text"])
+
+            span.set_status(Status(StatusCode.OK))
+
+            if disable_metrics is False:
+                attributes = {
+                    TELEMETRY_SDK_NAME:
+                        "openlit",
+                    SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                        application_name,
+                    SemanticConvetion.GEN_AI_SYSTEM:
+                        SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
+                    SemanticConvetion.GEN_AI_ENVIRONMENT:
+                        environment,
+                    SemanticConvetion.GEN_AI_TYPE:
+                        SemanticConvetion.GEN_AI_TYPE_CHAT,
+                    SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                        modelId
+                }
+
+                metrics["genai_requests"].add(1, attributes)
+                metrics["genai_total_tokens"].add(
+                    prompt_tokens + completion_tokens, attributes
+                )
+                metrics["genai_completion_tokens"].add(completion_tokens, attributes)
+                metrics["genai_prompt_tokens"].add(prompt_tokens, attributes)
+                metrics["genai_cost"].record(cost, attributes)
+
         def add_instrumentation(original_method, *method_args, **method_kwargs):
             """
             Adds instrumentation to the invoke model call.
@@ -123,55 +319,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         modelId)
                     if generation == "chat":
-                        if "amazon" in modelId:
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                               response_body["inputTextTokenCount"])
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                               response_body["results"][0]["tokenCount"])
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                               response_body["results"][0]["tokenCount"] +
-                                               response_body["inputTextTokenCount"])
-                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                               response_body["results"][0]["completionReason"])
-
-                            # Calculate cost of the operation
-                            cost = get_chat_model_cost(modelId,
-                                                    pricing_info, response_body["inputTextTokenCount"],
-                                                    response_body["results"][0]["tokenCount"])
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                        cost)
-
-                            if trace_content:
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                                request_body["inputText"])
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                response_body["results"][0]["outputText"])
-
-                        if "mistral" in modelId:
-                            prompt_tokens = general_tokens(request_body["prompt"])
-                            completion_tokens = general_tokens(response_body["outputs"][0]["text"])
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                            prompt_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                            completion_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                            prompt_tokens + completion_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                                response_body["outputs"][0]["stop_reason"])
-                            # Calculate cost of the operation
-                            cost = get_chat_model_cost(modelId,
-                                                    pricing_info, prompt_tokens,
-                                                    completion_tokens)
-                            span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                        cost)
-
-                            if trace_content:
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                                request_body["prompt"])
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                response_body["outputs"][0]["text"])
-                    
-                    span.set_status(Status(StatusCode.OK))
+                        handle_chat(span, modelId, request_body, response_body)
 
                     return response
 
