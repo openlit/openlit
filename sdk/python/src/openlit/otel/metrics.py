@@ -72,7 +72,7 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
         metrics_dict = {
             "genai_requests": meter.create_counter(
                 name=SemanticConvetion.GEN_AI_REQUESTS,
-                description="Number of requests to OpenAI",
+                description="Number of requests to GenAI",
                 unit="1",
             ),
             "genai_prompt_tokens": meter.create_counter(
@@ -92,7 +92,7 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
             ),
             "genai_cost": meter.create_histogram(
                 name=SemanticConvetion.GEN_AI_USAGE_COST,
-                description="The distribution of OpenAI request costs.",
+                description="The distribution of GenAI request costs.",
                 unit="USD",
             ),
             "db_requests": meter.create_counter(
