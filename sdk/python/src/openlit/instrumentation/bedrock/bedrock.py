@@ -11,7 +11,7 @@ from urllib3.exceptions import ProtocolError as URLLib3ProtocolError
 from urllib3.exceptions import ReadTimeoutError as URLLib3ReadTimeoutError
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import get_chat_model_cost, handle_exception, general_tokens
+from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, get_image_model_cost, handle_exception, general_tokens
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -57,9 +57,9 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
         gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: The monitoring package version.
         environment: Deployment environment (e.g. production, staging).
-        application_name: Name of the application using the OpenAI API.
+        application_name: Name of the application using the Bedrock API.
         tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information for calculating OpenAI usage cost.
+        pricing_info: Information for calculating Bedrock usage cost.
         trace_content: Whether to trace the actual content.
         metrics: Metrics collector.
         disable_metrics: Flag to toggle metrics collection.
@@ -79,6 +79,88 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
         Returns:
             Response from the original method.
         """
+        def handle_image(span, model, request_body, response_body):
+            cost = 0
+            if "amazon" in model:
+                size =  str(request_body.get("imageGenerationConfig", {}).get("width", 1024)) + "x" + str(request_body.get("imageGenerationConfig", {}).get("height", 1024))
+                quality = request_body.get("imageGenerationConfig", {}).get("quality", "standard")
+                n = request_body.get("imageGenerationConfig", {}).get("numberOfImages", 1)
+
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
+                                   size)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY,
+                                   quality)
+                # Calculate cost of the operation
+                cost = n * get_image_model_cost(model,
+                                        pricing_info, size, quality)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                            cost)
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                        request_body.get("textToImageParams")["text"])
+
+            span.set_status(Status(StatusCode.OK))
+
+            if disable_metrics is False:
+                attributes = {
+                    TELEMETRY_SDK_NAME:
+                        "openlit",
+                    SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                        application_name,
+                    SemanticConvetion.GEN_AI_SYSTEM:
+                        SemanticConvetion.GEN_AI_SYSTEM_BEDROCK,
+                    SemanticConvetion.GEN_AI_ENVIRONMENT:
+                        environment,
+                    SemanticConvetion.GEN_AI_TYPE:
+                        SemanticConvetion.GEN_AI_TYPE_IMAGE,
+                    SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                        model
+                }
+
+                metrics["genai_requests"].add(1, attributes)
+                metrics["genai_cost"].record(cost, attributes)
+
+        def handle_embed(span, model, request_body, response_body):
+            prompt_tokens, cost = 0, 0
+            if "amazon" in model:
+                prompt_tokens = response_body["inputTextTokenCount"]
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                   prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                   prompt_tokens)
+                # Calculate cost of the operation
+                cost = get_embed_model_cost(model,
+                                        pricing_info, prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                            cost)
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                        request_body["inputText"])
+
+            span.set_status(Status(StatusCode.OK))
+
+            if disable_metrics is False:
+                attributes = {
+                    TELEMETRY_SDK_NAME:
+                        "openlit",
+                    SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                        application_name,
+                    SemanticConvetion.GEN_AI_SYSTEM:
+                        SemanticConvetion.GEN_AI_SYSTEM_BEDROCK,
+                    SemanticConvetion.GEN_AI_ENVIRONMENT:
+                        environment,
+                    SemanticConvetion.GEN_AI_TYPE:
+                        SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                    SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                        model
+                }
+
+                metrics["genai_requests"].add(1, attributes)
+                metrics["genai_total_tokens"].add(
+                    prompt_tokens, attributes
+                )
+                metrics["genai_prompt_tokens"].add(prompt_tokens, attributes)
+                metrics["genai_cost"].record(cost, attributes)
 
         def handle_chat(span, model, request_body, response_body):
             prompt_tokens, completion_tokens, cost = 0, 0, 0
@@ -97,7 +179,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     response_body["results"][0]["completionReason"])
 
                 # Calculate cost of the operation
-                cost = get_chat_model_cost(model,
+                cost = get_embed_model_cost(model,
                                         pricing_info, prompt_tokens,
                                         completion_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
@@ -259,7 +341,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     SemanticConvetion.GEN_AI_APPLICATION_NAME:
                         application_name,
                     SemanticConvetion.GEN_AI_SYSTEM:
-                        SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
+                        SemanticConvetion.GEN_AI_SYSTEM_BEDROCK,
                     SemanticConvetion.GEN_AI_ENVIRONMENT:
                         environment,
                     SemanticConvetion.GEN_AI_TYPE:
@@ -299,10 +381,14 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                     response_body = json.loads(response.get("body").read())
 
                     model = method_kwargs.get("modelId", "amazon.titan-text-express-v1")
-                    if "stability" in model or "image" in model:
+                    if ("stability" in model or "image" in model) and "embed-image" not in model:
                         generation = "image"
                         span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
                                         SemanticConvetion.GEN_AI_TYPE_IMAGE)
+                    elif "embed" in model and "embed-image" not in model:
+                        generation = "embeddings"
+                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                        SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
                     else:
                         generation = "chat"
                         span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
@@ -321,6 +407,10 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                         model)
                     if generation == "chat":
                         handle_chat(span, model, request_body, response_body)
+                    elif generation == "embeddings":
+                        handle_embed(span, model, request_body, response_body)
+                    elif generation == "image":
+                        handle_image(span, model, request_body, response_body)
 
                     return response
 

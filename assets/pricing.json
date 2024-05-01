@@ -19,7 +19,9 @@
         "embed-english-v2.0": 0.0001,
         "embed-english-light-v2.0": 0.0001,
         "embed-multilingual-v2.0": 0.0001,
-        "mistral-embed": 0.0001
+        "mistral-embed": 0.0001,
+        "amazon.titan-embed-text-v1": 0.0001,
+        "amazon.titan-embed-text-v2": 0.00002
     },
     "images": {
         "dall-e-3": {
@@ -51,6 +53,16 @@
                 "1024x1024": 0.020,
                 "512x512": 0.018,
                 "256x256": 0.016
+            }
+        },
+        "amazon.titan-image-generator-v1": {
+            "standard": {
+                "512x512": 0.008,
+                "1024x1024": 0.01
+            },
+            "premium": {
+                "512x512": 0.01,
+                "1024x1024": 0.012
             }
         }
     },
