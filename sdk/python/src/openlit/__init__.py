@@ -17,6 +17,7 @@ from openlit.instrumentation.openai import OpenAIInstrumentor
 from openlit.instrumentation.anthropic import AnthropicInstrumentor
 from openlit.instrumentation.cohere import CohereInstrumentor
 from openlit.instrumentation.mistral import MistralInstrumentor
+from openlit.instrumentation.bedrock import BedrockInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
@@ -145,7 +146,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "openai": "openai",
         "anthropic": "anthropic",  
         "cohere": "cohere",  
-        "mistral": "mistralai",  
+        "mistral": "mistralai",
+        "bedrock": "boto3",
         "langchain": "langchain",
         "chroma": "chromadb",
         "pinecone": "pincone",
@@ -192,6 +194,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "anthropic": AnthropicInstrumentor(),
             "cohere": CohereInstrumentor(),
             "mistral": MistralInstrumentor(),
+            "bedrock": BedrockInstrumentor(),
             "langchain": LangChainInstrumentor(),
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),
