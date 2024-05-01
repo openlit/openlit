@@ -11,7 +11,8 @@ from urllib3.exceptions import ProtocolError as URLLib3ProtocolError
 from urllib3.exceptions import ReadTimeoutError as URLLib3ReadTimeoutError
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, get_image_model_cost, handle_exception, general_tokens
+from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, get_image_model_cost
+from openlit.__helpers import handle_exception, general_tokens
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -82,6 +83,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
         def handle_image(span, model, request_body, response_body):
             cost = 0
             if "amazon" in model:
+                # pylint: disable=line-too-long
                 size =  str(request_body.get("imageGenerationConfig", {}).get("width", 1024)) + "x" + str(request_body.get("imageGenerationConfig", {}).get("height", 1024))
                 quality = request_body.get("imageGenerationConfig", {}).get("quality", "standard")
                 n = request_body.get("imageGenerationConfig", {}).get("numberOfImages", 1)
@@ -179,7 +181,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     response_body["results"][0]["completionReason"])
 
                 # Calculate cost of the operation
-                cost = get_embed_model_cost(model,
+                cost = get_chat_model_cost(model,
                                         pricing_info, prompt_tokens,
                                         completion_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
