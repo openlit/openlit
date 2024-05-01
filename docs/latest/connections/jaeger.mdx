@@ -1,0 +1,16 @@
+---
+title: 'Jaeger'
+description: 'LLM Observability with Jaeger and OpenLIT'
+---
+
+To send OpenTelemetry data collected by OpenLIt from your LLM Application, You need to set the `otlp_endpoint` and `otlp_headers` arguments according to your needs.
+
+```python
+import openlit
+
+openlit.init(otlp_endpoint="otlp_backend_endpoint", otlp_headers="otlp_backend_token")
+```
+
+Alternatively, you can configure the OTLP endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` and the OTLP headers by setting the Appli`OTEL_EXPORTER_OTLP_HEADERS` environmentcation variable as recommended in the OpenTelemetry documentation.
+
+Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
