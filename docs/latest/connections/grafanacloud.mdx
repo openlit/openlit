@@ -49,7 +49,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
       openlit.init()
       ```
 
-      Run the following command to configure the OTEL export endpoint:
+      Run the following command to configure the OTEL endpoint and headers to send metrics and traces to Grafana Cloud:
       ```shell
       export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_GRAFANA_OTEL_GATEWAY_URL"
       export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_GRAFANA_OTEL_GATEWAY_AUTH"
