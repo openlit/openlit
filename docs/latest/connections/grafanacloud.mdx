@@ -3,21 +3,128 @@ title: 'Grafana Cloud'
 description: 'LLM Observability with Grafana Cloud and OpenLIT'
 ---
 
-To send OpenTelemetry data collected by OpenLIt from your LLM Application, You need to set the `otlp_endpoint` and `otlp_headers` arguments according to your needs.
+<Frame>
+  <img src="/images/grafana-dashboard-1.png" />
+  <img src="/images/grafana-dashboard-2.png" />
+</Frame>
+<Frame>
+  <img src="/images/grafana-dashboard-3.png" />
+  <img src="/images/grafana-dashboard-4.png" />
+</Frame>
 
-```python
-import openlit
+To send OpenTelemetry data collected by OpenLIT from your LLM Application to Grafana Cloud, Add the snippet below to your Python application.
+<Steps>
+  <Step title="Get your Grafana Cloud Crednetials">
+    <Steps>
+      1. Sign in to Grafana Cloud Portal and select your Grafana Cloud Stack.
+      2. Click Configure in the OpenTelemetry section.
+        ![](https://grafana.com/media/docs/grafana-cloud/application-observability/opentelemetry-tile.png)
+      3. In the **Password / API Token** section, click on **Generate now** to create a new API token:
+         - Give the API token a name, for example cart-service
+         - Click on **Create token**
+         - Click on **Close** without copying the token
+         - Copy and Save the value for `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS`
+         <Note>Replace the space after `Basic` with `%20`: OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic%20[base64 instanceID:token]"</Note>
+         ![](https://grafana.com/media/docs/grafana-cloud/application-observability/opentelemetry-env-vars.png)
+    </Steps>
+  </Step>
+  <Step title="Add the following two lines to your application code:">
+  <Tabs>
+  <Tab title="Setup using function arguments">
+  ```python
+  import openlit
 
-openlit.init(otlp_endpoint="otlp_backend_endpoint", otlp_headers="otlp_backend_token")
-```
+  openlit.init(
+    otlp_endpoint="YOUR_GRAFANA_OTEL_GATEWAY_URL", 
+    otlp_headers="YOUR_GRAFANA_OTEL_GATEWAY_AUTH"
+  )
+  ```
 
-Alternatively, you can configure the OTLP endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` and the OTLP headers by setting the Appli`OTEL_EXPORTER_OTLP_HEADERS` environmentcation variable as recommended in the OpenTelemetry documentation.
+  **Replace**:
+  1. `YOUR_GRAFANA_OTEL_GATEWAY_URL` with the `OTEL_EXPORTER_OTLP_ENDPOINT` value you copied in Step 1. 
+     * Example - `https://otlp-gateway-<zone>.grafana.net/otlp`
+  2. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
+     * Example - `Authorization=Basic%20<base64 encoded Instance ID and API Token>`
 
-Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
+  Example Usage for monitoring `OpenAI` Usage:
 
+  ```python
+  from openai import OpenAI
+  import openlit
 
-## Grafana Resources
+  openlit.init(
+    otlp_endpoint="https://otlp-gateway-<zone>.grafana.net/otlp", 
+    otlp_headers="Authorization=Basic%20<base64 encoded Instance ID and API Token>"
+  )
 
+  client = OpenAI(
+      api_key="YOUR_OPENAI_KEY"
+  )
+
+  chat_completion = client.chat.completions.create(
+      messages=[
+          {
+              "role": "user",
+              "content": "What is LLM Observability",
+          }
+      ],
+      model="gpt-3.5-turbo",
+  )
+  ```
+  </Tab>
+  <Tab title="Setup using Environment Variables">
+  ```python
+  import openlit
+
+  openlit.init()
+  ```
+
+  Run the following command to configure the OTEL export endpoint:
+  ```shell
+  export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_GRAFANA_OTEL_GATEWAY_URL"
+  export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_GRAFANA_OTEL_GATEWAY_AUTH"
+  ```
+
+  **Replace**:
+  1. `YOUR_GRAFANA_OTEL_GATEWAY_URL` with the `OTEL_EXPORTER_OTLP_ENDPOINT` value you copied in Step 1. 
+     * Example - `https://otlp-gateway-<zone>.grafana.net/otlp`
+  2. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
+     * Example - `Authorization=Basic%20<base64 encoded Instance ID and API Token>`
+
+  Example Usage for monitoring `OpenAI` Usage:
+
+  ```python
+  from openai import OpenAI
+  import openlit
+
+  openlit.init()
+
+  client = OpenAI(
+      api_key="YOUR_OPENAI_KEY"
+  )
+
+  chat_completion = client.chat.completions.create(
+      messages=[
+          {
+              "role": "user",
+              "content": "What is LLM Observability",
+          }
+      ],
+      model="gpt-3.5-turbo",
+  )
+  ```
+  </Tab>
+  </Tabs>
+  Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
+</Step>
+<Step title="Import the pre-built Dashboard">
+1. Log into your Grafana Cloud Instance.
+1. Click **Dashboards** in the primary menu.
+1. Click **New** and select **Import** in the drop-down menu.
+1. Copy the dashboard JSON provided in the accordian named `Dashboard` below.
+1. Paste the dashboard JSON text directly into the text area.
+1. Click Import.
+1. Save the dashboard.
 <Accordion title="Dashboard">
     ```json
     {
@@ -39,22 +146,292 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
     },
     "editable": true,
     "fiscalYearStartMonth": 0,
-    "graphTooltip": 0,
+    "graphTooltip": 1,
     "id": 12,
-    "links": [],
+    "links": [
+      {
+        "asDropdown": false,
+        "icon": "bolt",
+        "includeVars": false,
+        "keepTime": false,
+        "tags": [],
+        "targetBlank": true,
+        "title": "OpenLIT Github",
+        "tooltip": "Github",
+        "type": "link",
+        "url": "https://github.com/openlit/openlit"
+      },
+      {
+        "asDropdown": false,
+        "icon": "doc",
+        "includeVars": false,
+        "keepTime": false,
+        "tags": [],
+        "targetBlank": true,
+        "title": "OpenLIT Docs",
+        "tooltip": "Documentation",
+        "type": "link",
+        "url": "https://docs.openlit.io/"
+      }
+    ],
     "panels": [
       {
-        "collapsed": false,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
         "gridPos": {
-          "h": 1,
-          "w": 24,
+          "h": 5,
+          "w": 12,
           "x": 0,
           "y": 0
         },
-        "id": 11,
-        "panels": [],
-        "title": "Row title",
-        "type": "row"
+        "id": 21,
+        "options": {
+          "code": {
+            "language": "plaintext",
+            "showLineNumbers": false,
+            "showMiniMap": false
+          },
+          "content": "---\n# GenAI Observability\n\nThis dashboard displays the usage of Large Language Models (LLM) and Vector Databases, tracking OpenTelemetry Traces and Metrics sent using [OpenLIT](https://github.com/openlit/openlit).\n\n---",
+          "mode": "markdown"
+        },
+        "pluginVersion": "11.1.0-69950",
+        "transparent": true,
+        "type": "text"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "description": "This panel displays the LLM Request Rate ",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "fixedColor": "blue",
+              "mode": "palette-classic-by-name"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 10
+                },
+                {
+                  "color": "#6ED0E0",
+                  "value": 100
+                }
+              ]
+            },
+            "unit": "reqps"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 2,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "id": 22,
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": true,
+          "textMode": "value_and_name",
+          "wideLayout": true
+        },
+        "pluginVersion": "11.1.0-69950",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "builder",
+            "expr": "sum(rate(gen_ai_requests_total{telemetry_sdk_name=\"openlit\"}[$__rate_interval]))",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "LLM Request Rate",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "transparent": true,
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "grafanacloud-prom"
+        },
+        "description": "This panel displays the VectorDB Request Rate",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "fixedColor": "blue",
+              "mode": "palette-classic-by-name"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 10
+                },
+                {
+                  "color": "#6ED0E0",
+                  "value": 100
+                }
+              ]
+            },
+            "unit": "reqps"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 2,
+          "w": 12,
+          "x": 12,
+          "y": 2
+        },
+        "id": 23,
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": true,
+          "textMode": "value_and_name",
+          "wideLayout": true
+        },
+        "pluginVersion": "11.1.0-69950",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "builder",
+            "expr": "sum(rate(db_requests_total{telemetry_sdk_name=\"openlit\"}[$__rate_interval]))",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "VectorDB Request Rate",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "transparent": true,
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the total cost incurred from using GenAI models. It reflects the financial impact of operational activities, offering insights into budgetary allocation and efficiency. Tracking this helps in effective cost management and financial planning for GenAI usage.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "fixedColor": "blue",
+              "mode": "shades"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "currencyUSD"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 3,
+          "w": 12,
+          "x": 12,
+          "y": 4
+        },
+        "id": 2,
+        "options": {
+          "colorMode": "background",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": true,
+          "textMode": "auto",
+          "wideLayout": true
+        },
+        "pluginVersion": "11.1.0-69950",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum(gen_ai_usage_cost_USD_sum{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "Total Usage Cost",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "transparent": true,
+        "type": "stat"
       },
       {
         "datasource": {
@@ -87,10 +464,10 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "overrides": []
         },
         "gridPos": {
-          "h": 4,
-          "w": 12,
+          "h": 5,
+          "w": 6,
           "x": 0,
-          "y": 1
+          "y": 5
         },
         "id": 1,
         "options": {
@@ -105,11 +482,11 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "fields": "",
             "values": false
           },
-          "showPercentChange": false,
+          "showPercentChange": true,
           "textMode": "auto",
           "wideLayout": true
         },
-        "pluginVersion": "11.1.0-69372",
+        "pluginVersion": "11.1.0-69950",
         "targets": [
           {
             "datasource": {
@@ -122,13 +499,13 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
-            "legendFormat": "__auto",
+            "legendFormat": "Total Successful GenAI Requests",
             "range": true,
             "refId": "A",
             "useBackend": false
           }
         ],
-        "title": "Total Successful GenAI Requests",
+        "transparent": true,
         "type": "stat"
       },
       {
@@ -161,10 +538,10 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "overrides": []
         },
         "gridPos": {
-          "h": 4,
-          "w": 12,
-          "x": 12,
-          "y": 1
+          "h": 5,
+          "w": 6,
+          "x": 6,
+          "y": 5
         },
         "id": 7,
         "options": {
@@ -179,11 +556,11 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "fields": "",
             "values": false
           },
-          "showPercentChange": false,
+          "showPercentChange": true,
           "textMode": "auto",
           "wideLayout": true
         },
-        "pluginVersion": "11.1.0-69372",
+        "pluginVersion": "11.1.0-69950",
         "targets": [
           {
             "datasource": {
@@ -196,13 +573,13 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
-            "legendFormat": "__auto",
+            "legendFormat": "Total Successful VectorDB Requests",
             "range": true,
             "refId": "A",
             "useBackend": false
           }
         ],
-        "title": "Total Successful VectorDB Requests",
+        "transparent": true,
         "type": "stat"
       },
       {
@@ -214,7 +591,8 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
         "fieldConfig": {
           "defaults": {
             "color": {
-              "mode": "palette-classic-by-name"
+              "fixedColor": "purple",
+              "mode": "shades"
             },
             "mappings": [],
             "thresholds": {
@@ -235,10 +613,10 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "overrides": []
         },
         "gridPos": {
-          "h": 4,
-          "w": 8,
-          "x": 0,
-          "y": 5
+          "h": 3,
+          "w": 6,
+          "x": 12,
+          "y": 7
         },
         "id": 3,
         "options": {
@@ -253,11 +631,11 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "fields": "",
             "values": false
           },
-          "showPercentChange": false,
+          "showPercentChange": true,
           "textMode": "auto",
           "wideLayout": true
         },
-        "pluginVersion": "11.1.0-69372",
+        "pluginVersion": "11.1.0-69950",
         "targets": [
           {
             "datasource": {
@@ -270,87 +648,13 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
-            "legendFormat": "__auto",
+            "legendFormat": "Total Usage Tokens",
             "range": true,
             "refId": "A",
             "useBackend": false
           }
         ],
-        "title": "Total Usage Tokens",
-        "type": "stat"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${metricsDatasource}"
-        },
-        "description": "This panel displays the total cost incurred from using GenAI models. It reflects the financial impact of operational activities, offering insights into budgetary allocation and efficiency. Tracking this helps in effective cost management and financial planning for GenAI usage.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "continuous-BlPu"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            },
-            "unit": "currencyUSD"
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 4,
-          "w": 8,
-          "x": 8,
-          "y": 5
-        },
-        "id": 2,
-        "options": {
-          "colorMode": "background",
-          "graphMode": "area",
-          "justifyMode": "auto",
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showPercentChange": false,
-          "textMode": "auto",
-          "wideLayout": true
-        },
-        "pluginVersion": "11.1.0-69372",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "${metricsDatasource}"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "sum(gen_ai_usage_cost_USD_sum{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "instant": false,
-            "legendFormat": "__auto",
-            "range": true,
-            "refId": "A",
-            "useBackend": false
-          }
-        ],
-        "title": "Total Usage Cost",
+        "transparent": true,
         "type": "stat"
       },
       {
@@ -362,7 +666,8 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
         "fieldConfig": {
           "defaults": {
             "color": {
-              "mode": "thresholds"
+              "fixedColor": "blue",
+              "mode": "shades"
             },
             "mappings": [],
             "thresholds": {
@@ -387,10 +692,10 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "overrides": []
         },
         "gridPos": {
-          "h": 4,
-          "w": 8,
-          "x": 16,
-          "y": 5
+          "h": 3,
+          "w": 6,
+          "x": 18,
+          "y": 7
         },
         "id": 5,
         "options": {
@@ -405,11 +710,11 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "fields": "",
             "values": false
           },
-          "showPercentChange": false,
+          "showPercentChange": true,
           "textMode": "auto",
           "wideLayout": true
         },
-        "pluginVersion": "11.1.0-69372",
+        "pluginVersion": "11.1.0-69950",
         "targets": [
           {
             "datasource": {
@@ -422,13 +727,13 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
-            "legendFormat": "__auto",
+            "legendFormat": "Avg Usage Cost",
             "range": true,
             "refId": "A",
             "useBackend": false
           }
         ],
-        "title": "Avg Usage Cost",
+        "transparent": true,
         "type": "stat"
       },
       {
@@ -444,20 +749,21 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
               "mode": "palette-classic"
             },
             "custom": {
-              "fillOpacity": 80,
-              "gradientMode": "none",
+              "fillOpacity": 81,
+              "gradientMode": "opacity",
               "hideFrom": {
                 "legend": false,
                 "tooltip": false,
                 "viz": false
               },
-              "lineWidth": 1,
+              "lineWidth": 3,
               "stacking": {
                 "group": "A",
                 "mode": "none"
               }
             },
             "mappings": [],
+            "min": 0,
             "thresholds": {
               "mode": "absolute",
               "steps": [
@@ -479,7 +785,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "h": 7,
           "w": 24,
           "x": 0,
-          "y": 9
+          "y": 10
         },
         "id": 4,
         "options": {
@@ -487,7 +793,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "calcs": [],
             "displayMode": "list",
             "placement": "bottom",
-            "showLegend": true
+            "showLegend": false
           }
         },
         "pluginVersion": "11.1.0-69372",
@@ -557,10 +863,10 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "overrides": []
         },
         "gridPos": {
-          "h": 14,
+          "h": 10,
           "w": 14,
           "x": 0,
-          "y": 16
+          "y": 17
         },
         "id": 17,
         "options": {
@@ -581,7 +887,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "sizing": "auto",
           "valueMode": "text"
         },
-        "pluginVersion": "11.1.0-69372",
+        "pluginVersion": "11.1.0-69950",
         "targets": [
           {
             "datasource": {
@@ -601,6 +907,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           }
         ],
         "title": "Top GenAI Models by Usage",
+        "transparent": true,
         "type": "bargauge"
       },
       {
@@ -628,17 +935,17 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "overrides": []
         },
         "gridPos": {
-          "h": 7,
+          "h": 5,
           "w": 5,
           "x": 14,
-          "y": 16
+          "y": 17
         },
         "id": 16,
         "options": {
           "legend": {
             "displayMode": "list",
             "placement": "bottom",
-            "showLegend": true
+            "showLegend": false
           },
           "pieType": "pie",
           "reduceOptions": {
@@ -700,17 +1007,17 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "overrides": []
         },
         "gridPos": {
-          "h": 7,
+          "h": 5,
           "w": 5,
           "x": 19,
-          "y": 16
+          "y": 17
         },
         "id": 13,
         "options": {
           "legend": {
             "displayMode": "list",
             "placement": "bottom",
-            "showLegend": true
+            "showLegend": false
           },
           "pieType": "pie",
           "reduceOptions": {
@@ -772,17 +1079,17 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "overrides": []
         },
         "gridPos": {
-          "h": 7,
+          "h": 5,
           "w": 5,
           "x": 14,
-          "y": 23
+          "y": 22
         },
         "id": 15,
         "options": {
           "legend": {
             "displayMode": "list",
             "placement": "bottom",
-            "showLegend": true
+            "showLegend": false
           },
           "pieType": "pie",
           "reduceOptions": {
@@ -824,7 +1131,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "type": "prometheus",
           "uid": "${metricsDatasource}"
         },
-        "description": "This panel displays the breakdown of GenAI requests by application name, offering insights into which applications are leveraging GenAI services the most. This identification helps in understanding application-specific demand, guiding resource allocation, and supporting targeted optimization efforts for enhanced efficiency in application performance.\"",
+        "description": "This panel displays the distribution of GenAI requests based on the environment, such as production, development, testing, etc. It shows where the requests are being utilized, providing a clear picture of operational focus and deployment strategies. Tracking this helps in aligning resources appropriately and optimizing the performance across different environments.",
         "fieldConfig": {
           "defaults": {
             "color": {
@@ -844,17 +1151,17 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "overrides": []
         },
         "gridPos": {
-          "h": 7,
+          "h": 5,
           "w": 5,
           "x": 19,
-          "y": 23
+          "y": 22
         },
-        "id": 19,
+        "id": 27,
         "options": {
           "legend": {
             "displayMode": "list",
             "placement": "bottom",
-            "showLegend": true
+            "showLegend": false
           },
           "pieType": "pie",
           "reduceOptions": {
@@ -878,7 +1185,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             },
             "disableTextWrap": false,
             "editorMode": "code",
-            "expr": "sum by(gen_ai_application_name) (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "expr": "sum by(gen_ai_environment) (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
@@ -888,156 +1195,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
             "useBackend": false
           }
         ],
-        "title": "GenAI Requests by Application",
-        "type": "piechart"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${metricsDatasource}"
-        },
-        "description": "This panel displays the distribution of requests across different VectorDB systems, such as Chroma, Pinecone, etc. It highlights which VectorDB services are most frequently used, providing insights into system preference and usage patterns. Monitoring this helps in evaluating the performance and scalability of each VectorDB system, guiding strategic decisions for technology adoption and integration.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "continuous-BlYlRd"
-            },
-            "mappings": [],
-            "min": 0,
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            },
-            "unit": "none"
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 14,
-          "x": 0,
-          "y": 30
-        },
-        "id": 18,
-        "options": {
-          "displayMode": "gradient",
-          "maxVizHeight": 300,
-          "minVizHeight": 16,
-          "minVizWidth": 8,
-          "namePlacement": "auto",
-          "orientation": "horizontal",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "showUnfilled": true,
-          "sizing": "auto",
-          "valueMode": "text"
-        },
-        "pluginVersion": "11.1.0-69372",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "${metricsDatasource}"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "sum by(db_system) (db_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "instant": false,
-            "legendFormat": "__auto",
-            "range": true,
-            "refId": "A",
-            "useBackend": false
-          }
-        ],
-        "title": "VectorDB Usage by System",
-        "type": "bargauge"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${metricsDatasource}"
-        },
-        "description": "This panel displays the breakdown of database requests based on the type of operation, such as add, updates, deletes, and queries. It provides insights into the operational dynamics of database interactions, highlighting the most common actions performed. Understanding this distribution helps in optimizing database performance and planning for capacity based on operational needs.",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              }
-            },
-            "mappings": [],
-            "min": 0,
-            "unit": "none"
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 9,
-          "w": 10,
-          "x": 14,
-          "y": 30
-        },
-        "id": 14,
-        "options": {
-          "legend": {
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true
-          },
-          "pieType": "pie",
-          "reduceOptions": {
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": "",
-            "values": false
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "none"
-          }
-        },
-        "pluginVersion": "11.1.0-69372",
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "${metricsDatasource}"
-            },
-            "disableTextWrap": false,
-            "editorMode": "code",
-            "expr": "sum by(db_operation) (db_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
-            "fullMetaSearch": false,
-            "includeNullMetadata": true,
-            "instant": false,
-            "legendFormat": "__auto",
-            "range": true,
-            "refId": "A",
-            "useBackend": false
-          }
-        ],
-        "title": "DB Requests by Operation",
+        "title": "GenAI Requests by Environment",
         "type": "piechart"
       },
       {
@@ -1108,7 +1266,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "h": 8,
           "w": 24,
           "x": 0,
-          "y": 39
+          "y": 27
         },
         "id": 6,
         "options": {
@@ -1184,7 +1342,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "h": 1,
           "w": 24,
           "x": 0,
-          "y": 47
+          "y": 35
         },
         "id": 10,
         "panels": [],
@@ -1227,7 +1385,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "h": 16,
           "w": 24,
           "x": 0,
-          "y": 48
+          "y": 36
         },
         "id": 8,
         "options": {
@@ -1242,7 +1400,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           },
           "showHeader": true
         },
-        "pluginVersion": "11.1.0-69372",
+        "pluginVersion": "11.1.0-69950",
         "targets": [
           {
             "datasource": {
@@ -1280,12 +1438,330 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
         "type": "table"
       },
       {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "",
+        "gridPos": {
+          "h": 2,
+          "w": 24,
+          "x": 0,
+          "y": 52
+        },
+        "id": 25,
+        "options": {
+          "code": {
+            "language": "plaintext",
+            "showLineNumbers": false,
+            "showMiniMap": false
+          },
+          "content": "### VectorDB\n\n---",
+          "mode": "markdown"
+        },
+        "pluginVersion": "11.1.0-69950",
+        "transparent": true,
+        "type": "text"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the breakdown of database requests based on the type of operation, such as add, updates, deletes, and queries. It provides insights into the operational dynamics of database interactions, highlighting the most common actions performed. Understanding this distribution helps in optimizing database performance and planning for capacity based on operational needs.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "continuous-BlYlRd"
+            },
+            "mappings": [],
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            },
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 14,
+          "x": 0,
+          "y": 54
+        },
+        "id": 20,
+        "options": {
+          "displayMode": "gradient",
+          "maxVizHeight": 300,
+          "minVizHeight": 16,
+          "minVizWidth": 8,
+          "namePlacement": "top",
+          "orientation": "horizontal",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showUnfilled": true,
+          "sizing": "auto",
+          "valueMode": "text"
+        },
+        "pluginVersion": "11.1.0-69950",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum by(db_operation) (db_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "DB Requests by Operation",
+        "transparent": true,
+        "type": "bargauge"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the distribution of requests across different VectorDB systems, such as Chroma, Pinecone, etc. It highlights which VectorDB services are most frequently used, providing insights into system preference and usage patterns. Monitoring this helps in evaluating the performance and scalability of each VectorDB system, guiding strategic decisions for technology adoption and integration.",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": []
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 5,
+          "w": 10,
+          "x": 14,
+          "y": 54
+        },
+        "id": 18,
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": true
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "11.1.0-69950",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "code",
+            "expr": "sum by(db_system) (db_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "DB Requests by System",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the breakdown of DB requests by application name, offering insights into which applications are leveraging VectorDB services the most. This identification helps in understanding application-specific demand, guiding resource allocation, and supporting targeted optimization efforts for enhanced efficiency in application performance.\"",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 5,
+          "x": 14,
+          "y": 59
+        },
+        "id": 19,
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "builder",
+            "expr": "sum by(gen_ai_application_name) (db_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "DB Requests by Application",
+        "type": "piechart"
+      },
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${metricsDatasource}"
+        },
+        "description": "This panel displays the breakdown of DB requests by application name, offering insights into which applications are leveraging VectorDB services the most. This identification helps in understanding application-specific demand, guiding resource allocation, and supporting targeted optimization efforts for enhanced efficiency in application performance.\"",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              }
+            },
+            "mappings": [],
+            "min": 0,
+            "unit": "none"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 5,
+          "x": 19,
+          "y": 59
+        },
+        "id": 26,
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "pieType": "pie",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "pluginVersion": "11.1.0-69372",
+        "targets": [
+          {
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${metricsDatasource}"
+            },
+            "disableTextWrap": false,
+            "editorMode": "builder",
+            "expr": "sum by(gen_ai_application_name) (db_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+            "fullMetaSearch": false,
+            "includeNullMetadata": true,
+            "instant": false,
+            "legendFormat": "__auto",
+            "range": true,
+            "refId": "A",
+            "useBackend": false
+          }
+        ],
+        "title": "DB Requests by Application",
+        "type": "piechart"
+      },
+      {
         "collapsed": false,
         "gridPos": {
           "h": 1,
           "w": 24,
           "x": 0,
-          "y": 64
+          "y": 63
         },
         "id": 12,
         "panels": [],
@@ -1333,7 +1809,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "h": 15,
           "w": 24,
           "x": 0,
-          "y": 65
+          "y": 64
         },
         "id": 9,
         "options": {
@@ -1348,7 +1824,7 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           },
           "showHeader": true
         },
-        "pluginVersion": "11.1.0-69372",
+        "pluginVersion": "11.1.0-69950",
         "targets": [
           {
             "datasource": {
@@ -1388,14 +1864,14 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
     ],
     "refresh": "",
     "schemaVersion": 39,
-    "tags": [],
+    "tags": [
+      "LLM",
+      "VectorDB",
+      "GenAI"
+    ],
     "templating": {
       "list": [
         {
-          "current": {
-            "selected": true,
-            "value": "grafanacloud-traces"
-          },
           "hide": 0,
           "includeAll": false,
           "label": "Trace Datasource",
@@ -1410,10 +1886,6 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
           "type": "datasource"
         },
         {
-          "current": {
-            "selected": true,
-            "value": "grafanacloud-prom"
-          },
           "hide": 0,
           "includeAll": false,
           "label": "Metrics Datasource",
@@ -1502,16 +1974,20 @@ Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/
     "timezone": "browser",
     "title": "GenAI Observability",
     "uid": "cdiz9piuoa3gge",
-    "version": 21,
+    "version": 15,
     "weekStart": ""
   }
     ```
 </Accordion>
 
+</Step>
+</Steps>
+
+
 ---
 
 <CardGroup cols={2}>
 <Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
-Start Monitoringyour LLM Application 
+Start Monitoring your LLM Application 
 </Card>
 </CardGroup>
