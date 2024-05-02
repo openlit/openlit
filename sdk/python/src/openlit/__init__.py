@@ -150,7 +150,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "bedrock": "boto3",
         "langchain": "langchain",
         "chroma": "chromadb",
-        "pinecone": "pinecone-client",
+        "pinecone": "pinecone",
         "transformers": "transformers"
     }
 
