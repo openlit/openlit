@@ -1,16 +1,679 @@
 ---
 title: 'New Relic'
-description: 'LLM Observability with Grafana Tempo and OpenLIT'
+description: 'LLM Observability with New Relic and OpenLIT'
 ---
 
-To send OpenTelemetry data collected by OpenLIt from your LLM Application, You need to set the `otlp_endpoint` and `otlp_headers` arguments according to your needs.
+<Frame>
+  <img src="/images/new-relic-dashboard-1.png" />
+  <img src="/images/new-relic-dashboard-2.png" />
+</Frame>
+To send OpenTelemetry data collected by OpenLIT from your LLM Application to New Relic, Add the snippet below to your Python application.
+<Steps>
+  <Step title="Get your New Relic Crednetials">
+    <Steps>
+        1. Go to the New Relic [API Keys UI Page](https://one.newrelic.com/launcher/api-keys-ui.api-keys-launcher)
+        2. Click **Create a Key** Button
+        3. In the Create an API Key Wizard:
+            - Set **Key Type** as `Ingest - License`
+            - Give the API Key **Name**, for example `openlit` and Optionally add any **Notes**
+            - Click on **Create a Key**
+            <Frame>
+            <img src="https://mintlify.s3-us-west-1.amazonaws.com/odigos/backends/images/newrelic2.png" />
+            </Frame>
+        1.  Copy the key by clicking on the three dots (**...**).
+            <Frame>
+            <img src="https://embrace.io/docs/assets/images/new_relic_api_keys-4f6f5da451f0ade8f68c4dda395c3742.png" />
+            </Frame>
+    </Steps>
+  </Step>
+  <Step title="Add the following two lines to your application code:">
+    <Tabs>
+      <Tab title="Setup using function arguments">
+      ```python
+      import openlit
 
-```python
-import openlit
+      openlit.init(
+        otlp_endpoint="https://otlp.nr-data.net:443", 
+        otlp_headers="api-key=YOUR_NEWRELIC_LICENSE_KEY"
+      )
+      ```
 
-openlit.init(otlp_endpoint="otlp_backend_endpoint", otlp_headers="otlp_backend_token")
-```
+      **Replace**:
+      1. `YOUR_NEWRELIC_LICENSE_KEY` with the API Key value you copied in Step 1. 
+         * Example - `"api-key=acxxxxxxxx"`
+      </Tab>
+      <Tab title="Setup using Environment Variables">
+      ```python
+      import openlit
 
-Alternatively, you can configure the OTLP endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` and the OTLP headers by setting the Appli`OTEL_EXPORTER_OTLP_HEADERS` environmentcation variable as recommended in the OpenTelemetry documentation.
+      openlit.init()
+      ```
 
-Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
+      Run the following command to configure the OTEL endpoint and headers to send metrics and traces to Grafana Cloud:
+      ```shell
+      export OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp.nr-data.net:443"
+      export OTEL_EXPORTER_OTLP_HEADERS = "api-key=YOUR_NEWRELIC_LICENSE_KEY"
+      ```
+
+      **Replace**:
+
+      1. `YOUR_NEWRELIC_LICENSE_KEY` with the API Key value you copied in Step 1. 
+         * Example - `"api-key=acxxxxxxxx"`
+      </Tab>
+    </Tabs>
+  Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
+  </Step>
+  <Step title="Import the pre-built Dashboard">
+    1. Go to [one.newrelic.com](https://one.newrelic.com/) > Dashboards.
+    1. In the top-right corner, click **Import dashboard**.
+    1. Copy the dashboard JSON provided in the accordion named [`Dashboard`](#dashboard) below.
+    1. Paste the dashboard JSON text directly into the text area.
+    1. Choose the account and permission settings for the dashboard. You can’t change the account once you’ve set it, but you can change the permissions at any time.
+    1. Click **Import Dashboard**.
+  <Accordion title="Dashboard">
+      ```json
+      {
+        "name": "GenAI Observability -1",
+        "description": null,
+        "permissions": "PUBLIC_READ_WRITE",
+        "pages": [
+            {
+            "name": "GenAI Observability",
+            "description": null,
+            "widgets": [
+                {
+                "title": "",
+                "layout": {
+                    "column": 1,
+                    "row": 1,
+                    "width": 4,
+                    "height": 2
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.markdown"
+                },
+                "rawConfiguration": {
+                    "text": "# GenAI Observability Dashboard\nThis dashboard displays the usage of Large Language Models (LLM) and Vector Databases, tracking OpenTelemetry Traces and Metrics sent using [OpenLIT](https://github.com/openlit/openlit)."
+                }
+                },
+                {
+                "title": "",
+                "layout": {
+                    "column": 5,
+                    "row": 1,
+                    "width": 4,
+                    "height": 2
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.billboard"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT count(`gen_ai.total.requests`) AS 'Total Successful LLM Requests' FROM Metric WHERE `telemetry.sdk.name` = 'openlit'"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "",
+                "layout": {
+                    "column": 9,
+                    "row": 1,
+                    "width": 4,
+                    "height": 2
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.billboard"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT count(`db.total.requests`) AS 'Total Successful VectorDB Requests' FROM Metric WHERE `telemetry.sdk.name` = 'openlit'"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "",
+                "layout": {
+                    "column": 1,
+                    "row": 3,
+                    "width": 4,
+                    "height": 2
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.billboard"
+                },
+                "rawConfiguration": {
+                    "dataFormatters": [],
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT average(`gen_ai.usage.cost`) AS 'Average Usage Cost' FROM Metric WHERE `telemetry.sdk.name` = 'openlit'"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "",
+                "layout": {
+                    "column": 5,
+                    "row": 3,
+                    "width": 4,
+                    "height": 2
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.billboard"
+                },
+                "rawConfiguration": {
+                    "dataFormatters": [],
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT sum(`gen_ai.usage.cost`) AS 'Total Usage Cost' FROM Metric WHERE `telemetry.sdk.name` = 'openlit'"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "",
+                "layout": {
+                    "column": 9,
+                    "row": 3,
+                    "width": 4,
+                    "height": 2
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.billboard"
+                },
+                "rawConfiguration": {
+                    "dataFormatters": [],
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT sum(`gen_ai.usage.total_tokens`) AS 'Total Tokens' FROM Metric WHERE `telemetry.sdk.name` = 'openlit'"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "Request Duration Dirstribution",
+                "layout": {
+                    "column": 1,
+                    "row": 5,
+                    "width": 12,
+                    "height": 3
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.histogram"
+                },
+                "rawConfiguration": {
+                    "legend": {
+                    "enabled": true
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT histogram(duration.ms / 1000, 1, 10) AS 'Duration' FROM Span"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    },
+                    "yAxisLeft": {
+                    "zero": true
+                    }
+                }
+                },
+                {
+                "title": "Top GenAI Models by Usage",
+                "layout": {
+                    "column": 1,
+                    "row": 8,
+                    "width": 6,
+                    "height": 6
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.bar"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT count(`gen_ai.total.requests`) FROM Metric FACET `gen_ai.request.model` WHERE `telemetry.sdk.name` = 'openlit' LIMIT 10"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "GenAI Requests by Platform",
+                "layout": {
+                    "column": 7,
+                    "row": 8,
+                    "width": 3,
+                    "height": 3
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.pie"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": true
+                    },
+                    "legend": {
+                    "enabled": true
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT sum(`gen_ai.total.requests`) AS 'GenAI Requests by Platform' FROM Metric FACET `gen_ai.system` WHERE `telemetry.sdk.name` = 'openlit' LIMIT 5"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "GenAI Requests by Type",
+                "layout": {
+                    "column": 10,
+                    "row": 8,
+                    "width": 3,
+                    "height": 3
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.pie"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": true
+                    },
+                    "legend": {
+                    "enabled": true
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT sum(`gen_ai.total.requests`) AS 'GenAI Requests by Type' FROM Metric FACET `gen_ai.type` WHERE `telemetry.sdk.name` = 'openlit' LIMIT 5"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "GenAI Requests by Environment",
+                "layout": {
+                    "column": 7,
+                    "row": 11,
+                    "width": 3,
+                    "height": 3
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.pie"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": true
+                    },
+                    "legend": {
+                    "enabled": true
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT sum(`gen_ai.total.requests`) AS 'GenAI Requests by Environment' FROM Metric FACET `gen_ai.environment` WHERE `telemetry.sdk.name` = 'openlit' LIMIT 5"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "GenAI Requests by Application",
+                "layout": {
+                    "column": 10,
+                    "row": 11,
+                    "width": 3,
+                    "height": 3
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.pie"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": true
+                    },
+                    "legend": {
+                    "enabled": true
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT sum(`gen_ai.total.requests`) AS 'GenAI Requests by Application' FROM Metric FACET `gen_ai.application_name` WHERE `telemetry.sdk.name` = 'openlit' LIMIT 5"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "Prompt Tokens vs Completion Tokens vs Usage Cost",
+                "layout": {
+                    "column": 1,
+                    "row": 14,
+                    "width": 12,
+                    "height": 4
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.area"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "legend": {
+                    "enabled": true
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT average(`gen_ai.usage.prompt_tokens`) AS 'Avg Prompt Tokens', average(`gen_ai.usage.completion_tokens`) AS 'Avg Completion Tokens', average(`gen_ai.usage.cost`) AS 'Avg Usage Cost' FROM Metric WHERE `telemetry.sdk.name` = 'openlit' TIMESERIES "
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "GenAI Requests",
+                "layout": {
+                    "column": 1,
+                    "row": 18,
+                    "width": 12,
+                    "height": 6
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.table"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "initialSorting": {
+                    "direction": "desc",
+                    "name": "timestamp"
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT timestamp, trace.id, gen_ai.type AS 'Category', gen_ai.environment AS 'Environment', gen_ai.application_name AS 'Application', gen_ai.request.model AS 'Model', gen_ai.content.prompt AS 'Prompt', \ngen_ai.content.completion AS 'Completion', gen_ai.usage.cost AS 'Usage Cost', duration.ms AS 'Duration' FROM Span WHERE gen_ai.type != 'vectordb' And gen_ai.type != 'framework'"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "Top GenAI Models by Usage",
+                "layout": {
+                    "column": 1,
+                    "row": 24,
+                    "width": 6,
+                    "height": 3
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.bar"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT count(`db.total.requests`) FROM Metric FACET `db.operation` WHERE `telemetry.sdk.name` = 'openlit'"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "DB Requests by System",
+                "layout": {
+                    "column": 7,
+                    "row": 24,
+                    "width": 2,
+                    "height": 3
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.pie"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": true
+                    },
+                    "legend": {
+                    "enabled": true
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT count(`db.total.requests`) AS 'DB Requests by System' FROM Metric FACET `db.system` WHERE `telemetry.sdk.name` = 'openlit' LIMIT 5"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "DB Requests by Environment",
+                "layout": {
+                    "column": 9,
+                    "row": 24,
+                    "width": 2,
+                    "height": 3
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.pie"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": true
+                    },
+                    "legend": {
+                    "enabled": true
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT count(`db.total.requests`) AS 'DB Requests by Environment' FROM Metric FACET `gen_ai.environment` WHERE `telemetry.sdk.name` = 'openlit' LIMIT 5"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "DB Requests by Application",
+                "layout": {
+                    "column": 11,
+                    "row": 24,
+                    "width": 2,
+                    "height": 3
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.pie"
+                },
+                "rawConfiguration": {
+                    "facet": {
+                    "showOtherSeries": true
+                    },
+                    "legend": {
+                    "enabled": true
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT count(`db.total.requests`) AS 'DB Requests by Application' FROM Metric FACET `gen_ai.application_name` WHERE `telemetry.sdk.name` = 'openlit' LIMIT 5"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                },
+                {
+                "title": "VectorDB Requests",
+                "layout": {
+                    "column": 1,
+                    "row": 27,
+                    "width": 12,
+                    "height": 6
+                },
+                "linkedEntityGuids": null,
+                "visualization": {
+                    "id": "viz.table"
+                },
+                "rawConfiguration": {
+                    "dataFormatters": [],
+                    "facet": {
+                    "showOtherSeries": false
+                    },
+                    "initialSorting": {
+                    "direction": "desc",
+                    "name": "timestamp"
+                    },
+                    "nrqlQueries": [
+                    {
+                        "accountIds": [
+                        4060909
+                        ],
+                        "query": "SELECT timestamp, trace.id, gen_ai.environment AS 'Environment', gen_ai.application_name AS 'Application', db.system AS 'System', db.operation AS 'Operation', duration.ms AS 'Duration' FROM Span SINCE 24 hours ago WHERE gen_ai.type = 'vectordb'"
+                    }
+                    ],
+                    "platformOptions": {
+                    "ignoreTimeRange": false
+                    }
+                }
+                }
+            ]
+            }
+        ],
+        "variables": []
+        }
+      ```
+  </Accordion>
+
+  </Step>
+</Steps>
+
+
+---
+
+<CardGroup cols={2}>
+<Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
+Start Monitoring your LLM Application 
+</Card>
+</CardGroup>

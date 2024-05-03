@@ -85,7 +85,9 @@ export OTEL_EXPORTER_OTLP_HEADERS = "Authorization=Basic%20<base64 encoded Insta
 ### Step 3: Visualize and Optimize!
 With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
 
-Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start exploring.
+Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
+  - **Email**: `user@openlit.io`
+  - **Password**: `openlituser`
 
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-2.png?raw=true)

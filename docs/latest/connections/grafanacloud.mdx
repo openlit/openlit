@@ -13,10 +13,10 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
   <Step title="Get your Grafana Cloud Crednetials">
     <Steps>
       1. Sign in to Grafana Cloud Portal and select your Grafana Cloud Stack.
-      2. Click Configure in the OpenTelemetry section.
+      1. Click **Configure** in the OpenTelemetry section.
         ![](https://grafana.com/media/docs/grafana-cloud/application-observability/opentelemetry-tile.png)
-      3. In the **Password / API Token** section, click on **Generate now** to create a new API token:
-         - Give the API token a name, for example cart-service
+      1. In the **Password / API Token** section, click on **Generate now** to create a new API token:
+         - Give the API token a name, for example `openlit`
          - Click on **Create token**
          - Click on **Close** without copying the token
          - Copy and Save the value for `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS`
@@ -39,7 +39,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
       **Replace**:
       1. `YOUR_GRAFANA_OTEL_GATEWAY_URL` with the `OTEL_EXPORTER_OTLP_ENDPOINT` value you copied in Step 1. 
         * Example - `https://otlp-gateway-<zone>.grafana.net/otlp`
-      2. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
+      1. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
         * Example - `Authorization=Basic%20<base64 encoded Instance ID and API Token>`
       </Tab>
       <Tab title="Setup using Environment Variables">
@@ -58,7 +58,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
       **Replace**:
       1. `YOUR_GRAFANA_OTEL_GATEWAY_URL` with the `OTEL_EXPORTER_OTLP_ENDPOINT` value you copied in Step 1. 
          * Example - `https://otlp-gateway-<zone>.grafana.net/otlp`
-      2. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
+      1. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
          * Example - `Authorization=Basic%20<base64 encoded Instance ID and API Token>`
       </Tab>
     </Tabs>
@@ -70,7 +70,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
   1. Click **New** and select **Import** in the drop-down menu.
   1. Copy the dashboard JSON provided in the accordion named [`Dashboard`](#dashboard) below.
   1. Paste the dashboard JSON text directly into the text area.
-  1. Click Import.
+  1. Click **Import**.
   1. Save the dashboard.
   <Accordion title="Dashboard">
       ```json
