@@ -3,8 +3,8 @@
   "versions": ["latest"],
   "name": "OpenLIT",
   "logo": {
-    "dark": "https://github.com/openlit/.github/blob/main/profile/assets/dark-bg-with-text-logo.jpg?raw=true",
-    "light": "https://github.com/openlit/.github/blob/main/profile/assets/light-bg-with-text-logo.jpg?raw=true"
+    "dark": "/images/rectangular-dark-bg-logo.jpg",
+    "light": "/images/rectangular-light-bg-logo.jpg"
   },
   "favicon": "favicon.png",
   "colors": {
