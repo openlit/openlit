@@ -3,14 +3,71 @@ title: 'SigNoz'
 description: 'LLM Observability with SigNoz and OpenLIT'
 ---
 
-To send OpenTelemetry data collected by OpenLIt from your LLM Application, You need to set the `otlp_endpoint` and `otlp_headers` arguments according to your needs.
+<Frame>
+  <img src="/images/signoz-dashboard-1.png" />
+  <img src="/images/signoz-dashboard-2.png" />
+</Frame>
 
-```python
-import openlit
+To send OpenTelemetry data collected by OpenLIT from your LLM Application to SigNoz, Add the snippet below to your Python application.
+<Steps>
+  <Step title="Add the following two lines to your application code:">
+    <Tabs>
+      <Tab title="Setup using function arguments">
+      ```python
+      import openlit
 
-openlit.init(otlp_endpoint="otlp_backend_endpoint", otlp_headers="otlp_backend_token")
-```
+      openlit.init(
+        otlp_endpoint="SIGNOZ_ENDPOINT", 
+        otlp_headers=""signoz-access-token=SIGNOZ_INGESTION_KEY"
+      )
+      ```
 
-Alternatively, you can configure the OTLP endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` and the OTLP headers by setting the Appli`OTEL_EXPORTER_OTLP_HEADERS` environmentcation variable as recommended in the OpenTelemetry documentation.
+      **Replace**:
 
-Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
+        1. `SIGNOZ_ENDPOINT` with your signoz endpoint URL. 
+            * Example - `https://ingest.{region}.signoz.cloud:443`
+
+        1. `SIGNOZ_INGESTION_KEY` with the api token provided by SigNoz. 
+            * Example - `896cc137-xxxx-xxxx-b8a0-a6d7ab65f274`
+      
+      </Tab>
+      <Tab title="Setup using Environment Variables">
+      ```python
+      import openlit
+
+      openlit.init()
+      ```
+
+      Run the following command to configure the OTEL endpoint and headers to send metrics and traces to SigNoz:
+      ```shell
+      export OTEL_EXPORTER_OTLP_ENDPOINT = "SIGNOZ_ENDPOINT"
+      export OTEL_EXPORTER_OTLP_HEADERS = "signoz-access-token=SIGNOZ_INGESTION_KEY"
+      ```
+
+      **Replace**:
+      1. `SIGNOZ_ENDPOINT` with your signoz endpoint URL.
+         * Example - `https://ingest.{region}.signoz.cloud:443`
+      1. `SIGNOZ_INGESTION_KEY` with the api token provided by SigNoz.  
+         * Example - `896cc137-xxxx-xxxx-b8a0-a6d7ab65f274`
+      </Tab>
+    </Tabs>
+  Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
+  </Step>
+  <Step title="Import the pre-built Dashboard">
+  1. Log into your SigNoz Instance.
+  1. From the sidebar, choose **Dashboards**.
+  1. Click **+ New Dashboard** and select **Import JSON** in the drop-down menu.
+  1. Copy the dashboard JSON provided [here](https://raw.githubusercontent.com/openlit/openlit/signoz/assets/signoz-openlit.json).
+  1. Paste the dashboard JSON text directly into the text area.
+  1. Click **Load Json**.
+  
+ </Step>
+ </Steps>
+
+ ---
+
+<CardGroup cols={2}>
+<Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
+Start Monitoring your LLM Application 
+</Card>
+</CardGroup>
