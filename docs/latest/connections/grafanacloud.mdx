@@ -1078,7 +1078,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
             "type": "prometheus",
             "uid": "${metricsDatasource}"
           },
-          "description": "This panel displays the distribution of GenAI requests based on the environment, such as production, development, testing, etc. It shows where the requests are being utilized, providing a clear picture of operational focus and deployment strategies. Tracking this helps in aligning resources appropriately and optimizing the performance across different environments.",
+          "description": "This panel displays the distribution of GenAI requests based on the application, such as production, development, testing, etc. It shows where the requests are being utilized, providing a clear picture of operational focus and deployment strategies. Tracking this helps in aligning resources appropriately and optimizing the performance across different environments.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1132,7 +1132,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
               },
               "disableTextWrap": false,
               "editorMode": "code",
-              "expr": "sum by(gen_ai_environment) (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
+              "expr": "sum by(gen_ai_application) (gen_ai_requests_total{telemetry_sdk_name=\"openlit\", gen_ai_application_name=~\"$application\", gen_ai_environment=~\"$environment\"})",
               "fullMetaSearch": false,
               "includeNullMetadata": true,
               "instant": false,
@@ -1142,7 +1142,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
               "useBackend": false
             }
           ],
-          "title": "GenAI Requests by Environment",
+          "title": "GenAI Requests by Application",
           "type": "piechart"
         },
         {
