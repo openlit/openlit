@@ -4,26 +4,12 @@ description: 'LLM Observability with SigNoz and OpenLIT'
 ---
 
 <Frame>
-  <img src="/images/grafana-cloud-dashboard-1.png" />
-  <img src="/images/grafana-cloud-dashboard-2.png" />
+  <img src="/images/signoz-dashboard-1.png" />
+  <img src="/images/signoz-dashboard-2.png" />
 </Frame>
 
 To send OpenTelemetry data collected by OpenLIT from your LLM Application to SigNoz, Add the snippet below to your Python application.
 <Steps>
-  <Step title="Get your Grafana Cloud Crednetials">
-    <Steps>
-      1. Sign in to Grafana Cloud Portal and select your Grafana Cloud Stack.
-      1. Click **Configure** in the OpenTelemetry section.
-        ![](https://grafana.com/media/docs/grafana-cloud/application-observability/opentelemetry-tile.png)
-      1. In the **Password / API Token** section, click on **Generate now** to create a new API token:
-         - Give the API token a name, for example `openlit`
-         - Click on **Create token**
-         - Click on **Close** without copying the token
-         - Copy and Save the value for `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS`
-         <Note>Replace the space after `Basic` with `%20`: OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic%20[base64 instanceID:token]"</Note>
-         ![](https://grafana.com/media/docs/grafana-cloud/application-observability/opentelemetry-env-vars.png)
-    </Steps>
-  </Step>
   <Step title="Add the following two lines to your application code:">
     <Tabs>
       <Tab title="Setup using function arguments">
@@ -31,16 +17,19 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Sig
       import openlit
 
       openlit.init(
-        otlp_endpoint="YOUR_GRAFANA_OTEL_GATEWAY_URL", 
-        otlp_headers="YOUR_GRAFANA_OTEL_GATEWAY_AUTH"
+        otlp_endpoint="SIGNOZ_ENDPOINT", 
+        otlp_headers=""signoz-access-token=SIGNOZ_INGESTION_KEY"
       )
       ```
 
       **Replace**:
-      1. `YOUR_GRAFANA_OTEL_GATEWAY_URL` with the `OTEL_EXPORTER_OTLP_ENDPOINT` value you copied in Step 1. 
-        * Example - `https://otlp-gateway-<zone>.grafana.net/otlp`
-      1. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
-        * Example - `Authorization=Basic%20<base64 encoded Instance ID and API Token>`
+
+        1. `SIGNOZ_ENDPOINT` with your signoz endpoint URL. 
+            * Example - `https://ingest.{region}.signoz.cloud:443`
+
+        1. `SIGNOZ_INGESTION_KEY` with the api token provided by SigNoz. 
+            * Example - `896cc137-xxxx-xxxx-b8a0-a6d7ab65f274`
+      
       </Tab>
       <Tab title="Setup using Environment Variables">
       ```python
@@ -49,29 +38,28 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Sig
       openlit.init()
       ```
 
-      Run the following command to configure the OTEL endpoint and headers to send metrics and traces to Grafana Cloud:
+      Run the following command to configure the OTEL endpoint and headers to send metrics and traces to SigNoz:
       ```shell
-      export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_GRAFANA_OTEL_GATEWAY_URL"
-      export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_GRAFANA_OTEL_GATEWAY_AUTH"
+      export OTEL_EXPORTER_OTLP_ENDPOINT = "SIGNOZ_ENDPOINT"
+      export OTEL_EXPORTER_OTLP_HEADERS = "signoz-access-token=SIGNOZ_INGESTION_KEY"
       ```
 
       **Replace**:
-      1. `YOUR_GRAFANA_OTEL_GATEWAY_URL` with the `OTEL_EXPORTER_OTLP_ENDPOINT` value you copied in Step 1. 
-         * Example - `https://otlp-gateway-<zone>.grafana.net/otlp`
-      1. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
-         * Example - `Authorization=Basic%20<base64 encoded Instance ID and API Token>`
+      1. `SIGNOZ_ENDPOINT` with your signoz endpoint URL.
+         * Example - `https://ingest.{region}.signoz.cloud:443`
+      1. `SIGNOZ_INGESTION_KEY` with the api token provided by SigNoz.  
+         * Example - `896cc137-xxxx-xxxx-b8a0-a6d7ab65f274`
       </Tab>
     </Tabs>
   Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
   </Step>
   <Step title="Import the pre-built Dashboard">
-  1. Log into your Grafana Cloud Instance.
-  1. Click **Dashboards** in the primary menu.
-  1. Click **New** and select **Import** in the drop-down menu.
-  1. Copy the dashboard JSON provided in the accordion named [`Dashboard`](#dashboard) below.
+  1. Log into your SigNoz Instance.
+  1. From the sidebar, choose **Dashboards**.
+  1. Click **+ New Dashboard** and select **Import JSON** in the drop-down menu.
+  1. Copy the dashboard JSON provided [here](https://raw.githubusercontent.com/openlit/openlit/signoz/assets/signoz-openlit.json).
   1. Paste the dashboard JSON text directly into the text area.
-  1. Click **Import**.
-  1. Save the dashboard.
+  1. Click **Load Json**.
   
  </Step>
  </Steps>
