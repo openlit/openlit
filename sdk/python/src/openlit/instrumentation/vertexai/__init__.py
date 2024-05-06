@@ -6,7 +6,7 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.vertexai.vertexai import generate_content, predict, send_message, start_chat
+from openlit.instrumentation.vertexai.vertexai import generate_content, predict, send_message, start_chat, embeddings
 
 _instruments = ("google-cloud-aiplatform >= 1.38.1",)
 
@@ -53,6 +53,13 @@ class VertexAIInstrumentor(BaseInstrumentor):
             "vertexai.language_models",  
             "ChatSession.send_message",  
             start_chat("vertexai.send_message", version, environment, application_name,
+                     tracer, pricing_info, trace_content, metrics, disable_metrics),
+        )
+
+        wrap_function_wrapper(
+            "vertexai.language_models",  
+            "TextEmbeddingModel.get_embeddings",  
+            embeddings("vertexai.get_embeddings", version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

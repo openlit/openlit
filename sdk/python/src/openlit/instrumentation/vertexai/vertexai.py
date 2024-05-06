@@ -5,7 +5,7 @@ Module for monitoring VertexAI API calls.
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import get_chat_model_cost, handle_exception
+from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -665,6 +665,120 @@ def start_chat(gen_ai_endpoint, version, environment, application_name, tracer,
                         total_tokens, attributes)
                     metrics["genai_completion_tokens"].add(
                         completion_tokens, attributes)
+                    metrics["genai_prompt_tokens"].add(
+                        prompt_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
+
+                # Return original response
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
+
+    return wrapper
+
+
+def embeddings(gen_ai_endpoint, version, environment, application_name, tracer,
+             pricing_info, trace_content, metrics, disable_metrics):
+    """
+    Generates a telemetry wrapper for messages to collect metrics.
+
+    Args:
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI usage.
+        trace_content: Flag indicating whether to trace the actual content.
+
+    Returns:
+        A function that wraps the chat method to add telemetry.
+    """
+
+    def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the 'generate_content' API call to add telemetry.
+
+        This collects metrics such as execution time, cost, and token usage, and handles errors
+        gracefully, adding details to the trace for observability.
+
+        Args:
+            wrapped: The original 'generate_content' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'generate_content' method.
+            kwargs: Keyword arguments for the 'generate_content' method.
+
+        Returns:
+            The response from the original 'generate_content' method.
+        """
+
+        with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
+            response = wrapped(*args, **kwargs)
+            print(instance._model_id)
+
+            try:
+                prompt = args[0][0]
+
+                model = instance._model_id
+
+                prompt_tokens = int(response[0].statistics.token_count)
+
+                #Calculate cost of the operation
+                cost = get_embed_model_cost(model,
+                                            pricing_info, prompt_tokens)
+
+                # Set Span attribues
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_VERTEXAI)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                    SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                    gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    model)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                                    False)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    prompt_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                    cost)
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                        prompt)
+
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    attributes = {
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_VERTEXAI,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            model
+                    }
+
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_total_tokens"].add(
+                        prompt_tokens, attributes)
                     metrics["genai_prompt_tokens"].add(
                         prompt_tokens, attributes)
                     metrics["genai_cost"].record(cost, attributes)
