@@ -231,7 +231,7 @@ async def test_async_vertexai_send_message():
         works = False
         responses = await chat.send_message_async("Just say 'LLM Observability'",
                                                   stream=True, generation_config=generation_config)
-        for response in responses:
+        async for response in responses:
             if response.candidates[0].content.role == 'model':
                 works = True
 
