@@ -967,7 +967,7 @@ def embeddings(gen_ai_endpoint, version, environment, application_name, tracer,
         Returns:
             The response from the original 'generate_content' method.
         """
-        print(dir(instance))
+
         with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
             response = wrapped(*args, **kwargs)
 
