@@ -250,6 +250,42 @@
         "ai21.j2-ultra-v1": {
             "promptPrice": 0.0188,
             "completionPrice": 0.0188
+        },
+        "gemini-1.0-pro-002": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
+        "gemini-1.0-pro-001": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
+        "gemini-1.5-pro-preview-0409": {
+            "promptPrice": 0.01,
+            "completionPrice": 0.03
+        },
+        "text-bison": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
+        },
+        "text-bison@002": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
+        },
+        "text-bison-32k": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
+        },
+        "text-bison-32k@002": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
+        },
+        "text-unicorn": {
+            "promptPrice": 0.01,
+            "completionPrice": 0.03
+        },
+        "text-unicorn@001": {
+            "promptPrice": 0.01,
+            "completionPrice": 0.03
         }
     }
 }

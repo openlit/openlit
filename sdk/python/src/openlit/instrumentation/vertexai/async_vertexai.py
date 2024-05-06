@@ -3,16 +3,16 @@ Module for monitoring VertexAI API calls.
 """
 
 import logging
+import math
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 from openlit.semcov import SemanticConvetion
-import math
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def generate_content(gen_ai_endpoint, version, environment, application_name, tracer,
+def generate_content_async(gen_ai_endpoint, version, environment, application_name, tracer,
              pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for messages to collect metrics.
@@ -30,7 +30,7 @@ def generate_content(gen_ai_endpoint, version, environment, application_name, tr
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'generate_content' API call to add telemetry.
 
@@ -53,13 +53,13 @@ def generate_content(gen_ai_endpoint, version, environment, application_name, tr
         # pylint: disable=no-else-return
         if streaming:
             # Special handling for streaming response to accommodate the nature of data flow
-            def stream_generator():
+            async def stream_generator():
                 with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Placeholder for aggregating streaming response
                     llmresponse = ""
 
                     # Loop through streaming events capturing relevant details
-                    for event in wrapped(*args, **kwargs):
+                    async for event in await wrapped(*args, **kwargs):
                         llmresponse += str(event.text)
                         prompt_tokens = event.usage_metadata.prompt_token_count
                         completion_tokens = event.usage_metadata.candidates_token_count
@@ -142,7 +142,7 @@ def generate_content(gen_ai_endpoint, version, environment, application_name, tr
         # Handling for non-streaming responses
         else:
             with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
-                response = wrapped(*args, **kwargs)
+                response = await wrapped(*args, **kwargs)
 
                 try:
                     # Format 'messages' into a single string
@@ -225,7 +225,7 @@ def generate_content(gen_ai_endpoint, version, environment, application_name, tr
     return wrapper
 
 
-def send_message(gen_ai_endpoint, version, environment, application_name, tracer,
+def send_message_async(gen_ai_endpoint, version, environment, application_name, tracer,
              pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for messages to collect metrics.
@@ -243,7 +243,7 @@ def send_message(gen_ai_endpoint, version, environment, application_name, tracer
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'generate_content' API call to add telemetry.
 
@@ -266,13 +266,13 @@ def send_message(gen_ai_endpoint, version, environment, application_name, tracer
         # pylint: disable=no-else-return
         if streaming:
             # Special handling for streaming response to accommodate the nature of data flow
-            def stream_generator():
+            async def stream_generator():
                 with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Placeholder for aggregating streaming response
                     llmresponse = ""
 
                     # Loop through streaming events capturing relevant details
-                    for event in wrapped(*args, **kwargs):
+                    async for event in await wrapped(*args, **kwargs):
                         llmresponse += str(event.text)
                         prompt_tokens = event.usage_metadata.prompt_token_count
                         completion_tokens = event.usage_metadata.candidates_token_count
@@ -355,7 +355,7 @@ def send_message(gen_ai_endpoint, version, environment, application_name, tracer
         # Handling for non-streaming responses
         else:
             with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
-                response = wrapped(*args, **kwargs)
+                response = await wrapped(*args, **kwargs)
 
                 try:
                     # Format 'messages' into a single string
@@ -438,7 +438,7 @@ def send_message(gen_ai_endpoint, version, environment, application_name, tracer
 
     return wrapper
 
-def predict(gen_ai_endpoint, version, environment, application_name, tracer,
+def predict_async(gen_ai_endpoint, version, environment, application_name, tracer,
              pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for messages to collect metrics.
@@ -456,25 +456,25 @@ def predict(gen_ai_endpoint, version, environment, application_name, tracer,
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the 'predict' API call to add telemetry.
+        Wraps the 'generate_content' API call to add telemetry.
 
         This collects metrics such as execution time, cost, and token usage, and handles errors
         gracefully, adding details to the trace for observability.
 
         Args:
-            wrapped: The original 'predict' method to be wrapped.
+            wrapped: The original 'generate_content' method to be wrapped.
             instance: The instance of the class where the original method is defined.
-            args: Positional arguments for the 'predict' method.
-            kwargs: Keyword arguments for the 'predict' method.
+            args: Positional arguments for the 'generate_content' method.
+            kwargs: Keyword arguments for the 'generate_content' method.
 
         Returns:
-            The response from the original 'predict' method.
+            The response from the original 'generate_content' method.
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 prompt = args[0]
@@ -559,7 +559,7 @@ def predict(gen_ai_endpoint, version, environment, application_name, tracer,
 
     return wrapper
 
-def predict_streaming(gen_ai_endpoint, version, environment, application_name, tracer,
+def predict_streaming_async(gen_ai_endpoint, version, environment, application_name, tracer,
              pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for messages to collect metrics.
@@ -577,7 +577,7 @@ def predict_streaming(gen_ai_endpoint, version, environment, application_name, t
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'predict' API call to add telemetry.
 
@@ -595,13 +595,13 @@ def predict_streaming(gen_ai_endpoint, version, environment, application_name, t
         """
 
         # Special handling for streaming response to accommodate the nature of data flow
-        def stream_generator():
+        async def stream_generator():
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 # Placeholder for aggregating streaming response
                 llmresponse = ""
 
                 # Loop through streaming events capturing relevant details
-                for event in wrapped(*args, **kwargs):
+                async for event in wrapped(*args, **kwargs):
                     llmresponse += str(event)
                     yield event
 
@@ -685,7 +685,7 @@ def predict_streaming(gen_ai_endpoint, version, environment, application_name, t
 
     return wrapper
 
-def start_chat(gen_ai_endpoint, version, environment, application_name, tracer,
+def start_chat_async(gen_ai_endpoint, version, environment, application_name, tracer,
              pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for messages to collect metrics.
@@ -703,25 +703,25 @@ def start_chat(gen_ai_endpoint, version, environment, application_name, tracer,
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the 'start_chat' API call to add telemetry.
+        Wraps the 'generate_content' API call to add telemetry.
 
         This collects metrics such as execution time, cost, and token usage, and handles errors
         gracefully, adding details to the trace for observability.
 
         Args:
-            wrapped: The original 'start_chat' method to be wrapped.
+            wrapped: The original 'generate_content' method to be wrapped.
             instance: The instance of the class where the original method is defined.
-            args: Positional arguments for the 'start_chat' method.
-            kwargs: Keyword arguments for the 'start_chat' method.
+            args: Positional arguments for the 'generate_content' method.
+            kwargs: Keyword arguments for the 'generate_content' method.
 
         Returns:
-            The response from the original 'start_chat' method.
+            The response from the original 'generate_content' method.
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
-            response =  wrapped(*args, **kwargs)
+            response =  await wrapped(*args, **kwargs)
 
             try:
                 prompt = args[0]
@@ -807,7 +807,7 @@ def start_chat(gen_ai_endpoint, version, environment, application_name, tracer,
 
     return wrapper
 
-def start_chat_streaming(gen_ai_endpoint, version, environment, application_name, tracer,
+def start_chat_streaming_async(gen_ai_endpoint, version, environment, application_name, tracer,
              pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for messages to collect metrics.
@@ -825,7 +825,7 @@ def start_chat_streaming(gen_ai_endpoint, version, environment, application_name
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'start_chat' API call to add telemetry.
 
@@ -843,13 +843,13 @@ def start_chat_streaming(gen_ai_endpoint, version, environment, application_name
         """
 
         # Special handling for streaming response to accommodate the nature of data flow
-        def stream_generator():
+        async def stream_generator():
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 # Placeholder for aggregating streaming response
                 llmresponse = ""
 
                 # Loop through streaming events capturing relevant details
-                for event in wrapped(*args, **kwargs):
+                async for event in wrapped(*args, **kwargs):
                     llmresponse += str(event.text)
                     yield event
 
@@ -933,7 +933,7 @@ def start_chat_streaming(gen_ai_endpoint, version, environment, application_name
 
     return wrapper
 
-def embeddings(gen_ai_endpoint, version, environment, application_name, tracer,
+def embeddings_async(gen_ai_endpoint, version, environment, application_name, tracer,
              pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for messages to collect metrics.
@@ -951,7 +951,7 @@ def embeddings(gen_ai_endpoint, version, environment, application_name, tracer,
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'generate_content' API call to add telemetry.
 
@@ -967,9 +967,9 @@ def embeddings(gen_ai_endpoint, version, environment, application_name, tracer,
         Returns:
             The response from the original 'generate_content' method.
         """
-        print(dir(instance))
+
         with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 prompt = args[0][0]
