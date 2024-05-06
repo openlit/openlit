@@ -21,7 +21,11 @@
         "embed-multilingual-v2.0": 0.0001,
         "mistral-embed": 0.0001,
         "amazon.titan-embed-text-v1": 0.0001,
-        "amazon.titan-embed-text-v2": 0.00002
+        "amazon.titan-embed-text-v2": 0.00002,
+        "textembedding-gecko": 0.0001,
+        "textembedding-gecko@001": 0.0001,
+        "textembedding-gecko@002": 0.0001,
+        "textembedding-gecko@003": 0.0001
     },
     "images": {
         "dall-e-3": {
@@ -286,6 +290,22 @@
         "text-unicorn@001": {
             "promptPrice": 0.01,
             "completionPrice": 0.03
+        },
+        "chat-bison": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
+        },
+        "chat-bison@002": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
+        },
+        "chat-bison-32k": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
+        },
+        "chat-bison-32k@002": {
+            "promptPrice": 0.001,
+            "completionPrice": 0.002
         }
     }
 }

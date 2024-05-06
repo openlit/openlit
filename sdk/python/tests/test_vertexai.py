@@ -6,7 +6,7 @@ Tests cover various API endpoints, including chat.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - ANTHROPIC_API_TOKEN: Anthropic API api_key for authentication.
+    - GCP_PROJECT_ID: GCP Project ID for authentication.
 
 Note: Ensure the environment is properly configured for Vertex AI access and OpenLIT monitoring
 prior to running these tests.
@@ -26,7 +26,7 @@ from vertexai.language_models import (
 import openlit
 
 # Initialize Vertex AI
-vertexai.init(project=os.getenv("GCP_PROJECT_ID"), location=os.getenv("GCP_LOCATION"))
+vertexai.init(project=os.getenv("GCP_PROJECT_ID"), location="us-central1")
 
 
 # Initialize environment and application name for OpenLIT monitoring
