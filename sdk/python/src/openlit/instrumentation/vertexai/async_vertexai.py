@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, protected-access,  too-many-lines
 """
 Module for monitoring VertexAI API calls.
 """
@@ -608,7 +609,7 @@ def predict_streaming_async(gen_ai_endpoint, version, environment, application_n
                 # Handling exception ensure observability without disrupting operation
                 try:
                     prompt = args[0]
-                    llmresponse = llmresponse.split("TextGenerationResponse")[0].rstrip()
+                    llmresponse = llmresponse.split('TextGenerationResponse', maxsplit=1)[0].rstrip()
 
                     prompt_tokens = math.ceil(len(prompt) / 4)
                     completion_tokens = math.ceil(len(llmresponse) / 4)
@@ -856,7 +857,6 @@ def start_chat_streaming_async(gen_ai_endpoint, version, environment, applicatio
                 # Handling exception ensure observability without disrupting operation
                 try:
                     prompt = args[0]
-                    # llmresponse = llmresponse.split("TextGenerationResponse")[0].rstrip()
 
                     prompt_tokens = math.ceil(len(prompt) / 4)
                     completion_tokens = math.ceil(len(llmresponse) / 4)

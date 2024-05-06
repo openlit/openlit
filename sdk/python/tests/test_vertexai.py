@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module
+# pylint: disable=duplicate-code, no-name-in-module, no-member, import-error
 """
 This module contains tests for Vertex AI functionality using the Vertex AI Python library.
 
@@ -21,12 +21,12 @@ from vertexai.generative_models import (
 from vertexai.language_models import (
     TextGenerationModel,
     ChatModel,
-    TextEmbeddingInput, TextEmbeddingModel
+    TextEmbeddingModel
 )
 import openlit
 
 # Initialize Vertex AI
-vertexai.init(project="apitrain-293609", location="us-central1")
+vertexai.init(project=os.getenv("GCP_PROJECT_ID"), location=os.getenv("GCP_LOCATION"))
 
 
 # Initialize environment and application name for OpenLIT monitoring
@@ -49,13 +49,15 @@ def test_sync_vertexai_send_message():
         model = GenerativeModel(model_name="gemini-1.0-pro-001")
         chat = model.start_chat()
 
-        response = chat.send_message_async("Just say 'LLM Observability'", stream=False, generation_config=generation_config)
+        response = chat.send_message_async("Just say 'LLM Observability'",
+                                           stream=False, generation_config=generation_config)
 
         assert response.candidates[0].content.role == 'model'
 
 
         works = False
-        responses = chat.send_message("Just say 'LLM Monitoring'", stream=True, generation_config=generation_config)
+        responses = chat.send_message("Just say 'LLM Monitoring'",
+                                      stream=True, generation_config=generation_config)
         for response in responses:
             if response.candidates[0].content.role == 'model':
                 works = True
@@ -128,7 +130,7 @@ def test_sync_vertexai_predict():
             **parameters,
         )
 
-        assert type(response.text) is str
+        assert isinstance(response.text, str)
 
         works = False
         responses = model.predict_streaming(
@@ -167,7 +169,7 @@ def test_sync_vertexai_start_chat():
             "What is LLM Observability?", **parameters
         )
 
-        assert type(response.text) is str
+        assert isinstance(response.text, str)
 
         works = False
         responses = chat.send_message_streaming(
@@ -196,7 +198,7 @@ def test_sync_vertexai_get_embeddings():
         model = TextEmbeddingModel.from_pretrained("textembedding-gecko@001")
         response = model.get_embeddings(["What is LLM Observability?"])
 
-        assert type(response[0].statistics.truncated) is False
+        assert response[0].statistics.truncated is False
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
@@ -221,12 +223,14 @@ async def test_async_vertexai_send_message():
         model = GenerativeModel(model_name="gemini-1.0-pro-001")
         chat = model.start_chat()
 
-        response = await chat.send_message_async("Just say 'LLM Observability'", stream=False, generation_config=generation_config)
+        response = await chat.send_message_async("Just say 'LLM Observability'",
+                                                 stream=False, generation_config=generation_config)
 
         assert response.candidates[0].content.role == 'model'
 
         works = False
-        responses = await chat.send_message_async("Just say 'LLM Observability'", stream=True, generation_config=generation_config)
+        responses = await chat.send_message_async("Just say 'LLM Observability'",
+                                                  stream=True, generation_config=generation_config)
         for response in responses:
             if response.candidates[0].content.role == 'model':
                 works = True
@@ -300,7 +304,7 @@ async def test_async_vertexai_predict():
             **parameters,
         )
 
-        assert type(response.text) is str
+        assert isinstance(response.text, str)
 
         works = False
         responses = await model.predict_streaming_async(
@@ -340,7 +344,7 @@ async def test_async_vertexai_start_chat():
             "What is LLM Observability?", **parameters
         )
 
-        assert type(response.text) is str
+        assert isinstance(response.text, str)
 
         works = False
         responses = await chat.send_message_streaming_async(
@@ -370,7 +374,7 @@ async def test_async_vertexai_get_embeddings():
         model = TextEmbeddingModel.from_pretrained("textembedding-gecko@001")
         response = await model.get_embeddings_async(["What is LLM Observability?"])
 
-        assert type(response[0].statistics.truncated) is False
+        assert response[0].statistics.truncated is False
 
     # pylint: disable=broad-exception-caught
     except Exception as e:

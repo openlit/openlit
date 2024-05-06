@@ -1,13 +1,14 @@
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, protected-access,  too-many-lines
 """
 Module for monitoring VertexAI API calls.
 """
 
 import logging
+import math
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 from openlit.semcov import SemanticConvetion
-import math
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -608,7 +609,7 @@ def predict_streaming(gen_ai_endpoint, version, environment, application_name, t
                 # Handling exception ensure observability without disrupting operation
                 try:
                     prompt = args[0]
-                    llmresponse = llmresponse.split("TextGenerationResponse")[0].rstrip()
+                    llmresponse =  llmresponse.split('TextGenerationResponse', maxsplit=1)[0].rstrip()
 
                     prompt_tokens = math.ceil(len(prompt) / 4)
                     completion_tokens = math.ceil(len(llmresponse) / 4)
@@ -856,7 +857,6 @@ def start_chat_streaming(gen_ai_endpoint, version, environment, application_name
                 # Handling exception ensure observability without disrupting operation
                 try:
                     prompt = args[0]
-                    # llmresponse = llmresponse.split("TextGenerationResponse")[0].rstrip()
 
                     prompt_tokens = math.ceil(len(prompt) / 4)
                     completion_tokens = math.ceil(len(llmresponse) / 4)
