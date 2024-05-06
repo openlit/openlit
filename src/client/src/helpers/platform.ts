@@ -1,7 +1,7 @@
 import { SPAN_KIND } from "@/constants/traces";
 import { ValueOf } from "../utils/types";
 import { MetricParams } from "@/lib/platform/common";
-import { addDays, addMonths } from "date-fns";
+import { addDays, addMonths, differenceInDays } from "date-fns";
 
 export const validateMetricsRequestType = {
 	// Request
@@ -187,6 +187,17 @@ export const getFilterPreviousParams = (filter: MetricParams) => {
 					-3
 				).toISOString();
 				previousParams.timeLimit.end = addMonths(end as Date, -3).toISOString();
+				break;
+			case "CUSTOM":
+				const differenceDays = differenceInDays(end as Date, start as Date);
+				previousParams.timeLimit.start = addDays(
+					start as Date,
+					-differenceDays
+				).toISOString();
+				previousParams.timeLimit.end = addDays(
+					end as Date,
+					-differenceDays
+				).toISOString();
 				break;
 			default:
 		}

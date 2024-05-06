@@ -1,18 +1,14 @@
 import { format } from "date-fns";
-import { fill, round } from "lodash";
+import { fill, isNil, round } from "lodash";
 import { useRequest } from "./request-context";
 import { ReactNode } from "react";
-import { normalizeTrace } from "@/helpers/trace";
-import { TraceRow, TransformedTraceRow } from "@/constants/traces";
+import { getRequestTableDisplayKeys, normalizeTrace } from "@/helpers/trace";
 import {
-	Boxes,
-	Braces,
-	CalendarDays,
-	CircleDollarSign,
-	Clock,
-	PyramidIcon,
-	TicketPlus,
-} from "lucide-react";
+	TraceMapping,
+	TraceRow,
+	TransformedTraceRow,
+} from "@/constants/traces";
+import { CalendarDays, Clock } from "lucide-react";
 import IntermediateState from "@/components/(playground)/intermediate-state";
 
 type RenderRowProps = {
@@ -62,6 +58,7 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 	const onClick = () => !isLoading && updateRequest(item);
 
 	const normalizedItem: TransformedTraceRow = normalizeTrace(item);
+	const requestDisplayItems = getRequestTableDisplayKeys(normalizedItem.type);
 
 	return (
 		<div className="flex flex-col">
@@ -87,47 +84,29 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 				}`}
 				onClick={onClick}
 			>
-				<RowItem
-					containerClass="w-3/12"
-					label="App name"
-					text={normalizedItem.applicationName}
-					textClass="font-medium"
-				/>
-				<RowItem
-					containerClass="w-3/12"
-					icon={<PyramidIcon size="16" />}
-					label="Client"
-					text={normalizedItem.provider}
-					textClass="text-sm"
-				/>
-				<RowItem
-					containerClass="w-1.5/12"
-					icon={<Boxes size="16" />}
-					label="Model"
-					text={normalizedItem.model}
-					textClass="text-sm"
-				/>
-				<RowItem
-					containerClass="w-1.5/12"
-					icon={<CircleDollarSign size="16" />}
-					label="Usage cost"
-					text={`${round(normalizedItem.cost, 6)}`}
-					textClass="text-sm"
-				/>
-				<RowItem
-					containerClass="w-1.5/12"
-					icon={<Braces size="16" />}
-					label="Prompt Tokens"
-					text={`${normalizedItem.promptTokens || "-"}`}
-					textClass="text-sm"
-				/>
-				<RowItem
-					containerClass="w-1.5/12"
-					icon={<TicketPlus size="16" />}
-					label="Total Tokens"
-					text={`${normalizedItem.totalTokens || "-"}`}
-					textClass="text-sm"
-				/>
+				{requestDisplayItems.map((keyItem, index) => {
+					if (!keyItem || isNil(normalizedItem[keyItem]))
+						return (
+							<RowItem
+								key={`empty-${index}`}
+								containerClass={index <= 1 ? "w-3/12" : "w-1.5/12"}
+								label={""}
+								text={""}
+								textClass={index === 0 ? "font-medium" : "text-sm"}
+							/>
+						);
+					const IconElement = TraceMapping[keyItem].icon;
+					return (
+						<RowItem
+							key={`${keyItem}-${index}`}
+							containerClass={index <= 1 ? "w-3/12" : "w-1.5/12"}
+							label={TraceMapping[keyItem].label}
+							text={normalizedItem[keyItem]}
+							icon={IconElement && <IconElement size="16" />}
+							textClass={index === 0 ? "font-medium" : "text-sm"}
+						/>
+					);
+				})}
 			</div>
 		</div>
 	);

@@ -2,27 +2,18 @@ import { useRequest } from "@/app/(playground)/requests/request-context";
 import Image from "next/image";
 import { round } from "lodash";
 import { format } from "date-fns";
-import { normalizeTrace } from "@/helpers/trace";
-import { TransformedTraceRow } from "@/constants/traces";
+import { getRequestDetailsDisplayKeys, normalizeTrace } from "@/helpers/trace";
+import { TraceMapping, TransformedTraceRow } from "@/constants/traces";
 import {
-	AudioLines,
-	Boxes,
-	Braces,
 	CalendarDays,
-	CircleDollarSign,
-	ClipboardType,
 	Clock,
-	Container,
 	ExternalLink,
-	Image as ImageIcon,
 	LucideIcon,
 	PyramidIcon,
-	TicketPlus,
 } from "lucide-react";
 import {
 	Sheet,
 	SheetContent,
-	SheetDescription,
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
@@ -43,6 +34,15 @@ const TagItem = ({
 	</div>
 );
 
+const CodeItem = ({ label, text }: { label: string; text: string }) => (
+	<div className="flex flex-col space-y-3 mt-4">
+		<span className="text-sm text-stone-500 font-medium">{label} : </span>
+		<code className="text-sm inline-flex text-left items-center bg-stone-950 text-stone-200 rounded-md p-4">
+			{text}
+		</code>
+	</div>
+);
+
 export default function RequestDetails() {
 	const [request, updateRequest] = useRequest();
 
@@ -53,6 +53,7 @@ export default function RequestDetails() {
 	if (!request) return null;
 
 	const normalizedItem: TransformedTraceRow = normalizeTrace(request);
+	const displayKeys = getRequestDetailsDisplayKeys(normalizedItem.type);
 
 	return (
 		<Sheet open onOpenChange={onClose}>
@@ -66,13 +67,13 @@ export default function RequestDetails() {
 							<div className="flex items-center mt-3">
 								<PyramidIcon size="12" />
 								<p className="ml-3 text-sm leading-none">
-									{normalizedItem.provider}
+									{normalizedItem.provider || normalizedItem.system}
 								</p>
 							</div>
 						</div>
 					</SheetTitle>
 				</SheetHeader>
-				<SheetDescription>
+				<div className="h-full w-full flex grow pb-8">
 					<div className="flex h-full w-full flex-col overflow-y-scroll">
 						<div className="relative py-6 flex-1 flex flex-col gap-3">
 							<div className="flex items-start flex-wrap gap-3">
@@ -86,87 +87,41 @@ export default function RequestDetails() {
 									title="Request duration : "
 									value={`${round(normalizedItem.requestDuration, 4)}s`}
 								/>
-								<TagItem
-									icon={Boxes}
-									title="Model : "
-									value={normalizedItem.model}
-								/>
-								<TagItem
-									icon={CircleDollarSign}
-									title="Usage cost : "
-									value={round(normalizedItem.cost, 6)}
-								/>
-								{normalizedItem.promptTokens > 0 && (
-									<TagItem
-										icon={Braces}
-										title="Prompt tokens : "
-										value={normalizedItem.promptTokens}
-									/>
-								)}
-								{normalizedItem.totalTokens > 0 && (
-									<TagItem
-										icon={TicketPlus}
-										title="Total tokens : "
-										value={normalizedItem.totalTokens}
-									/>
-								)}
-								<TagItem
-									icon={Container}
-									title="Environment : "
-									value={normalizedItem.environment}
-								/>
-								{normalizedItem.audioVoice && (
-									<TagItem
-										icon={AudioLines}
-										title="Audio voice : "
-										value={normalizedItem.audioVoice}
-									/>
-								)}
-								{normalizedItem.imageSize && (
-									<TagItem
-										icon={ImageIcon}
-										title="Image size : "
-										value={normalizedItem.imageSize}
-									/>
-								)}
-								{normalizedItem.type && (
-									<TagItem
-										icon={ClipboardType}
-										title="Type : "
-										value={normalizedItem.type}
-									/>
+								{displayKeys.map(
+									(keyItem, index) =>
+										normalizedItem[keyItem] && (
+											<TagItem
+												key={`${keyItem}-${index}`}
+												icon={TraceMapping[keyItem].icon}
+												title={`${TraceMapping[keyItem].label} : `}
+												value={normalizedItem[keyItem]}
+											/>
+										)
 								)}
 							</div>
+
+							{/* Prompts */}
 							{normalizedItem.prompt && (
-								<div className="flex flex-col space-y-3 mt-4">
-									<span className="text-sm text-stone-500 font-medium">
-										Prompt :{" "}
-									</span>
-									<code className="text-sm inline-flex text-left items-center bg-stone-950 text-stone-200 rounded-md p-4">
-										{normalizedItem.prompt}
-									</code>
-								</div>
+								<CodeItem
+									label={TraceMapping["prompt"].label}
+									text={normalizedItem.prompt}
+								/>
 							)}
 							{normalizedItem.revisedPrompt && (
-								<div className="flex flex-col space-y-3 mt-4">
-									<span className="text-sm text-stone-500 font-medium">
-										Revised Prompt :{" "}
-									</span>
-									<code className="text-sm inline-flex text-left items-center bg-stone-950 text-stone-200 rounded-md p-4">
-										{normalizedItem.revisedPrompt}
-									</code>
-								</div>
+								<CodeItem
+									label={TraceMapping["revisedPrompt"].label}
+									text={normalizedItem.revisedPrompt}
+								/>
 							)}
 							{normalizedItem.response && (
-								<div className="flex flex-col space-y-3 mt-4">
-									<span className="text-sm text-stone-500 font-medium">
-										Response :{" "}
-									</span>
-									<code className="text-sm inline-flex text-left items-center bg-stone-950 text-stone-200 rounded-md p-4">
-										{normalizedItem.response}
-									</code>
-								</div>
+								<CodeItem
+									label={TraceMapping["response"].label}
+									text={normalizedItem.response}
+								/>
 							)}
+							{/* Prompts */}
+
+							{/* Image */}
 							{normalizedItem.image && normalizedItem.imageSize && (
 								<a
 									href={normalizedItem.image}
@@ -189,9 +144,42 @@ export default function RequestDetails() {
 									</span>
 								</a>
 							)}
+							{/* Image */}
+
+							{/* Vector */}
+							{normalizedItem.statement && (
+								<CodeItem
+									label={TraceMapping["statement"].label}
+									text={normalizedItem.statement}
+								/>
+							)}
+
+							{normalizedItem.whereDocument && (
+								<CodeItem
+									label={TraceMapping["whereDocument"].label}
+									text={normalizedItem.whereDocument}
+								/>
+							)}
+
+							{normalizedItem.filter && (
+								<CodeItem
+									label={TraceMapping["filter"].label}
+									text={normalizedItem.filter}
+								/>
+							)}
+							{/* Vector */}
+
+							{/* Framework */}
+							{normalizedItem.retrievalSource && (
+								<CodeItem
+									label={TraceMapping["retrievalSource"].label}
+									text={normalizedItem.retrievalSource}
+								/>
+							)}
+							{/* Framework */}
 						</div>
 					</div>
-				</SheetDescription>
+				</div>
 			</SheetContent>
 		</Sheet>
 	);
