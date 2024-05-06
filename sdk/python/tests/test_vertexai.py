@@ -49,7 +49,7 @@ def test_sync_vertexai_send_message():
         model = GenerativeModel(model_name="gemini-1.0-pro-001")
         chat = model.start_chat()
 
-        response = chat.send_message_async("Just say 'LLM Observability'",
+        response = chat.send_message("Just say 'LLM Observability'",
                                            stream=False, generation_config=generation_config)
 
         assert response.candidates[0].content.role == 'model'
