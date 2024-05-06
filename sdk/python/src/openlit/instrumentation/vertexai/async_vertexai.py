@@ -609,7 +609,8 @@ def predict_streaming_async(gen_ai_endpoint, version, environment, application_n
                 # Handling exception ensure observability without disrupting operation
                 try:
                     prompt = args[0]
-                    llmresponse = llmresponse.split('TextGenerationResponse', maxsplit=1)[0].rstrip()
+                    llmresponse = llmresponse.split('TextGenerationResponse',
+                                                    maxsplit=1)[0].rstrip()
 
                     prompt_tokens = math.ceil(len(prompt) / 4)
                     completion_tokens = math.ceil(len(llmresponse) / 4)
