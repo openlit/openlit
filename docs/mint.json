@@ -64,7 +64,9 @@
             "latest/integrations/cohere",
             "latest/integrations/mistral",
             "latest/integrations/azure-openai",
-            "latest/integrations/huggingface"
+            "latest/integrations/huggingface",
+            "latest/integrations/bedrock",
+            "latest/integrations/vertexai"
           ]
         },
         {
