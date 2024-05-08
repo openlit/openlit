@@ -18,6 +18,7 @@ from openlit.instrumentation.anthropic import AnthropicInstrumentor
 from openlit.instrumentation.cohere import CohereInstrumentor
 from openlit.instrumentation.mistral import MistralInstrumentor
 from openlit.instrumentation.bedrock import BedrockInstrumentor
+from openlit.instrumentation.vertexai import VertexAIInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
@@ -139,7 +140,6 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         disable_metrics (bool): Flag to disable metrics (Optional)
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
-
     # Check for invalid instrumentor names
 
     module_name_map = {
@@ -148,6 +148,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "cohere": "cohere",  
         "mistral": "mistralai",
         "bedrock": "boto3",
+        "vertexai": "vertexai",
         "langchain": "langchain",
         "chroma": "chromadb",
         "pinecone": "pinecone",
@@ -195,6 +196,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "cohere": CohereInstrumentor(),
             "mistral": MistralInstrumentor(),
             "bedrock": BedrockInstrumentor(),
+            "vertexai": VertexAIInstrumentor(),
             "langchain": LangChainInstrumentor(),
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),

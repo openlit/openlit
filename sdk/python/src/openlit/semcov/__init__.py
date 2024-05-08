@@ -86,6 +86,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_COHERE = "cohere"
     GEN_AI_SYSTEM_MISTRAL = "mistral"
     GEN_AI_SYSTEM_BEDROCK = "bedrock"
+    GEN_AI_SYSTEM_VERTEXAI = "vertexai"
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
 
     # Vector DB
