@@ -6,11 +6,11 @@ import {
 } from "@/constants/traces";
 import { round } from "lodash";
 
-export const integerParser = (value: string, multiplier?: number) =>
-	parseInt((value || "0") as string, 10) * (multiplier || 1);
+export const integerParser = (value: string, offset?: number) =>
+	parseInt((value || "0") as string, 10) * (offset || 1);
 
-export const floatParser = (value: string, multiplier?: number) =>
-	parseFloat((value || "0") as string) * (multiplier || 1);
+export const floatParser = (value: string, offset?: number) =>
+	parseFloat((value || "0") as string) * (offset || 1);
 
 export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 	return Object.keys(TraceMapping).reduce(

@@ -24,7 +24,7 @@ function NumberStats() {
 				icon={Timer}
 				textSuffix="s"
 				parser={(value: any) =>
-					integerParser(`${value}`, TraceMapping.requestDuration.multiplier)
+					integerParser(`${value}`, TraceMapping.requestDuration.offset)
 				}
 				url="/api/metrics/request/duration/average"
 			/>
