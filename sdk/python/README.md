@@ -24,30 +24,34 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 ## What can be Auto Instrumented?
 
 ### LLMs
-- ✅ OpenAI
-- ✅ Anthropic
-- ✅ Cohere
-- ✅ Mistral
-- ✅ Azure OpenAI
-- ✅ HuggingFace Transformers
+- [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)
+- [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)
+- [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)
+- [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)
+- [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai)
+- [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface)
+- [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)
+- [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)
 
 ### Vector DBs
-- ✅ ChromaDB
-- ✅ Pinecone
+- [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)
+- [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)
 
 ### Frameworks
-- ✅ Langchain
-- ✅ LiteLLM
+- [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)
+- [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)
 
 ## Supported Destinations
-- ✅ OpenTelemetry Collector
-- ✅ Grafana Cloud
-- ✅ Grafana Tempo
-- ✅ DataDog
-- ✅ New Relic
-- ✅ SigNoz
-- ✅ Dynatrace
-- ✅ OpenObserve
+- [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
+- [✅ Prometheus + Tempo](https://docs.openlit.io/latest/connections/prometheus-tempo)
+- [✅ Grafana Cloud](https://docs.openlit.io/latest/connections/grafanacloud)
+- [✅ DataDog](https://docs.openlit.io/latest/connections/datadog)
+- [✅ New Relic](https://docs.openlit.io/latest/connections/new-relic)
+- [✅ SigNoz](https://docs.openlit.io/latest/connections/signoz)
+- [✅ Dynatrace](https://docs.openlit.io/latest/connections/dynatrace)
+- [✅ OpenObserve](https://docs.openlit.io/latest/connections/openobserve)
+- [✅ Jaeger](https://docs.openlit.io/latest/connections/jaeger)
+- [✅ Highlight.io](https://docs.openlit.io/latest/connections/highlight)
 
 ## 💿 Installation
 
