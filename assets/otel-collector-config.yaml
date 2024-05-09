@@ -14,32 +14,34 @@ processors:
     spike_limit_mib: 512
     check_interval: 5s
 extensions:
-  basicauth/tempo:
-    client_auth:
-      username: "878543"
-      password: "glc_eyJvIjoiNjUyOTkyIiwibiI6InN0YWNrLTkyNjQ0Ni1pbnRlZ3JhdGlvbi1hZGFzIiwiayI6IjFvNHFUTjM3a3RxTGswMkgwOG1aNjJJTyIsIm0iOnsiciI6InByb2QtdXMtZWFzdC0wIn19"
-  basicauth/prometheus:
-    client_auth:
-      username: "1568361"
-      password: "glc_eyJvIjoiNjUyOTkyIiwibiI6InN0YWNrLTkyNjQ0Ni1pbnRlZ3JhdGlvbi1hZGFzIiwiayI6IjFvNHFUTjM3a3RxTGswMkgwOG1aNjJJTyIsIm0iOnsiciI6InByb2QtdXMtZWFzdC0wIn19"
+  zpages: {}
 exporters:
-  prometheusremotewrite:
-    endpoint: "https://prometheus-prod-13-prod-us-east-0.grafana.net/api/prom/push"
-    add_metric_suffixes: false
-    auth:
-      authenticator: basicauth/prometheus
-  otlp:
-    endpoint: "tempo-prod-04-prod-us-east-0.grafana.net:443"
-    auth:
-      authenticator: basicauth/tempo
+  clickhouse:
+    endpoint: tcp://${env:INIT_DB_HOST}:${env:INIT_DB_PORT}?dial_timeout=10s
+    database: ${env:INIT_DB_DATABASE}
+    username: ${env:INIT_DB_USERNAME}
+    password: ${env:INIT_DB_PASSWORD}
+    ttl: 730h
+    logs_table_name: otel_logs
+    traces_table_name: otel_traces
+    metrics_table_name: otel_metrics
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
 service:
-  extensions: [ basicauth/tempo, basicauth/prometheus ]
   pipelines:
+    logs:
+      receivers: [ otlp ]
+      processors: [ batch ]
+      exporters: [ clickhouse ]
     traces:
       receivers: [ otlp ]
-      processors: [ memory_limiter, batch ]
-      exporters: [ otlp ]
+      processors: [memory_limiter, batch]
+      exporters: [ clickhouse ]
     metrics:
       receivers: [ otlp ]
-      processors: [ memory_limiter, batch ]
-      exporters: [ prometheusremotewrite ]
+      processors: [memory_limiter, batch]
+      exporters: [ clickhouse ]
