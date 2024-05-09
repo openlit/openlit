@@ -36,7 +36,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
       )
       ```
 
-      **Replace**:
+      Replace:
       1. `YOUR_GRAFANA_OTEL_GATEWAY_URL` with the `OTEL_EXPORTER_OTLP_ENDPOINT` value you copied in Step 1. 
         * Example - `https://otlp-gateway-<zone>.grafana.net/otlp`
       1. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
@@ -55,7 +55,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
       export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_GRAFANA_OTEL_GATEWAY_AUTH"
       ```
 
-      **Replace**:
+      Replace:
       1. `YOUR_GRAFANA_OTEL_GATEWAY_URL` with the `OTEL_EXPORTER_OTLP_ENDPOINT` value you copied in Step 1. 
          * Example - `https://otlp-gateway-<zone>.grafana.net/otlp`
       1. `YOUR_GRAFANA_OTEL_GATEWAY_AUTH` with the `OTEL_EXPORTER_OTLP_HEADERS` value you copied in Step 1. 
@@ -125,7 +125,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "${metricsDatasource}"
           },
           "gridPos": {
             "h": 5,
@@ -150,7 +150,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "grafanacloud-prom"
+            "uid": "${metricsDatasource}"
           },
           "description": "This panel displays the LLM Request Rate ",
           "fieldConfig": {
@@ -209,7 +209,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "${metricsDatasource}"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -229,7 +229,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "grafanacloud-prom"
+            "uid": "${metricsDatasource}"
           },
           "description": "This panel displays the VectorDB Request Rate",
           "fieldConfig": {
@@ -288,7 +288,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
+                "uid": "${metricsDatasource}"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -1858,7 +1858,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
             },
             "datasource": {
               "type": "prometheus",
-              "uid": "grafanacloud-prom"
+              "uid": "${metricsDatasource}"
             },
             "definition": "label_values(gen_ai_application_name)",
             "hide": 0,
@@ -1890,7 +1890,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
             },
             "datasource": {
               "type": "prometheus",
-              "uid": "grafanacloud-prom"
+              "uid": "${metricsDatasource}"
             },
             "definition": "label_values(gen_ai_environment)",
             "hide": 0,
