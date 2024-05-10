@@ -92,10 +92,10 @@
       "pages": [
         "latest/connections/intro",
         "latest/connections/otelcol",
-        "latest/connections/grafana-tempo",
+        "latest/connections/prometheus-tempo",
         "latest/connections/grafanacloud",
-        "latest/connections/datadog",
         "latest/connections/new-relic",
+        "latest/connections/datadog",
         "latest/connections/signoz",
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
