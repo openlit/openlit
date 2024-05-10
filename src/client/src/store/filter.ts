@@ -2,11 +2,15 @@ import { set } from "lodash";
 import { addDays, addMonths, addWeeks } from "date-fns";
 import { lens } from "@dhmk/zustand-lens";
 
-export const TIME_RANGE_TYPE: Record<"24H" | "7D" | "1M" | "3M", string> = {
+export const TIME_RANGE_TYPE: Record<
+	"24H" | "7D" | "1M" | "3M" | "CUSTOM",
+	string
+> = {
 	"24H": "24H",
 	"7D": "7D",
 	"1M": "1M",
 	"3M": "3M",
+	CUSTOM: "CUSTOM",
 };
 
 export const DEFAULT_TIME_RANGE = "24H";
@@ -21,7 +25,11 @@ export interface FilterType {
 	offset: number;
 }
 
-function getTimeLimitObject(value: string, keyPrefix: string) {
+function getTimeLimitObject(
+	value: string,
+	keyPrefix: string,
+	extraParams?: any
+) {
 	let object = {};
 	if (value === TIME_RANGE_TYPE["24H"]) {
 		const currentDate = new Date();
@@ -39,6 +47,13 @@ function getTimeLimitObject(value: string, keyPrefix: string) {
 		const currentDate = new Date();
 		set(object, `${keyPrefix}start`, addMonths(currentDate, -3));
 		set(object, `${keyPrefix}end`, currentDate);
+	} else if (value === TIME_RANGE_TYPE["CUSTOM"]) {
+		const start = extraParams?.start;
+		const end = extraParams?.end;
+		if (start && end) {
+			set(object, `${keyPrefix}start`, start);
+			set(object, `${keyPrefix}end`, end);
+		}
 	}
 	return object;
 }
@@ -54,16 +69,16 @@ const INITIAL_FILTER: FilterType = {
 
 export type FilterStore = {
 	details: FilterType;
-	updateFilter: (key: string, value: any) => void;
+	updateFilter: (key: string, value: any, extraParams?: any) => void;
 };
 
 export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 	details: INITIAL_FILTER,
-	updateFilter: (key: string, value: any) => {
+	updateFilter: (key: string, value: any, extraParams?: any) => {
 		let object = {};
 		switch (key) {
 			case "timeLimit.type":
-				object = getTimeLimitObject(value, "timeLimit.");
+				object = getTimeLimitObject(value, "timeLimit.", extraParams);
 				break;
 			case "limit":
 				set(object, "offset", 0);

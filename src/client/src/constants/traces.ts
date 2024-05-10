@@ -1,8 +1,34 @@
 import { ValueOf } from "@/utils/types";
+import {
+	AudioLines,
+	BookKey,
+	Boxes,
+	Braces,
+	CircleDollarSign,
+	CircleGauge,
+	ClipboardType,
+	Combine,
+	Container,
+	Crop,
+	DoorClosed,
+	Factory,
+	FileAudio2,
+	FileStack,
+	Fingerprint,
+	ImageIcon,
+	LucideIcon,
+	PyramidIcon,
+	ScanSearch,
+	ShieldCheck,
+	SquareCode,
+	SquareRadical,
+	TicketPlus,
+} from "lucide-react";
 
-export const SpanAttributesPrefix = "gen_ai";
+export const SpanAttributesGenAIPrefix = "gen_ai";
+export const SpanAttributesDBPrefix = "db";
 
-export type TraceKeyType = "string" | "integer" | "float";
+export type TraceKeyType = "string" | "integer" | "float" | "round";
 
 export const TraceMapping: Record<
 	string,
@@ -12,7 +38,9 @@ export const TraceMapping: Record<
 		path: string;
 		prefix?: string;
 		isRoot?: boolean;
-		multiplier?: number;
+		offset?: number;
+		icon?: LucideIcon;
+		defaultValue?: string | number | boolean;
 	}
 > = {
 	// Root Key
@@ -21,6 +49,13 @@ export const TraceMapping: Record<
 		type: "string",
 		path: "Timestamp",
 		isRoot: true,
+	},
+	requestDuration: {
+		label: "Request Duration",
+		type: "integer",
+		path: "Duration",
+		isRoot: true,
+		offset: 10e-10,
 	},
 
 	id: {
@@ -33,70 +68,83 @@ export const TraceMapping: Record<
 		label: "Provider",
 		type: "string",
 		path: "system",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: PyramidIcon,
 	},
 	applicationName: {
-		label: "Application Name",
+		label: "App Name",
 		type: "string",
 		path: "application_name",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	environment: {
 		label: "Environment",
 		type: "string",
 		path: "environment",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: Container,
 	},
 	type: {
 		label: "Type",
 		type: "string",
 		path: "type",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: ClipboardType,
 	},
 	endpoint: {
 		label: "Endpoint",
 		type: "string",
 		path: "endpoint",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: DoorClosed,
 	},
 	temperature: {
 		label: "Temperature",
 		type: "float",
 		path: "temperature",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 
 	// Tokens & Cost
 	cost: {
-		label: "Cost",
-		type: "float",
+		label: "Usage Cost",
+		type: "round",
 		path: "usage.cost",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: CircleDollarSign,
+		offset: 6,
+		defaultValue: "-",
 	},
 
 	promptTokens: {
 		label: "Prompt Tokens",
 		type: "integer",
 		path: "usage.prompt_tokens",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: Braces,
+		defaultValue: "-",
 	},
 	completionTokens: {
 		label: "Completion Tokens",
 		type: "integer",
 		path: "usage.completion_tokens",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		defaultValue: "-",
 	},
 	totalTokens: {
 		label: "Total Tokens",
 		type: "integer",
 		path: "usage.total_tokens",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: TicketPlus,
+		defaultValue: "-",
 	},
 	maxTokens: {
 		label: "Maximum tokens",
 		type: "integer",
 		path: "request.max_tokens",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		defaultValue: "-",
 	},
 
 	// Audio
@@ -105,19 +153,22 @@ export const TraceMapping: Record<
 		label: "Audio Voice",
 		type: "string",
 		path: "request.audio_voice",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: AudioLines,
 	},
 	audioFormat: {
 		label: "Audio Format",
 		type: "string",
 		path: "request.audio_response_format",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: FileAudio2,
 	},
 	audioSpeed: {
 		label: "Audio Speed",
 		type: "string",
 		path: "request.audio_speed",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: CircleGauge,
 	},
 
 	// Image
@@ -125,26 +176,29 @@ export const TraceMapping: Record<
 	image: {
 		label: "Image",
 		type: "string",
-		path: "request.image",
-		prefix: SpanAttributesPrefix,
+		path: "response.image.0",
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	imageSize: {
 		label: "Image Size",
 		type: "string",
 		path: "request.image_size",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: ImageIcon,
 	},
 	imageQuality: {
 		label: "Image Quality",
 		type: "string",
 		path: "request.image_quality",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: ScanSearch,
 	},
 	imageStyle: {
 		label: "Image Style",
 		type: "string",
 		path: "request.image_style",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: Crop,
 	},
 
 	// Request and Response
@@ -152,38 +206,32 @@ export const TraceMapping: Record<
 		label: "Model",
 		type: "string",
 		path: "request.model",
-		prefix: SpanAttributesPrefix,
-	},
-	requestDuration: {
-		label: "Request Duration",
-		type: "integer",
-		path: "Duration",
-		isRoot: true,
-		multiplier: 10e-10,
+		prefix: SpanAttributesGenAIPrefix,
+		icon: Boxes,
 	},
 	prompt: {
 		label: "Prompt",
 		type: "string",
 		path: "content.prompt",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	finishReason: {
 		label: "Finish Reason",
 		type: "string",
 		path: "response.finish_reason",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	response: {
 		label: "Response",
 		type: "string",
 		path: "content.completion",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	randomSeed: {
 		label: "Random seed",
 		type: "float",
 		path: "request.seed",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 
 	// Embedding
@@ -192,13 +240,13 @@ export const TraceMapping: Record<
 		label: "Embedding Format",
 		type: "string",
 		path: "request.embedding_format",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	embeddingDimension: {
 		label: "Embedding Dimension",
 		type: "string",
 		path: "request.embedding_dimension",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 
 	// Fine tune
@@ -206,43 +254,134 @@ export const TraceMapping: Record<
 		label: "Training File",
 		type: "string",
 		path: "request.training_file",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	validationFile: {
 		label: "Validation File",
 		type: "string",
 		path: "request.validation_file",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	fineTuneBatchSize: {
 		label: "Fine Tune Batch Size",
 		type: "string",
 		path: "request.fine_tune_batch_size",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	learningRateMultiplier: {
 		label: "Learning rate multiplier",
 		type: "string",
 		path: "request.learning_rate_multiplier",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	fineTuneNEpochs: {
 		label: "Fine Tune and Epochs",
 		type: "string",
 		path: "request.fine_tune_n_epochs",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	fineTuneModelSuffix: {
 		label: "Fine Tune Model Suffix",
 		type: "string",
 		path: "request.fine_tune_model_suffix",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
 	},
 	finetuneJobStatus: {
 		label: "Fine Tune Job Status",
 		type: "string",
 		path: "request.fine_tune_status",
-		prefix: SpanAttributesPrefix,
+		prefix: SpanAttributesGenAIPrefix,
+	},
+
+	// vector db
+	operation: {
+		label: "Operation",
+		type: "string",
+		path: "operation",
+		prefix: SpanAttributesDBPrefix,
+		icon: SquareRadical,
+	},
+	system: {
+		label: "Provider",
+		type: "string",
+		path: "system",
+		prefix: SpanAttributesDBPrefix,
+		icon: PyramidIcon,
+	},
+	documentsCount: {
+		label: "Documents count",
+		type: "integer",
+		path: "documents_count",
+		prefix: SpanAttributesDBPrefix,
+		icon: FileStack,
+	},
+	idsCount: {
+		label: "Ids count",
+		type: "integer",
+		path: "ids_count",
+		prefix: SpanAttributesDBPrefix,
+		icon: Fingerprint,
+	},
+	vectorCount: {
+		label: "Vector count",
+		type: "integer",
+		path: "vector_count",
+		prefix: SpanAttributesDBPrefix,
+		icon: Factory,
+	},
+	statement: {
+		label: "Statement",
+		type: "string",
+		path: "statement",
+		prefix: SpanAttributesDBPrefix,
+	},
+	nResults: {
+		label: "N results",
+		type: "string",
+		path: "n_results",
+		prefix: SpanAttributesDBPrefix,
+	},
+	collectionName: {
+		label: "Collection Name",
+		type: "string",
+		path: "collection.name",
+		prefix: SpanAttributesDBPrefix,
+		icon: Combine,
+	},
+	whereDocument: {
+		label: "Where Document",
+		type: "string",
+		path: "where_document",
+		prefix: SpanAttributesDBPrefix,
+	},
+	filter: {
+		label: "Filter",
+		type: "string",
+		path: "filter",
+		prefix: SpanAttributesDBPrefix,
+	},
+
+	// framework
+	owner: {
+		label: "Hub Owner",
+		type: "string",
+		path: "hub.owner",
+		prefix: SpanAttributesGenAIPrefix,
+		icon: ShieldCheck,
+	},
+	repo: {
+		label: "Hub Repo",
+		type: "string",
+		path: "hub.repo",
+		prefix: SpanAttributesGenAIPrefix,
+		icon: BookKey,
+	},
+	retrievalSource: {
+		label: "Retrieval Source",
+		type: "string",
+		path: "retrieval.source",
+		prefix: SpanAttributesGenAIPrefix,
+		icon: SquareCode,
 	},
 };
 
