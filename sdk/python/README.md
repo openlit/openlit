@@ -44,13 +44,13 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
 - [✅ Prometheus + Tempo](https://docs.openlit.io/latest/connections/prometheus-tempo)
+- [✅ Prometheus + Jaeger](https://docs.openlit.io/latest/connections/prometheus-jaeger)
 - [✅ Grafana Cloud](https://docs.openlit.io/latest/connections/grafanacloud)
 - [✅ DataDog](https://docs.openlit.io/latest/connections/datadog)
 - [✅ New Relic](https://docs.openlit.io/latest/connections/new-relic)
 - [✅ SigNoz](https://docs.openlit.io/latest/connections/signoz)
 - [✅ Dynatrace](https://docs.openlit.io/latest/connections/dynatrace)
 - [✅ OpenObserve](https://docs.openlit.io/latest/connections/openobserve)
-- [✅ Jaeger](https://docs.openlit.io/latest/connections/jaeger)
 - [✅ Highlight.io](https://docs.openlit.io/latest/connections/highlight)
 
 ## 💿 Installation
