@@ -93,13 +93,13 @@
         "latest/connections/intro",
         "latest/connections/otelcol",
         "latest/connections/prometheus-tempo",
+        "latest/connections/prometheus-jaeger",
         "latest/connections/grafanacloud",
         "latest/connections/new-relic",
         "latest/connections/datadog",
         "latest/connections/signoz",
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
-        "latest/connections/jaeger",
         "latest/connections/highlight"
       ],
       "version": "latest"
