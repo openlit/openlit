@@ -14,17 +14,23 @@ services:
       - "8123:8123" 
     restart: always
   
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
+  openlit:
+    image: ghcr.io/openlit/openlit:latest
+    container_name: openlit
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=secret
-      - GF_USERS_ALLOW_SIGN_UP=false
-    volumes:
-      - grafana-data:/var/lib/grafana
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: 8123
+      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
+      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
+      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+      SQLITE_DATABASE_URL: file:/app/client/data/data.db
     ports:
       - "3000:3000"
-    restart: unless-stopped
+    depends_on:
+      - clickhouse
+    volumes:
+      - openlit-data:/app/client/data
+    restart: always
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.94.0
@@ -36,6 +42,7 @@ services:
       INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
       INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
     ports:
+      - "4317:4317" 
       - "4318:4318" 
       - "8888:8888" 
       - "55679:55679" 
@@ -44,29 +51,7 @@ services:
     volumes:
       - ./assets/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
     restart: always
-  
-  jaeger:
-    image: jaegertracing/all-in-one:${JAEGER_VERSION:-latest}
-    ports:
-      - "16686:16686"
-      - "4317:4317"
-      - "14250:14250"
-    restart: always
-  
-  pdc-agent:
-    image: grafana/pdc-agent:latest
-    container_name: pdc-agent
-    command:
-      - "-token"
-      - "glc_eyJvIjoiNjUyOTkyIiwibiI6InBkYy1pc2hhbmphaW4tZGVmYXVsdC1wZGMtNDhjZDNjIiwiayI6IjNoM001TzZGQXRaNURZOTIxclNyM0JsOCIsIm0iOnsiciI6InByb2QtdXMtZWFzdC0wIn19"
-      - "-cluster"
-      - "prod-us-east-0"
-      - "-gcloud-hosted-grafana-id"
-      - "928378"
 
 volumes:
   clickhouse-data:
-  grafana-data:
-  prometheus_data:
-
-{span.gen_ai.type!="vectordb" && status=ok && span.gen_ai.application_name=~"$application" && span.gen_ai.environment=~"$environment"} | select(span.gen_ai.content.prompt, span.gen_ai.content.completion, span.gen_ai.usage.cost)
+  openlit-data:
