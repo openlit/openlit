@@ -32,7 +32,7 @@
     "generic-pool": "^3.9.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.366.0",
-    "next": "14.0.4",
+    "next": "14.2.3",
     "next-auth": "^4.24.7",
     "next-themes": "^0.3.0",
     "react": "^18",
