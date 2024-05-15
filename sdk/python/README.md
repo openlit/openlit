@@ -40,6 +40,8 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 ### Frameworks
 - [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)
 - [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)
+- [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)
+- [✅ Haystack](https://docs.openlit.io/latest/integrations/haystack)
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
