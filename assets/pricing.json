@@ -131,6 +131,14 @@
             "promptPrice": 0.01,
             "completionPrice": 0.03
         },
+        "gpt-4o": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.015
+        },
+        "gpt-4o-2024-05-13": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.015
+        },
         "azure_gpt-4": {
             "promptPrice": 0.03,
             "completionPrice": 0.06

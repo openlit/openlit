@@ -88,6 +88,8 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_BEDROCK = "bedrock"
     GEN_AI_SYSTEM_VERTEXAI = "vertexai"
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
+    GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
+    GEN_AI_SYSTEM_HAYSTACK = "haystack"
 
     # Vector DB
     DB_REQUESTS = "db.total.requests"

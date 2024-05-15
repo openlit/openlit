@@ -82,7 +82,9 @@
           "version": "latest",
           "pages": [
             "latest/integrations/langchain",
-            "latest/integrations/litellm"
+            "latest/integrations/litellm",
+            "latest/integrations/llama-index",
+            "latest/integrations/haystack"
           ]
         }
       ]

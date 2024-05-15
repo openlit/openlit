@@ -60,7 +60,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    "langchain")
+                                    SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
