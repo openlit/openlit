@@ -20,6 +20,7 @@ from openlit.instrumentation.mistral import MistralInstrumentor
 from openlit.instrumentation.bedrock import BedrockInstrumentor
 from openlit.instrumentation.vertexai import VertexAIInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
+from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
@@ -150,6 +151,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "bedrock": "boto3",
         "vertexai": "vertexai",
         "langchain": "langchain",
+        "llama_index": "llama_index",
         "chroma": "chromadb",
         "pinecone": "pinecone",
         "transformers": "transformers"
@@ -198,6 +200,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "bedrock": BedrockInstrumentor(),
             "vertexai": VertexAIInstrumentor(),
             "langchain": LangChainInstrumentor(),
+            "llama_index": LlamaIndexInstrumentor(),
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),
             "transformers": TransformersInstrumentor()
