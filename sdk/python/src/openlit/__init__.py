@@ -21,6 +21,7 @@ from openlit.instrumentation.bedrock import BedrockInstrumentor
 from openlit.instrumentation.vertexai import VertexAIInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
+from openlit.instrumentation.haystack import HaystackInstrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
@@ -152,6 +153,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "vertexai": "vertexai",
         "langchain": "langchain",
         "llama_index": "llama_index",
+        "haystack": "haystack",
         "chroma": "chromadb",
         "pinecone": "pinecone",
         "transformers": "transformers"
@@ -201,6 +203,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "vertexai": VertexAIInstrumentor(),
             "langchain": LangChainInstrumentor(),
             "llama_index": LlamaIndexInstrumentor(),
+            "haystack": HaystackInstrumentor(),
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),
             "transformers": TransformersInstrumentor()
