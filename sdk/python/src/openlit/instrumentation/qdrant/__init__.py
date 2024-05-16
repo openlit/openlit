@@ -72,6 +72,12 @@ WRAPPED_METHODS = [
     },
     {
         "package": "qdrant_client",
+        "object": "QdrantClient.update_vectors",
+        "endpoint": "qdrant.update_vectors",
+        "wrapper": general_wrap,
+    },
+    {
+        "package": "qdrant_client",
         "object": "QdrantClient.delete_vectors",
         "endpoint": "qdrant.delete_vectors",
         "wrapper": general_wrap,
@@ -106,6 +112,7 @@ WRAPPED_METHODS = [
         "endpoint": "qdrant.search_groups",
         "wrapper": general_wrap,
     },
+    {
 
         "package": "qdrant_client",
         "object": "QdrantClient.recommend",

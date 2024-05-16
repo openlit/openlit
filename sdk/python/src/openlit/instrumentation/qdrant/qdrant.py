@@ -18,9 +18,10 @@ def object_count(obj):
     """
 
     if obj:
-        return len(obj)
-
-    return None
+        try:
+            return len(obj)
+        except:
+            return 0
 
 def general_wrap(gen_ai_endpoint, version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
@@ -97,14 +98,14 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 elif gen_ai_endpoint == "qdrant.delete_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE_COLLECTION
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                                       SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
+                                       SemanticConvetion.DB_OPERATION_DELETE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
                 
                 elif gen_ai_endpoint == "qdrant.update_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_UPDATE_COLLECTION
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                                       SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
+                                       SemanticConvetion.DB_OPERATION_UPDATE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
@@ -114,6 +115,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvetion.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                                       response.status)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
                     span.set_attribute(SemanticConvetion.DB_PAYLOAD_COUNT,
@@ -154,7 +157,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
                                        "positive:" + str(kwargs.get("positive", "")) + 
-                                       "negative:" + str(kwargs.get("negative", "")))
+                                       " negative:" + str(kwargs.get("negative", "")))
                 
                 elif gen_ai_endpoint == "qdrant.upload_points":
                     db_operation = SemanticConvetion.DB_OPERATION_ADD
@@ -171,6 +174,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvetion.DB_OPERATION_UPDATE)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                                       response.status)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
 
@@ -180,6 +185,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvetion.DB_OPERATION_UPDATE)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                                       response.status)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
                     span.set_attribute(SemanticConvetion.DB_PAYLOAD_COUNT,
@@ -202,6 +209,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                                       response.status)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
                 
@@ -211,6 +220,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                                       response.status)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points_selector")))
 
