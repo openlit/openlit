@@ -37,6 +37,7 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 ### Vector DBs
 - [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)
 - [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)
+- [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)
 
 ### Frameworks
 - [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)
