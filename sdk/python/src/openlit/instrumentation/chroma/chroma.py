@@ -85,7 +85,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 if gen_ai_endpoint == "chroma.add":
                     db_operation = SemanticConvetion.DB_OPERATION_ADD
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                                       SemanticConvetion.DB_OPERATION_GET)
+                                       SemanticConvetion.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
                                        object_count(kwargs.get("ids")))
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
