@@ -25,6 +25,7 @@ from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
+from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
 
 # Set up logging for error and information messages.
@@ -158,6 +159,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "haystack": "haystack",
         "chroma": "chromadb",
         "pinecone": "pinecone",
+        "qdrant": "qdrant_client",
         "transformers": "transformers"
     }
 
@@ -209,6 +211,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "haystack": HaystackInstrumentor(),
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),
+            "qdrant": QdrantInstrumentor(),
             "transformers": TransformersInstrumentor()
         }
 

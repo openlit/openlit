@@ -18,6 +18,7 @@ groq >= 0.5.0
 # Vector DBs
 chromadb>=0.4.0
 pinecone-client>=2.2.0
+qdrant-client>=1.9.0
 
 # Frameworks
 langchain>=0.1.16
