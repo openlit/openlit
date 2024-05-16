@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, used-before-assignment, too-many-branches
 """
 Module for monitoring Groq API calls.
 """
@@ -6,7 +6,7 @@ Module for monitoring Groq API calls.
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import get_chat_model_cost, handle_exception, general_tokens
+from openlit.__helpers import get_chat_model_cost, handle_exception
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -67,7 +67,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                 content = chunk.choices[0].delta.content
                                 if content:
                                     llmresponse += content
-                            if chunk.x_groq != None and chunk.x_groq.usage != None:
+                            if chunk.x_groq is not None and chunk.x_groq.usage is not None:
                                 prompt_tokens = chunk.x_groq.usage.prompt_tokens
                                 completion_tokens = chunk.x_groq.usage.completion_tokens
                                 total_tokens = chunk.x_groq.usage.total_tokens
