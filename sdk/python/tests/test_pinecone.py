@@ -1,12 +1,12 @@
 # pylint: disable=duplicate-code, no-name-in-module
 """
-This module contains tests for ChromaDB functionality using the ChromaDB Python library.
+This module contains tests for Pinecone functionality using the Pinecone Python library.
 
 Tests cover various API endpoints, including upsert, query and delete.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - PINECONE_API_TOKEN: Cohere API api_key for authentication.
+    - PINECONE_API_TOKEN: Pinecone API api_key for authentication.
 
 Note: Ensure the environment is properly configured for Pinecone access and OpenLIT monitoring
 prior to running these tests.

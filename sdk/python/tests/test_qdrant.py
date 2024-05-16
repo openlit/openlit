@@ -3,21 +3,26 @@
 This module contains tests for Qdrant functionality using the Qdrant Python library.
 
 Tests cover various API endpoints, including create_collection, add, query,
-upsert, update, get, peek and delete. 
+upsert, update, get and delete. 
 These tests validate integration with OpenLIT.
+
+Environment Variables:
+    - QDRANT_URL: Qdrant Cloud Instance URL.
+    - QDRANT_API_TOKEN: Qdrant API api_key for authentication.
 
 Note: Ensure the environment is properly configured for Qdrant access and OpenLIT monitoring
 prior to running these tests.
 """
 
+import os
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import Distance, VectorParams, PointStruct
 import openlit
 
 # Initialize Qdrant client
 client = QdrantClient(
-    url="https://a9d75b29-ff52-4189-840e-5bd49c6a798f.us-east4-0.gcp.cloud.qdrant.io:6333", 
-    api_key="24PTN_ry_UV5JeM3BnTBDFygAL2MofjylHeIj4E7lm5ikiPEb5bpew",
+    url=os.getenv("QDRANT_URL"), 
+    api_key=os.getenv("QDRANT_API_TOKEN"),
 )
 
 # Initialize environment and application name for OpenLIT monitoring
