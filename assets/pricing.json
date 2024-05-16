@@ -272,8 +272,16 @@
             "completionPrice": 0.0015
         },
         "gemini-1.5-pro-preview-0409": {
-            "promptPrice": 0.01,
-            "completionPrice": 0.03
+            "promptPrice": 0.005,
+            "completionPrice": 0.015
+        },
+        "gemini-1.5-pro-preview-0514": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.015
+        },
+        "gemini-1.5-flash-preview-0514": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
         },
         "text-bison": {
             "promptPrice": 0.001,
@@ -314,6 +322,22 @@
         "chat-bison-32k@002": {
             "promptPrice": 0.001,
             "completionPrice": 0.002
+        },
+        "llama3-8b-8192": {
+            "promptPrice": 0.00005,
+            "completionPrice": 0.0001
+        },
+        "llama3-70b-8192": {
+            "promptPrice": 0.00059,
+            "completionPrice": 0.00079
+        },
+        "mixtral-8x7b-32768": {
+            "promptPrice": 0.00024,
+            "completionPrice": 0.00024
+        },
+        "gemma-7b-it": {
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0001
         }
     }
 }
