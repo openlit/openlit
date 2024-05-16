@@ -32,6 +32,7 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 - [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface)
 - [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)
 - [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)
+- [✅ Groq](https://docs.openlit.io/latest/integrations/groq)
 
 ### Vector DBs
 - [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)

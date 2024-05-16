@@ -19,6 +19,7 @@ env:
   ANTHROPIC_API_TOKEN: ${{ secrets.ANTHROPIC_API_TOKEN }}
   MISTRAL_API_TOKEN: ${{ secrets.MISTRAL_API_TOKEN }}
   PINECONE_API_TOKEN: ${{ secrets.PINECONE_API_TOKEN }}
+  GROQ_API_TOKEN: ${{ secrets.GROQ_API_TOKEN }}
 
 jobs:
   build:

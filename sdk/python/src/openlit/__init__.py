@@ -19,6 +19,7 @@ from openlit.instrumentation.cohere import CohereInstrumentor
 from openlit.instrumentation.mistral import MistralInstrumentor
 from openlit.instrumentation.bedrock import BedrockInstrumentor
 from openlit.instrumentation.vertexai import VertexAIInstrumentor
+from openlit.instrumentation.groq import GroqInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
@@ -151,6 +152,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "mistral": "mistralai",
         "bedrock": "boto3",
         "vertexai": "vertexai",
+        "groq": "groq",
         "langchain": "langchain",
         "llama_index": "llama_index",
         "haystack": "haystack",
@@ -201,6 +203,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "mistral": MistralInstrumentor(),
             "bedrock": BedrockInstrumentor(),
             "vertexai": VertexAIInstrumentor(),
+            "groq": GroqInstrumentor(),
             "langchain": LangChainInstrumentor(),
             "llama_index": LlamaIndexInstrumentor(),
             "haystack": HaystackInstrumentor(),

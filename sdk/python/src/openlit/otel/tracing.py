@@ -40,6 +40,9 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
     global TRACER_SET
 
     try:
+        #Disable Haystack Auto Tracing
+        os.environ["HAYSTACK_AUTO_TRACE_ENABLED"] = "false"
+
         if not TRACER_SET:
             # Create a resource with the service name attribute.
             resource = Resource(attributes={
