@@ -165,7 +165,7 @@ def test_db_qdrant():
       with_payload=True,
       with_vectors=False,
     )
-    assert isinstance(scroll, list)
+    assert isinstance(scroll, tuple)
 
     # Search vectors from the collection
     search = client.search(
