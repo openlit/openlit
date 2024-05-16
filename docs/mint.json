@@ -75,7 +75,8 @@
           "version": "latest",
           "pages": [
             "latest/integrations/chromadb",
-            "latest/integrations/pinecone"
+            "latest/integrations/pinecone",
+            "latest/integrations/qdrant"
           ]
         },
         {
