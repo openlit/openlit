@@ -12,21 +12,6 @@ OpenLIT SDKs provide OpenTelemetry Auto-Instrumentation for monitoring LLM Appli
 ## Get Started 
 
 <Steps>
-    <Step title="Disable Haystack default tracing">
-      To disable default tracing available in Haystack, there are two options:
-
-      Set the environment variable `HAYSTACK_AUTO_TRACE_ENABLED` to `false` when running your Haystack application
-
-      or
-
-      Disable tracing in Python:
-
-      ```Python
-      from haystack.tracing import disable_tracing
-
-      disable_tracing()
-      ```
-    </Step>
     <Step title="Install the OpenLIT Python SDK using pip">
       ```shell
       pip install openlit
