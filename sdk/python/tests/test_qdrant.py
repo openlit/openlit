@@ -21,7 +21,7 @@ import openlit
 
 # Initialize Qdrant client
 client = QdrantClient(
-    url=os.getenv("QDRANT_URL"), 
+    url=os.getenv("QDRANT_URL"),
     api_key=os.getenv("QDRANT_API_TOKEN"),
 )
 
@@ -50,14 +50,6 @@ def test_db_qdrant():
       AssertionError: If the responses from ChromaDB operations do not meet the expected outcomes.
     """
 
-    # Delete collection any pre-existing collection
-    try:
-      client.delete_collection(
-        collection_name="openlit",
-      )
-    except:
-      pass
-    
     # Create a new collection named "openlit"
     collection = client.create_collection(
       collection_name="openlit",
@@ -198,9 +190,9 @@ def test_db_qdrant():
     search_groups = client.search_groups(
       collection_name="openlit",
       query_vector=[1.1, 1.2, 1.3, 1.4],
-      group_by="city",  
-      limit=4,  
-      group_size=2,  
+      group_by="city",
+      limit=4,
+      group_size=2,
     )
     assert isinstance(search_groups.groups, list)
 

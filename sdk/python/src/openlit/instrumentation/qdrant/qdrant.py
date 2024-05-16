@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment, too-many-branches
 """
 Module for monitoring Qdrant.
 """
@@ -16,12 +16,13 @@ def object_count(obj):
     """
     Counts Length of object if it exists, Else returns None
     """
+    try:
+        cnt = len(obj)
+    # pylint: disable=bare-except
+    except:
+        cnt = 0
 
-    if obj:
-        try:
-            return len(obj)
-        except:
-            return 0
+    return cnt
 
 def general_wrap(gen_ai_endpoint, version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
@@ -87,21 +88,21 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                
+
                 elif gen_ai_endpoint == "qdrant.upload_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_CREATE_COLLECTION
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    
+
                 elif gen_ai_endpoint == "qdrant.delete_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE_COLLECTION
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_DELETE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                
+
                 elif gen_ai_endpoint == "qdrant.update_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_UPDATE_COLLECTION
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
@@ -121,7 +122,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        object_count(kwargs.get("points")))
                     span.set_attribute(SemanticConvetion.DB_PAYLOAD_COUNT,
                                        object_count(kwargs.get("payload")))
-                
+
                 elif gen_ai_endpoint == "qdrant.retrieve":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
@@ -130,7 +131,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
                                        str(kwargs.get("ids")))
-                
+
                 elif gen_ai_endpoint == "qdrant.scroll":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
@@ -139,7 +140,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
                                        str(kwargs.get("scroll_filter")))
-                
+
                 elif gen_ai_endpoint in ["qdrant.search", "qdrant.search_groups"]:
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
@@ -148,7 +149,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
                                        str(kwargs.get("query_vector")))
-                
+
                 elif gen_ai_endpoint == "qdrant.recommend":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
@@ -158,7 +159,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
                                        "positive:" + str(kwargs.get("positive", "")) + 
                                        " negative:" + str(kwargs.get("negative", "")))
-                
+
                 elif gen_ai_endpoint == "qdrant.upload_points":
                     db_operation = SemanticConvetion.DB_OPERATION_ADD
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
@@ -167,7 +168,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
-                    
+
                 elif gen_ai_endpoint == "qdrant.update_vectors":
                     db_operation = SemanticConvetion.DB_OPERATION_UPDATE
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
@@ -213,7 +214,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        response.status)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
-                
+
                 elif gen_ai_endpoint in ["qdrant.clear_payload", "qdrant.delete"]:
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
