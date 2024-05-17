@@ -27,6 +27,7 @@ from openlit.instrumentation.haystack import HaystackInstrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
+from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
 
 # Set up logging for error and information messages.
@@ -162,6 +163,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "chroma": "chromadb",
         "pinecone": "pinecone",
         "qdrant": "qdrant_client",
+        "milvus": "pymilvus",
         "transformers": "transformers"
     }
 
@@ -215,6 +217,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),
             "qdrant": QdrantInstrumentor(),
+            "milvus": MilvusInstrumentor(),
             "transformers": TransformersInstrumentor()
         }
 
