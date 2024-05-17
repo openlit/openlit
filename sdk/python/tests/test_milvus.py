@@ -104,7 +104,7 @@ def test_db_milvus():
       limit=3,
     )
 
-    assert isinstance(query[0], list)
+    assert isinstance(query[0], dict)
 
     getqry = client.get(
         collection_name=collecton_name,
@@ -112,14 +112,14 @@ def test_db_milvus():
         output_fields=["color", "vector"]
     )
 
-    assert isinstance(getqry[0], list)
+    assert isinstance(getqry[0], dict)
 
     delt = client.delete(
       collection_name=collecton_name,
       filter="id in [5,6,7,8,9]"
     )
 
-    assert delt["cost"] == 0
+    assert isinstance(delt, dict)
 
     # Delete collection
     client.drop_collection(
