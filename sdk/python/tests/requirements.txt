@@ -19,6 +19,7 @@ groq >= 0.5.0
 chromadb>=0.4.0
 pinecone-client>=2.2.0
 qdrant-client>=1.9.0
+pymilvus>=2.4.3
 
 # Frameworks
 langchain>=0.1.16
