@@ -96,7 +96,7 @@ def test_db_milvus():
       limit=3,
     )
 
-    assert isinstance(type(search[0]), list)
+    assert isinstance(search[0], list)
 
     query = client.query(
       collection_name=collecton_name,
@@ -104,7 +104,7 @@ def test_db_milvus():
       limit=3,
     )
 
-    assert isinstance(type(query[0]), list)
+    assert isinstance(query[0], list)
 
     getqry = client.get(
         collection_name=collecton_name,
@@ -112,7 +112,7 @@ def test_db_milvus():
         output_fields=["color", "vector"]
     )
 
-    assert isinstance(type(getqry[0]), list)
+    assert isinstance(getqry[0], list)
 
     delt = client.delete(
       collection_name=collecton_name,
