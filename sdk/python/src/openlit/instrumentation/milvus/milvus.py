@@ -109,24 +109,6 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.DB_OPERATION_COST,
                                        response["cost"])
 
-                # elif gen_ai_endpoint == "milvus.retrieve":
-                #     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                #                        SemanticConvetion.DB_OPERATION_QUERY)
-                #     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
-                #                        kwargs.get("collection_name", ""))
-                #     span.set_attribute(SemanticConvetion.DB_STATEMENT,
-                #                        str(kwargs.get("ids")))
-
-                # elif gen_ai_endpoint == "milvus.scroll":
-                #     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                #                        SemanticConvetion.DB_OPERATION_QUERY)
-                #     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
-                #                        kwargs.get("collection_name", ""))
-                #     span.set_attribute(SemanticConvetion.DB_STATEMENT,
-                #                        str(kwargs.get("scroll_filter")))
-
                 elif gen_ai_endpoint == "milvus.search":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
@@ -144,49 +126,6 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
                                        str(kwargs.get("output_fields")))
-
-                # elif gen_ai_endpoint == "milvus.recommend":
-                #     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                #                        SemanticConvetion.DB_OPERATION_QUERY)
-                #     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
-                #                        kwargs.get("collection_name", ""))
-                #     span.set_attribute(SemanticConvetion.DB_STATEMENT,
-                #                        "positive:" + str(kwargs.get("positive", "")) + 
-                #                        " negative:" + str(kwargs.get("negative", "")))
-
-                # elif gen_ai_endpoint == "milvus.upload_points":
-                #     db_operation = SemanticConvetion.DB_OPERATION_ADD
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                #                        SemanticConvetion.DB_OPERATION_ADD)
-                #     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
-                #                        kwargs.get("collection_name", ""))
-                #     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                #                        object_count(kwargs.get("points")))
-
-                # elif gen_ai_endpoint == "milvus.update_vectors":
-                #     db_operation = SemanticConvetion.DB_OPERATION_UPDATE
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                #                        SemanticConvetion.DB_OPERATION_UPDATE)
-                #     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
-                #                        kwargs.get("collection_name", ""))
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
-                #                        response.status)
-                #     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                #                        object_count(kwargs.get("points")))
-
-                # elif gen_ai_endpoint == "milvus.overwrite_payload":
-                #     db_operation = SemanticConvetion.DB_OPERATION_UPDATE
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                #                        SemanticConvetion.DB_OPERATION_UPDATE)
-                #     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
-                #                        kwargs.get("collection_name", ""))
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
-                #                        response.status)
-                #     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                #                        object_count(kwargs.get("points")))
-                #     span.set_attribute(SemanticConvetion.DB_PAYLOAD_COUNT,
-                #                        object_count(kwargs.get("payload")))
 
                 elif gen_ai_endpoint == "milvus.upsert":
                     db_operation = SemanticConvetion.DB_OPERATION_ADD
@@ -207,17 +146,6 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvetion.DB_FILTER,
                                        str(kwargs.get("filter", "")))
-
-                # elif gen_ai_endpoint in ["milvus.clear_payload", "milvus.delete"]:
-                #     db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION,
-                #                        SemanticConvetion.DB_OPERATION_DELETE)
-                #     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
-                #                        kwargs.get("collection_name", ""))
-                #     span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
-                #                        response.status)
-                #     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                #                        object_count(kwargs.get("points_selector")))
 
                 span.set_status(Status(StatusCode.OK))
 
