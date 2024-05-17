@@ -15,7 +15,7 @@ prior to running these tests.
 """
 
 import os
-from pymilvus import MilvusClient, models
+from pymilvus import MilvusClient
 import openlit
 
 # Initialize Milvus client
@@ -59,6 +59,7 @@ def test_db_milvus():
     assert collection is None
 
     data=[
+      # pylint: disable=line-too-long
       {"id": 0, "vector": [0.3580376395471989, -0.6023495712049978, 0.18414012509913835, -0.26286205330961354, 0.9029438446296592], "color": "pink_8682"},
       {"id": 1, "vector": [0.19886812562848388, 0.06023560599112088, 0.6976963061752597, 0.2614474506242501, 0.838729485096104], "color": "red_7025"},
       {"id": 2, "vector": [0.43742130801983836, -0.5597502546264526, 0.6457887650909682, 0.7894058910881185, 0.20785793220625592], "color": "orange_6781"},
@@ -126,6 +127,3 @@ def test_db_milvus():
     )
 
     assert del_collection is None
-
-
-    

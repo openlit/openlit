@@ -117,7 +117,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
                                        str(kwargs.get("data")))
-                
+
                 elif gen_ai_endpoint in ["milvus.query", "milvus.get"]:
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
