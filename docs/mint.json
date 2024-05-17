@@ -60,6 +60,7 @@
           "version": "latest",
           "pages": [
             "latest/integrations/openai",
+            "latest/integrations/ollama",
             "latest/integrations/anthropic",
             "latest/integrations/cohere",
             "latest/integrations/mistral",
