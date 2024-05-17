@@ -25,6 +25,7 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 
 ### LLMs
 - [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)
+- [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)
 - [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)
 - [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)
 - [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)
