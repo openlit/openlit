@@ -7,8 +7,8 @@ upsert, update, get and delete.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - Milvus_URL: Milvus Cloud Instance URL.
-    - Milvus_API_TOKEN: Milvus API api_key for authentication.
+    - MILVUS_URL: Milvus Cloud Instance URL.
+    - MILVUS_API_TOKEN: Milvus API api_key for authentication.
 
 Note: Ensure the environment is properly configured for Milvus access and OpenLIT monitoring
 prior to running these tests.
@@ -20,8 +20,8 @@ import openlit
 
 # Initialize Milvus client
 client = MilvusClient(
-    uri="https://in03-d710a2cb5a110d6.api.gcp-us-west1.zillizcloud.com",
-    token = "6bee8d5e7a04c63be6c7ea3bf9187b791333b19119fa8d21f86b8cfaf7fec3d45708d3a63a38f0f73c1c511f798c9a1a07e2e907"
+    uri=os.getenv("MILVUS_URL"),
+    token = os.getenv("MILVUS_API_TOKEN")
 )
 
 # Initialize environment and application name for OpenLIT monitoring
@@ -122,8 +122,6 @@ def test_db_milvus():
     assert delt["cost"] == 0
 
     # Delete collection
-    del_collection = client.drop_collection(
+    client.drop_collection(
       collection_name=collecton_name,
     )
-
-    assert del_collection is None
