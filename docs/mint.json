@@ -77,7 +77,8 @@
           "pages": [
             "latest/integrations/chromadb",
             "latest/integrations/pinecone",
-            "latest/integrations/qdrant"
+            "latest/integrations/qdrant",
+            "latest/integrations/milvus"
           ]
         },
         {
