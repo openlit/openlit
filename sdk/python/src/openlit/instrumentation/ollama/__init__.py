@@ -6,8 +6,12 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.ollama.ollama import chat, embeddings, generate
-from openlit.instrumentation.ollama.async_ollama import async_chat,  async_embeddings, async_generate
+from openlit.instrumentation.ollama.ollama import (
+    chat, embeddings, generate
+)
+from openlit.instrumentation.ollama.async_ollama import (
+    async_chat, async_embeddings, async_generate
+)
 
 _instruments = ("ollama >= 0.2.0",)
 

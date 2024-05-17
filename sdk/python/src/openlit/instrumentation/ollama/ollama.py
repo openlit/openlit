@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, used-before-assignment, too-many-branches
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment
 """
 Module for monitoring Ollama API calls.
 """
@@ -6,7 +6,7 @@ Module for monitoring Ollama API calls.
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import get_chat_model_cost, handle_exception, general_tokens
+from openlit.__helpers import handle_exception, general_tokens
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -64,7 +64,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                         content = chunk['message']['content']
                         llmresponse += content
 
-                        if chunk["done"] == True:
+                        if chunk['done'] is True:
                             completion_tokens = chunk["eval_count"]
 
                         yield chunk
@@ -308,15 +308,13 @@ def generate(gen_ai_endpoint, version, environment, application_name,
                         content = chunk['response']
                         llmresponse += content
 
-                        if chunk["done"] == True:
+                        if chunk['done'] is True:
                             completion_tokens = chunk["eval_count"]
 
                         yield chunk
 
                     # Handling exception ensure observability without disrupting operation
                     try:
-                        
-
                         # Calculate cost of the operation
                         cost = 0
                         prompt_tokens = general_tokens(kwargs.get("prompt", ""))
