@@ -89,11 +89,11 @@ class OpenlitConfig:
             otlp_headers (Dict[str, str]): OTLP headers.
             disable_batch (bool): Disable batch span processing flag.
             trace_content (bool): Enable or disable content tracing.
-            pricing_json(Dict[str, Any]): A python dict containing pricing for models
+            pricing_json(str): path or url to the pricing json file
         """
         cls.environment = environment
         cls.application_name = application_name
-        cls.pricing_info = pricing_json or fetch_pricing_info()
+        cls.pricing_info = fetch_pricing_info(pricing_json)
         cls.tracer = tracer
         cls.metrics_dict = metrics_dict
         cls.otlp_endpoint = otlp_endpoint
@@ -146,7 +146,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         trace_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
         disable_metrics (bool): Flag to disable metrics (Optional)
-        pricing_json(Dict[str, Any]): A python dict containing pricing for models
+        pricing_json(str): path or url to the pricing json file e.g. https://someexample.com/pricing.json or /home/user/pricing.json
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     # Check for invalid instrumentor names

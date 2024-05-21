@@ -2,8 +2,9 @@
 """
 This module has functions to calculate model costs based on tokens and to fetch pricing information.
 """
-
+import json
 import logging
+from urllib.parse import urlparse
 import requests
 import tiktoken
 from opentelemetry.trace import Status, StatusCode
@@ -122,11 +123,35 @@ def get_audio_model_cost(model, pricing_info, prompt):
         cost = 0
     return cost
 
-def fetch_pricing_info():
-    """Fetches pricing information from a specified URL."""
-    pricing_url = "https://raw.githubusercontent.com/openlit/openlit/main/assets/pricing.json"
+def fetch_pricing_info(pricing_json=None):
+    """
+    Fetches pricing information from a specified URL or File Path.
+
+    Args:
+        pricing_json(str): path or url to the pricing json file
+
+    Returns:
+        dict: The pricing json
+    """
+    if pricing_json:
+        is_url = urlparse(pricing_json).scheme != ""
+        if is_url:
+            pricing_url = pricing_json
+        else:
+            try:
+                f = open(pricing_json)
+                return json.load(f)
+            except FileNotFoundError:
+                logger.error("File not found: %s", pricing_json)
+            except json.JSONDecodeError:
+                logger.error("Error decoding JSON from file: %s", pricing_json)
+            except Exception as file_err:
+                logger.error("Unexpected error occurred while reading file: %s", file_err)
+            return {}
+    else:
+        pricing_url = "https://raw.githubusercontent.com/openlit/openlit/main/assets/pricing.json"
     try:
-         # Set a timeout of 10 seconds for both the connection and the read
+        # Set a timeout of 10 seconds for both the connection and the read
         response = requests.get(pricing_url, timeout=20)
         response.raise_for_status()
         return response.json()

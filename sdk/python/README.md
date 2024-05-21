@@ -140,7 +140,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `trace_content`         | Enables tracing of content for deeper insights.                                               | `True`         |    No    |
 | `disabled_instrumentors`| List of instrumentors to disable. Choices: `["openai", "anthropic", "langchain", "cohere", "mistral", "transformers", "chroma", "pinecone"]`. | `None` |    No    |
 | `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
-| `pricing_json`          | A dictionary containing pricing for models used in the same format as the default                                             | [JSON](https://github.com/openlit/openlit/blob/main/assets/pricing.json)        |    No    |
+| `pricing_json`          | URL or file path of the pricing JSON file.                                             | [URL](https://github.com/openlit/openlit/blob/main/assets/pricing.json)        |    No    |
 
 ## 🌱 Contributing
 
