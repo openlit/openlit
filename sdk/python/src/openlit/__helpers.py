@@ -142,7 +142,7 @@ def fetch_pricing_info(pricing_json=None):
                 f = open(pricing_json)
                 return json.load(f)
             except FileNotFoundError:
-                logger.error("File not found: %s", pricing_json)
+                logger.error("Pricing information file not found: %s", pricing_json)
             except json.JSONDecodeError:
                 logger.error("Error decoding JSON from file: %s", pricing_json)
             except Exception as file_err:
