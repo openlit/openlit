@@ -5,11 +5,11 @@ on:
     branches: [ "main" ]
     paths:
       - 'sdk/python/**'
-  pull_request_target:
-    branches: [ "main" ]
-    paths:
-      - 'sdk/python/**'
   workflow_dispatch:
+  workflow_run:
+    workflows: [Pylint]
+    types:
+      - completed
   schedule:
     - cron: '0 0 1-31/15 * *'
 
