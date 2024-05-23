@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'sdk/python/**'
-  pull_request_target:
+  pull_request:
     branches: [ "main" ]
     paths:
       - 'sdk/python/**'

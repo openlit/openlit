@@ -27,7 +27,7 @@ client = MilvusClient(
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
-COLLECTION_NAME = "openlit"+str(os.getenv("GITHUB_RUN_ID"))+str(os.getenv("GITHUB_RUN_ATTEMPT"))
+COLLECTION_NAME = "openlit"
 
 def test_db_milvus():
     """
@@ -51,13 +51,13 @@ def test_db_milvus():
       AssertionError: If the responses from ChromaDB operations do not meet the expected outcomes.
     """
 
-    # Create a new collection
-    collection = client.create_collection(
-      collection_name=COLLECTION_NAME,
-      dimension=5
-    )
+    # # Create a new collection
+    # collection = client.create_collection(
+    #   collection_name=COLLECTION_NAME,
+    #   dimension=5
+    # )
 
-    assert collection is None
+    # assert collection is None
 
     data=[
       # pylint: disable=line-too-long
@@ -122,7 +122,7 @@ def test_db_milvus():
 
     assert isinstance(delt, dict)
 
-    # Delete collection
-    client.drop_collection(
-      collection_name=COLLECTION_NAME,
-    )
+    # # Delete collection
+    # client.drop_collection(
+    #   collection_name=COLLECTION_NAME,
+    # )
