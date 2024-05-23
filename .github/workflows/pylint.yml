@@ -2,8 +2,16 @@ name: Pylint
 
 on:
   push:
+    branches: [ "main" ]
+    paths:
+      - 'sdk/python/**'
   pull_request_target:
-    branches: [main]
+    branches: [ "main" ]
+    paths:
+      - 'sdk/python/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1-31/15 * *'
 
 jobs:
   build:
