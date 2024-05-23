@@ -15,6 +15,11 @@ export const TIME_RANGE_TYPE: Record<
 
 export const DEFAULT_TIME_RANGE = "24H";
 
+export type FilterSorting = {
+	type: string;
+	direction: "asc" | "desc";
+};
+
 export interface FilterType {
 	timeLimit: {
 		start?: Date;
@@ -23,6 +28,15 @@ export interface FilterType {
 	};
 	limit: number;
 	offset: number;
+	selectedConfig: Partial<FilterConfig>;
+	sorting: FilterSorting;
+}
+
+export interface FilterConfig {
+	providers: string[];
+	maxCost: number;
+	models: string[];
+	totalRows: number;
 }
 
 function getTimeLimitObject(
@@ -58,38 +72,56 @@ function getTimeLimitObject(
 	return object;
 }
 
-const INITIAL_FILTER: FilterType = {
+const INITIAL_FILTER_DETAILS: FilterType = {
 	timeLimit: {
 		type: DEFAULT_TIME_RANGE,
 		...getTimeLimitObject(DEFAULT_TIME_RANGE, ""),
 	},
 	limit: 10,
 	offset: 0,
+	selectedConfig: {},
+	sorting: {
+		type: "Timestamp",
+		direction: "desc",
+	},
 };
 
 export type FilterStore = {
 	details: FilterType;
+	config?: FilterConfig;
 	updateFilter: (key: string, value: any, extraParams?: any) => void;
+	updateConfig: (config: FilterConfig) => void;
 };
 
 export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
-	details: INITIAL_FILTER,
+	details: INITIAL_FILTER_DETAILS,
 	updateFilter: (key: string, value: any, extraParams?: any) => {
 		let object = {};
+		let resetConfig = false;
 		switch (key) {
 			case "timeLimit.type":
 				object = getTimeLimitObject(value, "timeLimit.", extraParams);
+				resetConfig = true;
 				break;
 			case "limit":
+			case "selectedConfig":
+			case "sorting":
 				set(object, "offset", 0);
 				break;
 			case "offset":
+				// Its already handled in the set(object, key, value); line
 				break;
 			default:
 				break;
 		}
 
 		set(object, key, value);
-		setStore({ details: { ...getStore().details, ...object } });
+		setStore({
+			details: { ...getStore().details, ...object },
+			config: resetConfig ? undefined : getStore().config,
+		});
+	},
+	updateConfig: (config: FilterConfig) => {
+		setStore({ config });
 	},
 }));

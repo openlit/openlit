@@ -2,6 +2,7 @@ import { SPAN_KIND } from "@/constants/traces";
 import { ValueOf } from "../utils/types";
 import { MetricParams } from "@/lib/platform/common";
 import { addDays, addMonths, differenceInDays } from "date-fns";
+import { getTraceMappingKeyFullPath } from "./trace";
 
 export const validateMetricsRequestType = {
 	// Request
@@ -133,7 +134,28 @@ export const validateMetricsRequest = (
 	return { success: true };
 };
 
-export const getFilterWhereCondition = (filter: any) => {
+type FilterWhereConditionType = {
+	timeLimit: {
+		start: Date | string;
+		end: Date | string;
+		type: string;
+	};
+	offset?: number;
+	limit?: number;
+	selectedConfig?: Partial<{
+		providers: string[];
+		maxCost: number;
+		models: string[];
+	}>;
+	notOrEmpty?: { key: string }[];
+	notEmpty?: { key: string }[];
+	statusCode?: string;
+};
+
+export const getFilterWhereCondition = (
+	filter: FilterWhereConditionType,
+	filterSelectedConfig?: boolean
+) => {
 	const whereArray: string[] = [];
 	try {
 		const { start, end } = filter.timeLimit || {};
@@ -141,6 +163,49 @@ export const getFilterWhereCondition = (filter: any) => {
 			whereArray.push(
 				`Timestamp >= parseDateTimeBestEffort('${start}') AND Timestamp <= parseDateTimeBestEffort('${end}')`
 			);
+		}
+
+		if (filterSelectedConfig && filter.selectedConfig) {
+			if (filter.selectedConfig.models?.length) {
+				whereArray.push(
+					`SpanAttributes['${getTraceMappingKeyFullPath(
+						"model"
+					)}'] IN (${filter.selectedConfig.models
+						.map((model) => `'${model}'`)
+						.join(", ")})`
+				);
+			}
+
+			if (filter.selectedConfig.providers?.length) {
+				whereArray.push(
+					`(SpanAttributes['${getTraceMappingKeyFullPath(
+						"system"
+					)}'] IN (${filter.selectedConfig.providers
+						.map((provider) => `'${provider}'`)
+						.join(", ")}) OR SpanAttributes['${getTraceMappingKeyFullPath(
+						"provider"
+					)}'] IN (${filter.selectedConfig.providers
+						.map((provider) => `'${provider}'`)
+						.join(", ")}))`
+				);
+			}
+
+			if (filter.selectedConfig.maxCost) {
+				whereArray.push(
+					`toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
+						"cost"
+					)}']) BETWEEN 0 AND ${filter.selectedConfig.maxCost}`
+				);
+			}
+		}
+
+		if (filter.notOrEmpty && filter.notOrEmpty?.length > 0) {
+			const whereOrArray: string[] = [];
+			filter.notOrEmpty.map(({ key }: { key: string }) => {
+				whereOrArray.push(`notEmpty(${key})`);
+			});
+
+			whereArray.push(`( ${whereOrArray.join(" OR ")} )`);
 		}
 
 		if (filter.notEmpty && filter.notEmpty?.length > 0) {

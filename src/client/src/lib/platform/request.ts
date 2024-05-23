@@ -1,7 +1,6 @@
 import {
 	MetricParams,
 	dataCollector,
-	MetricParamsWithConfig,
 	DataCollectorType,
 	OTEL_TRACES_TABLE_NAME,
 } from "./common";
@@ -99,75 +98,69 @@ export async function getAverageRequestDuration(params: MetricParams) {
 	return dataCollector({ query });
 }
 
-export async function getRequestsConfig(params: MetricParamsWithConfig) {
-	const { providers, maxCost, models, totalRows } = params.config || {};
-
-	const keyPaths: { key: string }[] = [];
+export async function getRequestsConfig(params: MetricParams) {
 	const select: string[] = [];
 
-	if (providers) {
-		keyPaths.push({
-			key: `SpanAttributes['${getTraceMappingKeyFullPath("provider")}']`,
-		});
-		select.push(
-			`ARRAY_AGG(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
+	select.push(
+		`arrayConcat(
+			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
 				"provider"
-			)}']) AS providers`
-		);
-	}
+			)}'])),
+			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
+				"system"
+			)}']))
+		) AS providers`
+	);
 
-	if (maxCost) {
-		keyPaths.push({
-			key: `SpanAttributes['${getTraceMappingKeyFullPath("cost")}']`,
-		});
-		select.push(
-			`MAX(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS maxCost`
-		);
-	}
+	select.push(
+		`CAST(toFloat64OrZero(MAX(SpanAttributes['${getTraceMappingKeyFullPath(
+			"cost"
+		)}'])) AS FLOAT) AS maxCost`
+	);
 
-	if (models) {
-		keyPaths.push({
-			key: `SpanAttributes['${getTraceMappingKeyFullPath("model")}']`,
-		});
-		select.push(
-			`ARRAY_AGG(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
-				"model"
-			)}']) AS models`
-		);
-	}
+	select.push(
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
+			"model"
+		)}'])) AS models`
+	);
 
-	if (totalRows) {
-		select.push(`COUNT(*) AS totalRows`);
-	}
-
-	if (select.length === 0) return [];
+	select.push(`CAST(COUNT(*) AS INTEGER) AS totalRows`);
 
 	const query = `SELECT ${select.join(", ")} FROM ${OTEL_TRACES_TABLE_NAME} 
-			WHERE ${getFilterWhereCondition({ ...params, notEmpty: keyPaths })}`;
+			WHERE ${getFilterWhereCondition({ ...params })}`;
 
 	return dataCollector({ query });
 }
 
-export async function getRequests(params: MetricParamsWithConfig) {
+export async function getRequests(params: MetricParams) {
 	const { limit = 10, offset = 0 } = params;
-	let config: unknown = {};
 
-	if (params.config) {
-		const configValues = await getRequestsConfig(params);
-		config =
-			((configValues as DataCollectorType)?.data as Array<any>)?.[0] || {};
+	const countQuery = `SELECT CAST(COUNT(*) AS INTEGER) AS total	FROM ${OTEL_TRACES_TABLE_NAME} 
+		WHERE ${getFilterWhereCondition(params, true)}`;
+
+	const { data: dataTotal, err: errTotal } = await dataCollector({
+		query: countQuery,
+	});
+	if (errTotal) {
+		return {
+			err: errTotal,
+		};
 	}
 
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE ${getFilterWhereCondition(params)}
-		ORDER BY Timestamp desc
+		WHERE ${getFilterWhereCondition(params, true)}
+		${
+			params.sorting
+				? `ORDER BY ${params.sorting.type} ${params.sorting.direction}`
+				: ``
+		}
 		LIMIT ${limit}
 		OFFSET ${offset}`;
 
 	const { data, err } = await dataCollector({ query });
 	return {
 		err,
-		config,
 		records: data,
+		total: (dataTotal as any[])?.[0]?.total || 0,
 	};
 }

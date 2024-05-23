@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LucideIcon, TrendingDown, TrendingUp } from "lucide-react";
 import IntermediateState from "./intermediate-state";
+import { getFilterParamsForDashboard } from "@/helpers/filter";
 
 type StatCardProps = {
 	heading?: string;
@@ -44,10 +45,12 @@ const StatCard = memo(
 
 		const fetchData = useCallback(async () => {
 			fireRequest({
-				body: JSON.stringify({
-					timeLimit: filter.timeLimit,
-					...extraParams,
-				}),
+				body: JSON.stringify(
+					getFilterParamsForDashboard({
+						...filter,
+						...extraParams,
+					})
+				),
 				requestType: "POST",
 				url,
 				responseDataKey: "data[0]",

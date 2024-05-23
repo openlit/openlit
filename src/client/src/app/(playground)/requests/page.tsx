@@ -1,7 +1,7 @@
 "use client";
 import RequestTable from "./request-table";
 import { useCallback, useEffect } from "react";
-import RequestFilter, { FilterConfigProps } from "./request-filter";
+import RequestFilter from "./request-filter";
 import { RequestProvider } from "./request-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import RequestDetails from "./request-details";
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
+import { Separator } from "@/components/ui/separator";
 
 export default function RequestPage() {
 	const filter = useRootStore(getFilterDetails);
@@ -16,18 +17,7 @@ export default function RequestPage() {
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
-			body: JSON.stringify({
-				timeLimit: filter.timeLimit,
-				// TODO: send config true based on if the config has not already been fetched or when the timeLimit is changed
-				config: {
-					providers: true,
-					maxCost: true,
-					models: true,
-					totalRows: true,
-				},
-				limit: filter.limit,
-				offset: filter.offset,
-			}),
+			body: JSON.stringify(filter),
 			requestType: "POST",
 			url: "/api/metrics/request",
 			failureCb: (err?: string) => {
@@ -49,9 +39,7 @@ export default function RequestPage() {
 
 	return (
 		<RequestProvider>
-			<RequestFilter
-				config={(data as any)?.config as FilterConfigProps | undefined}
-			/>
+			<RequestFilter total={(data as any)?.total} />
 			<RequestTable
 				data={(data as any)?.records || []}
 				isFetched={isFetched || pingStatus !== "pending"}
