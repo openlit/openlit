@@ -5,6 +5,15 @@ sidebarTitle: 'Tracing'
 
 This document outlines the OpenTelemetry traces collected by **OpenLIT** from applications utilizing Large Language Models (LLMs) and Vector Databases. The span attributes adhere to the [GenAI Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) established by the OpenTelemetry community, ensuring standardized data collection that enhances monitoring and debugging capabilities.
 
+<CardGroup cols={2}>
+<Card title="Quickstart" href="/latest/quickstart" icon='bolt'>
+Get Started with monitoring your LLM Applications in 2 simple steps
+</Card>
+<Card title="Connections" href="/latest/connections/intro" icon='link'>
+Connect to your existing Observablity Stack
+</Card>
+</CardGroup>
+
 ## Span Definitions
 
 This section outlines fundamental definitions related to span types and names used within the OpenTelemetry traces to identify the nature and source of requests.
@@ -129,3 +138,12 @@ This section addresses attributes related to interactions with Vector Databases 
 | `db.update.metadata`        | string   | Metadata being updated as part of the operation.                    | `"category: electronics"`           |
 | `db.update.values`          | string   | Specifies the new values being applied in an update operation.      | `"{ 'price': '99.99' }"`            |
 | `db.update.id`              | string   | Unique identifier for the entry being updated.                      | `"product123"`                      |
+
+<CardGroup cols={2}>
+<Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
+Integrate your LLM Stack with OpenLIT 
+</Card>
+<Card title="Connections" href="/latest/connections/intro" icon='link'>
+Connect to your existing Observablity Stack
+</Card>
+</CardGroup>

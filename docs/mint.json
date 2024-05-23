@@ -51,10 +51,11 @@
       "version": "latest"
     },
     {
-      "group": "Telemetry",
+      "group": "Features",
       "pages": [
-        "latest/telemetry/tracing",
-        "latest/telemetry/metrics"
+        "latest/features/tracing",
+        "latest/features/metrics",
+        "latest/features/pricing"
       ],
       "version": "latest"
     },

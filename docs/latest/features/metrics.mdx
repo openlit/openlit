@@ -5,6 +5,15 @@ sidebarTitle: 'Metrics'
 
 This document outlines the OpenTelemetry metrics collected by **OpenLIT** from applications using LLMs and Vector Databases. These metrics offer a straightforward overview of application performance and resource usage. They serve as a supplement to the detailed data captured through [tracing](./tracing), aiding in the easy creation of dashboards for quick monitoring of system usage and performance.
 
+<CardGroup cols={2}>
+<Card title="Quickstart" href="/latest/quickstart" icon='bolt'>
+Get Started with monitoring your LLM Applications in 2 simple steps
+</Card>
+<Card title="Connections" href="/latest/connections/intro" icon='link'>
+Connect to your existing Observablity Stack
+</Card>
+</CardGroup>
+
 ### GenAI/LLM Metrics
 
 | Metric Name                       | Description                                | Unit  | Type | Attributes                                                                                         |
@@ -21,3 +30,11 @@ This document outlines the OpenTelemetry metrics collected by **OpenLIT** from a
 |-------------------------|--------------------------------------------|-------|-------------|--------------------------------------------------------------|
 | `db.total.requests`     | Number of requests to VectorDBs.           | `1`   | Counter     | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
 
+<CardGroup cols={2}>
+<Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
+Integrate your LLM Stack with OpenLIT 
+</Card>
+<Card title="Connections" href="/latest/connections/intro" icon='link'>
+Connect to your existing Observablity Stack
+</Card>
+</CardGroup>
