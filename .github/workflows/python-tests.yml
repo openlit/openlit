@@ -7,6 +7,8 @@ on:
       - 'sdk/python/**'
   pull_request_target:
     branches: [ "main" ]
+    paths:
+      - 'sdk/python/**'
   workflow_dispatch:
   schedule:
     - cron: '0 0 1-31/15 * *'
