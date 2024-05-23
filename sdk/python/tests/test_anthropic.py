@@ -47,7 +47,7 @@ def test_sync_anthropic_messages():
                     "content": "Hello, Claude",
                 }
             ],
-            model="laude-3-haiku-20240307",
+            model="claude-3-haiku-20240307",
         )
         assert message.type == 'message'
 

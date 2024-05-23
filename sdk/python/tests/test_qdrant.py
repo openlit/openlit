@@ -53,7 +53,7 @@ def test_db_qdrant():
 
     # Create a new collection
     collection = client.create_collection(
-      collection_name=collecton_name,
+      ollection_name=collecton_name,
       vectors_config=VectorParams(size=4, distance=Distance.DOT),
     )
 
