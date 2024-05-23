@@ -16,7 +16,7 @@ prior to running these tests.
 
 import os
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import PointStruct
 import openlit
 
 # Initialize Qdrant client
@@ -27,7 +27,7 @@ client = QdrantClient(
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
-collecton_name = "openlit"
+COLLECTION_NAME = "openlit"
 
 def test_db_qdrant():
     """
@@ -53,7 +53,7 @@ def test_db_qdrant():
 
     # # Create a new collection
     # collection = client.create_collection(
-    #   collection_name=collecton_name,
+    #   collection_name=COLLECTION_NAME,
     #   vectors_config=VectorParams(size=4, distance=Distance.DOT),
     # )
 
@@ -61,7 +61,7 @@ def test_db_qdrant():
 
     # Upsert to the collection
     upsert = client.upsert(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       wait=True,
       points=[
         PointStruct(id=1, vector=[0.05, 0.61, 0.76, 0.74], payload={"city": "Berlin"}),
@@ -77,7 +77,7 @@ def test_db_qdrant():
 
     # Set Payload to the collection
     set_payload = client.set_payload(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       payload={
           "city": "Vienna",
       },
@@ -87,7 +87,7 @@ def test_db_qdrant():
 
     # Overwrite Payload to the collection
     overwrite_payload = client.overwrite_payload(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       payload={
           "city": "Toronto",
       },
@@ -97,14 +97,14 @@ def test_db_qdrant():
 
     # Clear Payload to the collection
     clear_payload = client.clear_payload(
-        collection_name=collecton_name,
+        collection_name=COLLECTION_NAME,
         points_selector=[1],
     )
     assert clear_payload.status == 'completed'
 
     # Delete Payload to the collection
     delete_payload = client.delete_payload(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       keys=["city"],
       points=[2],
     )
@@ -112,7 +112,7 @@ def test_db_qdrant():
 
     # Upload Points to the collection
     upload_points = client.upload_points(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       points=[
           models.PointStruct(
               id=1,
@@ -128,7 +128,7 @@ def test_db_qdrant():
 
     # Update Vectors in the collection
     update_vectors = client.update_vectors(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       points=[
           models.PointVectors(
               id=1,
@@ -140,7 +140,7 @@ def test_db_qdrant():
 
     # Delete Points in the collection
     delt = client.delete(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       points_selector=models.PointIdsList(
           points=[2],
       ),
@@ -149,14 +149,14 @@ def test_db_qdrant():
 
     # Retrieve vectors from the collection
     retrieve = client.retrieve(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       ids=[4],
     )
     assert isinstance(retrieve, list)
 
     # Scroll vectors from the collection
     scroll = client.scroll(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       scroll_filter=models.Filter(
           must=[
               models.FieldCondition(key="city", match=models.MatchValue(value="Toronto")),
@@ -170,7 +170,7 @@ def test_db_qdrant():
 
     # Search vectors from the collection
     search = client.search(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       query_filter=models.Filter(
           must=[
               models.FieldCondition(
@@ -189,7 +189,7 @@ def test_db_qdrant():
 
     # Search groups from the collection
     search_groups = client.search_groups(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       query_vector=[1.1, 1.2, 1.3, 1.4],
       group_by="city",
       limit=4,
@@ -199,7 +199,7 @@ def test_db_qdrant():
 
     # Get Recommened vectors from the collection
     recommend = client.recommend(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       positive=[1, 3],
       negative=[4, [0.2, 0.3, 0.4, 0.5]],
       strategy=models.RecommendStrategy.AVERAGE_VECTOR,
@@ -219,6 +219,6 @@ def test_db_qdrant():
 
     # # Delete collection
     # del_col = client.delete_collection(
-    #     collection_name=collecton_name,
+    #     collection_name=COLLECTION_NAME,
     # )
     # assert del_col is True
