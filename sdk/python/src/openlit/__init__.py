@@ -146,7 +146,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         trace_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
         disable_metrics (bool): Flag to disable metrics (Optional)
-        pricing_json(str): path or url to the pricing json file e.g. https://someexample.com/pricing.json or /home/user/pricing.json
+        pricing_json(str): File path or url to the pricing json (Optional)
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     # Check for invalid instrumentor names

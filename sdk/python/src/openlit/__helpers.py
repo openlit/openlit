@@ -139,8 +139,8 @@ def fetch_pricing_info(pricing_json=None):
             pricing_url = pricing_json
         else:
             try:
-                f = open(pricing_json)
-                return json.load(f)
+                with open(pricing_json, mode='r', encoding='utf-8') as f:
+                    return json.load(f)
             except FileNotFoundError:
                 logger.error("Pricing information file not found: %s", pricing_json)
             except json.JSONDecodeError:
