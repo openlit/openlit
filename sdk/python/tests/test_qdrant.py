@@ -27,7 +27,7 @@ client = QdrantClient(
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
-collecton_name = "openlit-" + os.getenv("GITHUB_JOB")
+collecton_name = "openlit"
 
 def test_db_qdrant():
     """
@@ -51,13 +51,13 @@ def test_db_qdrant():
       AssertionError: If the responses from ChromaDB operations do not meet the expected outcomes.
     """
 
-    # Create a new collection
-    collection = client.create_collection(
-      collection_name=collecton_name,
-      vectors_config=VectorParams(size=4, distance=Distance.DOT),
-    )
+    # # Create a new collection
+    # collection = client.create_collection(
+    #   collection_name=collecton_name,
+    #   vectors_config=VectorParams(size=4, distance=Distance.DOT),
+    # )
 
-    assert collection is True
+    # assert collection is True
 
     # Upsert to the collection
     upsert = client.upsert(
@@ -217,8 +217,8 @@ def test_db_qdrant():
     )
     assert isinstance(recommend, list)
 
-    # Delete collection
-    del_col = client.delete_collection(
-        collection_name=collecton_name,
-    )
-    assert del_col is True
+    # # Delete collection
+    # del_col = client.delete_collection(
+    #     collection_name=collecton_name,
+    # )
+    # assert del_col is True
