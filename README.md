@@ -109,7 +109,7 @@ Connect with the OpenLIT community and maintainers for support, discussions, and
 - 🌟 If you like it, Leave a star on our [GitHub](https://github.com/openlit/openlit/)
 - 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) Community for live interactions and questions.
 - 🐞 Report bugs on our [GitHub Issues](https://github.com/openlit/openlit/issues) to help us improve OpenLIT.
-- 𝕏 Follow us on [X](https://twitter.com/openlit) for the latest updates and news.
+- 𝕏 Follow us on [X](https://twitter.com/openlit_io) for the latest updates and news.
 
 ## License
 
