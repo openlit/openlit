@@ -1,0 +1,21 @@
+---
+title: 'SDK Configuration'
+description: 'Configuring Options for OpenLIT SDK'
+icon: 'file-code'
+---
+
+Below is a detailed overview of the configuration options available, allowing you to adjust OpenLIT's behavior and functionality to align with your specific observability needs:
+
+| Argument                | Description                                                                                   | Default Value  | Required |
+|-------------------------|-----------------------------------------------------------------------------------------------|----------------|----------|
+| `environment`           | The deployment environment of the application.                                                | `"default"`    |    Yes   |
+| `application_name`      | Identifies the name of your application.                                                      | `"default"`    |    Yes   |
+| `tracer`                | An instance of OpenTelemetry Tracer for tracing operations.                                   | `None`         |    No    |
+| `meter`                 | An OpenTelemetry Metrics instance for capturing metrics.                                      | `None`         |    No    |
+| `otlp_endpoint`         | Specifies the OTLP endpoint for transmitting telemetry data.                                  | `None`         |    No    |
+| `otlp_headers`          | Defines headers for the OTLP exporter, useful for backends requiring authentication.          | `None`         |    No    |
+| `disable_batch`         | A flag to disable batch span processing, favoring immediate dispatch.                         | `False`        |    No    |
+| `trace_content`         | Enables tracing of content for deeper insights.                                               | `True`         |    No    |
+| `disabled_instrumentors`| List of instrumentors to disable. Choices: `["openai", "anthropic", "langchain", "cohere", "mistral", "transformers", "chroma", "pinecone"]`. | `None` |    No    |
+| `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
+| `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
