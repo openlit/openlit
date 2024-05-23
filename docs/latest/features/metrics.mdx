@@ -3,7 +3,7 @@ title: 'LLM Application Metrics'
 sidebarTitle: 'Metrics'
 ---
 
-This document outlines the OpenTelemetry metrics collected by **OpenLIT** from applications using LLMs and Vector Databases. These metrics offer a straightforward overview of application performance and resource usage. They serve as a supplement to the detailed data captured through [tracing](./tracing), aiding in the easy creation of dashboards for quick monitoring of system usage and performance.
+OpenLIT offers automatic instrumentation with OpenTelemetry for various LLM providers, frameworks, and VectorDBs, enabling you to gain valuable insights into the behavior and performance of your LLM applications through metrics. This documentation delves into configuring metric settings, understanding semantic conventions, and interpreting metric attributes, empowering you to enhance the monitoring and observability of your LLM applications.
 
 <CardGroup cols={2}>
 <Card title="Quickstart" href="/latest/quickstart" icon='bolt'>
@@ -13,6 +13,36 @@ Get Started with monitoring your LLM Applications in 2 simple steps
 Connect to your existing Observablity Stack
 </Card>
 </CardGroup>
+
+## Disable Metrics
+You have the option to disable the collection of metrics if needed. By default, metrics collection is enabled.
+
+Example:
+
+```python
+# Disable metrics collection
+openlit.init(disable_metrics=True)
+```
+
+## Using an existing OTel Metrics instance
+
+You have the flexibility to integrate your existing OpenTelemetry (OTel) Metrics instance configuration with OpenLIT. 
+If you already have an OTel Metrics instance instantiated in your application, you can pass it directly to `openlit.init(meter=meter)`. 
+This integration ensures that OpenLIT utilizes your custom OTel metrics instance settings, allowing for a unified metrics setup across your application.
+
+Example:
+
+```python
+# Instantiate an OpenTelemetry Metrics meter
+meter = ...
+
+# Pass the meter to OpenLIT
+openlit.init(meter=meter)
+```
+
+## Semantic Convention
+
+This section outlines the OpenTelemetry metrics collected by **OpenLIT** from applications using LLMs and Vector Databases. These metrics offer a straightforward overview of application performance and resource usage. They serve as a supplement to the detailed data captured through [tracing](./tracing), aiding in the easy creation of dashboards for quick monitoring of system usage and performance.
 
 ### GenAI/LLM Metrics
 

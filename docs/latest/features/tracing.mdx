@@ -3,7 +3,7 @@ title: 'LLM Application Traces'
 sidebarTitle: 'Tracing'
 ---
 
-This document outlines the OpenTelemetry traces collected by **OpenLIT** from applications utilizing Large Language Models (LLMs) and Vector Databases. The span attributes adhere to the [GenAI Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) established by the OpenTelemetry community, ensuring standardized data collection that enhances monitoring and debugging capabilities.
+OpenLIT provides OpenTelemetry Auto instrumentation for various LLM providers, frameworks, and VectorDBs, providing you with insights into the behavior and performance of your LLM applications. This documentation covers tracing settings, understanding semantic conventions, and interpreting span attributes to enhance the monitoring and observability of your LLM applications.
 
 <CardGroup cols={2}>
 <Card title="Quickstart" href="/latest/quickstart" icon='bolt'>
@@ -14,7 +14,47 @@ Connect to your existing Observablity Stack
 </Card>
 </CardGroup>
 
-## Span Definitions
+## Using an existing OTel Tracer
+
+You have the flexibility to integrate your existing OpenTelemetry (OTel) tracer configuration with OpenLIT. 
+If you already have an OTel tracer instantiated in your application, you can pass it directly to `openlit.init(tracer=tracer)`. 
+This integration ensures that OpenLIT utilizes your custom tracer settings, allowing for a unified tracing setup across your application.
+
+Example:
+
+```python
+# Instantiate an OpenTelemetry Tracer
+tracer = ...
+
+# Pass the tracer to OpenLIT
+openlit.init(tracer=tracer)
+```
+
+## Disable Batch
+
+By default, the SDK batches spans using the OpenTelemetry batch span processor. When working locally, sometimes you may wish to disable this behavior. You can do that with this flag.
+
+Example:
+
+```python
+openlit.init(disable_batch=True)
+```
+
+## Disbale Instrumentations
+
+By default, OpenLIT automatically detects which models and frameworks you are using and instruments them for you. You can override this and disable instrumentation for specific frameworks and models.
+
+Example:
+
+```python
+openlit.init(disabled_instrumentors=["anthropic", "langchain"])
+```
+
+## Semantic Convention
+
+This section outlines the OpenTelemetry traces collected by **OpenLIT** from applications utilizing Large Language Models (LLMs) and Vector Databases. The span attributes adhere to the [GenAI Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) established by the OpenTelemetry community, ensuring standardized data collection that enhances monitoring and debugging capabilities.
+
+### Span Definitions
 
 This section outlines fundamental definitions related to span types and names used within the OpenTelemetry traces to identify the nature and source of requests.
 
@@ -23,7 +63,7 @@ This section outlines fundamental definitions related to span types and names us
 | **Span kind** | Will always be `CLIENT` when the trace is generated successfully.                             | `CLIENT`                  |
 | **Span name** | Is set to the LLM endpoint which follows the convention `provider_name.operation_name`.       | `openai.chat.completions` |
 
-## General Span Attributes
+### General Span Attributes
 
 General span attributes encapsulate the environmental and operational context of LLM applications, offering insights into where and how the spans are generated.
 
@@ -39,9 +79,9 @@ General span attributes encapsulate the environmental and operational context of
 | `gen_ai.retrieval.source`       | string   | Source from which the model was retrieved.       | `slack`         |
 | `telemetry.sdk.name`            | string   | Source of the generated traces                   | `openlit`         |
 
-## GenAI/LLM Span Attributes
+### GenAI/LLM Span Attributes
 
-### Request Attributes
+#### Request Attributes
 
 These attributes detail the specifics of requests sent to LLMs, including configurations and parameters that define the behavior and responses of the LLM.
 
@@ -72,7 +112,7 @@ These attributes detail the specifics of requests sent to LLMs, including config
 | `gen_ai.request.training_file`          | string     | Location or type of training file used for the LLM.                      | `train_data.json`                  |
 
 
-### Response Attributes
+#### Response Attributes
 
 Attributes in this category help trace and understand responses from LLMs, encapsulating data relevant to outcomes and any content generated as a result.
 
@@ -85,7 +125,7 @@ Attributes in this category help trace and understand responses from LLMs, encap
 | `gen_ai.response.image_quality`     | int       | Quality parameter for the generated image, usually a percentage. | `90`                           |
 | `gen_ai.response.image_style`       | string    | Style or theme of the generated image.                        | `van_gogh`                        |
 
-### Usage Attributes
+#### Usage Attributes
 
 These attributes track the consumption and costs associated with LLM requests, facilitating operational analysis and resource management.
 
@@ -96,7 +136,7 @@ These attributes track the consumption and costs associated with LLM requests, f
 | `gen_ai.usage.total_tokens`             | int        | The total number of tokens used in both the prompt and completion.      | `280`             |
 | `gen_ai.usage.cost`                     | decimal    | The cost (in USD) associated with the LLM request                       | `0.05`            |
 
-### Content Attributes
+#### Content Attributes
 
 Content attributes specifically relate to the data exchanged with LLMs during requests and responses, including initial prompts and resulting outputs.
 
@@ -106,7 +146,7 @@ Content attributes specifically relate to the data exchanged with LLMs during re
 | `gen_ai.content.completion`         | string  | The full response received from the LLM.                       | `"The capital of France is Paris."`           |
 | `gen_ai.content.revised_prompt`     | string  | Revised or modified prompt, if applicable.                     | `"What's the capital city of France?"`        |
 
-## VectorDB Span Attributes
+### VectorDB Span Attributes
 
 This section addresses attributes related to interactions with Vector Databases supporting the LLM operations, providing insights into database operations and related parameters.
 
