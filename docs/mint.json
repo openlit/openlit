@@ -51,6 +51,14 @@
       "version": "latest"
     },
     {
+      "group": "Telemetry",
+      "pages": [
+        "latest/telemetry/tracing",
+        "latest/telemetry/metrics"
+      ],
+      "version": "latest"
+    },
+    {
       "group": "Integrations",
       "version": "latest",
       "pages": [

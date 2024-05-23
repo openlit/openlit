@@ -1,0 +1,23 @@
+---
+title: 'LLM Application Metrics'
+sidebarTitle: 'Metrics'
+---
+
+This document outlines the OpenTelemetry metrics collected by **OpenLIT** from applications using LLMs and Vector Databases. These metrics offer a straightforward overview of application performance and resource usage. They serve as a supplement to the detailed data captured through [tracing](./tracing), aiding in the easy creation of dashboards for quick monitoring of system usage and performance.
+
+### GenAI/LLM Metrics
+
+| Metric Name                       | Description                                | Unit  | Type | Attributes                                                                                         |
+|-----------------------------------|--------------------------------------------|-------|-------------|----------------------------------------------------------------------------------------------------|
+| `gen_ai.total.requests`           | Number of requests to the LLM.             | `1`   | Counter     | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.system`, `gen_ai.environment`, `gen_ai.type`, `gen_ai.request.model` |
+| `gen_ai.usage.prompt_tokens`      | Number of prompt tokens processed.         | `1`   | Counter     | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.system`, `gen_ai.environment`, `gen_ai.type`, `gen_ai.request.model` |
+| `gen_ai.usage.completion_tokens`  | Number of completion tokens processed.     | `1`   | Counter     | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.system`, `gen_ai.environment`, `gen_ai.type`, `gen_ai.request.model` |
+| `gen_ai.usage.total_tokens`       | Total number of tokens processed.          | `1`   | Counter     | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.system`, `gen_ai.environment`, `gen_ai.type`, `gen_ai.request.model` |
+| `gen_ai.usage.cost`               | The cost distribution of LLM requests.     | `USD` | Histogram   | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.system`, `gen_ai.environment`, `gen_ai.type`, `gen_ai.request.model` |
+
+### VectorDB Metrics
+
+| Metric Name             | Description                                | Unit  | Type | Attributes                                                   |
+|-------------------------|--------------------------------------------|-------|-------------|--------------------------------------------------------------|
+| `db.total.requests`     | Number of requests to VectorDBs.           | `1`   | Counter     | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+
