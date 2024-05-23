@@ -39,7 +39,9 @@ def test_embed():
 
     except cohere.core.api_error.ApiError as e:
         print("Rate Limited:", e)
-        
+    except Exception as e:
+        print("An unexpected error occurred")
+        raise e
 
 def test_chat():
     """
@@ -59,4 +61,5 @@ def test_chat():
     except cohere.core.api_error.ApiError as e:
         print("Rate Limited:", e)
     except Exception as e:
-        raise
+        print("An unexpected error occurred")
+        raise e
