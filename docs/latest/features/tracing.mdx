@@ -3,7 +3,9 @@ title: 'LLM Application Traces'
 sidebarTitle: 'Tracing'
 ---
 
-OpenLIT provides OpenTelemetry Auto instrumentation for various LLM providers, frameworks, and VectorDBs, providing you with insights into the behavior and performance of your LLM applications. This documentation covers tracing settings, understanding semantic conventions, and interpreting span attributes to enhance the monitoring and observability of your LLM applications.
+OpenLIT provides OpenTelemetry Auto instrumentation for various LLM providers, frameworks, and VectorDBs, providing you with insights into the behavior and performance of your LLM applications. 
+
+This documentation covers tracing settings, understanding semantic conventions, and interpreting span attributes to enhance the monitoring and observability of your LLM applications.
 
 <CardGroup cols={2}>
 <Card title="Quickstart" href="/latest/quickstart" icon='bolt'>
@@ -29,6 +31,19 @@ tracer = ...
 # Pass the tracer to OpenLIT
 openlit.init(tracer=tracer)
 ```
+
+## Disable Tracing of Content
+
+By default, OpenLIT adds the prompts and completions to Trace span attributes.
+
+However, you may want to disable this logging for privacy reasons, as they may contain highly sensitive data from your users. You may also simply want to reduce the size of your traces.
+
+Example:
+
+```python
+openlit.init(trace_content=False)
+```
+
 
 ## Disable Batch
 
