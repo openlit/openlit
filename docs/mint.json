@@ -56,7 +56,8 @@
       "pages": [
         "latest/features/tracing",
         "latest/features/metrics",
-        "latest/features/pricing"
+        "latest/features/pricing",
+        "latest/features/multiple-db"
       ],
       "version": "latest"
     },
