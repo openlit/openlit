@@ -58,6 +58,8 @@ pip install openlit
 
 ### Step 1: Install OpenLIT
 
+Open your command line or terminal and run:
+
 ```bash
 pip install openlit
 ```

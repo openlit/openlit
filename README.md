@@ -45,6 +45,8 @@ This project proudly follows the [Semantic Conventions](https://github.com/open-
 
 ### Step 2: Install OpenLIT SDK
 
+Open your command line or terminal and run:
+
 ```bash
 pip install openlit
 ```
