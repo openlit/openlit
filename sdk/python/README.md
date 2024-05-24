@@ -64,7 +64,7 @@ Open your command line or terminal and run:
 pip install openlit
 ```
 
-### Step 2: Instrument your Application
+### Step 2: Initialize OpenLIT in Your Application
 Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
 
 ```python

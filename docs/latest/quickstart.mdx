@@ -8,7 +8,7 @@ This guide will walk you through setting up OpenTelemetry Auto Instrumentation f
 In this guide, we'll show how you can send OpenTelemetry traces and metrics from your LLM Applications to Grafana Cloud
 
 <Steps>
-    <Step title="Deploy OpenLIT">
+    <Step title="Deploy OpenLIT UI">
       <Steps>
         <Step title="Git Clone OpenLIT Repository">
         ```shell
@@ -23,13 +23,13 @@ In this guide, we'll show how you can send OpenTelemetry traces and metrics from
         </Step>
       </Steps>
     </Step>
-    <Step title="Install the OpenLIT Python SDK using pip">
+    <Step title="Install the OpenLIT SDK">
       ```shell
       pip install openlit
       ```
     </Step>
-    <Step title="Add the following two lines to your application code:">
-      Add the snippet below to your Python application.
+    <Step title="Initialize the OpenLIT in Your Application">
+      Add the following two lines to your application code:
       <Tabs>
       <Tab title="Setup using function arguments">
       ```python
@@ -62,6 +62,8 @@ In this guide, we'll show how you can send OpenTelemetry traces and metrics from
       ```
       </Tab>
       <Tab title="Setup using Environment Variables">
+      
+      Add the following two lines to your application code:
       ```python
       import openlit
 
