@@ -94,6 +94,8 @@ To send telemetry to OpenTelemetry backends requiring authentication, set the `o
 
 <details>
   <summary>Initialize using Function Arguments</summary>
+  
+  ---
 
   Add the following two lines to your application code:
   
@@ -112,10 +114,10 @@ To send telemetry to OpenTelemetry backends requiring authentication, set the `o
 
 <details>
 
+  <summary>Initialize using Environment Variables</summary>
+
   ---
 
-  <summary>Initialize using Environment Variables</summary>
-  
   Add the following two lines to your application code:
 
   ```python
