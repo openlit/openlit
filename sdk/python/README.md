@@ -21,31 +21,20 @@ Whether you're directly using LLM Libraries like OpenAI, Anthropic or building c
 
 This project adheres to the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) proposed by the OpenTelemetry community. You can check out the current definitions [here](src/openlit/semcov/__init__.py).
 
-## What can be Auto Instrumented?
+## Auto Instrumentation Capabilities
 
-### LLMs
-- [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)
-- [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)
-- [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)
-- [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)
-- [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)
-- [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai)
-- [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface)
-- [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)
-- [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)
-- [✅ Groq](https://docs.openlit.io/latest/integrations/groq)
-
-### Vector DBs
-- [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)
-- [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)
-- [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)
-- [✅ Milvus](https://docs.openlit.io/latest/integrations/milvus)
-
-### Frameworks
-- [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)
-- [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)
-- [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)
-- [✅ Haystack](https://docs.openlit.io/latest/integrations/haystack)
+| LLMs                                                     | Vector DBs                                   | Frameworks                                   |
+|----------------------------------------------------------|----------------------------------------------|----------------------------------------------|
+| [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)               | [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)       | [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)     |
+| [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)               | [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)       | [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)         |
+| [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)         | [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)           | [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)  |
+| [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)               | [✅ Milvus](https://docs.openlit.io/latest/integrations/milvus)           | [✅ Haystack](https://docs.openlit.io/latest/integrations/haystack)       |
+| [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)             |                                                                          |                                   
+| [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai)   |                                                                          |                                        
+| [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface) |                                                                          |                                           
+| [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)         |                                                                          |                                       
+| [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)         |                                                                          |                                      
+| [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                   |                                                                          |                                
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
