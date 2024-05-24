@@ -33,10 +33,15 @@ This project proudly follows the [Semantic Conventions](https://github.com/open-
 
 ### Step 1: Deploy OpenLIT
 
-From the root directory of the this Repo, Run the below command:
-```shell
-docker-compose up -d
-```
+1. Git Clone OpenLIT Repository
+   ```shell
+   git clone git@github.com:openlit/openlit.git
+   ```
+
+2. Start Docker Compose
+   ```shell
+   docker-compose up -d
+   ```
 
 ### Step 2: Install OpenLIT SDK
 
