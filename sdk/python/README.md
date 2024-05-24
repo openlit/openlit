@@ -143,6 +143,8 @@ To begin exploring your LLM Application's performance data within the OpenLIT UI
 
 If you want to integrate and send metrics and traces to your existing observability tools, refer to our [Connections Guide](https://docs.openlit.io/latest/connections/intro) for detailed instructions.
 
+![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
+
 
 ### Configuration
 
