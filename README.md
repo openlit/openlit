@@ -31,6 +31,38 @@ This project proudly follows the [Semantic Conventions](https://github.com/open-
 
 ## 🚀 Getting Started
 
+```mermaid
+flowchart TB;
+
+    subgraph " "
+
+        direction LR;
+
+        
+
+        subgraph " "
+
+            direction LR;
+
+            OpenLIT_SDK[OpenLIT SDK] -->|Sends Traces & Metrics| OTC[OpenTelemetry Collector];
+
+            OTC -->|Stores Data| ClickHouseDB[ClickHouse];
+
+        end
+
+
+
+        subgraph " "
+
+            direction RL;
+
+            OpenLIT_UI[OpenLIT UI] -->|Pulls Data| ClickHouseDB;
+
+        end
+
+    end
+```
+
 ### Step 1: Deploy OpenLIT Stack
 
 1. Git Clone OpenLIT Repository

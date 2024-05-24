@@ -7,6 +7,38 @@ icon: 'bolt'
 This guide will walk you through setting up OpenTelemetry Auto Instrumentation for monitoring your LLM Application using OpenLIT. In just a few steps, you'll be able to track and analyze the performance and usage of your LLM Applications. 
 In this guide, we'll show how you can send OpenTelemetry traces and metrics from your LLM Applications to Grafana Cloud
 
+```mermaid
+flowchart TB;
+
+    subgraph " "
+
+        direction LR;
+
+        
+
+        subgraph " "
+
+            direction LR;
+
+            OpenLIT_SDK[OpenLIT SDK] -->|Sends Traces & Metrics| OTC[OpenTelemetry Collector];
+
+            OTC -->|Stores Data| ClickHouseDB[ClickHouse];
+
+        end
+
+
+
+        subgraph " "
+
+            direction RL;
+
+            OpenLIT_UI[OpenLIT UI] -->|Pulls Data| ClickHouseDB;
+
+        end
+
+    end
+```
+
 <Steps>
     <Step title="Deploy OpenLIT UI">
       <Steps>
