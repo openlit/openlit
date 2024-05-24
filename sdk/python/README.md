@@ -74,7 +74,7 @@ pip install openlit
 ```
 
 ### Step 2: Instrument your Application
-Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **one line of code**: 
+Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
 
 ```python
 import openlit
@@ -82,46 +82,62 @@ import openlit
 openlit.init()
 ```
 
-By default, OpenLIT directs traces and metrics straight to your console. To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
+To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
+
+> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, The SDK directs the trace directly to your console, which can be useful during development.
 
 To send telemetry to OpenTelemetry backends requiring authentication, set the `otlp_headers` parameter with its desired value. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as recommended in the OpenTelemetry documentation.
 
 #### Example
 
-Here is how you can send telemetry from OpenLIT to Grafana Cloud
+---
 
-```python
-openlit.init(
-  otlp_endpoint="https://otlp-gateway-prod-us-east-0.grafana.net/otlp", 
-  otlp_headers="Authorization=Basic%20<base64 encoded Instance ID and API Token>"
-)
-```
+<details>
+  <summary>Initialize using Function Arguments</summary>
 
-Alternatively, You can also choose to set these values using `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` environment variables
+  Add the following two lines to your application code:
+  
+  ```python
+  import openlit
+  
+  openlit.init(
+    otlp_endpoint="YOUR_OTEL_ENDPOINT", 
+    otlp_headers ="YOUR_OTEL_ENDPOINT_AUTH"
+  )
+  ```
 
-```python
-openlit.init()
-```
+</details>
 
-```env
-export OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp"
-export OTEL_EXPORTER_OTLP_HEADERS = "Authorization=Basic%20<base64 encoded Instance ID and API Token>"
-```
+---
+
+<details>
+
+  ---
+
+  <summary>Initialize using Environment Variables</summary>
+  
+  Add the following two lines to your application code:
+
+  ```python
+  import openlit
+
+  openlit.init()
+  ```
+  
+  Then, configure the your OTLP endpoint using environment variable:
+
+  ```env
+  export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_ENDPOINT"
+  export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_OTEL_ENDPOINT_AUTH"
+  ```
+</details>
 
 ### Step 3: Visualize and Optimize!
-With the LLM Observability data now being collected and sent to your chosen OpenTelemetry backend, the next step is to visualize and analyze this data to glean insights into your application's performance, behavior, and identify areas of improvement. Here is how you would use the data in Grafana, follow these detailed instructions to explore your LLM application's Telemetry data.
+With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application’s performance, behavior, and identify areas of improvement.
 
-   - Select the **Explore** option from Grafana's sidebar.
-   - At the top, ensure the correct Tempo data source is selected from the dropdown menu.
-   - Use the **Query** field to specify any particular traces you are interested in, or leave it empty to browse through all the available traces.
-   - You can adjust the time range to focus on specific periods of interest.
-   - Hit **Run Query** to fetch your trace data. You'll see a visual representation of your traces along with detailed information on particular spans when clicked.
+To begin exploring your LLM Application's performance data within the OpenLIT UI, please see the [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
 
-#### Next Steps
-
-- **Create Dashboards:** Beyond just exploring traces, consider creating dashboards in Grafana to monitor key performance indicators (KPIs) and metrics over time. Dashboards can be customized with various panels to display graphs, logs, and single stats that are most relevant to your application's performance and usage patterns.
-- **Set Alerts:** Grafana also allows you to set up alerts based on specific thresholds. This feature can be invaluable in proactively managing your application's health by notifying you of potential issues before they impact users.
-- **Iterate and Optimize:** Use the insights gained from your observability data to make informed decisions on optimizing your LLM application. This might involve refining model parameters, adjusting scaling strategies, or identifying and resolving bottlenecks.
+If you want to integrate and send metrics and traces to your existing observability tools, refer to our [Connections Guide](https://docs.openlit.io/latest/connections/intro) for detailed instructions.
 
 
 ### Configuration
@@ -138,7 +154,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `otlp_headers`          | Defines headers for the OTLP exporter, useful for backends requiring authentication.          | `None`         |    No    |
 | `disable_batch`         | A flag to disable batch span processing, favoring immediate dispatch.                         | `False`        |    No    |
 | `trace_content`         | Enables tracing of content for deeper insights.                                               | `True`         |    No    |
-| `disabled_instrumentors`| List of instrumentors to disable. Choices: `["openai", "anthropic", "langchain", "cohere", "mistral", "transformers", "chroma", "pinecone"]`. | `None` |    No    |
+| `disabled_instrumentors`| List of instrumentors to disable. | `None` |    No    |
 | `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
 | `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
 
