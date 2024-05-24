@@ -67,7 +67,7 @@ pip install openlit
 
 ## 🚀 Getting Started
 
-## Step 1: Install OpenLIT SDK
+### Step 1: Install OpenLIT SDK
 
 ```bash
 pip install openlit

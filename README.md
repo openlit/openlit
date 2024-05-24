@@ -11,7 +11,7 @@ OpenTelemetry-native LLM Application Observability</h1>
 [![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
-[![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/KxBBhmzG)
+<!-- [![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/KxBBhmzG) -->
 [![X](https://img.shields.io/badge/follow-%40OpenLIT-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
 
 </div>
@@ -32,20 +32,20 @@ This project proudly follows the [Semantic Conventions](https://github.com/open-
 
 ## 🚀 Getting Started
 
-## Step 1: Deploy OpenLIT
+### Step 1: Deploy OpenLIT
 
 From the root directory of the this Repo, Run the below command:
 ```shell
 docker-compose up -d
 ```
 
-## Step 2: Install OpenLIT SDK
+### Step 2: Install OpenLIT SDK
 
 ```bash
 pip install openlit
 ```
 
-### Step 2: Instrument your Application
+### Step 3: Instrument your Application
 Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
 
 ```python
@@ -104,7 +104,7 @@ To send telemetry to OpenTelemetry backends requiring authentication, set the `o
 
 ---
 
-### Step 3: Visualize and Optimize!
+### Step 4: Visualize and Optimize!
 With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
 
 Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
