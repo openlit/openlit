@@ -252,13 +252,11 @@ export default function RequestFilter({ total }: { total: number }) {
 					</Button>
 				)}
 			</div>
-			{total > 0 && (
-				<DynamicFilters
-					isVisibleFilters={isVisibleFilters}
-					filter={filter}
-					areFiltersApplied={areFiltersApplied}
-				/>
-			)}
+			<DynamicFilters
+				isVisibleFilters={isVisibleFilters}
+				filter={filter}
+				areFiltersApplied={areFiltersApplied}
+			/>
 		</div>
 	);
 }
