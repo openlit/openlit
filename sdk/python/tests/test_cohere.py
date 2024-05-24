@@ -56,7 +56,7 @@ def test_chat():
             message='Say this is a test',
             model='command'
         )
-        assert chat_resp.response_id is not None
+        assert chat_resp.generation_id is not None
 
     except cohere.core.api_error.ApiError as e:
         print("Rate Limited:", e)

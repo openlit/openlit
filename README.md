@@ -11,7 +11,6 @@ OpenTelemetry-native LLM Application Observability</h1>
 [![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
-[![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/KxBBhmzG)
 [![X](https://img.shields.io/badge/follow-%40OpenLIT-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
 
 </div>
@@ -23,66 +22,111 @@ OpenLIT is an **OpenTelemetry-native** GenAI and LLM Application Observability t
 This project proudly follows the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) of the OpenTelemetry community, consistently updating to align with the latest standards in observability.
 
 ## What is LIT?
-`LIT` stands for **Learning and Inference Tool**, which is a visual and interactive tool designed for understanding AI models and visualizing data. The term `LIT` was introduced by [Google](https://developers.google.com/machine-learning/glossary#learning-interpretability-tool-lit), although OpenLIT is not affiliated with Google.
+`LIT` stands for **Learning and Inference Tool**, which is a visual and interactive tool designed for understanding AI models and visualizing data. The term `LIT` was introduced by [Google](https://developers.google.com/machine-learning/glossary#learning-interpretability-tool-lit).
 
 ## ⚡ Features
-- **OpenTelemetry-native**: Native support ensures that integrating OpenLIT into your projects feels more like a natural extension rather than an additional layer of complexity.
-- **Granular Usage Insights of your LLM Applications**: Assess your LLM's performance and costs with fine-grained control, breaking down metrics by environment (such as staging or production) or application, to optimize for efficiency and scalability.
-- **Vendor-Neutral SDKs**: In the spirit of OpenTelemetry, OpenLIT's SDKs are agnostic of the backend vendors. This means you can confidently use OpenLIT with various telemetry backends, like Grafana Tempo, without worrying about compatibility issues.
+- **Advanced Monitoring of LLM and VectorDB Performance**: OpenLIT offers automatic instrumentation that generates traces and metrics, providing insights into the performance and costs of your LLM and VectorDB usage. This helps you analyze how your applications perform in different environments, such as production, enabling you to optimize resource ussage and scale efficiently.
+- **Cost Tracking for Custom and Fine-Tuned Models**: OpenLIT enables you to tailor cost tracking for specific models by using a custom JSON file. This feature allows for precise budgeting and ensures that cost estimations are perfectly aligned with your project needs.
+- **OpenTelemetry-native & vendor-neutral SDKs**: OpenLIT is built with native support for OpenTelemetry, making it blend seamlessly with your projects. This vendor-neutral approach reduces barriers to integration, making OpenLIT an intuitive part of your software stack rather than an additional complexity.
 
 ## 🚀 Getting Started
 
-## Step 1: Deploy OpenLIT
-
-From the root directory of the this Repo, Run the below command:
-```shell
-docker-compose up -d
+```mermaid
+flowchart TB;
+    subgraph " "
+        direction LR;
+        subgraph " "
+            direction LR;
+            OpenLIT_SDK[OpenLIT SDK] -->|Sends Traces & Metrics| OTC[OpenTelemetry Collector];
+            OTC -->|Stores Data| ClickHouseDB[ClickHouse];
+        end
+        subgraph " "
+            direction RL;
+            OpenLIT_UI[OpenLIT UI] -->|Pulls Data| ClickHouseDB;
+        end
+    end
 ```
 
-## Step 2: Install OpenLIT SDK
+### Step 1: Deploy OpenLIT Stack
+
+1. Git Clone OpenLIT Repository
+   ```shell
+   git clone git@github.com:openlit/openlit.git
+   ```
+
+2. Start Docker Compose
+   ```shell
+   docker-compose up -d
+   ```
+
+### Step 2: Install OpenLIT SDK
+
+Open your command line or terminal and run:
 
 ```bash
 pip install openlit
 ```
 
-### Step 2: Instrument your Application
-Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **one line of code**: 
+### Step 3: Initialize OpenLIT in your Application
+Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
 
 ```python
 import openlit
 
-openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+openlit.init()
 ```
 
 To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
 
-> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, The SDK directs the trace directly to your console, which can be useful during development.
+> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, The OpenLIT SDK directs the trace directly to your console, which can be useful during development.
 
 To send telemetry to OpenTelemetry backends requiring authentication, set the `otlp_headers` parameter with its desired value. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as recommended in the OpenTelemetry documentation.
 
 #### Example
 
-Here is how you can send telemetry from OpenLIT to Grafana Cloud
+---
 
-```python
-openlit.init(
-  otlp_endpoint="https://otlp-gateway-prod-us-east-0.grafana.net/otlp", 
-  otlp_headers="Authorization=Basic%20<base64 encoded Instance ID and API Token>"
-)
-```
+<details>
+  <summary>Initialize using Function Arguments</summary>
 
-Alternatively, You can also choose to set these values using `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` environment variables
+  Add the following two lines to your application code:
+  
+  ```python
+  import openlit
+  
+  openlit.init(
+    otlp_endpoint="http://127.0.0.1:4318", 
+  )
+  ```
 
-```python
-openlit.init()
-```
+</details>
 
-```env
-export OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp"
-export OTEL_EXPORTER_OTLP_HEADERS = "Authorization=Basic%20<base64 encoded Instance ID and API Token>"
-```
+---
 
-### Step 3: Visualize and Optimize!
+<details>
+
+  ---
+
+  <summary>Initialize using Environment Variables</summary>
+  
+  Add the following two lines to your application code:
+
+  ```python
+  import openlit
+
+  openlit.init()
+  ```
+  
+  Then, configure the your OTLP endpoint using environment variable:
+
+  ```env
+  export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
+  ```
+</details>
+
+---
+
+### Step 4: Visualize and Optimize!
 With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
 
 Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
