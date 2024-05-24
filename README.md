@@ -25,9 +25,9 @@ This project proudly follows the [Semantic Conventions](https://github.com/open-
 `LIT` stands for **Learning and Inference Tool**, which is a visual and interactive tool designed for understanding AI models and visualizing data. The term `LIT` was introduced by [Google](https://developers.google.com/machine-learning/glossary#learning-interpretability-tool-lit), although OpenLIT is not affiliated with Google.
 
 ## ⚡ Features
-- **OpenTelemetry-native**: Native support ensures that integrating OpenLIT into your projects feels more like a natural extension rather than an additional layer of complexity.
-- **Granular Usage Insights of your LLM Applications**: Assess your LLM's performance and costs with fine-grained control, breaking down metrics by environment (such as staging or production) or application, to optimize for efficiency and scalability.
-- **Vendor-Neutral SDKs**: In the spirit of OpenTelemetry, OpenLIT's SDKs are agnostic of the backend vendors. This means you can confidently use OpenLIT with various telemetry backends, like Grafana Tempo, without worrying about compatibility issues.
+- **Advanced Monitoring of LLM and VectorDB Performance**: OpenLIT offers automatic instrumentation that generates traces and metrics, providing insights into the performance and costs of your LLM and VectorDB usage. This helps you analyze how your applications perform in different environments, such as production, enabling you to optimize resource ussage and scale efficiently.
+- **Cost Tracking for Custom and Fine-Tuned Models**: OpenLIT enables you to tailor cost tracking for specific models by using a custom JSON file. This feature allows for precise budgeting and ensures that cost estimations are perfectly aligned with your project needs.
+- **OpenTelemetry-native & vendor-neutral SDKs**: OpenLIT is built with native support for OpenTelemetry, making it blend seamlessly with your projects. This vendor-neutral approach reduces barriers to integration, making OpenLIT an intuitive part of your software stack rather than an additional complexity.
 
 ## 🚀 Getting Started
 
