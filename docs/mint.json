@@ -46,6 +46,7 @@
       "pages": [
         "latest/introduction",
         "latest/quickstart",
+        "latest/installation",
         "latest/sdk-configuration",
         "latest/ui-configuration"
       ],
