@@ -7,7 +7,9 @@ sidebarTitle: 'LiteLLM'
   <img src="/images/docs-litellm-banner.gif" />
 </Frame>
 
-OpenLIT SDKs provide OpenTelemetry Auto-Instrumentation for monitoring LLM Application using LiteLLM which includes performance and operation stats.
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using LiteLLM. This includes tracking performance and operation stats.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding the OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
 
 ## Get Started 
 
@@ -18,24 +20,29 @@ OpenLIT SDKs provide OpenTelemetry Auto-Instrumentation for monitoring LLM Appli
       ```
     </Step>
     <Step title="Add the following two lines to your application code:">
-      Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **one line of code**: 
-
+      Add the snippet below to your Python application.
+      <Tabs>
+      <Tab title="Setup using function arguments">
       ```python
       import openlit
 
-      openlit.init(otlp_endpoint="otlp_backend_endpoint", otlp_headers="otlp_backend_token")
+      openlit.init(otlp_endpoint="http://127.0.0.1:4318")
       ```
-
-      Alternatively, you can configure the OTLP endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` and the OTLP headers by setting the Appli`OTEL_EXPORTER_OTLP_HEADERS` environmentcation variable as recommended in the OpenTelemetry documentation.
-
-      If your aim is primarily to test or develop without sending telemetry data to an external backend, you can initialize OpenLIT without any parameters. This approach directs all telemetry output to your console, enabling quick diagnostics and local debugging:
       
+      </Tab>
+      <Tab title="Setup using Environment Variables">
       ```python
       import openlit
 
       openlit.init()
       ```
-      
+
+      Run the following command to configure the OTEL export endpoint:
+      ```shell
+      export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
+      ```
+      </Tab>
+      </Tabs>
       Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
     </Step>
 </Steps>
