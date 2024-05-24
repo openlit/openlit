@@ -13,6 +13,9 @@ OpenTelemetry Auto-Instrumentation for GenAI & LLM Applications</h1>
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
 [![X](https://img.shields.io/badge/follow-%40OpenLIT-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
 
+![OpenLIT Connections Banner](https://github.com/openlit/.github/blob/main/profile/assets/github-readme-connections-banner.png?raw=true)
+
+
 </div>
 
 OpenLIT Python SDK is an **OpenTelemetry-native** Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects. Designed with simplicity and efficiency, OpenLIT offers the ability to embed observability into your GenAI-driven projects effortlessly using just **a single line of code**.
@@ -21,31 +24,20 @@ Whether you're directly using LLM Libraries like OpenAI, Anthropic or building c
 
 This project adheres to the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) proposed by the OpenTelemetry community. You can check out the current definitions [here](src/openlit/semcov/__init__.py).
 
-## What can be Auto Instrumented?
+## Auto Instrumentation Capabilities
 
-### LLMs
-- [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)
-- [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)
-- [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)
-- [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)
-- [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)
-- [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai)
-- [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface)
-- [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)
-- [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)
-- [✅ Groq](https://docs.openlit.io/latest/integrations/groq)
-
-### Vector DBs
-- [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)
-- [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)
-- [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)
-- [✅ Milvus](https://docs.openlit.io/latest/integrations/milvus)
-
-### Frameworks
-- [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)
-- [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)
-- [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)
-- [✅ Haystack](https://docs.openlit.io/latest/integrations/haystack)
+| LLMs                                                     | Vector DBs                                   | Frameworks                                   |
+|----------------------------------------------------------|----------------------------------------------|----------------------------------------------|
+| [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)               | [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)       | [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)     |
+| [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)               | [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)       | [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)         |
+| [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)         | [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)           | [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)  |
+| [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)               | [✅ Milvus](https://docs.openlit.io/latest/integrations/milvus)           | [✅ Haystack](https://docs.openlit.io/latest/integrations/haystack)       |
+| [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)             |                                                                          |                                   
+| [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai)   |                                                                          |                                        
+| [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface) |                                                                          |                                           
+| [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)         |                                                                          |                                       
+| [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)         |                                                                          |                                      
+| [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                   |                                                                          |                                
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
@@ -67,14 +59,16 @@ pip install openlit
 
 ## 🚀 Getting Started
 
-## Step 1: Install OpenLIT SDK
+### Step 1: Install OpenLIT
+
+Open your command line or terminal and run:
 
 ```bash
 pip install openlit
 ```
 
-### Step 2: Instrument your Application
-Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **one line of code**: 
+### Step 2: Initialize OpenLIT in your Application
+Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
 
 ```python
 import openlit
@@ -82,46 +76,68 @@ import openlit
 openlit.init()
 ```
 
-By default, OpenLIT directs traces and metrics straight to your console. To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
+To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
+
+> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, OpenLIT directs the trace directly to your console, which can be useful during development.
 
 To send telemetry to OpenTelemetry backends requiring authentication, set the `otlp_headers` parameter with its desired value. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as recommended in the OpenTelemetry documentation.
 
 #### Example
 
-Here is how you can send telemetry from OpenLIT to Grafana Cloud
+---
 
-```python
-openlit.init(
-  otlp_endpoint="https://otlp-gateway-prod-us-east-0.grafana.net/otlp", 
-  otlp_headers="Authorization=Basic%20<base64 encoded Instance ID and API Token>"
-)
-```
+<details>
+  <summary>Initialize using Function Arguments</summary>
+  
+  ---
 
-Alternatively, You can also choose to set these values using `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` environment variables
+  Add the following two lines to your application code:
+  
+  ```python
+  import openlit
+  
+  openlit.init(
+    otlp_endpoint="YOUR_OTEL_ENDPOINT", 
+    otlp_headers ="YOUR_OTEL_ENDPOINT_AUTH"
+  )
+  ```
 
-```python
-openlit.init()
-```
+</details>
 
-```env
-export OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp"
-export OTEL_EXPORTER_OTLP_HEADERS = "Authorization=Basic%20<base64 encoded Instance ID and API Token>"
-```
+---
+
+<details>
+
+  <summary>Initialize using Environment Variables</summary>
+
+  ---
+
+  Add the following two lines to your application code:
+
+  ```python
+  import openlit
+
+  openlit.init()
+  ```
+  
+  Then, configure the your OTLP endpoint using environment variable:
+
+  ```env
+  export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_ENDPOINT"
+  export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_OTEL_ENDPOINT_AUTH"
+  ```
+</details>
+
+---
 
 ### Step 3: Visualize and Optimize!
-With the LLM Observability data now being collected and sent to your chosen OpenTelemetry backend, the next step is to visualize and analyze this data to glean insights into your application's performance, behavior, and identify areas of improvement. Here is how you would use the data in Grafana, follow these detailed instructions to explore your LLM application's Telemetry data.
+With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application’s performance, behavior, and identify areas of improvement.
 
-   - Select the **Explore** option from Grafana's sidebar.
-   - At the top, ensure the correct Tempo data source is selected from the dropdown menu.
-   - Use the **Query** field to specify any particular traces you are interested in, or leave it empty to browse through all the available traces.
-   - You can adjust the time range to focus on specific periods of interest.
-   - Hit **Run Query** to fetch your trace data. You'll see a visual representation of your traces along with detailed information on particular spans when clicked.
+To begin exploring your LLM Application's performance data within the OpenLIT UI, please see the [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
 
-#### Next Steps
+If you want to integrate and send metrics and traces to your existing observability tools, refer to our [Connections Guide](https://docs.openlit.io/latest/connections/intro) for detailed instructions.
 
-- **Create Dashboards:** Beyond just exploring traces, consider creating dashboards in Grafana to monitor key performance indicators (KPIs) and metrics over time. Dashboards can be customized with various panels to display graphs, logs, and single stats that are most relevant to your application's performance and usage patterns.
-- **Set Alerts:** Grafana also allows you to set up alerts based on specific thresholds. This feature can be invaluable in proactively managing your application's health by notifying you of potential issues before they impact users.
-- **Iterate and Optimize:** Use the insights gained from your observability data to make informed decisions on optimizing your LLM application. This might involve refining model parameters, adjusting scaling strategies, or identifying and resolving bottlenecks.
+![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
 
 
 ### Configuration
@@ -138,8 +154,9 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `otlp_headers`          | Defines headers for the OTLP exporter, useful for backends requiring authentication.          | `None`         |    No    |
 | `disable_batch`         | A flag to disable batch span processing, favoring immediate dispatch.                         | `False`        |    No    |
 | `trace_content`         | Enables tracing of content for deeper insights.                                               | `True`         |    No    |
-| `disabled_instrumentors`| List of instrumentors to disable. Choices: `["openai", "anthropic", "langchain", "cohere", "mistral", "transformers", "chroma", "pinecone"]`. | `None` |    No    |
+| `disabled_instrumentors`| List of instrumentors to disable. | `None` |    No    |
 | `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
+| `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
 
 ## 🌱 Contributing
 
@@ -158,4 +175,4 @@ Connect with the OpenLIT community and maintainers for support, discussions, and
 - 🌟 If you like it, Leave a star on our [GitHub](https://github.com/openlit/openlit/)
 - 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) Community for live interactions and questions.
 - 🐞 Report bugs on our [GitHub Issues](https://github.com/openlit/openlit/issues) to help us improve OpenLIT.
-- 𝕏 Follow us on [X](https://twitter.com/openlit) for the latest updates and news.
+- 𝕏 Follow us on [X](https://x.com/openlit_io) for the latest updates and news.

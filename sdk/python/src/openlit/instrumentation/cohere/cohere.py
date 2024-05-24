@@ -203,9 +203,9 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                     False)
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
-                                    response.response_id)
+                                    response.generation_id)
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                    response.response_id)
+                                    response.finish_reason)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                     response.meta.billed_units.input_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
@@ -306,10 +306,11 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                     # Collect message IDs and aggregated response from events
                     if event.event_type == "stream-end":
                         llmresponse = event.response.text
-                        response_id = event.response.response_id
                         prompt_tokens = event.response.meta.billed_units.input_tokens
                         completion_tokens = event.response.meta.billed_units.output_tokens
                         finish_reason = event.finish_reason
+                    if event.event_type == "stream-start":
+                        response_id = event.generation_id
                     yield event
 
                 # Handling exception ensure observability without disrupting operation

@@ -34,12 +34,27 @@ jobs:
         python-version: ["3.9", "3.10", "3.11"]
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout base code
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+
+    # - id: 'auth'
+    #   uses: 'google-github-actions/auth@v2'
+    #   with:
+    #     project_id: ${{ secrets.GCP_PROJECT_ID }}
+    #     workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider'
+    #     service_account: 'my-service-account@my-project.iam.gserviceaccount.com'
+  
+    # - name: 'Set up Cloud SDK'
+    #   uses: 'google-github-actions/setup-gcloud@v2'
+    #   with:
+    #     version: '>= 363.0.0'
     
     - name: Set up GCP Credentials
       uses: google-github-actions/setup-gcloud@v2

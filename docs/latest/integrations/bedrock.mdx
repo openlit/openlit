@@ -7,7 +7,9 @@ sidebarTitle: 'Amazon Bedrock'
   <img src="/images/docs-bedrock-banner.gif" />
 </Frame>
 
-OpenLIT SDKs provide OpenTelemetry Auto-Instrumentation for monitoring LLM Application using Bedrock which includes performance, token and cost usage and user interactions.
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using models from Amazon Bedrock. This includes tracking performance, token usage, costs, and how users interact with the application.
+
+Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding the OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
 
 The integration is compatible with  
 - Boto3 Python SDK client `>= 1.34.93` 
@@ -15,32 +17,53 @@ The integration is compatible with
 ## Get Started 
 
 <Steps>
-    <Step title="Install the OpenLIT Python SDK using pip">
+    <Step title="Install OpenLIT">
+      Open your command line or terminal and run:
       ```shell
       pip install openlit
       ```
     </Step>
-    <Step title="Add the following two lines to your application code:">
-      Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **one line of code**: 
+    <Step title="Initialize OpenLIT in your Application">
+    You can set up the OpenLIT in your application using either function arguments directly in your code or by using environment variables.
+    <Tabs>
+      <Tab title="Setup using function arguments">
+
+      Add the following two lines to your application code:
 
       ```python
       import openlit
 
-      openlit.init(otlp_endpoint="otlp_backend_endpoint", otlp_headers="otlp_backend_token")
+      openlit.init(
+        otlp_endpoint="YOUR_OTEL_ENDPOINT", 
+      )
       ```
 
-      Alternatively, you can configure the OTLP endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` and the OTLP headers by setting the Appli`OTEL_EXPORTER_OTLP_HEADERS` environmentcation variable as recommended in the OpenTelemetry documentation.
-
-      If your aim is primarily to test or develop without sending telemetry data to an external backend, you can initialize OpenLIT without any parameters. This approach directs all telemetry output to your console, enabling quick diagnostics and local debugging:
+      Replace:
+      1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector.
+      </Tab>
+      <Tab title="Setup using Environment Variables">
       
+      Add the following two lines to your application code:
+
       ```python
       import openlit
 
       openlit.init()
       ```
-      
-      Refer to the OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) for more advanced configurations and use cases.
-    </Step>
+
+      Then, configure the your OTLP endpoint using environment variable:
+      ```shell
+      export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_ENDPOINT"
+      ```
+
+      Replace:
+      1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector. 
+      </Tab>
+    </Tabs>
+    To send metrics and traces to other Observability tools, refer to the [Connections Guide](/latest/connections/intro).
+
+    For more advanced configurations and application use cases, visit the [OpenLIT Python repository](https://github.com/openlit/openlit/tree/main/sdk/python).
+  </Step>
 </Steps>
 
 ---
@@ -48,5 +71,8 @@ The integration is compatible with
 <CardGroup cols={2}>
 <Card title="Connections" href="/latest/connections/intro" icon='link'>
 Connect to your existing Observablity Stack
+</Card>
+<Card title="SDK configuration" href="/latest/sdk-configuration" icon='file-code'>
+Documentation of the configuration options for the OpenLIT SDK.
 </Card>
 </CardGroup>

@@ -39,6 +39,9 @@ def test_embed():
 
     except cohere.core.api_error.ApiError as e:
         print("Rate Limited:", e)
+    except Exception as e:
+        print("An unexpected error occurred")
+        raise e
 
 def test_chat():
     """
@@ -53,7 +56,10 @@ def test_chat():
             message='Say this is a test',
             model='command'
         )
-        assert chat_resp.response_id is not None
+        assert chat_resp.generation_id is not None
 
     except cohere.core.api_error.ApiError as e:
         print("Rate Limited:", e)
+    except Exception as e:
+        print("An unexpected error occurred")
+        raise e

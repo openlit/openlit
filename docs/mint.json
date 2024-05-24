@@ -46,7 +46,9 @@
       "pages": [
         "latest/introduction",
         "latest/quickstart",
-        "latest/configuration"
+        "latest/installation",
+        "latest/sdk-configuration",
+        "latest/ui-configuration"
       ],
       "version": "latest"
     },
@@ -92,6 +94,16 @@
           ]
         }
       ]
+    },
+    {
+      "group": "Features",
+      "pages": [
+        "latest/features/tracing",
+        "latest/features/metrics",
+        "latest/features/pricing",
+        "latest/features/multiple-db"
+      ],
+      "version": "latest"
     },
     {
       "group": "Connections",

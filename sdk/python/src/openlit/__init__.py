@@ -75,7 +75,8 @@ class OpenlitConfig:
 
     @classmethod
     def update_config(cls, environment, application_name, tracer, otlp_endpoint,
-                      otlp_headers, disable_batch, trace_content, metrics_dict, disable_metrics):
+                      otlp_headers, disable_batch, trace_content, metrics_dict,
+                      disable_metrics, pricing_json):
         """
         Updates the configuration based on provided parameters.
 
@@ -88,10 +89,11 @@ class OpenlitConfig:
             otlp_headers (Dict[str, str]): OTLP headers.
             disable_batch (bool): Disable batch span processing flag.
             trace_content (bool): Enable or disable content tracing.
+            pricing_json(str): path or url to the pricing json file
         """
         cls.environment = environment
         cls.application_name = application_name
-        cls.pricing_info = fetch_pricing_info()
+        cls.pricing_info = fetch_pricing_info(pricing_json)
         cls.tracer = tracer
         cls.metrics_dict = metrics_dict
         cls.otlp_endpoint = otlp_endpoint
@@ -126,7 +128,7 @@ def instrument_if_available(instrumentor_name, instrumentor_instance, config,
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
-         meter=None, disable_metrics=False):
+         meter=None, disable_metrics=False, pricing_json=None):
     """
     Initializes the openLIT configuration and setups tracing.
     
@@ -144,6 +146,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         trace_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
         disable_metrics (bool): Flag to disable metrics (Optional)
+        pricing_json(str): File path or url to the pricing json (Optional)
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     # Check for invalid instrumentor names
@@ -199,7 +202,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         # Update global configuration with the provided settings.
         config.update_config(environment, application_name, tracer, otlp_endpoint,
                              otlp_headers, disable_batch, trace_content,
-                             metrics_dict, disable_metrics)
+                             metrics_dict, disable_metrics, pricing_json)
 
         # Map instrumentor names to their instances
         instrumentor_instances = {
