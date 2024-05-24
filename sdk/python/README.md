@@ -67,7 +67,7 @@ pip install openlit
 
 ## 🚀 Getting Started
 
-### Step 1: Install OpenLIT SDK
+### Step 1: Install OpenLIT
 
 ```bash
 pip install openlit
@@ -84,7 +84,7 @@ openlit.init()
 
 To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
 
-> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, The SDK directs the trace directly to your console, which can be useful during development.
+> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, OpenLIT directs the trace directly to your console, which can be useful during development.
 
 To send telemetry to OpenTelemetry backends requiring authentication, set the `otlp_headers` parameter with its desired value. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as recommended in the OpenTelemetry documentation.
 
@@ -131,6 +131,8 @@ To send telemetry to OpenTelemetry backends requiring authentication, set the `o
   export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_OTEL_ENDPOINT_AUTH"
   ```
 </details>
+
+---
 
 ### Step 3: Visualize and Optimize!
 With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application’s performance, behavior, and identify areas of improvement.

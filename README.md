@@ -31,7 +31,7 @@ This project proudly follows the [Semantic Conventions](https://github.com/open-
 
 ## 🚀 Getting Started
 
-### Step 1: Deploy OpenLIT
+### Step 1: Deploy OpenLIT Stack
 
 1. Git Clone OpenLIT Repository
    ```shell
@@ -60,7 +60,7 @@ openlit.init()
 
 To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
 
-> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, The SDK directs the trace directly to your console, which can be useful during development.
+> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, The OpenLIT SDK directs the trace directly to your console, which can be useful during development.
 
 To send telemetry to OpenTelemetry backends requiring authentication, set the `otlp_headers` parameter with its desired value. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as recommended in the OpenTelemetry documentation.
 
