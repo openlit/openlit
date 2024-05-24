@@ -37,6 +37,7 @@ export interface FilterConfig {
 	maxCost: number;
 	models: string[];
 	totalRows: number;
+	traceTypes: string[];
 }
 
 function getTimeLimitObject(
@@ -117,7 +118,11 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 
 		set(object, key, value);
 		setStore({
-			details: { ...getStore().details, ...object },
+			details: {
+				...getStore().details,
+				selectedConfig: resetConfig ? {} : getStore().details.selectedConfig,
+				...object,
+			},
 			config: resetConfig ? undefined : getStore().config,
 		});
 	},

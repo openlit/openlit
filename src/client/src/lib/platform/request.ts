@@ -113,7 +113,7 @@ export async function getRequestsConfig(params: MetricParams) {
 	);
 
 	select.push(
-		`CAST(toFloat64OrZero(MAX(SpanAttributes['${getTraceMappingKeyFullPath(
+		`CAST(MAX(toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
 			"cost"
 		)}'])) AS FLOAT) AS maxCost`
 	);
@@ -122,6 +122,12 @@ export async function getRequestsConfig(params: MetricParams) {
 		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
 			"model"
 		)}'])) AS models`
+	);
+
+	select.push(
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
+			"type"
+		)}'])) AS traceTypes`
 	);
 
 	select.push(`CAST(COUNT(*) AS INTEGER) AS totalRows`);
@@ -151,8 +157,12 @@ export async function getRequests(params: MetricParams) {
 		WHERE ${getFilterWhereCondition(params, true)}
 		${
 			params.sorting
-				? `ORDER BY ${params.sorting.type} ${params.sorting.direction}`
-				: ``
+				? params.sorting.type.includes("cost")
+					? `ORDER BY toFloat64OrZero(${params.sorting.type}) ${params.sorting.direction} `
+					: params.sorting.type.includes("tokens")
+					? `ORDER BY toInt32OrZero(${params.sorting.type}) ${params.sorting.direction} `
+					: `ORDER BY ${params.sorting.type} ${params.sorting.direction} `
+				: `ORDER BY Timestamp desc `
 		}
 		LIMIT ${limit}
 		OFFSET ${offset}`;

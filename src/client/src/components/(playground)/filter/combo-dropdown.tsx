@@ -54,7 +54,10 @@ export default function ComboDropdown({
 					{title}
 					{selectedValues?.length ? (
 						<>
-							<Separator orientation="vertical" className="mx-2 h-4 bg-stone-300 dark:bg-stone-600" />
+							<Separator
+								orientation="vertical"
+								className="mx-2 h-4 bg-stone-300 dark:bg-stone-600"
+							/>
 							<Badge
 								variant="secondary"
 								className="rounded-sm px-1 font-normal lg:hidden"
@@ -131,7 +134,7 @@ export default function ComboDropdown({
 								<CommandGroup>
 									<CommandItem
 										onSelect={resetFilter}
-										className="justify-center text-center"
+										className="justify-center text-center cursor-pointer"
 									>
 										Reset
 									</CommandItem>

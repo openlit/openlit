@@ -146,6 +146,7 @@ type FilterWhereConditionType = {
 		providers: string[];
 		maxCost: number;
 		models: string[];
+		traceTypes: string[];
 	}>;
 	notOrEmpty?: { key: string }[];
 	notEmpty?: { key: string }[];
@@ -190,11 +191,21 @@ export const getFilterWhereCondition = (
 				);
 			}
 
+			if (filter.selectedConfig.traceTypes?.length) {
+				whereArray.push(
+					`SpanAttributes['${getTraceMappingKeyFullPath(
+						"type"
+					)}'] IN (${filter.selectedConfig.traceTypes
+						.map((type) => `'${type}'`)
+						.join(", ")})`
+				);
+			}
+
 			if (filter.selectedConfig.maxCost) {
 				whereArray.push(
 					`toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath(
 						"cost"
-					)}']) BETWEEN 0 AND ${filter.selectedConfig.maxCost}`
+					)}']) BETWEEN 0 AND ${filter.selectedConfig.maxCost.toFixed(10)}`
 				);
 			}
 		}
