@@ -22,7 +22,7 @@ OpenLIT is an **OpenTelemetry-native** GenAI and LLM Application Observability t
 This project proudly follows the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) of the OpenTelemetry community, consistently updating to align with the latest standards in observability.
 
 ## What is LIT?
-`LIT` stands for **Learning and Inference Tool**, which is a visual and interactive tool designed for understanding AI models and visualizing data. The term `LIT` was introduced by [Google](https://developers.google.com/machine-learning/glossary#learning-interpretability-tool-lit), although OpenLIT is not affiliated with Google.
+`LIT` stands for **Learning and Inference Tool**, which is a visual and interactive tool designed for understanding AI models and visualizing data. The term `LIT` was introduced by [Google](https://developers.google.com/machine-learning/glossary#learning-interpretability-tool-lit).
 
 ## ⚡ Features
 - **Advanced Monitoring of LLM and VectorDB Performance**: OpenLIT offers automatic instrumentation that generates traces and metrics, providing insights into the performance and costs of your LLM and VectorDB usage. This helps you analyze how your applications perform in different environments, such as production, enabling you to optimize resource ussage and scale efficiently.
