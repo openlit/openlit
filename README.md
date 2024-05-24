@@ -62,25 +62,43 @@ To send telemetry to OpenTelemetry backends requiring authentication, set the `o
 
 #### Example
 
-Here is how you can send telemetry from OpenLIT to Grafana Cloud
+---
 
-```python
-openlit.init(
-  otlp_endpoint="https://otlp-gateway-prod-us-east-0.grafana.net/otlp", 
-  otlp_headers="Authorization=Basic%20<base64 encoded Instance ID and API Token>"
-)
-```
+<details>
+  <summary>Initialize using Function Arguments</summary>
 
-Alternatively, You can also choose to set these values using `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` environment variables
+  Add the following code into your Applicaton:
+  
+  ```python
+  openlit.init(
+    otlp_endpoint="http://127.0.0.1:4318", 
+  )
+  ```
 
-```python
-openlit.init()
-```
+</details>
 
-```env
-export OTEL_EXPORTER_OTLP_ENDPOINT = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp"
-export OTEL_EXPORTER_OTLP_HEADERS = "Authorization=Basic%20<base64 encoded Instance ID and API Token>"
-```
+---
+
+<details>
+
+  ---
+
+  <summary>Initialize using Environment Variables</summary>
+  
+  Add the following code into your Applicaton:
+
+  ```python
+  openlit.init()
+  ```
+  
+  Then, configure the your OTLP endpoint using environment variable:
+
+  ```env
+  export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
+  ```
+</details>
+
+---
 
 ### Step 3: Visualize and Optimize!
 With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
