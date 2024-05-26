@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { COLORS } from "../../../../colors";
 import IntermediateState from "@/components/(playground)/intermediate-state";
+import { getFilterParamsForDashboard } from "@/helpers/filter";
 
 function TopModels() {
 	const filter = useRootStore(getFilterDetails);
@@ -31,9 +32,7 @@ function TopModels() {
 
 	const fetchData = useCallback(async () => {
 		fireRequest({
-			body: JSON.stringify({
-				timeLimit: filter.timeLimit,
-			}),
+			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
 			url: "/api/metrics/model/top",
 			responseDataKey: "data",
@@ -123,9 +122,7 @@ function ModelsPerTime() {
 	};
 	const fetchData = useCallback(async () => {
 		fireRequest({
-			body: JSON.stringify({
-				timeLimit: filter.timeLimit,
-			}),
+			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
 			url: "/api/metrics/model/time",
 			responseDataKey: "data",
@@ -221,9 +218,7 @@ function TokensPerTime() {
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
-			body: JSON.stringify({
-				timeLimit: filter.timeLimit,
-			}),
+			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
 			url: "/api/metrics/token/time",
 			responseDataKey: "data",

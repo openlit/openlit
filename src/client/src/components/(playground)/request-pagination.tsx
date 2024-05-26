@@ -39,12 +39,15 @@ export default function RequestPagination(props: PaginationProps) {
 	};
 
 	const firstPage = props.currentPage === 1;
-	const lastPage = props.currentPage === props.totalPage;
+	const lastPage =
+		props.totalPage === 0 || props.currentPage === props.totalPage;
 
 	return (
-		<div className="flex self-end gap-4">
+		<div className="flex gap-4">
 			<div className="flex align-end justify-center">
-				<p className="text-xs shrink-0 mr-3 self-center text-stone-950 dark:text-stone-100">Size : </p>
+				<p className="text-xs shrink-0 mr-3 self-center text-stone-950 dark:text-stone-100">
+					Size :{" "}
+				</p>
 				<div className="w-[100px]">
 					<Select
 						onValueChange={onSizeChange}
@@ -77,7 +80,7 @@ export default function RequestPagination(props: PaginationProps) {
 					</Select>
 				</div>
 			</div>
-			<Pagination className="justify-end w-auto shrink-0 m-0">
+			<Pagination className="w-auto shrink-0 m-0">
 				<PaginationContent>
 					<PaginationItem>
 						<PaginationPrevious
@@ -92,7 +95,7 @@ export default function RequestPagination(props: PaginationProps) {
 						/>
 					</PaginationItem>
 					<PaginationItem>
-						<div className="flex items-center text-sm text-stone-950 dark:text-stone-100 mx-3">
+						<div className="flex items-center text-sm text-stone-950 dark:text-stone-100">
 							{props.currentPage} of {props.totalPage || 1}
 						</div>
 					</PaginationItem>

@@ -19,18 +19,11 @@ export type TimeLimit = {
 
 export interface MetricParams {
 	timeLimit: TimeLimit;
-}
-
-export type MetricParamsWithConfig = MetricParams & {
-	config?: {
-		providers?: boolean;
-		maxCost?: boolean;
-		models?: boolean;
-		totalRows?: boolean;
-	};
 	offset?: number;
 	limit?: number;
-};
+	selectedConfig?: any;
+	sorting?: any;
+}
 
 export type DataCollectorType = { err?: unknown; data?: unknown };
 export async function dataCollector(

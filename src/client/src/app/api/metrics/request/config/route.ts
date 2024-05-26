@@ -1,5 +1,5 @@
 import { MetricParams, TimeLimit } from "@/lib/platform/common";
-import { getRequests } from "@/lib/platform/request";
+import { getRequestsConfig } from "@/lib/platform/request";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
@@ -10,15 +10,11 @@ export async function POST(request: Request) {
 	const timeLimit = formData.timeLimit as TimeLimit;
 	const limit = formData.limit || 10;
 	const offset = formData.offset || 0;
-	const selectedConfig = formData.selectedConfig || {};
-	const sorting = formData.sorting || {};
 
 	const params: MetricParams = {
 		timeLimit,
 		limit,
 		offset,
-		selectedConfig,
-		sorting,
 	};
 
 	const validationParam = validateMetricsRequest(
@@ -31,6 +27,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getRequests(params);
+	const res: any = await getRequestsConfig(params);
 	return Response.json(res);
 }

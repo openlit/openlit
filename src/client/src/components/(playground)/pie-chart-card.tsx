@@ -8,6 +8,7 @@ import { PieChart, Pie, Sector, ResponsiveContainer } from "recharts";
 import { COLORS } from "../../../colors";
 import IntermediateState from "./intermediate-state";
 import { Skeleton } from "../ui/skeleton";
+import { getFilterParamsForDashboard } from "@/helpers/filter";
 
 const renderActiveShape = (props: any) => {
 	const {
@@ -121,9 +122,7 @@ const PieChartCard = memo(
 
 		const fetchData = useCallback(async () => {
 			fireRequest({
-				body: JSON.stringify({
-					timeLimit: filter.timeLimit,
-				}),
+				body: JSON.stringify(getFilterParamsForDashboard(filter)),
 				requestType: "POST",
 				url,
 				responseDataKey: "data",
