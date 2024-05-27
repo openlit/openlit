@@ -16,11 +16,13 @@ def object_count(obj):
     """
     Counts Length of object if it exists, Else returns None
     """
+    try:
+        cnt = len(obj)
+    # pylint: disable=bare-except
+    except:
+        cnt = 0
 
-    if obj:
-        return len(obj)
-
-    return None
+    return cnt
 
 def general_wrap(gen_ai_endpoint, version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
@@ -87,24 +89,24 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
-                                       object_count(kwargs.get("ids")))
+                                       object_count(kwargs.get("ids", [])))
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                                       object_count(kwargs.get("embeddings")))
+                                       object_count(kwargs.get("embeddings", [])))
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                                       object_count(kwargs.get("metadatas")))
+                                       object_count(kwargs.get("metadatas", [])))
                     span.set_attribute(SemanticConvetion.DB_DOCUMENTS_COUNT,
-                                       object_count(kwargs.get("documents")))
+                                       object_count(kwargs.get("documents", [])))
 
                 elif gen_ai_endpoint == "chroma.get":
                     db_operation = SemanticConvetion.DB_OPERATION_GET
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_GET)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
-                                       object_count(kwargs.get("ids")))
+                                       object_count(kwargs.get("ids", [])))
                     span.set_attribute(SemanticConvetion.DB_QUERY_LIMIT,
-                                       kwargs.get("limit"))
+                                       kwargs.get("limit", ""))
                     span.set_attribute(SemanticConvetion.DB_OFFSET,
-                                       kwargs.get("offset"))
+                                       kwargs.get("offset", ""))
                     span.set_attribute(SemanticConvetion.DB_WHERE_DOCUMENT,
                                        str(kwargs.get("where_document", "")))
 
@@ -113,7 +115,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
-                                       str(kwargs.get("query_texts")))
+                                       str(kwargs.get("query_texts", "")))
                     span.set_attribute(SemanticConvetion.DB_N_RESULTS,
                                        kwargs.get("n_results", ""))
                     span.set_attribute(SemanticConvetion.DB_FILTER,
@@ -126,33 +128,33 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_UPDATE)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                                       object_count(kwargs.get("embeddings")))
+                                       object_count(kwargs.get("embeddings", [])))
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                                       object_count(kwargs.get("metadatas")))
+                                       object_count(kwargs.get("metadatas", [])))
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
-                                       object_count(kwargs.get("ids")))
+                                       object_count(kwargs.get("ids", [])))
                     span.set_attribute(SemanticConvetion.DB_DOCUMENTS_COUNT,
-                                       object_count(kwargs.get("documents")))
+                                       object_count(kwargs.get("documents", [])))
 
                 elif gen_ai_endpoint == "chroma.upsert":
                     db_operation = SemanticConvetion.DB_OPERATION_UPSERT
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                                       object_count(kwargs.get("embeddings")))
+                                       object_count(kwargs.get("embeddings", [])))
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
-                                       object_count(kwargs.get("metadatas")))
+                                       object_count(kwargs.get("metadatas", [])))
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
-                                       object_count(kwargs.get("ids")))
+                                       object_count(kwargs.get("ids", [])))
                     span.set_attribute(SemanticConvetion.DB_DOCUMENTS_COUNT,
-                                       object_count(kwargs.get("documents")))
+                                       object_count(kwargs.get("documents", [])))
 
                 elif gen_ai_endpoint == "chroma.delete":
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
-                                       object_count(kwargs.get("ids")))
+                                       object_count(kwargs.get("ids", [])))
                     span.set_attribute(SemanticConvetion.DB_FILTER,
                                        str(kwargs.get("where", "")))
                     span.set_attribute(SemanticConvetion.DB_DELETE_ALL,

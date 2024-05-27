@@ -1,31 +1,31 @@
 # pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
-"""Initializer of Auto Instrumentation of LlamaIndex Functions"""
+"""Initializer of Auto Instrumentation of EmbedChain Functions"""
 from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.llamaindex.llamaindex import load_data
+from openlit.instrumentation.embedchain.embedchain import evaluate, get_data_sources
 
-_instruments = ("llama-index >= 0.10.0",)
+_instruments = ("embedchain >= 0.1.104",)
 
 WRAPPED_METHODS = [
     {
-        "package": "llama_index.core.readers",
-        "object": "SimpleDirectoryReader.load_data",
-        "endpoint": "llamaindex.load_data",
-        "wrapper": load_data,
+        "package": "embedchain",
+        "object": "App.evaluate",
+        "endpoint": "embedchain.evaluate",
+        "wrapper": evaluate,
     },
     {
-        "package": "llama_index.core.node_parser",
-        "object": "SentenceSplitter.get_nodes_from_documents",
-        "endpoint": "llamaindex.data_splitter",
-        "wrapper": load_data,
+        "package": "embedchain",
+        "object": "App.get_data_sources",
+        "endpoint": "embedchain.get_data_sources",
+        "wrapper": get_data_sources,
     },
 ]
 
-class LlamaIndexInstrumentor(BaseInstrumentor):
-    """An instrumentor for LlamaIndex's client library."""
+class EmbedChainInstrumentor(BaseInstrumentor):
+    """An instrumentor for EmbedChain's client library."""
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
@@ -36,7 +36,7 @@ class LlamaIndexInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
         trace_content = kwargs.get("trace_content")
-        version = importlib.metadata.version("llama-index")
+        version = importlib.metadata.version("embedchain")
 
         for wrapped_method in WRAPPED_METHODS:
             wrap_package = wrapped_method.get("package")

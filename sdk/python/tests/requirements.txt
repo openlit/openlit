@@ -23,8 +23,8 @@ pymilvus>=2.4.3
 
 # Frameworks
 langchain>=0.1.16
-langchainhub>=0.1.15
-langchain-community>=0.2.0
+langchainhub>=0.1.16
+embedchain>=0.1.104
 
 # Utilities
 bs4
