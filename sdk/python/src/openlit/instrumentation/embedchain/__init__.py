@@ -22,7 +22,6 @@ WRAPPED_METHODS = [
         "endpoint": "embedchain.get_data_sources",
         "wrapper": get_data_sources,
     },
-    
 ]
 
 class EmbedChainInstrumentor(BaseInstrumentor):
