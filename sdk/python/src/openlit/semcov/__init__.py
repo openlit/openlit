@@ -95,6 +95,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_VERTEXAI = "vertexai"
     GEN_AI_SYSTEM_GROQ = "groq"
     GEN_AI_SYSTEM_OLLAMA = "ollama"
+    GEN_AI_SYSTEM_GPT4ALL = "gpt4all"
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
