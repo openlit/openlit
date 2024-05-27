@@ -26,6 +26,7 @@ class SemanticConvetion:
     GEN_AI_HUB_REPO = "gen_ai.hub.repo"
     GEN_AI_RETRIEVAL_SOURCE = "gen_ai.retrieval.source"
     GEN_AI_REQUESTS = "gen_ai.total.requests"
+    GEN_AI_DATA_SOURCES = "gen_ai.data_source_count"
 
     # GenAI Request
     GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
@@ -71,6 +72,11 @@ class SemanticConvetion:
     GEN_AI_CONTENT_COMPLETION = "gen_ai.content.completion"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
 
+    # GenAI Evaluation Metrics
+    GEN_AI_EVAL_CONTEXT_RELEVANCY = "gen_ai.eval.context_relevancy"
+    GEN_AI_EVAL_ANSWER_RELEVANCY = "gen_ai.eval.answer_relevancy"
+    GEN_AI_EVAL_GROUNDEDNESS = "gen_ai.eval.groundedness"
+
     GEN_AI_TYPE_CHAT = "chat"
     GEN_AI_TYPE_EMBEDDING = "embedding"
     GEN_AI_TYPE_IMAGE = "image"
@@ -92,6 +98,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
+    GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
 
     # Vector DB
     DB_REQUESTS = "db.total.requests"
