@@ -70,7 +70,7 @@ def test_embedchain():
     app.add("https://www.forbes.com/profile/elon-musk")
 
     data_sources = app.get_data_sources()
-    assert isinstance(data_sources, int)
+    assert isinstance(len(data_sources), int)
 
     evals = app.evaluate(["What is the net worth of Elon Musk?",
                           "How many companies Elon Musk owns?"])
