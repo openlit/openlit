@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-member
+# pylint: disable=duplicate-code, no-member, no-name-in-module
 """
 This module contains tests for Embedchain functionality using the embedchain Python library.
 
@@ -10,12 +10,13 @@ Note: Ensure the environment is properly configured for Embedchain and OpenLIT m
 prior to running these tests.
 """
 
+import os
 from embedchain import App
 import openlit
-import os
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_TOKEN")
 
 config = {
     'app': {
@@ -71,5 +72,6 @@ def test_embedchain():
     data_sources = app.get_data_sources()
     assert isinstance(data_sources, int)
 
-    evals = app.evaluate(["What is the net worth of Elon Musk?", "How many companies Elon Musk owns?"])
+    evals = app.evaluate(["What is the net worth of Elon Musk?",
+                          "How many companies Elon Musk owns?"])
     assert isinstance(evals, dict)
