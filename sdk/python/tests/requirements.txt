@@ -25,6 +25,7 @@ pymilvus>=2.4.3
 langchain>=0.1.16
 langchainhub>=0.1.15
 langchain-community>=0.2.0
+embedchain>=0.1.100
 
 # Utilities
 bs4
