@@ -69,15 +69,16 @@ def generate(gen_ai_endpoint, version, environment, application_name,
                     try:
                         # Calculate cost of the operation
                         cost = 0
-                        model = str(instance.model.model_path).split('/')[-1].strip("'") or "orca-mini-3b-gguf2-q4_0.gguf"
+
+                        # pylint: disable=line-too-long
+                        model = str(instance.model.model_path).rsplit('/', maxsplit=1)[-1] or "orca-mini-3b-gguf2-q4_0.gguf"
                         prompt = kwargs.get("prompt") or args[0] or ""
-                        
+
                         # Calculate cost of the operation
                         cost = 0
                         prompt_tokens = general_tokens(prompt)
                         completion_tokens = general_tokens(llmresponse)
                         total_tokens = prompt_tokens + completion_tokens
-                        
 
                         # Set base span attribues
                         span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
@@ -155,7 +156,9 @@ def generate(gen_ai_endpoint, version, environment, application_name,
             # pylint: disable=line-too-long
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 response = wrapped(*args, **kwargs)
-                model = str(instance.model.model_path).split('/')[-1].strip("'") or "orca-mini-3b-gguf2-q4_0.gguf"
+
+                # pylint: disable=line-too-long
+                model = str(instance.model.model_path).rsplit('/', maxsplit=1)[-1] or "orca-mini-3b-gguf2-q4_0.gguf"
                 prompt = kwargs.get("prompt") or args[0] or ""
 
                 # Calculate cost of the operation
@@ -281,7 +284,8 @@ def embed(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                model = str(instance.gpt4all.model.model_path).split('/')[-1].strip("'") or "all-MiniLM-L6-v2.gguf2.f16.gguf"
+                # pylint: disable=line-too-long
+                model = str(instance.gpt4all.model.model_path).rsplit('/', maxsplit=1)[-1] or "all-MiniLM-L6-v2.gguf2.f16.gguf"
                 prompt = kwargs.get("prompt") or args[0] or ""
 
                 # Calculate cost of the operation
