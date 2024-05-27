@@ -25,7 +25,7 @@ WRAPPED_METHODS = [
 ]
 
 class LlamaIndexInstrumentor(BaseInstrumentor):
-    """An instrumentor for Cohere's client library."""
+    """An instrumentor for LlamaIndex's client library."""
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments

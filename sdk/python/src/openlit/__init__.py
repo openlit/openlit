@@ -21,9 +21,11 @@ from openlit.instrumentation.bedrock import BedrockInstrumentor
 from openlit.instrumentation.vertexai import VertexAIInstrumentor
 from openlit.instrumentation.groq import GroqInstrumentor
 from openlit.instrumentation.ollama import OllamaInstrumentor
+from openlit.instrumentation.gpt4all import GPT4AllInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
+from openlit.instrumentation.embedchain import EmbedChainInstrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
@@ -75,7 +77,8 @@ class OpenlitConfig:
 
     @classmethod
     def update_config(cls, environment, application_name, tracer, otlp_endpoint,
-                      otlp_headers, disable_batch, trace_content, metrics_dict, disable_metrics):
+                      otlp_headers, disable_batch, trace_content, metrics_dict,
+                      disable_metrics, pricing_json):
         """
         Updates the configuration based on provided parameters.
 
@@ -88,10 +91,11 @@ class OpenlitConfig:
             otlp_headers (Dict[str, str]): OTLP headers.
             disable_batch (bool): Disable batch span processing flag.
             trace_content (bool): Enable or disable content tracing.
+            pricing_json(str): path or url to the pricing json file
         """
         cls.environment = environment
         cls.application_name = application_name
-        cls.pricing_info = fetch_pricing_info()
+        cls.pricing_info = fetch_pricing_info(pricing_json)
         cls.tracer = tracer
         cls.metrics_dict = metrics_dict
         cls.otlp_endpoint = otlp_endpoint
@@ -126,7 +130,7 @@ def instrument_if_available(instrumentor_name, instrumentor_instance, config,
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
-         meter=None, disable_metrics=False):
+         meter=None, disable_metrics=False, pricing_json=None):
     """
     Initializes the openLIT configuration and setups tracing.
     
@@ -144,6 +148,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         trace_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
         disable_metrics (bool): Flag to disable metrics (Optional)
+        pricing_json(str): File path or url to the pricing json (Optional)
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     # Check for invalid instrumentor names
@@ -157,9 +162,11 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "vertexai": "vertexai",
         "groq": "groq",
         "ollama": "ollama",
+        "gpt4all": "gpt4all",
         "langchain": "langchain",
         "llama_index": "llama_index",
         "haystack": "haystack",
+        "embedchain": "embedchain",
         "chroma": "chromadb",
         "pinecone": "pinecone",
         "qdrant": "qdrant_client",
@@ -199,7 +206,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         # Update global configuration with the provided settings.
         config.update_config(environment, application_name, tracer, otlp_endpoint,
                              otlp_headers, disable_batch, trace_content,
-                             metrics_dict, disable_metrics)
+                             metrics_dict, disable_metrics, pricing_json)
 
         # Map instrumentor names to their instances
         instrumentor_instances = {
@@ -211,9 +218,11 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "vertexai": VertexAIInstrumentor(),
             "groq": GroqInstrumentor(),
             "ollama": OllamaInstrumentor(),
+            "gpt4all": GPT4AllInstrumentor(),
             "langchain": LangChainInstrumentor(),
             "llama_index": LlamaIndexInstrumentor(),
             "haystack": HaystackInstrumentor(),
+            "embedchain": EmbedChainInstrumentor(),
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),
             "qdrant": QdrantInstrumentor(),

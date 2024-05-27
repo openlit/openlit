@@ -3,3 +3,7 @@ import { RootStore } from "@/store";
 export const getFilterDetails = (state: RootStore) => state.filter.details;
 
 export const getUpdateFilter = (state: RootStore) => state.filter.updateFilter;
+
+export const getFilterConfig = (state: RootStore) => state.filter.config;
+
+export const getUpdateConfig = (state: RootStore) => state.filter.updateConfig;

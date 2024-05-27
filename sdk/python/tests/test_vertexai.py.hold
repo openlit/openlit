@@ -68,6 +68,8 @@ def test_sync_vertexai_send_message():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 def test_sync_vertexai_generate_content():
     """
@@ -110,6 +112,8 @@ def test_sync_vertexai_generate_content():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 def test_sync_vertexai_predict():
     """
@@ -147,6 +151,8 @@ def test_sync_vertexai_predict():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 def test_sync_vertexai_start_chat():
     """
@@ -185,6 +191,8 @@ def test_sync_vertexai_start_chat():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 def test_sync_vertexai_get_embeddings():
     """
@@ -204,6 +212,8 @@ def test_sync_vertexai_get_embeddings():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 @pytest.mark.asyncio
 async def test_async_vertexai_send_message():
@@ -241,6 +251,8 @@ async def test_async_vertexai_send_message():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 @pytest.mark.asyncio
 async def test_async_vertexai_generate_content():
@@ -284,6 +296,8 @@ async def test_async_vertexai_generate_content():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 @pytest.mark.asyncio
 async def test_async_vertexai_predict():
@@ -321,6 +335,8 @@ async def test_async_vertexai_predict():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 @pytest.mark.asyncio
 async def test_async_vertexai_start_chat():
@@ -360,6 +376,8 @@ async def test_async_vertexai_start_chat():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 @pytest.mark.asyncio
 async def test_async_vertexai_get_embeddings():
@@ -380,3 +398,5 @@ async def test_async_vertexai_get_embeddings():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise

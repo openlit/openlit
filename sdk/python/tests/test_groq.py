@@ -56,6 +56,8 @@ def test_sync_groq_chat():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise
 
 @pytest.mark.asyncio
 async def test_async_groq_chat():
@@ -84,3 +86,5 @@ async def test_async_groq_chat():
     except Exception as e:
         if "rate limit" in str(e).lower():
             print("Rate Limited:", e)
+        else:
+            raise

@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { COLORS } from "../../../../colors";
 import IntermediateState from "@/components/(playground)/intermediate-state";
 import { toast } from "sonner";
+import { getFilterParamsForDashboard } from "@/helpers/filter";
 
 export default function RequestsPerTime() {
 	const filter = useRootStore(getFilterDetails);
@@ -23,9 +24,7 @@ export default function RequestsPerTime() {
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
-			body: JSON.stringify({
-				timeLimit: filter.timeLimit,
-			}),
+			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
 			url: "/api/metrics/request/time",
 			responseDataKey: "data",

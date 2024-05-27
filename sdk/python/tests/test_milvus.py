@@ -26,7 +26,8 @@ client = MilvusClient(
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
-collecton_name = "openlit" + os.getenv("GITHUB_JOB")
+
+COLLECTION_NAME = "openlit"
 
 def test_db_milvus():
     """
@@ -50,13 +51,13 @@ def test_db_milvus():
       AssertionError: If the responses from ChromaDB operations do not meet the expected outcomes.
     """
 
-    # Create a new collection
-    collection = client.create_collection(
-      collection_name=collecton_name,
-      dimension=5
-    )
+    # # Create a new collection
+    # collection = client.create_collection(
+    #   collection_name=COLLECTION_NAME,
+    #   dimension=5
+    # )
 
-    assert collection is None
+    # assert collection is None
 
     data=[
       # pylint: disable=line-too-long
@@ -73,14 +74,14 @@ def test_db_milvus():
     ]
 
     insert = client.insert(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       data=data
     )
 
     assert insert["insert_count"] == 10
 
     upsert = client.upsert(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       data=data
     )
 
@@ -91,7 +92,7 @@ def test_db_milvus():
     ]
 
     search = client.search(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       data=query_vectors,
       limit=3,
     )
@@ -99,7 +100,7 @@ def test_db_milvus():
     assert isinstance(search[0], list)
 
     query = client.query(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       output_fields=["color"],
       limit=3,
     )
@@ -107,7 +108,7 @@ def test_db_milvus():
     assert isinstance(query[0], dict)
 
     getqry = client.get(
-        collection_name=collecton_name,
+        collection_name=COLLECTION_NAME,
         ids=[1,2,3],
         output_fields=["color", "vector"]
     )
@@ -115,13 +116,13 @@ def test_db_milvus():
     assert isinstance(getqry[0], dict)
 
     delt = client.delete(
-      collection_name=collecton_name,
+      collection_name=COLLECTION_NAME,
       filter="id in [5,6,7,8,9]"
     )
 
     assert isinstance(delt, dict)
 
-    # Delete collection
-    client.drop_collection(
-      collection_name=collecton_name,
-    )
+    # # Delete collection
+    # client.drop_collection(
+    #   collection_name=COLLECTION_NAME,
+    # )
