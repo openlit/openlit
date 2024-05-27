@@ -281,7 +281,7 @@ def embed(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                model = str(instance.gpt4all.model.model_path).split('/')[-1].strip("'") or "orca-mini-3b-gguf2-q4_0.gguf"
+                model = str(instance.gpt4all.model.model_path).split('/')[-1].strip("'") or "all-MiniLM-L6-v2.gguf2.f16.gguf"
                 prompt = kwargs.get("prompt") or args[0] or ""
 
                 # Calculate cost of the operation
