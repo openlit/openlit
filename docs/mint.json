@@ -64,6 +64,7 @@
             "latest/integrations/openai",
             "latest/integrations/ollama",
             "latest/integrations/anthropic",
+            "latest/integrations/gpt4all",
             "latest/integrations/cohere",
             "latest/integrations/mistral",
             "latest/integrations/azure-openai",
@@ -90,7 +91,8 @@
             "latest/integrations/langchain",
             "latest/integrations/litellm",
             "latest/integrations/llama-index",
-            "latest/integrations/haystack"
+            "latest/integrations/haystack",
+            "latest/integrations/embedchain"
           ]
         }
       ]
