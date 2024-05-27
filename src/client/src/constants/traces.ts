@@ -112,7 +112,7 @@ export const TraceMapping: Record<
 		path: "usage.cost",
 		prefix: SpanAttributesGenAIPrefix,
 		icon: CircleDollarSign,
-		offset: 6,
+		offset: 10,
 		defaultValue: "-",
 	},
 

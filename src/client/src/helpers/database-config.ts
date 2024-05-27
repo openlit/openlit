@@ -57,6 +57,9 @@ export const changeActiveDatabaseConfig = async (databaseConfigId: string) => {
 		return acc;
 	}, []);
 	useRootStore.getState().databaseConfig.setList(updatedList);
+	toast.success(`Db config: set active successfully!`, {
+		id: "db-config-current",
+	});
 	pingActiveDatabaseConfig();
 };
 

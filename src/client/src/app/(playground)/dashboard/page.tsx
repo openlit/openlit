@@ -8,7 +8,7 @@ import TokenCharts from "./token-charts";
 export default function PlaygroundPage() {
 	return (
 		<>
-			<Filter />
+			<Filter className="mb-4" />
 			<div className="flex flex-col grow w-full h-full rounded overflow-y-auto gap-4">
 				<NumberStats />
 				<div className="flex flex-col gap-4">

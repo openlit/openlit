@@ -32,9 +32,9 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 					acc[traceKey] = floatParser(
 						(value || "0") as string,
 						TraceMapping[traceKey].offset
-					);
+					).toFixed(10);
 				} else if (TraceMapping[traceKey].type === "round") {
-					acc[traceKey] = round(value as number, TraceMapping[traceKey].offset);
+					acc[traceKey] = round(value as number, TraceMapping[traceKey].offset).toFixed(10);
 				} else {
 					acc[traceKey] = value;
 				}
