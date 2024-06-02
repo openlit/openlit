@@ -1359,7 +1359,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
                   "id": "e7e29fde",
                   "operator": "!=",
                   "scope": "span",
-                  "tag": "gen_ai.type",
+                  "tag": "gen_ai.operation.name",
                   "value": [
                     "vectordb"
                   ],
@@ -1375,7 +1375,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
                 }
               ],
               "limit": 20,
-              "query": "{span.gen_ai.type!=\"vectordb\" && status=ok && span.gen_ai.application_name=~\"$application\" && span.gen_ai.environment=~\"$environment\"} | select(span.gen_ai.content.prompt, span.gen_ai.content.completion, span.gen_ai.usage.cost)",
+              "query": "{span.gen_ai.operation.name!=\"vectordb\" && status=ok && span.gen_ai.application_name=~\"$application\" && span.gen_ai.environment=~\"$environment\"} | select(span.gen_ai.prompt, span.gen_ai.completion, span.gen_ai.usage.cost)",
               "queryType": "traceql",
               "refId": "A",
               "tableType": "traces"
@@ -1783,7 +1783,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
                   "id": "e7e29fde",
                   "operator": "=",
                   "scope": "span",
-                  "tag": "gen_ai.type",
+                  "tag": "gen_ai.operation.name",
                   "value": [
                     "vectordb"
                   ],
@@ -1799,7 +1799,7 @@ To send OpenTelemetry data collected by OpenLIT from your LLM Application to Gra
                 }
               ],
               "limit": 20,
-              "query": "{span.gen_ai.type=\"vectordb\" && status=ok && span.gen_ai.application_name=~\"$application\" && span.gen_ai.environment=~\"$environment\"}",
+              "query": "{span.gen_ai.operation.name=\"vectordb\" && status=ok && span.gen_ai.application_name=~\"$application\" && span.gen_ai.environment=~\"$environment\"}",
               "queryType": "traceql",
               "refId": "A",
               "tableType": "traces"
