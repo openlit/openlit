@@ -87,7 +87,7 @@ export const TraceMapping: Record<
 	type: {
 		label: "Type",
 		type: "string",
-		path: "type",
+		path: "operation.name",
 		prefix: SpanAttributesGenAIPrefix,
 		icon: ClipboardType,
 	},
@@ -212,7 +212,7 @@ export const TraceMapping: Record<
 	prompt: {
 		label: "Prompt",
 		type: "string",
-		path: "content.prompt",
+		path: "prompt",
 		prefix: SpanAttributesGenAIPrefix,
 	},
 	finishReason: {
@@ -224,7 +224,7 @@ export const TraceMapping: Record<
 	response: {
 		label: "Response",
 		type: "string",
-		path: "content.completion",
+		path: "completion",
 		prefix: SpanAttributesGenAIPrefix,
 	},
 	randomSeed: {
