@@ -98,7 +98,7 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                 completion_tokens = 0
                 for completion in response:
                     if len(response) > 1:
-                        attribute_name = f"gen_ai.content.completion.{i}"
+                        attribute_name = f"gen_ai.completion.{i}"
                     else:
                         attribute_name = SemanticConvetion.GEN_AI_CONTENT_COMPLETION
                     if i == 0:

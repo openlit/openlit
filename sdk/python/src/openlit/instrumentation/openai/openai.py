@@ -272,7 +272,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                         else:
                             i = 0
                             while i < kwargs["n"] and trace_content is True:
-                                attribute_name = f"gen_ai.content.completion.{i}"
+                                attribute_name = f"gen_ai.completion.{i}"
                                 span.set_attribute(attribute_name,
                                                     response.choices[i].message.content)
                                 i += 1

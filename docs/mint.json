@@ -116,6 +116,7 @@
         "latest/connections/prometheus-jaeger",
         "latest/connections/grafanacloud",
         "latest/connections/new-relic",
+        "latest/connections/elastic",
         "latest/connections/datadog",
         "latest/connections/signoz",
         "latest/connections/dynatrace",

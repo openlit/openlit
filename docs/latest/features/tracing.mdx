@@ -87,7 +87,7 @@ General span attributes encapsulate the environmental and operational context of
 | `gen_ai.system`                 | string   | The Generative AI product as identified by the client instrumentation.          | `openai`, `cohere`, `anthropic`, `groq`, `huggingface`, `azure_openai`, `mistral`, `bedrock`, `vertexai`, `ollama`, `langchain`, `llama_index`, `haystack`   |
 | `gen_ai.environment`            | string   | Deployment environment of the LLM.               | `production` |
 | `gen_ai.application_name`       | string   | The name of the application using the LLM.       | `chatbot_app`       |
-| `gen_ai.type`                   | string   | The type of LLM operation performed.             | `chat`, `embedding`, `audio`, `image`, `fine_tuning`, `vectordb`, `framework` |
+| `gen_ai.operation.name`                   | string   | The type of LLM operation performed.             | `chat`, `embedding`, `audio`, `image`, `fine_tuning`, `vectordb`, `framework` |
 | `gen_ai.hub.owner`              | string   | The owner of the prompt hub where the prompt is hosted. | `openai`         |
 | `gen_ai.hub.repo`               | string   | The repository within the hub from which the model is used. | `gpt-4`        |
 | `gen_ai.retrieval.source`       | string   | Source from which the model was retrieved.       | `slack`         |
@@ -156,8 +156,8 @@ Content attributes specifically relate to the data exchanged with LLMs during re
 
 | Attribute                           | Type    | Description                                                    | Example Value                                 |
 |-------------------------------------|---------|----------------------------------------------------------------|-----------------------------------------------|
-| `gen_ai.content.prompt`             | string  | The full prompt sent to the LLM.                               | `"What is the capital of France?"`            |
-| `gen_ai.content.completion`         | string  | The full response received from the LLM.                       | `"The capital of France is Paris."`           |
+| `gen_ai.prompt`             | string  | The full prompt sent to the LLM.                               | `"What is the capital of France?"`            |
+| `gen_ai.completion`         | string  | The full response received from the LLM.                       | `"The capital of France is Paris."`           |
 | `gen_ai.content.revised_prompt`     | string  | Revised or modified prompt, if applicable.                     | `"What's the capital city of France?"`        |
 
 ### VectorDB Span Attributes

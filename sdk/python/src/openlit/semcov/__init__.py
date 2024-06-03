@@ -21,7 +21,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM = "gen_ai.system"
     GEN_AI_ENVIRONMENT = "gen_ai.environment"
     GEN_AI_APPLICATION_NAME = "gen_ai.application_name"
-    GEN_AI_TYPE = "gen_ai.type"
+    GEN_AI_TYPE = "gen_ai.operation.name"
     GEN_AI_HUB_OWNER = "gen_ai.hub.owner"
     GEN_AI_HUB_REPO = "gen_ai.hub.repo"
     GEN_AI_RETRIEVAL_SOURCE = "gen_ai.retrieval.source"
@@ -68,8 +68,8 @@ class SemanticConvetion:
     GEN_AI_RESPONSE_IMAGE_STYLE = "gen_ai.request.image_style"
 
     # GenAI Content
-    GEN_AI_CONTENT_PROMPT = "gen_ai.content.prompt"
-    GEN_AI_CONTENT_COMPLETION = "gen_ai.content.completion"
+    GEN_AI_CONTENT_PROMPT = "gen_ai.prompt"
+    GEN_AI_CONTENT_COMPLETION = "gen_ai.completion"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
 
     # GenAI Evaluation Metrics
