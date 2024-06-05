@@ -7,6 +7,7 @@ export interface AnthropicProviderEvaluation {
 	prompt: string;
 	type: "message";
 	model: string;
+	max_tokens: number;
 }
 
 export default class AnthropicProvider {
@@ -28,7 +29,7 @@ export default class AnthropicProvider {
 		updatedParams.api_key = params.api_key || process.env.ANTHROPIC_API_KEY;
 		updatedParams.model = params.model;
 		updatedParams.messages = [{ role: "user", content: params.prompt }];
-		updatedParams.max_tokens = 1;
+		updatedParams.max_tokens = params.max_tokens;
 		updatedParams.stream = false;
 		return [null, updatedParams];
 	}

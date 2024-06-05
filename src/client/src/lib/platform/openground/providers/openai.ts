@@ -9,6 +9,7 @@ export interface OpenAIProviderEvaluation {
 	temperature: number;
 	top_p: number;
 	model: string;
+	max_tokens: number;
 }
 
 export default class OpenAIProvider {
@@ -29,7 +30,7 @@ export default class OpenAIProvider {
 		const updatedParams: any = {};
 		updatedParams.api_key = params.api_key || process.env.OPENAI_API_KEY;
 		updatedParams.messages = [{ role: "user", content: params.prompt }];
-		updatedParams.max_tokens = 1;
+		updatedParams.max_tokens = params.max_tokens;
 		updatedParams.model = params.model;
 		updatedParams.temperature = params.temperature;
 		updatedParams.top_p = params.top_p;
