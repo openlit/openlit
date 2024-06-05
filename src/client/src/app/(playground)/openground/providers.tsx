@@ -7,12 +7,13 @@ import {
 	getSelectedProviders,
 } from "@/selectors/openground";
 import AddProvider from "./add-provider";
-import { MouseEventHandler } from "react";
+import { MouseEventHandler, useRef } from "react";
 import { isNil } from "lodash";
 import ProviderTable from "./provider-table";
 import { providersConfig } from "../../../constants/openground";
 
 export default function ProvidersUI() {
+	const containerRef = useRef<HTMLDivElement>(null);
 	const selectedProviders = useRootStore(getSelectedProviders);
 	const addProviderItem = useRootStore(addProvider);
 	const evaluatedResponse = useRootStore(getEvaluatedResponse);
@@ -32,32 +33,40 @@ export default function ProvidersUI() {
 					{}
 				);
 				addProviderItem(key as Providers, defaultConfig);
+				setTimeout(() => {
+					if (containerRef.current) {
+						containerRef.current.scrollLeft = containerRef.current.scrollWidth;
+					}
+				}, 60);
 			}
 		}
 	};
 
 	const AddProviderPlaceholder = () => (
-		<AddProvider onClick={onClickAdd}>
-			<div className="flex grow items-center justify-center cursor-pointer text-stone-800 dark:text-stone-300 hover:bg-stone-200/50 dark:hover:bg-stone-800/50">
-				Select Provider
-			</div>
-		</AddProvider>
+		<div className="flex h-full w-1/2 grow">
+			<AddProvider onClick={onClickAdd}>
+				<div className="flex grow items-center justify-center cursor-pointer text-stone-500 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-800">
+					Select Provider
+				</div>
+			</AddProvider>
+		</div>
 	);
 
 	const AddProviderButton = () => (
 		<AddProvider onClick={onClickAdd}>
-			<div className="flex h-full items-center justify-center cursor-pointer shrink-0 bg-stone-200 hover:bg-stone-300/70 text-stone-400 hover:text-stone-600">
+			<div className="flex h-full items-center justify-center cursor-pointer shrink-0 bg-stone-300 hover:bg-stone-400 text-stone-400 hover:text-stone-300 dark:hover:bg-stone-800 dark:text-stone-400 dark:bg-stone-700">
 				<PlusIcon />
 			</div>
 		</AddProvider>
 	);
 
 	const children = selectedProviders.map(({ provider }, index) => (
-		<ProviderTable
+		<div
 			key={`selected-provider-${index}`}
-			provider={providersConfig[provider]}
-			index={index}
-		/>
+			className="flex h-full grow w-full min-w-[40%] max-w-[50%]"
+		>
+			<ProviderTable provider={providersConfig[provider]} index={index} />
+		</div>
 	));
 
 	if (children.length < 2) {
@@ -68,12 +77,13 @@ export default function ProvidersUI() {
 	}
 
 	return (
-		<div className="flex w-full h-full bg-stone-100 dark:bg-stone-900 overflow-auto">
-			{children.map((child, index) => (
-				<div key={index} className="flex w-full h-full">
-					{child}
-				</div>
-			))}
+		<div className="flex w-full h-full gap-4">
+			<div
+				className="flex w-full h-full bg-stone-100 grow dark:bg-stone-900 overflow-auto transition-all relative gap-1"
+				ref={containerRef}
+			>
+				{children}
+			</div>
 			{selectedProviders.length > 1 &&
 			selectedProviders.length < 5 &&
 			!evaluatedResponse.data &&

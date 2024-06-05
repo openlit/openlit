@@ -62,16 +62,16 @@ export default function PromptInput() {
 
 	return (
 		<div className="fixed bottom-4 left-1/2 z-10 w-full max-w-2xl -translate-x-1/2">
-			<div className="flex items-center gap-2 rounded-md bg-stone-200 shadow-sm dark:bg-stone-100 overflow-hidden p-2">
+			<div className="flex items-center gap-2 rounded-md bg-stone-300 shadow-sm dark:bg-stone-700 overflow-hidden p-2">
 				<Input
-					className="flex-1 outline-none bg-transparent border-none text-stone-800 dark:bg-transparent dark:text-stone-900"
+					className="flex-1 outline-none bg-transparent border-none text-stone-600 dark:bg-transparent dark:text-stone-300"
 					placeholder="Enter your prompt..."
 					type="text"
 					onChange={onTextValueChange}
 					value={prompt}
 				/>
 				<Button
-					className="bg-primary dark:bg-primary hover:bg-primary dark:hover:bg-primary text-stone-50 dark:text-stone-50 rounded-md"
+					className={`bg-primary dark:bg-primary hover:bg-primary dark:hover:bg-primary text-stone-50 dark:text-stone-50 rounded-md`}
 					disabled={
 						selectedProviders.length < 2 ||
 						prompt.length < 1 ||

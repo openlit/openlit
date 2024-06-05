@@ -1,7 +1,8 @@
-import { ProviderType, Providers } from "@/store/openground";
+import { ProviderType } from "@/store/openground";
 import {
 	Table,
 	TableBody,
+	TableCell,
 	TableHead,
 	TableHeader,
 	TableRow,
@@ -11,146 +12,31 @@ import {
 	getEvaluatedResponse,
 	getSelectedProviders,
 	removeProvider,
-	setProviderConfig,
 } from "@/selectors/openground";
 import { Button } from "@/components/ui/button";
-import { Settings2Icon, Trash2Icon } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import {
-	Sheet,
-	SheetContent,
-	SheetHeader,
-	SheetTitle,
-	SheetTrigger,
-} from "@/components/ui/sheet";
-import { ReactNode } from "react";
+import { FlaskRoundIcon, Settings2Icon, Trash2Icon } from "lucide-react";
 import { JsonViewer } from "@textea/json-viewer";
 import { omit } from "lodash";
+import {
+	HoverCard,
+	HoverCardContent,
+	HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import { providersConfig } from "@/constants/openground";
+import ProviderSettings from "./provider-settings";
+import Image from "next/image";
 
-const SettingsForm = ({
-	provider,
-	index,
-	children,
-	selectedProvider,
-	updateAllowed = true,
-}: {
-	provider: ProviderType;
-	index: number;
-	children: ReactNode;
-	selectedProvider: {
-		provider: Providers;
-		config: Record<string, any>;
-	};
-	updateAllowed: boolean;
-}) => {
-	const { config } = provider;
+const keyHeadersTransformer = (str: string) => {
+	// Step 1: Capitalize the first letter
+	str = str.charAt(0).toUpperCase() + str.slice(1);
 
-	const updateProviderConfig = useRootStore(setProviderConfig);
-	const onSelectChange = (value: any, path: string) => {
-		updateProviderConfig(path, value);
-	};
+	// Step 2: Insert a space before any uppercase letter that follows a lowercase letter
+	str = str.replace(/([a-z])([A-Z])/g, "$1 $2");
 
-	const onSliderChange = (value: any, path: string) => {
-		updateProviderConfig(path, value[0]);
-	};
+	// Step 3: Convert any uppercase letters after the first character to lowercase
+	str = str.charAt(0) + str.slice(1).toLowerCase();
 
-	const onTextValueChange: any = (ev: any, path: string) => {
-		updateProviderConfig(path, ev.target.value);
-	};
-
-	return (
-		<Sheet>
-			<SheetTrigger asChild>{children}</SheetTrigger>
-			<SheetContent className="max-w-none sm:max-w-none w-1/2 bg-stone-100 dark:bg-stone-900 border-transparent">
-				<SheetHeader>
-					<SheetTitle>
-						{provider.title} ({provider.subTitle})
-					</SheetTitle>
-				</SheetHeader>
-				<div className="grid gap-4 relative">
-					{!updateAllowed && (
-						<div className="absolute w-full h-full top-0 left-0 z-20" />
-					)}
-
-					<div className="space-y-2">
-						<p className="text-sm text-muted-foreground">
-							Set the config for the comparison.
-						</p>
-					</div>
-					<div className="grid gap-8 mt-8">
-						{config.map((item: any) => {
-							if (item.type === "hidden") return null;
-							return (
-								<div
-									key={item.key}
-									className="grid grid-cols-3 items-center gap-4"
-								>
-									<Label htmlFor="width">
-										{item.label}{" "}
-										{item.type === "slider"
-											? `(${selectedProvider.config[item.key]})`
-											: null}
-									</Label>
-									{item.type === "input" ? (
-										<Input
-											defaultValue={selectedProvider.config[item.key]}
-											placeholder={item.placeholder}
-											name={item.key}
-											className="col-span-2 h-8"
-											onChange={(ev) =>
-												onTextValueChange(ev, `[${index}.config.${item.key}]`)
-											}
-										/>
-									) : item.type === "select" ? (
-										<Select
-											onValueChange={(value) =>
-												onSelectChange(value, `[${index}.config.${item.key}]`)
-											}
-											defaultValue={selectedProvider.config[item.key]}
-										>
-											<SelectTrigger className="col-span-2 h-8">
-												<SelectValue placeholder={item.placeholder} />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													{item.options.map((option: any) => (
-														<SelectItem key={option.value} value={option.value}>
-															{option.label}
-														</SelectItem>
-													))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
-									) : item.type === "slider" ? (
-										<Slider
-											defaultValue={[selectedProvider.config[item.key]]}
-											max={item.limits.max}
-											step={item.limits.step}
-											min={item.limits.min}
-											className="col-span-2 h-8"
-											onValueChange={(value) =>
-												onSliderChange(value, `[${index}.config.${item.key}]`)
-											}
-										/>
-									) : null}
-								</div>
-							);
-						})}
-					</div>
-				</div>
-			</SheetContent>
-		</Sheet>
-	);
+	return str;
 };
 
 export default function ProviderTable({
@@ -174,7 +60,7 @@ export default function ProviderTable({
 							<span className="grow">
 								{provider.title} ({provider.subTitle})
 							</span>
-							<SettingsForm
+							<ProviderSettings
 								provider={provider}
 								index={index}
 								selectedProvider={selectedProvider}
@@ -190,7 +76,7 @@ export default function ProviderTable({
 									<Settings2Icon className="h-4 w-4" />
 									<span className="sr-only">Config</span>
 								</Button>
-							</SettingsForm>
+							</ProviderSettings>
 							{!(evaluatedResponse.data || evaluatedResponse.isLoading) && (
 								<Button
 									variant="ghost"
@@ -215,20 +101,65 @@ export default function ProviderTable({
 							).map((key) => (
 								<TableRow key={key}>
 									<div className="flex flex-col w-full h-full relative">
-										<p className="font-medium p-4 bg-stone-200 dark:bg-stone-800 sticky top-[48px]">
+										<p className="font-medium p-4 bg-stone-200 dark:bg-stone-800 text-stone-500 sticky top-[48px]">
 											<span className={`${index === 0 ? "" : "opacity-0"}`}>
-												{key.toUpperCase()}
+												{keyHeadersTransformer(key)}
 											</span>
 										</p>
-										<p
-											className={`font-medium p-4 ${
-												key === "prompt" || key === "response"
-													? "h-[200px] overflow-auto"
-													: ""
-											}`}
-										>
-											{evaluatedResponse.data?.[index]?.[1].evaluationData[key]}
-										</p>
+										<HoverCard>
+											<HoverCardTrigger>
+												<p
+													className={`text-stone-600 dark:text-stone-400 p-4 ${
+														key === "prompt" || key === "response"
+															? "h-[200px] overflow-auto"
+															: ""
+													}`}
+												>
+													{
+														evaluatedResponse.data?.[index]?.[1].evaluationData[
+															key
+														]
+													}
+												</p>
+											</HoverCardTrigger>
+											{key === "prompt" || key === "response" ? null : (
+												<HoverCardContent className="w-auto px-0">
+													<Table>
+														<TableHeader>
+															<TableRow>
+																<TableHead className="h-auto">
+																	Provider
+																</TableHead>
+																<TableHead className="text-right h-auto">
+																	{keyHeadersTransformer(key)}
+																</TableHead>
+															</TableRow>
+														</TableHeader>
+														<TableBody>
+															{evaluatedResponse.data?.map(
+																(item, itemIndex) => {
+																	const { provider } =
+																		selectedProviders[itemIndex];
+																	const providerConfig =
+																		providersConfig[provider];
+																	return itemIndex === index ||
+																		!item[1]?.evaluationData?.[key] ? null : (
+																		<TableRow className="h-auto">
+																			<TableCell className="font-medium h-auto py-2">
+																				{providerConfig.title}
+																			</TableCell>
+																			<TableCell className="text-right h-auto py-2">
+																				{item[1].evaluationData[key]}
+																			</TableCell>
+																		</TableRow>
+																	);
+																}
+															)}
+														</TableBody>
+													</Table>
+												</HoverCardContent>
+											)}
+										</HoverCard>
 									</div>
 								</TableRow>
 							))}
@@ -236,7 +167,7 @@ export default function ProviderTable({
 								<div className="flex flex-col w-full h-full relative">
 									<p className="font-medium p-4 bg-stone-200 dark:bg-stone-800 sticky top-[48px] z-20">
 										<span className={`${index === 0 ? "" : "opacity-0"}`}>
-											PROVIDER RESPONSE
+											Provider response
 										</span>
 									</p>
 									<JsonViewer
@@ -254,18 +185,35 @@ export default function ProviderTable({
 						</>
 					) : (
 						<TableRow>
-							<div className="flex flex-col w-full h-full items-center justify-center p-4 text-error">
+							<div className="flex flex-col w-full h-full items-center justify-center p-4 text-error text-center">
 								{evaluatedResponse.data?.[index]?.[0] ||
-									"Evaluated Response will appear here"}
+									"Some error occurred while evaluating the provider"}
 							</div>
 						</TableRow>
 					)
 				) : (
 					<TableRow>
-						<div className="flex flex-col w-full h-full items-center justify-center p-4">
-							{evaluatedResponse.isLoading
-								? "Evaluating the response"
-								: "Evaluated Response will appear here"}
+						<div className="flex flex-col w-full h-full items-center justify-center p-4 group">
+							{evaluatedResponse.isLoading ? (
+								<FlaskRoundIcon className="w-32 h-32 text-stone-200 dark:text-stone-700" />
+							) : (
+								<>
+									<Image
+										src={provider.logoDark}
+										width={200}
+										height={40}
+										alt={provider.title}
+										className="dark:hidden opacity-50 group-hover:opacity-100"
+									/>
+									<Image
+										src={provider.logo}
+										width={200}
+										height={40}
+										alt={provider.title}
+										className="hidden dark:block opacity-50 group-hover:opacity-100"
+									/>
+								</>
+							)}
 						</div>
 					</TableRow>
 				)}
