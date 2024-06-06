@@ -76,6 +76,8 @@ def collect_metrics(metrics_dict, environment, application_name):
         }
 
         metrics_dict["gpu_utilization"].record(gpu.utilization if gpu.utilization else 0, attributes)
+        metrics_dict["gpu_utilization_enc"].record(gpu.utilization_enc if gpu.utilization_enc else 0, attributes)
+        metrics_dict["gpu_utilization_dec"].record(gpu.utilization_dec if gpu.utilization_dec else 0, attributes)
         metrics_dict["gpu_temperature"].record(gpu.temperature if gpu.temperature else 0, attributes)
         metrics_dict["gpu_fan_speed"].record(gpu.fan_speed if gpu.fan_speed else 0, attributes)
         metrics_dict["gpu_memory_available"].record(gpu.memory_available if gpu.memory_available else 0, attributes)

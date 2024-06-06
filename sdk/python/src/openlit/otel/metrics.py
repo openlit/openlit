@@ -102,7 +102,17 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
             ),
             "gpu_utilization": meter.create_histogram(
                  name=SemanticConvetion.GPU_UTILIZATION,
-                 description="GPU Utilization in %",
+                 description="GPU Utilization in percentage",
+                 unit="percent"
+            ),
+            "gpu_utilization_enc": meter.create_histogram(
+                 name=SemanticConvetion.GPU_UTILIZATION_ENC,
+                 description="GPU encoder Utilization in percentage",
+                 unit="percent"
+            ),
+            "gpu_utilization_dec": meter.create_histogram(
+                 name=SemanticConvetion.GPU_UTILIZATION_DEC,
+                 description="GPU decoder Utilization in percentage",
                  unit="percent"
             ),
             "gpu_temperature": meter.create_histogram(
@@ -112,7 +122,7 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
             ),
             "gpu_fan_speed": meter.create_histogram(
                 name=SemanticConvetion.GPU_FAN_SPEED,
-                description="GPU Fan Speed"
+                description="GPU Fan Speed (0-100) as an integer"
             ),
             "gpu_memory_available": meter.create_histogram(
                 name=SemanticConvetion.GPU_MEMORY_AVAILABLE,
