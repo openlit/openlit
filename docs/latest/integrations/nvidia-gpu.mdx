@@ -7,20 +7,17 @@ sidebarTitle: 'NVIDIA GPUs'
   <img src="/images/docs-nvidia-gpu-banner.gif" />
 </Frame>
 
-OpenLIT uses OpenTelemetry to help you monitor NVIDIA GPUs. This includes tracking performance, token usage, costs, and how users interact with the application.
+OpenLIT uses OpenTelemetry to help you monitor NVIDIA GPUs. This includes tracking GPU metrics like utilization, temperature, memory usage and power consumption.
 
-Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding the OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
-
-The integration is compatible with  
-- Anthropic Python SDK client `>= 0.21.0` 
+Auto-instrumentation means you don't have to set up monitoring manually. By simply adding the OpenLIT in your application, all the necessary monitoring configurations are automatically set up for you.
 
 ## Get Started 
 
 <Steps>
-    <Step title="Install OpenLIT">
+    <Step title="Install OpenLIT and gpustat library">
       Open your command line or terminal and run:
       ```shell
-      pip install openlit
+      pip install openlit gpustat==1.1.1
       ```
     </Step>
     <Step title="Initialize OpenLIT in your Application">
@@ -60,7 +57,7 @@ The integration is compatible with
       1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector. 
       </Tab>
     </Tabs>
-    To send metrics and traces to other Observability tools, refer to the [Connections Guide](/latest/connections/intro).
+    To send metrics to other Observability tools, refer to the [Connections Guide](/latest/connections/intro).
 
     For more advanced configurations and application use cases, visit the [OpenLIT Python repository](https://github.com/openlit/openlit/tree/main/sdk/python).
   </Step>
