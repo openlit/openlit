@@ -68,7 +68,7 @@ pip install openlit
 ```
 
 ### Step 3: Initialize OpenLIT in your Application
-Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
+Integrating OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
 
 ```python
 import openlit
@@ -148,7 +148,7 @@ Your input helps us grow and improve, and we're here to support you every step o
 
 ## 💚 Community & Support
 
-Connect with the OpenLIT community and maintainers for support, discussions, and updates:
+Connect with OpenLIT community and maintainers for support, discussions, and updates:
 
 - 🌟 If you like it, Leave a star on our [GitHub](https://github.com/openlit/openlit/)
 - 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) Community for live interactions and questions.

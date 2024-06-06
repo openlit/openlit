@@ -62,6 +62,23 @@ This section outlines the OpenTelemetry metrics collected by **OpenLIT** from ap
 |-------------------------|--------------------------------------------|-------|-------------|--------------------------------------------------------------|
 | `db.total.requests`     | Number of requests to VectorDBs.           | `1`   | Counter     | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
 
+### GPU Metrics
+
+| Metric Name                         | Description                              | Unit       | Type      | Attributes                                                            |
+|-------------------------------------|------------------------------------------|------------|-----------|-----------------------------------------------------------------------|
+| `gpu.utilization_percentage`        | GPU Utilization in percentage            | `percent`  | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.enc.utilization_percentage`    | GPU encoder Utilization in percentage    | `percent`  | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.dec.utilization_percentage`    | GPU decoder Utilization in percentage    | `percent`  | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.temperature`                   | GPU Temperature in Celsius               | `°C`       | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.fan_speed`                     | GPU Fan Speed (0-100) as an integer      | Integer    | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.memory.available`              | Available GPU Memory in MB               | `MB`       | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.memory.total`                  | Total GPU Memory in MB                   | `MB`       | Histogram | `telemetry.sdk.ydk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.memory.used`                   | Used GPU Memory in MB                    | `MB`       | Histogram | `telemetry.sdk.name`, `gen_ai.application_tation_name`, `gen_ai.environment` |
+| `gpu.memory.free`                   | Free GPU Memory in MB                    | `MB`       | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.power.draw`                    | GPU Power Draw in Watts                  | `Watt`     | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.power.limit`                   | GPU Power Limit in Watts                 | `Watt`     | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+
+
 <CardGroup cols={2}>
 <Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
 Integrate your LLM Stack with OpenLIT 
