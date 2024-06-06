@@ -94,6 +94,13 @@
             "latest/integrations/haystack",
             "latest/integrations/embedchain"
           ]
+        },
+        {
+          "group": "GPUs",
+          "version": "latest",
+          "pages": [
+            "latest/integrations/nvidia-gpu"
+          ]
         }
       ]
     },
