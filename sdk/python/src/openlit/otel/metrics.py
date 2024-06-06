@@ -100,6 +100,50 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 description="Number of requests to VectorDBs",
                 unit="1",
             ),
+            "gpu_utilization": meter.create_histogram(
+                 name="gpu_utilization",
+                 description="GPU Utilization in %",
+                 unit="percent"
+            ),
+            "gpu_temperature": meter.create_histogram(
+                name="gpu_temperature",
+                description="GPU Temperature in Celsius",
+                unit="degC"
+            ),
+            "gpu_fan_speed": meter.create_histogram(
+                name="gpu_fan_speed",
+                description="GPU Fan Speed"
+            ),
+            "gpu_memory_available": meter.create_histogram(
+                name="gpu_memory_available",
+                description="Available GPU Memory in MB",
+                unit="MB"
+            ),
+            "gpu_memory_total": meter.create_histogram(
+                name="gpu_memory_total",
+                description="Total GPU Memory in MB",
+                unit="MB"
+            ),
+            "gpu_memory_used": meter.create_histogram(
+                name="gpu_memory_used",
+                description="Used GPU Memory in MB",
+                unit="MB"
+            ),
+            "gpu_memory_free": meter.create_histogram(
+                name="gpu_memory_free",
+                description="Free GPU Memory in MB",
+                unit="MB"
+            ),
+            "gpu_power_draw": meter.create_histogram(
+                name="gpu_power_draw",
+                description="GPU Power Draw in Watts",
+                unit="Watt"
+            ),
+            "gpu_power_limit": meter.create_histogram(
+                name="gpu_power_limit",
+                description="GPU Power Limit in Watts",
+                unit="Watt"
+            ),
         }
 
         return metrics_dict

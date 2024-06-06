@@ -31,6 +31,7 @@ from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
+from openlit.instrumentation.gpu import NvidiaGPUInstrumentor
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
@@ -74,11 +75,12 @@ class OpenlitConfig:
         cls.disable_batch = False
         cls.trace_content = True
         cls.disable_metrics = False
+        cls.gpu_stats_interval = 60
 
     @classmethod
     def update_config(cls, environment, application_name, tracer, otlp_endpoint,
                       otlp_headers, disable_batch, trace_content, metrics_dict,
-                      disable_metrics, pricing_json):
+                      disable_metrics, gpu_stats_interval, pricing_json):
         """
         Updates the configuration based on provided parameters.
 
@@ -103,6 +105,7 @@ class OpenlitConfig:
         cls.disable_batch = disable_batch
         cls.trace_content = trace_content
         cls.disable_metrics = disable_metrics
+        cls.gpu_stats_interval = gpu_stats_interval
 
 def instrument_if_available(instrumentor_name, instrumentor_instance, config,
                             disabled_instrumentors, module_name_map):
@@ -121,7 +124,8 @@ def instrument_if_available(instrumentor_name, instrumentor_instance, config,
                 pricing_info=config.pricing_info,
                 trace_content=config.trace_content,
                 metrics_dict=config.metrics_dict,
-                disable_metrics=config.disable_metrics
+                disable_metrics=config.disable_metrics,
+                gpu_stats_interval = config.gpu_stats_interval
             )
 
         # pylint: disable=broad-exception-caught
@@ -130,7 +134,7 @@ def instrument_if_available(instrumentor_name, instrumentor_instance, config,
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
-         meter=None, disable_metrics=False, pricing_json=None):
+         meter=None, disable_metrics=False, pricing_json=None, gpu_stats_interval=60):
     """
     Initializes the openLIT configuration and setups tracing.
     
@@ -171,7 +175,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "pinecone": "pinecone",
         "qdrant": "qdrant_client",
         "milvus": "pymilvus",
-        "transformers": "transformers"
+        "transformers": "transformers",
+        "gpu": "gpustat"
     }
 
     invalid_instrumentors = [name for name in disabled_instrumentors if name not in module_name_map]
@@ -206,7 +211,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         # Update global configuration with the provided settings.
         config.update_config(environment, application_name, tracer, otlp_endpoint,
                              otlp_headers, disable_batch, trace_content,
-                             metrics_dict, disable_metrics, pricing_json)
+                             metrics_dict, disable_metrics, gpu_stats_interval, pricing_json)
 
         # Map instrumentor names to their instances
         instrumentor_instances = {
@@ -227,7 +232,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "pinecone": PineconeInstrumentor(),
             "qdrant": QdrantInstrumentor(),
             "milvus": MilvusInstrumentor(),
-            "transformers": TransformersInstrumentor()
+            "transformers": TransformersInstrumentor(),
+            "gpu": NvidiaGPUInstrumentor()
         }
 
         # Initialize and instrument only the enabled instrumentors
