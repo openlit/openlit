@@ -150,3 +150,13 @@ class SemanticConvetion:
     GPU_INDEX = "gpu.index"
     GPU_UUID = "gpu.uuid"
     GPU_NAME = "gpu.name"
+
+    GPU_UTILIZATION = "gpu.utilization_percentage"
+    GPU_TEMPERATURE = "gpu.temperature"
+    GPU_FAN_SPEED = "gpu.fan_speed"
+    GPU_MEMORY_AVAILABLE = "gpu.memory.available"
+    GPU_MEMORY_TOTAL = "gpu.memory.total"
+    GPU_MEMORY_USED = "gpu.memory.used"
+    GPU_MEMORY_FREE = "gpu.memory.free"
+    GPU_POWER_DRAW = "gpu.power.draw"
+    GPU_POWER_LIMIT = "gpu.power.limit"
