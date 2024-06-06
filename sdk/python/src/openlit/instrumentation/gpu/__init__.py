@@ -6,6 +6,9 @@ import time
 import schedule
 from opentelemetry import metrics
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from functools import partial
+from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from openlit.semcov import SemanticConvetion
 
 # Importing module 
 import importlib 
@@ -22,41 +25,62 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
         import gpustat
 
         metrics_dict = kwargs.get("metrics_dict")
-        # Start the schedule for collecting metrics
-        self._start_schedule()
-
-    def _collect_metrics(self, metrics_dict):
-        import gpustat
-        
-        """Collect metrics from GPU statistics"""
-        gpu_stats = gpustat.GPUStatCollection.new_query()
-
-        for gpu in gpu_stats.gpus:
-            metrics_dict["gpu_utilization"].record(gpu.utilization)
-            metrics_dict["gpu_temperature"].record(gpu.temperature)
-            metrics_dict["gpu_fan_speed"].record(gpu.fan_speed if gpu.fan_speed else 0)
-            metrics_dict["gpu_memory_available"].record(gpu.memory_available)
-            metrics_dict["gpu_memory_total"].record(gpu.memory_total)
-            metrics_dict["gpu_memory_used"].record(gpu.memory_used)
-            metrics_dict["gpu_memory_free"].record(gpu.memory_free)
-            metrics_dict["gpu_power_draw"].record(gpu.power_draw if gpu.power_draw else 0)
-            metrics_dict["gpu_power_limit"].record(gpu.power_limit if gpu.power_limit else 0)
-
-    def _start_schedule(self):
-        # Schedule the _collect_metrics method to run every 60 seconds
-        schedule.every(60).seconds.do(self._collect_metrics)
-        
-        # Run the scheduler in a separate thread
-        import threading
-        def run_scheduler():
-            while True:
-                schedule.run_pending()
-                time.sleep(1)  # Sleep for a short duration to prevent tight loop
-
-        scheduler_thread = threading.Thread(target=run_scheduler)
-        scheduler_thread.daemon = True  # Ensure thread exits when main program exits
-        scheduler_thread.start()
+        gpu_stats_interval = kwargs.get("gpu_stats_interval")
+        application_name = kwargs.get("application_name")
+        environment = kwargs.get("environment")
+        start_schedule(metrics_dict, gpu_stats_interval, environment, application_name)
     
     def _uninstrument(self, **kwargs):
         # Proper uninstrumentation logic to revert patched methods
         pass
+
+def start_schedule(metrics_dict, gpu_stats_interval, environment, application_name):
+    # Schedule the _collect_metrics method to run every 60 seconds
+    schedule.every(gpu_stats_interval).seconds.do(partial(
+            collect_metrics, metrics_dict, environment, application_name))
+    
+    # Run the scheduler in a separate thread
+    import threading
+    def run_scheduler():
+        while True:
+            schedule.run_pending()
+            time.sleep(1)  # Sleep for a short duration to prevent tight loop
+
+    scheduler_thread = threading.Thread(target=run_scheduler)
+    scheduler_thread.daemon = True  # Ensure thread exits when main program exits
+    scheduler_thread.start()
+
+def collect_metrics(metrics_dict, environment, application_name):
+    import gpustat
+    
+    """Collect metrics from GPU statistics"""
+    gpu_stats = gpustat.GPUStatCollection.new_query()
+
+    for gpu in gpu_stats.gpus:
+        attributes = {
+            TELEMETRY_SDK_NAME:
+                "openlit",
+            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                application_name,
+            SemanticConvetion.GEN_AI_SYSTEM:
+                SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                environment,
+            SemanticConvetion.GPU_INDEX:
+                gpu.index,
+            SemanticConvetion.GPU_UUID:
+                gpu.uuid,
+            SemanticConvetion.GPU_NAME:
+                gpu.name,
+
+        }
+
+        metrics_dict["gpu_utilization"].record(gpu.utilization if gpu.utilization else 0, attributes)
+        metrics_dict["gpu_temperature"].record(gpu.temperature if gpu.temperature else 0, attributes)
+        metrics_dict["gpu_fan_speed"].record(gpu.fan_speed if gpu.fan_speed else 0, attributes)
+        metrics_dict["gpu_memory_available"].record(gpu.memory_available if gpu.memory_available else 0, attributes)
+        metrics_dict["gpu_memory_total"].record(gpu.memory_total if gpu.memory_total else 0, attributes)
+        metrics_dict["gpu_memory_used"].record(gpu.memory_used if gpu.memory_used else 0, attributes)
+        metrics_dict["gpu_memory_free"].record(gpu.memory_free if gpu.memory_free else 0, attributes)
+        metrics_dict["gpu_power_draw"].record(gpu.power_draw if gpu.power_draw else 0, attributes)
+        metrics_dict["gpu_power_limit"].record(gpu.power_limit if gpu.power_limit else 0, attributes)
