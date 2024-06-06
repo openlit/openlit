@@ -145,3 +145,8 @@ class SemanticConvetion:
     DB_SYSTEM_PINECONE = "pinecone"
     DB_SYSTEM_QDRANT = "qdrant"
     DB_SYSTEM_MILVUS = "milvus"
+
+    # GPU
+    GPU_INDEX = "gpu.index"
+    GPU_UUID = "gpu.uuid"
+    GPU_NAME = "gpu.name"
