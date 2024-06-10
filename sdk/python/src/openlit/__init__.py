@@ -1,5 +1,3 @@
-# pylint: broad-exception-caught
-
 """
 The __init__.py module for the openLIT package.
 This module sets up the openLIT configuration and instrumentation for various
@@ -12,13 +10,14 @@ from importlib.util import find_spec
 from functools import wraps
 from contextlib import contextmanager
 
+
 # Import internal modules for setting up tracing and fetching pricing info.
-from openlit.otel.tracing import setup_tracing
-from openlit.otel.metrics import setup_meter
-from openlit.__helpers import fetch_pricing_info
 from opentelemetry import trace as t
 from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from openlit.semcov import SemanticConvetion
+from openlit.otel.tracing import setup_tracing
+from openlit.otel.metrics import setup_meter
+from openlit.__helpers import fetch_pricing_info
 
 
 # Instrumentors for various large language models.
@@ -316,11 +315,12 @@ def trace(wrapped):
                     SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response
                 )
                 span.set_status(Status(StatusCode.OK))
+            # pylint: broad-exception-caught
             except Exception as e:
                 response = None
                 span.record_exception(e)
                 span.set_status(status=Status(StatusCode.ERROR), description=e)
-                logging.error(f"Error in {wrapped.__name__}: {e}", exc_info=True)
+                logging.error("Error in %s: %s", wrapped.__name__, e, exc_info=True)
 
             # Adding function arguments as metadata
             try:
@@ -333,9 +333,12 @@ def trace(wrapped):
                 span.set_attribute(
                     SemanticConvetion.GEN_AI_ENVIRONMENT, OpenlitConfig.environment
                 )
+            # pylint: broad-exception-caught
             except Exception as meta_exception:
                 logging.error(
-                    f"Failed to set metadata for {wrapped.__name__}: {meta_exception}",
+                    "Failed to set metadata for %s: %s",
+                    wrapped.__name__,
+                    meta_exception,
                     exc_info=True,
                 )
 
@@ -345,24 +348,75 @@ def trace(wrapped):
 
 
 class TracedSpan:
+    """
+    A wrapper class for an OpenTelemetry span that provides helper methods
+    for setting result and metadata attributes on the span.
+
+    Attributes:
+        _span (Span): The underlying OpenTelemetry span.
+    """
+
     def __init__(self, span):
+        """
+        Initializes the TracedSpan with the given span.
+
+        Params:
+            span (Span): The OpenTelemetry span to be wrapped.
+        """
+
         self._span: Span = span
 
     def set_result(self, result):
+        """
+        Sets the result attribute on the underlying span.
+
+        Params:
+            result: The result to be set as an attribute on the span.
+        """
+
         self._span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, result)
 
     def set_metadata(self, metadata: Dict):
+        """
+        Sets multiple attributes on the underlying span.
+
+        Params:
+            metadata (Dict): A dictionary of attributes to be set on the span.
+        """
+
         self._span.set_attributes(attributes=metadata)
 
     def __enter__(self):
+        """
+        Enters the context of the TracedSpan, returning itself.
+
+        Returns:
+            TracedSpan: The instance of TracedSpan.
+        """
+
         return self
 
     def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        """
+        Exits the context of the TracedSpan by ending the underlying span.
+        """
+
         self._span.end()
 
 
 @contextmanager
 def start_trace(name: str):
+    """
+    A context manager that starts a new trace and provides a TracedSpan
+    for usage within the context.
+
+    Params:
+        name (str): The name of the span.
+
+    Yields:
+        TracedSpan: The wrapped span for trace operations.
+    """
+
     __trace = t.get_tracer_provider()
     with __trace.get_tracer(__name__).start_as_current_span(
         name,
