@@ -1,3 +1,4 @@
+# pylint: disable=broad-exception-caught
 """
 The __init__.py module for the openLIT package.
 This module sets up the openLIT configuration and instrumentation for various
@@ -292,7 +293,6 @@ def init(
                 name, instrumentor, config, disabled_instrumentors, module_name_map
             )
 
-    # pylint: disable=broad-exception-caught
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)
 
@@ -315,7 +315,7 @@ def trace(wrapped):
                     SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response
                 )
                 span.set_status(Status(StatusCode.OK))
-            # pylint: broad-exception-caught
+
             except Exception as e:
                 response = None
                 span.record_exception(e)
@@ -333,7 +333,7 @@ def trace(wrapped):
                 span.set_attribute(
                     SemanticConvetion.GEN_AI_ENVIRONMENT, OpenlitConfig.environment
                 )
-            # pylint: broad-exception-caught
+
             except Exception as meta_exception:
                 logging.error(
                     "Failed to set metadata for %s: %s",
