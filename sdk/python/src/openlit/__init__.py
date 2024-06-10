@@ -1,3 +1,4 @@
+# pylint: broad-exception-caught
 """
 The __init__.py module for the openLIT package.
 This module sets up the openLIT configuration and instrumentation for various
