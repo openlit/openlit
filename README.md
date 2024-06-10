@@ -17,7 +17,9 @@ OpenTelemetry-native Observability & Evals for LLMs</h1>
 
 ![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/github-readme-repo-banner.png?raw=true)
 
-OpenLIT is an **OpenTelemetry-native** GenAI and LLM Application Observability tool. It's designed to make the integration process of observability into GenAI projects as easy as pie – literally, with just **a single line of code**. Whether you're working with popular LLM Libraries such as OpenAI and HuggingFace or leveraging vector databases like ChromaDB, OpenLIT ensures your applications are monitored seamlessly, providing critical insights to improve performance and reliability.
+**OpenLIT** is an **OpenTelemetry-native** tool designed to help developers gain insights into the performance of their LLM applications in production. It automatically collects LLM input and output metadata, and monitors GPU performance for self-hosted LLMs.
+
+OpenLIT makes integrating observability into GenAI projects effortless with just **a single line of code**. Whether you're working with popular LLM providers such as OpenAI and HuggingFace, or leveraging vector databases like ChromaDB, OpenLIT ensures your applications are monitored seamlessly, providing critical insights including GPU performance stats for self-hosted LLMs to improve performance and reliability.
 
 This project proudly follows the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) of the OpenTelemetry community, consistently updating to align with the latest standards in observability.
 
