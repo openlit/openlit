@@ -233,7 +233,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "qdrant": QdrantInstrumentor(),
             "milvus": MilvusInstrumentor(),
             "transformers": TransformersInstrumentor(),
-            "gpu": NvidiaGPUInstrumentor()
+            "gpu": NvidiaGPUInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors

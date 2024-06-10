@@ -100,60 +100,6 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 description="Number of requests to VectorDBs",
                 unit="1",
             ),
-            "gpu_utilization": meter.create_histogram(
-                 name=SemanticConvetion.GPU_UTILIZATION,
-                 description="GPU Utilization in percentage",
-                 unit="percent"
-            ),
-            "gpu_utilization_enc": meter.create_histogram(
-                 name=SemanticConvetion.GPU_UTILIZATION_ENC,
-                 description="GPU encoder Utilization in percentage",
-                 unit="percent"
-            ),
-            "gpu_utilization_dec": meter.create_histogram(
-                 name=SemanticConvetion.GPU_UTILIZATION_DEC,
-                 description="GPU decoder Utilization in percentage",
-                 unit="percent"
-            ),
-            "gpu_temperature": meter.create_histogram(
-                name=SemanticConvetion.GPU_TEMPERATURE,
-                description="GPU Temperature in Celsius",
-                unit="degC"
-            ),
-            "gpu_fan_speed": meter.create_histogram(
-                name=SemanticConvetion.GPU_FAN_SPEED,
-                description="GPU Fan Speed (0-100) as an integer"
-            ),
-            "gpu_memory_available": meter.create_histogram(
-                name=SemanticConvetion.GPU_MEMORY_AVAILABLE,
-                description="Available GPU Memory in MB",
-                unit="MB"
-            ),
-            "gpu_memory_total": meter.create_histogram(
-                name=SemanticConvetion.GPU_MEMORY_TOTAL,
-                description="Total GPU Memory in MB",
-                unit="MB"
-            ),
-            "gpu_memory_used": meter.create_histogram(
-                name=SemanticConvetion.GPU_MEMORY_USED,
-                description="Used GPU Memory in MB",
-                unit="MB"
-            ),
-            "gpu_memory_free": meter.create_histogram(
-                name=SemanticConvetion.GPU_MEMORY_FREE,
-                description="Free GPU Memory in MB",
-                unit="MB"
-            ),
-            "gpu_power_draw": meter.create_histogram(
-                name=SemanticConvetion.GPU_POWER_DRAW,
-                description="GPU Power Draw in Watts",
-                unit="Watt"
-            ),
-            "gpu_power_limit": meter.create_histogram(
-                name=SemanticConvetion.GPU_POWER_LIMIT,
-                description="GPU Power Limit in Watts",
-                unit="Watt"
-            ),
         }
 
         return metrics_dict
