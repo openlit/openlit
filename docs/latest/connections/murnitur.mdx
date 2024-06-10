@@ -9,8 +9,8 @@ To send OpenTelemetry data collected by OpenLIt from your LLM Application, You n
 import openlit
 
 openlit.init(
-    otlp_headers=f"x-murnix-trace-token={murnitur_api_key}",
     otlp_endpoint="https://middleware.murnitur.ai",
+    otlp_headers=f"x-murnix-trace-token={murnitur_api_key}",
     disable_metrics=True,
 )
 ```

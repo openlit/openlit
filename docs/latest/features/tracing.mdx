@@ -64,9 +64,9 @@ Example:
 openlit.init(disabled_instrumentors=["anthropic", "langchain"])
 ```
 
-## Advanced Tracing
+## Manual Tracing
 
-Using `openlit.trace`, you get access to advanced function tracing capabilities, allowing you to record every process within a single function.
+Using `openlit.trace`, you get access to manually create traces, allowing you to record every process within a single function.
 
 ```python python
 
@@ -81,8 +81,6 @@ def generate_one_liner():
             }
         ],
     )
-    return completion.choices[0].message.content
-
 ```
 
 The `trace` function automatically groups any LLM function invoked within `generate_one_liner`, providing you with organized groupings right out of the box.
@@ -96,7 +94,7 @@ with openlit.start_trace(name="<GIVE_TRACE_A_NAME>") as trace:
 
 Use `trace.set_result('')` to set the final result of the trace and `trace.set_metadata({})` to add custom metadata.
 
-### Full Example
+**Full Example**
 
 ```python python
 @openlit.trace
@@ -110,8 +108,6 @@ def generate_one_liner():
             }
         ],
     )
-    return completion.choices[0].message.content
-
 
 def guess_one_liner(one_liner: str):
     with openlit.start_trace("Guess One-liner") as trace:
@@ -125,37 +121,7 @@ def guess_one_liner(one_liner: str):
             ],
         )
         trace.set_result(completion.choices[0].message.content)
-
-    return completion.choices[0].message.content
-
-
-def confirm_one_liner():
-    with openlit.start_trace("Confirm One Liner") as trace:
-        one_liner = generate_one_liner()
-        guess = guess_one_liner(one_liner)
-        completion = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Correct guess? One-liner:{one_liner},Guess:{guess}",
-                }
-            ],
-        )
-        trace.set_result(completion.choices[0].message.content)
-    return completion.choices[0].message.content
-
-
-if __name__ == "__main__":
-    openlit.init(environment="development", application_name="test-app")
-
-    print(confirm_one_liner())
-
 ```
-
-Here's how it displays in [Murnitur.ai](https://murnitur.ai)
-
-<img style={{ borderRadius: "0.5rem" }} src="/images/full-trace.png" />
 
 ## Semantic Convention
 
