@@ -64,19 +64,19 @@ This section outlines the OpenTelemetry metrics collected by **OpenLIT** from ap
 
 ### GPU Metrics
 
-| Metric Name                         | Description                              | Unit       | Type      | Attributes                                                            |
-|-------------------------------------|------------------------------------------|------------|-----------|-----------------------------------------------------------------------|
-| `gpu.utilization_percentage`        | GPU Utilization in percentage            | `percent`  | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
-| `gpu.enc.utilization_percentage`    | GPU encoder Utilization in percentage    | `percent`  | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
-| `gpu.dec.utilization_percentage`    | GPU decoder Utilization in percentage    | `percent`  | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
-| `gpu.temperature`                   | GPU Temperature in Celsius               | `°C`       | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
-| `gpu.fan_speed`                     | GPU Fan Speed (0-100) as an integer      | Integer    | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
-| `gpu.memory.available`              | Available GPU Memory in MB               | `MB`       | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
-| `gpu.memory.total`                  | Total GPU Memory in MB                   | `MB`       | Histogram | `telemetry.sdk.ydk.name`, `gen_ai.application_name`, `gen_ai.environment` |
-| `gpu.memory.used`                   | Used GPU Memory in MB                    | `MB`       | Histogram | `telemetry.sdk.name`, `gen_ai.application_tation_name`, `gen_ai.environment` |
-| `gpu.memory.free`                   | Free GPU Memory in MB                    | `MB`       | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
-| `gpu.power.draw`                    | GPU Power Draw in Watts                  | `Watt`     | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
-| `gpu.power.limit`                   | GPU Power Limit in Watts                 | `Watt`     | Histogram | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| Metric Name                         | Description                              | Unit       | Type  | Attributes                                                            |
+|-------------------------------------|------------------------------------------|------------|-------|-----------------------------------------------------------------------|
+| `gpu.utilization_percentage`        | GPU Utilization in percentage            | `percent`  | Guage | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.enc.utilization_percentage`    | GPU encoder Utilization in percentage    | `percent`  | Guage | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.dec.utilization_percentage`    | GPU decoder Utilization in percentage    | `percent`  | Guage | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.temperature`                   | GPU Temperature in Celsius               | `°C`       | Guage | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.fan_speed`                     | GPU Fan Speed (0-100) as an integer      | `Integer`  | Guage | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.memory.available`              | Available GPU Memory in MB               | `MB`       | Guage | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.memory.total`                  | Total GPU Memory in MB                   | `MB`       | Guage | `telemetry.sdk.ydk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.memory.used`                   | Used GPU Memory in MB                    | `MB`       | Guage | `telemetry.sdk.name`, `gen_ai.application_tation_name`, `gen_ai.environment` |
+| `gpu.memory.free`                   | Free GPU Memory in MB                    | `MB`       | Guage | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.power.draw`                    | GPU Power Draw in Watts                  | `Watt`     | Guage | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
+| `gpu.power.limit`                   | GPU Power Limit in Watts                 | `Watt`     | Guage | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment` |
 
 
 <CardGroup cols={2}>
