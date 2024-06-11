@@ -29,14 +29,19 @@
   },
   "anchors": [
     {
-      "name": "Community",
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/openlit/"
+    },
+    {
+      "name": "Slack",
       "icon": "slack",
       "url": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ"
     },
     {
-      "name": "GitHub",
-      "icon": "github",
-      "url": "https://github.com/openlit/"
+      "name": "Discord",
+      "icon": "discord",
+      "url": "https://discord.com/invite/rjvTm6zd"
     }
   ],
   "navigation": [
@@ -134,6 +139,7 @@
   "footerSocials": {
     "github": "https://github.com/openlit/",
     "slack": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ",
+    "discord": "https://discord.com/invite/rjvTm6zd",
     "twitter": "https://twitter.com/openlit_io",
     "linkedin": "https://www.linkedin.com/company/openlit/"
   }
