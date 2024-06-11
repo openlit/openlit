@@ -2,6 +2,7 @@
 pytest>=7.4.0
 pytest-asyncio>=0.23.6
 requests>=2.31.0
+schedule>=1.2.2
 pylint>=3.0.2
 
 # Gen AI
