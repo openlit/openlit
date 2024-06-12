@@ -1,13 +1,13 @@
 # pylint: disable=useless-return, bad-staticmethod-argument, duplicate-code, import-outside-toplevel, broad-exception-caught
 """Initializer of Auto Instrumentation of GPU Metrics"""
 
-from typing import Collection
+from typing import Collection, Iterable
 import logging
 from functools import partial
 
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from opentelemetry.metrics import get_meter, Observation
+from opentelemetry.metrics import get_meter, CallbackOptions, Observation
 
 from openlit.semcov import SemanticConvetion
 
@@ -108,7 +108,8 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
         pass
 
     def _collect_metric(self, environment, application_name,
-                        check_and_record, metric_name):
+                        check_and_record, metric_name,
+                        options: CallbackOptions) -> Iterable[Observation]:
 
         import gpustat
 
