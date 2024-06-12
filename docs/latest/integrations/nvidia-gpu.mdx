@@ -17,7 +17,7 @@ Auto-instrumentation means you don't have to set up monitoring manually. By simp
     <Step title="Install OpenLIT and gpustat library">
       Open your command line or terminal and run:
       ```shell
-      pip install openlit gpustat==1.1.1
+      pip install openlit
       ```
     </Step>
     <Step title="Initialize OpenLIT in your Application">
@@ -31,7 +31,8 @@ Auto-instrumentation means you don't have to set up monitoring manually. By simp
       import openlit
 
       openlit.init(
-        otlp_endpoint="YOUR_OTEL_ENDPOINT", 
+        otlp_endpoint="YOUR_OTEL_ENDPOINT",
+        collect_gpu_stats=True 
       )
       ```
 
@@ -45,7 +46,7 @@ Auto-instrumentation means you don't have to set up monitoring manually. By simp
       ```python
       import openlit
 
-      openlit.init()
+      openlit.init(collect_gpu_stats=True)
       ```
 
       Then, configure the your OTLP endpoint using environment variable:
