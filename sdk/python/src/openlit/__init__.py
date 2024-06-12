@@ -1,16 +1,25 @@
+# pylint: disable=broad-exception-caught
 """
 The __init__.py module for the openLIT package.
 This module sets up the openLIT configuration and instrumentation for various
 large language models (LLMs).
 """
+
 from typing import Dict
 import logging
 from importlib.util import find_spec
+from functools import wraps
+from contextlib import contextmanager
+
 
 # Import internal modules for setting up tracing and fetching pricing info.
+from opentelemetry import trace as t
+from opentelemetry.trace import SpanKind, Status, StatusCode, Span
+from openlit.semcov import SemanticConvetion
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
 from openlit.__helpers import fetch_pricing_info
+
 
 # Instrumentors for various large language models.
 from openlit.instrumentation.openai import OpenAIInstrumentor
@@ -36,13 +45,14 @@ from openlit.instrumentation.gpu import NvidiaGPUInstrumentor
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
 
+
 class OpenlitConfig:
     """
     A Singleton Configuration class for openLIT.
-    
+
     This class maintains a single instance of configuration settings including
     environment details, application name, and tracing information throughout the openLIT package.
-    
+
     Attributes:
         environment (str): Deployment environment of the application.
         application_name (str): Name of the application using openLIT.
@@ -53,6 +63,7 @@ class OpenlitConfig:
         disable_batch (bool): Flag to disable batch span processing in tracing.
         trace_content (bool): Flag to enable or disable tracing of content.
     """
+
     _instance = None
 
     def __new__(cls):
@@ -77,9 +88,19 @@ class OpenlitConfig:
         cls.disable_metrics = False
 
     @classmethod
-    def update_config(cls, environment, application_name, tracer, otlp_endpoint,
-                      otlp_headers, disable_batch, trace_content, metrics_dict,
-                      disable_metrics, pricing_json):
+    def update_config(
+        cls,
+        environment,
+        application_name,
+        tracer,
+        otlp_endpoint,
+        otlp_headers,
+        disable_batch,
+        trace_content,
+        metrics_dict,
+        disable_metrics,
+        pricing_json,
+    ):
         """
         Updates the configuration based on provided parameters.
 
@@ -105,8 +126,14 @@ class OpenlitConfig:
         cls.trace_content = trace_content
         cls.disable_metrics = disable_metrics
 
-def instrument_if_available(instrumentor_name, instrumentor_instance, config,
-                            disabled_instrumentors, module_name_map):
+
+def instrument_if_available(
+    instrumentor_name,
+    instrumentor_instance,
+    config,
+    disabled_instrumentors,
+    module_name_map,
+):
     """Instruments the specified instrumentor if its library is available."""
     if instrumentor_name in disabled_instrumentors:
         return
@@ -134,10 +161,10 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
          meter=None, disable_metrics=False, pricing_json=None, collect_gpu_stats=False):
     """
     Initializes the openLIT configuration and setups tracing.
-    
-    This function sets up the openLIT environment with provided configurations 
+
+    This function sets up the openLIT environment with provided configurations
     and initializes instrumentors for tracing.
-    
+
     Args:
         environment (str): Deployment environment.
         application_name (str): Application name.
@@ -157,8 +184,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
 
     module_name_map = {
         "openai": "openai",
-        "anthropic": "anthropic",  
-        "cohere": "cohere",  
+        "anthropic": "anthropic",
+        "cohere": "cohere",
         "mistral": "mistralai",
         "bedrock": "boto3",
         "vertexai": "vertexai",
@@ -176,9 +203,13 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "transformers": "transformers",
     }
 
-    invalid_instrumentors = [name for name in disabled_instrumentors if name not in module_name_map]
+    invalid_instrumentors = [
+        name for name in disabled_instrumentors if name not in module_name_map
+    ]
     for invalid_name in invalid_instrumentors:
-        logger.warning("Invalid instrumentor name detected and ignored: '%s'", invalid_name)
+        logger.warning(
+            "Invalid instrumentor name detected and ignored: '%s'", invalid_name
+        )
 
     try:
         # Retrieve or create the single configuration instance.
@@ -187,9 +218,11 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         # Setup tracing based on the provided or default configuration.
         tracer = setup_tracing(
             application_name=application_name,
-            environment=environment, tracer=tracer,
-            otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers,
-            disable_batch=disable_batch
+            environment=environment,
+            tracer=tracer,
+            otlp_endpoint=otlp_endpoint,
+            otlp_headers=otlp_headers,
+            disable_batch=disable_batch,
         )
 
         if not tracer:
@@ -197,18 +230,31 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             return
 
         # Setup meter and receive metrics_dict instead of meter
-        metrics_dict = setup_meter(application_name=application_name,
-                                   environment=environment, meter=meter,
-                                   otlp_endpoint=otlp_endpoint, otlp_headers=otlp_headers)
+        metrics_dict = setup_meter(
+            application_name=application_name,
+            environment=environment,
+            meter=meter,
+            otlp_endpoint=otlp_endpoint,
+            otlp_headers=otlp_headers,
+        )
 
         if not metrics_dict:
             logger.error("openLIT metrics setup failed. Metrics will not be available.")
             return
 
         # Update global configuration with the provided settings.
-        config.update_config(environment, application_name, tracer, otlp_endpoint,
-                             otlp_headers, disable_batch, trace_content,
-                             metrics_dict, disable_metrics, pricing_json)
+        config.update_config(
+            environment,
+            application_name,
+            tracer,
+            otlp_endpoint,
+            otlp_headers,
+            disable_batch,
+            trace_content,
+            metrics_dict,
+            disable_metrics,
+            pricing_json,
+        )
 
         # Map instrumentor names to their instances
         instrumentor_instances = {
@@ -243,6 +289,133 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
                 application_name=config.application_name,
             )
 
-    # pylint: disable=broad-exception-caught
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)
+
+
+def trace(wrapped):
+    """
+    Generates a telemetry wrapper for messages to collect metrics.
+    """
+
+    @wraps(wrapped)
+    def wrapper(*args, **kwargs):
+        __trace = t.get_tracer_provider()
+        with __trace.get_tracer(__name__).start_as_current_span(
+            name=wrapped.__name__,
+            kind=SpanKind.CLIENT,
+        ) as span:
+            try:
+                response = wrapped(*args, **kwargs)
+                span.set_attribute(
+                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response
+                )
+                span.set_status(Status(StatusCode.OK))
+
+            except Exception as e:
+                response = None
+                span.record_exception(e)
+                span.set_status(status=Status(StatusCode.ERROR), description=e)
+                logging.error("Error in %s: %s", wrapped.__name__, e, exc_info=True)
+
+            # Adding function arguments as metadata
+            try:
+                span.set_attribute("function.args", str(args))
+                span.set_attribute("function.kwargs", str(kwargs))
+                span.set_attribute(
+                    SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    OpenlitConfig.application_name,
+                )
+                span.set_attribute(
+                    SemanticConvetion.GEN_AI_ENVIRONMENT, OpenlitConfig.environment
+                )
+
+            except Exception as meta_exception:
+                logging.error(
+                    "Failed to set metadata for %s: %s",
+                    wrapped.__name__,
+                    meta_exception,
+                    exc_info=True,
+                )
+
+            return response
+
+    return wrapper
+
+
+class TracedSpan:
+    """
+    A wrapper class for an OpenTelemetry span that provides helper methods
+    for setting result and metadata attributes on the span.
+
+    Attributes:
+        _span (Span): The underlying OpenTelemetry span.
+    """
+
+    def __init__(self, span):
+        """
+        Initializes the TracedSpan with the given span.
+
+        Params:
+            span (Span): The OpenTelemetry span to be wrapped.
+        """
+
+        self._span: Span = span
+
+    def set_result(self, result):
+        """
+        Sets the result attribute on the underlying span.
+
+        Params:
+            result: The result to be set as an attribute on the span.
+        """
+
+        self._span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, result)
+
+    def set_metadata(self, metadata: Dict):
+        """
+        Sets multiple attributes on the underlying span.
+
+        Params:
+            metadata (Dict): A dictionary of attributes to be set on the span.
+        """
+
+        self._span.set_attributes(attributes=metadata)
+
+    def __enter__(self):
+        """
+        Enters the context of the TracedSpan, returning itself.
+
+        Returns:
+            TracedSpan: The instance of TracedSpan.
+        """
+
+        return self
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        """
+        Exits the context of the TracedSpan by ending the underlying span.
+        """
+
+        self._span.end()
+
+
+@contextmanager
+def start_trace(name: str):
+    """
+    A context manager that starts a new trace and provides a TracedSpan
+    for usage within the context.
+
+    Params:
+        name (str): The name of the span.
+
+    Yields:
+        TracedSpan: The wrapped span for trace operations.
+    """
+
+    __trace = t.get_tracer_provider()
+    with __trace.get_tracer(__name__).start_as_current_span(
+        name,
+        kind=SpanKind.CLIENT,
+    ) as span:
+        yield TracedSpan(span)
