@@ -16,8 +16,7 @@
       "to": "#FFA500"
     }
   },
-  "topbarCtaButton": 
-  {
+  "topbarCtaButton": {
     "name": "Website",
     "url": "https://openlit.io/"
   },
@@ -30,14 +29,19 @@
   },
   "anchors": [
     {
-      "name": "Community",
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/openlit/"
+    },
+    {
+      "name": "Slack",
       "icon": "slack",
       "url": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ"
     },
     {
-      "name": "GitHub",
-      "icon": "github",
-      "url": "https://github.com/openlit/"
+      "name": "Discord",
+      "icon": "discord",
+      "url": "https://discord.com/invite/rjvTm6zd"
     }
   ],
   "navigation": [
@@ -94,6 +98,13 @@
             "latest/integrations/haystack",
             "latest/integrations/embedchain"
           ]
+        },
+        {
+          "group": "GPUs",
+          "version": "latest",
+          "pages": [
+            "latest/integrations/nvidia-gpu"
+          ]
         }
       ]
     },
@@ -118,6 +129,7 @@
         "latest/connections/new-relic",
         "latest/connections/elastic",
         "latest/connections/datadog",
+        "latest/connections/murnitur",
         "latest/connections/signoz",
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
@@ -128,12 +140,13 @@
   ],
   "analytics": {
     "ga4": {
-        "measurementId": "G-2BMXWY88E6"
+      "measurementId": "G-2BMXWY88E6"
     }
   },
   "footerSocials": {
     "github": "https://github.com/openlit/",
     "slack": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ",
+    "discord": "https://discord.com/invite/rjvTm6zd",
     "twitter": "https://twitter.com/openlit_io",
     "linkedin": "https://www.linkedin.com/company/openlit/"
   }

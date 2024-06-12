@@ -1,6 +1,6 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
-OpenTelemetry-native Observability & Evals for LLMs</h1>
+OTel-native Observability and Evals for LLMs & GPUs</h1>
 
 **[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python)**
 
@@ -11,13 +11,16 @@ OpenTelemetry-native Observability & Evals for LLMs</h1>
 [![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
-[![X](https://img.shields.io/badge/follow-%40OpenLIT-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
+[![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/rjvTm6zd)
+[![X](https://img.shields.io/badge/follow-%40openlit__io-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
 
 </div>
 
 ![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/github-readme-repo-banner.png?raw=true)
 
-OpenLIT is an **OpenTelemetry-native** GenAI and LLM Application Observability tool. It's designed to make the integration process of observability into GenAI projects as easy as pie – literally, with just **a single line of code**. Whether you're working with popular LLM Libraries such as OpenAI and HuggingFace or leveraging vector databases like ChromaDB, OpenLIT ensures your applications are monitored seamlessly, providing critical insights to improve performance and reliability.
+**OpenLIT** is an **OpenTelemetry-native** tool designed to help developers gain insights into the performance of their LLM applications in production. It automatically collects LLM input and output metadata, and monitors GPU performance for self-hosted LLMs.
+
+OpenLIT makes integrating observability into GenAI projects effortless with just **a single line of code**. Whether you're working with popular LLM providers such as OpenAI and HuggingFace, or leveraging vector databases like ChromaDB, OpenLIT ensures your applications are monitored seamlessly, providing critical insights including GPU performance stats for self-hosted LLMs to improve performance and reliability.
 
 This project proudly follows the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) of the OpenTelemetry community, consistently updating to align with the latest standards in observability.
 
@@ -68,7 +71,7 @@ pip install openlit
 ```
 
 ### Step 3: Initialize OpenLIT in your Application
-Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
+Integrating OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
 
 ```python
 import openlit
@@ -142,16 +145,16 @@ Whether it's big or small, we love contributions 💚. Check out our [Contributi
 
 Unsure where to start? Here are a few ways to get involved:
 
-- Join our [Slack channel](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) to discuss ideas, share feedback, and connect with both our team and the wider OpenLIT community.
+- Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) or [Discord](https://discord.gg/rjvTm6zd) community to discuss ideas, share feedback, and connect with both our team and the wider OpenLIT community.
 
 Your input helps us grow and improve, and we're here to support you every step of the way.
 
 ## 💚 Community & Support
 
-Connect with the OpenLIT community and maintainers for support, discussions, and updates:
+Connect with OpenLIT community and maintainers for support, discussions, and updates:
 
 - 🌟 If you like it, Leave a star on our [GitHub](https://github.com/openlit/openlit/)
-- 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) Community for live interactions and questions.
+- 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) or [Discord](https://discord.gg/rjvTm6zd) community for live interactions and questions.
 - 🐞 Report bugs on our [GitHub Issues](https://github.com/openlit/openlit/issues) to help us improve OpenLIT.
 - 𝕏 Follow us on [X](https://twitter.com/openlit_io) for the latest updates and news.
 
