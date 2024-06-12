@@ -131,7 +131,7 @@ def instrument_if_available(instrumentor_name, instrumentor_instance, config,
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
-         meter=None, disable_metrics=False, pricing_json=None):
+         meter=None, disable_metrics=False, pricing_json=None, collect_gpu_stats=False):
     """
     Initializes the openLIT configuration and setups tracing.
     
@@ -148,8 +148,9 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         disable_batch (bool): Flag to disable batch span processing (Optional).
         trace_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
-        disable_metrics (bool): Flag to disable metrics (Optional)
-        pricing_json(str): File path or url to the pricing json (Optional)
+        disable_metrics (bool): Flag to disable metrics (Optional).
+        pricing_json(str): File path or url to the pricing json (Optional).
+        collect_gpu_stats (bool): Flag to enable or disable GPU metrics collection.
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     # Check for invalid instrumentor names
@@ -173,7 +174,6 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "qdrant": "qdrant_client",
         "milvus": "pymilvus",
         "transformers": "transformers",
-        "gpu": "gpustat"
     }
 
     invalid_instrumentors = [name for name in disabled_instrumentors if name not in module_name_map]
@@ -230,13 +230,18 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "qdrant": QdrantInstrumentor(),
             "milvus": MilvusInstrumentor(),
             "transformers": TransformersInstrumentor(),
-            "gpu": NvidiaGPUInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
             instrument_if_available(name, instrumentor, config,
                                     disabled_instrumentors, module_name_map)
+        
+        if (disable_metrics is False) and (collect_gpu_stats is True):
+            NvidiaGPUInstrumentor.instrument(
+                environment=config.environment,
+                application_name=config.application_name,
+            )
 
     # pylint: disable=broad-exception-caught
     except Exception as e:

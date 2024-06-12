@@ -27,79 +27,75 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
 
     def _instrument(self, **kwargs):
 
-        meter_provider = kwargs.get("meter_provider")
-        application_name = kwargs.get("application_name", "unknown_application")
-        environment = kwargs.get("environment", "unknown_environment")
-        disable_metrics = kwargs.get("disable_metrics")
+        application_name = kwargs.get("application_name")
+        environment = kwargs.get("environment")
         
-        if disable_metrics is False:
-            import gpustat
+        import gpustat
 
-            meter = get_meter(
-                __name__,
-                "0.1.0",
-                meter_provider,
-                schema_url="https://opentelemetry.io/schemas/1.11.0",
-            )
+        meter = get_meter(
+            __name__,
+            "0.1.0",
+            schema_url="https://opentelemetry.io/schemas/1.11.0",
+        )
 
-            def check_and_record(value):
-                return value if value is not None else 0
+        def check_and_record(value):
+            return value if value is not None else 0
 
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_UTILIZATION,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "utilization")],
-                description="GPU Utilization",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_UTILIZATION_ENC,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "utilization_enc")],
-                description="GPU Encoder Utilization",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_UTILIZATION_DEC,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "utilization_dec")],
-                description="GPU Decoder Utilization",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_TEMPERATURE,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "temperature")],
-                description="GPU Temperature",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_FAN_SPEED,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "fan_speed")],
-                description="GPU Fan Speed",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_MEMORY_AVAILABLE,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_available")],
-                description="GPU Memory Available",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_MEMORY_TOTAL,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_total")],
-                description="GPU Memory Total",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_MEMORY_USED,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_used")],
-                description="GPU Memory Used",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_MEMORY_FREE,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_free")],
-                description="GPU Memory Free",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_POWER_DRAW,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "power_draw")],
-                description="GPU Power Draw",
-            )
-            meter.create_observable_gauge(
-                name=SemanticConvetion.GPU_POWER_LIMIT,
-                callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "power_limit")],
-                description="GPU Power Limit",
-            )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_UTILIZATION,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "utilization")],
+            description="GPU Utilization",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_UTILIZATION_ENC,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "utilization_enc")],
+            description="GPU Encoder Utilization",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_UTILIZATION_DEC,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "utilization_dec")],
+            description="GPU Decoder Utilization",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_TEMPERATURE,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "temperature")],
+            description="GPU Temperature",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_FAN_SPEED,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "fan_speed")],
+            description="GPU Fan Speed",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_MEMORY_AVAILABLE,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_available")],
+            description="GPU Memory Available",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_MEMORY_TOTAL,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_total")],
+            description="GPU Memory Total",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_MEMORY_USED,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_used")],
+            description="GPU Memory Used",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_MEMORY_FREE,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_free")],
+            description="GPU Memory Free",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_POWER_DRAW,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "power_draw")],
+            description="GPU Power Draw",
+        )
+        meter.create_observable_gauge(
+            name=SemanticConvetion.GPU_POWER_LIMIT,
+            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "power_limit")],
+            description="GPU Power Limit",
+        )
 
     def _uninstrument(self, **kwargs):
         # Proper uninstrumentation logic to revert patched methods
