@@ -39,10 +39,10 @@ export default function OpengroundRequest({
 
 	const [error, updatedData] = (data as any[]) || [];
 
-	if (error)
+	if (error || !updatedData)
 		return (
 			<div className="flex w-full h-full text-error items-center justify-center">
-				{error}
+				{error || "No such request present"}
 			</div>
 		);
 

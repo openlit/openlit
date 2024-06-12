@@ -16,7 +16,7 @@ import { EyeIcon } from "lucide-react";
 import { get } from "lodash";
 import OpengroundHeader from "@/components/(playground)/openground/header";
 
-export const columns = [
+const columns = [
 	{
 		key: "stats.prompt",
 		header: "Prompt",
@@ -121,6 +121,12 @@ export default function Openground() {
 							<TableRow className="text-stone-600 dark:text-stone-400">
 								<TableCell colSpan={columns.length} className="text-center">
 									Loading
+								</TableCell>
+							</TableRow>
+						) : updatedData.length === 0 ? (
+							<TableRow className="text-stone-600 dark:text-stone-400">
+								<TableCell colSpan={columns.length} className="text-center">
+									No data to display
 								</TableCell>
 							</TableRow>
 						) : (
