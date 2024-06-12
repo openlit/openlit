@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - 'sdk/python/**'
-  pull_request:
+  pull_request_target:
     branches: [ "main" ]
     paths:
       - 'sdk/python/**'
@@ -19,8 +19,12 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11"]
+
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout base code
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
     
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5

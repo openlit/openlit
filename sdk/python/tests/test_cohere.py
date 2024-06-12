@@ -22,6 +22,7 @@ sync_client = cohere.Client(os.getenv("COHERE_API_TOKEN"))
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
+
 def test_embed():
     """
     Tests synchronous embedding creation with the 'embed-english-v3.0' model.
@@ -32,8 +33,7 @@ def test_embed():
 
     try:
         embeddings_resp = sync_client.embed(
-            texts=['This is a test'],
-            model='embed-english-v3.0'
+            texts=["This is a test"], model="embed-english-v3.0"
         )
         assert embeddings_resp.meta is not None
 
@@ -42,6 +42,7 @@ def test_embed():
     except Exception as e:
         print("An unexpected error occurred")
         raise e
+
 
 def test_chat():
     """
@@ -52,10 +53,7 @@ def test_chat():
     """
 
     try:
-        chat_resp = sync_client.chat(
-            message='Say this is a test',
-            model='command'
-        )
+        chat_resp = sync_client.chat(message="Say this is a test", model="command")
         assert chat_resp.generation_id is not None
 
     except cohere.core.api_error.ApiError as e:

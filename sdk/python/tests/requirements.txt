@@ -2,6 +2,7 @@
 pytest>=7.4.0
 pytest-asyncio>=0.23.6
 requests>=2.31.0
+schedule>=1.2.2
 pylint>=3.0.2
 
 # Gen AI
@@ -13,7 +14,7 @@ transformers>=4.39.3
 boto3>=1.34.93
 botocore>=1.34.93
 google-cloud-aiplatform >= 1.38.1
-groq >= 0.5.0
+groq>= 0.5.0
 
 # Vector DBs
 chromadb>=0.4.0
@@ -25,6 +26,9 @@ pymilvus>=2.4.3
 langchain>=0.1.16
 langchainhub>=0.1.16
 embedchain>=0.1.104
+
+# GPU
+gpustat>=1.1.1
 
 # Utilities
 bs4
