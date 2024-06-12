@@ -27,8 +27,8 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
 
     def _instrument(self, **kwargs):
 
-        application_name = kwargs.get("application_name")
-        environment = kwargs.get("environment")
+        application_name = kwargs.get("application_name", "default")
+        environment = kwargs.get("environment", "default")
         
         import gpustat
 
