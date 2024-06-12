@@ -40,6 +40,7 @@ from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
+from openlit.instrumentation.gpu import NvidiaGPUInstrumentor
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
@@ -155,20 +156,9 @@ def instrument_if_available(
         except Exception as e:
             logger.error("Failed to instrument %s: %s", instrumentor_name, e)
 
-
-def init(
-    environment="default",
-    application_name="default",
-    tracer=None,
-    otlp_endpoint=None,
-    otlp_headers=None,
-    disable_batch=False,
-    trace_content=True,
-    disabled_instrumentors=None,
-    meter=None,
-    disable_metrics=False,
-    pricing_json=None,
-):
+def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
+         otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
+         meter=None, disable_metrics=False, pricing_json=None, collect_gpu_stats=False):
     """
     Initializes the openLIT configuration and setups tracing.
 
@@ -185,8 +175,9 @@ def init(
         disable_batch (bool): Flag to disable batch span processing (Optional).
         trace_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
-        disable_metrics (bool): Flag to disable metrics (Optional)
-        pricing_json(str): File path or url to the pricing json (Optional)
+        disable_metrics (bool): Flag to disable metrics (Optional).
+        pricing_json(str): File path or url to the pricing json (Optional).
+        collect_gpu_stats (bool): Flag to enable or disable GPU metrics collection.
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     # Check for invalid instrumentor names
@@ -289,8 +280,13 @@ def init(
 
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
-            instrument_if_available(
-                name, instrumentor, config, disabled_instrumentors, module_name_map
+            instrument_if_available(name, instrumentor, config,
+                                    disabled_instrumentors, module_name_map)
+
+        if (disable_metrics is False) and (collect_gpu_stats is True):
+            NvidiaGPUInstrumentor().instrument(
+                environment=config.environment,
+                application_name=config.application_name,
             )
 
     except Exception as e:

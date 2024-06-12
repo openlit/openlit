@@ -160,6 +160,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `disabled_instrumentors`| List of instrumentors to disable. | `None` |    No    |
 | `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
 | `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
+| `collect_gpu_stats`          | Flag to enable or disable GPU metrics collection.                                         | `False`        |    No    |
 
 ## 🌱 Contributing
 

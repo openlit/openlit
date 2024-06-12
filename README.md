@@ -1,6 +1,6 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
-OpenTelemetry-native Observability & Evals for LLMs</h1>
+OpenTelemetry-native Observability and Evals for LLMs & GPUs</h1>
 
 **[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python)**
 
@@ -18,7 +18,9 @@ OpenTelemetry-native Observability & Evals for LLMs</h1>
 
 ![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/github-readme-repo-banner.png?raw=true)
 
-OpenLIT is an **OpenTelemetry-native** GenAI and LLM Application Observability tool. It's designed to make the integration process of observability into GenAI projects as easy as pie – literally, with just **a single line of code**. Whether you're working with popular LLM Libraries such as OpenAI and HuggingFace or leveraging vector databases like ChromaDB, OpenLIT ensures your applications are monitored seamlessly, providing critical insights to improve performance and reliability.
+**OpenLIT** is an **OpenTelemetry-native** tool designed to help developers gain insights into the performance of their LLM applications in production. It automatically collects LLM input and output metadata, and monitors GPU performance for self-hosted LLMs.
+
+OpenLIT makes integrating observability into GenAI projects effortless with just **a single line of code**. Whether you're working with popular LLM providers such as OpenAI and HuggingFace, or leveraging vector databases like ChromaDB, OpenLIT ensures your applications are monitored seamlessly, providing critical insights including GPU performance stats for self-hosted LLMs to improve performance and reliability.
 
 This project proudly follows the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) of the OpenTelemetry community, consistently updating to align with the latest standards in observability.
 
@@ -69,7 +71,7 @@ pip install openlit
 ```
 
 ### Step 3: Initialize OpenLIT in your Application
-Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
+Integrating OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
 
 ```python
 import openlit
@@ -149,7 +151,7 @@ Your input helps us grow and improve, and we're here to support you every step o
 
 ## 💚 Community & Support
 
-Connect with the OpenLIT community and maintainers for support, discussions, and updates:
+Connect with OpenLIT community and maintainers for support, discussions, and updates:
 
 - 🌟 If you like it, Leave a star on our [GitHub](https://github.com/openlit/openlit/)
 - 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) or [Discord](https://discord.gg/rjvTm6zd) community for live interactions and questions.
