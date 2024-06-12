@@ -1,16 +1,13 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
+# pylint: disable=useless-return, bad-staticmethod-argument, duplicate-code, import-outside-toplevel, broad-exception-caught
 """Initializer of Auto Instrumentation of GPU Metrics"""
 
-from typing import Collection, Iterable
+from typing import Collection
 import logging
-import threading
-import time
-import schedule
 from functools import partial
 
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from opentelemetry.metrics import get_meter, CallbackOptions, Observation
+from opentelemetry.metrics import get_meter, Observation
 
 from openlit.semcov import SemanticConvetion
 
@@ -21,7 +18,7 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
     """
     An instrumentor for collecting NVIDIA GPU metrics.
     """
-        
+
     def instrumentation_dependencies(self) -> Collection[str]:
         return []
 
@@ -29,8 +26,6 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
 
         application_name = kwargs.get("application_name", "default")
         environment = kwargs.get("environment", "default")
-        
-        import gpustat
 
         meter = get_meter(
             __name__,
@@ -43,57 +38,68 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
 
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_UTILIZATION,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "utilization")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "utilization")],
             description="GPU Utilization",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_UTILIZATION_ENC,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "utilization_enc")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "utilization_enc")],
             description="GPU Encoder Utilization",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_UTILIZATION_DEC,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "utilization_dec")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "utilization_dec")],
             description="GPU Decoder Utilization",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_TEMPERATURE,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "temperature")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "temperature")],
             description="GPU Temperature",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_FAN_SPEED,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "fan_speed")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "fan_speed")],
             description="GPU Fan Speed",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_MEMORY_AVAILABLE,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_available")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "memory_available")],
             description="GPU Memory Available",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_MEMORY_TOTAL,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_total")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "memory_total")],
             description="GPU Memory Total",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_MEMORY_USED,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_used")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "memory_used")],
             description="GPU Memory Used",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_MEMORY_FREE,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "memory_free")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "memory_free")],
             description="GPU Memory Free",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_POWER_DRAW,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "power_draw")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "power_draw")],
             description="GPU Power Draw",
         )
         meter.create_observable_gauge(
             name=SemanticConvetion.GPU_POWER_LIMIT,
-            callbacks=[partial(self._collect_metric, environment, application_name, check_and_record, "power_limit")],
+            callbacks=[partial(self._collect_metric, environment,
+                               application_name, check_and_record, "power_limit")],
             description="GPU Power Limit",
         )
 
@@ -101,7 +107,9 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
         # Proper uninstrumentation logic to revert patched methods
         pass
 
-    def _collect_metric(self, environment, application_name, check_and_record, metric_name, options: CallbackOptions) -> Iterable[Observation]:
+    def _collect_metric(self, environment, application_name,
+                        check_and_record, metric_name):
+
         import gpustat
 
         try:
@@ -118,6 +126,6 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
                 }
 
                 yield Observation(check_and_record(getattr(gpu, metric_name, 0)), attributes)
-        
+
         except Exception as e:
             logger.error("Error in GPU metrics collection: %s", e)
