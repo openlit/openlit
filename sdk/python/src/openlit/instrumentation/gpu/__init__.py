@@ -1,4 +1,4 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, duplicate-code, import-outside-toplevel, broad-exception-caught
+# pylint: disable=useless-return, bad-staticmethod-argument, duplicate-code, import-outside-toplevel, broad-exception-caught, unused-argument
 """Initializer of Auto Instrumentation of GPU Metrics"""
 
 from typing import Collection, Iterable
