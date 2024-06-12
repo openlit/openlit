@@ -238,7 +238,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
                                     disabled_instrumentors, module_name_map)
         
         if (disable_metrics is False) and (collect_gpu_stats is True):
-            NvidiaGPUInstrumentor.instrument(
+            NvidiaGPUInstrumentor().instrument(
                 environment=config.environment,
                 application_name=config.application_name,
             )
