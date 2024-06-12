@@ -1,5 +1,10 @@
 import OpenLitHelper from "@/helpers/openlit";
-import { evaluate } from "@/lib/platform/openground";
+import { evaluate, getAllOpengroundRequests } from "@/lib/platform/openground";
+
+export async function GET() {
+	const response = await getAllOpengroundRequests();
+	return Response.json(response);
+}
 
 export async function POST(request: Request) {
 	const formData = await request.json();

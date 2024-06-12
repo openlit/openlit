@@ -25,16 +25,17 @@ export default function DatabaseConfigSwitch() {
 		fetchDatabaseConfigList();
 	}, []);
 
+	console.log(activeDatabase);
 	if (!activeDatabase) return null;
 
 	return (
 		<div className="flex mr-6">
-			<Select onValueChange={onClickItem} defaultValue={activeDatabase.id}>
+			<Select onValueChange={onClickItem} value={activeDatabase.id}>
 				<SelectTrigger
 					id="model"
 					className="items-center [&_[data-description]]:hidden  dark:text-white"
 				>
-					<SelectValue placeholder={activeDatabase.name} />
+					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>
 					{list.map((item) => (

@@ -7,7 +7,7 @@ import {
 	SheetTrigger,
 } from "@/components/ui/sheet";
 import { MouseEventHandler, ReactNode } from "react";
-import { providersConfig } from "../../../constants/openground";
+import { providersConfig } from "../../../../constants/openground";
 
 export default function AddProvider({
 	children,
@@ -31,7 +31,7 @@ export default function AddProvider({
 									providersConfig[key as keyof typeof providersConfig];
 								return (
 									<div
-										className="flex flex-col h-auto bg-stone-300 dark:bg-stone-400 p-6 rounded text-stone-900 dark:text-stone-200 gap-4 aspect-square justify-center items-center cursor-pointer"
+										className="flex flex-col h-auto bg-stone-300 dark:bg-stone-500 p-6 rounded text-stone-900 dark:text-stone-200 gap-4 aspect-square justify-center items-center cursor-pointer"
 										data-key={key}
 										key={key}
 										onClick={onClick}

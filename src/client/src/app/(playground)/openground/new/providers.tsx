@@ -9,8 +9,8 @@ import {
 import AddProvider from "./add-provider";
 import { MouseEventHandler, useRef } from "react";
 import { isNil } from "lodash";
-import ProviderTable from "./provider-table";
-import { providersConfig } from "../../../constants/openground";
+import { providersConfig } from "../../../../constants/openground";
+import ProviderResponse from "./provider-response";
 
 export default function ProvidersUI() {
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -65,15 +65,15 @@ export default function ProvidersUI() {
 			key={`selected-provider-${index}`}
 			className="flex h-full grow w-full min-w-[40%] max-w-[50%]"
 		>
-			<ProviderTable provider={providersConfig[provider]} index={index} />
+			<ProviderResponse provider={providersConfig[provider]} index={index} />
 		</div>
 	));
 
 	if (children.length < 2) {
 		if (children.length < 1) {
-			children.push(<AddProviderPlaceholder />);
+			children.push(<AddProviderPlaceholder key={`addplaceholder-1`} />);
 		}
-		children.push(<AddProviderPlaceholder />);
+		children.push(<AddProviderPlaceholder key={`addplaceholder-2`} />);
 	}
 
 	return (

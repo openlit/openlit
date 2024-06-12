@@ -1,28 +1,21 @@
-import { ProviderType } from "@/store/openground";
+import {
+	EvalutatedResponseData,
+	ProviderType,
+	Providers,
+} from "@/store/openground";
 import {
 	Table,
 	TableBody,
-	TableCell,
 	TableHead,
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
 import { useRootStore } from "@/store";
-import {
-	getEvaluatedResponse,
-	getSelectedProviders,
-	removeProvider,
-} from "@/selectors/openground";
+import { removeProvider } from "@/selectors/openground";
 import { Button } from "@/components/ui/button";
 import { FlaskRoundIcon, Settings2Icon, Trash2Icon } from "lucide-react";
 import { JsonViewer } from "@textea/json-viewer";
 import { omit } from "lodash";
-import {
-	HoverCard,
-	HoverCardContent,
-	HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import { providersConfig } from "@/constants/openground";
 import ProviderSettings from "./provider-settings";
 import Image from "next/image";
 
@@ -39,21 +32,49 @@ const keyHeadersTransformer = (str: string) => {
 	return str;
 };
 
+const dataAdditionalStrings: Record<
+	string,
+	{ prefix?: string; suffix?: string }
+> = {
+	cost: {
+		prefix: "$",
+	},
+	responseTime: {
+		suffix: "s",
+	},
+};
+
+const priorityDisplayOrder = ["prompt", "response"];
+
 export default function ProviderTable({
 	provider,
 	index,
+	selectedProviders,
+	evaluatedResponse,
 }: {
 	provider: ProviderType;
 	index: number;
+	evaluatedResponse: {
+		isLoading: boolean;
+		data?: EvalutatedResponseData;
+	};
+	selectedProviders: {
+		provider: Providers;
+		config: Record<string, any>;
+	}[];
 }) {
 	const removeProviderItem = useRootStore(removeProvider);
 	const onClickDelete = () => removeProviderItem(index);
-	const selectedProviders = useRootStore(getSelectedProviders);
 	const selectedProvider = selectedProviders[index];
-	const evaluatedResponse = useRootStore(getEvaluatedResponse);
+	const keysDisplayOrder = [
+		...priorityDisplayOrder,
+		...Object.keys(
+			evaluatedResponse.data?.[index]?.[1]?.evaluationData || {}
+		).filter((k) => !priorityDisplayOrder.includes(k)),
+	];
 	return (
 		<Table className="h-full relative">
-			<TableHeader className="bg-stone-300 dark:bg-stone-700 text-stone-600 dark:text-stone-200 border-none z-10 sticky top-0">
+			<TableHeader className="bg-stone-300 dark:bg-stone-700 text-stone-600 dark:text-stone-200 border-none z-20 sticky top-0">
 				<TableRow>
 					<TableHead colSpan={2}>
 						<div className="flex w-full gap-3">
@@ -96,79 +117,32 @@ export default function ProviderTable({
 				{evaluatedResponse.data ? (
 					evaluatedResponse.data?.[index]?.[1] ? (
 						<>
-							{Object.keys(
-								evaluatedResponse.data?.[index]?.[1].evaluationData || {}
-							).map((key) => (
+							{keysDisplayOrder.map((key) => (
 								<TableRow key={key}>
-									<div className="flex flex-col w-full h-full relative">
+									<section className="flex flex-col w-full h-full relative">
 										<p className="font-medium p-4 bg-stone-200 dark:bg-stone-800 text-stone-500 sticky top-[48px]">
-											<span className={`${index === 0 ? "" : "opacity-0"}`}>
-												{keyHeadersTransformer(key)}
-											</span>
+											{keyHeadersTransformer(key)}
 										</p>
-										<HoverCard>
-											<HoverCardTrigger>
-												<p
-													className={`text-stone-600 dark:text-stone-400 p-4 ${
-														key === "prompt" || key === "response"
-															? "h-[200px] overflow-auto"
-															: ""
-													}`}
-												>
-													{
-														evaluatedResponse.data?.[index]?.[1].evaluationData[
-															key
-														]
-													}
-												</p>
-											</HoverCardTrigger>
-											{key === "prompt" || key === "response" ? null : (
-												<HoverCardContent className="w-auto px-0">
-													<Table>
-														<TableHeader>
-															<TableRow>
-																<TableHead className="h-auto">
-																	Provider
-																</TableHead>
-																<TableHead className="text-right h-auto">
-																	{keyHeadersTransformer(key)}
-																</TableHead>
-															</TableRow>
-														</TableHeader>
-														<TableBody>
-															{evaluatedResponse.data?.map(
-																(item, itemIndex) => {
-																	const { provider } =
-																		selectedProviders[itemIndex];
-																	const providerConfig =
-																		providersConfig[provider];
-																	return itemIndex === index ||
-																		!item[1]?.evaluationData?.[key] ? null : (
-																		<TableRow className="h-auto">
-																			<TableCell className="font-medium h-auto py-2">
-																				{providerConfig.title}
-																			</TableCell>
-																			<TableCell className="text-right h-auto py-2">
-																				{item[1].evaluationData[key]}
-																			</TableCell>
-																		</TableRow>
-																	);
-																}
-															)}
-														</TableBody>
-													</Table>
-												</HoverCardContent>
-											)}
-										</HoverCard>
-									</div>
+										<p
+											className={`text-stone-600 dark:text-stone-400 p-4 ${
+												key === "response"
+													? "h-[200px] overflow-auto"
+													: key === "prompt"
+													? "max-h-[200px] overflow-auto"
+													: ""
+											}`}
+										>
+											{dataAdditionalStrings[key]?.prefix || ""}
+											{evaluatedResponse.data?.[index]?.[1].evaluationData[key]}
+											{dataAdditionalStrings[key]?.suffix || ""}
+										</p>
+									</section>
 								</TableRow>
 							))}
 							<TableRow>
-								<div className="flex flex-col w-full h-full relative">
-									<p className="font-medium p-4 bg-stone-200 dark:bg-stone-800 sticky top-[48px] z-20">
-										<span className={`${index === 0 ? "" : "opacity-0"}`}>
-											Provider response
-										</span>
+								<section className="flex flex-col w-full h-full relative">
+									<p className="font-medium p-4 bg-stone-200 dark:bg-stone-800 text-stone-500 sticky top-[48px]">
+										Provider response
 									</p>
 									<JsonViewer
 										value={omit(evaluatedResponse.data[index]?.[1], [
@@ -180,7 +154,7 @@ export default function ProviderTable({
 										displaySize={false}
 										theme="dark"
 									/>
-								</div>
+								</section>
 							</TableRow>
 						</>
 					) : (
@@ -193,7 +167,7 @@ export default function ProviderTable({
 					)
 				) : (
 					<TableRow>
-						<div className="flex flex-col w-full h-full items-center justify-center p-4 group">
+						<section className="flex flex-col w-full h-full items-center justify-center p-4 group">
 							{evaluatedResponse.isLoading ? (
 								<FlaskRoundIcon className="w-32 h-32 text-stone-200 dark:text-stone-700" />
 							) : (
@@ -214,7 +188,7 @@ export default function ProviderTable({
 									/>
 								</>
 							)}
-						</div>
+						</section>
 					</TableRow>
 				)}
 			</TableBody>

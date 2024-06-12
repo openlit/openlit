@@ -246,7 +246,7 @@ function DatabaseList({
 							</p>
 							{dbConfigs.length !== 0 && (
 								<Button
-									className="mt-4"
+									className="mt-4 item-element-card"
 									data-item-id={"ADD_NEW_ID"}
 									onClick={onClickDB}
 								>

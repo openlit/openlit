@@ -94,6 +94,7 @@ const ProviderSettings = ({
 											onChange={(ev) =>
 												onTextValueChange(ev, `[${index}.config.${item.key}]`)
 											}
+											disabled={!updateAllowed}
 										/>
 									) : item.type === "select" ? (
 										<Select
@@ -101,6 +102,7 @@ const ProviderSettings = ({
 												onSelectChange(value, `[${index}.config.${item.key}]`)
 											}
 											defaultValue={selectedProvider.config[item.key]}
+											disabled={!updateAllowed}
 										>
 											<SelectTrigger className="col-span-2 h-8">
 												<SelectValue placeholder={item.placeholder} />
@@ -125,6 +127,7 @@ const ProviderSettings = ({
 											onValueChange={(value) =>
 												onSliderChange(value, `[${index}.config.${item.key}]`)
 											}
+											disabled={!updateAllowed}
 										/>
 									) : null}
 								</div>

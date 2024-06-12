@@ -38,7 +38,7 @@ export default function Header() {
 	return (
 		<header className="flex h-[57px] items-center gap-1 border-b dark:border-stone-800 px-4 sm:px-6">
 			<h1 className="flex flex-1 text-xl font-semibold capitalize dark:text-white">
-				{pathname.substring(1).replaceAll("-", " ")}
+				{pathname.substring(1).replaceAll("-", " ").split("/")[0]}
 			</h1>
 			<DatabaseConfigSwitch />
 			<DropdownMenu>
