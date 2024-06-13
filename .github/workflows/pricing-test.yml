@@ -16,6 +16,7 @@ on:
 jobs:
   validate-pricing:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout base code
         uses: actions/checkout@v2
