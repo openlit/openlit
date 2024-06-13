@@ -1,15 +1,22 @@
 name: Validate Pricing File
 
 on:
-  push:
-  pull_request:
+    push:
+      branches: [ "main" ]
+    pull_request_target:
+      branches: [ "main" ]
+    workflow_dispatch:
+    schedule:
+      - cron: '0 0 1-31/15 * *'
 
 jobs:
   validate-pricing:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Checkout base code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Validate JSON structure
         id: validate
