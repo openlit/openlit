@@ -3,8 +3,12 @@ name: Validate Pricing File
 on:
     push:
       branches: [ "main" ]
+      paths:
+      - 'assets/pricing.json'
     pull_request_target:
       branches: [ "main" ]
+      paths:
+      - 'assets/pricing.json'
     workflow_dispatch:
     schedule:
       - cron: '0 0 1-31/15 * *'
