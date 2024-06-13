@@ -2,11 +2,7 @@ name: Validate Pricing File
 
 on:
   push:
-    paths:
-      - 'assets/pricing.json'
   pull_request:
-    paths:
-      - 'assets/pricing.json'
 
 jobs:
   validate-pricing:
