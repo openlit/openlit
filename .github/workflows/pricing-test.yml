@@ -3,12 +3,8 @@ name: Validate Pricing File
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - 'assets/pricing.json'
   pull_request_target:
     branches: [ "main" ]
-    paths:
-      - 'assets/pricing.json'
 
 jobs:
   validate-pricing:
