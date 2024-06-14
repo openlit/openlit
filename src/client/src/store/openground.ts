@@ -2,11 +2,7 @@
 import { lens } from "@dhmk/zustand-lens";
 import { concat, filter, set, slice } from "lodash";
 
-export type Providers =
-	| "anthropic"
-	| "cohere"
-	| "mistral"
-	| "openai";
+export type Providers = "anthropic" | "cohere" | "mistral" | "openai";
 
 export type ProviderType = {
 	key: Providers;
@@ -95,6 +91,9 @@ export const opengroundStoreSlice: OpengroundStore = lens(
 				selectedProviders: [],
 				prompt: "",
 				isLoading: false,
+				evaluatedResponse: {
+					isLoading: false,
+				},
 			})),
 		setEvaluatedLoading: (l: boolean) => {
 			setStore(() => ({

@@ -25,7 +25,6 @@ export default function DatabaseConfigSwitch() {
 		fetchDatabaseConfigList();
 	}, []);
 
-	console.log(activeDatabase);
 	if (!activeDatabase) return null;
 
 	return (

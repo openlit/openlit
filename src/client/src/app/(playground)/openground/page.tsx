@@ -100,7 +100,7 @@ export default function Openground() {
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
 			<OpengroundHeader title="Openground Requests" validateResponse={false} />
-			<div className="flex w-full grow overflow-auto relative">
+			<div className="flex w-full overflow-auto relative">
 				<Table>
 					<TableHeader className="bg-stone-200 dark:bg-stone-800 sticky top-0 z-10">
 						<TableRow>

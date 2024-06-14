@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { getEvaluatedResponse } from "@/selectors/openground";
+import { getEvaluatedResponse, resetOpenground } from "@/selectors/openground";
 import { useRootStore } from "@/store";
 import Link from "next/link";
 
@@ -11,6 +11,7 @@ export default function OpengroundHeader({
 	validateResponse: boolean;
 }) {
 	const evaluatedResponse = useRootStore(getEvaluatedResponse);
+	const resetOpengroundData = useRootStore(resetOpenground);
 
 	const showButton =
 		(validateResponse && !!evaluatedResponse.data) || !validateResponse;
@@ -21,7 +22,7 @@ export default function OpengroundHeader({
 				{title}
 			</h1>
 			{showButton ? (
-				<Link href={"/openground/new"}>
+				<Link href={"/openground/new"} onClick={resetOpengroundData}>
 					<Button variant="secondary">+ New</Button>
 				</Link>
 			) : null}

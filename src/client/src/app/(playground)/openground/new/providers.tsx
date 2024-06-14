@@ -77,9 +77,9 @@ export default function ProvidersUI() {
 	}
 
 	return (
-		<div className="flex w-full h-full gap-4">
+		<div className="flex w-full h-full gap-4 overflow-auto">
 			<div
-				className="flex w-full h-full bg-stone-100 grow dark:bg-stone-900 overflow-auto transition-all relative gap-1"
+				className="flex w-full h-full bg-stone-100 grow dark:bg-stone-900 transition-all relative gap-1"
 				ref={containerRef}
 			>
 				{children}
