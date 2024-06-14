@@ -78,7 +78,7 @@ class OpenlitConfig:
         """Resets configuration to default values."""
         cls.environment = "default"
         cls.application_name = "default"
-        cls.pricing_info = fetch_pricing_info()
+        cls.pricing_info = {}
         cls.tracer = None
         cls.metrics_dict = {}
         cls.otlp_endpoint = None
