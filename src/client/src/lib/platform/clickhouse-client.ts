@@ -7,9 +7,9 @@ import asaw from "@/utils/asaw";
 interface ClickHouseConnectionInfo {
 	username: string;
 	password: string;
-	host: string;
+	url: string;
 	database: string;
-	additional_headers: Record<string, string>;
+	http_headers: Record<string, string>;
 }
 
 const getClickHouseFactoryOptions = (
@@ -41,9 +41,9 @@ export default function createClickhousePool(
 	const connectionObject: ClickHouseConnectionInfo = {
 		username: dbConfig.username,
 		password: dbConfig.password || "",
-		host: constructURL(dbConfig.host, dbConfig.port),
+		url: constructURL(dbConfig.host, dbConfig.port),
 		database: dbConfig.database,
-		additional_headers: parseQueryStringToObject(dbConfig.query || ""),
+		http_headers: parseQueryStringToObject(dbConfig.query || ""),
 	};
 
 	return createPool(getClickHouseFactoryOptions(connectionObject), {

@@ -23,7 +23,7 @@ export default function OpengroundHeader({
 			</h1>
 			{showButton ? (
 				<Link href={"/openground/new"} onClick={resetOpengroundData}>
-					<Button variant="secondary">+ New</Button>
+					<Button variant="secondary" className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100">+ New</Button>
 				</Link>
 			) : null}
 		</div>
