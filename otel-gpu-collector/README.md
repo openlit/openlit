@@ -62,18 +62,21 @@ OTel GPU Collector supports several environment variables for configuration. Bel
 | `OTEL_EXPORTER_OTLP_ENDPOINT`   | OpenTelemetry OTLP endpoint URL                               | (required)              |
 | `OTEL_EXPORTER_OTLP_HEADERS`    | Headers for authenticating with the OTLP endpoint             | (required)              |
 
-### Example Configuration
+## Metrics
 
-Here’s an example configuration to get you started:
-
-```yaml
-GPU_APPLICATION_NAME: 'my_app'
-GPU_ENVIRONMENT: 'staging'
-OTEL_EXPORTER_OTLP_ENDPOINT: 'https://otlp-gateway-prod-us-east-0.grafana.net/otlp'
-OTEL_EXPORTER_OTLP_HEADERS: 'Authorization=Basic YOUR_API_KEY'
-OPENLIT_LOG_LEVEL: 'debug'
-OPENLIT_COLLECTION_INTERVAL: '30'
-```
+| Metric Name                         | Description                              | Unit       | Type  | Attributes                                                                                                 |
+|-------------------------------------|------------------------------------------|------------|-------|------------------------------------------------------------------------------------------------------------|
+| `gpu.utilization_percentage`        | GPU Utilization in percentage            | `percent`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.enc.utilization_percentage`    | GPU encoder Utilization in percentage    | `percent`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.dec.utilization_percentage`    | GPU decoder Utilization in percentage    | `percent`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.temperature`                   | GPU Temperature in Celsius               | `Celcius`       | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.fan_speed`                     | GPU Fan Speed (0-100) as an integer      | `Integer`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.memory.available`              | Available GPU Memory in MB               | `MB`       | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.memory.total`                  | Total GPU Memory in MB                   | `MB`       | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.memory.used`                   | Used GPU Memory in MB                    | `MB`       | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.memory.free`                   | Free GPU Memory in MB                    | `MB`       | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.power.draw`                    | GPU Power Draw in Watts                  | `Watt`     | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.power.limit`                   | GPU Power Limit in Watts                 | `Watt`     | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
 
 ## Building the Docker Image
 
