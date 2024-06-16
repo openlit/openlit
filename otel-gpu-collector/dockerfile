@@ -13,5 +13,9 @@ RUN pip install --no-cache-dir openlit
 # Expose any required ports, if necessary
 EXPOSE 80
 
+# Define default values for the environment variables
+ENV GPU_APPLICATION_NAME=default
+ENV GPU_ENVIRONMENT=default
+
 # Run the script continuously
-CMD ["python", "your_script_name.py"]
+CMD ["python", "collector.py"]

@@ -1,15 +1,12 @@
 import openlit
-import argparse
+import os
 
 def main():
-    parser = argparse.ArgumentParser(description="Configure GPU Monitoring for OpenLit")
-    parser.add_argument('--application_name', type=str, default='default_app', help='Name of the application')
-    parser.add_argument('--environment', type=str, default='production', help='Deployment environment')
-
-    args = parser.parse_args()
     
     # Initialize OpenLit with provided parameters
-    openlit.init(collect_gpu_stats=True, application_name=args.application_name, environment=args.environment)
+    openlit.init(collect_gpu_stats=True,
+                 application_name=os.getenv('GPU_APPLICATION_NAME', 'default'),
+                 environment=os.getenv('GPU_ENVIRONMENT', 'default'))
     
     # Keep the script running indefinitely
     while True:
