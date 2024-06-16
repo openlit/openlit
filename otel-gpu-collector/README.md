@@ -62,6 +62,18 @@ OTel GPU Collector supports several environment variables for configuration. Bel
 | `OTEL_EXPORTER_OTLP_ENDPOINT`   | OpenTelemetry OTLP endpoint URL                               | (required)              |
 | `OTEL_EXPORTER_OTLP_HEADERS`    | Headers for authenticating with the OTLP endpoint             | (required)              |
 
+## Alternative: Using OpenLIT SDK
+
+You can also collect GPU metrics directly using the OpenLIT SDK in your Python application. Here’s an example:
+
+```python
+import openlit
+
+openlit.init(collect_gpu_stats=True)
+```
+
+For more details, check out the [OpenLIT documentation](https://docs.openlit.io/) or the [SDK source code](https://github.com/openlit/openlit/tree/main/sdk/python).
+
 ## Metrics
 
 | Metric Name                         | Description                              | Unit       | Type  | Attributes                                                                                                 |
@@ -87,6 +99,7 @@ git clone https://github.com/openlit/openlit.git
 cd otel-gpu-collector
 docker build -t otel-gpu-collector .
 ```
+
 
 ## 🌱 Contributing
 
