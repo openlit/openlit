@@ -15,11 +15,11 @@ model Account {
   provider          String
   providerAccountId String   @map("provider_account_id")
   token_type        String?
-  refresh_token     String? 
-  access_token      String? 
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   scope             String?
-  id_token          String? 
+  id_token          String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -42,18 +42,19 @@ model Session {
 }
 
 model User {
-  id            String               @id @default(uuid())
-  name          String?
-  email         String               @unique
-  emailVerified DateTime?            @map("email_verified")
-  password      String?
-  image         String?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-  dbConfigs     DatabaseConfigUser[]
+  id               String               @id @default(uuid())
+  name             String?
+  email            String               @unique
+  emailVerified    DateTime?            @map("email_verified")
+  password         String?
+  image            String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  accounts         Account[]
+  sessions         Session[]
+  dbConfigs        DatabaseConfigUser[]
   createdDBConfigs DatabaseConfig[]
+  OpenGround       OpenGround[]
 
   @@map("users")
 }
@@ -72,20 +73,21 @@ model VerificationRequest {
 
 // Database Config
 model DatabaseConfig {
-  id              String                @id @default(cuid())
+  id              String               @id @default(cuid())
   name            String
-  environment     String                @default("production")
-  username        String                @default("admin")             
-	password        String?    
-	host            String                @default("127.0.0.1")
-	port            String                @default("8123")
-	database        String                @default("openlit")
-	query           String?
+  environment     String               @default("production")
+  username        String               @default("admin")
+  password        String?
+  host            String               @default("127.0.0.1")
+  port            String               @default("8123")
+  database        String               @default("openlit")
+  query           String?
   dbUsers         DatabaseConfigUser[]
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  createdByUserId String                @map("user_id")
-  createdByUser   User                  @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  createdByUserId String               @map("user_id")
+  createdByUser   User                 @relation(fields: [createdByUserId], references: [id])
+  OpenGround      OpenGround[]
 
   @@unique([name])
   @@map("databaseconfig")
@@ -100,4 +102,18 @@ model DatabaseConfigUser {
 
   @@unique([databaseConfigId, userId])
   @@map("databaseconfiguser")
+}
+
+model OpenGround {
+  id               String         @id @default(cuid())
+  requestMeta      String
+  responseMeta     String
+  stats            String
+  createdAt        DateTime       @default(now())
+  createdByUserId  String         @map("user_id")
+  createdByUser    User           @relation(fields: [createdByUserId], references: [id])
+  databaseConfigId String         @map("database_config_id")
+  databaseConfig   DatabaseConfig @relation(fields: [databaseConfigId], references: [id])
+
+  @@map("openground")
 }

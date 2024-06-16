@@ -13,6 +13,7 @@ import {
 	DatabaseBackup,
 	FileJson2,
 	LayoutDashboard,
+	MonitorPlay,
 	SquarePlay,
 } from "lucide-react";
 
@@ -38,6 +39,11 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <FileJson2 className={ICON_CLASSES} />,
 		text: "Requests",
 		link: "/requests",
+	},
+	{
+		icon: <MonitorPlay className={ICON_CLASSES} />,
+		text: "Openground",
+		link: "/openground",
 	},
 	{
 		icon: <DatabaseBackup className={ICON_CLASSES} />,
@@ -104,7 +110,7 @@ export default function Sidebar() {
 	return (
 		<aside
 			aria-label="Sidebar"
-			className="inset-y fixed left-0 z-10 flex h-full flex-col border-r dark:border-stone-800"
+			className="inset-y fixed left-0 z-30 flex h-full flex-col border-r dark:border-stone-800"
 		>
 			<div className="flex border-b dark:border-stone-800 p-2">
 				<Button variant="ghost" size="icon" aria-label="Home">

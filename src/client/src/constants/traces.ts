@@ -22,6 +22,7 @@ import {
 	ShieldCheck,
 	SquareCode,
 	SquareRadical,
+	TicketCheck,
 	TicketPlus,
 } from "lucide-react";
 
@@ -144,6 +145,7 @@ export const TraceMapping: Record<
 		type: "integer",
 		path: "request.max_tokens",
 		prefix: SpanAttributesGenAIPrefix,
+		icon: TicketCheck,
 		defaultValue: "-",
 	},
 
