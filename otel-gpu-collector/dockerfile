@@ -1,8 +1,8 @@
 # Build stage using a minimal Alpine image
 FROM python:3.9-alpine AS build
 
-# Install other necessary packages for virtualenv support
-RUN apk add --no-cache py3-virtualenv
+# Install build tools and necessary dependencies
+RUN apk add --no-cache build-base libffi-dev openssl-dev
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
@@ -10,7 +10,7 @@ WORKDIR /usr/src/app
 # Copy the current directory contents into the container at /usr/src/app
 COPY . .
 
-# Create a virtual environment for the project
+# Create a virtual environment
 RUN python -m venv /venv
 
 # Activate the virtual environment and install dependencies
@@ -19,20 +19,20 @@ RUN /venv/bin/pip install --no-cache-dir openlit
 # Runtime stage using another minimal Python Alpine image
 FROM python:3.9-alpine
 
-# Set the working directory
+# Set the working directory in the container
 WORKDIR /usr/src/app
 
-# Copy only the necessary files from the build stage
+# Copy the application files from the build stage
 COPY --from=build /usr/src/app /usr/src/app
 
-# Copy the virtual environment
+# Copy the virtual environment from the build stage
 COPY --from=build /venv /venv
 
-# Activate the virtual environment
+# Set the PATH to use the virtual environment's bin directory
 ENV PATH="/venv/bin:$PATH"
 
 # Expose any required ports, if necessary
 EXPOSE 80
 
-# Run the script continuously using the virtual environment's Python interpreter
+# Run the application using the virtual environment's Python interpreter
 CMD ["python", "collector.py"]
