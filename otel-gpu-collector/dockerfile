@@ -1,5 +1,8 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim
+# Build stage
+FROM alpine:latest AS build
+
+# Install Python and pip
+RUN apk add --no-cache python3 py3-pip
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
@@ -7,15 +10,26 @@ WORKDIR /usr/src/app
 # Copy the current directory contents into the container at /usr/src/app
 COPY . .
 
-# Install openlit library
+# Install dependencies using pip
 RUN pip install --no-cache-dir openlit
+
+# Runtime stage
+FROM alpine:latest
+
+# Install Python only (exclude development tools)
+RUN apk add --no-cache python3
+
+# Set the working directory
+WORKDIR /usr/src/app
+
+# Copy only the necessary files from the build stage
+COPY --from=build /usr/src/app /usr/src/app
+
+# Copy installed dependencies
+COPY --from=build /usr/lib/python3.9/site-packages /usr/lib/python3.9/site-packages
 
 # Expose any required ports, if necessary
 EXPOSE 80
 
-# Define default values for the environment variables
-ENV GPU_APPLICATION_NAME=default
-ENV GPU_ENVIRONMENT=default
-
 # Run the script continuously
-CMD ["python", "collector.py"]
+CMD ["python3", "collector.py"]
