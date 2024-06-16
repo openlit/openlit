@@ -5,60 +5,106 @@ sidebarTitle: 'GPU Monitoring'
 
 OpenLIT uses OpenTelemetry to help you monitor NVIDIA GPUs. This includes tracking GPU metrics like utilization, temperature, memory usage and power consumption.
 
-Auto-instrumentation means you don't have to set up monitoring manually. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up for you.
-
 ## Get Started 
 
-<Steps>
-    <Step title="Install OpenLIT">
-      Open your command line or terminal and run:
-      ```shell
-      pip install openlit
-      ```
-    </Step>
-    <Step title="Initialize OpenLIT in your Application">
-    You can set up OpenLIT in your application using either function arguments directly in your code or by using environment variables.
-    <Tabs>
-      <Tab title="Setup using function arguments">
+<CardGroup cols={2}>
+  <Card title="Using the SDK" href="#using-the-sdk" icon="file-code">
+    Collect and send GPU performance metrics directly from your application to an OpenTelemetry endpoint.
+  </Card>
+  <Card title="Using the Collector" href="#using-the-collector" icon="robot">
+    Install the OpenTelemetry GPU Collector as a Docker container to collect and send GPU performance metrics to an OpenTelemetry endpoint.
+  </Card>
+</CardGroup>
 
-      Add the following two lines to your application code:
 
-      ```python
-      import openlit
+<AccordionGroup>
+  <Accordion title="Using the SDK">
+    <Steps>
+        <Step title="Install OpenLIT">
+          Open your command line or terminal and run:
+          ```shell
+          pip install openlit
+          ```
+        </Step>
+        <Step title="Initialize OpenLIT in your Application">
+        You can set up OpenLIT in your application using either function arguments directly in your code or by using environment variables.
+        <Tabs>
+          <Tab title="Setup using function arguments">
 
-      openlit.init(
-        otlp_endpoint="YOUR_OTEL_ENDPOINT",
-        collect_gpu_stats=True 
-      )
-      ```
+          Add the following two lines to your application code:
 
-      Replace:
-      1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector.
-      </Tab>
-      <Tab title="Setup using Environment Variables">
-      
-      Add the following two lines to your application code:
+          ```python
+          import openlit
 
-      ```python
-      import openlit
+          openlit.init(
+            otlp_endpoint="YOUR_OTEL_ENDPOINT", otlp_headers="YOUR_OTEL_HEADERS"
+            collect_gpu_stats=True 
+          )
+          ```
 
-      openlit.init(collect_gpu_stats=True)
-      ```
+          Replace:
+          1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector.
+          </Tab>
+          <Tab title="Setup using Environment Variables">
+          
+          Add the following two lines to your application code:
 
-      Then, configure the your OTLP endpoint using environment variable:
-      ```shell
-      export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_ENDPOINT"
-      ```
+          ```python
+          import openlit
 
-      Replace:
-      1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector. 
-      </Tab>
-    </Tabs>
-    To send metrics to other Observability tools, refer to the [Connections Guide](/latest/connections/intro).
+          openlit.init(collect_gpu_stats=True)
+          ```
 
-    For more advanced configurations and application use cases, visit the [OpenLIT Python repository](https://github.com/openlit/openlit/tree/main/sdk/python).
-  </Step>
-</Steps>
+          Then, configure the your OTLP endpoint using environment variable:
+          ```shell
+          export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_ENDPOINT"
+          export OTEL_EXPORTER_OTLP_HEADERS= "YOUR_OTEL_HEADERS"
+          ```
+
+          Replace:
+          1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector. 
+          </Tab>
+        </Tabs>
+        To send metrics to other Observability tools, refer to the [Connections Guide](/latest/connections/intro).
+
+        For more advanced configurations and application use cases, visit the [OpenLIT Python repository](https://github.com/openlit/openlit/tree/main/sdk/python).
+      </Step>
+    </Steps>
+  </Accordion>
+  <Accordion title="Using the Collector">
+  <Steps>
+    <Step title="Pull `otel-gpu-collector` Docker Image">
+
+        You can quickly start using the OTel GPU Collector by pulling the Docker image:
+
+        ```sh
+        docker pull ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+     </Step>
+     <Step title="Run `otel-gpu-collector` Docker container">
+
+        You can quickly start using the OTel GPU Collector by pulling the Docker image:
+        Here's a quick example showing how to run the container with the required environment variables:
+
+        ```sh
+        docker run --gpus all \
+            -e GPU_APPLICATION_NAME='chatbot' \
+            -e GPU_ENVIRONMENT='staging' \
+            -e OTEL_EXPORTER_OTLP_ENDPOINT="YOUR_OTEL_ENDPOINT" \
+            -e OTEL_EXPORTER_OTLP_HEADERS="YOUR_OTEL_HEADERS" \
+            ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+
+        For more advanced configurations of the collector, visit the [OTel GPU Collector repository](https://github.com/openlit/openlit/tree/main/otel-gpu-collector/).
+
+      </Step>
+    </Steps>
+  </Accordion>
+</AccordionGroup>
+
+<Card title="Collected Metrics" href="/latest/features/metrics#gpu-metrics" icon='table'>
+Details on the types of metrics collected and their descriptions.
+</Card>
 
 ---
 
