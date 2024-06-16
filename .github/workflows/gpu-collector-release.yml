@@ -19,7 +19,7 @@ jobs:
       packages: write
       id-token: write
     env:
-      IMAGE_NAME: otel-gpu-collector
+      IMAGE_NAME: openlit/otel-gpu-collector
 
     steps:
       - name: Checkout repository
