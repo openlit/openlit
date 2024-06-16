@@ -113,6 +113,7 @@
       "pages": [
         "latest/features/tracing",
         "latest/features/metrics",
+        "latest/features/gpu",
         "latest/features/pricing",
         "latest/features/multiple-db"
       ],
