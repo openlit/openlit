@@ -1,8 +1,5 @@
-# Build stage using a minimal Alpine image
-FROM python:3.9-alpine AS build
-
-# Install build tools and necessary dependencies
-RUN apk add --no-cache build-base libffi-dev openssl-dev
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
@@ -10,29 +7,15 @@ WORKDIR /usr/src/app
 # Copy the current directory contents into the container at /usr/src/app
 COPY . .
 
-# Create a virtual environment
-RUN python -m venv /venv
-
-# Activate the virtual environment and install dependencies
-RUN /venv/bin/pip install --no-cache-dir openlit
-
-# Runtime stage using another minimal Python Alpine image
-FROM python:3.9-alpine
-
-# Set the working directory in the container
-WORKDIR /usr/src/app
-
-# Copy the application files from the build stage
-COPY --from=build /usr/src/app /usr/src/app
-
-# Copy the virtual environment from the build stage
-COPY --from=build /venv /venv
-
-# Set the PATH to use the virtual environment's bin directory
-ENV PATH="/venv/bin:$PATH"
+# Install openlit library
+RUN pip install --no-cache-dir openlit
 
 # Expose any required ports, if necessary
 EXPOSE 80
 
-# Run the application using the virtual environment's Python interpreter
+# Define default values for the environment variables
+ENV GPU_APPLICATION_NAME=default
+ENV GPU_ENVIRONMENT=default
+
+# Run the script continuously
 CMD ["python", "collector.py"]
