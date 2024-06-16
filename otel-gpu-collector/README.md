@@ -44,7 +44,7 @@ Here's a quick example showing how to run the container with the required enviro
 
 ```sh
 docker run --gpus all \
-    -e GPU_APPLICATION_NAME='my_app' \
+    -e GPU_APPLICATION_NAME='chatbot' \
     -e GPU_ENVIRONMENT='staging' \
     -e OTEL_EXPORTER_OTLP_ENDPOINT="YOUR_OTEL_ENDPOINT" \
     -e OTEL_EXPORTER_OTLP_HEADERS="YOUR_OTEL_HEADERS" \

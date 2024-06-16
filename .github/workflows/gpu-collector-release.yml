@@ -70,7 +70,7 @@ jobs:
           annotations: |
             ${{ steps.meta.outputs.annotations }},
             io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
-            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/openlit/openlit/main/README.md,
+            io.artifacthub.package.readme-url=https://github.com/openlit/openlit/blob/main/otel-gpu-collector/README.md,
             io.artifacthub.package.license=Apache-2.0,
             org.opencontainers.image.vendor=OpenLIT,
             io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
