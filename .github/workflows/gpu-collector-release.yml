@@ -1,8 +1,8 @@
-name: Release OpenLIT
+name: Release OTel GPU Collector
 
 on:
   push:
-    tags: [ 'openlit-*.*.*' ]
+    tags: [ 'otel-gpu-collector-*.*.*' ]
 
 env:
   REGISTRY: ghcr.io
@@ -19,7 +19,7 @@ jobs:
       packages: write
       id-token: write
     env:
-      IMAGE_NAME: ${{ github.repository }}
+      IMAGE_NAME: openlit/otel-gpu-collector
 
     steps:
       - name: Checkout repository
@@ -32,7 +32,7 @@ jobs:
       
       - name: Extract version from tag
         id: extract_version
-        run: echo "version=${GITHUB_REF#refs/tags/openlit-}" >> $GITHUB_ENV
+        run: echo "version=${GITHUB_REF#refs/tags/otel-gpu-collector-}" >> $GITHUB_ENV
         env:
           GITHUB_REF: ${{ github.ref }}
 
@@ -60,9 +60,9 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
-          context: ./src/client/
+          context: ./otel-gpu-collector/
           provenance: false
-          file: ./src/client/Dockerfile
+          file: ./otel-gpu-collector/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -70,11 +70,11 @@ jobs:
           annotations: |
             ${{ steps.meta.outputs.annotations }},
             io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
-            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/openlit/openlit/main/README.md,
+            io.artifacthub.package.readme-url=https://github.com/openlit/openlit/blob/main/otel-gpu-collector/README.md,
             io.artifacthub.package.license=Apache-2.0,
             org.opencontainers.image.vendor=OpenLIT,
             io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
-            io.artifacthub.package.keywords='Monitoring, Observability, LLMs, OpenAI, OpenTelemetry, Tracing'
+            io.artifacthub.package.keywords='Monitoring, Observability, GPUs, NVIDIA, OpenTelemetry, Metrics, LLMs, AI'
       
       - name: Sign the published Docker image
         env:
