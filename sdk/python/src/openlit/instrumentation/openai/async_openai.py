@@ -600,11 +600,11 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "dall-e-2"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_SIZE,
                                         kwargs.get("size", "1024x1024"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_QUALITY,
                                         kwargs.get("quality", "standard"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_STYLE,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_STYLE,
                                         kwargs.get("style", "vivid"))
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_REVISED_PROMPT,
                                         items.revised_prompt if items.revised_prompt else "")
@@ -724,9 +724,9 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
                                         kwargs.get("model", "dall-e-2"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_SIZE,
                                         kwargs.get("size", "1024x1024"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_QUALITY,
                                         "standard")
                     if trace_content:
                         span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,

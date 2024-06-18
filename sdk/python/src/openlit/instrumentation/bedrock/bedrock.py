@@ -88,9 +88,9 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 quality = request_body.get("imageGenerationConfig", {}).get("quality", "standard")
                 n = request_body.get("imageGenerationConfig", {}).get("numberOfImages", 1)
 
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_SIZE,
                                    size)
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY,
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_QUALITY,
                                    quality)
                 # Calculate cost of the operation
                 cost = n * get_image_model_cost(model,
