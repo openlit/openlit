@@ -41,7 +41,7 @@
     {
       "name": "Discord",
       "icon": "discord",
-      "url": "https://discord.com/invite/rjvTm6zd"
+      "url": "https://discord.gg/CQnXwNT3"
     }
   ],
   "navigation": [
@@ -147,7 +147,7 @@
   "footerSocials": {
     "github": "https://github.com/openlit/",
     "slack": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ",
-    "discord": "https://discord.com/invite/rjvTm6zd",
+    "discord": "https://discord.gg/CQnXwNT3",
     "twitter": "https://twitter.com/openlit_io",
     "linkedin": "https://www.linkedin.com/company/openlit/"
   }
