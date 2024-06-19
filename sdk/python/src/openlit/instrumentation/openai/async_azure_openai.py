@@ -785,11 +785,11 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         "azure_" + kwargs.get("model", "dall-e-3"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_SIZE,
                                         kwargs.get("size", "1024x1024"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_QUALITY,
                                         kwargs.get("quality", "standard"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_STYLE,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_STYLE,
                                         kwargs.get("style", "vivid"))
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_REVISED_PROMPT,
                                         items.revised_prompt if response.revised_prompt else "")

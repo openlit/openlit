@@ -53,6 +53,10 @@ class SemanticConvetion:
     GEN_AI_REQUEST_VALIDATION_FILE = "gen_ai.request.validation_file"
     GEN_AI_REQUEST_TRAINING_FILE = "gen_ai.request.training_file"
 
+    GEN_AI_REQUEST_IMAGE_SIZE = "gen_ai.request.image_size"
+    GEN_AI_REQUEST_IMAGE_QUALITY = "gen_ai.request.image_quality"
+    GEN_AI_REQUEST_IMAGE_STYLE = "gen_ai.request.image_style"
+
     # GenAI Usage
     GEN_AI_USAGE_PROMPT_TOKENS = "gen_ai.usage.prompt_tokens"
     GEN_AI_USAGE_COMPLETION_TOKENS = "gen_ai.usage.completion_tokens"
@@ -63,9 +67,6 @@ class SemanticConvetion:
     GEN_AI_RESPONSE_ID = "gen_ai.response.id"
     GEN_AI_RESPONSE_FINISH_REASON = "gen_ai.response.finish_reason"
     GEN_AI_RESPONSE_IMAGE = "gen_ai.response.image"  # Not used directly in code yet
-    GEN_AI_RESPONSE_IMAGE_SIZE = "gen_ai.request.image_size"
-    GEN_AI_RESPONSE_IMAGE_QUALITY = "gen_ai.request.image_quality"
-    GEN_AI_RESPONSE_IMAGE_STYLE = "gen_ai.request.image_style"
 
     # GenAI Content
     GEN_AI_CONTENT_PROMPT = "gen_ai.prompt"
