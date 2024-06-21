@@ -1,7 +1,7 @@
-import { differenceInDays, differenceInYears } from "date-fns";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "./common";
 import { getTraceMappingKeyFullPath } from "@/helpers/trace";
 import {
+	dateTruncGroupingLogic,
 	getFilterPreviousParams,
 	getFilterWhereCondition,
 } from "@/helpers/platform";
@@ -57,12 +57,7 @@ export async function getAverageTokensPerRequest(params: TokenParams) {
 
 export async function getTokensPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
-	let dateTrunc = "day";
-	if (differenceInYears(end as Date, start as Date) >= 1) {
-		dateTrunc = "month";
-	} else if (differenceInDays(end as Date, start as Date) <= 1) {
-		dateTrunc = "hour";
-	}
+	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
 
 	const keyPaths: { key: string }[] = [
 		{

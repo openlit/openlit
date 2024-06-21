@@ -1,7 +1,12 @@
 import { SPAN_KIND } from "@/constants/traces";
 import { ValueOf } from "../utils/types";
-import { MetricParams } from "@/lib/platform/common";
-import { addDays, addMonths, differenceInDays } from "date-fns";
+import { GPU_TYPE_KEY, MetricParams } from "@/lib/platform/common";
+import {
+	addDays,
+	addMonths,
+	differenceInDays,
+	differenceInYears,
+} from "date-fns";
 import { getTraceMappingKeyFullPath } from "./trace";
 
 export const validateMetricsRequestType = {
@@ -25,6 +30,7 @@ export const validateMetricsRequestType = {
 	TOKENS_PER_TIME: "TOKENS_PER_TIME",
 	// Endpoint
 	GENERATION_BY_ENDPOINT: "GENERATION_BY_ENDPOINT",
+	// GPU
 };
 
 export const validateMetricsRequest = (
@@ -151,6 +157,7 @@ type FilterWhereConditionType = {
 	notOrEmpty?: { key: string }[];
 	notEmpty?: { key: string }[];
 	statusCode?: string;
+	gpu_type?: GPU_TYPE_KEY;
 };
 
 export const getFilterWhereCondition = (
@@ -282,4 +289,34 @@ export const getFilterPreviousParams = (filter: MetricParams) => {
 	} catch {
 		return filter;
 	}
+};
+
+export const getFilterWhereConditionForGPU = (
+	filter: FilterWhereConditionType
+) => {
+	const whereArray: string[] = [];
+	try {
+		const { start, end } = filter.timeLimit || {};
+		if (start && end) {
+			whereArray.push(
+				`TimeUnix >= parseDateTimeBestEffort('${start}') AND TimeUnix <= parseDateTimeBestEffort('${end}')`
+			);
+		}
+
+		if (filter.gpu_type) {
+			whereArray.push(`MetricName = 'gpu.${filter.gpu_type}'`);
+		}
+	} catch {}
+	return whereArray.join(" AND ");
+};
+
+export const dateTruncGroupingLogic = (end: Date, start: Date) => {
+	let dateTrunc = "day";
+	if (differenceInYears(end as Date, start as Date) >= 1) {
+		dateTrunc = "month";
+	} else if (differenceInDays(end as Date, start as Date) <= 1) {
+		dateTrunc = "hour";
+	}
+
+	return dateTrunc;
 };

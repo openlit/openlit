@@ -1,38 +1,40 @@
-import { useCallback, useEffect } from "react";
 import {
-	LineChart,
-	Line,
+	AreaChart,
+	Area,
 	XAxis,
 	YAxis,
 	CartesianGrid,
 	Tooltip,
 	ResponsiveContainer,
 } from "recharts";
+import { useCallback, useEffect } from "react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { useRootStore } from "@/store";
 import { getFilterDetails } from "@/selectors/filter";
+import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { COLORS } from "../../../../colors";
 import IntermediateState from "@/components/(playground)/intermediate-state";
-import { toast } from "sonner";
 import { getFilterParamsForDashboard } from "@/helpers/filter";
 
-export default function RequestsPerTime() {
+export default function GPUMetric({
+	gpu_type,
+	title,
+}: {
+	gpu_type: string;
+	title: string;
+}) {
 	const filter = useRootStore(getFilterDetails);
 	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
 		fireRequest({
-			body: JSON.stringify(getFilterParamsForDashboard(filter)),
+			body: JSON.stringify({
+				...getFilterParamsForDashboard(filter),
+				gpu_type,
+			}),
 			requestType: "POST",
-			url: "/api/metrics/request/time",
+			url: "/api/metrics/gpu",
 			responseDataKey: "data",
-			failureCb: (err?: string) => {
-				toast.error(err || `Cannot connect to server!`, {
-					id: "dashboard-page",
-				});
-			},
 		});
 	}, [filter]);
 
@@ -45,29 +47,31 @@ export default function RequestsPerTime() {
 			fetchData();
 	}, [filter, fetchData, pingStatus]);
 
-	const updatedData = (data as any[]) || [];
+	const updatedDataWithType = ((data || []) as any[]) || [];
 
 	return (
-		<Card>
+		<Card className="w-full flex flex-col h-64">
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-				<CardTitle className="text-sm font-medium text-stone-950 dark:text-stone-100">
-					Requests per time
+				<CardTitle className="text-sm font-medium text-stone-950 dark:text-white">
+					{title}
 				</CardTitle>
 			</CardHeader>
-			<CardContent>
-				<ResponsiveContainer className="h-40" width="100%" height="100%">
-					{isLoading || !isFetched || pingStatus === "pending" ? (
-						<IntermediateState type="loading" classNames="h-40" />
-					) : updatedData.length === 0 ? (
-						<IntermediateState type="nodata" classNames="h-40" />
-					) : (
-						<LineChart
-							data={updatedData}
+			<CardContent className="grow">
+				{isLoading || !isFetched || pingStatus === "pending" ? (
+					<IntermediateState type="loading" />
+				) : updatedDataWithType.length === 0 ? (
+					<IntermediateState type="nodata" />
+				) : (
+					<ResponsiveContainer width="100%" height="100%">
+						<AreaChart
+							width={500}
+							height={400}
+							data={updatedDataWithType}
 							margin={{
-								top: 5,
+								top: 10,
 								right: 30,
-								left: 20,
-								bottom: 5,
+								left: 0,
+								bottom: 0,
 							}}
 						>
 							<CartesianGrid strokeDasharray="3 3" />
@@ -82,15 +86,16 @@ export default function RequestsPerTime() {
 								domain={[0, "dataMax + 15"]}
 							/>
 							<Tooltip labelClassName="dark:text-stone-700" />
-							<Line
+							<Area
 								type="monotone"
 								dataKey="total"
-								stroke={`${COLORS.primary}`}
-								activeDot={{ r: 4 }}
+								stackId="1"
+								stroke="#8884d8"
+								fill="#8884d8"
 							/>
-						</LineChart>
-					)}
-				</ResponsiveContainer>
+						</AreaChart>
+					</ResponsiveContainer>
+				)}
 			</CardContent>
 		</Card>
 	);

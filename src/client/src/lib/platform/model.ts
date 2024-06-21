@@ -1,7 +1,9 @@
-import { differenceInDays, differenceInYears } from "date-fns";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "./common";
 import { getTraceMappingKeyFullPath } from "@/helpers/trace";
-import { getFilterWhereCondition } from "@/helpers/platform";
+import {
+	dateTruncGroupingLogic,
+	getFilterWhereCondition,
+} from "@/helpers/platform";
 
 export type ModelMetricParams = MetricParams & {
 	top: number;
@@ -31,12 +33,7 @@ export async function getTopModels(params: ModelMetricParams) {
 
 export async function getModelsPerTime(params: MetricParams) {
 	const { start, end } = params.timeLimit;
-	let dateTrunc = "day";
-	if (differenceInYears(end as Date, start as Date) >= 1) {
-		dateTrunc = "month";
-	} else if (differenceInDays(end as Date, start as Date) <= 1) {
-		dateTrunc = "hour";
-	}
+	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
 
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("model")}']`;
 	const query = `
