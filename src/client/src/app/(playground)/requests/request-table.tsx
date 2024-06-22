@@ -10,6 +10,11 @@ import {
 } from "@/constants/traces";
 import { CalendarDays, Clock } from "lucide-react";
 import IntermediateState from "@/components/(playground)/intermediate-state";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 type RenderRowProps = {
 	item: TraceRow;
@@ -77,11 +82,11 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 				</div>
 			</div>
 			<div
-				className={`flex items-stretch h-16 relative items-center px-3 rounded-b cursor-pointer  dark:text-stone-100 text-stone-950 ${
+				className={`flex items-stretch h-16 relative items-center px-3 cursor-pointer  dark:text-stone-100 text-stone-950 ${
 					request?.TraceId === normalizedItem.id
 						? "bg-stone-200 dark:bg-stone-950"
 						: "border border-stone-200 dark:border-stone-800"
-				}`}
+				} ${normalizedItem.ParentSpanId ? "" : "rounded-b"}`}
 				onClick={onClick}
 			>
 				{requestDisplayItems.map((keyItem, index) => {
@@ -108,6 +113,14 @@ const RenderRow = ({ item, isLoading }: RenderRowProps) => {
 					);
 				})}
 			</div>
+			{!normalizedItem.ParentSpanId ? (
+				<Collapsible className="py-1 px-4 bg-stone-100 dark:bg-stone-800 rounded-b">
+					<>
+						<CollapsibleTrigger className="flex w-full items-center">Parent</CollapsibleTrigger>
+						<CollapsibleContent>Hello</CollapsibleContent>
+					</>
+				</Collapsible>
+			) : null}
 		</div>
 	);
 };
