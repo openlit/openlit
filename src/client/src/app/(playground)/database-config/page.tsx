@@ -1,7 +1,9 @@
 "use client";
 
 import FormBuilder from "@/components/common/form-builder";
-import SideTabs, { SideTabItemProps } from "@/components/common/side-tabs";
+import DatabaseConfigTabs, {
+	DatabaseConfigTabItemProps,
+} from "@/app/(playground)/database-config/database-config-tabs";
 import { Button } from "@/components/ui/button";
 import { DatabaseConfig, DatabaseConfigWithActive } from "@/constants/dbConfig";
 import {
@@ -77,6 +79,9 @@ function ModifyDatabaseConfig({
 		[dbConfig?.id]
 	);
 
+	const formFieldsDisabled =
+		dbConfig?.id && !dbConfig?.permissions?.canEdit ? true : false;
+
 	return (
 		<FormBuilder
 			fields={[
@@ -87,6 +92,7 @@ function ModifyDatabaseConfig({
 					placeholder: "db-config",
 					defaultValue: dbConfig?.name,
 					inputKey: `${dbConfig?.id}-name`,
+					disabled: formFieldsDisabled,
 				},
 				{
 					label: "Environment",
@@ -95,6 +101,7 @@ function ModifyDatabaseConfig({
 					placeholder: "production",
 					defaultValue: dbConfig?.environment,
 					inputKey: `${dbConfig?.id}-environment`,
+					disabled: formFieldsDisabled,
 				},
 				{
 					label: "Username",
@@ -103,6 +110,7 @@ function ModifyDatabaseConfig({
 					placeholder: "username",
 					defaultValue: dbConfig?.username,
 					inputKey: `${dbConfig?.id}-username`,
+					disabled: formFieldsDisabled,
 				},
 				{
 					label: "Password",
@@ -110,6 +118,7 @@ function ModifyDatabaseConfig({
 					name: "password",
 					placeholder: "*******",
 					inputKey: `${dbConfig?.id}-password`,
+					disabled: formFieldsDisabled,
 				},
 				{
 					label: "Host",
@@ -118,6 +127,7 @@ function ModifyDatabaseConfig({
 					placeholder: "127.0.0.1",
 					defaultValue: dbConfig?.host,
 					inputKey: `${dbConfig?.id}-host`,
+					disabled: formFieldsDisabled,
 				},
 				{
 					label: "Port",
@@ -126,6 +136,7 @@ function ModifyDatabaseConfig({
 					placeholder: "8123",
 					defaultValue: dbConfig?.port,
 					inputKey: `${dbConfig?.id}-port`,
+					disabled: formFieldsDisabled,
 				},
 				{
 					label: "Database",
@@ -134,6 +145,7 @@ function ModifyDatabaseConfig({
 					placeholder: "default",
 					defaultValue: dbConfig?.database,
 					inputKey: `${dbConfig?.id}-database`,
+					disabled: formFieldsDisabled,
 				},
 				{
 					label: "Query params",
@@ -142,11 +154,25 @@ function ModifyDatabaseConfig({
 					placeholder: "a=b&c=d",
 					defaultValue: dbConfig?.query,
 					inputKey: `${dbConfig?.id}-query`,
+					disabled: formFieldsDisabled,
 				},
 			]}
-			heading={`${dbConfig?.id ? "Update" : "Add"} database config`}
+			heading={`${
+				dbConfig?.id
+					? !dbConfig?.permissions?.canEdit
+						? ""
+						: "Update "
+					: "Add "
+			}Database config`}
+			subHeading={
+				dbConfig?.permissions?.canEdit
+					? ""
+					: "You don't have enough permissions to edit this database config"
+			}
+			subHeadingClass="text-error"
 			isLoading={isLoading}
 			onSubmit={modifyDetails}
+			isAllowedToSubmit={!!dbConfig?.permissions?.canEdit}
 			submitButtonText={dbConfig?.id ? "Update" : "Save"}
 		/>
 	);
@@ -168,30 +194,32 @@ function DatabaseList({
 	const onClickDB: MouseEventHandler<HTMLDivElement | HTMLButtonElement> = (
 		event
 	) => {
-		const { itemId = "" } = (
-			(event.target as HTMLElement).closest(".item-element-card") as HTMLElement
-		).dataset;
+		const parent = (event.target as HTMLElement).closest(
+			".item-element-card"
+		) as HTMLElement;
+		if (!parent) return null;
+		const { itemId = "" } = parent.dataset;
 		setSelectedDBConfigId(itemId);
 	};
 
 	const onClickDelete: MouseEventHandler<SVGSVGElement> = (event) => {
 		event.stopPropagation();
-		const { itemId = "" } = (
-			(event.target as SVGSVGElement).closest(
-				".item-element-card"
-			) as HTMLElement
-		).dataset;
+		const parent = (event.target as HTMLElement).closest(
+			".item-element-card"
+		) as HTMLElement;
+		if (!parent) return null;
+		const { itemId = "" } = parent.dataset;
 
 		if (itemId) deleteDatabaseConfig(itemId);
 	};
 
 	const onClickSetCurrent: MouseEventHandler<HTMLDivElement> = (event) => {
 		event.stopPropagation();
-		const { itemId = "" } = (
-			(event.target as HTMLDivElement).closest(
-				".item-element-card"
-			) as HTMLElement
-		).dataset;
+		const parent = (event.target as HTMLElement).closest(
+			".item-element-card"
+		) as HTMLElement;
+		if (!parent) return null;
+		const { itemId = "" } = parent.dataset;
 
 		if (itemId) {
 			toast.loading(
@@ -204,23 +232,19 @@ function DatabaseList({
 		}
 	};
 
-	const items: SideTabItemProps[] = dbConfigs.map((dbConfig) => ({
+	const items: DatabaseConfigTabItemProps[] = dbConfigs.map((dbConfig) => ({
 		id: dbConfig.id,
 		name: dbConfig.name,
 		badge: dbConfig.environment,
 		isCurrent: !!dbConfig.isCurrent,
-		enableActiveChange: true,
-		enableDeletion: true,
+		canDelete: !!dbConfig.permissions?.canDelete,
+		canEdit: !!dbConfig.permissions?.canEdit,
+		canShare: !!dbConfig.permissions?.canShare,
 	}));
-
-	// items.push({
-	// 	id: ADD_NEW_ID,
-	// 	name: "Add New",
-	// });
 
 	return (
 		<div className="flex flex-col w-full flex-1 h-full relative">
-			<SideTabs
+			<DatabaseConfigTabs
 				addButton
 				items={items}
 				onClickTab={onClickDB}

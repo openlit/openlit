@@ -73,21 +73,22 @@ model VerificationRequest {
 
 // Database Config
 model DatabaseConfig {
-  id              String               @id @default(cuid())
+  id              String                      @id @default(cuid())
   name            String
-  environment     String               @default("production")
-  username        String               @default("admin")
+  environment     String                      @default("production")
+  username        String                      @default("admin")
   password        String?
-  host            String               @default("127.0.0.1")
-  port            String               @default("8123")
-  database        String               @default("openlit")
+  host            String                      @default("127.0.0.1")
+  port            String                      @default("8123")
+  database        String                      @default("openlit")
   query           String?
   dbUsers         DatabaseConfigUser[]
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  createdByUserId String               @map("user_id")
-  createdByUser   User                 @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+  createdByUserId String                      @map("user_id")
+  createdByUser   User                        @relation(fields: [createdByUserId], references: [id])
   OpenGround      OpenGround[]
+  dbInvitedUsers  DatabaseConfigInvitedUser[]
 
   @@unique([name])
   @@map("databaseconfig")
@@ -99,6 +100,11 @@ model DatabaseConfigUser {
   user             User            @relation(fields: [userId], references: [id])
   databaseConfig   DatabaseConfig? @relation(fields: [databaseConfigId], references: [id])
   isCurrent        Boolean         @default(false)
+  canEdit          Boolean         @default(false)
+  canShare         Boolean         @default(false)
+  canDelete        Boolean         @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@unique([databaseConfigId, userId])
   @@map("databaseconfiguser")
@@ -116,4 +122,15 @@ model OpenGround {
   databaseConfig   DatabaseConfig @relation(fields: [databaseConfigId], references: [id])
 
   @@map("openground")
+}
+
+model DatabaseConfigInvitedUser {
+  databaseConfigId String
+  databaseConfig   DatabaseConfig? @relation(fields: [databaseConfigId], references: [id])
+  email            String
+  canEdit          Boolean         @default(false)
+  canShare         Boolean         @default(false)
+  canDelete        Boolean         @default(false)
+
+  @@unique([databaseConfigId, email])
 }

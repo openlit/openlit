@@ -47,24 +47,35 @@ const FormField = ({
 const FormBuilder = ({
 	fields,
 	heading,
+	subHeading,
+	subHeadingClass,
 	isLoading = false,
 	onSubmit,
 	submitButtonText,
+	isAllowedToSubmit = true,
 }: {
 	fields: FieldProps[];
 	heading?: string;
+	subHeading?: string;
+	subHeadingClass?: string;
 	isLoading?: boolean;
 	onSubmit: FormEventHandler<HTMLFormElement>;
 	submitButtonText: string;
+	isAllowedToSubmit?: boolean;
 }) => {
 	return (
 		<form
 			className="flex flex-col w-full"
-			onSubmit={isLoading ? noop : onSubmit}
+			onSubmit={isLoading || !isAllowedToSubmit ? noop : onSubmit}
 		>
 			<Card className="w-full border-0 flex flex-col h-full">
 				<CardHeader className="shrink-0">
 					<CardTitle className="text-2xl">{heading}</CardTitle>
+					{subHeading && (
+						<CardTitle className={`text-sm ${subHeadingClass}`}>
+							{subHeading}
+						</CardTitle>
+					)}
 				</CardHeader>
 				<CardContent className="flex gap-4 flex-col overflow-hidden">
 					<div className="grid gap-5 relative flex-1 overflow-y-auto ">
@@ -73,12 +84,14 @@ const FormBuilder = ({
 						))}
 					</div>
 					<div className="flex items-center justify-end w-full gap-3">
-						<Button
-							type="submit"
-							className={`${isLoading ? "animate-pulse" : ""}`}
-						>
-							{submitButtonText}
-						</Button>
+						{isAllowedToSubmit && (
+							<Button
+								type="submit"
+								className={`${isLoading ? "animate-pulse" : ""}`}
+							>
+								{submitButtonText}
+							</Button>
+						)}
 					</div>
 				</CardContent>
 			</Card>
