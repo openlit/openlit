@@ -165,19 +165,18 @@ function ModifyDatabaseConfig({
 					: "Add "
 			}Database config`}
 			subHeading={
-				dbConfig?.permissions?.canEdit
+				!dbConfig?.id || dbConfig?.permissions?.canEdit
 					? ""
 					: "You don't have enough permissions to edit this database config"
 			}
 			subHeadingClass="text-error"
 			isLoading={isLoading}
 			onSubmit={modifyDetails}
-			isAllowedToSubmit={!!dbConfig?.permissions?.canEdit}
+			isAllowedToSubmit={!dbConfig?.id || !!dbConfig?.permissions?.canEdit}
 			submitButtonText={dbConfig?.id ? "Update" : "Save"}
 		/>
 	);
 }
-
 function DatabaseList({
 	dbConfigs,
 	isLoadingList,
