@@ -174,3 +174,14 @@ export async function getRequests(params: MetricParams) {
 		total: (dataTotal as any[])?.[0]?.total || 0,
 	};
 }
+
+export async function getRequestViaParentSpanId(parentSpanId: string) {
+	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
+		WHERE SpanId='${parentSpanId}'`;
+
+	const { data, err } = await dataCollector({ query });
+	return {
+		err,
+		record: data,
+	};
+}
