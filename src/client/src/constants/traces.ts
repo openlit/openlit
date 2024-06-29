@@ -65,6 +65,14 @@ export const TraceMapping: Record<
 		path: "TraceId",
 		isRoot: true,
 	},
+
+	parentSpanId: {
+		label: "Parent Span Id",
+		type: "string",
+		path: "ParentSpanId",
+		isRoot: true,
+	},
+
 	provider: {
 		label: "Provider",
 		type: "string",
