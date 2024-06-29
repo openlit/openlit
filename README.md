@@ -141,7 +141,7 @@ Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start explor
 
 ## 🌱 Contributing
 
-Whether it's big or small, we love contributions 💚. Check out our [Contribution guide](../../CONTRIBUTING.md) to get started
+Whether it's big or small, we love contributions 💚. Check out our [Contribution guide](./CONTRIBUTING.md) to get started
 
 Unsure where to start? Here are a few ways to get involved:
 
