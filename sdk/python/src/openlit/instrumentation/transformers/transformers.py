@@ -83,11 +83,11 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                    instance.model.config.name_or_path)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                   forward_params.get("temperature"))
+                                   forward_params.get("temperature", "null"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                   forward_params.get("top_p"))
+                                   forward_params.get("top_p", "null"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                   forward_params.get("max_length"))
+                                   forward_params.get("max_length", "null"))
                 span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
                                    prompt)
                 if trace_content:
