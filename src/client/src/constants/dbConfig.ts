@@ -10,6 +10,13 @@ export type DatabaseConfig = {
 	query?: string;
 };
 
+export type DatabaseConfigPermissions = {
+	canEdit?: boolean;
+	canDelete?: boolean;
+	canShare?: boolean;
+};
+
 export type DatabaseConfigWithActive = DatabaseConfig & {
 	isCurrent?: boolean;
+	permissions?: DatabaseConfigPermissions;
 };
