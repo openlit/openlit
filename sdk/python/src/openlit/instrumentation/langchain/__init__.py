@@ -5,7 +5,7 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.langchain.langchain import general_wrap, hub
+from openlit.instrumentation.langchain.langchain import general_wrap, hub, llm, allm
 
 _instruments = ("langchain >= 0.1.1",)
 
@@ -39,6 +39,18 @@ WRAPPED_METHODS = [
         "object": "pull",
         "endpoint": "langchain.retrieve.prompt",
         "wrapper": hub,
+    },
+    {
+        "package": "langchain_core.language_models.llms",
+        "object": "BaseLLM.invoke",
+        "endpoint": "langchain.llm",
+        "wrapper": llm,
+    },
+    {
+        "package": "langchain_core.language_models.llms",
+        "object": "BaseLLM.ainvoke",
+        "endpoint": "langchain.llm",
+        "wrapper": allm,
     },
 ]
 
