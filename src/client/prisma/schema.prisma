@@ -103,8 +103,8 @@ model DatabaseConfigUser {
   canEdit          Boolean         @default(false)
   canShare         Boolean         @default(false)
   canDelete        Boolean         @default(false)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt        DateTime?         @default(now())
+  updatedAt        DateTime?        @updatedAt
 
   @@unique([databaseConfigId, userId])
   @@map("databaseconfiguser")

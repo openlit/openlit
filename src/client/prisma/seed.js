@@ -1,7 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 async function main() {
-	console.log("Inside seeding.....");
+	console.log("Seeding Start.....");
 	// const defaultPassword = "openlituser"; ⤵
 	const hashedPassword =
 		"$2a$10$gh6Odw7fhLRrE1A1OxaHfeWOWKiZEEQpkOAhhCQ.RHx8VWOngwlHO";
@@ -47,6 +47,9 @@ async function main() {
 				userId: user.id,
 				databaseConfigId: dbConfig.id,
 				isCurrent: true,
+				canEdit: true,
+				canDelete: true,
+				canShare: true,
 			},
 		});
 	}

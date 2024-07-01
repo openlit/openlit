@@ -1,9 +1,3 @@
-/*
-  Warnings:
-
-  - Added the required column `updatedAt` to the `databaseconfiguser` table without a default value. This is not possible if the table is not empty.
-
-*/
 -- CreateTable
 CREATE TABLE "DatabaseConfigInvitedUser" (
     "databaseConfigId" TEXT NOT NULL,
@@ -24,8 +18,8 @@ CREATE TABLE "new_databaseconfiguser" (
     "canEdit" BOOLEAN NOT NULL DEFAULT false,
     "canShare" BOOLEAN NOT NULL DEFAULT false,
     "canDelete" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "createdAt" DATETIME DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME,
     CONSTRAINT "databaseconfiguser_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "databaseconfiguser_databaseConfigId_fkey" FOREIGN KEY ("databaseConfigId") REFERENCES "databaseconfig" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
