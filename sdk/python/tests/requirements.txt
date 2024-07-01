@@ -23,7 +23,7 @@ qdrant-client>=1.9.0
 pymilvus>=2.4.3
 
 # Frameworks
-langchain>=0.2.0
+langchain>=0.1.20
 langchainhub>=0.1.20
 embedchain>=0.1.113
 
