@@ -23,9 +23,9 @@ qdrant-client>=1.9.0
 pymilvus>=2.4.3
 
 # Frameworks
-langchain>=0.1.16
-langchainhub>=0.1.16
-embedchain>=0.1.104
+langchain>=0.2.0
+langchainhub>=0.2.0
+embedchain>=0.2.0
 
 # GPU
 gpustat>=1.1.1
