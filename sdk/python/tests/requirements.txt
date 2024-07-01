@@ -25,7 +25,7 @@ pymilvus>=2.4.3
 # Frameworks
 langchain>=0.2.0
 langchainhub>=0.1.20
-embedchain>=0.1.104
+embedchain>=0.1.113
 
 # GPU
 gpustat>=1.1.1
