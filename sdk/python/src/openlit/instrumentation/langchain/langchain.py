@@ -218,9 +218,9 @@ def allm(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, 
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     str(getattr(instance, 'model')))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, 
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
                                     str(getattr(instance, 'temperature')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
                                     str(getattr(instance, 'top_k')))
@@ -302,9 +302,9 @@ def llm(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, 
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     str(getattr(instance, 'model')))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, 
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
                                     str(getattr(instance, 'temperature')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
                                     str(getattr(instance, 'top_k')))
