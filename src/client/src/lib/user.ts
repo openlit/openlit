@@ -3,6 +3,7 @@ import prisma from "./prisma";
 import asaw from "@/utils/asaw";
 import { getCurrentUser } from "./session";
 import { User } from "@prisma/client";
+import { moveSharedDBConfigToDBUser } from "./db-config";
 
 function exclude<User extends Record<string, unknown>, K extends keyof User>(
 	user: User,
@@ -76,6 +77,7 @@ export const createNewUser = async (
 	});
 
 	if (createdUser?.id) {
+		await moveSharedDBConfigToDBUser(email, createdUser.id);
 		return exclude(createdUser, options?.selectPassword ? [] : undefined);
 	}
 
