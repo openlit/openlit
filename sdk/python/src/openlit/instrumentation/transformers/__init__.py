@@ -26,7 +26,7 @@ class TransformersInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("transformers")
 
         wrap_function_wrapper(
-            "transformers.pipelines",  
+            "transformers",  
             "TextGenerationPipeline.__call__",  
             text_wrap("huggingface.text_generation", version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics),

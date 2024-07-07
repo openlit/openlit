@@ -1,6 +1,7 @@
+import asaw from "@/utils/asaw";
 import prisma from "./prisma";
 import { getCurrentUser } from "./session";
-import { DatabaseConfig } from "@prisma/client";
+import { DatabaseConfig, DatabaseConfigInvitedUser } from "@prisma/client";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
@@ -29,6 +30,9 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 			databaseConfigId: true,
 			isCurrent: true,
 			databaseConfig: true,
+			canEdit: true,
+			canDelete: true,
+			canShare: true,
 		},
 		orderBy: {
 			databaseConfig: {
@@ -37,7 +41,14 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 		},
 	});
 
-	const dbConfigs = dbUserConfigs.map((dbConfig) => dbConfig.databaseConfig);
+	const dbConfigs = dbUserConfigs.map((dbConfig) => ({
+		...dbConfig.databaseConfig,
+		permissions: {
+			canEdit: dbConfig.canEdit,
+			canDelete: dbConfig.canDelete,
+			canShare: dbConfig.canShare,
+		},
+	}));
 	const currentConfig = dbUserConfigs.find((dbConfig) => dbConfig.isCurrent);
 	return dbConfigs.map((dbConfig) => ({
 		...dbConfig,
@@ -82,6 +93,10 @@ export const upsertDBConfig = async (
 	if (id) whereObject.id = id;
 	else whereObject.name = dbConfig.name;
 
+	if (id) {
+		await checkPermissionForDbAction(user.id, id, "EDIT");
+	}
+
 	const createddbConfig = await prisma.databaseConfig.upsert({
 		where: whereObject,
 		create: {
@@ -94,17 +109,10 @@ export const upsertDBConfig = async (
 	});
 
 	if (!id) {
-		const ifFirstDBConfigCreated = await prisma.databaseConfigUser.count({
-			where: {
-				userId: user.id,
-			},
-		});
-		await prisma.databaseConfigUser.create({
-			data: {
-				userId: user.id,
-				databaseConfigId: createddbConfig.id,
-				isCurrent: !ifFirstDBConfigCreated,
-			},
+		await addDatabaseConfigUserEntry(user.id, createddbConfig.id, {
+			canEdit: true,
+			canDelete: true,
+			canShare: true,
 		});
 	}
 
@@ -115,6 +123,8 @@ export async function deleteDBConfig(id: string) {
 	const user = await getCurrentUser();
 
 	if (!user) throw new Error("Unauthorized user!");
+
+	await checkPermissionForDbAction(user.id, id, "DELETE");
 
 	await prisma.databaseConfigUser.delete({
 		where: {
@@ -141,17 +151,19 @@ export async function setCurrentDBConfig(id: string) {
 
 	const currentConfig = await getDBConfigByUser(true);
 
-	await prisma.databaseConfigUser.update({
-		where: {
-			databaseConfigId_userId: {
-				userId: user.id,
-				databaseConfigId: (currentConfig as DatabaseConfig).id,
+	if ((currentConfig as DatabaseConfig)?.id) {
+		await prisma.databaseConfigUser.update({
+			where: {
+				databaseConfigId_userId: {
+					userId: user.id,
+					databaseConfigId: (currentConfig as DatabaseConfig).id,
+				},
 			},
-		},
-		data: {
-			isCurrent: false,
-		},
-	});
+			data: {
+				isCurrent: false,
+			},
+		});
+	}
 
 	await prisma.databaseConfigUser.update({
 		where: {
@@ -166,4 +178,222 @@ export async function setCurrentDBConfig(id: string) {
 	});
 
 	return "Current DB config set successfully!";
+}
+
+export async function shareDBConfig({
+	shareArray,
+	id,
+}: {
+	id: string;
+	shareArray: {
+		email: string;
+		permissions?: {
+			canDelete: boolean;
+			canEdit: boolean;
+			canShare: boolean;
+		};
+	}[];
+}) {
+	if (!id || !shareArray?.length) throw new Error("No user to share!");
+
+	const user = await getCurrentUser();
+
+	if (!user) throw new Error("Unauthorized user!");
+
+	const { dbUserConfig } = await checkPermissionForDbAction(
+		user.id,
+		id,
+		"SHARE"
+	);
+
+	return await Promise.all(
+		shareArray.map(
+			async ({
+				email,
+				permissions = {
+					canDelete: false,
+					canEdit: false,
+					canShare: false,
+				},
+			}) => {
+				const [, user] = await asaw(
+					prisma.user.findUnique({
+						where: {
+							email,
+						},
+					})
+				);
+
+				if (user?.id) {
+					const [, dbConfigUser] = await asaw(
+						prisma.databaseConfigUser.findFirst({
+							where: {
+								userId: user.id,
+								databaseConfigId: id,
+							},
+						})
+					);
+
+					if (!dbConfigUser) {
+						await addDatabaseConfigUserEntry(user.id, id, permissions);
+						return [, { success: true }];
+					}
+
+					return [`Already shared to ${email}`, { success: false }];
+				} else {
+					const [createErr] = await asaw(
+						prisma.databaseConfigInvitedUser.create({
+							data: {
+								email,
+								databaseConfigId: id,
+								canEdit: dbUserConfig.canEdit && permissions.canEdit,
+								canDelete: dbUserConfig.canDelete && permissions.canDelete,
+								canShare: dbUserConfig.canShare && permissions.canShare,
+							},
+						})
+					);
+
+					return [createErr, { success: !createErr }];
+				}
+			}
+		)
+	);
+}
+
+export async function moveSharedDBConfigToDBUser(
+	email: string,
+	userId: string
+) {
+	const [sharedConfigErr, sharedConfig] = await asaw(
+		prisma.databaseConfigInvitedUser.findMany({
+			where: {
+				email,
+			},
+		})
+	);
+
+	if (sharedConfigErr) {
+		console.log(sharedConfigErr);
+		return;
+	}
+
+	if (!sharedConfig?.length) return;
+
+	if (sharedConfig.length) {
+		const [configAddErr] = await asaw(
+			prisma.databaseConfigUser.createMany({
+				data: sharedConfig.map(
+					(sharedConfigObject: DatabaseConfigInvitedUser) => ({
+						databaseConfigId: sharedConfigObject.databaseConfigId,
+						userId,
+						canDelete: sharedConfigObject.canDelete,
+						canEdit: sharedConfigObject.canEdit,
+						canShare: sharedConfigObject.canShare,
+					})
+				),
+			})
+		);
+
+		if (configAddErr) console.log(configAddErr);
+
+		const ifNoCurrentDbConfig = await prisma.databaseConfigUser.count({
+			where: {
+				userId,
+				isCurrent: true,
+			},
+		});
+
+		if (!ifNoCurrentDbConfig) {
+			const firstDbConfig = await prisma.databaseConfigUser.findFirst({
+				where: {
+					userId,
+				},
+			});
+			if (firstDbConfig) {
+				await prisma.databaseConfigUser.update({
+					data: {
+						isCurrent: true,
+					},
+					where: {
+						databaseConfigId_userId: {
+							userId,
+							databaseConfigId: firstDbConfig.databaseConfigId,
+						},
+					},
+				});
+			}
+		}
+	}
+
+	return;
+}
+
+async function addDatabaseConfigUserEntry(
+	userId: string,
+	databaseConfigId: string,
+	permissions: {
+		canDelete: boolean;
+		canEdit: boolean;
+		canShare: boolean;
+	}
+) {
+	const ifFirstDBConfigCreated = await prisma.databaseConfigUser.count({
+		where: {
+			userId: userId,
+		},
+	});
+	await prisma.databaseConfigUser.create({
+		data: {
+			userId,
+			databaseConfigId,
+			isCurrent: !ifFirstDBConfigCreated,
+			...permissions,
+		},
+	});
+}
+
+async function checkPermissionForDbAction(
+	userId: string,
+	databaseConfigId: string,
+	actionType: "DELETE" | "SHARE" | "EDIT"
+) {
+	const [dbUserConfigErr, dbUserConfig] = await asaw(
+		prisma.databaseConfigUser.findFirst({
+			where: {
+				databaseConfigId,
+				userId,
+			},
+		})
+	);
+
+	if (dbUserConfigErr || !dbUserConfig)
+		throw new Error(dbUserConfigErr || "Database config doesn't exist");
+
+	switch (actionType) {
+		case "DELETE":
+			if (!dbUserConfig.canDelete)
+				throw new Error(
+					"User doesn't have permission to delete the database config"
+				);
+			break;
+		case "EDIT":
+			if (!dbUserConfig.canEdit)
+				throw new Error(
+					"User doesn't have permission to edit the database config"
+				);
+			break;
+		case "EDIT":
+			if (!dbUserConfig.canShare)
+				throw new Error(
+					"User doesn't have permission to share the database config"
+				);
+			break;
+		default:
+			break;
+	}
+
+	return {
+		success: true,
+		dbUserConfig,
+	};
 }
