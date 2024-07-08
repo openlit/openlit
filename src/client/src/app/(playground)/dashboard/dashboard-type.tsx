@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DASHBOARD_TYPE_OBJECT } from "@/store/dashboard";
 import LLMDashboard from "./llm";
 import GPUDashboard from "./gpu";
+import VectorDashboard from "./vector";
 
 const DashboardLabels: any = {
 	llm: "LLM",
@@ -34,9 +35,9 @@ export function DashboardTypeGraphContainer() {
 		<div className="flex flex-col grow w-full h-full rounded overflow-y-auto gap-4">
 			{dashboardType === DASHBOARD_TYPE_OBJECT.llm ? (
 				<LLMDashboard />
-			) : dashboardType ===
-			  DASHBOARD_TYPE_OBJECT.vector ? null : dashboardType ===
-			  DASHBOARD_TYPE_OBJECT.gpu ? (
+			) : dashboardType === DASHBOARD_TYPE_OBJECT.vector ? (
+				<VectorDashboard />
+			) : dashboardType === DASHBOARD_TYPE_OBJECT.gpu ? (
 				<GPUDashboard />
 			) : null}
 		</div>

@@ -16,12 +16,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import IntermediateState from "@/components/(playground)/intermediate-state";
 import { getFilterParamsForDashboard } from "@/helpers/filter";
 
+const COLORS = ["#8884d8", "#82ca9d", "#ffc658"];
+
 export default function GPUMetric({
-	gpu_type,
+	chartKeys,
 	title,
+	url,
 }: {
-	gpu_type: string;
+	chartKeys: string[];
 	title: string;
+	url?: string;
 }) {
 	const filter = useRootStore(getFilterDetails);
 	const pingStatus = useRootStore(getPingStatus);
@@ -30,10 +34,9 @@ export default function GPUMetric({
 		fireRequest({
 			body: JSON.stringify({
 				...getFilterParamsForDashboard(filter),
-				gpu_type,
 			}),
 			requestType: "POST",
-			url: "/api/metrics/gpu",
+			url: url ? url : "/api/metrics/gpu",
 			responseDataKey: "data",
 		});
 	}, [filter]);
@@ -86,13 +89,16 @@ export default function GPUMetric({
 								domain={[0, "dataMax + 15"]}
 							/>
 							<Tooltip labelClassName="dark:text-stone-700" />
-							<Area
-								type="monotone"
-								dataKey="total"
-								stackId="1"
-								stroke="#8884d8"
-								fill="#8884d8"
-							/>
+							{chartKeys.map((type, index) => (
+								<Area
+									key={type}
+									type="monotone"
+									dataKey={type.replaceAll(".", "_")}
+									stackId="1"
+									stroke={COLORS[index]}
+									fill={COLORS[index]}
+								/>
+							))}
 						</AreaChart>
 					</ResponsiveContainer>
 				)}

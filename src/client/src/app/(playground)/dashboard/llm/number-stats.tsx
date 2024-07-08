@@ -14,12 +14,18 @@ function NumberStats() {
 		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
 			<StatCard
 				dataKey="total_requests"
+				extraParams={{
+					operationType: "llm",
+				}}
 				heading="Total requests"
 				icon={RadioTower}
 				url="/api/metrics/request/total"
 			/>
 			<StatCard
 				dataKey="average_duration"
+				extraParams={{
+					operationType: "llm",
+				}}
 				heading="Avg Request Duration"
 				icon={Timer}
 				textSuffix="s"
@@ -33,7 +39,7 @@ function NumberStats() {
 				extraParams={{ type: "total" }}
 				heading="Avg tokens per request"
 				icon={Braces}
-				url="/api/metrics/token/request/average"
+				url="/api/metrics/llm/token/request/average"
 			/>
 			<StatCard
 				dataKey="total_usage_cost"
@@ -41,7 +47,7 @@ function NumberStats() {
 				icon={CircleDollarSign}
 				roundTo={7}
 				textPrefix="$"
-				url="/api/metrics/cost/total"
+				url="/api/metrics/llm/cost/total"
 			/>
 			<StatCard
 				dataKey="average_usage_cost"
@@ -49,7 +55,7 @@ function NumberStats() {
 				icon={Banknote}
 				roundTo={7}
 				textPrefix="$"
-				url="/api/metrics/cost/request/average"
+				url="/api/metrics/llm/cost/request/average"
 			/>
 		</div>
 	);

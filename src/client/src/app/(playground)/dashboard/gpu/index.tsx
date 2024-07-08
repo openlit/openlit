@@ -1,28 +1,43 @@
 import GPUMetric from "./gpu-metric";
+import NumberStats from "./number-stats";
 
 export default function GPUDashboard() {
 	return (
-		<div className="grid-cols-2 grid gap-4">
-			<GPUMetric gpu_type="memory.available" title="Memory Available (MB)" />
-			<GPUMetric gpu_type="memory.total" title="Memory total (MB)" />
-			<GPUMetric gpu_type="memory.used" title="Memory Used (MB)" />
-			<GPUMetric gpu_type="memory.free" title="Memory Free (MB)" />
-			<GPUMetric gpu_type="power.draw" title="Power Draw (Watt)" />
-			<GPUMetric gpu_type="power.limit" title="Power Limit (Watt)" />
-			<GPUMetric gpu_type="temperature" title="Temperature (Celcius)" />
-			<GPUMetric gpu_type="fan_speed" title="Fan speed (0-100)" />
-			<GPUMetric
-				gpu_type="utilization_percentage"
-				title="Utilization Percentage (%)"
-			/>
-			<GPUMetric
-				gpu_type="enc.utilization_percentage"
-				title="Encoder Utilization Percentage (%)"
-			/>
-			<GPUMetric
-				gpu_type="dec.utilization_percentage"
-				title="Decoder Utilization Percentage (%)"
-			/>
-		</div>
+		<>
+			<NumberStats />
+			<div className="grid-cols-2 grid gap-4">
+				<GPUMetric
+					chartKeys={[
+						"utilization_percentage",
+						"enc_utilization_percentage",
+						"dec_utilization_percentage",
+					]}
+					url="/api/metrics/gpu/utilization/time"
+					title="Avg Utilization Percentage (%)"
+				/>
+
+				<GPUMetric
+					chartKeys={["temperature"]}
+					url="/api/metrics/gpu/temperature/time"
+					title="Avg Temperature (°C)"
+				/>
+				<GPUMetric
+					chartKeys={["memory_total", "memory_used", "memory_free"]}
+					url="/api/metrics/gpu/memory/time"
+					title="Memory (MB)"
+				/>
+				
+				<GPUMetric
+					chartKeys={["power.limit", "power.draw"]}
+					url="/api/metrics/gpu/power/time"
+					title="Power (Watt)"
+				/>
+				<GPUMetric
+					chartKeys={["fan_speed"]}
+					url="/api/metrics/gpu/fanspeed/time"
+					title="Fan speed (0-100)"
+				/>
+			</div>
+		</>
 	);
 }

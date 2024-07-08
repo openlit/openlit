@@ -14,7 +14,6 @@ import {
 } from "recharts";
 import { useCallback, useEffect, useState } from "react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { getChartColors } from "@/constants/chart-colors";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
@@ -34,7 +33,7 @@ function TopModels() {
 		fireRequest({
 			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
-			url: "/api/metrics/model/top",
+			url: "/api/metrics/llm/model/top",
 			responseDataKey: "data",
 		});
 	}, [filter]);
@@ -48,13 +47,10 @@ function TopModels() {
 			fetchData();
 	}, [filter, fetchData, pingStatus]);
 
-	const colors = getChartColors((data as any[])?.length || 0);
-
 	const updatedData = ((data as any[]) || []).map((item, index) => ({
 		name: item.model,
 		value: item.model_count,
 		target: item.total,
-		color: colors[index],
 	}));
 
 	return (
@@ -81,27 +77,28 @@ function TopModels() {
 								left: 0,
 								bottom: 5,
 							}}
-							barSize={10}
+							layout="vertical"
 						>
-							<XAxis
-								dataKey="name"
-								className="stroke-stone-300"
-								fontSize={10}
-								stroke="currentColor"
-								interval={0}
-								angle={-5}
-							/>
-							<YAxis
-								className="text-xs stroke-stone-300"
-								domain={[0, "dataMax + 15"]}
-								stroke="currentColor"
-							/>
-							<Bar dataKey="value" className="fill-primary">
+							<YAxis dataKey="name" type="category" axisLine={false} hide />
+							<XAxis dataKey="value" type="number" hide />
+							<Bar
+								dataKey="value"
+								className="fill-primary"
+								radius={[0, 20, 20, 0]}
+							>
+								<LabelList
+									dataKey="name"
+									position="insideLeft"
+									offset={8}
+									className="fill-stone-100"
+									fontSize={12}
+								/>
 								<LabelList
 									dataKey="value"
-									position="top"
-									className="fill-stone-700 dark:fill-stone-200"
-									fill="currentColor"
+									position="right"
+									offset={8}
+									className="fill-stone-800 dark:fill-stone-100"
+									fontSize={12}
 								/>
 							</Bar>
 						</BarChart>
@@ -124,7 +121,7 @@ function ModelsPerTime() {
 		fireRequest({
 			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
-			url: "/api/metrics/model/time",
+			url: "/api/metrics/llm/model/time",
 			responseDataKey: "data",
 		});
 	}, [filter]);
@@ -220,7 +217,7 @@ function TokensPerTime() {
 		fireRequest({
 			body: JSON.stringify(getFilterParamsForDashboard(filter)),
 			requestType: "POST",
-			url: "/api/metrics/token/time",
+			url: "/api/metrics/llm/token/time",
 			responseDataKey: "data",
 		});
 	}, [filter]);
@@ -313,7 +310,7 @@ function TokenCharts() {
 						heading="Avg prompt tokens / request"
 						loadingClass="h-8 w-12"
 						textClass="text-2xl"
-						url="/api/metrics/token/request/average"
+						url="/api/metrics/llm/token/request/average"
 					/>
 					<StatCard
 						dataKey="total_tokens"
@@ -321,7 +318,7 @@ function TokenCharts() {
 						heading="Avg completion tokens / request"
 						loadingClass="h-8 w-12"
 						textClass="text-2xl"
-						url="/api/metrics/token/request/average"
+						url="/api/metrics/llm/token/request/average"
 					/>
 				</div>
 				<TokensPerTime />

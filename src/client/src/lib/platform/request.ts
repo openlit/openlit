@@ -16,7 +16,7 @@ export async function getRequestPerTime(params: MetricParams) {
 			formatDateTime(DATE_TRUNC('${dateTrunc}', Timestamp), '%Y/%m/%d %R') AS request_time
 		FROM
 			${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition(params)}
+		WHERE ${getFilterWhereCondition({ ...params, operationType: "llm" })}
 		GROUP BY
 			request_time
 		ORDER BY
@@ -123,7 +123,7 @@ export async function getRequestsConfig(params: MetricParams) {
 	select.push(`CAST(COUNT(*) AS INTEGER) AS totalRows`);
 
 	const query = `SELECT ${select.join(", ")} FROM ${OTEL_TRACES_TABLE_NAME} 
-			WHERE ${getFilterWhereCondition({ ...params })}`;
+			WHERE ${getFilterWhereCondition(params)}`;
 
 	return dataCollector({ query });
 }
