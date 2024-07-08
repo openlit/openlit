@@ -159,3 +159,172 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
                 return response
 
     return wrapper
+
+
+def allm(gen_ai_endpoint, version, environment, application_name,
+                 tracer, pricing_info, trace_content):
+    """
+    Creates a wrapper around a function call to trace and log its execution metrics.
+
+    This function wraps any given function to measure its execution time,
+    log its operation, and trace its execution using OpenTelemetry.
+    
+    Parameters:
+    - gen_ai_endpoint (str): A descriptor or name for the endpoint being traced.
+    - version (str): The version of the Langchain application.
+    - environment (str): The deployment environment (e.g., 'production', 'development').
+    - application_name (str): Name of the Langchain application.
+    - tracer (opentelemetry.trace.Tracer): The tracer object used for OpenTelemetry tracing.
+    - pricing_info (dict): Information about the pricing for internal metrics (currently not used).
+    - trace_content (bool): Flag indicating whether to trace the content of the response.
+
+    Returns:
+    - function: A higher-order function that takes a function 'wrapped' and returns
+                a new function that wraps 'wrapped' with additional tracing and logging.
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
+        """
+        An inner wrapper function that executes the wrapped function, measures execution
+        time, and records trace data using OpenTelemetry.
+
+        Parameters:
+        - wrapped (Callable): The original function that this wrapper will execute.
+        - instance (object): The instance to which the wrapped function belongs. This
+                             is used for instance methods. For static and classmethods,
+                             this may be None.
+        - args (tuple): Positional arguments passed to the wrapped function.
+        - kwargs (dict): Keyword arguments passed to the wrapped function.
+
+        Returns:
+        - The result of the wrapped function call.
+        
+        The wrapper initiates a span with the provided tracer, sets various attributes
+        on the span based on the function's execution and response, and ensures
+        errors are handled and logged appropriately.
+        """
+        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            response = await wrapped(*args, **kwargs)
+
+            try:
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                    gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    str(getattr(instance, 'model')))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
+                                    str(getattr(instance, 'temperature')))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
+                                    str(getattr(instance, 'top_k')))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
+                                    str(getattr(instance, 'top_p')))
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                        args[0])
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                        response)
+                span.set_status(Status(StatusCode.OK))
+
+                # Return original response
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
+
+    return wrapper
+
+def llm(gen_ai_endpoint, version, environment, application_name,
+                 tracer, pricing_info, trace_content):
+    """
+    Creates a wrapper around a function call to trace and log its execution metrics.
+
+    This function wraps any given function to measure its execution time,
+    log its operation, and trace its execution using OpenTelemetry.
+    
+    Parameters:
+    - gen_ai_endpoint (str): A descriptor or name for the endpoint being traced.
+    - version (str): The version of the Langchain application.
+    - environment (str): The deployment environment (e.g., 'production', 'development').
+    - application_name (str): Name of the Langchain application.
+    - tracer (opentelemetry.trace.Tracer): The tracer object used for OpenTelemetry tracing.
+    - pricing_info (dict): Information about the pricing for internal metrics (currently not used).
+    - trace_content (bool): Flag indicating whether to trace the content of the response.
+
+    Returns:
+    - function: A higher-order function that takes a function 'wrapped' and returns
+                a new function that wraps 'wrapped' with additional tracing and logging.
+    """
+
+    def wrapper(wrapped, instance, args, kwargs):
+        """
+        An inner wrapper function that executes the wrapped function, measures execution
+        time, and records trace data using OpenTelemetry.
+
+        Parameters:
+        - wrapped (Callable): The original function that this wrapper will execute.
+        - instance (object): The instance to which the wrapped function belongs. This
+                             is used for instance methods. For static and classmethods,
+                             this may be None.
+        - args (tuple): Positional arguments passed to the wrapped function.
+        - kwargs (dict): Keyword arguments passed to the wrapped function.
+
+        Returns:
+        - The result of the wrapped function call.
+        
+        The wrapper initiates a span with the provided tracer, sets various attributes
+        on the span based on the function's execution and response, and ensures
+        errors are handled and logged appropriately.
+        """
+        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            response = wrapped(*args, **kwargs)
+
+            try:
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                    gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    str(getattr(instance, 'model')))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
+                                    str(getattr(instance, 'temperature')))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
+                                    str(getattr(instance, 'top_k')))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
+                                    str(getattr(instance, 'top_p')))
+                if trace_content:
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
+                                        args[0])
+                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
+                                        response)
+                span.set_status(Status(StatusCode.OK))
+
+                # Return original response
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
+
+    return wrapper
