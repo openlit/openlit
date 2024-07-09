@@ -1,9 +1,9 @@
 import { MetricParams, OPERATION_TYPE, TimeLimit } from "@/lib/platform/common";
-import { getAverageRequestDuration } from "@/lib/platform/request";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/platform";
+import { getResultGenerationByEndpoint } from "@/lib/platform/llm/endpoint";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
 	const validationParam = validateMetricsRequest(
 		params,
-		validateMetricsRequestType.AVERAGE_REQUEST_DURATION
+		validateMetricsRequestType.GENERATION_BY_ENDPOINT
 	);
 
 	if (!validationParam.success)
@@ -25,6 +25,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getAverageRequestDuration(params);
+	const res: any = await getResultGenerationByEndpoint(params);
 	return Response.json(res);
 }

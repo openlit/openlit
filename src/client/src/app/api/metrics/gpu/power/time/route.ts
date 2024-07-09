@@ -1,23 +1,21 @@
-import { MetricParams, OPERATION_TYPE, TimeLimit } from "@/lib/platform/common";
-import { getAverageRequestDuration } from "@/lib/platform/request";
+import { GPUMetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/platform";
+import { getPowerParamsPerTime } from "@/lib/platform/gpu/power";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
-	const operationType = formData.operationType as OPERATION_TYPE;
 
-	const params: MetricParams = {
+	const params: GPUMetricParams = {
 		timeLimit,
-		operationType,
 	};
 
 	const validationParam = validateMetricsRequest(
 		params,
-		validateMetricsRequestType.AVERAGE_REQUEST_DURATION
+		validateMetricsRequestType.POWER_PER_TIME
 	);
 
 	if (!validationParam.success)
@@ -25,6 +23,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getAverageRequestDuration(params);
+	const res: any = await getPowerParamsPerTime(params);
 	return Response.json(res);
 }

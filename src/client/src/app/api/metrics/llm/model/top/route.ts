@@ -1,23 +1,22 @@
-import { MetricParams, OPERATION_TYPE, TimeLimit } from "@/lib/platform/common";
-import { getAverageRequestDuration } from "@/lib/platform/request";
+import { ModelMetricParams, getTopModels } from "@/lib/platform/llm/model";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/platform";
+import { TimeLimit } from "@/lib/platform/common";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
-	const operationType = formData.operationType as OPERATION_TYPE;
 
-	const params: MetricParams = {
+	const params: ModelMetricParams = {
 		timeLimit,
-		operationType,
+		top: formData.top || 3,
 	};
 
 	const validationParam = validateMetricsRequest(
 		params,
-		validateMetricsRequestType.AVERAGE_REQUEST_DURATION
+		validateMetricsRequestType.TOP_MODELS
 	);
 
 	if (!validationParam.success)
@@ -25,6 +24,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getAverageRequestDuration(params);
+	const res: any = await getTopModels(params);
 	return Response.json(res);
 }

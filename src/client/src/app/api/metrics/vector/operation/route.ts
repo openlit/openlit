@@ -1,23 +1,21 @@
-import { MetricParams, OPERATION_TYPE, TimeLimit } from "@/lib/platform/common";
-import { getAverageRequestDuration } from "@/lib/platform/request";
+import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
 } from "@/helpers/platform";
+import { getResultGenerationByOperation } from "@/lib/platform/vector/operation";
 
 export async function POST(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
-	const operationType = formData.operationType as OPERATION_TYPE;
 
 	const params: MetricParams = {
 		timeLimit,
-		operationType,
 	};
 
 	const validationParam = validateMetricsRequest(
 		params,
-		validateMetricsRequestType.AVERAGE_REQUEST_DURATION
+		validateMetricsRequestType.GENERATION_BY_OPERATION
 	);
 
 	if (!validationParam.success)
@@ -25,6 +23,6 @@ export async function POST(request: Request) {
 			status: 400,
 		});
 
-	const res: any = await getAverageRequestDuration(params);
+	const res: any = await getResultGenerationByOperation(params);
 	return Response.json(res);
 }
