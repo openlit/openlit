@@ -7,7 +7,7 @@ import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import get_audio_model_cost
-from openlit.__helpers import handle_exception, general_tokens
+from openlit.__helpers import handle_exception
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations

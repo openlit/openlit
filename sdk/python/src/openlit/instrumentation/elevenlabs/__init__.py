@@ -48,7 +48,6 @@ class ElevenLabsInstrumentor(BaseInstrumentor):
             async_generate("elevenlabs.generate", version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
-        
 
     def _uninstrument(self, **kwargs):
         # Proper uninstrumentation logic to revert patched methods
