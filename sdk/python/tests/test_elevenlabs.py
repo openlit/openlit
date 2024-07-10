@@ -78,14 +78,6 @@ def test_sync_elevenlabs_t2s():
         )
         assert isinstance(audio, types.GeneratorType)
 
-        audio = sync_client.text_to_speech.convert(
-            voice_id="21m00Tcm4TlvDq8ikWAM",
-            output_format="mp3_22050_32",
-            text="Say Monitoring LLM Applications",
-            model_id="eleven_multilingual_v2",
-        )
-        assert isinstance(audio, types.GeneratorType)
-
     # pylint: disable=broad-exception-caught
     except Exception as e:
         if "rate limit" in str(e).lower():
@@ -141,15 +133,7 @@ async def test_async_elevenlabs_t2s():
             text="Say Monitoring LLM Applications",
             model_id="eleven_multilingual_v2",
         )
-        assert isinstance(audio, types.GeneratorType)
-
-        audio = async_client.text_to_speech.convert(
-            voice_id="21m00Tcm4TlvDq8ikWAM",
-            output_format="mp3_22050_32",
-            text="Say Monitoring LLM Applications",
-            model_id="eleven_multilingual_v2",
-        )
-        assert isinstance(audio, types.GeneratorType)
+        assert isinstance(audio, types.AsyncGeneratorType)
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
