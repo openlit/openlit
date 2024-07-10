@@ -109,20 +109,24 @@ const PieChartRenderer = ({
 
 type PieChartCardProps = {
 	categoryKey: string;
+	extraParams?: Record<any, any>;
 	heading: string;
 	indexKey: string;
 	url: string;
 };
 
 const PieChartCard = memo(
-	({ categoryKey, heading, indexKey, url }: PieChartCardProps) => {
+	({ categoryKey, extraParams, heading, indexKey, url }: PieChartCardProps) => {
 		const filter = useRootStore(getFilterDetails);
 		const pingStatus = useRootStore(getPingStatus);
 		const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 
 		const fetchData = useCallback(async () => {
 			fireRequest({
-				body: JSON.stringify(getFilterParamsForDashboard(filter)),
+				body: JSON.stringify({
+					...getFilterParamsForDashboard(filter),
+					...extraParams,
+				}),
 				requestType: "POST",
 				url,
 				responseDataKey: "data",

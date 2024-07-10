@@ -10,6 +10,9 @@ import {
 } from "@clickhouse/client-common";
 
 export const OTEL_TRACES_TABLE_NAME = "otel_traces";
+export const OTEL_GPUS_TABLE_NAME = "otel_metrics_gauge";
+
+export type OPERATION_TYPE = "llm" | "vectordb";
 
 export type TimeLimit = {
 	start: Date | string;
@@ -23,7 +26,23 @@ export interface MetricParams {
 	limit?: number;
 	selectedConfig?: any;
 	sorting?: any;
+	operationType?: OPERATION_TYPE;
 }
+
+export type GPU_TYPE_KEY =
+	| "utilization_percentage"
+	| "enc.utilization_percentage"
+	| "dec.utilization_percentage"
+	| "temperature"
+	| "fan_speed"
+	| "memory.available"
+	| "memory.total"
+	| "memory.used"
+	| "memory.free"
+	| "power.draw"
+	| "power.limit";
+
+export interface GPUMetricParams extends MetricParams {}
 
 export type DataCollectorType = { err?: unknown; data?: unknown };
 export async function dataCollector(

@@ -72,7 +72,14 @@
     },
     "audio": {
         "tts-1" : 0.015,
-        "tts-1-hd": 0.030
+        "tts-1-hd": 0.030,
+        "eleven_multilingual_v2": 0.24,
+        "eleven_multilingual_v1": 0.24,
+        "eleven_monolingual_v1": 0.24,
+        "eleven_english_v1": 0.24,
+        "eleven_turbo_v2": 0.24,
+        "eleven_english_sts_v2": 0.24,
+        "eleven_multilingual_sts_v2": 0.24
     },
     "chat": {
         "gpt-3.5-turbo": {
