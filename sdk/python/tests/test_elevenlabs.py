@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module
+# pylint: disable=duplicate-code, no-name-in-module, import-error
 """
 This module contains tests for ElevenLabs functionality using the ElevenLabs Python library.
 
@@ -13,8 +13,8 @@ prior to running these tests.
 """
 
 import os
-import pytest
 import types
+import pytest
 from elevenlabs.client import ElevenLabs, AsyncElevenLabs
 import openlit
 
