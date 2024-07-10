@@ -61,6 +61,30 @@ def test_sync_elevenlabs_generate():
         else:
             raise
 
+def test_sync_elevenlabs_t2s():
+    """
+    Tests synchronous text-to-speech with the 'eleven_multilingual_v2' model.
+
+    Raises:
+        AssertionError: If the text-to-speech response object is not as expected.
+    """
+
+    try:
+        audio = sync_client.text_to_speech.convert(
+            voice_id="21m00Tcm4TlvDq8ikWAM",
+            output_format="mp3_22050_32",
+            text="Say Monitoring LLM Applications",
+            model_id="eleven_multilingual_v2",
+        )
+        assert isinstance(audio, types.GeneratorType)
+
+    # pylint: disable=broad-exception-caught
+    except Exception as e:
+        if "rate limit" in str(e).lower():
+            print("Rate Limited:", e)
+        else:
+            raise
+
 @pytest.mark.asyncio
 async def test_async_elevenlabs_generate():
     """
@@ -83,6 +107,31 @@ async def test_async_elevenlabs_generate():
             voice="Rachel",
             model="eleven_multilingual_v2",
             stream=True
+        )
+        assert isinstance(audio, types.AsyncGeneratorType)
+
+    # pylint: disable=broad-exception-caught
+    except Exception as e:
+        if "rate limit" in str(e).lower():
+            print("Rate Limited:", e)
+        else:
+            raise
+
+@pytest.mark.asyncio
+async def test_async_elevenlabs_t2s():
+    """
+    Tests synchronous text-to-speech with the 'eleven_multilingual_v2' model.
+
+    Raises:
+        AssertionError: If the text-to-speech response object is not as expected.
+    """
+
+    try:
+        audio = async_client.text_to_speech.convert(
+            voice_id="21m00Tcm4TlvDq8ikWAM",
+            output_format="mp3_22050_32",
+            text="Say Monitoring LLM Applications",
+            model_id="eleven_multilingual_v2",
         )
         assert isinstance(audio, types.AsyncGeneratorType)
 

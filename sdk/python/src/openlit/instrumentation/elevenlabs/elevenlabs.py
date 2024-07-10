@@ -68,11 +68,17 @@ def generate(gen_ai_endpoint, version, environment, application_name,
                                     environment)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                if gen_ai_endpoint == "elevenlabs.generate":
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     kwargs.get("model", "eleven_multilingual_v2"))
-                if isinstance(kwargs.get("voice", "Rachel"), str):
+                    if isinstance(kwargs.get("voice", "Rachel"), str):
+                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_VOICE,
+                                        kwargs.get("voice", "Rachel"))
+                else:
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    kwargs.get("model_id", "eleven_multilingual_v2"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_VOICE,
-                                    kwargs.get("voice", "Rachel"))
+                                        kwargs.get("voice_id", ""))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
                                     kwargs.get("output_format", "mp3"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_SETTINGS,
