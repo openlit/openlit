@@ -41,11 +41,27 @@ class ElevenLabsInstrumentor(BaseInstrumentor):
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
+        # sync text_to_speech.convert
+        wrap_function_wrapper(
+            "elevenlabs.text_to_speech.client",
+            "TextToSpeechClient.convert",
+            generate("elevenlabs.text_to_speech", version, environment, application_name,
+                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+        )
+
         # async generate
         wrap_function_wrapper(
             "elevenlabs.client",
             "AsyncElevenLabs.generate",
             async_generate("elevenlabs.generate", version, environment, application_name,
+                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+        )
+
+        # sync text_to_speech.convert
+        wrap_function_wrapper(
+            "elevenlabs.text_to_speech.client",
+            "AsyncTextToSpeechClient.convert",
+            generate("elevenlabs.text_to_speech", version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
