@@ -126,7 +126,7 @@ async def test_async_elevenlabs_generate():
             raise
 
 @pytest.mark.asyncio
-async def test_sync_elevenlabs_t2s():
+async def test_async_elevenlabs_t2s():
     """
     Tests synchronous text-to-speech with the 'eleven_multilingual_v2' model.
 
