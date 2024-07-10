@@ -111,20 +111,18 @@ const StatCard = memo(
 							)}${textSuffix}`}
 						</div>
 					)}
-					{doesPreviousDataKeyExist && (
-						<span
-							className={`flex items-center text-xs text-muted-foreground ${
-								changePercent > 0 ? "text-success" : "text-error"
-							}`}
-						>
-							{changePercent > 0 ? (
-								<TrendingUp className="w-4 mr-2" />
-							) : (
-								<TrendingDown className="w-4 mr-2" />
-							)}
-							{changePercent}%
-						</span>
-					)}
+					<span
+						className={`flex items-center text-xs text-muted-foreground ${
+							changePercent > 0 ? "text-success" : "text-error"
+						} ${doesPreviousDataKeyExist ? "" : "opacity-0"}`}
+					>
+						{changePercent > 0 ? (
+							<TrendingUp className="w-4 mr-2" />
+						) : (
+							<TrendingDown className="w-4 mr-2" />
+						)}
+						{changePercent}%
+					</span>
 				</CardContent>
 			</Card>
 		);

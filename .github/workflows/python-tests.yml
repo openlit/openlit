@@ -24,6 +24,7 @@ env:
   QDRANT_API_TOKEN: ${{ secrets.QDRANT_API_TOKEN }}
   MILVUS_URL: ${{ secrets.MILVUS_URL }}
   MILVUS_API_TOKEN: ${{ secrets.MILVUS_API_TOKEN }}
+  ELEVENLABS_API_TOKEN: ${{ secrets.ELEVENLABS_API_TOKEN }}
 
 jobs:
   build:

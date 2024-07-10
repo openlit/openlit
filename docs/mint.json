@@ -75,7 +75,8 @@
             "latest/integrations/huggingface",
             "latest/integrations/bedrock",
             "latest/integrations/vertexai",
-            "latest/integrations/groq"
+            "latest/integrations/groq",
+            "latest/integrations/elevenlabs"
           ]
         },
         {
