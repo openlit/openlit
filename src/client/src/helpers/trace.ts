@@ -4,7 +4,7 @@ import {
 	TraceRow,
 	TransformedTraceRow,
 } from "@/constants/traces";
-import { round } from "lodash";
+import { get, round } from "lodash";
 
 export const integerParser = (value: string, offset?: number) =>
 	parseInt((value || "0") as string, 10) * (offset || 1);
@@ -17,9 +17,9 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 		(acc: TransformedTraceRow, traceKey: TraceMappingKeyType) => {
 			let value: unknown;
 			if (TraceMapping[traceKey].isRoot) {
-				value = item[TraceMapping[traceKey].path as keyof TraceRow];
+				value = get(item, TraceMapping[traceKey].path);
 			} else {
-				value = item.SpanAttributes[getTraceMappingKeyFullPath(traceKey)];
+				value = get(item.SpanAttributes, getTraceMappingKeyFullPath(traceKey));
 			}
 
 			if (value) {
@@ -34,7 +34,10 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 						TraceMapping[traceKey].offset
 					).toFixed(10);
 				} else if (TraceMapping[traceKey].type === "round") {
-					acc[traceKey] = round(value as number, TraceMapping[traceKey].offset).toFixed(10);
+					acc[traceKey] = round(
+						value as number,
+						TraceMapping[traceKey].offset
+					).toFixed(10);
 				} else {
 					acc[traceKey] = value;
 				}
@@ -48,9 +51,51 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 	);
 };
 
-export const getTraceMappingKeyFullPath = (key: TraceMappingKeyType) => {
-	if (!TraceMapping[key].prefix) return TraceMapping[key].path;
-	return [TraceMapping[key].prefix, TraceMapping[key].path].join(".");
+export const getTraceMappingKeyFullPath = (
+	key: TraceMappingKeyType,
+	shouldReturnArray: boolean = false
+) => {
+	if (!TraceMapping[key].prefix) {
+		if (!shouldReturnArray) {
+			if (typeof TraceMapping[key].path !== "string") {
+				return (TraceMapping[key].path as string[]).join(".");
+			}
+		}
+		return TraceMapping[key].path;
+	}
+	if (shouldReturnArray) {
+		let returnArr: string[] = [];
+		if (typeof TraceMapping[key].prefix === "string") {
+			returnArr = returnArr.concat([TraceMapping[key].prefix as string]);
+		} else {
+			returnArr = returnArr.concat(TraceMapping[key].prefix as string[]);
+		}
+
+		if (typeof TraceMapping[key].path === "string") {
+			returnArr = returnArr.concat([TraceMapping[key].path as string]);
+		} else {
+			returnArr = returnArr.concat(TraceMapping[key].path as string[]);
+		}
+		return returnArr;
+	}
+
+	let returnString = "";
+	if (typeof TraceMapping[key].prefix === "string") {
+		returnString = TraceMapping[key].prefix as string;
+	} else {
+		returnString = (TraceMapping[key].prefix as string[]).join(".");
+	}
+
+	if (typeof TraceMapping[key].path === "string") {
+		returnString = [returnString, TraceMapping[key].path as string].join(".");
+	} else {
+		returnString = [
+			returnString,
+			(TraceMapping[key].path as string[]).join("."),
+		].join(".");
+	}
+
+	return returnString;
 };
 
 export const getRequestTableDisplayKeys = (
@@ -67,7 +112,7 @@ export const getRequestTableDisplayKeys = (
 				"vectorCount",
 			];
 		case "framework":
-			return ["applicationName", "provider", "endpoint", "owner", "repo", ""];
+			return ["applicationName", "provider", "endpoint", "owner", "repo"];
 		default:
 			return [
 				"applicationName",
@@ -80,10 +125,21 @@ export const getRequestTableDisplayKeys = (
 	}
 };
 
+export const getDisplayKeysForException = (): TraceMappingKeyType[] => {
+	return ["serviceName", "spanName", "deploymentType", "exceptionType"];
+};
+
 export const getRequestDetailsDisplayKeys = (
-	type: string
+	type: string,
+	isException?: boolean
 ): TraceMappingKeyType[] => {
-	let keys: TraceMappingKeyType[] = getRequestTableDisplayKeys(type);
+	let keys: TraceMappingKeyType[] = isException
+		? getDisplayKeysForException()
+		: getRequestTableDisplayKeys(type);
+	if (isException) {
+		return keys.filter((i) => !["serviceName"].includes(i));
+	}
+
 	switch (type) {
 		case "vectordb":
 			keys = keys.concat(["environment", "type", "nResults", "endpoint"]);

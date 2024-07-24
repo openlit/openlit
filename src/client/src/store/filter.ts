@@ -15,6 +15,13 @@ export const TIME_RANGE_TYPE: Record<
 
 export const DEFAULT_TIME_RANGE = "24H";
 
+const DEFAULT_LIMIT = 10;
+
+const DEFAULT_SORTING: FilterSorting = {
+	type: "Timestamp",
+	direction: "desc",
+};
+
 export type FilterSorting = {
 	type: string;
 	direction: "asc" | "desc";
@@ -78,13 +85,10 @@ const INITIAL_FILTER_DETAILS: FilterType = {
 		type: DEFAULT_TIME_RANGE,
 		...getTimeLimitObject(DEFAULT_TIME_RANGE, ""),
 	},
-	limit: 10,
+	limit: DEFAULT_LIMIT,
 	offset: 0,
 	selectedConfig: {},
-	sorting: {
-		type: "Timestamp",
-		direction: "desc",
-	},
+	sorting: DEFAULT_SORTING,
 };
 
 export type FilterStore = {
@@ -112,11 +116,19 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 			case "offset":
 				// Its already handled in the set(object, key, value); line
 				break;
+			case "page-change":
+				set(object, "offset", 0);
+				set(object, "limit", DEFAULT_LIMIT);
+				set(object, "sorting", DEFAULT_SORTING);
+				break;
 			default:
 				break;
 		}
 
-		set(object, key, value);
+		if (key !== "page-change") {
+			set(object, key, value);
+		}
+
 		setStore({
 			details: {
 				...getStore().details,

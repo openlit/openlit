@@ -1,4 +1,4 @@
-import { MouseEventHandler, useRef, useState } from "react";
+import { MouseEventHandler } from "react";
 import {
 	Pagination,
 	PaginationContent,
