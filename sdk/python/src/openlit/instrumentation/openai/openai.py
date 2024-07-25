@@ -123,15 +123,15 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                             kwargs.get("user", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                            kwargs.get("top_p", 1))
+                                            kwargs.get("top_p", 1.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
                                             kwargs.get("max_tokens", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                            kwargs.get("temperature", 1))
+                                            kwargs.get("temperature", 1.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                            kwargs.get("presence_penalty", 0))
+                                            kwargs.get("presence_penalty", 0.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                            kwargs.get("frequency_penalty", 0))
+                                            kwargs.get("frequency_penalty", 0.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                             kwargs.get("seed", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
@@ -225,17 +225,17 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "gpt-3.5-turbo"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                        kwargs.get("top_p", 1))
+                                        kwargs.get("top_p", 1.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
                                         kwargs.get("max_tokens", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                        kwargs.get("temperature", 1))
+                                        kwargs.get("temperature", 1.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                        kwargs.get("presence_penalty", 0))
+                                        kwargs.get("presence_penalty", 0.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                        kwargs.get("frequency_penalty", 0))
+                                        kwargs.get("frequency_penalty", 0.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                         kwargs.get("seed", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
