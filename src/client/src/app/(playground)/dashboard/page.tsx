@@ -1,5 +1,5 @@
 "use client";
-import Filter from "../../../components/(playground)/filter";
+import Filter from "@/components/(playground)/filter";
 import {
 	DashboardTypeFilter,
 	DashboardTypeGraphContainer,

@@ -177,7 +177,7 @@ type FilterWhereConditionType = {
 	}>;
 	notOrEmpty?: { key: string }[];
 	notEmpty?: { key: string }[];
-	statusCode?: string;
+	statusCode?: string[];
 	operationType?: OPERATION_TYPE;
 };
 
@@ -253,8 +253,10 @@ export const getFilterWhereCondition = (
 			});
 		}
 
-		const { statusCode = "STATUS_CODE_OK" } = filter;
-		whereArray.push(`StatusCode='${statusCode}'`);
+		const { statusCode = ["STATUS_CODE_OK", "STATUS_CODE_UNSET"] } = filter;
+		whereArray.push(
+			`StatusCode IN (${statusCode.map((type) => `'${type}'`).join(", ")})`
+		);
 
 		if (filter.operationType) {
 			if (filter.operationType === "vectordb") {

@@ -7,7 +7,7 @@ import {
 	SheetTrigger,
 } from "@/components/ui/sheet";
 import { MouseEventHandler, ReactNode } from "react";
-import { providersConfig } from "../../../../constants/openground";
+import { providersConfig } from "@/constants/openground";
 
 export default function AddProvider({
 	children,

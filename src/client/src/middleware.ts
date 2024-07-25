@@ -66,5 +66,6 @@ export const config = {
 		"/requests",
 		"/database-config",
 		"/openground",
+		"/exceptions",
 	],
 };

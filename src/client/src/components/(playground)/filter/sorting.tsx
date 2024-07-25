@@ -27,7 +27,13 @@ const SORTING_TYPES = [
 	},
 ];
 
-export default function Sorting({ sorting }: { sorting: FilterSorting }) {
+export default function Sorting({
+	sorting,
+	includeOnlySorting,
+}: {
+	sorting: FilterSorting;
+	includeOnlySorting?: string[];
+}) {
 	const updateFilter = useRootStore(getUpdateFilter);
 	const onSortingChange = (type: string) => {
 		const updatedSorting: FilterSorting = { type, direction: "desc" };
@@ -37,6 +43,10 @@ export default function Sorting({ sorting }: { sorting: FilterSorting }) {
 		}
 		updateFilter("sorting", updatedSorting);
 	};
+
+	const sortingOptions = includeOnlySorting?.length
+		? SORTING_TYPES.filter((i) => includeOnlySorting.includes(i.key))
+		: SORTING_TYPES;
 
 	return (
 		<DropdownMenu>
@@ -49,7 +59,7 @@ export default function Sorting({ sorting }: { sorting: FilterSorting }) {
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent>
-				{SORTING_TYPES.map(({ key, label }) => (
+				{sortingOptions.map(({ key, label }) => (
 					<DropdownMenuItem key={key} onClick={() => onSortingChange(key)}>
 						{label}
 						{key === sorting.type &&

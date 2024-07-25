@@ -1,7 +1,7 @@
 import { fill } from "lodash";
 import IntermediateState from "@/components/(playground)/intermediate-state";
-import RenderLoader from "./loader";
-import Trace from "./trace";
+import RenderLoader from "../../../components/(playground)/request/loader";
+import Trace from "@/components/(playground)/request/trace";
 
 export default function List({
 	data,

@@ -1,4 +1,4 @@
-import { useRequest } from "@/app/(playground)/requests/request-context";
+import { useRequest } from "@/components/(playground)/request/request-context";
 import Image from "next/image";
 import { round } from "lodash";
 import { format } from "date-fns";
@@ -10,6 +10,7 @@ import {
 	ExternalLink,
 	LucideIcon,
 	PyramidIcon,
+	SquareTerminal,
 } from "lucide-react";
 import {
 	Sheet,
@@ -17,6 +18,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
+import { JsonViewer } from "@textea/json-viewer";
 
 const TagItem = ({
 	icon: IconComponent,
@@ -53,24 +55,36 @@ export default function RequestDetails() {
 	if (!request) return null;
 
 	const normalizedItem: TransformedTraceRow = normalizeTrace(request);
-	const displayKeys = getRequestDetailsDisplayKeys(normalizedItem.type);
+	const isException = normalizedItem.statusCode === "STATUS_CODE_ERROR";
+	const displayKeys = getRequestDetailsDisplayKeys(
+		normalizedItem.type,
+		isException
+	);
 
 	return (
 		<Sheet open onOpenChange={onClose}>
 			<SheetContent className="max-w-none sm:max-w-none w-1/2 bg-stone-200 dark:bg-stone-200">
 				<SheetHeader>
 					<SheetTitle>
-						<div className="flex flex-col text-stone-800">
-							<div className="flex items-center text-2xl font-bold leading-7">
-								<p className="capitalize">{normalizedItem.applicationName}</p>
+						{isException ? (
+							<div className="flex flex-col text-stone-800">
+								<div className="flex items-center text-2xl font-bold leading-7">
+									<p className="capitalize">{normalizedItem.serviceName}</p>
+								</div>
 							</div>
-							<div className="flex items-center mt-3">
-								<PyramidIcon size="12" />
-								<p className="ml-3 text-sm leading-none">
-									{normalizedItem.provider || normalizedItem.system}
-								</p>
+						) : (
+							<div className="flex flex-col text-stone-800">
+								<div className="flex items-center text-2xl font-bold leading-7">
+									<p className="capitalize">{normalizedItem.applicationName}</p>
+								</div>
+								<div className="flex items-center mt-3">
+									<PyramidIcon size="12" />
+									<p className="ml-3 text-sm leading-none">
+										{normalizedItem.provider || normalizedItem.system}
+									</p>
+								</div>
 							</div>
-						</div>
+						)}
 					</SheetTitle>
 				</SheetHeader>
 				<div className="h-full w-full flex grow pb-8">
@@ -86,6 +100,11 @@ export default function RequestDetails() {
 									icon={Clock}
 									title="Request duration : "
 									value={`${round(normalizedItem.requestDuration, 4)}s`}
+								/>
+								<TagItem
+									icon={SquareTerminal}
+									title="Status Code : "
+									value={normalizedItem.statusCode}
 								/>
 								{displayKeys.map(
 									(keyItem, index) =>
@@ -177,6 +196,33 @@ export default function RequestDetails() {
 								/>
 							)}
 							{/* Framework */}
+
+							{/* Exception */}
+							{normalizedItem.statusMessage && (
+								<CodeItem
+									label={TraceMapping["statusMessage"].label}
+									text={normalizedItem.statusMessage}
+								/>
+							)}
+							{/* Exception */}
+
+							{/* Request full trace to explore */}
+							<div className="flex flex-col space-y-3 mt-4">
+								<span className="text-sm text-stone-500 font-medium">
+									Request Trace :{" "}
+								</span>
+								<code className="text-sm inline-flex text-left items-center bg-stone-950 text-stone-200 rounded-md p-4">
+									<JsonViewer
+										value={request}
+										className="overflow-auto p-3 h-[400px] w-full !rounded-none"
+										enableClipboard={false}
+										displayDataTypes={false}
+										displaySize={false}
+										theme="dark"
+									/>
+								</code>
+							</div>
+							{/* Request full trace to explore */}
 						</div>
 					</div>
 				</div>
