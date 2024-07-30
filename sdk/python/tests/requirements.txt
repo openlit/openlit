@@ -33,7 +33,7 @@ gpustat>=1.1.1
 
 # Utilities
 bs4
-tiktoken>=0.1.1
+tiktoken>=0.7.0
 tensorflow>=2.16.1
 tf_keras>=2.16.0
 
