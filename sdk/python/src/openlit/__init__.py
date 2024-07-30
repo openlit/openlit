@@ -1,167 +1,424 @@
-# pylint: disable=too-few-public-methods
+# pylint: disable=broad-exception-caught
 """
-This module defines the `SemanticConvetion` class which encapsulates various constants used
-for semantic tagging within a generalized AI application context. These constants are
-intended for use across different components of AI applications, including request handling,
-response processing, usage metrics, and interaction with vector databases and AI systems.
-The purpose is to standardize the semantics for easier integration, analytics, and maintenance.
+The __init__.py module for the openLIT package.
+This module sets up the openLIT configuration and instrumentation for various
+large language models (LLMs).
 """
-class SemanticConvetion:
+
+from typing import Dict
+import logging
+from importlib.util import find_spec
+from functools import wraps
+from contextlib import contextmanager
+
+
+# Import internal modules for setting up tracing and fetching pricing info.
+from opentelemetry import trace as t
+from opentelemetry.trace import SpanKind, Status, StatusCode, Span
+from openlit.semcov import SemanticConvetion
+from openlit.otel.tracing import setup_tracing
+from openlit.otel.metrics import setup_meter
+from openlit.__helpers import fetch_pricing_info
+
+
+# Instrumentors for various large language models.
+from openlit.instrumentation.openai import OpenAIInstrumentor
+from openlit.instrumentation.anthropic import AnthropicInstrumentor
+from openlit.instrumentation.cohere import CohereInstrumentor
+from openlit.instrumentation.mistral import MistralInstrumentor
+from openlit.instrumentation.bedrock import BedrockInstrumentor
+from openlit.instrumentation.vertexai import VertexAIInstrumentor
+from openlit.instrumentation.groq import GroqInstrumentor
+from openlit.instrumentation.ollama import OllamaInstrumentor
+from openlit.instrumentation.gpt4all import GPT4AllInstrumentor
+from openlit.instrumentation.elevenlabs import ElevenLabsInstrumentor
+from openlit.instrumentation.langchain import LangChainInstrumentor
+from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
+from openlit.instrumentation.haystack import HaystackInstrumentor
+from openlit.instrumentation.embedchain import EmbedChainInstrumentor
+from openlit.instrumentation.chroma import ChromaInstrumentor
+from openlit.instrumentation.pinecone import PineconeInstrumentor
+from openlit.instrumentation.qdrant import QdrantInstrumentor
+from openlit.instrumentation.milvus import MilvusInstrumentor
+from openlit.instrumentation.transformers import TransformersInstrumentor
+from openlit.instrumentation.gpu import NvidiaGPUInstrumentor
+
+# Set up logging for error and information messages.
+logger = logging.getLogger(__name__)
+
+
+class OpenlitConfig:
     """
-    The SemanticConvetion class provides a centralized repository of constant values that
-    represent the keys for various semantic conventions within AI applications. These
-    conventions cover a broad range of areas including general AI configurations, request
-    parameters, usage metrics, response attributes, and integrations with external AI and
-    database systems. It is designed to facilitate consistency and understandability across
-    the application's data logging and processing functionalities.
+    A Singleton Configuration class for openLIT.
+
+    This class maintains a single instance of configuration settings including
+    environment details, application name, and tracing information throughout the openLIT package.
+
+    Attributes:
+        environment (str): Deployment environment of the application.
+        application_name (str): Name of the application using openLIT.
+        pricing_info (Dict[str, Any]): Pricing information.
+        tracer (Optional[Any]): Tracer instance for OpenTelemetry.
+        otlp_endpoint (Optional[str]): Endpoint for OTLP.
+        otlp_headers (Optional[Dict[str, str]]): Headers for OTLP.
+        disable_batch (bool): Flag to disable batch span processing in tracing.
+        trace_content (bool): Flag to enable or disable tracing of content.
     """
 
-    # GenAI General
-    GEN_AI_ENDPOINT = "gen_ai.endpoint"
-    GEN_AI_SYSTEM = "gen_ai.system"
-    GEN_AI_ENVIRONMENT = "gen_ai.environment"
-    GEN_AI_APPLICATION_NAME = "gen_ai.application_name"
-    GEN_AI_TYPE = "gen_ai.operation.name"
-    GEN_AI_HUB_OWNER = "gen_ai.hub.owner"
-    GEN_AI_HUB_REPO = "gen_ai.hub.repo"
-    GEN_AI_RETRIEVAL_SOURCE = "gen_ai.retrieval.source"
-    GEN_AI_REQUESTS = "gen_ai.total.requests"
-    GEN_AI_DATA_SOURCES = "gen_ai.data_source_count"
+    _instance = None
 
-    # GenAI Request
-    GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
-    GEN_AI_REQUEST_TEMPERATURE = "gen_ai.request.temperature"
-    GEN_AI_REQUEST_TOP_P = "gen_ai.request.top_p"
-    GEN_AI_REQUEST_TOP_K = "gen_ai.request.top_k"
-    GEN_AI_REQUEST_MAX_TOKENS = "gen_ai.request.max_tokens"
-    GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.is_stream"
-    GEN_AI_REQUEST_USER = "gen_ai.request.user"
-    GEN_AI_REQUEST_SEED = "gen_ai.request.seed"
-    GEN_AI_REQUEST_FREQUENCY_PENALTY = "gen_ai.request.frequency_penalty"
-    GEN_AI_REQUEST_PRESENCE_PENALTY = "gen_ai.request.presence_penalty"
-    GEN_AI_REQUEST_EMBEDDING_FORMAT = "gen_ai.request.embedding_format"
-    GEN_AI_REQUEST_EMBEDDING_DIMENSION = "gen_ai.request.embedding_dimension"
-    GEN_AI_REQUEST_TOOL_CHOICE = "gen_ai.request.tool_choice"
-    GEN_AI_REQUEST_AUDIO_VOICE = "gen_ai.request.audio_voice"
-    GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT = "gen_ai.request.audio_response_format"
-    GEN_AI_REQUEST_AUDIO_SPEED = "gen_ai.request.audio_speed"
-    GEN_AI_REQUEST_AUDIO_SETTINGS = "gen_ai.request.audio_settings"
-    GEN_AI_REQUEST_FINETUNE_STATUS = "gen_ai.request.fine_tune_status"
-    GEN_AI_REQUEST_FINETUNE_MODEL_SUFFIX = "gen_ai.request.fine_tune_model_suffix"
-    GEN_AI_REQUEST_FINETUNE_MODEL_EPOCHS = "gen_ai.request.fine_tune_n_epochs"
-    GEN_AI_REQUEST_FINETUNE_MODEL_LRM = "gen_ai.request.learning_rate_multiplier"
-    GEN_AI_REQUEST_FINETUNE_BATCH_SIZE = "gen_ai.request.fine_tune_batch_size"
-    GEN_AI_REQUEST_VALIDATION_FILE = "gen_ai.request.validation_file"
-    GEN_AI_REQUEST_TRAINING_FILE = "gen_ai.request.training_file"
+    def __new__(cls):
+        """Ensures that only one instance of the configuration exists."""
+        if cls._instance is None:
+            cls._instance = super(OpenlitConfig, cls).__new__(cls)
+            cls.reset_to_defaults()
+        return cls._instance
 
-    GEN_AI_REQUEST_IMAGE_SIZE = "gen_ai.request.image_size"
-    GEN_AI_REQUEST_IMAGE_QUALITY = "gen_ai.request.image_quality"
-    GEN_AI_REQUEST_IMAGE_STYLE = "gen_ai.request.image_style"
+    @classmethod
+    def reset_to_defaults(cls):
+        """Resets configuration to default values."""
+        cls.environment = "default"
+        cls.application_name = "default"
+        cls.pricing_info = {}
+        cls.tracer = None
+        cls.metrics_dict = {}
+        cls.otlp_endpoint = None
+        cls.otlp_headers = None
+        cls.disable_batch = False
+        cls.trace_content = True
+        cls.disable_metrics = False
 
-    # GenAI Usage
-    GEN_AI_USAGE_PROMPT_TOKENS = "gen_ai.usage.input_tokens"
-    GEN_AI_USAGE_COMPLETION_TOKENS = "gen_ai.usage.output_tokens"
-    GEN_AI_USAGE_TOTAL_TOKENS = "gen_ai.usage.total_tokens"
-    GEN_AI_USAGE_COST = "gen_ai.usage.cost"
+    @classmethod
+    def update_config(
+        cls,
+        environment,
+        application_name,
+        tracer,
+        otlp_endpoint,
+        otlp_headers,
+        disable_batch,
+        trace_content,
+        metrics_dict,
+        disable_metrics,
+        pricing_json,
+    ):
+        """
+        Updates the configuration based on provided parameters.
 
-    # GenAI Response
-    GEN_AI_RESPONSE_ID = "gen_ai.response.id"
-    GEN_AI_RESPONSE_FINISH_REASON = "gen_ai.response.finish_reasons"
-    GEN_AI_RESPONSE_IMAGE = "gen_ai.response.image"  # Not used directly in code yet
+        Args:
+            environment (str): Deployment environment.
+            application_name (str): Application name.
+            tracer: Tracer instance.
+            meter: Metric Instance
+            otlp_endpoint (str): OTLP endpoint.
+            otlp_headers (Dict[str, str]): OTLP headers.
+            disable_batch (bool): Disable batch span processing flag.
+            trace_content (bool): Enable or disable content tracing.
+            pricing_json(str): path or url to the pricing json file
+        """
+        cls.environment = environment
+        cls.application_name = application_name
+        cls.pricing_info = fetch_pricing_info(pricing_json)
+        cls.tracer = tracer
+        cls.metrics_dict = metrics_dict
+        cls.otlp_endpoint = otlp_endpoint
+        cls.otlp_headers = otlp_headers
+        cls.disable_batch = disable_batch
+        cls.trace_content = trace_content
+        cls.disable_metrics = disable_metrics
 
-    # GenAI Content
-    GEN_AI_CONTENT_PROMPT = "gen_ai.prompt"
-    GEN_AI_CONTENT_COMPLETION = "gen_ai.completion"
-    GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
 
-    # GenAI Evaluation Metrics
-    GEN_AI_EVAL_CONTEXT_RELEVANCY = "gen_ai.eval.context_relevancy"
-    GEN_AI_EVAL_ANSWER_RELEVANCY = "gen_ai.eval.answer_relevancy"
-    GEN_AI_EVAL_GROUNDEDNESS = "gen_ai.eval.groundedness"
+def instrument_if_available(
+    instrumentor_name,
+    instrumentor_instance,
+    config,
+    disabled_instrumentors,
+    module_name_map,
+):
+    """Instruments the specified instrumentor if its library is available."""
+    if instrumentor_name in disabled_instrumentors:
+        return
 
-    GEN_AI_TYPE_CHAT = "chat"
-    GEN_AI_TYPE_EMBEDDING = "embedding"
-    GEN_AI_TYPE_IMAGE = "image"
-    GEN_AI_TYPE_AUDIO = "audio"
-    GEN_AI_TYPE_FINETUNING = "fine_tuning"
-    GEN_AI_TYPE_VECTORDB = "vectordb"
-    GEN_AI_TYPE_FRAMEWORK = "framework"
+    module_name = module_name_map.get(instrumentor_name)
 
-    GEN_AI_SYSTEM_HUGGING_FACE = "huggingface"
-    GEN_AI_SYSTEM_OPENAI = "openai"
-    GEN_AI_SYSTEM_AZURE_OPENAI = "azure_openai"
-    GEN_AI_SYSTEM_ANTHROPIC = "anthropic"
-    GEN_AI_SYSTEM_COHERE = "cohere"
-    GEN_AI_SYSTEM_MISTRAL = "mistral"
-    GEN_AI_SYSTEM_BEDROCK = "bedrock"
-    GEN_AI_SYSTEM_VERTEXAI = "vertexai"
-    GEN_AI_SYSTEM_GROQ = "groq"
-    GEN_AI_SYSTEM_OLLAMA = "ollama"
-    GEN_AI_SYSTEM_GPT4ALL = "gpt4all"
-    GEN_AI_SYSTEM_ELEVENLABS = "elevenlabs"
-    GEN_AI_SYSTEM_LANGCHAIN = "langchain"
-    GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
-    GEN_AI_SYSTEM_HAYSTACK = "haystack"
-    GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
+    if not module_name or find_spec(module_name) is not None:
+        try:
+            instrumentor_instance.instrument(
+                environment=config.environment,
+                application_name=config.application_name,
+                tracer=config.tracer,
+                pricing_info=config.pricing_info,
+                trace_content=config.trace_content,
+                metrics_dict=config.metrics_dict,
+                disable_metrics=config.disable_metrics,
+            )
 
-    # Vector DB
-    DB_REQUESTS = "db.total.requests"
-    DB_SYSTEM = "db.system"
-    DB_COLLECTION_NAME = "db.collection.name"
-    DB_OPERATION = "db.operation"
-    DB_OPERATION_STATUS = "db.operation.status"
-    DB_OPERATION_COST = "db.operation.cost"
-    DB_OPERATION_CREATE_INDEX = "create_index"
-    DB_OPERATION_CREATE_COLLECTION = "create_collection"
-    DB_OPERATION_UPDATE_COLLECTION = "update_collection"
-    DB_OPERATION_DELETE_COLLECTION = "delete_collection"
-    DB_OPERATION_QUERY = "query"
-    DB_OPERATION_DELETE = "delete"
-    DB_OPERATION_UPDATE = "update"
-    DB_OPERATION_UPSERT = "upsert"
-    DB_OPERATION_GET = "get"
-    DB_OPERATION_ADD = "add"
-    DB_OPERATION_PEEK = "peek"
-    DB_ID_COUNT = "db.ids_count"
-    DB_VECTOR_COUNT = "db.vector_count"
-    DB_METADATA_COUNT = "db.metadatas_count"
-    DB_DOCUMENTS_COUNT = "db.documents_count"
-    DB_PAYLOAD_COUNT = "db.payload_count"
-    DB_QUERY_LIMIT = "db.limit"
-    DB_OFFSET = "db.offset"
-    DB_WHERE_DOCUMENT = "db.where_document"
-    DB_FILTER = "db.filter"
-    DB_STATEMENT = "db.statement"
-    DB_N_RESULTS = "db.n_results"
-    DB_DELETE_ALL = "db.delete_all"
-    DB_INDEX_NAME = "db.index.name"
-    DB_INDEX_DIMENSION = "db.index.dimension"
-    DB_COLLECTION_DIMENSION = "db.collection.dimension"
-    DB_INDEX_METRIC = "db.create_index.metric"
-    DB_INDEX_SPEC = "db.create_index.spec"
-    DB_NAMESPACE = "db.query.namespace"
-    DB_UPDATE_METADATA = "db.update.metadata"
-    DB_UPDATE_VALUES = "db.update.values"
-    DB_UPDATE_ID = "db.update.id"
+        # pylint: disable=broad-exception-caught
+        except Exception as e:
+            logger.error("Failed to instrument %s: %s", instrumentor_name, e)
 
-    DB_SYSTEM_CHROMA = "chroma"
-    DB_SYSTEM_PINECONE = "pinecone"
-    DB_SYSTEM_QDRANT = "qdrant"
-    DB_SYSTEM_MILVUS = "milvus"
+def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
+         otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
+         meter=None, disable_metrics=False, pricing_json=None, collect_gpu_stats=False):
+    """
+    Initializes the openLIT configuration and setups tracing.
 
-    # GPU
-    GPU_INDEX = "gpu.index"
-    GPU_UUID = "gpu.uuid"
-    GPU_NAME = "gpu.name"
+    This function sets up the openLIT environment with provided configurations
+    and initializes instrumentors for tracing.
 
-    GPU_UTILIZATION = "gpu.utilization"
-    GPU_UTILIZATION_ENC = "gpu.enc.utilization"
-    GPU_UTILIZATION_DEC = "gpu.dec.utilization"
-    GPU_TEMPERATURE = "gpu.temperature"
-    GPU_FAN_SPEED = "gpu.fan_speed"
-    GPU_MEMORY_AVAILABLE = "gpu.memory.available"
-    GPU_MEMORY_TOTAL = "gpu.memory.total"
-    GPU_MEMORY_USED = "gpu.memory.used"
-    GPU_MEMORY_FREE = "gpu.memory.free"
-    GPU_POWER_DRAW = "gpu.power.draw"
-    GPU_POWER_LIMIT = "gpu.power.limit"
+    Args:
+        environment (str): Deployment environment.
+        application_name (str): Application name.
+        tracer: Tracer instance (Optional).
+        meter: OpenTelemetry Metrics Instance (Optional).
+        otlp_endpoint (str): OTLP endpoint for exporter (Optional).
+        otlp_headers (Dict[str, str]): OTLP headers for exporter (Optional).
+        disable_batch (bool): Flag to disable batch span processing (Optional).
+        trace_content (bool): Flag to trace content (Optional).
+        disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
+        disable_metrics (bool): Flag to disable metrics (Optional).
+        pricing_json(str): File path or url to the pricing json (Optional).
+        collect_gpu_stats (bool): Flag to enable or disable GPU metrics collection.
+    """
+    disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
+    # Check for invalid instrumentor names
+
+    module_name_map = {
+        "openai": "openai",
+        "anthropic": "anthropic",
+        "cohere": "cohere",
+        "mistral": "mistralai",
+        "bedrock": "boto3",
+        "vertexai": "vertexai",
+        "groq": "groq",
+        "ollama": "ollama",
+        "gpt4all": "gpt4all",
+        "elevenlabs": "elevenlabs",
+        "langchain": "langchain",
+        "llama_index": "llama_index",
+        "haystack": "haystack",
+        "embedchain": "embedchain",
+        "chroma": "chromadb",
+        "pinecone": "pinecone",
+        "qdrant": "qdrant_client",
+        "milvus": "pymilvus",
+        "transformers": "transformers",
+    }
+
+    invalid_instrumentors = [
+        name for name in disabled_instrumentors if name not in module_name_map
+    ]
+    for invalid_name in invalid_instrumentors:
+        logger.warning(
+            "Invalid instrumentor name detected and ignored: '%s'", invalid_name
+        )
+
+    try:
+        # Retrieve or create the single configuration instance.
+        config = OpenlitConfig()
+
+        # Setup tracing based on the provided or default configuration.
+        tracer = setup_tracing(
+            application_name=application_name,
+            environment=environment,
+            tracer=tracer,
+            otlp_endpoint=otlp_endpoint,
+            otlp_headers=otlp_headers,
+            disable_batch=disable_batch,
+        )
+
+        if not tracer:
+            logger.error("openLIT tracing setup failed. Tracing will not be available.")
+            return
+
+        # Setup meter and receive metrics_dict instead of meter
+        metrics_dict = setup_meter(
+            application_name=application_name,
+            environment=environment,
+            meter=meter,
+            otlp_endpoint=otlp_endpoint,
+            otlp_headers=otlp_headers,
+        )
+
+        if not metrics_dict:
+            logger.error("openLIT metrics setup failed. Metrics will not be available.")
+            return
+
+        # Update global configuration with the provided settings.
+        config.update_config(
+            environment,
+            application_name,
+            tracer,
+            otlp_endpoint,
+            otlp_headers,
+            disable_batch,
+            trace_content,
+            metrics_dict,
+            disable_metrics,
+            pricing_json,
+        )
+
+        # Map instrumentor names to their instances
+        instrumentor_instances = {
+            "openai": OpenAIInstrumentor(),
+            "anthropic": AnthropicInstrumentor(),
+            "cohere": CohereInstrumentor(),
+            "mistral": MistralInstrumentor(),
+            "bedrock": BedrockInstrumentor(),
+            "vertexai": VertexAIInstrumentor(),
+            "groq": GroqInstrumentor(),
+            "ollama": OllamaInstrumentor(),
+            "gpt4all": GPT4AllInstrumentor(),
+            "elevenlabs": ElevenLabsInstrumentor(),
+            "langchain": LangChainInstrumentor(),
+            "llama_index": LlamaIndexInstrumentor(),
+            "haystack": HaystackInstrumentor(),
+            "embedchain": EmbedChainInstrumentor(),
+            "chroma": ChromaInstrumentor(),
+            "pinecone": PineconeInstrumentor(),
+            "qdrant": QdrantInstrumentor(),
+            "milvus": MilvusInstrumentor(),
+            "transformers": TransformersInstrumentor(),
+        }
+
+        # Initialize and instrument only the enabled instrumentors
+        for name, instrumentor in instrumentor_instances.items():
+            instrument_if_available(name, instrumentor, config,
+                                    disabled_instrumentors, module_name_map)
+
+        if (disable_metrics is False) and (collect_gpu_stats is True):
+            NvidiaGPUInstrumentor().instrument(
+                environment=config.environment,
+                application_name=config.application_name,
+            )
+
+    except Exception as e:
+        logger.error("Error during openLIT initialization: %s", e)
+
+
+def trace(wrapped):
+    """
+    Generates a telemetry wrapper for messages to collect metrics.
+    """
+
+    @wraps(wrapped)
+    def wrapper(*args, **kwargs):
+        __trace = t.get_tracer_provider()
+        with __trace.get_tracer(__name__).start_as_current_span(
+            name=wrapped.__name__,
+            kind=SpanKind.CLIENT,
+        ) as span:
+            try:
+                response = wrapped(*args, **kwargs)
+                span.set_attribute(
+                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response
+                )
+                span.set_status(Status(StatusCode.OK))
+
+            except Exception as e:
+                response = None
+                span.record_exception(e)
+                span.set_status(status=Status(StatusCode.ERROR), description=e)
+                logging.error("Error in %s: %s", wrapped.__name__, e, exc_info=True)
+
+            # Adding function arguments as metadata
+            try:
+                span.set_attribute("function.args", str(args))
+                span.set_attribute("function.kwargs", str(kwargs))
+                span.set_attribute(
+                    SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    OpenlitConfig.application_name,
+                )
+                span.set_attribute(
+                    SemanticConvetion.GEN_AI_ENVIRONMENT, OpenlitConfig.environment
+                )
+
+            except Exception as meta_exception:
+                logging.error(
+                    "Failed to set metadata for %s: %s",
+                    wrapped.__name__,
+                    meta_exception,
+                    exc_info=True,
+                )
+
+            return response
+
+    return wrapper
+
+
+class TracedSpan:
+    """
+    A wrapper class for an OpenTelemetry span that provides helper methods
+    for setting result and metadata attributes on the span.
+
+    Attributes:
+        _span (Span): The underlying OpenTelemetry span.
+    """
+
+    def __init__(self, span):
+        """
+        Initializes the TracedSpan with the given span.
+
+        Params:
+            span (Span): The OpenTelemetry span to be wrapped.
+        """
+
+        self._span: Span = span
+
+    def set_result(self, result):
+        """
+        Sets the result attribute on the underlying span.
+
+        Params:
+            result: The result to be set as an attribute on the span.
+        """
+
+        self._span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, result)
+
+    def set_metadata(self, metadata: Dict):
+        """
+        Sets multiple attributes on the underlying span.
+
+        Params:
+            metadata (Dict): A dictionary of attributes to be set on the span.
+        """
+
+        self._span.set_attributes(attributes=metadata)
+
+    def __enter__(self):
+        """
+        Enters the context of the TracedSpan, returning itself.
+
+        Returns:
+            TracedSpan: The instance of TracedSpan.
+        """
+
+        return self
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        """
+        Exits the context of the TracedSpan by ending the underlying span.
+        """
+
+        self._span.end()
+
+
+@contextmanager
+def start_trace(name: str):
+    """
+    A context manager that starts a new trace and provides a TracedSpan
+    for usage within the context.
+
+    Params:
+        name (str): The name of the span.
+
+    Yields:
+        TracedSpan: The wrapped span for trace operations.
+    """
+
+    __trace = t.get_tracer_provider()
+    with __trace.get_tracer(__name__).start_as_current_span(
+        name,
+        kind=SpanKind.CLIENT,
+    ) as span:
+        yield TracedSpan(span)
