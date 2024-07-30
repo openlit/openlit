@@ -1,6 +1,7 @@
 <div align="center">
-<img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
-OTel-native Observability and Evals for LLMs & GPUs</h1>
+<img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
+<h3>OpenTelemetry-native</h3>
+<h1>Observability & Evals for hosted and on-prem LLMs</h1>
 
 **[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python)**
 
