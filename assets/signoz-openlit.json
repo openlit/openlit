@@ -1875,10 +1875,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -1891,10 +1891,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -3845,10 +3845,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -3861,10 +3861,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -5837,10 +5837,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -5853,10 +5853,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -7807,10 +7807,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -7823,10 +7823,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -7944,10 +7944,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.input_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.prompt_tokens",
+                  "key": "gen_ai.usage.input_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -7960,10 +7960,10 @@
                       "id": "ab733930",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.input_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.prompt_tokens",
+                        "key": "gen_ai.usage.input_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -8405,10 +8405,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.input_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.prompt_tokens",
+                  "key": "gen_ai.usage.input_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -8448,10 +8448,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -10324,10 +10324,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -10340,10 +10340,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -12294,10 +12294,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -12310,10 +12310,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -14286,10 +14286,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -14302,10 +14302,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -16256,10 +16256,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -16272,10 +16272,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -16393,10 +16393,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.input_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.prompt_tokens",
+                  "key": "gen_ai.usage.input_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -16409,10 +16409,10 @@
                       "id": "ab733930",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.input_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.prompt_tokens",
+                        "key": "gen_ai.usage.input_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -18550,10 +18550,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -18566,10 +18566,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -20520,10 +20520,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -20536,10 +20536,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -22512,10 +22512,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -22528,10 +22528,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -24482,10 +24482,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -24498,10 +24498,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -24619,10 +24619,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.input_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.prompt_tokens",
+                  "key": "gen_ai.usage.input_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -24635,10 +24635,10 @@
                       "id": "ab733930",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.input_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.prompt_tokens",
+                        "key": "gen_ai.usage.input_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -25080,10 +25080,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.input_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.prompt_tokens",
+                  "key": "gen_ai.usage.input_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -25123,10 +25123,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -26999,10 +26999,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -27015,10 +27015,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -28969,10 +28969,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -28985,10 +28985,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -30961,10 +30961,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -30977,10 +30977,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -32931,10 +32931,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.output_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.completion_tokens",
+                  "key": "gen_ai.usage.output_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -32947,10 +32947,10 @@
                       "id": "d0dcd772",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.completion_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.output_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.completion_tokens",
+                        "key": "gen_ai.usage.output_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
@@ -33068,10 +33068,10 @@
               {
                 "aggregateAttribute": {
                   "dataType": "float64",
-                  "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                  "id": "gen_ai.usage.input_tokens--float64--tag--false",
                   "isColumn": false,
                   "isJSON": false,
-                  "key": "gen_ai.usage.prompt_tokens",
+                  "key": "gen_ai.usage.input_tokens",
                   "type": "tag"
                 },
                 "aggregateOperator": "avg",
@@ -33084,10 +33084,10 @@
                       "id": "ab733930",
                       "key": {
                         "dataType": "float64",
-                        "id": "gen_ai.usage.prompt_tokens--float64--tag--false",
+                        "id": "gen_ai.usage.input_tokens--float64--tag--false",
                         "isColumn": false,
                         "isJSON": false,
-                        "key": "gen_ai.usage.prompt_tokens",
+                        "key": "gen_ai.usage.input_tokens",
                         "type": "tag"
                       },
                       "op": "exists",
