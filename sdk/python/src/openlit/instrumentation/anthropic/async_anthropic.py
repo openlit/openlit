@@ -120,7 +120,7 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                             kwargs.get("model", "claude-3-sonnet-20240229"))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                            kwargs.get("max_tokens", ""))
+                                            kwargs.get("max_tokens", -1))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                             True)
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
@@ -224,7 +224,7 @@ def async_messages(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "claude-3-sonnet-20240229"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                        kwargs.get("max_tokens", ""))
+                                        kwargs.get("max_tokens", -1))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                         False)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,

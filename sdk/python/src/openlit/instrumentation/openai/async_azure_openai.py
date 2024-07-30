@@ -125,11 +125,11 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOOL_CHOICE,
                                             kwargs.get("tool_choice", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                            kwargs.get("temperature", 1))
+                                            kwargs.get("temperature", 1.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                            kwargs.get("presence_penalty", 0))
+                                            kwargs.get("presence_penalty", 0.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                            kwargs.get("frequency_penalty", 0))
+                                            kwargs.get("frequency_penalty", 0.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                             kwargs.get("seed", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
@@ -228,11 +228,11 @@ def azure_async_chat_completions(gen_ai_endpoint, version, environment, applicat
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOOL_CHOICE,
                                         kwargs.get("tool_choice", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                        kwargs.get("temperature", 1))
+                                        kwargs.get("temperature", 1.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                        kwargs.get("presence_penalty", 0))
+                                        kwargs.get("presence_penalty", 0.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                        kwargs.get("frequency_penalty", 0))
+                                        kwargs.get("frequency_penalty", 0.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                         kwargs.get("seed", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
@@ -425,11 +425,11 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOOL_CHOICE,
                                             kwargs.get("tool_choice", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                            kwargs.get("temperature", 1))
+                                            kwargs.get("temperature", 1.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                            kwargs.get("presence_penalty", 0))
+                                            kwargs.get("presence_penalty", 0.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                            kwargs.get("frequency_penalty", 0))
+                                            kwargs.get("frequency_penalty", 0.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                             kwargs.get("seed", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
@@ -509,11 +509,11 @@ def azure_async_completions(gen_ai_endpoint, version, environment, application_n
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOOL_CHOICE,
                                         kwargs.get("tool_choice", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                        kwargs.get("temperature", 1))
+                                        kwargs.get("temperature", 1.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                        kwargs.get("presence_penalty", 0))
+                                        kwargs.get("presence_penalty", 0.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                        kwargs.get("frequency_penalty", 0))
+                                        kwargs.get("frequency_penalty", 0.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                         kwargs.get("seed", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,

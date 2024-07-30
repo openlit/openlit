@@ -41,14 +41,14 @@ def test_sync_elevenlabs_generate():
     try:
         audio = sync_client.generate(
             text="Say LLM Monitoring",
-            voice="Rachel",
+            voice="Sarah",
             model="eleven_multilingual_v2"
         )
         assert isinstance(audio, types.GeneratorType)
 
         audio = sync_client.generate(
             text="Say LLM Observability!",
-            voice="Rachel",
+            voice="Sarah",
             model="eleven_multilingual_v2",
             stream=True
         )
@@ -97,14 +97,14 @@ async def test_async_elevenlabs_generate():
     try:
         audio = await async_client.generate(
             text="Say LLM Monitoring",
-            voice="Rachel",
+            voice="Sarah",
             model="eleven_multilingual_v2"
         )
         assert isinstance(audio, types.AsyncGeneratorType)
 
         audio = await async_client.generate(
             text="Say LLM Observability!",
-            voice="Rachel",
+            voice="Sarah",
             model="eleven_multilingual_v2",
             stream=True
         )
