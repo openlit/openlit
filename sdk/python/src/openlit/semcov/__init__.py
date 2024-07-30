@@ -59,14 +59,14 @@ class SemanticConvetion:
     GEN_AI_REQUEST_IMAGE_STYLE = "gen_ai.request.image_style"
 
     # GenAI Usage
-    GEN_AI_USAGE_PROMPT_TOKENS = "gen_ai.usage.prompt_tokens"
-    GEN_AI_USAGE_COMPLETION_TOKENS = "gen_ai.usage.completion_tokens"
+    GEN_AI_USAGE_PROMPT_TOKENS = "gen_ai.usage.input_tokens"
+    GEN_AI_USAGE_COMPLETION_TOKENS = "gen_ai.usage.output_tokens"
     GEN_AI_USAGE_TOTAL_TOKENS = "gen_ai.usage.total_tokens"
     GEN_AI_USAGE_COST = "gen_ai.usage.cost"
 
     # GenAI Response
     GEN_AI_RESPONSE_ID = "gen_ai.response.id"
-    GEN_AI_RESPONSE_FINISH_REASON = "gen_ai.response.finish_reason"
+    GEN_AI_RESPONSE_FINISH_REASON = "gen_ai.response.finish_reasons"
     GEN_AI_RESPONSE_IMAGE = "gen_ai.response.image"  # Not used directly in code yet
 
     # GenAI Content

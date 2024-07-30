@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "openlit"
-version = "1.16.0"
+version = "1.16.1"
 description = "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects"
 authors = ["OpenLIT"]
 repository = "https://github.com/openlit/openlit/tree/main/openlit/python"
@@ -12,7 +12,7 @@ keywords = ["OpenTelemetry", "otel", "otlp","llm", "tracing", "openai", "anthrop
 python = "^3.7.1"
 requests = "^2.26.0"
 schedule = "^1.2.2"
-tiktoken = "^0.6.0"
+tiktoken = "^0.7.0"
 gpustat = "^1.1.1"
 boto3 = "^1.34.0"
 botocore = "^1.34.0"

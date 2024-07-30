@@ -170,7 +170,7 @@ export const TraceMapping: Record<
 	promptTokens: {
 		label: "Prompt Tokens",
 		type: "integer",
-		path: "usage.prompt_tokens",
+		path: "usage.input_tokens",
 		prefix: SpanAttributesGenAIPrefix,
 		icon: Braces,
 		defaultValue: "-",
@@ -178,7 +178,7 @@ export const TraceMapping: Record<
 	completionTokens: {
 		label: "Completion Tokens",
 		type: "integer",
-		path: "usage.completion_tokens",
+		path: "usage.output_tokens",
 		prefix: SpanAttributesGenAIPrefix,
 		defaultValue: "-",
 	},
@@ -270,7 +270,7 @@ export const TraceMapping: Record<
 	finishReason: {
 		label: "Finish Reason",
 		type: "string",
-		path: "response.finish_reason",
+		path: "response.finish_reasons",
 		prefix: SpanAttributesGenAIPrefix,
 	},
 	response: {
