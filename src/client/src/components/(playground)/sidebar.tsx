@@ -14,6 +14,7 @@ import {
 	FileJson2,
 	LayoutDashboard,
 	MonitorPlay,
+	ShieldAlert,
 	SquarePlay,
 } from "lucide-react";
 
@@ -39,6 +40,11 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <FileJson2 className={ICON_CLASSES} />,
 		text: "Requests",
 		link: "/requests",
+	},
+	{
+		icon: <ShieldAlert className={ICON_CLASSES} />,
+		text: "Exceptions",
+		link: "/exceptions",
 	},
 	{
 		icon: <MonitorPlay className={ICON_CLASSES} />,
@@ -129,7 +135,7 @@ export default function Sidebar() {
 					<SidebarItem
 						key={`sidebar-top-${index}`}
 						className={`${
-							item.link === pathname
+							pathname.startsWith(item.link || "")
 								? "text-white bg-primary dark:bg-primary dark:text-white"
 								: "text-stone-600 dark:text-white"
 						}`}
@@ -142,7 +148,7 @@ export default function Sidebar() {
 					<SidebarItem
 						key={`sidebar-bottom-${index}`}
 						className={`${
-							item.link === pathname
+							pathname.startsWith(item.link || "")
 								? "text-white bg-primary dark:bg-primary dark:text-white"
 								: "text-stone-600 dark:text-white"
 						}`}

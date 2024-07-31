@@ -11,7 +11,7 @@ To run the development environment, follow these steps:
 3. Use the following Docker Compose command to build and start the containers as specified in the `dev-docker-compose.yml` file:
 
     ```
-    docker-compose -f dev-docker-compose.yml up --build
+    docker-compose -f dev-docker-compose.yml up --build -d
     ```
 
     The `--build` flag ensures that Docker builds images for our services (if needed) before starting the containers.

@@ -193,7 +193,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
                                     kwargs.get("temperature", 0.3))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                    kwargs.get("max_tokens", ""))
+                                    kwargs.get("max_tokens", -1))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                     kwargs.get("seed", ""))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
@@ -336,7 +336,7 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
                                         kwargs.get("temperature", 0.3))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                        kwargs.get("max_tokens", ""))
+                                        kwargs.get("max_tokens", -1))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                         kwargs.get("seed", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,

@@ -9,7 +9,7 @@ import {
 import AddProvider from "./add-provider";
 import { MouseEventHandler, useRef } from "react";
 import { isNil } from "lodash";
-import { providersConfig } from "../../../../constants/openground";
+import { providersConfig } from "@/constants/openground";
 import ProviderResponse from "./provider-response";
 
 export default function ProvidersUI() {

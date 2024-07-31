@@ -17,6 +17,7 @@ import {
 	Fingerprint,
 	ImageIcon,
 	LucideIcon,
+	MessageSquareWarning,
 	PyramidIcon,
 	ScanSearch,
 	ShieldCheck,
@@ -36,8 +37,8 @@ export const TraceMapping: Record<
 	{
 		label: string;
 		type: TraceKeyType;
-		path: string;
-		prefix?: string;
+		path: string | string[];
+		prefix?: string | string[];
 		isRoot?: boolean;
 		offset?: number;
 		icon?: LucideIcon;
@@ -70,6 +71,47 @@ export const TraceMapping: Record<
 		label: "Parent Span Id",
 		type: "string",
 		path: "ParentSpanId",
+		isRoot: true,
+	},
+
+	statusCode: {
+		label: "Status Code",
+		type: "string",
+		path: "StatusCode",
+		isRoot: true,
+	},
+
+	// Exception
+	serviceName: {
+		label: "Service Name",
+		type: "string",
+		path: "ServiceName",
+		isRoot: true,
+	},
+	statusMessage: {
+		label: "Error Message",
+		type: "string",
+		path: "StatusMessage",
+		isRoot: true,
+	},
+	spanName: {
+		label: "Span Name",
+		type: "string",
+		path: "SpanName",
+		isRoot: true,
+	},
+	exceptionType: {
+		label: "Exception type",
+		type: "string",
+		path: ["Events.Attributes", "0", "exception.type"],
+		icon: MessageSquareWarning,
+		isRoot: true,
+	},
+	deploymentType: {
+		label: "Deployment type",
+		type: "string",
+		path: ["ResourceAttributes", "deployment.environment"],
+		icon: Container,
 		isRoot: true,
 	},
 
@@ -128,7 +170,7 @@ export const TraceMapping: Record<
 	promptTokens: {
 		label: "Prompt Tokens",
 		type: "integer",
-		path: "usage.prompt_tokens",
+		path: "usage.input_tokens",
 		prefix: SpanAttributesGenAIPrefix,
 		icon: Braces,
 		defaultValue: "-",
@@ -136,7 +178,7 @@ export const TraceMapping: Record<
 	completionTokens: {
 		label: "Completion Tokens",
 		type: "integer",
-		path: "usage.completion_tokens",
+		path: "usage.output_tokens",
 		prefix: SpanAttributesGenAIPrefix,
 		defaultValue: "-",
 	},
@@ -228,7 +270,7 @@ export const TraceMapping: Record<
 	finishReason: {
 		label: "Finish Reason",
 		type: "string",
-		path: "response.finish_reason",
+		path: "response.finish_reasons",
 		prefix: SpanAttributesGenAIPrefix,
 	},
 	response: {

@@ -1,6 +1,6 @@
-import RequestPagination from "@/components/(playground)/request-pagination";
+import RequestPagination from "@/components/(playground)/request/request-pagination";
 import { ceil } from "lodash";
-import Filter from "../../../components/(playground)/filter";
+import Filter from "../filter";
 import {
 	getFilterConfig,
 	getFilterDetails,
@@ -181,7 +181,15 @@ const DynamicFilters = ({
 	);
 };
 
-export default function RequestFilter({ total }: { total: number }) {
+export default function RequestFilter({
+	total,
+	supportDynamicFilters = false,
+	includeOnlySorting,
+}: {
+	total: number;
+	supportDynamicFilters?: boolean;
+	includeOnlySorting?: string[];
+}) {
 	const [isVisibleFilters, setIsVisibileFilters] = useState<boolean>(false);
 	const filter = useRootStore(getFilterDetails);
 	const filterConfig = useRootStore(getFilterConfig);
@@ -224,6 +232,12 @@ export default function RequestFilter({ total }: { total: number }) {
 			return false;
 		}).length > 0;
 
+	useEffect(() => {
+		return () => {
+			updateFilter("page-change", "");
+		};
+	}, []);
+
 	return (
 		<div className="flex flex-col items-center w-full justify-between mb-4">
 			<div className="flex w-full gap-4">
@@ -237,8 +251,13 @@ export default function RequestFilter({ total }: { total: number }) {
 						onClickPageLimit={onClickPageLimit}
 					/>
 				)}
-				{total > 0 && <Sorting sorting={filter.sorting} />}
-				{showDynamicFilters && (
+				{total > 0 && (
+					<Sorting
+						sorting={filter.sorting}
+						includeOnlySorting={includeOnlySorting}
+					/>
+				)}
+				{showDynamicFilters && supportDynamicFilters && (
 					<Button
 						variant="outline"
 						size="default"
@@ -252,11 +271,13 @@ export default function RequestFilter({ total }: { total: number }) {
 					</Button>
 				)}
 			</div>
-			<DynamicFilters
-				isVisibleFilters={isVisibleFilters}
-				filter={filter}
-				areFiltersApplied={areFiltersApplied}
-			/>
+			{supportDynamicFilters && (
+				<DynamicFilters
+					isVisibleFilters={isVisibleFilters}
+					filter={filter}
+					areFiltersApplied={areFiltersApplied}
+				/>
+			)}
 		</div>
 	);
 }

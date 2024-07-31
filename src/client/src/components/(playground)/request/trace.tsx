@@ -1,14 +1,18 @@
 import { format } from "date-fns";
 import { isNil, round } from "lodash";
-import { useRequest } from "../request-context";
+import { useRequest } from "@/components/(playground)/request/request-context";
 import { ReactNode } from "react";
-import { getRequestTableDisplayKeys, normalizeTrace } from "@/helpers/trace";
+import {
+	getDisplayKeysForException,
+	getRequestTableDisplayKeys,
+	normalizeTrace,
+} from "@/helpers/trace";
 import {
 	TraceMapping,
 	TraceRow,
 	TransformedTraceRow,
 } from "@/constants/traces";
-import { CalendarDays, Clock } from "lucide-react";
+import { CalendarDays, Clock, SquareTerminal } from "lucide-react";
 import ParentTrace from "./parent-trace";
 
 type RenderRowProps = {
@@ -31,7 +35,7 @@ const RowItem = ({
 }) => {
 	return (
 		<div
-			className={`flex ${containerClass} shrink-0 flex-1 relative h-full justify-center items-center p-2 space-x-2`}
+			className={`flex ${containerClass} shrink-0 flex-1 relative h-full items-center p-2 gap-2 overflow-hidden`}
 		>
 			{icon && (
 				<div className="flex self-start" style={{ marginTop: "2px" }}>
@@ -58,22 +62,37 @@ export default function Trace({ item, isLoading }: RenderRowProps) {
 	const onClick = () => !isLoading && updateRequest(item);
 
 	const normalizedItem: TransformedTraceRow = normalizeTrace(item);
-	const requestDisplayItems = getRequestTableDisplayKeys(normalizedItem.type);
+	const isException = normalizedItem.statusCode === "STATUS_CODE_ERROR";
+	const requestDisplayItems = isException
+		? getDisplayKeysForException()
+		: getRequestTableDisplayKeys(normalizedItem.type);
+
+	console.log(normalizedItem, item);
 
 	return (
 		<div className="flex flex-col">
-			<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-stone-200 dark:bg-stone-800 text-stone-500 dark:text-stone-400 font-medium">
-				<div className="flex items-center pr-3">
-					<CalendarDays size="16" />
-					<p className="text-xs leading-none ml-2">
-						{format(normalizedItem.time, "MMM do, y  HH:mm:ss a")}
-					</p>
+			<div className="flex w-full justify-between">
+				<div className="flex items-center rounded-t py-1 px-3 z-0 self-start bg-stone-200 dark:bg-stone-800 text-stone-500 dark:text-stone-400 font-medium">
+					<div className="flex items-center pr-3">
+						<CalendarDays size="16" />
+						<p className="text-xs leading-none ml-2">
+							{format(normalizedItem.time, "MMM do, y  HH:mm:ss a")}
+						</p>
+					</div>
+					<div className="flex items-center pl-3 border-l border-stone-200">
+						<Clock size="16" />
+						<p className="text-xs leading-none ml-2">
+							{round(normalizedItem.requestDuration, 4)}s
+						</p>
+					</div>
 				</div>
-				<div className="flex items-center pl-3 border-l border-stone-200">
-					<Clock size="16" />
-					<p className="text-xs leading-none ml-2">
-						{round(normalizedItem.requestDuration, 4)}s
-					</p>
+				<div className="flex items-center rounded-t py-1 px-3 z-0 self-end bg-stone-200 dark:bg-stone-800 text-stone-500 dark:text-stone-400 font-medium">
+					<div className="flex items-center pr-3">
+						<SquareTerminal size="16" />
+						<p className="text-xs leading-none ml-2">
+							{normalizedItem.statusCode}
+						</p>
+					</div>
 				</div>
 			</div>
 			<div
