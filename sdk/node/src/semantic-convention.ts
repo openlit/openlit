@@ -40,8 +40,8 @@ export default class SemanticConvention {
   static GEN_AI_REQUEST_IMAGE_STYLE = 'gen_ai.request.image_style';
 
   // GenAI Usage
-  static GEN_AI_USAGE_PROMPT_TOKENS = 'gen_ai.usage.prompt_tokens';
-  static GEN_AI_USAGE_COMPLETION_TOKENS = 'gen_ai.usage.completion_tokens';
+  static GEN_AI_USAGE_PROMPT_TOKENS = 'gen_ai.usage.input_tokens';
+  static GEN_AI_USAGE_COMPLETION_TOKENS = 'gen_ai.usage.output_tokens';
   static GEN_AI_USAGE_TOTAL_TOKENS = 'gen_ai.usage.total_tokens';
   static GEN_AI_USAGE_COST = 'gen_ai.usage.cost';
 

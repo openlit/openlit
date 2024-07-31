@@ -3,7 +3,7 @@ import { Meter } from '@opentelemetry/api';
 import { Resource } from '@opentelemetry/resources';
 import { Tracer } from '@opentelemetry/sdk-trace-node';
 
-export type InstrumentationType = 'openai';
+export type InstrumentationType = 'openai' | 'anthropic';
 
 export type OpenlitInstrumentations = Record<InstrumentationType, any>;
 

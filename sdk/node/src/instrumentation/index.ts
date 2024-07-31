@@ -3,10 +3,12 @@ import { InstrumentationType, OpenlitInstrumentations } from '../types';
 
 import { TracerProvider } from '@opentelemetry/api';
 import openAIInstrumentation from './openai';
+import anthropicInstrumentation from './anthropic';
 
 export default class Instrumentations {
   static availableInstrumentations: OpenlitInstrumentations = {
     openai: openAIInstrumentation,
+    anthropic: anthropicInstrumentation,
   };
 
   static setup(
