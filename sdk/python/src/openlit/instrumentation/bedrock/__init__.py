@@ -6,7 +6,7 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.bedrock.bedrock import chat
+from openlit.instrumentation.bedrock.bedrock import converse
 
 _instruments = ("boto3 >= 1.34.93",)
 
@@ -32,7 +32,7 @@ class BedrockInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "botocore.client",  
             "ClientCreator.create_client",  
-            chat("bedrock.invoke_model", version, environment, application_name,
+            converse("bedrock.converse", version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
