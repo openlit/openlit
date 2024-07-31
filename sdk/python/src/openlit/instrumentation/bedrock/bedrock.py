@@ -4,7 +4,6 @@ Module for monitoring Amazon Bedrock API calls.
 """
 
 import logging
-import json
 from botocore.response import StreamingBody
 from botocore.exceptions import ReadTimeoutError, ResponseStreamingError
 from urllib3.exceptions import ProtocolError as URLLib3ProtocolError
