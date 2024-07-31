@@ -8,7 +8,7 @@ from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.bedrock.bedrock import converse
 
-_instruments = ("boto3 >= 1.34.93",)
+_instruments = ("boto3 >= 1.34.138",)
 
 class BedrockInstrumentor(BaseInstrumentor):
     """
