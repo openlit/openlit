@@ -264,7 +264,7 @@ export const TraceMapping: Record<
 	prompt: {
 		label: "Prompt",
 		type: "string",
-		path: ["events", "0", "attributes", "gen.ai.prompt"],
+		path: ["Events.Attributes", "0", "gen_ai.prompt"],
 		isRoot: true,
 	},
 	finishReason: {
@@ -276,7 +276,7 @@ export const TraceMapping: Record<
 	response: {
 		label: "Response",
 		type: "string",
-		path: ["events", "1", "attributes", "gen.ai.completion"],
+		path: ["Events.Attributes", "1", "gen_ai.completion"],
 		isRoot: true,
 	},
 	randomSeed: {
