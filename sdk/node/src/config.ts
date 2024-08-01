@@ -30,21 +30,6 @@ export default class OpenlitConfig {
   static disableMetrics: boolean;
   static pricing_json: any;
 
-  static resetToDefaults() {
-    /** Resets configuration to default values. */
-    this.environment = 'default';
-    this.applicationName = 'default';
-    this.pricingInfo = {};
-    this.tracer = null;
-    this.metricsDict = {};
-    this.otlpEndpoint = '';
-    this.otlpHeaders = '';
-    this.disableBatch = false;
-    this.traceContent = '';
-    this.disableMetrics = false;
-    this.pricing_json = '';
-  }
-
   static async updatePricingJson(pricing_json: any) {
     try {
       const response = await OpenLitHelper.fetchPricingInfo(pricing_json);
@@ -62,7 +47,7 @@ export default class OpenlitConfig {
     otlpEndpoint,
     otlpHeaders,
     disableBatch,
-    traceContent,
+    traceContent = true,
     metricsDict = {},
     disableMetrics,
     pricing_json,

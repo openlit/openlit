@@ -27,10 +27,9 @@ export default class AnthropicWrapper {
 
   static _patchMessageCreate(tracer: Tracer): any {
     const genAIEndpoint = 'anthropic.resources.messages';
-    const metricsDict = OpenlitConfig.metricsDict;
     const applicationName = OpenlitConfig.applicationName;
-    const disableMetrics = OpenlitConfig.disableMetrics;
     const environment = OpenlitConfig.environment;
+    const traceContent = OpenlitConfig.traceContent;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
@@ -38,8 +37,20 @@ export default class AnthropicWrapper {
           try {
             const response = await originalMethod.apply(this, args);
 
+            const {
+              messages,
+              max_tokens = null,
+              seed = null,
+              temperature = 1,
+              top_p,
+              top_k,
+              user,
+              stream = false,
+              stop_reason,
+            } = args[0];
+
             // Format 'messages' into a single string
-            const messagePrompt = response.messages || '';
+            const messagePrompt = messages || '';
             const formattedMessages = [];
 
             for (const message of messagePrompt) {
@@ -81,32 +92,25 @@ export default class AnthropicWrapper {
             AnthropicWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
               model,
-              user: response.user || '',
+              user,
               cost,
               applicationName,
               environment,
             });
 
-            // Set base span attribues
+            // Request Params attributes : Start
+            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p);
+            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, top_k);
+            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
+            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
 
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, response.top_p || '');
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, response.top_k || '');
-            span.setAttribute(
-              SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
-              response.max_tokens || -1
-            );
-            span.setAttribute(
-              SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
-              response.temperature || 1
-            );
-
-            span.setAttribute(
-              SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-              response.stop_reason || ''
-            );
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
-
-            span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+            span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, stop_reason);
+            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
+            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
+            if (traceContent) {
+              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+            }
+            // Request Params attributes : End
 
             span.setAttribute(
               SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -125,58 +129,6 @@ export default class AnthropicWrapper {
               SemanticConvention.GEN_AI_CONTENT_COMPLETION,
               response.content?.[0]?.text || ''
             );
-
-            if (!disableMetrics) {
-              const attributes = {
-                [TELEMETRY_SDK_NAME]: SDK_NAME,
-                [SemanticConvention.GEN_AI_APPLICATION_NAME]: applicationName,
-                [SemanticConvention.GEN_AI_SYSTEM]: SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC,
-                [SemanticConvention.GEN_AI_ENVIRONMENT]: environment,
-                [SemanticConvention.GEN_AI_TYPE]: SemanticConvention.GEN_AI_TYPE_CHAT,
-                [SemanticConvention.GEN_AI_REQUEST_MODEL]: model,
-              };
-
-              if (
-                metricsDict['genai_requests'] &&
-                typeof metricsDict['genai_requests'].add === 'function'
-              ) {
-                metricsDict['genai_requests'].add(1, attributes);
-              }
-
-              if (
-                metricsDict['genai_total_tokens'] &&
-                typeof metricsDict['genai_total_tokens'].add === 'function'
-              ) {
-                metricsDict['genai_total_tokens'].add(
-                  response.usage.input_tokens + response.usage.output_tokens,
-                  attributes
-                );
-              }
-
-              if (
-                metricsDict['genai_completion_tokens'] &&
-                typeof metricsDict['genai_completion_tokens'].add === 'function'
-              ) {
-                metricsDict['genai_completion_tokens'].add(
-                  response.usage.output_tokens,
-                  attributes
-                );
-              }
-
-              if (
-                metricsDict['genai_prompt_tokens'] &&
-                typeof metricsDict['genai_prompt_tokens'].add === 'function'
-              ) {
-                metricsDict['genai_prompt_tokens'].add(response.usage.input_tokens, attributes);
-              }
-
-              if (
-                metricsDict['genai_cost'] &&
-                typeof metricsDict['genai_cost'].record === 'function'
-              ) {
-                metricsDict['genai_cost'].record(cost, attributes);
-              }
-            }
 
             return response;
           } catch (e: any) {

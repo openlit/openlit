@@ -55,8 +55,7 @@ export default class SemanticConvention {
 
   // GenAI Content
   static GEN_AI_CONTENT_PROMPT = 'gen_ai.content.prompt';
-  static GEN_AI_COMPLETION = 'gen_ai.completion';
-  static GEN_AI_CONTENT_COMPLETION = 'gen_ai.content.completion';
+  static GEN_AI_CONTENT_COMPLETION = 'gen_ai.completion';
   static GEN_AI_CONTENT_REVISED_PROMPT = 'gen_ai.content.revised_prompt';
 
   static GEN_AI_TYPE_CHAT = 'chat';
