@@ -856,7 +856,7 @@ def azure_async_image_generate(gen_ai_endpoint, version, environment, applicatio
                         )
                         attribute_name = f"gen_ai.response.image.{images_count}"
                         span.add_event(
-                            name=SemanticConvetion.attribute_name,
+                            name=attribute_name,
                             attributes={
                                 SemanticConvetion.GEN_AI_CONTENT_COMPLETION: getattr(items, image),
                             },

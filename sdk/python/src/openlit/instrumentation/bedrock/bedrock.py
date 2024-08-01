@@ -96,7 +96,6 @@ def converse(gen_ai_endpoint, version, environment, application_name, tracer,
 
                 try:
                     message_prompt = method_kwargs.get("messages", "")
-                    print(message_prompt)
                     formatted_messages = []
                     for message in message_prompt:
                         role = message["role"]
@@ -153,6 +152,7 @@ def converse(gen_ai_endpoint, version, environment, application_name, tracer,
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
+                                # pylint: disable=line-too-long
                                 SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response["output"]["message"]["content"][0]["text"],
                             },
                         )

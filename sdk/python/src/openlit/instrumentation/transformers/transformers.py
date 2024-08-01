@@ -109,11 +109,12 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                         span.add_event(
                             name=attribute_name,
                             attributes={
+                                # pylint: disable=line-too-long
                                 SemanticConvetion.GEN_AI_CONTENT_COMPLETION: completion["generated_text"],
                             },
                         )
                     completion_tokens += general_tokens(completion["generated_text"])
- 
+
                     i=i+1
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
                                    completion_tokens)

@@ -219,7 +219,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     response.meta.billed_units.output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
-                
+
                 if trace_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
