@@ -264,8 +264,8 @@ export const TraceMapping: Record<
 	prompt: {
 		label: "Prompt",
 		type: "string",
-		path: "prompt",
-		prefix: SpanAttributesGenAIPrefix,
+		path: ["Events.Attributes", "0", "gen_ai.prompt"],
+		isRoot: true,
 	},
 	finishReason: {
 		label: "Finish Reason",
@@ -276,8 +276,8 @@ export const TraceMapping: Record<
 	response: {
 		label: "Response",
 		type: "string",
-		path: "completion",
-		prefix: SpanAttributesGenAIPrefix,
+		path: ["Events.Attributes", "1", "gen_ai.completion"],
+		isRoot: true,
 	},
 	randomSeed: {
 		label: "Random seed",

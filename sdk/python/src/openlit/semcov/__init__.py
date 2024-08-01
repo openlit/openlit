@@ -70,7 +70,9 @@ class SemanticConvetion:
     GEN_AI_RESPONSE_IMAGE = "gen_ai.response.image"  # Not used directly in code yet
 
     # GenAI Content
+    GEN_AI_CONTENT_PROMPT_EVENT = "gen_ai.content.prompt"
     GEN_AI_CONTENT_PROMPT = "gen_ai.prompt"
+    GEN_AI_CONTENT_COMPLETION_EVENT = "gen_ai.content.completion"
     GEN_AI_CONTENT_COMPLETION = "gen_ai.completion"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
 
@@ -94,7 +96,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_COHERE = "cohere"
     GEN_AI_SYSTEM_MISTRAL = "mistral"
     GEN_AI_SYSTEM_BEDROCK = "bedrock"
-    GEN_AI_SYSTEM_VERTEXAI = "vertexai"
+    GEN_AI_SYSTEM_VERTEXAI = "vertex_ai"
     GEN_AI_SYSTEM_GROQ = "groq"
     GEN_AI_SYSTEM_OLLAMA = "ollama"
     GEN_AI_SYSTEM_GPT4ALL = "gpt4all"
