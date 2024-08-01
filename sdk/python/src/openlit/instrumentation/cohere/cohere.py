@@ -89,8 +89,12 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        prompt)
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -205,7 +209,7 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                     response.generation_id)
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                    response.finish_reason)
+                                    [response.finish_reason])
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                     response.meta.billed_units.input_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
@@ -215,11 +219,20 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     response.meta.billed_units.output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
+                
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        kwargs.get("message", ""))
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                        response.text)
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("message", ""),
+                        },
+                    )
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.text,
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -348,7 +361,7 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                         response_id)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                        finish_reason)
+                                        [finish_reason])
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                         prompt_tokens)
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
@@ -358,10 +371,18 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                         cost)
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            kwargs.get("message", ""))
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                            llmresponse)
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("message", ""),
+                            },
+                        )
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
+                            },
+                        )
 
                     span.set_status(Status(StatusCode.OK))
 

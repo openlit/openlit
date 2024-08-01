@@ -144,10 +144,18 @@ def converse(gen_ai_endpoint, version, environment, application_name, tracer,
                                 cost)
 
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        prompt)
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                        response["output"]["message"]["content"][0]["text"])
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            },
+                        )
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response["output"]["message"]["content"][0]["text"],
+                            },
+                        )
 
                     span.set_status(Status(StatusCode.OK))
 
