@@ -41,6 +41,8 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 | [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)         |                                                                          |                                       |               |
 | [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                  |                                                                          |                                       |               |
 | [✅ ElevenLabs](https://docs.openlit.io/latest/integrations/elevenlabs)      |                                                                          |                                       |               |
+| [✅ vLLM](https://docs.openlit.io/latest/integrations/vllm)                  |                                                                          |                                       |               |
+
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
 - [✅ Prometheus + Tempo](https://docs.openlit.io/latest/connections/prometheus-tempo)
