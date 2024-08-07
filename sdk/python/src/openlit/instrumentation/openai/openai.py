@@ -145,10 +145,18 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
                         if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                                prompt)
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                llmresponse)
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                },
+                            )
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
+                                },
+                            )
 
                         span.set_status(Status(StatusCode.OK))
 
@@ -241,8 +249,12 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                         False)
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            prompt)
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            },
+                        )
 
                     # Set span attributes when tools is not passed to the function call
                     if "tools" not in kwargs:
@@ -258,23 +270,31 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                             response.usage.total_tokens)
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                            response.choices[0].finish_reason)
+                                            [response.choices[0].finish_reason])
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
 
                         # Set span attributes for when n = 1 (default)
                         if "n" not in kwargs or kwargs["n"] == 1:
                             if trace_content:
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                    response.choices[0].message.content)
+                                span.add_event(
+                                    name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                                    attributes={
+                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.choices[0].message.content,
+                                    },
+                                )
 
                         # Set span attributes for when n > 0
                         else:
                             i = 0
                             while i < kwargs["n"] and trace_content is True:
-                                attribute_name = f"gen_ai.completion.{i}"
-                                span.set_attribute(attribute_name,
-                                                    response.choices[i].message.content)
+                                attribute_name = f"gen_ai.content.completion.{i}"
+                                span.add_event(
+                                    name=attribute_name,
+                                    attributes={
+                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.choices[i].message.content,
+                                    },
+                                )
                                 i += 1
 
                             # Return original response
@@ -286,9 +306,12 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                         cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"),
                                                     pricing_info, response.usage.prompt_tokens,
                                                     response.usage.completion_tokens)
-
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                            "Function called with tools")
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: "Function called with tools",
+                            },
+                        )
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                             response.usage.prompt_tokens)
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
@@ -404,8 +427,12 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        kwargs.get("input", ""))
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("input", ""),
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -626,12 +653,19 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            kwargs.get("prompt", ""))
-
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("prompt", ""),
+                            },
+                        )
                         attribute_name = f"gen_ai.response.image.{images_count}"
-                        span.set_attribute(attribute_name,
-                                            getattr(items, image))
+                        span.add_event(
+                            name=attribute_name,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: getattr(items, image),
+                            },
+                        )
 
                     images_count+=1
 
@@ -744,12 +778,13 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_QUALITY,
                                         "standard")
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            kwargs.get(SemanticConvetion.GEN_AI_TYPE_IMAGE, ""))
-
                         attribute_name = f"gen_ai.response.image.{images_count}"
-                        span.set_attribute(attribute_name,
-                                            getattr(items, image))
+                        span.add_event(
+                            name=attribute_name,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: getattr(items, image),
+                            },
+                        )
 
                     images_count+=1
 
@@ -854,8 +889,12 @@ def audio_create(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        kwargs.get("input", ""))
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("input", ""),
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 
