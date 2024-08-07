@@ -76,19 +76,19 @@ def generate(gen_ai_endpoint, version, environment, application_name,
                 if trace_content:
                     prompt_attributes = {}
                     completion_attributes = {}
-                
+
                     for i, output in enumerate(response):
                         prompt_attributes[f"{SemanticConvetion.GEN_AI_CONTENT_PROMPT}.{i}"] = output.prompt
                         completion_attributes[f"{SemanticConvetion.GEN_AI_CONTENT_COMPLETION}.{i}"] = output.outputs[0].text
                         input_tokens += general_tokens(output.prompt)
                         output_tokens += general_tokens(output.outputs[0].text)
-  
+
                     # Add a single event for all prompts
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes=prompt_attributes,
                     )
-                
+
                     # Add a single event for all completions
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
