@@ -32,6 +32,7 @@ from openlit.instrumentation.groq import GroqInstrumentor
 from openlit.instrumentation.ollama import OllamaInstrumentor
 from openlit.instrumentation.gpt4all import GPT4AllInstrumentor
 from openlit.instrumentation.elevenlabs import ElevenLabsInstrumentor
+from openlit.instrumentation.vllm import vLLMInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
@@ -194,6 +195,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "ollama": "ollama",
         "gpt4all": "gpt4all",
         "elevenlabs": "elevenlabs",
+        "vllm": "vllm",
         "langchain": "langchain",
         "llama_index": "llama_index",
         "haystack": "haystack",
@@ -270,6 +272,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "ollama": OllamaInstrumentor(),
             "gpt4all": GPT4AllInstrumentor(),
             "elevenlabs": ElevenLabsInstrumentor(),
+            "vllm": vLLMInstrumentor(),
             "langchain": LangChainInstrumentor(),
             "llama_index": LlamaIndexInstrumentor(),
             "haystack": HaystackInstrumentor(),
