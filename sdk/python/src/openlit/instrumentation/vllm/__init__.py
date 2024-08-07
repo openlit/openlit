@@ -12,7 +12,7 @@ from openlit.instrumentation.vllm.vllm import (
 
 _instruments = ("vllm >= 0.5.4",)
 
-class vLLMInstrumentor(BaseInstrumentor):
+class VLLMInstrumentor(BaseInstrumentor):
     """
     An instrumentor for vLLM's client library.
     """
