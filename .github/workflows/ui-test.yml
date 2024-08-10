@@ -25,7 +25,7 @@ jobs:
       uses: docker/setup-buildx-action@v2
 
     - name: Start Docker Compose
-      run: docker compose -f dev-docker-compose.yml up --build -d
+      run: docker compose -f src/dev-docker-compose.yml up --build -d
 
     - name: Wait for services to be healthy
       run: |
