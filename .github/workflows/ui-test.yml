@@ -14,7 +14,7 @@ on:
     - cron: '0 0 1-31/15 * *'
 
 jobs:
-  build-and-run:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -47,4 +47,4 @@ jobs:
 
     - name: Clean up Docker
       if: always()
-      run: docker compose -f dev-docker-compose.yml down
+      run: docker compose -f src/dev-docker-compose.yml down
