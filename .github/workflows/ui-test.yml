@@ -29,16 +29,17 @@ jobs:
     - name: Start Docker Compose
       run: docker compose -f src/dev-docker-compose.yml up --build -d
 
-    - name: Wait for services to be healthy
+    - name: Wait for container to be running
       run: |
-        echo "Waiting for services to be healthy..."
-        while [ "$(docker inspect --format='{{.State.Health.Status}}' openlit)" != "healthy" ]; do
-          if [ "$(docker inspect --format='{{.State.Health.Status}}' openlit)" == "unhealthy" ]; then
-            echo "Service is unhealthy, exiting..."
+        echo "Waiting for the OpenLIT container to be running..."
+        while [ "$(docker inspect -f '{{.State.Running}}' openlit)" != "true" ]; do
+          if [ "$(docker inspect -f '{{.State.Running}}' openlit)" == "false" ]; then
+            echo "OpenLIT container failed to run, exiting..."
             exit 1
           fi
           sleep 5
         done
+        echo "OpenLIT container is running."
 
     - name: Post Docker logs in case of failure
       if: failure()
