@@ -1,0 +1,39 @@
+name: Build and Run Docker Image
+
+on:
+    push:
+      branches: [ "main" ]
+      paths:
+        - 'src/**'
+    pull_request_target:
+      branches: [ "main" ]
+      paths:
+        - 'src/**'
+    workflow_dispatch:
+    schedule:
+      - cron: '0 0 1-31/15 * *'
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Start Docker Compose
+      run: docker-compose -f dev-docker-compose.yml up --build -d
+
+    - name: Check Docker container exit status
+      run: |
+        if [ "$(docker inspect -f '{{.State.Running}}' openlit)" == "false" ]; then
+          echo "OpenLIT container failed to run."
+          exit 1
+        fi
+
+    - name: Post Docker logs in case of failure
+      if: failure()
+      run: docker logs openlit
