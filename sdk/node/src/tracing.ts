@@ -26,7 +26,6 @@ export default class Tracing {
         tracer: options.tracer || Tracing.traceProvider,
       });
 
-      // Instrumentations.setup(options.disabledInstrumentations || [], this.traceProvider);
       Instrumentations.setup(
         Tracing.traceProvider,
         options?.disabledInstrumentations,
@@ -41,9 +40,8 @@ export default class Tracing {
       if (options.otlpEndpoint) {
         this.traceExporter = new OTLPTraceExporter({
           url: options.otlpEndpoint,
-          headers: options.otlpHeaders,
+          headers: options.otlpHeaders as Record<string, unknown> | undefined,
         });
-        console.log(options.disableBatch);
         if (options.disableBatch) {
           this.traceProvider.addSpanProcessor(
             new SimpleSpanProcessor(this.traceExporter as SpanExporter)
@@ -57,7 +55,6 @@ export default class Tracing {
 
       this.traceProvider.register();
     } catch (e) {
-      console.log(e);
       return null;
     }
   }

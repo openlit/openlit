@@ -9,13 +9,9 @@ import { INSTRUMENTATION_PREFIX } from '../../constant';
 import OpenAI from 'openai';
 import OpenAIWrapper from './wrapper';
 
-export interface OpenAIInstrumentationConfig extends InstrumentationConfig {
-  traceContent?: boolean;
-  enrichTokens?: boolean;
-  exceptionLogger?: (e: Error) => void;
-}
+export interface OpenAIInstrumentationConfig extends InstrumentationConfig {}
 
-class OpenlitOpenAIInstrumentation extends InstrumentationBase {
+export default class OpenlitOpenAIInstrumentation extends InstrumentationBase {
   constructor(config: OpenAIInstrumentationConfig = {}) {
     super(`${INSTRUMENTATION_PREFIX}/instrumentation-openai`, '1.0.0', config);
   }
@@ -116,7 +112,3 @@ class OpenlitOpenAIInstrumentation extends InstrumentationBase {
     this._unwrap(moduleExports.OpenAI.Audio.prototype, 'speech');
   }
 }
-
-const openaiInstrumentation = new OpenlitOpenAIInstrumentation();
-
-export default openaiInstrumentation;

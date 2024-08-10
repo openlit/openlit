@@ -82,7 +82,7 @@ export default class OpenLitHelper {
             const json = JSON.parse(pricingJson);
             return json;
           } else {
-            const json = JSON.stringify(JSON.parse(pricingJson));
+            const json = JSON.parse(JSON.stringify(pricingJson));
             return json;
           }
         } catch {

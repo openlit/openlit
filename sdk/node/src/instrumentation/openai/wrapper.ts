@@ -62,107 +62,115 @@ export default class OpenAIWrapper {
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
 
-            if (traceContent) {
-              // Format 'messages' into a single string
-              const messagePrompt = messages || [];
-              const formattedMessages = [];
-
-              for (const message of messagePrompt) {
-                const role = message.role;
-                const content = message.content;
-
-                if (Array.isArray(content)) {
-                  const contentStr = content
-                    .map((item) => {
-                      if ('type' in item) {
-                        return `${item.type}: ${item.text ? item.text : item.image_url}`;
-                      } else {
-                        return `text: ${item.text}`;
-                      }
-                    })
-                    .join(', ');
-                  formattedMessages.push(`${role}: ${contentStr}`);
-                } else {
-                  formattedMessages.push(`${role}: ${content}`);
-                }
-              }
-
-              const prompt = formattedMessages.join('\n');
-              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
-            }
-            // Request Params attributes : End
-
-            span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_CHAT);
-            span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.id);
-
-            const model = response.model || 'gpt-3.5-turbo';
-
-            const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
-
-            // Calculate cost of the operation
-            const cost = OpenLitHelper.getChatModelCost(
-              model,
-              pricingInfo,
-              response.usage.prompt_tokens,
-              response.usage.completion_tokens
-            );
-
-            OpenAIWrapper.setBaseSpanAttributes(span, {
-              genAIEndpoint,
-              model,
-              user,
-              cost,
-              applicationName,
-              environment,
-            });
-
-            if (!tools) {
-              span.setAttribute(
-                SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
-                response.usage.prompt_tokens
-              );
-              span.setAttribute(
-                SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
-                response.usage.completion_tokens
-              );
-              span.setAttribute(
-                SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-                response.usage.total_tokens
-              );
-              span.setAttribute(
-                SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-                response.choices[0].finish_reason
-              );
-
+            if (!stream) {
               if (traceContent) {
-                if (n === 1) {
-                  span.setAttribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-                    response.choices[0].message.content
-                  );
-                } else {
-                  let i = 0;
-                  while (i < n) {
-                    const attribute_name = `${SemanticConvention.GEN_AI_CONTENT_COMPLETION}.[i]`;
-                    span.setAttribute(attribute_name, response.choices[i].message.content);
-                    i += 1;
+                // Format 'messages' into a single string
+                const messagePrompt = messages || [];
+                const formattedMessages = [];
+
+                for (const message of messagePrompt) {
+                  const role = message.role;
+                  const content = message.content;
+
+                  if (Array.isArray(content)) {
+                    const contentStr = content
+                      .map((item) => {
+                        if ('type' in item) {
+                          return `${item.type}: ${item.text ? item.text : item.image_url}`;
+                        } else {
+                          return `text: ${item.text}`;
+                        }
+                      })
+                      .join(', ');
+                    formattedMessages.push(`${role}: ${contentStr}`);
+                  } else {
+                    formattedMessages.push(`${role}: ${content}`);
                   }
                 }
+
+                const prompt = formattedMessages.join('\n');
+                span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
               }
-            } else {
-              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, 'Function called with tools');
+              // Request Params attributes : End
+
               span.setAttribute(
-                SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
-                response.usage.prompt_tokens
+                SemanticConvention.GEN_AI_TYPE,
+                SemanticConvention.GEN_AI_TYPE_CHAT
               );
-              span.setAttribute(
-                SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
+              span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.id);
+
+              const model = response.model || 'gpt-3.5-turbo';
+
+              const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
+
+              // Calculate cost of the operation
+              const cost = OpenLitHelper.getChatModelCost(
+                model,
+                pricingInfo,
+                response.usage.prompt_tokens,
                 response.usage.completion_tokens
               );
-              span.setAttribute(
-                SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-                response.usage.total_tokens
-              );
+
+              OpenAIWrapper.setBaseSpanAttributes(span, {
+                genAIEndpoint,
+                model,
+                user,
+                cost,
+                applicationName,
+                environment,
+              });
+
+              if (!tools) {
+                span.setAttribute(
+                  SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
+                  response.usage.prompt_tokens
+                );
+                span.setAttribute(
+                  SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
+                  response.usage.completion_tokens
+                );
+                span.setAttribute(
+                  SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
+                  response.usage.total_tokens
+                );
+                span.setAttribute(
+                  SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+                  response.choices[0].finish_reason
+                );
+
+                if (traceContent) {
+                  if (n === 1) {
+                    span.setAttribute(
+                      SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+                      response.choices[0].message.content
+                    );
+                  } else {
+                    let i = 0;
+                    while (i < n) {
+                      const attribute_name = `${SemanticConvention.GEN_AI_CONTENT_COMPLETION}.[i]`;
+                      span.setAttribute(attribute_name, response.choices[i].message.content);
+                      i += 1;
+                    }
+                  }
+                }
+              } else {
+                span.setAttribute(
+                  SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+                  'Function called with tools'
+                );
+                span.setAttribute(
+                  SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
+                  response.usage.prompt_tokens
+                );
+                span.setAttribute(
+                  SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
+                  response.usage.completion_tokens
+                );
+                span.setAttribute(
+                  SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
+                  response.usage.total_tokens
+                );
+              }
             }
 
             return response;

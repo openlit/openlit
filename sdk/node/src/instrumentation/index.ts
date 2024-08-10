@@ -2,13 +2,13 @@ import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { InstrumentationType, OpenlitInstrumentations } from '../types';
 
 import { TracerProvider } from '@opentelemetry/api';
-import openAIInstrumentation from './openai';
-import anthropicInstrumentation from './anthropic';
+import OpenAIInstrumentation from './openai';
+import AnthropicInstrumentation from './anthropic';
 
 export default class Instrumentations {
   static availableInstrumentations: OpenlitInstrumentations = {
-    openai: openAIInstrumentation,
-    anthropic: anthropicInstrumentation,
+    openai: new OpenAIInstrumentation(),
+    anthropic: new AnthropicInstrumentation(),
   };
 
   static setup(
@@ -28,11 +28,16 @@ export default class Instrumentations {
         instrumentations
       );
       filteredInstrumentations.forEach(([k, instrumentation]) => {
+        if (this.availableInstrumentations[k].setTracerProvider) {
+          this.availableInstrumentations[k].setTracerProvider(tracerProvider);
+        }
         if (this.availableInstrumentations[k].manualPatch) {
           this.availableInstrumentations[k].manualPatch(instrumentation);
         }
       });
-      registerInstrumentations({ tracerProvider });
+      registerInstrumentations({
+        tracerProvider,
+      });
     }
   }
 
@@ -48,6 +53,10 @@ export default class Instrumentations {
             availableInstrumentations[k as InstrumentationType].disable();
           }
           return false;
+        }
+
+        if (typeof availableInstrumentations[k as InstrumentationType].enable === 'function') {
+          availableInstrumentations[k as InstrumentationType].enable();
         }
 
         return true;

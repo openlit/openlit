@@ -9,13 +9,9 @@ import { INSTRUMENTATION_PREFIX } from '../../constant';
 import Anthropic from '@anthropic-ai/sdk';
 import AnthropicWrapper from './wrapper';
 
-export interface AnthropicInstrumentationConfig extends InstrumentationConfig {
-  traceContent?: boolean;
-  enrichTokens?: boolean;
-  exceptionLogger?: (e: Error) => void;
-}
+export interface AnthropicInstrumentationConfig extends InstrumentationConfig {}
 
-class OpenlitAnthropicInstrumentation extends InstrumentationBase {
+export default class OpenlitAnthropicInstrumentation extends InstrumentationBase {
   constructor(config: AnthropicInstrumentationConfig = {}) {
     super(`${INSTRUMENTATION_PREFIX}/instrumentation-anthropic`, '1.0.0', config);
   }
@@ -61,7 +57,3 @@ class OpenlitAnthropicInstrumentation extends InstrumentationBase {
     this._unwrap(moduleExports.Anthropic.Messages.prototype, 'create');
   }
 }
-
-const anthropicInstrumentation = new OpenlitAnthropicInstrumentation();
-
-export default anthropicInstrumentation;

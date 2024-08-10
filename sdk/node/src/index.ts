@@ -9,8 +9,6 @@ import { OpenlitOptions } from './types';
 import Tracing from './tracing';
 import { DEFAULT_APPLICATION_NAME, DEFAULT_ENVIRONMENT, SDK_NAME } from './constant';
 import { SpanExporter } from '@opentelemetry/sdk-trace-base';
-import Instrumentations from './instrumentation';
-import OpenlitConfig from './config';
 
 export default class Openlit {
   static resource: Resource;
@@ -60,12 +58,10 @@ export default class Openlit {
       this._sdk = new NodeSDK({
         resource: this.resource,
         traceExporter: Tracing.traceExporter as SpanExporter,
-        // instrumentations: Instrumentations.getFilteredInstrumentations(disabledInstrumentations || []),
-        // We should re-consider removing unrelevant spans here in the future
-        // sampler: new TraceloopSampler(),
       });
 
-      this._sdk.start();
+      // This was causing the traceProvider initilization with multiple instances.
+      // this._sdk.start();
     } catch (e) {
       console.log('Connection time out', e);
     }
