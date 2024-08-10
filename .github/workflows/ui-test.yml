@@ -1,17 +1,17 @@
-name: Build and Run Docker Image
+name: Test OpenLIT UI
 
 on:
-    push:
-      branches: [ "main" ]
-      paths:
-        - 'src/**'
-    pull_request_target:
-      branches: [ "main" ]
-      paths:
-        - 'src/**'
-    workflow_dispatch:
-    schedule:
-      - cron: '0 0 1-31/15 * *'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+  pull_request_target:
+    branches: [main]
+    paths:
+      - 'src/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1-31/15 * *'
 
 jobs:
   build-and-run:
@@ -19,21 +19,31 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
     - name: Start Docker Compose
-      run: docker-compose -f dev-docker-compose.yml up --build -d
+      run: docker compose -f src/dev-docker-compose.yml up --build -d
 
-    - name: Check Docker container exit status
+    - name: Wait for services to be healthy
       run: |
-        if [ "$(docker inspect -f '{{.State.Running}}' openlit)" == "false" ]; then
-          echo "OpenLIT container failed to run."
-          exit 1
-        fi
+        echo "Waiting for services to be healthy..."
+        while [ "$(docker inspect --format='{{.State.Health.Status}}' openlit)" != "healthy" ]; do
+          if [ "$(docker inspect --format='{{.State.Health.Status}}' openlit)" == "unhealthy" ]; then
+            echo "Service is unhealthy, exiting..."
+            exit 1
+          fi
+          sleep 5
+        done
 
     - name: Post Docker logs in case of failure
       if: failure()
       run: docker logs openlit
+
+    - name: Clean up Docker
+      if: always()
+      run: docker compose -f dev-docker-compose.yml down
