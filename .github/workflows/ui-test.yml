@@ -1,0 +1,50 @@
+name: Test OpenLIT UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+  pull_request_target:
+    branches: [main]
+    paths:
+      - 'src/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1-31/15 * *'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Start Docker Compose
+      run: docker compose -f src/dev-docker-compose.yml up --build -d
+
+    - name: Wait for container to be running
+      run: |
+        echo "Waiting for the OpenLIT container to be running..."
+        while [ "$(docker inspect -f '{{.State.Running}}' openlit)" != "true" ]; do
+          if [ "$(docker inspect -f '{{.State.Running}}' openlit)" == "false" ]; then
+            echo "OpenLIT container failed to run, exiting..."
+            exit 1
+          fi
+          sleep 5
+        done
+        echo "OpenLIT container is running."
+
+    - name: Post Docker logs in case of failure
+      if: failure()
+      run: docker logs openlit
+
+    - name: Clean up Docker
+      if: always()
+      run: docker compose -f src/dev-docker-compose.yml down

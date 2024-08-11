@@ -103,10 +103,18 @@ def generate_content_async(gen_ai_endpoint, version, environment, application_na
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
                         if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                                prompt)
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                llmresponse)
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                },
+                            )
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
+                                },
+                            )
 
                         span.set_status(Status(StatusCode.OK))
 
@@ -181,10 +189,19 @@ def generate_content_async(gen_ai_endpoint, version, environment, application_na
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                         cost)
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                           prompt)
-                        # pylint: disable=line-too-long
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response.candidates[0].content.parts[0].text)
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            },
+                        )
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                # pylint: disable=line-too-long
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.candidates[0].content.parts[0].text,
+                            },
+                        )
 
                     span.set_status(Status(StatusCode.OK))
 
@@ -316,10 +333,18 @@ def send_message_async(gen_ai_endpoint, version, environment, application_name, 
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
                         if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                                prompt)
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                llmresponse)
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                },
+                            )
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
+                                },
+                            )
 
                         span.set_status(Status(StatusCode.OK))
 
@@ -394,11 +419,19 @@ def send_message_async(gen_ai_endpoint, version, environment, application_name, 
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                         cost)
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                           prompt)
-                        # pylint: disable=line-too-long
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                           response.candidates[0].content.parts[0].text)
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            },
+                        )
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                # pylint: disable=line-too-long
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.candidates[0].content.parts[0].text,
+                            },
+                        )
 
                     span.set_status(Status(StatusCode.OK))
 
@@ -516,10 +549,18 @@ def predict_async(gen_ai_endpoint, version, environment, application_name, trace
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        prompt)
-                    # pylint: disable=line-too-long
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response.text)
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                        },
+                    )
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.text,
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -648,10 +689,18 @@ def predict_streaming_async(gen_ai_endpoint, version, environment, application_n
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                         cost)
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            prompt)
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                            llmresponse)
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            },
+                        )
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
+                            },
+                        )
 
                     span.set_status(Status(StatusCode.OK))
 
@@ -765,10 +814,18 @@ def start_chat_async(gen_ai_endpoint, version, environment, application_name, tr
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        prompt)
-                    # pylint: disable=line-too-long
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response.text)
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                        },
+                    )
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.text,
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -895,10 +952,18 @@ def start_chat_streaming_async(gen_ai_endpoint, version, environment, applicatio
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                         cost)
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            prompt)
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                            llmresponse)
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            },
+                        )
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
+                            },
+                        )
 
                     span.set_status(Status(StatusCode.OK))
 
@@ -1006,8 +1071,12 @@ def embeddings_async(gen_ai_endpoint, version, environment, application_name, tr
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        prompt)
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 

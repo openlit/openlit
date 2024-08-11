@@ -88,29 +88,33 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                                    forward_params.get("top_p", "null"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
                                    forward_params.get("max_length", -1))
-                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                   prompt)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                    prompt_tokens)
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                        },
+                    )
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                prompt_tokens)
 
                 i = 0
                 completion_tokens = 0
                 for completion in response:
                     if len(response) > 1:
-                        attribute_name = f"gen_ai.completion.{i}"
+                        attribute_name = f"gen_ai.content.completion.{i}"
                     else:
-                        attribute_name = SemanticConvetion.GEN_AI_CONTENT_COMPLETION
-                    if i == 0:
-                        if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                            completion["generated_text"])
-                        completion_tokens += general_tokens(completion["generated_text"])
-                    else:
-                        if trace_content:
-                            span.set_attribute(attribute_name,
-                                            completion["generated_text"])
-                        completion_tokens += general_tokens(completion["generated_text"])
+                        attribute_name = SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT
+                    if trace_content:
+                        span.add_event(
+                            name=attribute_name,
+                            attributes={
+                                # pylint: disable=line-too-long
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: completion["generated_text"],
+                            },
+                        )
+                    completion_tokens += general_tokens(completion["generated_text"])
+
                     i=i+1
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
                                    completion_tokens)

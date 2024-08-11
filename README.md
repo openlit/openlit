@@ -61,7 +61,7 @@ flowchart TB;
 
 2. Start Docker Compose
    ```shell
-   docker-compose up -d
+   docker compose up -d
    ```
 
 ### Step 2: Install OpenLIT SDK
