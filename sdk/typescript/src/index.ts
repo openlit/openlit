@@ -19,7 +19,8 @@ export default class Openlit {
       const { environment = DEFAULT_ENVIRONMENT, applicationName = DEFAULT_APPLICATION_NAME } =
         options || {};
 
-      const otlpEndpoint = options?.otlpEndpoint || process.env.OTEL_EXPORTER_OTLP_ENDPOINT || '';
+      const otlpEndpoint =
+        options?.otlpEndpoint || process.env.OTEL_EXPORTER_OTLP_ENDPOINT || undefined;
       let otlpHeaders = options?.otlpHeaders;
       if (!otlpHeaders) {
         if (process.env.OTEL_EXPORTER_OTLP_HEADERS) {

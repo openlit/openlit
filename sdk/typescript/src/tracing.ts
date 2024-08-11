@@ -37,20 +37,18 @@ export default class Tracing {
       // Adding span to console
       this.traceProvider.addSpanProcessor(new SimpleSpanProcessor(consoleSpanExporter));
 
-      if (options.otlpEndpoint) {
-        this.traceExporter = new OTLPTraceExporter({
-          url: options.otlpEndpoint,
-          headers: options.otlpHeaders as Record<string, unknown> | undefined,
-        });
-        if (options.disableBatch) {
-          this.traceProvider.addSpanProcessor(
-            new SimpleSpanProcessor(this.traceExporter as SpanExporter)
-          );
-        } else {
-          this.traceProvider.addSpanProcessor(
-            new BatchSpanProcessor(this.traceExporter as SpanExporter)
-          );
-        }
+      this.traceExporter = new OTLPTraceExporter({
+        url: options.otlpEndpoint,
+        headers: options.otlpHeaders as Record<string, unknown> | undefined,
+      });
+      if (options.disableBatch) {
+        this.traceProvider.addSpanProcessor(
+          new SimpleSpanProcessor(this.traceExporter as SpanExporter)
+        );
+      } else {
+        this.traceProvider.addSpanProcessor(
+          new BatchSpanProcessor(this.traceExporter as SpanExporter)
+        );
       }
 
       this.traceProvider.register();
