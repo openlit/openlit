@@ -15,6 +15,7 @@ from langchain import hub
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import openlit
+import os
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
@@ -40,7 +41,7 @@ def test_langchain():
     Raises:
       AssertionError: If the outcomes from the LangChain operations deviate from what is expected.
     """
-
+    os.environ["LANGCHAIN_TRACING_V2"] = "false"
     docs = WebBaseLoader(
       web_paths=("https://lilianweng.github.io/posts/2023-06-23-agent/",),
       bs_kwargs={
