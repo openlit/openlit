@@ -6,7 +6,12 @@ Module for monitoring Ollama API calls.
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import handle_exception, general_tokens
+from openlit.__helpers import (
+    handle_exception,
+    general_tokens,
+    get_chat_model_cost,
+    get_embed_model_cost
+)
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -90,10 +95,11 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                 formatted_messages.append(f"{role}: {content}")
                         prompt = "\n".join(formatted_messages)
 
-                        # Calculate cost of the operation
-                        cost = 0
                         prompt_tokens = general_tokens(prompt)
                         total_tokens = prompt_tokens + completion_tokens
+                        # Calculate cost of the operation
+                        cost = get_chat_model_cost(kwargs.get("model", "llama3"),
+                                                pricing_info, prompt_tokens, completion_tokens)
 
                         # Set Span attributes
                         span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
@@ -219,11 +225,12 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                             },
                         )
 
-                    # Calculate cost of the operation
-                    cost = 0
                     prompt_tokens = general_tokens(prompt)
                     completion_tokens = response["eval_count"]
                     total_tokens = prompt_tokens + completion_tokens
+                    # Calculate cost of the operation
+                    cost = get_chat_model_cost(kwargs.get("model", "llama3"),
+                                                pricing_info, prompt_tokens, completion_tokens)
 
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                         prompt_tokens)
@@ -331,10 +338,11 @@ def generate(gen_ai_endpoint, version, environment, application_name,
 
                     # Handling exception ensure observability without disrupting operation
                     try:
-                        # Calculate cost of the operation
-                        cost = 0
                         prompt_tokens = general_tokens(kwargs.get("prompt", ""))
                         total_tokens = prompt_tokens + completion_tokens
+                        # Calculate cost of the operation
+                        cost = get_chat_model_cost(kwargs.get("model", "llama3"),
+                                                pricing_info, prompt_tokens, completion_tokens)
 
                         # Set Span attributes
                         span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
@@ -442,11 +450,12 @@ def generate(gen_ai_endpoint, version, environment, application_name,
                             },
                         )
 
-                    # Calculate cost of the operation
-                    cost = 0
                     prompt_tokens = response["prompt_eval_count"]
                     completion_tokens = response["eval_count"]
                     total_tokens = prompt_tokens + completion_tokens
+                    # Calculate cost of the operation
+                    cost = get_chat_model_cost(kwargs.get("model", "llama3"),
+                                                pricing_info, prompt_tokens, completion_tokens)
 
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                         prompt_tokens)
@@ -534,9 +543,10 @@ def embeddings(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                # Calculate cost of the operation
-                cost = 0
                 prompt_tokens = general_tokens(kwargs.get('prompt', ""))
+                # Calculate cost of the operation
+                cost = get_embed_model_cost(kwargs.get('model', "mistral-embed"),
+                                            pricing_info, prompt_tokens)
                 # Set Span attributes
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
