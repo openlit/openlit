@@ -107,10 +107,18 @@ def generate(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                             True)
                         if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                                prompt)
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                llmresponse)
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                },
+                            )
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
+                                },
+                            )
 
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                         prompt_tokens)
@@ -195,10 +203,18 @@ def generate(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                         False)
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            prompt)
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                            response)
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            },
+                        )
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response,
+                            },
+                        )
 
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                         prompt_tokens)
@@ -313,8 +329,12 @@ def embed(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        prompt)
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 

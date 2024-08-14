@@ -1,22 +1,18 @@
 "use client";
-import Filter from "../../../components/(playground)/filter";
-import DataCharts from "./data-charts";
-import NumberStats from "./number-stats";
-import RequestsPerTime from "./requests-per-time";
-import TokenCharts from "./token-charts";
+import Filter from "@/components/(playground)/filter";
+import {
+	DashboardTypeFilter,
+	DashboardTypeGraphContainer,
+} from "./dashboard-type";
 
-export default function PlaygroundPage() {
+export default function DashboardPage() {
 	return (
 		<>
-			<Filter className="mb-4" />
-			<div className="flex flex-col grow w-full h-full rounded overflow-y-auto gap-4">
-				<NumberStats />
-				<div className="flex flex-col gap-4">
-					<RequestsPerTime />
-					<DataCharts />
-					<TokenCharts />
-				</div>
+			<div className="flex items-center w-full justify-between mb-4">
+				<Filter />
+				<DashboardTypeFilter />
 			</div>
+			<DashboardTypeGraphContainer />
 		</>
 	);
 }

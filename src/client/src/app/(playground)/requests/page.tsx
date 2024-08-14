@@ -1,15 +1,14 @@
 "use client";
-import RequestTable from "./request-table";
 import { useCallback, useEffect } from "react";
-import RequestFilter from "./request-filter";
-import { RequestProvider } from "./request-context";
+import RequestFilter from "@/components/(playground)/request/request-filter";
+import { RequestProvider } from "@/components/(playground)/request/request-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import RequestDetails from "./request-details";
+import RequestDetails from "@/components/(playground)/request/request-details";
 import { toast } from "sonner";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
-import { Separator } from "@/components/ui/separator";
+import List from "./list";
 
 export default function RequestPage() {
 	const filter = useRootStore(getFilterDetails);
@@ -39,8 +38,8 @@ export default function RequestPage() {
 
 	return (
 		<RequestProvider>
-			<RequestFilter total={(data as any)?.total} />
-			<RequestTable
+			<RequestFilter total={(data as any)?.total} supportDynamicFilters />
+			<List
 				data={(data as any)?.records || []}
 				isFetched={isFetched || pingStatus !== "pending"}
 				isLoading={isLoading || pingStatus === "pending"}

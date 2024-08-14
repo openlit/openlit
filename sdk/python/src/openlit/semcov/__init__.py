@@ -45,6 +45,7 @@ class SemanticConvetion:
     GEN_AI_REQUEST_AUDIO_VOICE = "gen_ai.request.audio_voice"
     GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT = "gen_ai.request.audio_response_format"
     GEN_AI_REQUEST_AUDIO_SPEED = "gen_ai.request.audio_speed"
+    GEN_AI_REQUEST_AUDIO_SETTINGS = "gen_ai.request.audio_settings"
     GEN_AI_REQUEST_FINETUNE_STATUS = "gen_ai.request.fine_tune_status"
     GEN_AI_REQUEST_FINETUNE_MODEL_SUFFIX = "gen_ai.request.fine_tune_model_suffix"
     GEN_AI_REQUEST_FINETUNE_MODEL_EPOCHS = "gen_ai.request.fine_tune_n_epochs"
@@ -53,22 +54,25 @@ class SemanticConvetion:
     GEN_AI_REQUEST_VALIDATION_FILE = "gen_ai.request.validation_file"
     GEN_AI_REQUEST_TRAINING_FILE = "gen_ai.request.training_file"
 
+    GEN_AI_REQUEST_IMAGE_SIZE = "gen_ai.request.image_size"
+    GEN_AI_REQUEST_IMAGE_QUALITY = "gen_ai.request.image_quality"
+    GEN_AI_REQUEST_IMAGE_STYLE = "gen_ai.request.image_style"
+
     # GenAI Usage
-    GEN_AI_USAGE_PROMPT_TOKENS = "gen_ai.usage.prompt_tokens"
-    GEN_AI_USAGE_COMPLETION_TOKENS = "gen_ai.usage.completion_tokens"
+    GEN_AI_USAGE_PROMPT_TOKENS = "gen_ai.usage.input_tokens"
+    GEN_AI_USAGE_COMPLETION_TOKENS = "gen_ai.usage.output_tokens"
     GEN_AI_USAGE_TOTAL_TOKENS = "gen_ai.usage.total_tokens"
     GEN_AI_USAGE_COST = "gen_ai.usage.cost"
 
     # GenAI Response
     GEN_AI_RESPONSE_ID = "gen_ai.response.id"
-    GEN_AI_RESPONSE_FINISH_REASON = "gen_ai.response.finish_reason"
+    GEN_AI_RESPONSE_FINISH_REASON = "gen_ai.response.finish_reasons"
     GEN_AI_RESPONSE_IMAGE = "gen_ai.response.image"  # Not used directly in code yet
-    GEN_AI_RESPONSE_IMAGE_SIZE = "gen_ai.request.image_size"
-    GEN_AI_RESPONSE_IMAGE_QUALITY = "gen_ai.request.image_quality"
-    GEN_AI_RESPONSE_IMAGE_STYLE = "gen_ai.request.image_style"
 
     # GenAI Content
+    GEN_AI_CONTENT_PROMPT_EVENT = "gen_ai.content.prompt"
     GEN_AI_CONTENT_PROMPT = "gen_ai.prompt"
+    GEN_AI_CONTENT_COMPLETION_EVENT = "gen_ai.content.completion"
     GEN_AI_CONTENT_COMPLETION = "gen_ai.completion"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
 
@@ -92,10 +96,12 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_COHERE = "cohere"
     GEN_AI_SYSTEM_MISTRAL = "mistral"
     GEN_AI_SYSTEM_BEDROCK = "bedrock"
-    GEN_AI_SYSTEM_VERTEXAI = "vertexai"
+    GEN_AI_SYSTEM_VERTEXAI = "vertex_ai"
     GEN_AI_SYSTEM_GROQ = "groq"
     GEN_AI_SYSTEM_OLLAMA = "ollama"
     GEN_AI_SYSTEM_GPT4ALL = "gpt4all"
+    GEN_AI_SYSTEM_ELEVENLABS = "elevenlabs"
+    GEN_AI_SYSTEM_VLLM = "vLLM"
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
@@ -145,3 +151,20 @@ class SemanticConvetion:
     DB_SYSTEM_PINECONE = "pinecone"
     DB_SYSTEM_QDRANT = "qdrant"
     DB_SYSTEM_MILVUS = "milvus"
+
+    # GPU
+    GPU_INDEX = "gpu.index"
+    GPU_UUID = "gpu.uuid"
+    GPU_NAME = "gpu.name"
+
+    GPU_UTILIZATION = "gpu.utilization"
+    GPU_UTILIZATION_ENC = "gpu.enc.utilization"
+    GPU_UTILIZATION_DEC = "gpu.dec.utilization"
+    GPU_TEMPERATURE = "gpu.temperature"
+    GPU_FAN_SPEED = "gpu.fan_speed"
+    GPU_MEMORY_AVAILABLE = "gpu.memory.available"
+    GPU_MEMORY_TOTAL = "gpu.memory.total"
+    GPU_MEMORY_USED = "gpu.memory.used"
+    GPU_MEMORY_FREE = "gpu.memory.free"
+    GPU_POWER_DRAW = "gpu.power.draw"
+    GPU_POWER_LIMIT = "gpu.power.limit"

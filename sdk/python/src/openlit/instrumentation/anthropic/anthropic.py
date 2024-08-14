@@ -120,7 +120,7 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                             kwargs.get("model", "claude-3-sonnet-20240229"))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                            kwargs.get("max_tokens", ""))
+                                            kwargs.get("max_tokens", -1))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                             True)
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
@@ -130,7 +130,7 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
                                             kwargs.get("top_k", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                            finish_reason)
+                                            [finish_reason])
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                             prompt_tokens)
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
@@ -140,10 +140,18 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
                         if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                                prompt)
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                llmresponse)
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                },
+                            )
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
+                                },
+                            )
 
                         span.set_status(Status(StatusCode.OK))
 
@@ -224,7 +232,7 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "claude-3-sonnet-20240229"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                        kwargs.get("max_tokens", ""))
+                                        kwargs.get("max_tokens", -1))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                         False)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
@@ -234,7 +242,7 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
                                         kwargs.get("top_k", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                        response.stop_reason)
+                                        [response.stop_reason])
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                         response.usage.input_tokens)
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
@@ -244,11 +252,21 @@ def messages(gen_ai_endpoint, version, environment, application_name, tracer,
                                         response.usage.output_tokens)
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                         cost)
+
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            prompt)
-                        # pylint: disable=line-too-long
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response.content[0].text if response.content else "")
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            },
+                        )
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                # pylint: disable=line-too-long
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.content[0].text if response.content else "",
+                            },
+                        )
 
                     span.set_status(Status(StatusCode.OK))
 

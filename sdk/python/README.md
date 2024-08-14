@@ -11,7 +11,8 @@ OpenTelemetry Auto-Instrumentation for GenAI & LLM Applications</h1>
 [![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
-[![X](https://img.shields.io/badge/follow-%40OpenLIT-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
+[![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/CQnXwNT3)
+[![X](https://img.shields.io/badge/follow-%40openlit__io-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
 
 ![OpenLIT Connections Banner](https://github.com/openlit/.github/blob/main/profile/assets/github-readme-connections-banner.png?raw=true)
 
@@ -26,19 +27,21 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 
 ## Auto Instrumentation Capabilities
 
-| LLMs                                                            | Vector DBs                                   | Frameworks                                   |
-|-----------------------------------------------------------------|----------------------------------------------|----------------------------------------------|
-| [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)              | [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)       | [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)     |
-| [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)              | [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)       | [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)         |
-| [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)        | [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)           | [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)  |
-| [✅ GPT4All](https://docs.openlit.io/latest/integrations/gpt4all)            | [✅ Milvus](https://docs.openlit.io/latest/integrations/milvus)           | [✅ Haystack](https://docs.openlit.io/latest/integrations/haystack)       |
-| [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)              |                                                                          | [✅ EmbedChain](https://docs.openlit.io/latest/integrations/embedchain)   |                                       
-| [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)            |                                                                          |                                   
-| [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai)  |                                                                          |                                        
-| [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface) |                                                                          |                                           
-| [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)     |                                                                          |                                       
-| [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)         |                                                                          |                                      
-| [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                  |                                             
+| LLMs                                                            | Vector DBs                                   | Frameworks                                   | GPUs          |
+|-----------------------------------------------------------------|----------------------------------------------|----------------------------------------------|---------------|
+| [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)              | [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)       | [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)     | [✅ NVIDIA GPUs](https://docs.openlit.io/latest/integrations/nvidia-gpu) |
+| [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)              | [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)       | [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)         |               |
+| [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)        | [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)           | [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)  |               |
+| [✅ GPT4All](https://docs.openlit.io/latest/integrations/gpt4all)            | [✅ Milvus](https://docs.openlit.io/latest/integrations/milvus)           | [✅ Haystack](https://docs.openlit.io/latest/integrations/haystack)       |               |
+| [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)              |                                                                          | [✅ EmbedChain](https://docs.openlit.io/latest/integrations/embedchain)   |               |                                       
+| [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)            |                                                                          |                                       |               |
+| [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai)  |                                                                          |                                        |               |
+| [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface) |                                                                          |                                       |               |
+| [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)     |                                                                          |                                        |               |
+| [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)         |                                                                          |                                       |               |
+| [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                  |                                                                          |                                       |               |
+| [✅ ElevenLabs](https://docs.openlit.io/latest/integrations/elevenlabs)      |                                                                          |                                       |               |
+| [✅ vLLM](https://docs.openlit.io/latest/integrations/vllm)                  |                                                                          |                                       |               |
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
@@ -159,6 +162,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `disabled_instrumentors`| List of instrumentors to disable. | `None` |    No    |
 | `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
 | `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
+| `collect_gpu_stats`          | Flag to enable or disable GPU metrics collection.                                         | `False`        |    No    |
 
 ## 🌱 Contributing
 
@@ -166,7 +170,7 @@ Whether it's big or small, we love contributions 💚. Check out our [Contributi
 
 Unsure where to start? Here are a few ways to get involved:
 
-- Join our [Slack channel](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) to discuss ideas, share feedback, and connect with both our team and the wider OpenLIT community.
+- Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) or [Discord](https://discord.gg/rjvTm6zd) community to discuss ideas, share feedback, and connect with both our team and the wider OpenLIT community.
 
 Your input helps us grow and improve, and we're here to support you every step of the way.
 
@@ -175,6 +179,6 @@ Your input helps us grow and improve, and we're here to support you every step o
 Connect with the OpenLIT community and maintainers for support, discussions, and updates:
 
 - 🌟 If you like it, Leave a star on our [GitHub](https://github.com/openlit/openlit/)
-- 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) Community for live interactions and questions.
+- 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) or [Discord](https://discord.gg/CQnXwNT3) community for live interactions and questions.
 - 🐞 Report bugs on our [GitHub Issues](https://github.com/openlit/openlit/issues) to help us improve OpenLIT.
 - 𝕏 Follow us on [X](https://x.com/openlit_io) for the latest updates and news.

@@ -122,15 +122,15 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                             kwargs.get("user", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                            kwargs.get("top_p", 1))
+                                            kwargs.get("top_p", 1.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                            kwargs.get("max_tokens", ""))
+                                            kwargs.get("max_tokens", -1))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                            kwargs.get("temperature", 1))
+                                            kwargs.get("temperature", 1.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                            kwargs.get("presence_penalty", 0))
+                                            kwargs.get("presence_penalty", 0.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                            kwargs.get("frequency_penalty", 0))
+                                            kwargs.get("frequency_penalty", 0.0))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                             kwargs.get("seed", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
@@ -144,10 +144,18 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
                         if trace_content:
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                                prompt)
-                            span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                llmresponse)
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                },
+                            )
+                            span.add_event(
+                                name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                                attributes={
+                                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
+                                },
+                            )
 
                         span.set_status(Status(StatusCode.OK))
 
@@ -224,24 +232,28 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "gpt-3.5-turbo"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                        kwargs.get("top_p", 1))
+                                        kwargs.get("top_p", 1.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                        kwargs.get("max_tokens", ""))
+                                        kwargs.get("max_tokens", -1))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                        kwargs.get("temperature", 1))
+                                        kwargs.get("temperature", 1.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                        kwargs.get("presence_penalty", 0))
+                                        kwargs.get("presence_penalty", 0.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                        kwargs.get("frequency_penalty", 0))
+                                        kwargs.get("frequency_penalty", 0.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                         kwargs.get("seed", ""))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                         False)
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            prompt)
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            },
+                        )
 
                     span.set_status(Status(StatusCode.OK))
 
@@ -259,23 +271,31 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                             response.usage.total_tokens)
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                            response.choices[0].finish_reason)
+                                            [response.choices[0].finish_reason])
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
 
                         # Set span attributes for when n = 1 (default)
                         if "n" not in kwargs or kwargs["n"] == 1:
                             if trace_content:
-                                span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                                    response.choices[0].message.content)
+                                span.add_event(
+                                    name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                                    attributes={
+                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.choices[0].message.content,
+                                    },
+                                )
 
                         # Set span attributes for when n > 0
                         else:
                             i = 0
                             while i < kwargs["n"] and trace_content is True:
-                                attribute_name = f"gen_ai.completion.{i}"
-                                span.set_attribute(attribute_name,
-                                                    response.choices[i].message.content)
+                                attribute_name = f"gen_ai.content.completion.{i}"
+                                span.add_event(
+                                    name=attribute_name,
+                                    attributes={
+                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.choices[i].message.content,
+                                    },
+                                )
                                 i += 1
 
                             # Return original response
@@ -288,8 +308,12 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                                     pricing_info, response.usage.prompt_tokens,
                                                     response.usage.completion_tokens)
 
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION,
-                                            "Function called with tools")
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: "Function called with tools",
+                            },
+                        )
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
                                             response.usage.prompt_tokens)
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
@@ -405,8 +429,12 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        kwargs.get("input", ""))
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("input", ""),
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -600,23 +628,30 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "dall-e-2"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_SIZE,
                                         kwargs.get("size", "1024x1024"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_QUALITY,
                                         kwargs.get("quality", "standard"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_STYLE,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_STYLE,
                                         kwargs.get("style", "vivid"))
                     span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_REVISED_PROMPT,
                                         items.revised_prompt if items.revised_prompt else "")
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            kwargs.get("prompt", ""))
-
+                        span.add_event(
+                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("prompt", ""),
+                            },
+                        )
                         attribute_name = f"gen_ai.response.image.{images_count}"
-                        span.set_attribute(attribute_name,
-                                            getattr(items, image))
+                        span.add_event(
+                            name=attribute_name,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: getattr(items, image),
+                            },
+                        )
 
                     images_count+=1
 
@@ -724,16 +759,18 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
                                         kwargs.get("model", "dall-e-2"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_SIZE,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_SIZE,
                                         kwargs.get("size", "1024x1024"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_IMAGE_QUALITY,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IMAGE_QUALITY,
                                         "standard")
                     if trace_content:
-                        span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                            kwargs.get(SemanticConvetion.GEN_AI_TYPE_IMAGE, ""))
-
                         attribute_name = f"gen_ai.response.image.{images_count}"
-                        span.set_attribute(attribute_name, getattr(items, image))
+                        span.add_event(
+                            name=attribute_name,
+                            attributes={
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: getattr(items, image),
+                            },
+                        )
 
                     images_count+=1
 
@@ -838,8 +875,12 @@ def async_audio_create(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
-                    span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_PROMPT,
-                                        kwargs.get("input", ""))
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("input", ""),
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 

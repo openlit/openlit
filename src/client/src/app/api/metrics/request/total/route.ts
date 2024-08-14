@@ -1,4 +1,4 @@
-import { MetricParams, TimeLimit } from "@/lib/platform/common";
+import { MetricParams, OPERATION_TYPE, TimeLimit } from "@/lib/platform/common";
 import { getTotalRequests } from "@/lib/platform/request";
 import {
 	validateMetricsRequest,
@@ -8,9 +8,11 @@ import {
 export async function POST(request: Request) {
 	const formData = await request.json();
 	const timeLimit = formData.timeLimit as TimeLimit;
+	const operationType = formData.operationType as OPERATION_TYPE;
 
 	const params: MetricParams = {
 		timeLimit,
+		operationType,
 	};
 
 	const validationParam = validateMetricsRequest(
