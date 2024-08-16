@@ -50,6 +50,7 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 - [✅ Grafana Cloud](https://docs.openlit.io/latest/connections/grafanacloud)
 - [✅ New Relic](https://docs.openlit.io/latest/connections/new-relic)
 - [✅ Elastic](https://docs.openlit.io/latest/connections/elastic)
+- [✅ HyperDX](https://docs.openlit.io/latest/connections/hyperdx)
 - [✅ DataDog](https://docs.openlit.io/latest/connections/datadog)
 - [✅ SigNoz](https://docs.openlit.io/latest/connections/signoz)
 - [✅ Dynatrace](https://docs.openlit.io/latest/connections/dynatrace)
