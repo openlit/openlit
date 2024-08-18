@@ -42,6 +42,7 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 | [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                  |                                                                          |                                       |               |
 | [✅ ElevenLabs](https://docs.openlit.io/latest/integrations/elevenlabs)      |                                                                          |                                       |               |
 | [✅ vLLM](https://docs.openlit.io/latest/integrations/vllm)                  |                                                                          |                                       |               |
+| [✅ OLA Krutrim](https://docs.openlit.io/latest/integrations/krutrim)                  |                                                                          |                                       |               |
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
