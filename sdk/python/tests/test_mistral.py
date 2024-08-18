@@ -38,7 +38,7 @@ def test_sync_mistral_chat():
             "role": "user",
             "content": "sync: What is LLM Observability?",
         },
-    ],
+    ]
 
     message = client.chat.complete(
         model="open-mistral-7b",
@@ -57,7 +57,7 @@ def test_sync_mistral_embeddings():
 
     response = client.embeddings.create(
       model="mistral-embed",
-      input=["Embed this sentence.", "OpenTelemetry LLM Observability"],
+      inputs=["Embed this sentence.", "OpenTelemetry LLM Observability"],
     )
     assert response.object == 'list'
 
@@ -76,7 +76,7 @@ async def test_async_mistral():
             "role": "user",
             "content": "sync: What is LLM Observability?",
         },
-    ],
+    ]
 
     message = await client.chat.complete_async(
         model="open-mistral-7b",
@@ -88,6 +88,6 @@ async def test_async_mistral():
     # Tests asynchronous embedding creation with the 'mistral-embed' model.
     response = await client.embeddings.create_async(
       model="mistral-embed",
-      input=["Embed this sentence.", "Monitor LLM Applications"],
+      inputs=["Embed this sentence.", "Monitor LLM Applications"],
     )
     assert response.object == 'list'
