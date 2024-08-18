@@ -14,18 +14,11 @@ prior to running these tests.
 
 import os
 import pytest
-from mistralai.client import MistralClient
-from mistralai.async_client import MistralAsyncClient
-from mistralai.models.chat_completion import ChatMessage
+from mistralai import Mistral
 import openlit
 
 # Initialize synchronous Mistral client
-sync_client = MistralClient(
-    api_key=os.getenv("MISTRAL_API_TOKEN")
-)
-
-# Initialize asynchronous Mistral client
-async_client = MistralAsyncClient(
+client = Mistral(
     api_key=os.getenv("MISTRAL_API_TOKEN")
 )
 
@@ -41,10 +34,13 @@ def test_sync_mistral_chat():
     """
 
     messages = [
-        ChatMessage(role="user", content="What is the best French cheese?")
-    ]
+        {
+            "role": "user",
+            "content": "sync: What is LLM Observability?",
+        },
+    ],
 
-    message = sync_client.chat(
+    message = client.chat.complete(
         model="open-mistral-7b",
         messages=messages,
         max_tokens=1,
@@ -59,9 +55,9 @@ def test_sync_mistral_embeddings():
         AssertionError: If the embedding response object is not as expected.
     """
 
-    response = sync_client.embeddings(
+    response = client.embeddings.create(
       model="mistral-embed",
-      input=["Embed this sentence.", "As well as this one."],
+      input=["Embed this sentence.", "OpenTelemetry LLM Observability"],
     )
     assert response.object == 'list'
 
@@ -76,10 +72,13 @@ async def test_async_mistral():
 
     #  Tests synchronous chat with the 'open-mistral-7b' model.
     messages = [
-        ChatMessage(role="user", content="What is the best French cheese?")
-    ]
+        {
+            "role": "user",
+            "content": "sync: What is LLM Observability?",
+        },
+    ],
 
-    message = await async_client.chat(
+    message = await client.chat.complete_async(
         model="open-mistral-7b",
         messages=messages,
         max_tokens=1,
@@ -87,8 +86,8 @@ async def test_async_mistral():
     assert message.object == 'chat.completion'
 
     # Tests asynchronous embedding creation with the 'mistral-embed' model.
-    response = await async_client.embeddings(
+    response = await client.embeddings.create_async(
       model="mistral-embed",
-      input=["Embed this sentence.", "As well as this one."],
+      input=["Embed this sentence.", "Monitor LLM Applications"],
     )
     assert response.object == 'list'
