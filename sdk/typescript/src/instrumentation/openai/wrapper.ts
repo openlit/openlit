@@ -1,4 +1,4 @@
-import { SpanKind, SpanStatusCode, Tracer, context, trace } from '@opentelemetry/api';
+import { Span, SpanKind, SpanStatusCode, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
@@ -27,161 +27,277 @@ export default class OpenAIWrapper {
 
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.chat.completions';
+    return (originalMethod: (...args: any[]) => any) => {
+      return async function (contextParam: any, ...args: any[]) {
+        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
+        return context
+          .with(trace.setSpan(context.active(), span), async () => {
+            return originalMethod.apply(contextParam, args);
+          })
+          .then((response) => {
+            const { stream = false } = args[0];
+
+            if (!!stream) {
+              return OpenLitHelper.createStreamProxy(
+                response,
+                OpenAIWrapper._chatCompletionGenerator({
+                  args,
+                  genAIEndpoint,
+                  response,
+                  span,
+                })
+              );
+            }
+
+            return OpenAIWrapper._chatCompletion({ args, genAIEndpoint, response, span });
+          })
+          .catch((e: any) => {
+            OpenLitHelper.handleException(span, e);
+            span.end();
+          });
+      };
+    };
+  }
+
+  static async _chatCompletion({
+    args,
+    genAIEndpoint,
+    response,
+    span,
+  }: {
+    args: any[];
+    genAIEndpoint: string;
+    response: any;
+    span: Span;
+  }): Promise<any> {
+    try {
+      await OpenAIWrapper._chatCompletionCommonSetter({
+        args,
+        genAIEndpoint,
+        result: response,
+        span,
+      });
+      return response;
+    } catch (e: any) {
+      OpenLitHelper.handleException(span, e);
+    } finally {
+      span.end();
+    }
+  }
+
+  static async *_chatCompletionGenerator({
+    args,
+    genAIEndpoint,
+    response,
+    span,
+  }: {
+    args: any[];
+    genAIEndpoint: string;
+    response: any;
+    span: Span;
+  }): AsyncGenerator<unknown, any, unknown> {
+    try {
+      const { messages } = args[0];
+      let { tools } = args[0];
+      const result = {
+        id: '0',
+        created: -1,
+        model: '',
+        choices: [
+          {
+            index: 0,
+            logprobs: null,
+            finish_reason: 'stop',
+            message: { role: 'assistant', content: '' },
+          },
+        ],
+        usage: {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+        },
+      };
+      for await (const chunk of response) {
+        result.id = chunk.id;
+        result.created = chunk.created;
+        result.model = chunk.model;
+
+        if (chunk.choices[0]?.finish_reason) {
+          result.choices[0].finish_reason = chunk.choices[0].finish_reason;
+        }
+        if (chunk.choices[0]?.logprobs) {
+          result.choices[0].logprobs = chunk.choices[0].logprobs;
+        }
+        if (chunk.choices[0]?.delta.content) {
+          result.choices[0].message.content += chunk.choices[0].delta.content;
+        }
+
+        if (chunk.choices[0]?.delta.tool_calls) {
+          tools = true;
+        }
+
+        yield chunk;
+      }
+
+      let promptTokens = 0;
+      for (const message of messages || []) {
+        promptTokens += OpenLitHelper.openaiTokens(message.content as string, result.model) ?? 0;
+      }
+
+      const completionTokens = OpenLitHelper.openaiTokens(
+        result.choices[0].message.content ?? '',
+        result.model
+      );
+      if (completionTokens) {
+        result.usage = {
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: promptTokens + completionTokens,
+        };
+      }
+
+      args[0].tools = tools;
+
+      await OpenAIWrapper._chatCompletionCommonSetter({
+        args,
+        genAIEndpoint,
+        result,
+        span,
+      });
+
+      return result;
+    } catch (e: any) {
+      OpenLitHelper.handleException(span, e);
+    } finally {
+      span.end();
+    }
+  }
+
+  static async _chatCompletionCommonSetter({
+    args,
+    genAIEndpoint,
+    result,
+    span,
+  }: {
+    args: any[];
+    genAIEndpoint: string;
+    result: any;
+    span: Span;
+  }) {
     const applicationName = OpenlitConfig.applicationName;
     const environment = OpenlitConfig.environment;
     const traceContent = OpenlitConfig.traceContent;
-    return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
-        return context.with(trace.setSpan(context.active(), span), async () => {
-          try {
-            const response = await originalMethod.apply(this, args);
-            const {
-              messages,
-              frequency_penalty = 0,
-              max_tokens = null,
-              n = 1,
-              presence_penalty = 0,
-              seed = null,
-              temperature = 1,
-              tools,
-              top_p,
-              user,
-              stream = false,
-            } = args[0];
+    const {
+      messages,
+      frequency_penalty = 0,
+      max_tokens = null,
+      n = 1,
+      presence_penalty = 0,
+      seed = null,
+      temperature = 1,
+      top_p,
+      user,
+      stream = false,
+      tools,
+    } = args[0];
 
-            // Request Params attributes : Start
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p || 1);
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty);
-            span.setAttribute(
-              SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-              frequency_penalty
-            );
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
+    // Request Params attributes : Start
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p || 1);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, presence_penalty);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, frequency_penalty);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
 
-            if (!stream) {
-              if (traceContent) {
-                // Format 'messages' into a single string
-                const messagePrompt = messages || [];
-                const formattedMessages = [];
+    if (traceContent) {
+      // Format 'messages' into a single string
+      const messagePrompt = messages || [];
+      const formattedMessages = [];
 
-                for (const message of messagePrompt) {
-                  const role = message.role;
-                  const content = message.content;
+      for (const message of messagePrompt) {
+        const role = message.role;
+        const content = message.content;
 
-                  if (Array.isArray(content)) {
-                    const contentStr = content
-                      .map((item) => {
-                        if ('type' in item) {
-                          return `${item.type}: ${item.text ? item.text : item.image_url}`;
-                        } else {
-                          return `text: ${item.text}`;
-                        }
-                      })
-                      .join(', ');
-                    formattedMessages.push(`${role}: ${contentStr}`);
-                  } else {
-                    formattedMessages.push(`${role}: ${content}`);
-                  }
-                }
-
-                const prompt = formattedMessages.join('\n');
-                span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
-              }
-              // Request Params attributes : End
-
-              span.setAttribute(
-                SemanticConvention.GEN_AI_TYPE,
-                SemanticConvention.GEN_AI_TYPE_CHAT
-              );
-              span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.id);
-
-              const model = response.model || 'gpt-3.5-turbo';
-
-              const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
-
-              // Calculate cost of the operation
-              const cost = OpenLitHelper.getChatModelCost(
-                model,
-                pricingInfo,
-                response.usage.prompt_tokens,
-                response.usage.completion_tokens
-              );
-
-              OpenAIWrapper.setBaseSpanAttributes(span, {
-                genAIEndpoint,
-                model,
-                user,
-                cost,
-                applicationName,
-                environment,
-              });
-
-              if (!tools) {
-                span.setAttribute(
-                  SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
-                  response.usage.prompt_tokens
-                );
-                span.setAttribute(
-                  SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
-                  response.usage.completion_tokens
-                );
-                span.setAttribute(
-                  SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-                  response.usage.total_tokens
-                );
-                span.setAttribute(
-                  SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-                  response.choices[0].finish_reason
-                );
-
-                if (traceContent) {
-                  if (n === 1) {
-                    span.setAttribute(
-                      SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-                      response.choices[0].message.content
-                    );
-                  } else {
-                    let i = 0;
-                    while (i < n) {
-                      const attribute_name = `${SemanticConvention.GEN_AI_CONTENT_COMPLETION}.[i]`;
-                      span.setAttribute(attribute_name, response.choices[i].message.content);
-                      i += 1;
-                    }
-                  }
-                }
+        if (Array.isArray(content)) {
+          const contentStr = content
+            .map((item) => {
+              if ('type' in item) {
+                return `${item.type}: ${item.text ? item.text : item.image_url}`;
               } else {
-                span.setAttribute(
-                  SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-                  'Function called with tools'
-                );
-                span.setAttribute(
-                  SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
-                  response.usage.prompt_tokens
-                );
-                span.setAttribute(
-                  SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
-                  response.usage.completion_tokens
-                );
-                span.setAttribute(
-                  SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-                  response.usage.total_tokens
-                );
+                return `text: ${item.text}`;
               }
-            }
+            })
+            .join(', ');
+          formattedMessages.push(`${role}: ${contentStr}`);
+        } else {
+          formattedMessages.push(`${role}: ${content}`);
+        }
+      }
 
-            return response;
-          } catch (e: any) {
-            OpenLitHelper.handleException(span, e);
-          } finally {
-            span.end();
+      const prompt = formattedMessages.join('\n');
+      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+    }
+    // Request Params attributes : End
+
+    span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_CHAT);
+
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
+
+    const model = result.model || 'gpt-3.5-turbo';
+
+    const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
+
+    // Calculate cost of the operation
+    const cost = OpenLitHelper.getChatModelCost(
+      model,
+      pricingInfo,
+      result.usage.prompt_tokens,
+      result.usage.completion_tokens
+    );
+
+    OpenAIWrapper.setBaseSpanAttributes(span, {
+      genAIEndpoint,
+      model,
+      user,
+      cost,
+      applicationName,
+      environment,
+    });
+
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS, result.usage.prompt_tokens);
+    span.setAttribute(
+      SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
+      result.usage.completion_tokens
+    );
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, result.usage.total_tokens);
+
+    if (result.choices[0].finish_reason) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+        result.choices[0].finish_reason
+      );
+    }
+
+    if (tools) {
+      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, 'Function called with tools');
+    } else {
+      if (traceContent) {
+        if (n === 1) {
+          span.setAttribute(
+            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+            result.choices[0].message.content
+          );
+        } else {
+          let i = 0;
+          while (i < n) {
+            const attribute_name = `${SemanticConvention.GEN_AI_CONTENT_COMPLETION}.[i]`;
+            span.setAttribute(attribute_name, result.choices[i].message.content);
+            i += 1;
           }
-        });
-      };
-    };
+        }
+      }
+    }
   }
 
   static _patchEmbedding(tracer: Tracer): any {
@@ -350,7 +466,6 @@ export default class OpenAIWrapper {
             } = args[0];
 
             span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_IMAGE);
-            span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.created);
 
             const model = response.model || 'dall-e-2';
 

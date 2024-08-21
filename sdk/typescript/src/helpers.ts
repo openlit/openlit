@@ -108,4 +108,15 @@ export default class OpenLitHelper {
     span.recordException(error);
     span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
   }
+
+  static async createStreamProxy (stream: any, generatorFuncResponse: any): Promise<any> {
+    return new Proxy(stream, {
+      get (target, prop, receiver) {
+        if (prop === Symbol.asyncIterator) {
+          return () => generatorFuncResponse
+        }
+        return Reflect.get(target, prop, receiver)
+      }
+    })
+  }
 }

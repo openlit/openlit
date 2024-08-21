@@ -4,7 +4,7 @@ import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 
 export type InstrumentationType = 'openai' | 'anthropic';
 
-export type OpenlitInstrumentations = Record<InstrumentationType, any>;
+export type OpenlitInstrumentations = Partial<Record<InstrumentationType, any>>;
 
 export type PricingObject = Record<string, Record<string, unknown>>;
 
