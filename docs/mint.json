@@ -131,12 +131,14 @@
         "latest/connections/grafanacloud",
         "latest/connections/new-relic",
         "latest/connections/elastic",
+        "latest/connections/hyperdx",
         "latest/connections/datadog",
-        "latest/connections/murnitur",
         "latest/connections/signoz",
+        "latest/connections/oneuptime",
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
-        "latest/connections/highlight"
+        "latest/connections/highlight",
+        "latest/connections/murnitur"
       ],
       "version": "latest"
     }
