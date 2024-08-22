@@ -53,6 +53,7 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 - [✅ HyperDX](https://docs.openlit.io/latest/connections/hyperdx)
 - [✅ DataDog](https://docs.openlit.io/latest/connections/datadog)
 - [✅ SigNoz](https://docs.openlit.io/latest/connections/signoz)
+- [✅ OneUptime](https://docs.openlit.io/latest/connections/oneuptime)
 - [✅ Dynatrace](https://docs.openlit.io/latest/connections/dynatrace)
 - [✅ OpenObserve](https://docs.openlit.io/latest/connections/openobserve)
 - [✅ Highlight.io](https://docs.openlit.io/latest/connections/highlight)
