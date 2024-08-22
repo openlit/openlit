@@ -133,6 +133,7 @@
         "latest/connections/hyperdx",
         "latest/connections/datadog",
         "latest/connections/signoz",
+        "latest/connections/oneuptime",
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
         "latest/connections/highlight",
