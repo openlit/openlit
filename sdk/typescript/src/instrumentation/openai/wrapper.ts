@@ -28,11 +28,11 @@ export default class OpenAIWrapper {
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
-      return async function (contextParam: any, ...args: any[]) {
+      return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context
           .with(trace.setSpan(context.active(), span), async () => {
-            return originalMethod.apply(contextParam, args);
+            return originalMethod.apply(this, args);
           })
           .then((response) => {
             const { stream = false } = args[0];

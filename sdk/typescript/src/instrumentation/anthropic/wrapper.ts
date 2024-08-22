@@ -28,12 +28,12 @@ export default class AnthropicWrapper {
   static _patchMessageCreate(tracer: Tracer): any {
     const genAIEndpoint = 'anthropic.resources.messages';
     return (originalMethod: (...args: any[]) => any) => {
-      return async function (contextParam: any, ...args: any[]) {
+      return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         const { stream = false } = args[0];
         return context
           .with(trace.setSpan(context.active(), span), async () => {
-            return originalMethod.apply(contextParam, args);
+            return originalMethod.apply(this, args);
           })
           .then((response) => {
             if (!!stream) {
@@ -266,9 +266,11 @@ export default class AnthropicWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, result.stop_reason);
     }
 
-    span.setAttribute(
-      SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-      result.content?.[0]?.text || ''
-    );
+    if (traceContent) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+        result.content?.[0]?.text || ''
+      );
+    }
   }
 }
