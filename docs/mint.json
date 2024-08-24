@@ -98,7 +98,8 @@
             "latest/integrations/litellm",
             "latest/integrations/llama-index",
             "latest/integrations/haystack",
-            "latest/integrations/embedchain"
+            "latest/integrations/embedchain",
+            "latest/integrations/guardrails"
           ]
         },
         {
