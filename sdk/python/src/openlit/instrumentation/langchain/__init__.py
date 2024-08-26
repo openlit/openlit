@@ -6,10 +6,10 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.langchain.langchain import (
-    general_wrap, 
-    hub, 
-    llm, 
-    allm, 
+    general_wrap,
+    hub,
+    llm,
+    allm,
     chat,
     achat
 )
