@@ -44,7 +44,7 @@
     "generic-pool": "^3.9.0",
     "js-tiktoken": "^1.0.12",
     "lodash": "^4.17.21",
-    "lucide-react": "^0.366.0",
+    "lucide-react": "^0.436.0",
     "next": "^14.2.4",
     "next-auth": "^4.24.7",
     "next-themes": "^0.3.0",
