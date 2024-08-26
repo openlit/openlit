@@ -18,7 +18,7 @@ export default class OpenlitAnthropicInstrumentation extends InstrumentationBase
 
   protected init(): void | InstrumentationModuleDefinition | InstrumentationModuleDefinition[] {
     const module = new InstrumentationNodeModuleDefinition(
-      'anthropic',
+      '@anthropic-ai/sdk',
       ['>= 0.21.0'],
       (moduleExports) => {
         this._patch(moduleExports);

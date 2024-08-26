@@ -40,6 +40,8 @@ export default class Openlit {
       this.options = options || {};
       this.options.otlpEndpoint = otlpEndpoint;
       this.options.otlpHeaders = otlpHeaders;
+      this.options.disableBatch =
+        options?.disableBatch === undefined ? true : !!options.disableBatch;
 
       this.resource = new Resource({
         [SEMRESATTRS_SERVICE_NAME]: applicationName,
@@ -48,7 +50,7 @@ export default class Openlit {
       });
 
       Tracing.setup({
-        ...options,
+        ...this.options,
         environment,
         applicationName,
         otlpEndpoint,
