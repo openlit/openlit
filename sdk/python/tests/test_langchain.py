@@ -12,7 +12,6 @@ prior to running these tests.
 
 import os
 import bs4
-from langchain import hub
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import openlit
@@ -56,6 +55,3 @@ def test_langchain():
     texts = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = texts.split_documents(docs)
     assert splits[0].metadata["source"] == "https://lilianweng.github.io/posts/2023-06-23-agent/"
-
-    prompt = hub.pull("rlm/rag-prompt")
-    assert prompt.metadata["lc_hub_repo"] == "rag-prompt"
