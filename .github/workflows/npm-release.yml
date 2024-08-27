@@ -10,6 +10,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/typescript
 
     permissions:
       contents: read
@@ -24,14 +27,11 @@ jobs:
           node-version: '20.x'
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
-        working-directory: sdk/typescript
 
       - name: Install dependencies
-        working-directory: sdk/typescript
         run: npm ci
 
       - name: Publish package
-        working-directory: sdk/typescript
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
