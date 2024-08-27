@@ -18,13 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .npmrc file to publish to npm
-        uses: actions/setup-node@v4
-        working-directory: sdk/typescript
+      - uses: actions/setup-node@v4
+        name: Setup .npmrc file to publish to npm
         with:
           node-version: '20.x'
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
+        working-directory: sdk/typescript
 
       - name: Install dependencies
         working-directory: sdk/typescript
