@@ -26,11 +26,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        working-directory: sdk/python
+        working-directory: sdk/typescript
         run: npm ci
 
       - name: Publish package
-        working-directory: sdk/python
+        working-directory: sdk/typescript
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
