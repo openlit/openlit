@@ -8,10 +8,6 @@
   },
   "description": "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects",
   "main": "src/index.ts",
-  "scripts": {
-    "prepare": "npm run build",
-    "build": "tsc"
-  },
   "keywords": [
     "OpenTelemetry",
     "otel",
@@ -29,7 +25,7 @@
     "Generative AI",
     "chatGPT"
   ],
-  "author": "openlit",
+  "author": "Aman Agarwal <aman.agarwal@openlit.io>",
   "license": "ISC",
   "devDependencies": {
     "@eslint/js": "^9.2.0",
