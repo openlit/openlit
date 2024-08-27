@@ -6,6 +6,10 @@
     "url": "https://github.com/openlit/openlit/issues",
     "email": "developer@openlit.io"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openlit/openlit"
+  },
   "description": "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects",
   "main": "src/index.ts",
   "keywords": [
