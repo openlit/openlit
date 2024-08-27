@@ -13,15 +13,25 @@ Auto-instrumentation means you don't have to set up monitoring manually for diff
 
 The integration is compatible with  
 - Anthropic Python SDK client `>= 0.21.0` 
+- Anthropic Typescript SDK client `>= 0.21.0` 
 
 ## Get Started 
 
 <Steps>
     <Step title="Install OpenLIT">
       Open your command line or terminal and run:
-      ```shell
-      pip install openlit
-      ```
+      <Tabs>
+        <Tab title="Python">
+           ```shell
+                pip install openlit
+           ```
+        </Tab>
+        <Tab title="Typescript">
+           ```shell
+                npm install @openlit/ts
+           ```
+        </Tab>
+        </Tabs>
     </Step>
     <Step title="Initialize OpenLIT in your Application">
     You can set up OpenLIT in your application using either function arguments directly in your code or by using environment variables.
@@ -30,13 +40,27 @@ The integration is compatible with
 
       Add the following two lines to your application code:
 
-      ```python
+      <Tabs>
+        <Tab title="Python">
+           ```python
       import openlit
 
       openlit.init(
         otlp_endpoint="YOUR_OTEL_ENDPOINT", 
       )
       ```
+
+        </Tab>
+        <Tab title="Typescript">
+        <Warning>Typescript sdk for anthropic doesn't support metrics tracking for now!</Warning>
+
+           ```typescript
+      import openlit from "@openlit/ts"
+
+      openlit.init({ otlpEndpoint: "YOUR_OTEL_ENDPOINT" })
+      ```
+        </Tab>
+        </Tabs>
 
       Replace:
       1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector.
@@ -45,11 +69,23 @@ The integration is compatible with
       
       Add the following two lines to your application code:
 
-      ```python
+      <Tabs>
+        <Tab title="Python">
+           ```python
       import openlit
 
       openlit.init()
       ```
+
+        </Tab>
+        <Tab title="Typescript">
+           ```typescript
+      import openlit from "@openlit/ts"
+
+      openlit.init()
+      ```
+        </Tab>
+        </Tabs>
 
       Then, configure the your OTLP endpoint using environment variable:
       ```shell
@@ -62,7 +98,7 @@ The integration is compatible with
     </Tabs>
     To send metrics and traces to other Observability tools, refer to the [Connections Guide](/latest/connections/intro).
 
-    For more advanced configurations and application use cases, visit the [OpenLIT Python repository](https://github.com/openlit/openlit/tree/main/sdk/python).
+    For more advanced configurations and application use cases, visit the [OpenLIT Python repository](https://github.com/openlit/openlit/tree/main/sdk/python) or [OpenLIT Typescript repository](https://github.com/openlit/openlit/tree/main/sdk/typescript).
   </Step>
 </Steps>
 

@@ -1,0 +1,48 @@
+// import { Instrumentation } from '@opentelemetry/instrumentation';
+import { Resource } from '@opentelemetry/resources';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+
+export type InstrumentationType = 'openai' | 'anthropic';
+
+export type OpenlitInstrumentations = Partial<Record<InstrumentationType, any>>;
+
+export type PricingObject = Record<string, Record<string, unknown>>;
+
+/**
+ *     environment (string): Deployment environment of the application.
+ *     applicationName (string): Name of the application using openLIT.
+ *     pricingInfo (Object): Pricing information.
+ *     tracer (any): Tracer instance for OpenTelemetry.
+ *     otlpEndpoint (string): Endpoint for OTLP.
+ *     otlpHeaders (Object): Headers for OTLP.
+ *     disableBatch (boolean): Flag to disable batch span processing in tracing.
+ *     traceContent (boolean): Flag to enable or disable tracing of content.
+ */
+export interface OpenlitConfigInterface {
+  environment?: string;
+  applicationName?: string;
+  pricingInfo?: PricingObject;
+  tracer: NodeTracerProvider;
+  otlpEndpoint?: string;
+  otlpHeaders?: Record<string, unknown>;
+  disableBatch?: boolean;
+  traceContent?: boolean;
+  pricing_json?: string | PricingObject;
+}
+
+export type OpenlitOptions = {
+  environment?: OpenlitConfigInterface['environment'];
+  applicationName?: OpenlitConfigInterface['applicationName'];
+  tracer?: OpenlitConfigInterface['tracer'];
+  otlpEndpoint?: OpenlitConfigInterface['otlpEndpoint'];
+  otlpHeaders?: OpenlitConfigInterface['otlpHeaders'];
+  disableBatch?: OpenlitConfigInterface['disableBatch'];
+  traceContent?: OpenlitConfigInterface['traceContent'];
+  disabledInstrumentations?: string[];
+  instrumentations?: OpenlitInstrumentations;
+  pricing_json?: OpenlitConfigInterface['pricing_json'];
+};
+
+export type SetupTracerOptions = OpenlitOptions & {
+  resource: Resource;
+};
