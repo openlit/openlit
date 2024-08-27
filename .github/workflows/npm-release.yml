@@ -20,6 +20,7 @@ jobs:
 
       - name: Setup .npmrc file to publish to npm
         uses: actions/setup-node@v4
+        working-directory: sdk/typescript
         with:
           node-version: '20.x'
           cache: 'npm'
