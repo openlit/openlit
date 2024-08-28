@@ -6,7 +6,7 @@ OpenTelemetry Auto-Instrumentation for GenAI & LLM Applications</h1>
 
 [![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://github.com/openlit/openlit)
 [![License](https://img.shields.io/github/license/openlit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/openlit/openlit/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/npm/dm/%40openlit%2Fts)](https://www.npmjs.com/package/@openlit/ts)
+[![Downloads](https://img.shields.io/npm/dm/%40openlit%2Fts)](https://www.npmjs.com/package/openlit)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/openlit/openlit)](https://github.com/openlit/openlit/pulse)
 [![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
@@ -50,7 +50,7 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 ## 💿 Installation
 
 ```bash
-npm install @openlit/ts
+npm install openlit
 ```
 
 ## 🚀 Getting Started
@@ -60,7 +60,7 @@ npm install @openlit/ts
 Open your command line or terminal and run:
 
 ```bash
-npm install @openlit/ts
+npm install openlit
 ```
 
 ### Step 2: Initialize OpenLIT in your Application
@@ -68,7 +68,7 @@ npm install @openlit/ts
 Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**:
 
 ```typescript
-import Openlit from '@openlit/ts';
+import Openlit from 'openlit';
 
 Openlit.init();
 ```
@@ -91,7 +91,7 @@ To send telemetry to OpenTelemetry backends requiring authentication, set the `o
 Add the following two lines to your application code:
 
 ```typescript
-import Openlit from '@openlit/ts';
+import Openlit from 'openlit';
 
 Openlit.init({ 
   otlpEndpoint: 'YOUR_OTEL_ENDPOINT',
@@ -112,7 +112,7 @@ Openlit.init({
 Add the following two lines to your application code:
 
 ```typescript
-import Openlit from "@openlit/ts"
+import Openlit from "openlit"
 
 Openlit.init()
 ```
