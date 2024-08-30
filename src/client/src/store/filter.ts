@@ -2,6 +2,17 @@ import { set } from "lodash";
 import { addDays, addMonths, addWeeks } from "date-fns";
 import { lens } from "@dhmk/zustand-lens";
 
+export const REFRESH_RATE_TYPE: Record<
+	"Never" | "30s" | "1m" | "5m" | "15m",
+	string
+> = {
+	Never: "Never",
+	"30s": "30s",
+	"1m": "1m",
+	"5m": "5m",
+	"15m": "15m",
+};
+
 export const TIME_RANGE_TYPE: Record<
 	"24H" | "7D" | "1M" | "3M" | "CUSTOM",
 	string
@@ -14,6 +25,8 @@ export const TIME_RANGE_TYPE: Record<
 };
 
 export const DEFAULT_TIME_RANGE = "24H";
+
+export const DEFAULT_REFRESH_RATE = "Never";
 
 const DEFAULT_LIMIT = 10;
 
@@ -37,6 +50,7 @@ export interface FilterType {
 	offset: number;
 	selectedConfig: Partial<FilterConfig>;
 	sorting: FilterSorting;
+	refreshRate: keyof typeof REFRESH_RATE_TYPE;
 }
 
 export interface FilterConfig {
@@ -89,6 +103,7 @@ const INITIAL_FILTER_DETAILS: FilterType = {
 	offset: 0,
 	selectedConfig: {},
 	sorting: DEFAULT_SORTING,
+	refreshRate: DEFAULT_REFRESH_RATE,
 };
 
 export type FilterStore = {

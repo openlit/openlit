@@ -17,6 +17,7 @@ import { COLORS } from "../../../../../colors";
 import IntermediateState from "@/components/(playground)/intermediate-state";
 import { toast } from "sonner";
 import { getFilterParamsForDashboard } from "@/helpers/filter";
+import { useRefreshRate } from "@/utils/hooks/useRefreshRate";
 
 export default function RequestsPerTime() {
 	const filter = useRootStore(getFilterDetails);
@@ -35,6 +36,8 @@ export default function RequestsPerTime() {
 			},
 		});
 	}, [filter]);
+
+	useRefreshRate(fetchData);
 
 	useEffect(() => {
 		if (

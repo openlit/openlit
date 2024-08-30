@@ -19,6 +19,7 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FilterConfig, FilterType } from "@/store/filter";
+import { useRefreshRate } from "@/utils/hooks/useRefreshRate";
 
 const DynamicFilters = ({
 	isVisibleFilters,
@@ -89,6 +90,8 @@ const DynamicFilters = ({
 			},
 		});
 	}, [filter]);
+
+	useRefreshRate(fetchConfig);
 
 	useEffect(() => {
 		if (

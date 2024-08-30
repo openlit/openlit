@@ -143,7 +143,7 @@ export async function getRequests(params: MetricParams) {
 		};
 	}
 
-	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
+	const query = `SELECT *, toDateTime(Timestamp, serverTimeZone())	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE ${getFilterWhereCondition(params, true)}
 		${
 			params.sorting
@@ -166,7 +166,7 @@ export async function getRequests(params: MetricParams) {
 }
 
 export async function getRequestViaParentSpanId(parentSpanId: string) {
-	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
+	const query = `SELECT * AS request_time	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE SpanId='${parentSpanId}'`;
 
 	const { data, err } = await dataCollector({ query });

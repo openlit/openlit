@@ -15,6 +15,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { useRefreshRate } from "@/utils/hooks/useRefreshRate";
 
 export default function Operations() {
 	const filter = useRootStore(getFilterDetails);
@@ -29,6 +30,8 @@ export default function Operations() {
 			responseDataKey: "data",
 		});
 	}, [filter]);
+
+	useRefreshRate(fetchData);
 
 	useEffect(() => {
 		if (

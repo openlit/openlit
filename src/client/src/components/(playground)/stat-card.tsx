@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LucideIcon, TrendingDown, TrendingUp } from "lucide-react";
 import IntermediateState from "./intermediate-state";
 import { getFilterParamsForDashboard } from "@/helpers/filter";
+import { useRefreshRate } from "@/utils/hooks/useRefreshRate";
 
 type StatCardProps = {
 	heading?: string;
@@ -56,6 +57,8 @@ const StatCard = memo(
 				responseDataKey: "data[0]",
 			});
 		}, [filter, url]);
+
+		useRefreshRate(fetchData);
 
 		useEffect(() => {
 			if (

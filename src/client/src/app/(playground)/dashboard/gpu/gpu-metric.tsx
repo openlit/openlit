@@ -15,6 +15,7 @@ import { getPingStatus } from "@/selectors/database-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import IntermediateState from "@/components/(playground)/intermediate-state";
 import { getFilterParamsForDashboard } from "@/helpers/filter";
+import { useRefreshRate } from "@/utils/hooks/useRefreshRate";
 
 const COLORS = ["#8884d8", "#82ca9d", "#ffc658"];
 
@@ -40,6 +41,8 @@ export default function GPUMetric({
 			responseDataKey: "data",
 		});
 	}, [filter]);
+
+	useRefreshRate(fetchData);
 
 	useEffect(() => {
 		if (
