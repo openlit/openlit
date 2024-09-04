@@ -1,6 +1,7 @@
-# pylint: disable=duplicate-code, consider-using-with, no-name-in-module
+# pylint: disable=duplicate-code, consider-using-with, no-name-in-module, reimported
 """
-This module contains tests for Azure AI Inference functionality using the Azure AI Inference Python library.
+This module contains tests for Azure AI Inference functionality using the
+Azure AI Inference Python library.
 
 Tests cover various API endpoints, including completions, chat completions,
 embeddings, fine-tuning job creation, image generation, image variation creation,
@@ -9,14 +10,14 @@ and audio speech generation. These tests validate integration with OpenLIT.
 Environment Variables:
     - AZURE_AI_INFERENCE_API_TOKEN: Azure AI Inference API key for authentication.
 
-Note: Ensure the environment is properly configured for Azure AI Inference access and OpenLIT monitoring
-prior to running these tests.
+Note: Ensure the environment is properly configured for Azure AI Inference access
+and OpenLIT monitoring prior to running these tests.
 """
 
 import os
 import pytest
+import openlit
 from azure.ai.inference import ChatCompletionsClient, EmbeddingsClient
-from azure.ai.inference.aio import ChatCompletionsClient, EmbeddingsClient
 from azure.ai.inference.models import SystemMessage
 from azure.ai.inference.models import UserMessage
 from azure.core.credentials import AzureKeyCredential
@@ -70,6 +71,7 @@ def test_sync_embeddings():
     )
     assert response.data[0]["object"] == 'embedding'
 
+from azure.ai.inference.aio import ChatCompletionsClient, EmbeddingsClient
 async_chat_client = ChatCompletionsClient(
     endpoint="https://models.inference.ai.azure.com",
     credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
