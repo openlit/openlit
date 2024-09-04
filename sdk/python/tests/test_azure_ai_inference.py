@@ -30,7 +30,7 @@ sync_chat_client = ChatCompletionsClient(
 # Initialize synchronous Azure AI Inference Chat client
 sync_embed_client = EmbeddingsClient(
     endpoint="https://models.inference.ai.azure.com",
-    credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN"),
+    credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
 )
 
 # Initialize environment and application name for OpenLIT monitoring
@@ -72,12 +72,12 @@ def test_sync_embeddings():
 
 async_chat_client = ChatCompletionsClient(
     endpoint="https://models.inference.ai.azure.com",
-    credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN"),
+    credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
 )
 
 async_embed_client = EmbeddingsClient(
     endpoint="https://models.inference.ai.azure.com",
-    credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN"),
+    credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
 )
 
 @pytest.mark.asyncio
