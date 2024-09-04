@@ -81,6 +81,8 @@ def generate(gen_ai_endpoint, version, environment, application_name,
                             model = instance._model_id
                         if hasattr(instance, "_model_name"):
                             model = instance._model_name.replace("publishers/google/models/", "")
+                        if model.startswith("models/"):
+                            model = model[len("models/"):]
 
                         total_tokens = input_tokens + output_tokens
                         # Calculate cost of the operation
@@ -176,6 +178,8 @@ def generate(gen_ai_endpoint, version, environment, application_name,
                         model = instance._model_id
                     if hasattr(instance, "_model_name"):
                         model = instance._model_name.replace("publishers/google/models/", "")
+                    if model.startswith("models/"):
+                        model = model[len("models/"):]
 
                     # Set base span attribues
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")

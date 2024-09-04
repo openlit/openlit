@@ -270,6 +270,18 @@
             "promptPrice": 0.0188,
             "completionPrice": 0.0188
         },
+        "gemini-1.0-pro": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
+        "gemini-1.5-flash": {
+            "promptPrice": 0.000075,
+            "completionPrice": 0.0003
+        },
+        "gemini-1.5-pro": {
+            "promptPrice": 0.0035,
+            "completionPrice": 0.0105
+        },
         "gemini-1.0-pro-002": {
             "promptPrice": 0.0005,
             "completionPrice": 0.0015
