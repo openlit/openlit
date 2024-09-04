@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment, protected-access
 """
 Module for monitoring Ollama API calls.
 """
@@ -8,9 +8,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
     handle_exception,
-    general_tokens,
     get_chat_model_cost,
-    get_embed_model_cost
 )
 from openlit.semcov import SemanticConvetion
 
@@ -51,13 +49,14 @@ def generate(gen_ai_endpoint, version, environment, application_name,
         Returns:
             The response from the original 'chat' method.
         """
-        if kwargs.get("stream", False) == True:
+        # pylint: disable=duplicate-code,
+        if kwargs.get("stream", False) is True:
             # Special handling for streaming response to accommodate the nature of data flow
             def stream_generator():
                 with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                     # Placeholder for aggregating streaming response
                     llmresponse = ""
-    
+
                     # Loop through streaming events capturing relevant details
                     for chunk in wrapped(*args, **kwargs):
                         # Collect message IDs and aggregated response from events

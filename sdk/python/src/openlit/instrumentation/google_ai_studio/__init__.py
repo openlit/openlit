@@ -46,8 +46,9 @@ class GoogleAIStudioInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "google.generativeai.generative_models",
             "GenerativeModel.generate_content_async",
-            async_generate("google_ai_studio.generate_content", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            async_generate("google_ai_studio.generate_content", version, environment,
+                           application_name, tracer, pricing_info, trace_content, metrics,
+                           disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

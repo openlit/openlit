@@ -1,6 +1,7 @@
 # pylint: disable=duplicate-code, no-name-in-module
 """
-This module contains tests for Google AI Studio functionality using the google-generativeai Python library.
+This module contains tests for Google AI Studio functionality using the google-generativeai
+Python library.
 
 Tests cover various API endpoints, including chat. 
 These tests validate integration with OpenLIT.
@@ -8,8 +9,8 @@ These tests validate integration with OpenLIT.
 Environment Variables:
     - GOOGLE_AI_STUDIO_API_TOKEN: Google AI Studio API api_key for authentication.
 
-Note: Ensure the environment is properly configured for Google AI Studio access and OpenLIT monitoring
-prior to running these tests.
+Note: Ensure the environment is properly configured for Google AI Studio access and
+OpenLIT monitoring prior to running these tests.
 """
 
 import os
@@ -48,7 +49,7 @@ def test_sync_generate_content():
             raise
 
 @pytest.mark.asyncio
-async def test_sync_generate_content():
+async def test_async_generate_content():
     """
     Tests synchronous Generate content with the "gemini-1.5-flash" model.
 
