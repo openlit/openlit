@@ -199,7 +199,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "elevenlabs": "elevenlabs",
         "vllm": "vllm",
         "google-ai-studio": "google.generativeai",
-        "azure-ai-inference" "azure.ai.inference"
+        "azure-ai-inference": "azure.ai.inference",
         "langchain": "langchain",
         "llama_index": "llama_index",
         "haystack": "haystack",
