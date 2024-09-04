@@ -55,7 +55,7 @@ def test_sync_chat_completions():
         max_tokens=1000,
         top_p=1.0
     )
-    assert response.object == 'chat.completion'
+    assert response["object"] == 'chat.completion'
 
 def test_sync_embeddings():
     """
@@ -101,7 +101,7 @@ async def test_async_chat_completions():
         max_tokens=1000,
         top_p=1.0
     )
-    assert response.object == 'chat.completion'
+    assert response["object"] == 'chat.completion'
 
 @pytest.mark.asyncio
 async def test_async_embeddings():
