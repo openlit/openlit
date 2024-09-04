@@ -32,7 +32,7 @@ class GoogleAIStudioInstrumentor(BaseInstrumentor):
         pricing_info = kwargs.get("pricing_info", {})
         trace_content = kwargs.get("trace_content", False)
         disable_metrics = kwargs.get("disable_metrics")
-        version = importlib.metadata.version("ollama")
+        version = importlib.metadata.version("google-generativeai")
 
         # sync generate
         wrap_function_wrapper(

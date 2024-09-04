@@ -34,6 +34,7 @@ from openlit.instrumentation.gpt4all import GPT4AllInstrumentor
 from openlit.instrumentation.elevenlabs import ElevenLabsInstrumentor
 from openlit.instrumentation.vllm import VLLMInstrumentor
 from openlit.instrumentation.google_ai_studio import GoogleAIStudioInstrumentor
+from openlit.instrumentation.azure_ai_inference import AzureAIInferenceInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
@@ -198,6 +199,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "elevenlabs": "elevenlabs",
         "vllm": "vllm",
         "google-ai-studio": "google.generativeai",
+        "azure-ai-inference" "azure.ai.inference"
         "langchain": "langchain",
         "llama_index": "llama_index",
         "haystack": "haystack",
@@ -276,6 +278,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "elevenlabs": ElevenLabsInstrumentor(),
             "vllm": VLLMInstrumentor(),
             "google-ai-studio": GoogleAIStudioInstrumentor(),
+            "azure-ai-inference": AzureAIInferenceInstrumentor(),
             "langchain": LangChainInstrumentor(),
             "llama_index": LlamaIndexInstrumentor(),
             "haystack": HaystackInstrumentor(),
