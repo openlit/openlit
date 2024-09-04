@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, consider-using-with, no-name-in-module, reimported
+# pylint: disable=duplicate-code, consider-using-with, no-name-in-module, reimported, wrong-import-order, wrong-import-position
 """
 This module contains tests for Azure AI Inference functionality using the
 Azure AI Inference Python library.
