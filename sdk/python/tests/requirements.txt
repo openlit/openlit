@@ -17,6 +17,7 @@ google-cloud-aiplatform >= 1.38.1
 groq >= 0.5.0
 elevenlabs >= 1.4.0
 google-generativeai >= 0.7.2
+azure-ai-inference >= 1.0.0b4
 
 # Vector DBs
 chromadb>=0.4.0
