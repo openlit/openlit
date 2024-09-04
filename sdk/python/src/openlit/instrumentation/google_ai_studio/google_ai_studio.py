@@ -49,7 +49,7 @@ def generate(gen_ai_endpoint, version, environment, application_name,
         Returns:
             The response from the original 'chat' method.
         """
-        # pylint: disable=duplicate-code,
+        # pylint: disable=no-else-return
         if kwargs.get("stream", False) is True:
             # Special handling for streaming response to accommodate the nature of data flow
             def stream_generator():
