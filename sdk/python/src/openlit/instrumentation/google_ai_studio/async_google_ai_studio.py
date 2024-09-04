@@ -1,6 +1,6 @@
 # pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment, protected-access
 """
-Module for monitoring Ollama API calls.
+Module for monitoring Google AI Studio API calls.
 """
 
 import logging
@@ -24,9 +24,9 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
         gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using the Ollama API.
+        application_name: Name of the application using the Google AI Studio API.
         tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of Ollama usage.
+        pricing_info: Information used for calculating the cost of Google AI Studio usage.
         trace_content: Flag indicating whether to trace the actual content.
 
     Returns:
@@ -86,7 +86,7 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
 
                         total_tokens = input_tokens + output_tokens
                         # Calculate cost of the operation
-                        cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"),
+                        cost = get_chat_model_cost(model,
                                                     pricing_info, input_tokens,
                                                     output_tokens)
 
@@ -214,7 +214,7 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
                     completion_tokens = response.usage_metadata.candidates_token_count
                     total_tokens = response.usage_metadata.total_token_count
                     # Calculate cost of the operation
-                    cost = get_chat_model_cost(kwargs.get("model", "llama3"),
+                    cost = get_chat_model_cost(model,
                                                 pricing_info, prompt_tokens, completion_tokens)
 
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -235,13 +235,13 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_APPLICATION_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
-                                SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
+                                SemanticConvetion.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_TYPE:
                                 SemanticConvetion.GEN_AI_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                                kwargs.get("model", "llama3")
+                                model
                         }
 
                         metrics["genai_requests"].add(1, attributes)
