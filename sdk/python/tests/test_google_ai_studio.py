@@ -39,7 +39,7 @@ def test_sync_generate_content():
 
         response = model.generate_content("Monitor AI", stream=True)
         for text in response:
-            assert isinstance(text, str)
+            assert isinstance(text.text, str)
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
@@ -58,12 +58,12 @@ async def test_async_generate_content():
     """
 
     try:
-        response = await model.generate_content("Observability for LLMs", stream=False)
+        response = await model.generate_content_async("Observability for LLMs", stream=False)
         assert isinstance(response.text, str)
 
-        response = await model.generate_content("Monitor AI", stream=True)
+        response = await model.generate_content_async("Monitor AI", stream=True)
         async for text in response:
-            assert isinstance(text, str)
+            assert isinstance(text.text, str)
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
