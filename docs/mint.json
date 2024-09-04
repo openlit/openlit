@@ -75,6 +75,7 @@
             "latest/integrations/huggingface",
             "latest/integrations/bedrock",
             "latest/integrations/vertexai",
+            "latest/integrations/google-ai-studio",
             "latest/integrations/groq",
             "latest/integrations/elevenlabs",
             "latest/integrations/krutrim"
