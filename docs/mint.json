@@ -79,6 +79,7 @@
             "latest/integrations/vertexai",
             "latest/integrations/google-ai-studio",
             "latest/integrations/groq",
+            "latest/integrations/nvidia-nim",
             "latest/integrations/elevenlabs",
             "latest/integrations/krutrim"
           ]
