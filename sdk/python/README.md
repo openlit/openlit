@@ -46,7 +46,7 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 | [✅ vLLM](https://docs.openlit.io/latest/integrations/vllm)                          |                                                                          |                                       |               |
 | [✅ OLA Krutrim](https://docs.openlit.io/latest/integrations/krutrim)                |                                                                          |                                       |               |
 | [✅ Google AI Studio](https://docs.openlit.io/latest/integrations/google-ai-studio)  |                                                                          |                                       |               |
-| [✅ NVIDIA NIM](https://docs.openlit.io/latest/integrations/nvidia-nim)                                                                  |                                                                          |                                       |               |
+| [✅ NVIDIA NIM](https://docs.openlit.io/latest/integrations/nvidia-nim)              |                                                                          |                                       |               |
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
