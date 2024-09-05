@@ -6,7 +6,7 @@ OpenTelemetry Auto-Instrumentation for GenAI & LLM Applications</h1>
 
 [![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://github.com/openlit/openlit)
 [![License](https://img.shields.io/github/license/openlit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/openlit/openlit/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/npm/dm/%40openlit%2Fts)](https://www.npmjs.com/package/openlit)
+[![Downloads](https://img.shields.io/npm/dw/openlit)](https://www.npmjs.com/package/openlit)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/openlit/openlit)](https://github.com/openlit/openlit/pulse)
 [![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
