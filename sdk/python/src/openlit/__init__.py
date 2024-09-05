@@ -140,13 +140,13 @@ def instrument_if_available(
 ):
     """Instruments the specified instrumentor if its library is available."""
     if instrumentor_name in disabled_instrumentors:
-        logger.info(f"Instrumentor {instrumentor_name} is disabled.")
+        logger.info("Instrumentor %s is disabled", instrumentor_name)
         return
 
     module_name = module_name_map.get(instrumentor_name)
-    
+
     if not module_name:
-        logger.error(f"No module mapping for {instrumentor_name}.")
+        logger.error("No module mapping for %s", instrumentor_name)
         return
 
     try:
@@ -160,11 +160,12 @@ def instrument_if_available(
                 metrics_dict=config.metrics_dict,
                 disable_metrics=config.disable_metrics,
             )
-            logger.info(f"Instrumented {instrumentor_name}.")
+            logger.info("Instrumented %s", instrumentor_name)
         else:
-            logger.info(f"Library for {instrumentor_name} ({module_name}) not found. Skipping instrumentation.")
+            # pylint: disable=line-too-long
+            logger.info("Library for %s (%s) not found. Skipping instrumentation", instrumentor_name, module_name)
     except Exception as e:
-        logger.error(f"Failed to instrument {instrumentor_name}: {e}")
+        logger.error("Failed to instrument $s: %s", instrumentor_name, e)
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
@@ -221,7 +222,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         name for name in disabled_instrumentors if name not in module_name_map
     ]
     for invalid_name in invalid_instrumentors:
-        logger.warning(f"Invalid instrumentor name detected and ignored: '{invalid_name}'")
+        logger.warning("Invalid instrumentor name detected and ignored: '%s'", invalid_name)
 
     try:
         # Retrieve or create the single configuration instance.
@@ -296,7 +297,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
 
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
-            instrument_if_available(name, instrumentor, config, disabled_instrumentors, module_name_map)
+            instrument_if_available(name, instrumentor, config,
+            disabled_instrumentors, module_name_map)
 
         if not disable_metrics and collect_gpu_stats:
             NvidiaGPUInstrumentor().instrument(
@@ -304,7 +306,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
                 application_name=config.application_name,
             )
     except Exception as e:
-        logger.error(f"Error during openLIT initialization: {e}")
+        logger.error("Error during openLIT initialization: %s", e)
 
 
 def trace(wrapped):
