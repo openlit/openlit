@@ -165,7 +165,7 @@ def instrument_if_available(
             # pylint: disable=line-too-long
             logger.info("Library for %s (%s) not found. Skipping instrumentation", instrumentor_name, module_name)
     except Exception as e:
-        logger.error("Failed to instrument $s: %s", instrumentor_name, e)
+        logger.error("Failed to instrument %s: %s", instrumentor_name, e)
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
