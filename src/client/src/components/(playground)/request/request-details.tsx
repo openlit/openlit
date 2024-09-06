@@ -61,6 +61,8 @@ export default function RequestDetails() {
 		isException
 	);
 
+	const date = new Date(`${normalizedItem.time}Z`);
+
 	return (
 		<Sheet open onOpenChange={onClose}>
 			<SheetContent className="max-w-none sm:max-w-none w-1/2 bg-stone-200 dark:bg-stone-200">
@@ -94,7 +96,7 @@ export default function RequestDetails() {
 								<TagItem
 									icon={CalendarDays}
 									title="Request Time : "
-									value={format(normalizedItem.time, "MMM do, y  HH:mm:ss a")}
+									value={format(date, "MMM do, y  HH:mm:ss a")}
 								/>
 								<TagItem
 									icon={Clock}
