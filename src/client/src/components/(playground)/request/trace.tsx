@@ -67,7 +67,7 @@ export default function Trace({ item, isLoading }: RenderRowProps) {
 		? getDisplayKeysForException()
 		: getRequestTableDisplayKeys(normalizedItem.type);
 
-	console.log(normalizedItem, item);
+	const date = new Date(`${normalizedItem.time}Z`);
 
 	return (
 		<div className="flex flex-col">
@@ -76,7 +76,7 @@ export default function Trace({ item, isLoading }: RenderRowProps) {
 					<div className="flex items-center pr-3">
 						<CalendarDays size="16" />
 						<p className="text-xs leading-none ml-2">
-							{format(normalizedItem.time, "MMM do, y  HH:mm:ss a")}
+							{format(date, "MMM do, y  HH:mm:ss a")}
 						</p>
 					</div>
 					<div className="flex items-center pl-3 border-l border-stone-200">
