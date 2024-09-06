@@ -10,7 +10,6 @@ import RequestFilter from "@/components/(playground)/request/request-filter";
 import { omit } from "lodash";
 import List from "./list";
 import RequestDetails from "@/components/(playground)/request/request-details";
-import { useRefreshRate } from "@/utils/hooks/useRefreshRate";
 
 export default function RequestPage() {
 	const filter = useRootStore(getFilterDetails);
@@ -28,8 +27,6 @@ export default function RequestPage() {
 			},
 		});
 	}, [filter]);
-
-	useRefreshRate(fetchData);
 
 	useEffect(() => {
 		if (

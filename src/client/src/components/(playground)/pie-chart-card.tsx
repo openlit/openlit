@@ -9,7 +9,6 @@ import { COLORS } from "../../../colors";
 import IntermediateState from "./intermediate-state";
 import { Skeleton } from "../ui/skeleton";
 import { getFilterParamsForDashboard } from "@/helpers/filter";
-import { useRefreshRate } from "@/utils/hooks/useRefreshRate";
 
 const renderActiveShape = (props: any) => {
 	const {
@@ -133,8 +132,6 @@ const PieChartCard = memo(
 				responseDataKey: "data",
 			});
 		}, [filter, url]);
-
-		useRefreshRate(fetchData);
 
 		useEffect(() => {
 			if (

@@ -23,7 +23,6 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { COLORS } from "../../../../../colors";
 import IntermediateState from "@/components/(playground)/intermediate-state";
 import { getFilterParamsForDashboard } from "@/helpers/filter";
-import { useRefreshRate } from "@/utils/hooks/useRefreshRate";
 
 function TopModels() {
 	const filter = useRootStore(getFilterDetails);
@@ -38,8 +37,6 @@ function TopModels() {
 			responseDataKey: "data",
 		});
 	}, [filter]);
-
-	useRefreshRate(fetchData);
 
 	useEffect(() => {
 		if (
@@ -128,8 +125,6 @@ function ModelsPerTime() {
 			responseDataKey: "data",
 		});
 	}, [filter]);
-
-	useRefreshRate(fetchData);
 
 	useEffect(() => {
 		if (
@@ -226,8 +221,6 @@ function TokensPerTime() {
 			responseDataKey: "data",
 		});
 	}, [filter]);
-
-	useRefreshRate(fetchData);
 
 	useEffect(() => {
 		if (

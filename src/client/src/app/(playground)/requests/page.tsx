@@ -9,7 +9,6 @@ import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import List from "./list";
-import { useRefreshRate } from "@/utils/hooks/useRefreshRate";
 
 export default function RequestPage() {
 	const filter = useRootStore(getFilterDetails);
@@ -27,8 +26,6 @@ export default function RequestPage() {
 			},
 		});
 	}, [filter]);
-
-	useRefreshRate(fetchData);
 
 	useEffect(() => {
 		if (
