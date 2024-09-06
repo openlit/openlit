@@ -71,11 +71,15 @@
             "latest/integrations/gpt4all",
             "latest/integrations/cohere",
             "latest/integrations/mistral",
+            "latest/integrations/github-models",
             "latest/integrations/azure-openai",
+            "latest/integrations/azure-ai-inference",
             "latest/integrations/huggingface",
             "latest/integrations/bedrock",
             "latest/integrations/vertexai",
+            "latest/integrations/google-ai-studio",
             "latest/integrations/groq",
+            "latest/integrations/nvidia-nim",
             "latest/integrations/elevenlabs",
             "latest/integrations/krutrim"
           ]

@@ -2,10 +2,6 @@
 <!-- What does this PR do? Link issues here -->
 
 
-### Changes:
-<!-- Describe the changes and additional notes about your changes -->
-
-
 ### Visuals (If applicable):
 <!-- Attach screenshots/screen recordings here to show the changes -->
 

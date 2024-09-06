@@ -102,6 +102,8 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_GPT4ALL = "gpt4all"
     GEN_AI_SYSTEM_ELEVENLABS = "elevenlabs"
     GEN_AI_SYSTEM_VLLM = "vLLM"
+    GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = "google-ai-studio"
+    GEN_AI_SYSTEM_AZURE_AI_INFERENCE = "azure-ai-inference"
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
