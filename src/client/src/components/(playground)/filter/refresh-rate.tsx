@@ -1,7 +1,7 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { REFRESH_RATE_TYPE, getTimeLimitObject } from "@/store/filter";
 import { usePathname } from "next/navigation";
 import { TimerReset } from "lucide-react";
@@ -13,6 +13,15 @@ const PAGES_ENABLED_FOR_REFRESH_RATE = [
 	"/requests",
 	"/exceptions",
 ];
+
+const refreshTimes = {
+	[REFRESH_RATE_TYPE["30s"]]: 30 * 1000,
+	[REFRESH_RATE_TYPE["1m"]]: 60 * 1000,
+	[REFRESH_RATE_TYPE["5m"]]: 5 * 60 * 1000,
+	[REFRESH_RATE_TYPE["15m"]]: 15 * 60 * 1000,
+};
+const getRefreshTime = (key: keyof typeof REFRESH_RATE_TYPE) =>
+	refreshTimes[key] || 0;
 
 const REFRESH_RATE_TABS: { key: string; label: string }[] = Object.keys(
 	REFRESH_RATE_TYPE
@@ -26,40 +35,20 @@ const RefreshRate = () => {
 	const updateFilter = useRootStore(getUpdateFilter);
 	const refreshRateTimer = useRef<NodeJS.Timeout>();
 	const pathname = usePathname();
-	const getRefreshTime = (key: string) => {
-		let refreshTime = 0;
-		switch (key) {
-			case REFRESH_RATE_TYPE["30s"]:
-				refreshTime = 30 * 1000;
-				break;
-			case REFRESH_RATE_TYPE["1m"]:
-				refreshTime = 60 * 1000;
-				break;
-			case REFRESH_RATE_TYPE["5m"]:
-				refreshTime = 5 * 60 * 1000;
-				break;
-			case REFRESH_RATE_TYPE["15m"]:
-				refreshTime = 15 * 60 * 1000;
-				break;
-			default:
-				refreshTime = 0;
-				break;
-		}
-
-		return refreshTime;
-	};
 
 	const handleChange = (key: string) => {
 		updateFilter("refreshRate", key);
 	};
 
+	const intervalCallback = useCallback(() => {
+		const refreshCustomEvent = new CustomEvent(REFRESH_RATE_EVENT);
+		document.dispatchEvent(refreshCustomEvent);
+	}, []);
+
 	useEffect(() => {
 		const refreshTime = getRefreshTime(filter.refreshRate);
 		if (refreshTime > 0) {
-			refreshRateTimer.current = setInterval(() => {
-				const refreshCustomEvent = new CustomEvent(REFRESH_RATE_EVENT);
-				document.dispatchEvent(refreshCustomEvent);
-			}, refreshTime);
+			refreshRateTimer.current = setInterval(intervalCallback, refreshTime);
 		} else {
 			clearInterval(refreshRateTimer.current);
 			refreshRateTimer.current = undefined;
