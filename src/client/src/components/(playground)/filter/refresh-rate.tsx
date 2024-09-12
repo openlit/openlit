@@ -1,10 +1,21 @@
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { useCallback, useEffect, useRef } from "react";
 import { REFRESH_RATE_TYPE, getTimeLimitObject } from "@/store/filter";
 import { usePathname } from "next/navigation";
 import { TimerReset } from "lucide-react";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 
 const REFRESH_RATE_EVENT = "refresh-rate";
 
@@ -82,33 +93,34 @@ const RefreshRate = () => {
 	if (!isRefreshRateEnabled) return null;
 
 	return (
-		<div className="flex items-center">
-			<TimerReset className="dark:text-white mr-1" />
-			<Tabs
-				defaultValue={filter.refreshRate}
-				onValueChange={handleChange}
-				className="mr-6"
-			>
-				<TabsList>
+		<div className="flex items-center mr-3">
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<TimerReset className="dark:text-white mr-3" />
+				</TooltipTrigger>
+				<TooltipContent side="bottom" sideOffset={5} className="w-64">
+					Sets refresh rate. Low values may impact database performance.
+				</TooltipContent>
+			</Tooltip>
+			<Select onValueChange={handleChange} value={filter.refreshRate}>
+				<SelectTrigger
+					id="model"
+					className={`items-center [&_[data-description]]:hidden w-28 dark:text-white`}
+				>
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
 					{REFRESH_RATE_TABS.map(({ label, key }) => (
-						<TabsTrigger
-							key={key}
-							value={key}
-							className={`${
-								[REFRESH_RATE_TYPE["1m"], REFRESH_RATE_TYPE["5m"]].includes(key)
-									? "data-[state=active]:bg-warning dark:data-[state=active]:bg-warning"
-									: key === REFRESH_RATE_TYPE["30s"]
-									? "data-[state=active]:bg-error dark:data-[state=active]:bg-error"
-									: key === REFRESH_RATE_TYPE["15m"]
-									? "data-[state=active]:bg-success dark:data-[state=active]:bg-success"
-									: ""
-							}`}
-						>
-							{label}
-						</TabsTrigger>
+						<SelectItem key={key} value={key}>
+							<div className={`flex items-start text-muted-foreground`}>
+								<div className="grid">
+									<span className="font-medium text-foreground">{label}</span>
+								</div>
+							</div>
+						</SelectItem>
 					))}
-				</TabsList>
-			</Tabs>
+				</SelectContent>
+			</Select>
 		</div>
 	);
 };
