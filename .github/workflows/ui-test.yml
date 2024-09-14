@@ -1,17 +1,10 @@
 name: Test OpenLIT UI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
   pull_request_target:
     branches: [main]
     paths:
       - 'src/**'
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 1-31/15 * *'
 
 jobs:
   test:
