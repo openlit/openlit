@@ -1,21 +1,39 @@
 name: Pylint
 
 on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - 'sdk/python/**'
   pull_request_target:
     branches: [ "main" ]
     paths:
       - 'sdk/python/**'
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 1-31/15 * *'
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout base code
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Check if version was updated in pyproject.toml
+      run: |
+        sudo apt-get install -y python3-tomli
+        current_version=$(python3 -c "import tomli; print(tomli.load(open('sdk/python/pyproject.toml'))['tool.poetry']['version'])")
+        main_version=$(git show origin/main:sdk/python/pyproject.toml | python3 -c "import tomli; import sys; print(tomli.load(sys.stdin)['tool.poetry']['version'])")
+        echo "Current branch version: $current_version"
+        echo "Main branch version: $main_version"
+        
+        if [ "$current_version" = "$main_version" ]; then
+          echo "Version in pyproject.toml was not updated. Please update the version." >&2
+          exit 1
+        else
+          echo "Version in pyproject.toml was updated."
+        fi
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: check
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11"]

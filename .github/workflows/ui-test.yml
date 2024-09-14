@@ -1,17 +1,10 @@
 name: Test OpenLIT UI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
   pull_request_target:
     branches: [main]
     paths:
       - 'src/**'
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 1-31/15 * *'
 
 jobs:
   test:
@@ -25,6 +18,22 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
+    
+    - name: Check if version was updated in package.json
+      id: check_version
+      run: |
+        sudo apt-get install -y jq
+        current_version=$(jq -r '.version' src/client/package.json)
+        main_version=$(git show origin/main:src/client/package.json | jq -r '.version')
+        echo "Current branch version: $current_version"
+        echo "Main branch version: $main_version"
+        
+        if [ "$current_version" = "$main_version" ]; then
+          echo "Version in package.json was not updated. Please update the version." >&2
+          exit 1
+        else
+          echo "Version in package.json was updated."
+        fi
 
     - name: Start Docker Compose
       run: docker compose -f src/dev-docker-compose.yml up --build -d
