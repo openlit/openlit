@@ -16,6 +16,9 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
+    - name: Fetch main branch
+      run: git fetch origin main
+
     - name: Check if version was updated in pyproject.toml
       run: |
         sudo apt-get install -y python3-tomli
