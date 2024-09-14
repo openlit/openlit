@@ -19,8 +19,8 @@ jobs:
     - name: Check if version was updated in pyproject.toml
       run: |
         sudo apt-get install -y python3-tomli
-        current_version=$(python3 -c "import tomli; print(tomli.load(open('sdk/python/pyproject.toml'))['tool.poetry']['version'])")
-        main_version=$(git show origin/main:sdk/python/pyproject.toml | python3 -c "import tomli; import sys; print(tomli.load(sys.stdin)['tool.poetry']['version'])")
+        current_version=$(python3 -c "import tomli; print(tomli.load(open('sdk/python/pyproject.toml', 'rb'))['tool.poetry']['version'])")
+        main_version=$(git show origin/main:sdk/python/pyproject.toml | python3 -c "import tomli; import sys; print(tomli.load(sys.stdin.buffer)['tool.poetry']['version'])")
         echo "Current branch version: $current_version"
         echo "Main branch version: $main_version"
         
