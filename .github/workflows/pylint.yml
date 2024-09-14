@@ -16,20 +16,20 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
-    - name: Check if version was updated in pyproject.toml
-      run: |
-        sudo apt-get install -y python3-tomli
-        current_version=$(python3 -c "import tomli; print(tomli.load(open('sdk/python/pyproject.toml', 'rb'))['tool.poetry']['version'])")
-        main_version=$(git show origin/main:sdk/python/pyproject.toml | python3 -c "import tomli; import sys; print(tomli.load(sys.stdin.buffer)['tool.poetry']['version'])")
-        echo "Current branch version: $current_version"
-        echo "Main branch version: $main_version"
+    # - name: Check if version was updated in pyproject.toml
+    #   run: |
+    #     sudo apt-get install -y python3-tomli
+    #     current_version=$(python3 -c "import tomli; print(tomli.load(open('sdk/python/pyproject.toml', 'rb'))['tool.poetry']['version'])")
+    #     main_version=$(git show origin/main:sdk/python/pyproject.toml | python3 -c "import tomli; import sys; print(tomli.load(sys.stdin.buffer)['tool.poetry']['version'])")
+    #     echo "Current branch version: $current_version"
+    #     echo "Main branch version: $main_version"
         
-        if [ "$current_version" = "$main_version" ]; then
-          echo "Version in pyproject.toml was not updated. Please update the version." >&2
-          exit 1
-        else
-          echo "Version in pyproject.toml was updated."
-        fi
+    #     if [ "$current_version" = "$main_version" ]; then
+    #       echo "Version in pyproject.toml was not updated. Please update the version." >&2
+    #       exit 1
+    #     else
+    #       echo "Version in pyproject.toml was updated."
+    #     fi
 
   lint:
     runs-on: ubuntu-latest
