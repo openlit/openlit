@@ -130,6 +130,13 @@ class OpenlitConfig:
         cls.trace_content = trace_content
         cls.disable_metrics = disable_metrics
 
+def module_exists(module_name):
+    """Check if nested modules exist, addressing the dot notation issue."""
+    parts = module_name.split(".")
+    for i in range(1, len(parts) + 1):
+        if find_spec(".".join(parts[:i])) is None:
+            return False
+    return True
 
 def instrument_if_available(
     instrumentor_name,
@@ -150,7 +157,7 @@ def instrument_if_available(
         return
 
     try:
-        if find_spec(module_name) is not None:
+        if module_exists(module_name):
             instrumentor_instance.instrument(
                 environment=config.environment,
                 application_name=config.application_name,
@@ -166,6 +173,7 @@ def instrument_if_available(
             logger.info("Library for %s (%s) not found. Skipping instrumentation", instrumentor_name, module_name)
     except Exception as e:
         logger.error("Failed to instrument %s: %s", instrumentor_name, e)
+
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
