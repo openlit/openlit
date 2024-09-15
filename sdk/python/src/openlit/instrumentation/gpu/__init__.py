@@ -111,10 +111,10 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
                         check_and_record, metric_name,
                         options: CallbackOptions) -> Iterable[Observation]:
 
-        import gpustat
+        from subprocess import check_output
 
         try:
-            gpu_stats = gpustat.GPUStatCollection.new_query()
+            gpu_stats = xmltodict.parse(check_output(["/usr/bin/nvidia-smi", "-x", "-q"]))
 
             for gpu in gpu_stats.gpus:
                 attributes = {
