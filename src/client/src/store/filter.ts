@@ -26,7 +26,7 @@ export const TIME_RANGE_TYPE: Record<
 
 export const DEFAULT_TIME_RANGE = "24H";
 
-export const DEFAULT_REFRESH_RATE = "Never";
+export const DEFAULT_REFRESH_RATE = REFRESH_RATE_TYPE["1m"];
 
 const DEFAULT_LIMIT = 10;
 
