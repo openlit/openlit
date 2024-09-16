@@ -619,8 +619,8 @@ def achat(gen_ai_endpoint, version, environment, application_name,
             response = await wrapped(*args, **kwargs)
 
             try:
-                input_tokens = response.response_metadata["prompt_eval_count"] or 0
-                output_tokens = response.response_metadata["eval_count"] or 0
+                input_tokens = response.response_metadata.get("prompt_eval_count", 0)
+                output_tokens = response.response_metadata.get("eval_count", 0)
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
