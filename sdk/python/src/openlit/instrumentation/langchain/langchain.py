@@ -484,10 +484,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                 input_tokens = response.response_metadata.get("prompt_eval_count", 0)
                 output_tokens = response.response_metadata.get("eval_count", 0)
 
-                if isinstance(args[0], list):
-                    prompt = ""
-                else:
-                    prompt = args[0]
+                prompt = "" if isinstance(args[0], list) else args[0]
                 model = getattr(instance, 'model_name', getattr(instance, 'model', 'gpt-4'))
 
                 # Calculate cost of the operation
