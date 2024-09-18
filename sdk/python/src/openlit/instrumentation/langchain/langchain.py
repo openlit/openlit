@@ -488,7 +488,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     prompt = ""
                 else:
                     prompt = args[0]
-                model = str(getattr(instance, 'model_name')) or "gpt-4"
+                model = getattr(instance, 'model_name', getattr(instance, 'model', 'gpt-4'))
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
