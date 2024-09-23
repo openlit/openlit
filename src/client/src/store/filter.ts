@@ -26,8 +26,6 @@ export const TIME_RANGE_TYPE: Record<
 
 export const DEFAULT_TIME_RANGE = "24H";
 
-export const DEFAULT_REFRESH_RATE = REFRESH_RATE_TYPE["1m"];
-
 const DEFAULT_LIMIT = 10;
 
 const DEFAULT_SORTING: FilterSorting = {
@@ -106,7 +104,7 @@ const INITIAL_FILTER_DETAILS: FilterType = {
 	offset: 0,
 	selectedConfig: {},
 	sorting: DEFAULT_SORTING,
-	refreshRate: DEFAULT_REFRESH_RATE,
+	refreshRate: "1m",
 };
 
 export type FilterStore = {
