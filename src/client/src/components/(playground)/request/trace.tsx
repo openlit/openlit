@@ -14,6 +14,7 @@ import {
 } from "@/constants/traces";
 import { CalendarDays, Clock, SquareTerminal } from "lucide-react";
 import ParentTrace from "./parent-trace";
+import { Badge } from "@/components/ui/badge";
 
 type RenderRowProps = {
 	item: TraceRow;
@@ -68,6 +69,52 @@ export default function Trace({ item, isLoading }: RenderRowProps) {
 		: getRequestTableDisplayKeys(normalizedItem.type);
 
 	const date = new Date(`${normalizedItem.time}Z`);
+	const ServiceIcon = TraceMapping.serviceName.icon;
+	const SpanIcon = TraceMapping.spanName.icon;
+
+	return (
+		<div
+			className={`grid grid-cols-12 border-b items-center cursor-pointer text-stone-500 hover:text-stone-700 group ${
+				request?.TraceId === normalizedItem.id
+					? "bg-stone-200 dark:bg-stone-950"
+					: ""
+			}`}
+			onClick={onClick}
+		>
+			<div className="py-2 px-3 col-span-1">
+				<Badge variant="outline" className="rounded-md text-stone-500 group-hover:text-stone-700">
+					...{normalizedItem.id.substring(normalizedItem.id.length - 6)}
+				</Badge>
+			</div>
+			<div className="flex space-x-2 py-2 px-3 col-span-3">
+				<CalendarDays size="16" />
+				<span className="max-w-[500px] truncate font-medium">
+					{format(date, "MMM do, y  HH:mm:ss a")}
+				</span>
+			</div>
+			<div className="flex space-x-2 py-2 px-3 col-span-2">
+				{ServiceIcon && <ServiceIcon size="16" />}
+				<span className="max-w-[500px] truncate font-medium">
+					{normalizedItem.serviceName}
+				</span>
+			</div>
+			<div className="flex space-x-2 py-2 px-3 col-span-3">
+				{SpanIcon && <SpanIcon size="16" />}
+				<span className="max-w-[500px] truncate font-medium">
+					{normalizedItem.spanName}
+				</span>
+			</div>
+			<div className="space-x-2 py-2 px-3 col-span-2 items-center">
+				<Badge variant="outline" className="rounded-md text-stone-500 group-hover:text-stone-700">
+					{normalizedItem.statusCode.replace("STATUS_CODE_", "")}
+				</Badge>
+				<span className="max-w-[500px] truncate font-medium">
+					{round(normalizedItem.requestDuration, 4)}s
+				</span>
+			</div>
+			<div className="items-center py-2 px-3 col-span-1">Actions</div>
+		</div>
+	);
 
 	return (
 		<div className="flex flex-col">

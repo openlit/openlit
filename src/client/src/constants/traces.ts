@@ -13,6 +13,7 @@ import {
 	DoorClosed,
 	Factory,
 	FileAudio2,
+	FileCog,
 	FileStack,
 	Fingerprint,
 	ImageIcon,
@@ -26,6 +27,7 @@ import {
 	TicketCheck,
 	TicketPlus,
 } from "lucide-react";
+import { objectKeys } from "@/utils/object";
 
 export const SpanAttributesGenAIPrefix = "gen_ai";
 export const SpanAttributesDBPrefix = "db";
@@ -87,6 +89,7 @@ export const TraceMapping: Record<
 		type: "string",
 		path: "ServiceName",
 		isRoot: true,
+		icon: FileCog,
 	},
 	statusMessage: {
 		label: "Error Message",
