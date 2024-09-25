@@ -481,12 +481,15 @@ def chat(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                input_tokens = response.response_metadata["prompt_eval_count"] or 0
-                output_tokens = response.response_metadata["eval_count"] or 0
+                input_tokens = response.response_metadata.get("prompt_eval_count", 0)
+                output_tokens = response.response_metadata.get("eval_count", 0)
+
+                prompt = "" if isinstance(args[0], list) else args[0]
+                model = getattr(instance, 'model_name', getattr(instance, 'model', 'gpt-4'))
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
-                    str(getattr(instance, 'model')),
+                    model,
                     pricing_info, input_tokens, output_tokens
                 )
 
@@ -502,15 +505,13 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                    str(getattr(instance, 'model')))
+                                    model)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                    str(getattr(instance, 'temperature')))
+                                    str(getattr(instance, 'temperature', 1)))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
-                                    str(getattr(instance, 'top_k')))
+                                    str(getattr(instance, 'top_k', 1)))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                    str(getattr(instance, 'top_p')))
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                    [response.response_metadata["done_reason"]])
+                                    str(getattr(instance, 'top_p', 1)))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                     False)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -525,7 +526,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: args[0],
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                         },
                     )
                     span.add_event(
@@ -550,7 +551,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                         SemanticConvetion.GEN_AI_TYPE:
                             SemanticConvetion.GEN_AI_TYPE_CHAT,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                            str(getattr(instance, 'model'))
+                            model
                     }
 
                     metrics["genai_requests"].add(1, attributes)
@@ -619,8 +620,8 @@ def achat(gen_ai_endpoint, version, environment, application_name,
             response = await wrapped(*args, **kwargs)
 
             try:
-                input_tokens = response.response_metadata["prompt_eval_count"] or 0
-                output_tokens = response.response_metadata["eval_count"] or 0
+                input_tokens = response.response_metadata.get("prompt_eval_count", 0)
+                output_tokens = response.response_metadata.get("eval_count", 0)
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(

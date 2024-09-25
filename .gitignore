@@ -4,6 +4,6 @@ test.py
 yala.py
 yala.yml
 speech.mp3
-.venv
+venv/
 path/
 __pycache__

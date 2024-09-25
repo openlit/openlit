@@ -82,13 +82,45 @@
         "eleven_multilingual_sts_v2": 0.24
     },
     "chat": {
-        "gpt-3.5-turbo": {
+        "gpt-4o": {
             "promptPrice": 0.0005,
             "completionPrice": 0.0015
         },
-        "gpt-3.5-turbo-instruct": {
-            "promptPrice": 0.0015,
-            "completionPrice": 0.0020
+        "gpt-4o-2024-08-06": {
+            "promptPrice": 0.0025,
+            "completionPrice": 0.010
+        },
+        "gpt-4o-2024-05-13": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.015
+        },
+        "gpt-4o-mini": {
+            "promptPrice": 0.00015,
+            "completionPrice": 0.0006
+        },
+        "gpt-4o-mini-2024-07-18": {
+            "promptPrice": 0.00015,
+            "completionPrice": 0.0006
+        },
+        "o1-mini": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.012
+        },
+        "o1-mini-2024-09-12": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.012
+        },
+        "o1-preview": {
+            "promptPrice": 0.015,
+            "completionPrice": 0.06
+        },
+        "o1-preview-2024-09-12": {
+            "promptPrice": 0.015,
+            "completionPrice": 0.06
+        },
+        "gpt-3.5-turbo": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
         },
         "gpt-3.5-turbo-0125": {
             "promptPrice": 0.0005,
@@ -137,14 +169,6 @@
         "gpt-4-vision-preview": {
             "promptPrice": 0.01,
             "completionPrice": 0.03
-        },
-        "gpt-4o": {
-            "promptPrice": 0.005,
-            "completionPrice": 0.015
-        },
-        "gpt-4o-2024-05-13": {
-            "promptPrice": 0.005,
-            "completionPrice": 0.015
         },
         "azure_gpt-4": {
             "promptPrice": 0.03,
