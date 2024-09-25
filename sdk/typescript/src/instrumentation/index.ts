@@ -4,11 +4,13 @@ import { InstrumentationType, OpenlitInstrumentations } from '../types';
 import { TracerProvider } from '@opentelemetry/api';
 import OpenAIInstrumentation from './openai';
 import AnthropicInstrumentation from './anthropic';
+import CohereInstrumentation from './cohere';
 
 export default class Instrumentations {
   static availableInstrumentations: OpenlitInstrumentations = {
     openai: new OpenAIInstrumentation(),
     anthropic: new AnthropicInstrumentation(),
+    cohere: new CohereInstrumentation(),
   };
 
   static setup(
