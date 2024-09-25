@@ -10,6 +10,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
 	BookText,
+	Component,
 	DatabaseBackup,
 	FileJson2,
 	LayoutDashboard,
@@ -47,13 +48,18 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		link: "/exceptions",
 	},
 	{
+		icon: <Component className={ICON_CLASSES} />,
+		text: "Prompt Hub",
+		link: "/prompt-hub",
+	},
+	{
 		icon: <MonitorPlay className={ICON_CLASSES} />,
 		text: "Openground",
 		link: "/openground",
 	},
 	{
 		icon: <DatabaseBackup className={ICON_CLASSES} />,
-		text: "Settings",
+		text: "Databases",
 		link: "/database-config",
 	},
 ];

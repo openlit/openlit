@@ -1,11 +1,12 @@
 import { Pool } from "generic-pool";
-import { getDBConfigByUser } from "../db-config";
+import { getDBConfigById, getDBConfigByUser } from "../db-config";
 import createClickhousePool from "./clickhouse-client";
 import asaw from "@/utils/asaw";
 import {
 	ClickHouseClient,
 	QueryParams,
 	InsertParams,
+	ExecParams,
 	CommandParams,
 } from "@clickhouse/client-common";
 
@@ -52,10 +53,17 @@ export async function dataCollector(
 		format = "JSONEachRow",
 		table,
 		values,
-	}: Partial<QueryParams & InsertParams & CommandParams>,
-	clientQueryType: "query" | "command" | "insert" | "ping" = "query"
+	}: Partial<QueryParams & InsertParams & ExecParams & CommandParams>,
+	clientQueryType: "query" | "command" | "insert" | "exec" | "ping" = "query",
+	dbConfigId?: string
 ): Promise<DataCollectorType> {
-	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
+	let err, dbConfig;
+	if (dbConfigId) {
+		[err, dbConfig] = await asaw(getDBConfigById({ id: dbConfigId }));
+	} else {
+		[err, dbConfig] = await asaw(getDBConfigByUser(true));
+	}
+
 	if (err) return { err, data: [] };
 	let clickhousePool: Pool<ClickHouseClient> | undefined;
 	let client: ClickHouseClient | undefined;
@@ -96,8 +104,19 @@ export async function dataCollector(
 				})
 			);
 
-			if (result?.query_id) {
-				return { data: "Added successfully!" };
+			if (!respErr) {
+				return { data: result };
+			}
+		} else if (clientQueryType === "exec") {
+			if (!query) return { err: "No query specified!" };
+			[respErr, result] = await asaw(
+				client.exec({
+					query,
+				})
+			);
+
+			if (!respErr) {
+				return { data: result };
 			}
 		} else if (clientQueryType === "ping") {
 			[respErr, result] = await asaw(client.ping());

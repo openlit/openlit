@@ -89,6 +89,7 @@ model DatabaseConfig {
   createdByUser   User                        @relation(fields: [createdByUserId], references: [id])
   OpenGround      OpenGround[]
   dbInvitedUsers  DatabaseConfigInvitedUser[]
+  promptAPIKey    PromptAPIKeys?              
 
   @@unique([name])
   @@map("databaseconfig")
@@ -133,4 +134,16 @@ model DatabaseConfigInvitedUser {
   canDelete        Boolean         @default(false)
 
   @@unique([databaseConfigId, email])
+}
+
+model PromptAPIKeys {
+  apiKey            String            @unique
+  databaseConfigId  String            @unique     @map("database_config_id")
+  databaseConfig    DatabaseConfig?   @relation(fields: [databaseConfigId], references: [id])
+}
+
+model PromptMigrations {
+  id                    String        @id @default(cuid())
+  databaseConfigId      String
+  clickhouseMigrationId String
 }

@@ -2,6 +2,7 @@ import asaw from "@/utils/asaw";
 import prisma from "./prisma";
 import { getCurrentUser } from "./session";
 import { DatabaseConfig, DatabaseConfigInvitedUser } from "@prisma/client";
+import migrations from "@/clickhouse/migrations";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
@@ -97,16 +98,20 @@ export const upsertDBConfig = async (
 		await checkPermissionForDbAction(user.id, id, "EDIT");
 	}
 
-	const createddbConfig = await prisma.databaseConfig.upsert({
-		where: whereObject,
-		create: {
-			...(dbConfig as any),
-			createdByUserId: user.id,
-		},
-		update: {
-			...dbConfig,
-		},
-	});
+	const [err, createddbConfig] = await asaw(
+		prisma.databaseConfig.upsert({
+			where: whereObject,
+			create: {
+				...(dbConfig as any),
+				createdByUserId: user.id,
+			},
+			update: {
+				...dbConfig,
+			},
+		})
+	);
+
+	if (err) console.log(err, createddbConfig);
 
 	if (!id) {
 		await addDatabaseConfigUserEntry(user.id, createddbConfig.id, {
@@ -114,6 +119,7 @@ export const upsertDBConfig = async (
 			canDelete: true,
 			canShare: true,
 		});
+		migrations(createddbConfig.id);
 	}
 
 	return `${id ? "Updated" : "Added"} db details successfully`;
