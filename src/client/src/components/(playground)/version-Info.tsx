@@ -12,7 +12,7 @@ export default function VersionInfo() {
 		<HoverCard>
 			<HoverCardTrigger>
 				<Button variant="ghost" size="icon">
-					<ShieldQuestion className="flex-shrink-0 size-5 transition duration-75 transition duration-75 dark:text-stone-100 text-stone-900" />
+					<ShieldQuestion className="flex-shrink-0 size-5 transition duration-75 dark:text-stone-100 text-stone-900" />
 				</Button>
 			</HoverCardTrigger>
 			<HoverCardContent
@@ -22,9 +22,9 @@ export default function VersionInfo() {
 			>
 				<span className="font-bold">Openlit: </span>
 				<span>({version.version})</span>
-				<span className="font-light">
-					{process.env.NODE_ENV === "development" && process.env.NODE_ENV}
-				</span>
+				{process.env.NODE_ENV === "development" && (
+					<span className="font-light">(Development mode)</span>
+				)}
 			</HoverCardContent>
 		</HoverCard>
 	);
