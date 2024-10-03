@@ -1,4 +1,3 @@
-import { DatabaseConfigWithActive } from "@/constants/dbConfig";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import { useEffect } from "react";
