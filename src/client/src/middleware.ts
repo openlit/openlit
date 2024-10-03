@@ -9,7 +9,6 @@ import {
 export default withAuth(
 	async function middleware(req) {
 		const pathname = req.nextUrl.pathname;
-		console.log({ pathname });
 		if (
 			pathname.startsWith("/_next") ||
 			pathname.startsWith("/static") ||
