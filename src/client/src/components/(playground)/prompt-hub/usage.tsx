@@ -94,7 +94,7 @@ const columns = [
 
 const data = [
 	{
-		key: "openlitUrl",
+		key: "url",
 		description:
 			"The sdk uses this key to look for openlit url else picks OPENLIT_URL from the environment variable and defaults to http://127.0.0.1:3000. This is optional.",
 	},
