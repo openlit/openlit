@@ -1,0 +1,21 @@
+import {
+	generateAPIKey,
+	getAllAPIKeys,
+} from "@/lib/platform/prompt/api-keys";
+import asaw from "@/utils/asaw";
+
+export async function GET() {
+	const res: any = await getAllAPIKeys();
+	return Response.json(res);
+}
+
+export async function POST() {
+	const [err, res]: any = await asaw(generateAPIKey());
+
+	if (err)
+		return Response.json(err, {
+			status: 400,
+		});
+
+	return Response.json(res);
+}

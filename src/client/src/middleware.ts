@@ -1,11 +1,15 @@
 import { getToken } from "next-auth/jwt";
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import { DEFAULT_LOGGED_IN_ROUTE } from "@/constants/route";
+import {
+	DEFAULT_LOGGED_IN_ROUTE,
+	ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN,
+} from "@/constants/route";
 
 export default withAuth(
 	async function middleware(req) {
 		const pathname = req.nextUrl.pathname;
+		console.log({ pathname });
 		if (
 			pathname.startsWith("/_next") ||
 			pathname.startsWith("/static") ||
@@ -15,6 +19,8 @@ export default withAuth(
 
 		const token = await getToken({ req });
 		const isAuth = !!token;
+		const isAllowedRequestWithoutToken =
+			ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN.includes(pathname);
 		const isAuthPage =
 			pathname.startsWith("/login") || pathname.startsWith("/register");
 		const isApiPage = pathname.startsWith("/api");
@@ -28,7 +34,7 @@ export default withAuth(
 		}
 
 		if (isApiPage) {
-			if (isAuth) {
+			if (isAuth || isAllowedRequestWithoutToken) {
 				return NextResponse.next();
 			}
 		}
@@ -67,5 +73,7 @@ export const config = {
 		"/database-config",
 		"/openground",
 		"/exceptions",
+		"/prompt-hub",
+		"/api-keys",
 	],
 };

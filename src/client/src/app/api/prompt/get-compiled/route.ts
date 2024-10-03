@@ -12,14 +12,25 @@ export async function POST(request: Request) {
 		apiKey: formData.apiKey,
 		variables: formData.variables || {},
 		compile: !!formData.compile,
+		downloadMetaProperties: formData.metaProperties,
+		downloadSource: formData.source,
 	};
 
 	const [err, res]: any = await asaw(getCompiledPrompt(promptInput));
 
-	if (err)
-		return Response.json(err, {
-			status: 400,
-		});
+	return Response.json({
+		err,
+		res,
+	});
+}
 
-	return Response.json(res);
+export async function OPTIONS() {
+	return new Response(null, {
+		status: 200,
+		headers: {
+			"Access-Control-Allow-Origin": "*",
+			"Access-Control-Allow-Methods": "POST, OPTIONS",
+			"Access-Control-Allow-Headers": "Content-Type, Authorization",
+		},
+	});
 }

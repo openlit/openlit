@@ -13,6 +13,7 @@ import {
 	Component,
 	DatabaseBackup,
 	FileJson2,
+	KeyIcon,
 	LayoutDashboard,
 	MonitorPlay,
 	ShieldAlert,
@@ -28,8 +29,7 @@ type SidebarItemProps = {
 	target?: string;
 };
 
-const ICON_CLASSES =
-	"flex-shrink-0 size-5 transition duration-75 transition duration-75";
+const ICON_CLASSES = "flex-shrink-0 size-5";
 
 const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
@@ -61,6 +61,11 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <DatabaseBackup className={ICON_CLASSES} />,
 		text: "Databases",
 		link: "/database-config",
+	},
+	{
+		icon: <KeyIcon className={ICON_CLASSES} />,
+		text: "API Keys",
+		link: "/api-keys",
 	},
 ];
 

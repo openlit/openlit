@@ -1,0 +1,95 @@
+---
+title: 'Prompt Hub'
+description: 'The Prompt-Hub SDK allows you to manage prompts, fetch specific versions, and compile prompts with variables in both TypeScript and Python.'
+sidebarTitle: 'Prompt Hub'
+---
+
+You can create and manage prompts using the OpenLIT UI, which supports versioning for each prompt. Draft versions can be revised without being published as the latest, and versioning follows major, minor, or patch updates for better tracking. The UI also displays the total downloads and version history of each prompt, accessible via the SDK.
+
+## Get Started with Prompts
+
+<Steps>
+<Step title="List of prompts" stepNumber=" ">
+    <Frame>
+      <img src="/images/docs-prompt-hub-list.png" />
+    </Frame>
+  </Step>
+  <Step title="Create prompt" stepNumber=" ">
+    <Frame>
+      <img src="/images/docs-prompt-hub-create.png" />
+    </Frame>
+    > When creating a prompt or prompt version, you can use `{{variableName}}` in the prompt field. This can be used to substitute variables passed during compile time when you receive prompts from SDKs.
+  </Step>
+  <Step title="View prompt" stepNumber=" ">
+    <Frame>
+      <img src="/images/docs-prompt-hub-details.png" />
+    </Frame>
+  </Step>
+    <Step title="Get prompt via sdk">
+    <Tabs>
+        <Tab title="Python">
+           ```python
+            from openlit import Openlit  # Import the Openlit SDK
+
+            response = Openlit.get_prompts(
+              prompt_name="prompt_name",  # Fetch the prompt by name
+              compile=True,               # Compile the prompt with provided variables
+              variables={
+                "name": "John",           # Pass variables for prompt compilation
+              }
+            )
+
+            print(response)               # Print or process the fetched and compiled prompt
+           ```
+        </Tab>
+        <Tab title="Typescript">
+           ```typescript
+            import Openlit from 'openlit'; // Import the Openlit SDK
+
+            const response = await Openlit.getPrompts({
+              promptName: "prompt_1",     // Fetch the prompt by name
+              compile: true,                 // Compile the prompt with provided variables
+              variables: {
+                name: "John",                // Pass variables for prompt compilation
+              }
+            });
+
+            console.log(response);           // Print or process the fetched and compiled prompt
+             
+           ```
+
+           ```shell
+            {
+              err: null,
+              res: {
+                  promptId: '88c4cbcd-87f9-4957-a37b-b41066e17471',
+                  promptName: 'prompt_1',
+                  version: '3.3.3',
+                  tags: [ 'user', 'greeting' ],
+                  metaProperties: { model: 'gpt4' },
+                  prompt: 'Hello {{name}}, how are you today?',
+                  compiledPrompt: 'Hello John, how are you today?'
+              }
+            }
+             
+           ```
+        </Tab>
+        </Tabs>
+      <Note>Make sure your Openlit UI is running</Note>
+    </Step>
+</Steps>
+
+
+### SDK Parameters
+
+The following table describes the parameters that can be used with the SDK:
+
+| Parameter         | Description                                                                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openlitUrl`      | The SDK uses this key to look for the Openlit URL. If not provided, it defaults to the environment variable `OPENLIT_URL` or `http://127.0.0.1:3000`. This is optional.|
+| `promptName`      | This key is used to fetch a unique prompt by name. You can use either `promptName` or `promptId`. This is optional.                                                    |
+| `promptId`        | This key is used to fetch a unique prompt by its ID. You can use either `promptId` or `promptName`. This is optional.                                                  |
+| `version`         | This key is used to fetch a specific version of the prompt. This is optional.                                                                                          |
+| `compile`         | This key is used to fetch the prompt compiled with the passed variables. This is optional.                                                                             |
+| `variables`       | This key is used to pass variables to compile the prompt. This is optional.                                                                                            |
+| `metaProperties`  | This key is used to pass meta-properties that will be stored in the metadata of the prompt access history. This is optional.                                            |

@@ -71,7 +71,8 @@ export async function upsertPromptVersion(promptInput: PromptUpdate) {
 }
 
 export async function updateDownloadDetails(
-	promptDownloadInput: PromptDownloadInput
+	promptDownloadInput: PromptDownloadInput,
+	dbConfigId?: string
 ) {
 	const { err, data } = await dataCollector(
 		{
@@ -85,7 +86,8 @@ export async function updateDownloadDetails(
 				},
 			],
 		},
-		"insert"
+		"insert",
+		dbConfigId
 	);
 
 	if (err || !(data as any)?.query_id)

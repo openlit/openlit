@@ -122,7 +122,8 @@
         "latest/features/metrics",
         "latest/features/gpu",
         "latest/features/pricing",
-        "latest/features/multiple-db"
+        "latest/features/multiple-db",
+        "latest/features/prompt-hub"
       ],
       "version": "latest"
     },

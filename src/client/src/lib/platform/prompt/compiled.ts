@@ -4,6 +4,7 @@ import { validatePromptCompiledInput } from "@/helpers/prompt";
 import { getSpecificPrompt } from ".";
 import { objectEntries } from "@/utils/object";
 import { updateDownloadDetails } from "./version";
+import { jsonParse } from "@/utils/json";
 
 export async function getCompiledPrompt(
 	promptCompiledInput: PromptCompiledInput
@@ -17,14 +18,18 @@ export async function getCompiledPrompt(
 	const [err, apiInfo] = await getAPIKeyInfo({
 		apiKey: promptCompiledInput.apiKey,
 	});
-	if (err || !apiInfo.databaseConfigId)
+
+	if (err || !apiInfo?.databaseConfigId)
 		throw new Error(err || "No such apiKey exists!");
 
-	const { err: promptErr, data: promptData } = await getSpecificPrompt({
-		id: promptCompiledInput.id,
-		name: promptCompiledInput.name,
-		version: promptCompiledInput.version,
-	});
+	const { err: promptErr, data: promptData } = await getSpecificPrompt(
+		{
+			id: promptCompiledInput.id,
+			name: promptCompiledInput.name,
+			version: promptCompiledInput.version,
+		},
+		apiInfo?.databaseConfigId
+	);
 
 	const promptObject = (promptData as any)?.[0] || {};
 
@@ -33,12 +38,21 @@ export async function getCompiledPrompt(
 			(promptErr as any) || "No such prompt exists or isn't released yet!"
 		);
 
-	await updateDownloadDetails({
-		versionId: promptObject.versionId,
-		promptId: promptObject.promptId,
-		metaProperties: promptCompiledInput.downloadMetaProperties,
-		downloadSource: promptCompiledInput.downloadSource || "api",
-	});
+	await updateDownloadDetails(
+		{
+			versionId: promptObject.versionId,
+			promptId: promptObject.promptId,
+			metaProperties: {
+				...(promptCompiledInput.downloadMetaProperties || {}),
+				apiKeyId: apiInfo.id,
+			},
+			downloadSource: promptCompiledInput.downloadSource || "api",
+		},
+		apiInfo?.databaseConfigId
+	);
+
+	promptObject.metaProperties = jsonParse(promptObject.metaProperties);
+	promptObject.tags = jsonParse(promptObject.tags);
 
 	if (promptCompiledInput.compile === false) {
 		return promptObject;
