@@ -167,7 +167,7 @@ export default function PromptForm({
 
 	if (!versionData?.versionId) {
 		formFields.push({
-			label: "Prompt Name",
+			label: "Name",
 			description: "Only small alphabets and _ are allowed",
 			inputKey: `${versionData?.versionId || "new"}-name`,
 			fieldType: "INPUT",

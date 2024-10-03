@@ -93,7 +93,7 @@ export default function PromptHub() {
 				No such version of the prompt{" "}
 				<span className="bg-secondary text-primary px-2 text-sm mx-3">
 					{" "}
-					{updatedData.promptName}{" "}
+					{updatedData.name}{" "}
 				</span>{" "}
 				exists!
 			</div>
@@ -119,7 +119,7 @@ export default function PromptHub() {
 				<div className="flex w-full">
 					<div className="flex flex-col grow">
 						<div className="flex items-center text-2xl font-semibold text-stone-800 dark:text-stone-200 gap-4">
-							<h1>{updatedData.promptName}</h1>
+							<h1>{updatedData.name}</h1>
 							{updatedData.status === "DRAFT" && (
 								<Badge variant="outline" className="transition-none text-stone-500 dark:bg-stone-800 dark:text-stone-400">Draft</Badge>
 							)}

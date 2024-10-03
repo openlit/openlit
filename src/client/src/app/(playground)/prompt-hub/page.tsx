@@ -13,9 +13,9 @@ import { BookOpenText } from "lucide-react";
 
 const columns = [
 	{
-		key: "promptName",
+		key: "name",
 		className: "col-span-2",
-		header: "Prompt Name",
+		header: "Name",
 	},
 	{
 		key: "createdBy",

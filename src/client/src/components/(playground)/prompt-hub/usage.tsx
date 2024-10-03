@@ -63,7 +63,7 @@ function PromptUsageType() {
 							className="text-xs"
 							code={`
 const response = await Openlit.getPrompts({
-  promptName: "prompt_name",
+  name: "prompt_name",
   compile: true,
   variables: {
     name: "John",
@@ -99,7 +99,7 @@ const data = [
 			"The sdk uses this key to look for openlit url else picks OPENLIT_URL from the environment variable and defaults to http://127.0.0.1:3000. This is optional.",
 	},
 	{
-		key: "promptName",
+		key: "name",
 		description:
 			"This key is used to fetch unique prompt by name. This is optional. You can use either id or name.",
 	},

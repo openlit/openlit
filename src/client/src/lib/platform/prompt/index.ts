@@ -89,7 +89,7 @@ export async function getPrompts() {
 
 	const query = `SELECT
 			p.id AS promptId,
-			p.name AS promptName,
+			p.name AS name,
 			p.created_by AS createdBy,
 			COUNT(DISTINCT v.version) AS totalVersions,         -- Total number of versions for each prompt
 			MAX(v.version) AS latestVersion,           -- Latest version by version number
@@ -133,7 +133,7 @@ export async function getSpecificPrompt(
     SELECT
       p.id AS promptId,
       v.version_id AS versionId,
-      p.name AS promptName,
+      p.name AS name,
       v.version AS version,
       v.tags AS tags,
       v.meta_properties AS metaProperties,
@@ -162,7 +162,7 @@ export async function getPromptDetails(
 	const promptVersionQuery = `
     SELECT
     p.id AS promptId,
-    p.name AS promptName,
+    p.name AS name,
     p.created_by AS createdBy,
     p.created_at AS createdAt,
 		v.version_id AS versionId,
@@ -234,56 +234,4 @@ ORDER BY
 			data: [combinedData],
 		};
 	});
-
-	const query = `
-    SELECT
-        p.id AS promptId,
-        p.name AS promptName,
-        p.created_by AS createdBy,
-        p.created_at AS createdAt,
-				anyIf(v.version_id, v.version = '${params?.version}') AS versionId,     -- Select prompt for the specific version
-				anyIf(v.prompt, v.version = '${params?.version}') AS prompt,     -- Select prompt for the specific version
-				anyIf(toString(v.status), v.version = '${params?.version}') AS status,     -- Select status for the specific version
-				anyIf(v.updated_at, v.version = '${params?.version}') AS updatedAt,  -- Select updatedAt for the specific version
-				anyIf(v.version, v.version = '${params?.version}') AS version,  -- Select updatedAt for the specific version
-        arraySort(
-					arrayMap(                                               -- Sort and map version details into an array
-						version_id, prompt_id, prompt, version, status, meta_properties, tags, updated_by, updated_at -> map(
-							'versionId', toString(version_id),             -- Version ID
-							'promptId', toString(prompt_id),               -- Prompt ID
-							'prompt', prompt,                              -- Prompt content
-							'version', version,                            -- Version number (e.g., 1.0.0)
-							'status', toString(status),                    -- Status of the version
-							'metaProperties', meta_properties,             -- Meta properties
-							'tags', tags,                                  -- Tags for the version
-							'updatedBy', updated_by,                       -- Who updated the version
-							'updatedAt', toString(updated_at)              -- When the version was updated
-					),
-					groupArray(
-						(
-							v.version_id, 
-							v.prompt_id, 
-							v.prompt, 
-							v.version, 
-							v.status, 
-							v.meta_properties, 
-							v.tags, 
-							v.updated_by, 
-							v.updated_at
-						)
-					)  -- Group all relevant fields
-    	)) AS versions
-    FROM
-        ${OPENLIT_PROMPTS_TABLE_NAME} p
-    LEFT JOIN
-        ${OPENLIT_PROMPT_VERSIONS_TABLE_NAME} v ON p.id = v.prompt_id
-    WHERE
-        p.id = '${promptId}'                          -- Filter by specific prompt ID
-    GROUP BY
-        p.id, p.name, p.created_by, p.created_at
-    ORDER BY
-        p.created_at DESC;
-    `;
-
-	return dataCollector({ query }, "query");
 }

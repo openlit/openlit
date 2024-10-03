@@ -4,7 +4,7 @@ import { PromptHubOptions } from './types';
 
 export default class PromptHub {
   static async getPrompts(options: PromptHubOptions) {
-    const url = process.env.OPENLIT_URL || options.openlitUrl || OPENLIT_URL;
+    const url = process.env.OPENLIT_URL || options.url || OPENLIT_URL;
     const apiKey = process.env.OPENLIT_API_KEY || options.apiKey;
     let metaProperties = {
       applicationName: OpenlitConfig.applicationName,
@@ -25,7 +25,7 @@ export default class PromptHub {
       const data = await fetch(`${url}/api/prompt/get-compiled`, {
         method: 'POST',
         body: JSON.stringify({
-          name: options.promptName,
+          name: options.name,
           apiKey,
           compile: !!options.compile,
           variables: options.variables || {},

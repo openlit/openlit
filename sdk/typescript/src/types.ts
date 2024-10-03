@@ -48,9 +48,9 @@ export type SetupTracerOptions = OpenlitOptions & {
 };
 
 export type PromptHubOptions = {
-  openlitUrl?: string;
+  url?: string;
   apiKey?: string;
-  promptName?: string;
+  name?: string;
   version?: string;
   compile?: boolean;
   variables?: Record<string, any>;
