@@ -31,8 +31,8 @@ You can create and manage prompts using the OpenLIT UI, which supports versionin
            ```python
             from openlit import Openlit  # Import the Openlit SDK
 
-            response = Openlit.get_prompts(
-              prompt_name="prompt_name",  # Fetch the prompt by name
+            response = openlit.get_prompt(
+              name="prompt_name",         # Fetch the prompt by name
               compile=True,               # Compile the prompt with provided variables
               variables={
                 "name": "John",           # Pass variables for prompt compilation
