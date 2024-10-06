@@ -183,7 +183,7 @@ async def test_async_openai_chat_completions():
 #     Tests asynchronous audio speech generation with the 'tts-1' model.
 
 #     Raises:
-#         AssertionError: If the audio speech response is not present or not an instance of an object.
+#         AssertionError: If the audio speech response is not present
 #     """
 
 #     audio_speech_resp = await async_client.audio.speech.create(
