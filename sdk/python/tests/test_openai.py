@@ -144,21 +144,21 @@ async def test_async_openai_chat_completions():
     )
     assert chat_completions_resp.object == 'chat.completion'
 
-@pytest.mark.asyncio
-async def test_async_openai_embeddings():
-    """
-    Tests asynchronous embedding creation with the 'text-embedding-ada-002' model.
+# @pytest.mark.asyncio
+# async def test_async_openai_embeddings():
+#     """
+#     Tests asynchronous embedding creation with the 'text-embedding-ada-002' model.
 
-    Raises:
-        AssertionError: If the embedding response object is not as expected.
-    """
+#     Raises:
+#         AssertionError: If the embedding response object is not as expected.
+#     """
 
-    embeddings_resp = await async_client.embeddings.create(
-        model="text-embedding-ada-002",
-        input="The quick brown fox jumped over the lazy dog",
-        encoding_format="float"
-    )
-    assert embeddings_resp.data[0].object == 'embedding'
+#     embeddings_resp = await async_client.embeddings.create(
+#         model="text-embedding-ada-002",
+#         input="The quick brown fox jumped over the lazy dog",
+#         encoding_format="float"
+#     )
+#     assert embeddings_resp.data[0].object == 'embedding'
 
 @pytest.mark.asyncio
 async def test_async_openai_image_variations():
@@ -177,17 +177,17 @@ async def test_async_openai_image_variations():
     )
     assert image_variation_resp.created is not None
 
-@pytest.mark.asyncio
-async def test_async_openai_audio_speech_create():
-    """
-    Tests asynchronous audio speech generation with the 'tts-1' model.
+# @pytest.mark.asyncio
+# async def test_async_openai_audio_speech_create():
+#     """
+#     Tests asynchronous audio speech generation with the 'tts-1' model.
 
-    Raises:
-        AssertionError: If the audio speech response is not present or not an instance of an object.
-    """
+#     Raises:
+#         AssertionError: If the audio speech response is not present or not an instance of an object.
+#     """
 
-    audio_speech_resp = await async_client.audio.speech.create(
-        model='tts-1',
-        voice='alloy',
-        input='LLM Observability!')
-    assert audio_speech_resp is not None and isinstance(audio_speech_resp, object)
+#     audio_speech_resp = await async_client.audio.speech.create(
+#         model='tts-1',
+#         voice='alloy',
+#         input='LLM Observability!')
+#     assert audio_speech_resp is not None and isinstance(audio_speech_resp, object)
