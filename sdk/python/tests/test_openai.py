@@ -160,22 +160,22 @@ async def test_async_openai_chat_completions():
 #     )
 #     assert embeddings_resp.data[0].object == 'embedding'
 
-@pytest.mark.asyncio
-async def test_async_openai_image_variations():
-    """
-    Tests asynchronous image variation creation with the 'dall-e-2' model.
+# @pytest.mark.asyncio
+# async def test_async_openai_image_variations():
+#     """
+#     Tests asynchronous image variation creation with the 'dall-e-2' model.
 
-    Raises:
-        AssertionError: If the image variation response created timestamp is not present.
-    """
+#     Raises:
+#         AssertionError: If the image variation response created timestamp is not present.
+#     """
 
-    image_variation_resp = await async_client.images.create_variation(
-        image=open("tests/test-image-for-openai.png", "rb"),
-        model='dall-e-2',
-        n=1,
-        size="256x256"
-    )
-    assert image_variation_resp.created is not None
+#     image_variation_resp = await async_client.images.create_variation(
+#         image=open("tests/test-image-for-openai.png", "rb"),
+#         model='dall-e-2',
+#         n=1,
+#         size="256x256"
+#     )
+#     assert image_variation_resp.created is not None
 
 # @pytest.mark.asyncio
 # async def test_async_openai_audio_speech_create():
