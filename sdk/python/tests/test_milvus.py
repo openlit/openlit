@@ -27,7 +27,7 @@ client = MilvusClient(
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
-COLLECTION_NAME = "openlit"
+COLLECTION_NAME = "OpenLIT"
 
 def test_db_milvus():
     """
