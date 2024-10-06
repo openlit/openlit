@@ -42,6 +42,22 @@ meter = ...
 openlit.init(meter=meter)
 ```
 
+## Add custom resource attributes
+
+The [`OTEL_RESOURCE_ATTRIBUTES`](https://opentelemetry.io/docs/languages/sdk-configuration/general/#otel_resource_attributes) environment variable allows you to provide additional OpenTelemetry resource attributes when starting your application with OpenLIT. OpenLIT already includes some default resource attributes:
+
+- `telemetry.sdk.name: openlit`
+- `service.name: YOUR_SERVICE_NAME`
+- `deployment.environment: YOUR_ENVIRONMENT_NAME`
+
+You can enhance these default resource attributes by adding your own using the `OTEL_RESOURCE_ATTRIBUTES` variable. Your custom attributes will be added on top of the existing OpenLIT attributes, providing additional context to your telemetry data. Simply format your attributes as `key1=value1,key2=value2`.
+
+For example:
+
+```shell
+export OTEL_RESOURCE_ATTRIBUTES="service.instance.id=YOUR_SERVICE_ID,k8s.pod.name=K8S_POD_NAME,k8s.namespace.name=K8S_NAMESPACE,k8s.node.name=K8S_NODE_NAME"
+```
+
 ## Semantic Convention
 
 This section outlines the OpenTelemetry metrics collected by **OpenLIT** from applications using LLMs and Vector Databases. These metrics offer a straightforward overview of application performance and resource usage. They serve as a supplement to the detailed data captured through [tracing](./tracing), aiding in the easy creation of dashboards for quick monitoring of system usage and performance.
