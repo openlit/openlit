@@ -78,9 +78,9 @@ For more details, check out the [OpenLIT documentation](https://docs.openlit.io/
 
 | Metric Name                         | Description                              | Unit       | Type  | Attributes                                                                                                 |
 |-------------------------------------|------------------------------------------|------------|-------|------------------------------------------------------------------------------------------------------------|
-| `gpu.utilization_percentage`        | GPU Utilization in percentage            | `percent`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
-| `gpu.enc.utilization_percentage`    | GPU encoder Utilization in percentage    | `percent`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
-| `gpu.dec.utilization_percentage`    | GPU decoder Utilization in percentage    | `percent`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.utilization`        | GPU Utilization in percentage            | `percent`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.enc.utilization`    | GPU encoder Utilization in percentage    | `percent`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
+| `gpu.dec.utilization`    | GPU decoder Utilization in percentage    | `percent`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
 | `gpu.temperature`                   | GPU Temperature in Celsius               | `Celcius`       | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
 | `gpu.fan_speed`                     | GPU Fan Speed (0-100) as an integer      | `Integer`  | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |
 | `gpu.memory.available`              | Available GPU Memory in MB               | `MB`       | Gauge | `telemetry.sdk.name`, `gen_ai.application_name`, `gen_ai.environment`, `gpu_index`, `gpu_name`, `gpu_uuid` |

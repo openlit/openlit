@@ -7,11 +7,7 @@ export default function GPUDashboard() {
 			<NumberStats />
 			<div className="grid-cols-2 grid gap-4">
 				<GPUMetric
-					chartKeys={[
-						"utilization_percentage",
-						"enc_utilization_percentage",
-						"dec_utilization_percentage",
-					]}
+					chartKeys={["utilization", "enc_utilization", "dec_utilization"]}
 					url="/api/metrics/gpu/utilization/time"
 					title="Avg Utilization Percentage (%)"
 				/>
@@ -26,7 +22,7 @@ export default function GPUDashboard() {
 					url="/api/metrics/gpu/memory/time"
 					title="Memory (MB)"
 				/>
-				
+
 				<GPUMetric
 					chartKeys={["power.limit", "power.draw"]}
 					url="/api/metrics/gpu/power/time"
