@@ -56,7 +56,7 @@ export default class CohereWrapper {
 
             const { dimensions, encoding_format = 'float', input, user, texts = [] } = args[0];
             // Set base span attribues
-            OpenAIWrapper.setBaseSpanAttributes(span, {
+            CohereWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
               model,
               user,
@@ -106,7 +106,7 @@ export default class CohereWrapper {
             return originalMethod.apply(this, args);
           })
           .then((response) => {
-            return OpenAIWrapper._chat({ args, genAIEndpoint, response, span });
+            return CohereWrapper._chat({ args, genAIEndpoint, response, span });
           })
           .catch((e: any) => {
             OpenLitHelper.handleException(span, e);
@@ -128,7 +128,7 @@ export default class CohereWrapper {
           .then((response) => {
             return OpenLitHelper.createStreamProxy(
               response,
-              OpenAIWrapper._chatGenerator({
+              CohereWrapper._chatGenerator({
                 args,
                 genAIEndpoint,
                 response,
@@ -156,7 +156,7 @@ export default class CohereWrapper {
     span: Span;
   }): Promise<any> {
     try {
-      await OpenAIWrapper._chatCommonSetter({
+      await CohereWrapper._chatCommonSetter({
         args,
         genAIEndpoint,
         result: response,
@@ -202,7 +202,7 @@ export default class CohereWrapper {
         yield chunk;
       }
 
-      await OpenAIWrapper._chatCommonSetter({
+      await CohereWrapper._chatCommonSetter({
         args,
         genAIEndpoint,
         result,
@@ -273,7 +273,7 @@ export default class CohereWrapper {
       result.meta.billedUnits.outputTokens
     );
 
-    OpenAIWrapper.setBaseSpanAttributes(span, {
+    CohereWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
       model,
       user,
