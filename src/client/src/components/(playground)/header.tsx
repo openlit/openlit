@@ -14,6 +14,7 @@ import { useRootStore } from "@/store";
 import { getUserDetails } from "@/selectors/user";
 import useTheme from "@/utils/hooks/useTheme";
 import Link from "next/link";
+import RefreshRate from "./filter/refresh-rate";
 
 const ThemeToggleSwitch = () => {
 	const { toggleTheme } = useTheme();
@@ -41,6 +42,7 @@ export default function Header() {
 				{pathname.substring(1).replaceAll("-", " ").split("/")[0]}
 			</h1>
 			<DatabaseConfigSwitch />
+			<RefreshRate />
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button
