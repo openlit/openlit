@@ -7,6 +7,8 @@ large language models (LLMs).
 
 from typing import Dict
 import logging
+import os
+import requests
 from importlib.util import find_spec
 from functools import wraps
 from contextlib import contextmanager
@@ -316,6 +318,65 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)
 
+def get_prompt(url=None, name=None, api_key=None, id=None, version=None, compile=None, variables=None, meta_properties=None):
+
+    def get_env_variable(name, arg_value, error_message):
+        """
+        Retrieve an environment variable if the argument is not provided
+        and raise an error if both are not set.
+        """
+
+        if arg_value is not None:
+            return arg_value
+        value = os.getenv(name)
+        if not value:
+            logging.error(error_message)
+            raise RuntimeError(error_message)
+        return value
+
+    # Validate and set the base URL
+    url = get_env_variable(
+        'OPENLIT_URL', 
+        url, 
+        'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
+    )
+
+    # Validate and set the API key
+    api_key = get_env_variable(
+        'OPENLIT_API_KEY', 
+        api_key,
+        'Missing API key: Provide as arg or set OPENLIT_API_KEY env var.'
+    )
+
+    # Construct the API endpoint
+    endpoint = url + "/api/prompt/get-compiled"
+
+    # Prepare the payload
+    payload = {
+        'name': name,
+        'apiKey': api_key,
+        'id': id,
+        'version': version,
+        'compile': compile,
+        'variables': variables,
+        'metaProperties': meta_properties
+    }
+
+    # Remove None values from payload
+    payload = {k: v for k, v in payload.items() if v is not None}
+
+    try:
+        # Make the GET request to the API
+        response = requests.post(endpoint, json=payload)
+
+        # Check if the response is successful
+        response.raise_for_status()
+
+        # Return the JSON response
+        return response.json()
+    except requests.RequestException as error:
+        print(f"Error fetching prompt: {error}")
+        return None
 
 def trace(wrapped):
     """
