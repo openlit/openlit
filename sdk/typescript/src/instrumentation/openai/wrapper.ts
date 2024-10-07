@@ -1,30 +1,11 @@
-import { Span, SpanKind, SpanStatusCode, Tracer, context, trace } from '@opentelemetry/api';
+import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import { SDK_NAME, TELEMETRY_SDK_NAME } from '../../constant';
+import BaseWrapper from '../base-wrapper';
 
-export default class OpenAIWrapper {
-  static setBaseSpanAttributes(
-    span: any,
-    { genAIEndpoint, model, user, cost, environment, applicationName }: any
-  ) {
-    span.setAttributes({
-      [TELEMETRY_SDK_NAME]: SDK_NAME,
-    });
-
-    span.setAttribute(TELEMETRY_SDK_NAME, SDK_NAME);
-    span.setAttribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_OPENAI);
-    span.setAttribute(SemanticConvention.GEN_AI_ENDPOINT, genAIEndpoint);
-    span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment);
-    span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, applicationName);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, user);
-    if (cost !== undefined) span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, cost);
-
-    span.setStatus({ code: SpanStatusCode.OK });
-  }
-
+export default class OpenAIWrapper extends BaseWrapper {
+  static aiSystem = SemanticConvention.GEN_AI_SYSTEM_OPENAI;
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
@@ -184,8 +165,6 @@ export default class OpenAIWrapper {
     result: any;
     span: Span;
   }) {
-    const applicationName = OpenlitConfig.applicationName;
-    const environment = OpenlitConfig.environment;
     const traceContent = OpenlitConfig.traceContent;
     const {
       messages,
@@ -261,8 +240,7 @@ export default class OpenAIWrapper {
       model,
       user,
       cost,
-      applicationName,
-      environment,
+      aiSystem: OpenAIWrapper.aiSystem,
     });
 
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS, result.usage.prompt_tokens);
@@ -302,8 +280,6 @@ export default class OpenAIWrapper {
 
   static _patchEmbedding(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.embeddings';
-    const applicationName = OpenlitConfig.applicationName;
-    const environment = OpenlitConfig.environment;
     const traceContent = OpenlitConfig.traceContent;
 
     return (originalMethod: (...args: any[]) => any) => {
@@ -312,9 +288,6 @@ export default class OpenAIWrapper {
         return context.with(trace.setSpan(context.active(), span), async () => {
           try {
             const response = await originalMethod.apply(this, args);
-            span.setAttributes({
-              [TELEMETRY_SDK_NAME]: SDK_NAME,
-            });
 
             const model = response.model || 'text-embedding-ada-002';
             const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
@@ -336,8 +309,7 @@ export default class OpenAIWrapper {
               model,
               user,
               cost,
-              applicationName,
-              environment,
+              aiSystem: OpenAIWrapper.aiSystem,
             });
 
             // Request Params attributes : Start
@@ -371,8 +343,6 @@ export default class OpenAIWrapper {
 
   static _patchFineTune(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.fine_tuning.jobs';
-    const applicationName = OpenlitConfig.applicationName;
-    const environment = OpenlitConfig.environment;
 
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
@@ -380,9 +350,6 @@ export default class OpenAIWrapper {
         return context.with(trace.setSpan(context.active(), span), async () => {
           try {
             const response = await originalMethod.apply(this, args);
-            span.setAttributes({
-              [TELEMETRY_SDK_NAME]: SDK_NAME,
-            });
 
             const model = response.model || 'gpt-3.5-turbo';
             const {
@@ -398,8 +365,7 @@ export default class OpenAIWrapper {
               genAIEndpoint,
               model,
               user,
-              applicationName,
-              environment,
+              aiSystem: OpenAIWrapper.aiSystem,
             });
 
             span.setAttribute(
@@ -446,8 +412,6 @@ export default class OpenAIWrapper {
 
   static _patchImageGenerate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.images';
-    const applicationName = OpenlitConfig.applicationName;
-    const environment = OpenlitConfig.environment;
     const traceContent = OpenlitConfig.traceContent;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
@@ -481,8 +445,7 @@ export default class OpenAIWrapper {
               model,
               user,
               cost,
-              applicationName,
-              environment,
+              aiSystem: OpenAIWrapper.aiSystem,
             });
 
             // Request Params attributes : Start
@@ -524,8 +487,6 @@ export default class OpenAIWrapper {
 
   static _patchImageVariation(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.images';
-    const applicationName = OpenlitConfig.applicationName;
-    const environment = OpenlitConfig.environment;
     const traceContent = OpenlitConfig.traceContent;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
@@ -560,8 +521,7 @@ export default class OpenAIWrapper {
               model,
               user,
               cost,
-              applicationName,
-              environment,
+              aiSystem: OpenAIWrapper.aiSystem,
             });
 
             // Request Params attributes : Start
@@ -602,8 +562,6 @@ export default class OpenAIWrapper {
 
   static _patchAudioCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.audio.speech';
-    const applicationName = OpenlitConfig.applicationName;
-    const environment = OpenlitConfig.environment;
     const traceContent = OpenlitConfig.traceContent;
     return (originalMethod: (...args: any[]) => any) => {
       return async function (this: any, ...args: any[]) {
@@ -628,8 +586,7 @@ export default class OpenAIWrapper {
               model,
               user,
               cost,
-              applicationName,
-              environment,
+              aiSystem: OpenAIWrapper.aiSystem,
             });
 
             // Request Params attributes : Start
