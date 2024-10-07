@@ -17,7 +17,7 @@ function createAPIKey() {
 	return apiKey;
 }
 
-export async function generateAPIKey() {
+export async function generateAPIKey(name: string) {
 	const user = await getCurrentUser();
 
 	if (!user) throw new Error("Unauthorized user!");
@@ -33,6 +33,7 @@ export async function generateAPIKey() {
 	await prisma.aPIKeys.create({
 		data: {
 			apiKey,
+			name,
 			databaseConfigId: dbConfig.id,
 			createdByUserId: user.id,
 		},
@@ -79,6 +80,7 @@ export async function getAllAPIKeys() {
 				],
 			},
 			select: {
+				name: true,
 				apiKey: true,
 				createdAt: true,
 				id: true,

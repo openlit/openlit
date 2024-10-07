@@ -1,7 +1,4 @@
-import {
-	generateAPIKey,
-	getAllAPIKeys,
-} from "@/lib/platform/prompt/api-keys";
+import { generateAPIKey, getAllAPIKeys } from "@/lib/platform/prompt/api-keys";
 import asaw from "@/utils/asaw";
 
 export async function GET() {
@@ -9,8 +6,11 @@ export async function GET() {
 	return Response.json(res);
 }
 
-export async function POST() {
-	const [err, res]: any = await asaw(generateAPIKey());
+export async function POST(request: Request) {
+	const formData = await request.json();
+	const name = formData.name;
+
+	const [err, res]: any = await asaw(generateAPIKey(name));
 
 	if (err)
 		return Response.json(err, {

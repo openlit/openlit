@@ -9,7 +9,8 @@ import { format } from "date-fns";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import TableData from "@/components/common/table-data";
-import { BookOpenText } from "lucide-react";
+import { BookOpenText, TrashIcon } from "lucide-react";
+import ConfirmationModal from "@/components/common/confirmation-modal";
 
 const columns = [
 	{
@@ -51,19 +52,33 @@ const columns = [
 	{
 		header: "Actions",
 		className: "col-span-1 text-center",
-		render: (data: any) => (
-			<Link
-				href={`/prompt-hub/${data.promptId}`}
-				className="inline-block hover:text-stone-700 hover:dark:text-stone-300"
-			>
-				<BookOpenText className="w-4"/>
-			</Link>
+		render: (data: any, extraFunction: { handleDelete: (p?: any) => void }) => (
+			<div className="flex justify-center gap-4">
+				<Link
+					href={`/prompt-hub/${data.promptId}`}
+					className="inline-block hover:text-stone-700 hover:dark:text-stone-300"
+				>
+					<BookOpenText className="w-4 hover:text-primary" />
+				</Link>
+				<ConfirmationModal
+					handleYes={extraFunction?.handleDelete}
+					title="Are you sure you want to delete this prompt?"
+					subtitle="Deleting prompts might result in breaking application if they are getting used. Please confirm before deleting it."
+					params={{
+						id: data.promptId,
+					}}
+				>
+					<TrashIcon className="w-4 cursor-pointer hover:text-primary" />
+				</ConfirmationModal>
+			</div>
 		),
 	},
 ];
 
 export default function PromptHub() {
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const { fireRequest: fireDeleteRequest, isLoading: isDeleting } =
+		useFetchWrapper();
 	const pingStatus = useRootStore(getPingStatus);
 	const fetchData = useCallback(async () => {
 		fireRequest({
@@ -77,8 +92,28 @@ export default function PromptHub() {
 		});
 	}, []);
 
+	const deletePrompt = useCallback(
+		async ({ id }: { id: string }) => {
+			fireDeleteRequest({
+				requestType: "DELETE",
+				url: `/api/prompt/${id}`,
+				successCb: (data: any) => {
+					toast.success(data, {
+						id: "prompt-hub",
+					});
+					fetchData();
+				},
+				failureCb: (err?: string) => {
+					toast.error(err || `Cannot connect to server!`, {
+						id: "prompt-hub",
+					});
+				},
+			});
+		},
+		[fetchData]
+	);
+
 	useEffect(() => {
-		console.log(pingStatus);
 		if (pingStatus !== "pending") fetchData();
 	}, [pingStatus]);
 
@@ -89,8 +124,11 @@ export default function PromptHub() {
 			columns={columns}
 			data={updatedData}
 			isFetched={isFetched || pingStatus === "failure"}
-			isLoading={isLoading}
+			isLoading={isLoading || isDeleting}
 			idKey="promptId"
+			extraFunction={{
+				handleDelete: deletePrompt,
+			}}
 		/>
 	);
 }

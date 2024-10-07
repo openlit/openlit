@@ -140,6 +140,7 @@ model DatabaseConfigInvitedUser {
 
 model APIKeys {
   id               String          @id @default(cuid())
+  name             String          @default("default")
   apiKey           String          @unique
   databaseConfigId String          @map("database_config_id")
   databaseConfig   DatabaseConfig? @relation(fields: [databaseConfigId], references: [id])
@@ -152,7 +153,7 @@ model APIKeys {
   deletedByUser    User?           @relation("deletedByUser", fields: [deletedByUserId], references: [id])
 }
 
-model PromptMigrations {
+model ClickhouseMigrations {
   id                    String @id @default(cuid())
   databaseConfigId      String
   clickhouseMigrationId String

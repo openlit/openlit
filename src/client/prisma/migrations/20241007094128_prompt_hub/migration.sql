@@ -1,6 +1,7 @@
 -- CreateTable
 CREATE TABLE "APIKeys" (
     "id" TEXT NOT NULL PRIMARY KEY,
+    "name" TEXT NOT NULL DEFAULT 'default',
     "apiKey" TEXT NOT NULL,
     "database_config_id" TEXT NOT NULL,
     "isDeleted" BOOLEAN NOT NULL DEFAULT false,
@@ -14,7 +15,7 @@ CREATE TABLE "APIKeys" (
 );
 
 -- CreateTable
-CREATE TABLE "PromptMigrations" (
+CREATE TABLE "ClickhouseMigrations" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "databaseConfigId" TEXT NOT NULL,
     "clickhouseMigrationId" TEXT NOT NULL

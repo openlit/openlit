@@ -22,7 +22,7 @@ export default async function (databaseConfigId?: string) {
 	if (err || !dbConfig?.id) throw err || "No database config present!";
 
 	const [, migrationExist] = await asaw(
-		prisma.promptMigrations.findFirst({
+		prisma.clickhouseMigrations.findFirst({
 			where: {
 				AND: {
 					databaseConfigId: dbConfig.id as string,
@@ -89,7 +89,7 @@ export default async function (databaseConfigId?: string) {
 
 	if (queriesRun.filter(({ err }) => !err).length === queries.length) {
 		await asaw(
-			prisma.promptMigrations.create({
+			prisma.clickhouseMigrations.create({
 				data: {
 					databaseConfigId: dbConfig.id,
 					clickhouseMigrationId: MIGRATION_ID,

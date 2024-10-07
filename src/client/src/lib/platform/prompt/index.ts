@@ -7,7 +7,6 @@ import {
 } from "./table-details";
 import { verifyPromptInput } from "@/helpers/prompt";
 import { getCurrentUser } from "@/lib/session";
-import { jsonStringify } from "@/utils/json";
 
 export async function getPromptByName({ name }: { name: string }) {
 	const query = `
@@ -234,4 +233,27 @@ ORDER BY
 			data: [combinedData],
 		};
 	});
+}
+
+export async function deletePrompt(promptId: string) {
+	const user = await getCurrentUser();
+
+	if (!user) throw new Error("Unauthorized user!");
+
+	const queries = [
+		`DELETE FROM ${OPENLIT_PROMPTS_TABLE_NAME} WHERE id = '${promptId}';`,
+		`DELETE FROM ${OPENLIT_PROMPT_VERSIONS_TABLE_NAME} WHERE prompt_id = '${promptId}';`,
+		`DELETE FROM ${OPENLIT_PROMPT_VERSION_DOWNLOADS_TABLE_NAME} WHERE prompt_id = '${promptId}';`,
+	];
+
+	const queryResponses = await Promise.all(
+		queries.map(async (query) => await dataCollector({ query }, "exec"))
+	);
+
+	const errors = queryResponses.map(({ err }) => err).filter((e) => !!e);
+	if (errors.length > 0) {
+		return ["Error deleting prompt!"];
+	}
+
+	return [undefined, "Prompt deleted successfully!"];
 }
