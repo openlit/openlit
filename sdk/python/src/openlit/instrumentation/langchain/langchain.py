@@ -622,7 +622,7 @@ def achat(gen_ai_endpoint, version, environment, application_name,
             try:
                 input_tokens = response.response_metadata.get("prompt_eval_count", 0)
                 output_tokens = response.response_metadata.get("eval_count", 0)
-                
+
                 prompt = "" if isinstance(args[0], list) else args[0]
                 model = getattr(instance, 'model_name', getattr(instance, 'model', 'gpt-4'))
                 # Calculate cost of the operation
@@ -650,7 +650,6 @@ def achat(gen_ai_endpoint, version, environment, application_name,
                                     str(getattr(instance, 'top_k',1)))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
                                     str(getattr(instance, 'top_p',1)))
-                
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                     False)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
