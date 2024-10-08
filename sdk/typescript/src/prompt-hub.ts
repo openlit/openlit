@@ -34,7 +34,7 @@ export default class PromptHub {
           source: 'ts-sdk',
         }),
         headers: {
-          'OPENLIT-API-KEY': apiKey,
+          Authorization: `Bearer ${apiKey}`,
         },
       })
         .then(async (response) => {

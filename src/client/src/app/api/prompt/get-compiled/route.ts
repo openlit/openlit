@@ -1,9 +1,20 @@
+import getMessage from "@/constants/messages";
 import { PromptCompiledInput } from "@/constants/prompts";
 import { getCompiledPrompt } from "@/lib/platform/prompt/compiled";
 import asaw from "@/utils/asaw";
 
 export async function POST(request: Request) {
-	const apiKey = request.headers.get("OPENLIT-API-KEY") || "";
+	const authorizationHeader = request.headers.get("Authorization") || "";
+	let apiKey: string = "";
+	if (authorizationHeader.startsWith("Bearer ")) {
+		apiKey = authorizationHeader.replace(/^Bearer /, "");
+	} else {
+		return Response.json({
+			err: getMessage().NO_API_KEY,
+			res: null,
+		});
+	}
+
 	const formData = await request.json();
 
 	const promptInput: PromptCompiledInput = {
@@ -31,8 +42,7 @@ export async function OPTIONS() {
 		headers: {
 			"Access-Control-Allow-Origin": "*",
 			"Access-Control-Allow-Methods": "POST, OPTIONS",
-			"Access-Control-Allow-Headers":
-				"Content-Type, Authorization, OPENLIT-API-KEY",
+			"Access-Control-Allow-Headers": "Content-Type, Authorization",
 		},
 	});
 }
