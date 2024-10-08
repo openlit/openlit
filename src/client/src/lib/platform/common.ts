@@ -32,9 +32,9 @@ export interface MetricParams {
 }
 
 export type GPU_TYPE_KEY =
-	| "utilization_percentage"
-	| "enc.utilization_percentage"
-	| "dec.utilization_percentage"
+	| "utilization"
+	| "enc.utilization"
+	| "dec.utilization"
 	| "temperature"
 	| "fan_speed"
 	| "memory.available"

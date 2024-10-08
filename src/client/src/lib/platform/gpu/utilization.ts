@@ -11,10 +11,12 @@ import {
 export async function getAverageUtilization(params: GPUMetricParams) {
 	const query = `
 			SELECT
-				ROUND(AVG(Value), 2) as utilization_percentage
+				ROUND(AVG(Value), 2) as utilization
 			FROM
 					${OTEL_GPUS_TABLE_NAME}
-			WHERE ${getFilterWhereConditionForGPU(params)} AND MetricName = 'gpu.utilization_percentage'
+			WHERE ${getFilterWhereConditionForGPU(
+				params
+			)} AND MetricName = 'gpu.utilization'
 			GROUP BY
 				MetricName
   `;
@@ -23,11 +25,7 @@ export async function getAverageUtilization(params: GPUMetricParams) {
 }
 
 export async function getUtilizationParamsPerTime(params: GPUMetricParams) {
-	const keys = [
-		"utilization_percentage",
-		"enc.utilization_percentage",
-		"dec.utilization_percentage",
-	];
+	const keys = ["utilization", "enc.utilization", "dec.utilization"];
 	const { start, end } = params.timeLimit;
 	const dateTrunc = dateTruncGroupingLogic(end as Date, start as Date);
 
