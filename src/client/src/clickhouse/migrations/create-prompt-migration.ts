@@ -33,7 +33,9 @@ export default async function CreatePromptMigration(databaseConfigId?: string) {
 		})
 	);
 
-	if (migrationExist === 1) return;
+	if (migrationExist === 1) {
+		return;
+	}
 
 	const queries = [
 		`

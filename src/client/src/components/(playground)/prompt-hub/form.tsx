@@ -24,12 +24,8 @@ const getVersions = (startingVersion: string) => {
 		.map((val) => parseInt(val, 10));
 	return {
 		draft: startingVersion,
-		major: [versionNumbers[0] + 1, 0, 0].join(
-			"."
-		),
-		minor: [versionNumbers[0], versionNumbers[1] + 1, 0].join(
-			"."
-		),
+		major: [versionNumbers[0] + 1, 0, 0].join("."),
+		minor: [versionNumbers[0], versionNumbers[1] + 1, 0].join("."),
 		patch: [versionNumbers[0], versionNumbers[1], versionNumbers[2] + 1].join(
 			"."
 		),
@@ -88,7 +84,9 @@ export default function PromptForm({
 				if (response?.data?.promptId) {
 					router.push(`/prompt-hub/${response?.data?.promptId}`);
 				}
-				if (typeof successCallback === "function") successCallback();
+				if (typeof successCallback === "function") {
+					successCallback();
+				}
 			},
 			failureCb: (err?: string) => {
 				toast.error(err || "Creation of prompt failed!", {
@@ -140,7 +138,9 @@ export default function PromptForm({
 						`/prompt-hub/${response?.data?.promptId}?version=${payload.version}`
 					);
 				}
-				if (typeof successCallback === "function") successCallback();
+				if (typeof successCallback === "function") {
+					successCallback();
+				}
 			},
 			failureCb: (err?: string) => {
 				toast.error(err || "Updation of prompt version failed!", {

@@ -12,10 +12,11 @@ export async function POST(request: Request) {
 
 	const [err, res]: any = await asaw(generateAPIKey(name));
 
-	if (err)
+	if (err) {
 		return Response.json(err, {
 			status: 400,
 		});
+	}
 
 	return Response.json(res);
 }

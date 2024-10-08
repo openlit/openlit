@@ -59,18 +59,16 @@ const FormBuilder = ({
 						];
 					}
 				}
-			} else if (field.fieldType === "KEYVALUE") {
-				if (field.fieldTypeProps.name) {
-					formElement
-						.querySelectorAll(`[name*=${field.fieldTypeProps.name}]`)
-						.forEach((element) => {
-							set(
-								acc,
-								element.getAttribute("name")!,
-								element.getAttribute("value")
-							);
-						});
-				}
+			} else if (field.fieldType === "KEYVALUE" && field.fieldTypeProps.name) {
+				formElement
+					.querySelectorAll(`[name*=${field.fieldTypeProps.name}]`)
+					.forEach((element) => {
+						set(
+							acc,
+							element.getAttribute("name")!,
+							element.getAttribute("value")
+						);
+					});
 			}
 			return acc;
 		}, {});
@@ -87,7 +85,7 @@ const FormBuilder = ({
 
 				return onSubmit(e, getFormData(e));
 			}}
-			onKeyDown={(e) => (e.key === "Enter" ? false : true)}
+			onKeyDown={(e) => (!(e.key === "Enter"))}
 		>
 			<Card className="w-full border-0 flex flex-col h-full">
 				{heading && (

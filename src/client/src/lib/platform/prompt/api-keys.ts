@@ -13,9 +13,7 @@ function createAPIKey() {
 	const key = crypto.randomBytes(32);
 
 	// Convert the byte array to a Base64 string
-	const apiKey = `${APIKEY_PREFIX}${key.toString("base64")}`;
-
-	return apiKey;
+	return `${APIKEY_PREFIX}${key.toString("base64")}`;
 }
 
 export async function generateAPIKey(name: string) {

@@ -22,7 +22,7 @@ export default class PromptHub {
     }
 
     try {
-      const data = await fetch(`${url}/api/prompt/get-compiled`, {
+      return await fetch(`${url}/api/prompt/get-compiled`, {
         method: 'POST',
         body: JSON.stringify({
           name: options.name,
@@ -48,7 +48,6 @@ export default class PromptHub {
         .then((resp: any) => {
           return resp;
         });
-      return data;
     } catch (e: any) {
       if (e && typeof e.toString === 'function') {
         return {

@@ -2,7 +2,7 @@ import { getPromptDetails } from "@/lib/platform/prompt";
 import { NextRequest } from "next/server";
 
 export async function GET(request: NextRequest, context: any) {
-	const searchParams = request.nextUrl.searchParams;
+	const { searchParams } = request.nextUrl;
 	const version = searchParams.get("version") || undefined;
 	const { id } = context.params || {};
 

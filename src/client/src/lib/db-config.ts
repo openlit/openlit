@@ -4,6 +4,7 @@ import { getCurrentUser } from "./session";
 import { DatabaseConfig, DatabaseConfigInvitedUser } from "@prisma/client";
 import migrations from "@/clickhouse/migrations";
 import getMessage from "@/constants/messages";
+import { throwIfError } from "@/utils/error";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
@@ -78,7 +79,7 @@ export const upsertDBConfig = async (
 
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	const existingDBName = await prisma.databaseConfig.findUnique({
 		where: {
@@ -96,7 +97,7 @@ export const upsertDBConfig = async (
 	else whereObject.name = dbConfig.name;
 
 	if (id) {
-		await checkPermissionForDbAction(user.id, id, "EDIT");
+		await checkPermissionForDbAction(user!.id, id, "EDIT");
 	}
 
 	const [err, createddbConfig] = await asaw(
@@ -104,7 +105,7 @@ export const upsertDBConfig = async (
 			where: whereObject,
 			create: {
 				...(dbConfig as any),
-				createdByUserId: user.id,
+				createdByUserId: user!.id,
 			},
 			update: {
 				...dbConfig,
@@ -112,10 +113,12 @@ export const upsertDBConfig = async (
 		})
 	);
 
-	if (err) console.log(err, createddbConfig);
+	if (err) {
+		console.log(err, createddbConfig);
+	}
 
 	if (!id) {
-		await addDatabaseConfigUserEntry(user.id, createddbConfig.id, {
+		await addDatabaseConfigUserEntry(user!.id, createddbConfig.id, {
 			canEdit: true,
 			canDelete: true,
 			canShare: true,

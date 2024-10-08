@@ -94,7 +94,9 @@ export default function ManageKeys() {
 	}, []);
 
 	useEffect(() => {
-		if (pingStatus !== "pending") fetchData();
+		if (pingStatus !== "pending") {
+			fetchData();
+		}
 	}, [pingStatus]);
 
 	const handleYes = useCallback(

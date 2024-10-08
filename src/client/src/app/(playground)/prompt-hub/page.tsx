@@ -114,7 +114,9 @@ export default function PromptHub() {
 	);
 
 	useEffect(() => {
-		if (pingStatus !== "pending") fetchData();
+		if (pingStatus !== "pending") {
+			fetchData();
+		}
 	}, [pingStatus]);
 
 	const updatedData = (data as any) || [];
