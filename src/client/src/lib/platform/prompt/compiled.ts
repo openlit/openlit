@@ -5,22 +5,35 @@ import { getSpecificPrompt } from ".";
 import { objectEntries } from "@/utils/object";
 import { updateDownloadDetails } from "./version";
 import { jsonParse } from "@/utils/json";
+import { throwIfError } from "@/utils/error";
+import getMessage from "@/constants/messages";
+
+function compilePrompt(
+	prompt: string,
+	variables: Record<string, unknown>
+): string {
+	return objectEntries(variables).reduce((acc, [key, value]) => {
+		return acc.replaceAll(`{{${key}}}`, value as string);
+	}, prompt);
+}
 
 export async function getCompiledPrompt(
 	promptCompiledInput: PromptCompiledInput
 ) {
 	const verifiedInput = validatePromptCompiledInput(promptCompiledInput);
-	if (verifiedInput.err || !verifiedInput.success)
-		throw new Error(
-			verifiedInput.err || "Malformed input! Please check the docs"
-		);
+	throwIfError(
+		!!(verifiedInput.err || !verifiedInput.success),
+		verifiedInput.err || getMessage().MALFORMED_INPUTS
+	);
 
 	const [err, apiInfo] = await getAPIKeyInfo({
 		apiKey: promptCompiledInput.apiKey,
 	});
 
-	if (err || !apiInfo?.databaseConfigId)
-		throw new Error(err || "No such apiKey exists!");
+	throwIfError(
+		!!(err || !apiInfo?.databaseConfigId),
+		err || getMessage().NO_API_KEY
+	);
 
 	const { err: promptErr, data: promptData } = await getSpecificPrompt(
 		{
@@ -33,10 +46,10 @@ export async function getCompiledPrompt(
 
 	const promptObject = (promptData as any)?.[0] || {};
 
-	if (promptErr || !promptObject?.promptId || !promptObject?.version)
-		throw new Error(
-			(promptErr as any) || "No such prompt exists or isn't released yet!"
-		);
+	throwIfError(
+		!!(promptErr || !promptObject?.promptId || !promptObject?.version),
+		(promptErr as any) || getMessage().NO_PROMPT
+	);
 
 	await updateDownloadDetails(
 		{
@@ -55,15 +68,12 @@ export async function getCompiledPrompt(
 	promptObject.tags = jsonParse(promptObject.tags);
 
 	if (promptCompiledInput.compile === false) {
-		return promptObject;
+		promptObject.compiledPrompt = promptObject.prompt;
 	} else {
-		promptObject.compiledPrompt = objectEntries(
+		promptObject.compiledPrompt = compilePrompt(
+			promptObject.prompt,
 			promptCompiledInput.variables || {}
-		).reduce((acc, [key, value]) => {
-			acc = acc.replaceAll(`{{${key}}}`, value);
-			return acc;
-		}, promptObject.prompt);
-
-		return promptObject;
+		);
 	}
+	return promptObject;
 }

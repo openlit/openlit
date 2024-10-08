@@ -24,10 +24,10 @@ const getVersions = (startingVersion: string) => {
 		.map((val) => parseInt(val, 10));
 	return {
 		draft: startingVersion,
-		major: [versionNumbers[0] + 1, versionNumbers[1], versionNumbers[2]].join(
+		major: [versionNumbers[0] + 1, 0, 0].join(
 			"."
 		),
-		minor: [versionNumbers[0], versionNumbers[1] + 1, versionNumbers[2]].join(
+		minor: [versionNumbers[0], versionNumbers[1] + 1, 0].join(
 			"."
 		),
 		patch: [versionNumbers[0], versionNumbers[1], versionNumbers[2] + 1].join(

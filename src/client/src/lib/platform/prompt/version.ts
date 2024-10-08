@@ -7,18 +7,23 @@ import {
 import { consoleLog } from "@/utils/log";
 import { getCurrentUser } from "@/lib/session";
 import { jsonStringify } from "@/utils/json";
+import getMessage from "@/constants/messages";
+import Sanitizer from "@/utils/sanitizer";
+import { throwIfError } from "@/utils/error";
 
-export async function upsertPromptVersion(promptInput: PromptUpdate) {
+export async function upsertPromptVersion(promptInputParams: PromptUpdate) {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const promptInput = Sanitizer.sanitizeObject(promptInputParams);
 
 	let versionErr;
 	let versionData;
 
 	if (promptInput.versionId) {
 		const updateValues = [
-			`updated_by = '${user.email}'`,
+			`updated_by = '${user!.email}'`,
 			promptInput.version && "version = '" + promptInput.version + "'",
 			promptInput.status && "status = '" + promptInput.status + "'",
 			promptInput.prompt && "prompt = '" + promptInput.prompt + "'",
@@ -47,7 +52,7 @@ export async function upsertPromptVersion(promptInput: PromptUpdate) {
 				values: [
 					{
 						prompt_id: promptInput.promptId,
-						updated_by: user.email,
+						updated_by: user!.email,
 						version: promptInput.version,
 						status: promptInput.status,
 						prompt: promptInput.prompt,
@@ -62,18 +67,24 @@ export async function upsertPromptVersion(promptInput: PromptUpdate) {
 		versionData = data;
 	}
 
-	if (versionErr || !(versionData as { query_id: unknown })?.query_id)
-		throw new Error(
-			(versionErr as any).toString() || "Version cannot be saved"
-		);
+	throwIfError(
+		!!(versionErr || !(versionData as { query_id: unknown })?.query_id),
+		typeof versionErr?.toString === "function"
+			? versionErr.toString()
+			: (versionErr as string) || getMessage().VERSION_NOT_SAVED
+	);
 
-	return "Prompt Version saved successfully!";
+	return getMessage().VERSION_SAVED;
 }
 
 export async function updateDownloadDetails(
-	promptDownloadInput: PromptDownloadInput,
+	promptDownloadInputParams: PromptDownloadInput,
 	dbConfigId?: string
 ) {
+	const promptDownloadInput = Sanitizer.sanitizeObject(
+		promptDownloadInputParams
+	);
+
 	const { err, data } = await dataCollector(
 		{
 			table: OPENLIT_PROMPT_VERSION_DOWNLOADS_TABLE_NAME,
@@ -91,6 +102,6 @@ export async function updateDownloadDetails(
 	);
 
 	if (err || !(data as any)?.query_id)
-		consoleLog(err || "Download info cannot be saved!");
+		consoleLog(err || getMessage().DOWNLOAD_INFO_NOT_SAVED);
 	return true;
 }

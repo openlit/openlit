@@ -3,11 +3,12 @@ import prisma from "./prisma";
 import { getCurrentUser } from "./session";
 import { DatabaseConfig, DatabaseConfigInvitedUser } from "@prisma/client";
 import migrations from "@/clickhouse/migrations";
+import getMessage from "@/constants/messages";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	if (currentOnly) {
 		const dbConfig = await prisma.databaseConfigUser.findFirst({
@@ -77,7 +78,7 @@ export const upsertDBConfig = async (
 
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	const existingDBName = await prisma.databaseConfig.findUnique({
 		where: {
@@ -128,7 +129,7 @@ export const upsertDBConfig = async (
 export async function deleteDBConfig(id: string) {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	await checkPermissionForDbAction(user.id, id, "DELETE");
 
@@ -153,7 +154,7 @@ export async function deleteDBConfig(id: string) {
 export async function setCurrentDBConfig(id: string) {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	const currentConfig = await getDBConfigByUser(true);
 
@@ -204,7 +205,7 @@ export async function shareDBConfig({
 
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	const { dbUserConfig } = await checkPermissionForDbAction(
 		user.id,

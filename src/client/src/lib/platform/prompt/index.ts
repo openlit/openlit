@@ -7,10 +7,15 @@ import {
 } from "./table-details";
 import { verifyPromptInput } from "@/helpers/prompt";
 import { getCurrentUser } from "@/lib/session";
+import getMessage from "@/constants/messages";
+import Sanitizer from "@/utils/sanitizer";
+import { throwIfError } from "@/utils/error";
 
 export async function getPromptByName({ name }: { name: string }) {
 	const query = `
-		SELECT * FROM ${OPENLIT_PROMPTS_TABLE_NAME} WHERE name='${name}';
+		SELECT * FROM ${OPENLIT_PROMPTS_TABLE_NAME} WHERE name='${Sanitizer.sanitizeValue(
+		name
+	)}';
   `;
 
 	const { data }: { data?: any } = await dataCollector({ query });
@@ -22,35 +27,37 @@ export async function checkNameValidity({ name }: { name: string }) {
 	return { isValid: !data?.id };
 }
 
-export async function createPrompt(promptInput: PromptInput) {
+export async function createPrompt(promptInputParams: PromptInput) {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const promptInput = Sanitizer.sanitizeObject(promptInputParams);
 
 	const verifiedPrompt = verifyPromptInput(promptInput);
-	if (!verifiedPrompt.success) throw new Error(verifiedPrompt.err);
+	throwIfError(!verifiedPrompt.success, verifiedPrompt.err!);
 
 	const { isValid } = await checkNameValidity({ name: promptInput.name });
-	if (!isValid) {
-		throw new Error("Prompt name is already taken!");
-	}
+	throwIfError(!isValid, getMessage().PROMPT_NAME_TAKEN);
 
 	const { err } = await dataCollector(
 		{
 			table: OPENLIT_PROMPTS_TABLE_NAME,
-			values: [{ name: promptInput.name, created_by: user.email }],
+			values: [{ name: promptInput.name, created_by: user!.email }],
 		},
 		"insert"
 	);
 
-	if (err) throw new Error(err.toString());
+	throwIfError(
+		!!err,
+		typeof err?.toString === "function" ? err.toString() : (err as string)
+	);
 
 	const promptData = await getPromptByName({
 		name: promptInput.name,
 	});
-	if (!promptData?.id) {
-		throw new Error("Prompt cannot be created!");
-	}
+
+	throwIfError(!promptData?.id, getMessage().PROMPT_NOT_CREATED);
 
 	const { err: versionErr, data: versionData } = await dataCollector(
 		{
@@ -58,7 +65,7 @@ export async function createPrompt(promptInput: PromptInput) {
 			values: [
 				{
 					prompt_id: promptData.id,
-					updated_by: user.email,
+					updated_by: user!.email,
 					version: promptInput.version,
 					status: promptInput.status,
 					prompt: promptInput.prompt,
@@ -70,31 +77,33 @@ export async function createPrompt(promptInput: PromptInput) {
 		"insert"
 	);
 
-	if (versionErr || !(versionData as { query_id: unknown })?.query_id)
-		throw new Error(
-			(versionErr as any).toString() || "Version cannot be saved"
-		);
+	throwIfError(
+		!!(versionErr || !(versionData as { query_id: unknown })?.query_id),
+
+		typeof versionErr?.toString === "function"
+			? versionErr.toString()
+			: (versionErr as string) || getMessage().VERSION_NOT_CREATED
+	);
 
 	return {
 		data: { promptId: promptData.id },
-		message: "Prompt saved successfully!",
+		message: getMessage().PROMPT_SAVED,
 	};
 }
 
 export async function getPrompts() {
 	const user = await getCurrentUser();
-
-	if (!user) throw new Error("Unauthorized user!");
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	const query = `SELECT
 			p.id AS promptId,
 			p.name AS name,
 			p.created_by AS createdBy,
 			COUNT(DISTINCT v.version) AS totalVersions,         -- Total number of versions for each prompt
-			MAX(v.version) AS latestVersion,           -- Latest version by version number
-			any(v.updated_at) AS latestVersionDate,   -- The date when the latest version was updated
-			any(v.status) AS latestVersionStatus,      -- Status of the latest version in PUBLISHED state
-			countIf(d.download_id != '00000000-0000-0000-0000-000000000000') AS totalDownloads                   -- Total downloads for the prompt
+			MAX(v.version) AS latestVersion,                    -- Latest version by version number
+			any(v.updated_at) AS latestVersionDate,             -- The date when the latest version was updated
+			any(v.status) AS latestVersionStatus,               -- Status of the latest version in PUBLISHED state
+    	countDistinctIf(d.download_id, d.download_id != '00000000-0000-0000-0000-000000000000') AS totalDownloads
 		FROM
 				${OPENLIT_PROMPTS_TABLE_NAME} p
 		LEFT JOIN
@@ -112,9 +121,10 @@ export async function getPrompts() {
 }
 
 export async function getSpecificPrompt(
-	promptInput: Partial<SpecificPromptInput>,
+	promptInputParams: Partial<SpecificPromptInput>,
 	dbConfigId?: string
 ) {
+	const promptInput = Sanitizer.sanitizeObject(promptInputParams);
 	const conditionClauses = [];
 	if (promptInput.id) {
 		conditionClauses.push(`p.id = '${promptInput.id}'`);
@@ -152,11 +162,12 @@ export async function getSpecificPrompt(
 
 export async function getPromptDetails(
 	promptId: string,
-	params?: { version?: string }
+	parameters?: { version?: string }
 ) {
+	const params = Sanitizer.sanitizeObject(parameters || {});
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	const promptVersionQuery = `
     SELECT
@@ -208,11 +219,16 @@ ORDER BY
     v.meta_properties AS metaProperties,        -- Meta properties for the version
     v.tags AS tags,                             -- Tags for the version
     v.updated_by AS updatedBy,                  -- Who updated the version
-    v.updated_at AS updatedAt                   -- When the version was last updated
+    v.updated_at AS updatedAt,                   -- When the version was last updated
+		countDistinctIf(d.download_id, d.download_id != '00000000-0000-0000-0000-000000000000') AS totalDownloads      -- Total downloads for the prompt
 FROM
     ${OPENLIT_PROMPT_VERSIONS_TABLE_NAME} v
+LEFT JOIN
+		${OPENLIT_PROMPT_VERSION_DOWNLOADS_TABLE_NAME} d ON v.version_id = d.version_id  -- Join with downloads table
 WHERE
     v.prompt_id = '${promptId}'                 -- Filter by specific prompt ID
+GROUP BY
+		v.version_id, v.prompt_id, v.prompt, v.version, v.status, v.meta_properties, v.tags, v.updated_by, v.updated_at
 ORDER BY
     v.status = 'DRAFT' DESC,                  -- Prioritize DRAFT versions
     v.version DESC;                            
@@ -235,10 +251,11 @@ ORDER BY
 	});
 }
 
-export async function deletePrompt(promptId: string) {
+export async function deletePrompt(promptIdParam: string) {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+	const promptId = Sanitizer.sanitizeValue(promptIdParam);
 
 	const queries = [
 		`DELETE FROM ${OPENLIT_PROMPTS_TABLE_NAME} WHERE id = '${promptId}';`,
@@ -252,8 +269,8 @@ export async function deletePrompt(promptId: string) {
 
 	const errors = queryResponses.map(({ err }) => err).filter((e) => !!e);
 	if (errors.length > 0) {
-		return ["Error deleting prompt!"];
+		return [getMessage().PROMPT_NOT_DELETED];
 	}
 
-	return [undefined, "Prompt deleted successfully!"];
+	return [undefined, getMessage().PROMPT_DELETED];
 }

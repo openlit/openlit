@@ -154,6 +154,7 @@ export default function PromptUsage() {
 					<PromptUsageType />
 					<h2 className="text-stone-700 dark:text-stone-300">Options</h2>
 					<TableData
+						className="overflow-visible rounded-none"
 						columns={columns}
 						data={data}
 						isFetched

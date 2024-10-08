@@ -1,3 +1,4 @@
+import getMessage from "@/constants/messages";
 import { getDBConfigById, getDBConfigByUser } from "@/lib/db-config";
 import { dataCollector } from "@/lib/platform/common";
 import {
@@ -11,7 +12,7 @@ import { consoleLog } from "@/utils/log";
 
 const MIGRATION_ID = "create-prompt-table";
 
-export default async function (databaseConfigId?: string) {
+export default async function CreatePromptMigration(databaseConfigId?: string) {
 	let err, dbConfig;
 	if (databaseConfigId) {
 		[err, dbConfig] = await asaw(getDBConfigById({ id: databaseConfigId }));
@@ -19,7 +20,7 @@ export default async function (databaseConfigId?: string) {
 		[err, dbConfig] = await asaw(getDBConfigByUser(true));
 	}
 
-	if (err || !dbConfig?.id) throw err || "No database config present!";
+	if (err || !dbConfig?.id) throw err || getMessage().DATABASE_CONFIG_NOT_FOUND;
 
 	const [, migrationExist] = await asaw(
 		prisma.clickhouseMigrations.findFirst({

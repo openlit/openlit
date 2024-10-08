@@ -16,7 +16,7 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { jsonParse } from "@/utils/json";
 import { objectEntries } from "@/utils/object";
 import { format, formatDistance } from "date-fns";
-import { CalendarDays, Rocket } from "lucide-react";
+import { CalendarDays, CloudDownload, Rocket } from "lucide-react";
 import Link from "next/link";
 import {
 	useParams,
@@ -121,7 +121,12 @@ export default function PromptHub() {
 						<div className="flex items-center text-2xl font-semibold text-stone-800 dark:text-stone-200 gap-4">
 							<h1>{updatedData.name}</h1>
 							{updatedData.status === "DRAFT" && (
-								<Badge variant="outline" className="transition-none text-stone-500 dark:bg-stone-800 dark:text-stone-400">Draft</Badge>
+								<Badge
+									variant="outline"
+									className="transition-none text-stone-500 dark:bg-stone-800 dark:text-stone-400"
+								>
+									Draft
+								</Badge>
 							)}
 						</div>
 						<div className="flex items-center text-stone-800 dark:text-stone-200 opacity-60 gap-8">
@@ -172,21 +177,28 @@ export default function PromptHub() {
 				{tags.length > 0 ? (
 					<div className="flex gap-2">
 						{tags.map((tag: string) => (
-							<Badge key={tag} className="rounded-pill bg-stone-500 transition-none">
+							<Badge
+								key={tag}
+								className="rounded-pill bg-stone-500 transition-none"
+							>
 								{tag}
 							</Badge>
 						))}
 					</div>
 				) : null}
 				<div className="flex flex-col w-full">
-					<h3 className="text-sm text-stone-500 mb-2 dark:text-stone-400">Prompt</h3>
+					<h3 className="text-sm text-stone-500 mb-2 dark:text-stone-400">
+						Prompt
+					</h3>
 					<div className="flex bg-stone-100 dark:bg-stone-900 text-stone-500 dark:text-stone-300 p-4 gap-8">
 						{updatedData.prompt}
 					</div>
 				</div>
 				{metaPropertiesMap.length > 0 ? (
 					<div className="flex flex-col gap-2">
-						<h3 className="text-sm text-stone-500 dark:text-stone-400">Meta Properties</h3>
+						<h3 className="text-sm text-stone-500 dark:text-stone-400">
+							Meta Properties
+						</h3>
 						<div className="rounded-sm border border-stone-200 dark:border-stone-700">
 							<Table>
 								<TableHeader className="bg-stone-100 dark:bg-stone-800">
@@ -230,6 +242,7 @@ export default function PromptHub() {
 						>
 							<div className="flex w-min gap-2">
 								{versionItem.version}
+
 								{versionItem.versionId === latestVersion?.versionId ? (
 									<Badge
 										variant="outline"
@@ -247,7 +260,12 @@ export default function PromptHub() {
 									</Badge>
 								) : null}
 							</div>
-							<hr className="flex-1 border-stone-200 dark:border-stone-700" />
+							<hr className="flex-1 border-stone-200 dark:border-stone-700 " />
+							<div className="flex gap-1 text-xs items-center shrink-0">
+								<CloudDownload className="w-4" />
+								{versionItem.totalDownloads}
+							</div>
+							...
 							<div className="w-max">
 								{formatDistance(versionItem.updatedAt, new Date(), {
 									addSuffix: true,

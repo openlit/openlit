@@ -2,6 +2,7 @@ import { get } from "lodash";
 import IntermediateState from "@/components/(playground)/intermediate-state";
 
 export type TableDataProps = {
+	className?: string;
 	columns: {
 		key?: string;
 		className?: string;
@@ -16,6 +17,7 @@ export type TableDataProps = {
 };
 
 export default function TableData({
+	className,
 	columns,
 	isFetched,
 	isLoading,
@@ -24,7 +26,11 @@ export default function TableData({
 	extraFunction,
 }: TableDataProps) {
 	return (
-		<div className="flex flex-col w-full relative overflow-hidden rounded-md border dark:border-stone-500">
+		<div
+			className={`flex flex-col w-full relative overflow-hidden rounded-md border dark:border-stone-500 ${
+				className || ""
+			}`}
+		>
 			<div className="grid grid-cols-12 border-b text-stone-500 text-sm bg-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-500">
 				{columns.map((column, index) => {
 					return (

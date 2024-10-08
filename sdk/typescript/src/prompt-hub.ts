@@ -5,7 +5,7 @@ import { PromptHubOptions } from './types';
 export default class PromptHub {
   static async getPrompts(options: PromptHubOptions) {
     const url = process.env.OPENLIT_URL || options.url || OPENLIT_URL;
-    const apiKey = process.env.OPENLIT_API_KEY || options.apiKey;
+    const apiKey = process.env.OPENLIT_API_KEY || options.apiKey || '';
     let metaProperties = {
       applicationName: OpenlitConfig.applicationName,
       environment: OpenlitConfig.environment,
@@ -26,13 +26,16 @@ export default class PromptHub {
         method: 'POST',
         body: JSON.stringify({
           name: options.name,
-          apiKey,
+          version: options.version,
           compile: !!options.compile,
           variables: options.variables || {},
           id: options.promptId,
           metaProperties,
           source: 'ts-sdk',
         }),
+        headers: {
+          'OPENLIT-API-KEY': apiKey,
+        },
       })
         .then(async (response) => {
           if (!response.ok) {

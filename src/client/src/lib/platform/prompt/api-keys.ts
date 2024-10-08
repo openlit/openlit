@@ -3,7 +3,8 @@ import { getDBConfigByUser } from "@/lib/db-config";
 import asaw from "@/utils/asaw";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { consoleLog } from "@/utils/log";
+import { throwIfError } from "@/utils/error";
+import getMessage from "@/constants/messages";
 
 const APIKEY_PREFIX = "openlit-";
 
@@ -20,13 +21,12 @@ function createAPIKey() {
 export async function generateAPIKey(name: string) {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
 
-	if (err) throw err;
-
-	if (!dbConfig?.id) throw "No database config present!";
+	throwIfError(err, err);
+	throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
 
 	const apiKey = createAPIKey();
 
@@ -35,7 +35,7 @@ export async function generateAPIKey(name: string) {
 			apiKey,
 			name,
 			databaseConfigId: dbConfig.id,
-			createdByUserId: user.id,
+			createdByUserId: user!.id,
 		},
 	});
 
@@ -64,10 +64,9 @@ export async function getAPIKeyInfo({ apiKey }: { apiKey: string }) {
 
 export async function getAllAPIKeys() {
 	const [err, dbConfig] = await asaw(getDBConfigByUser(true));
+	throwIfError(err, err);
 
-	if (err) throw err;
-
-	if (!dbConfig?.id) throw "No database config present!";
+	throwIfError(!dbConfig?.id, getMessage().DATABASE_CONFIG_NOT_FOUND);
 
 	const [, data] = await asaw(
 		prisma.aPIKeys.findMany({
