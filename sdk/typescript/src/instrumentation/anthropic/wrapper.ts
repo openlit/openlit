@@ -1,29 +1,11 @@
-import { Span, SpanKind, SpanStatusCode, Tracer, context, trace } from '@opentelemetry/api';
+import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import { SDK_NAME, TELEMETRY_SDK_NAME } from '../../constant';
+import BaseWrapper from '../base-wrapper';
 
-export default class AnthropicWrapper {
-  static setBaseSpanAttributes(
-    span: any,
-    { genAIEndpoint, model, user, cost, environment, applicationName }: any
-  ) {
-    span.setAttributes({
-      [TELEMETRY_SDK_NAME]: SDK_NAME,
-    });
-
-    span.setAttribute(TELEMETRY_SDK_NAME, SDK_NAME);
-    span.setAttribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC);
-    span.setAttribute(SemanticConvention.GEN_AI_ENDPOINT, genAIEndpoint);
-    span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment);
-    span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, applicationName);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, user);
-    if (cost !== undefined) span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, cost);
-
-    span.setStatus({ code: SpanStatusCode.OK });
-  }
+export default class AnthropicWrapper extends BaseWrapper {
+  static aiSystem = SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC;
 
   static _patchMessageCreate(tracer: Tracer): any {
     const genAIEndpoint = 'anthropic.resources.messages';
@@ -174,8 +156,6 @@ export default class AnthropicWrapper {
     result: any;
     span: Span;
   }) {
-    const applicationName = OpenlitConfig.applicationName;
-    const environment = OpenlitConfig.environment;
     const traceContent = OpenlitConfig.traceContent;
     const {
       messages,
@@ -234,8 +214,7 @@ export default class AnthropicWrapper {
       model,
       user,
       cost,
-      applicationName,
-      environment,
+      aiSystem: AnthropicWrapper.aiSystem,
     });
 
     // Request Params attributes : Start
