@@ -320,6 +320,9 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
 
 def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
     version=None, compiled=None, variables=None, meta_properties=None):
+    """
+    Retrieve and returns the prompt from OpenLIT Prompt Hub
+    """
 
     def get_env_variable(name, arg_value, error_message):
         """
