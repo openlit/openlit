@@ -4,6 +4,7 @@ import asaw from "@/utils/asaw";
 import { getCurrentUser } from "./session";
 import { User } from "@prisma/client";
 import { moveSharedDBConfigToDBUser } from "./db-config";
+import getMessage from "@/constants/messages";
 
 function exclude<User extends Record<string, unknown>, K extends keyof User>(
 	user: User,
@@ -110,7 +111,7 @@ export const updateUserProfile = async ({
 }) => {
 	const user = await getCurrentUser({ selectPassword: true });
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	const updatedUserObject: Partial<User> = {};
 

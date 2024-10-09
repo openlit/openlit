@@ -2,11 +2,14 @@ import asaw from "@/utils/asaw";
 import prisma from "./prisma";
 import { getCurrentUser } from "./session";
 import { DatabaseConfig, DatabaseConfigInvitedUser } from "@prisma/client";
+import migrations from "@/clickhouse/migrations";
+import getMessage from "@/constants/messages";
+import { throwIfError } from "@/utils/error";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	if (currentOnly) {
 		const dbConfig = await prisma.databaseConfigUser.findFirst({
@@ -76,7 +79,7 @@ export const upsertDBConfig = async (
 
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	const existingDBName = await prisma.databaseConfig.findUnique({
 		where: {
@@ -94,26 +97,33 @@ export const upsertDBConfig = async (
 	else whereObject.name = dbConfig.name;
 
 	if (id) {
-		await checkPermissionForDbAction(user.id, id, "EDIT");
+		await checkPermissionForDbAction(user!.id, id, "EDIT");
 	}
 
-	const createddbConfig = await prisma.databaseConfig.upsert({
-		where: whereObject,
-		create: {
-			...(dbConfig as any),
-			createdByUserId: user.id,
-		},
-		update: {
-			...dbConfig,
-		},
-	});
+	const [err, createddbConfig] = await asaw(
+		prisma.databaseConfig.upsert({
+			where: whereObject,
+			create: {
+				...(dbConfig as any),
+				createdByUserId: user!.id,
+			},
+			update: {
+				...dbConfig,
+			},
+		})
+	);
+
+	if (err) {
+		console.log(err, createddbConfig);
+	}
 
 	if (!id) {
-		await addDatabaseConfigUserEntry(user.id, createddbConfig.id, {
+		await addDatabaseConfigUserEntry(user!.id, createddbConfig.id, {
 			canEdit: true,
 			canDelete: true,
 			canShare: true,
 		});
+		migrations(createddbConfig.id);
 	}
 
 	return `${id ? "Updated" : "Added"} db details successfully`;
@@ -122,7 +132,7 @@ export const upsertDBConfig = async (
 export async function deleteDBConfig(id: string) {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	await checkPermissionForDbAction(user.id, id, "DELETE");
 
@@ -147,7 +157,7 @@ export async function deleteDBConfig(id: string) {
 export async function setCurrentDBConfig(id: string) {
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	const currentConfig = await getDBConfigByUser(true);
 
@@ -198,7 +208,7 @@ export async function shareDBConfig({
 
 	const user = await getCurrentUser();
 
-	if (!user) throw new Error("Unauthorized user!");
+	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
 	const { dbUserConfig } = await checkPermissionForDbAction(
 		user.id,
