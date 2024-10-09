@@ -8,10 +8,10 @@ large language models (LLMs).
 from typing import Dict
 import logging
 import os
-import requests
 from importlib.util import find_spec
 from functools import wraps
 from contextlib import contextmanager
+import requests
 
 
 # Import internal modules for setting up tracing and fetching pricing info.
@@ -318,7 +318,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)
 
-def get_prompt(url=None, name=None, api_key=None, prompt_id=None, version=None, compile=None, variables=None, meta_properties=None):
+def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
+    version=None, compiled=None, variables=None, meta_properties=None):
 
     def get_env_variable(name, arg_value, error_message):
         """
@@ -335,8 +336,8 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None, version=None, 
 
     # Validate and set the base URL
     url = get_env_variable(
-        'OPENLIT_URL', 
-        url, 
+        'OPENLIT_URL',
+        url,
         'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
     )
 
@@ -355,7 +356,7 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None, version=None, 
         'name': name,
         'promptId': prompt_id,
         'version': version,
-        'compile': compile,
+        'compile': compiled,
         'variables': variables,
         'metaProperties': meta_properties
     }
@@ -371,7 +372,7 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None, version=None, 
 
     try:
         # Make the POST request to the API with headers
-        response = requests.post(endpoint, json=payload, headers=headers)
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
 
         # Check if the response is successful
         response.raise_for_status()
@@ -381,7 +382,6 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None, version=None, 
     except requests.RequestException as error:
         print(f"Error fetching prompt: {error}")
         return None
-
 
 def trace(wrapped):
     """

@@ -62,7 +62,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
                 url="http://127.0.0.1:3000", 
                 api_key="_OPENLIT_API_KEY",  
                 name="prompt_name",          
-                compile=True,                
+                compiled=True,                
                 variables={
                   "name": "John",            
                 },
@@ -96,7 +96,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
               | `name`            | Sets the name to fetch a unique prompt. Use this or `prompt_id`.                                                                    |
               | `prompt_id`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
               | `version`         | Set to `True` to get the prompt with variable substitution.. Optional                                                              |
-              | `compile`         | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
+              | `compiled`        | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
               | `variables`       | Sets the variables for prompt compilation. Optional                                                                                |
               | `meta_properties` | Sets the meta-properties for storing in the prompt's access history metadata. Optional                                             |
 
