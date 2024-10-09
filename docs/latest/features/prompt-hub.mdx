@@ -5,18 +5,18 @@ sidebarTitle: 'Prompt Hub'
 
 The Prompt-Hub allows you to manage prompts, fetch specific versions of the prompt, and compile prompts with variables.
 
-
 ## Key Features
+
 - **Prompt Management**: Create, edit, and track different versions of your prompts.
 - **Versioning**: Supports major, minor, and patch updates for clear version management.
 - **Dynamic Variables**: Use `{{variableName}}` placeholders that are dynamically replaced at runtime.
 - **Statistics**: View download stats and version history directly in the UI.
 
 
-## Get Started with Prompts
+## Get Started
 
 <Steps>
-  <Step title="List of prompts" stepNumber=" ">
+  <Step title="List of Prompts">
     Get a quick overview of all prompts created.
       1. Navigate to the Prompt Hub in OpenLIT.
       2. Explore the available prompts listed.
@@ -24,7 +24,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
       <img src="/images/docs-prompt-hub-list.png" />
     </Frame>
   </Step>
-  <Step title="Create prompt" stepNumber=" ">
+  <Step title="Create or Edit a Prompt">
     Build new prompts or edit existing ones with ease.
       1. Click on **+ New** to create a new prompt
       2. In the prompt editor, add the prompt name, Meta Properties and use placeholders like `{{variableName}}` to represent dynamic data that will be substituted when the prompt is compiled.
@@ -33,13 +33,13 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
       <img src="/images/docs-prompt-hub-create.png" />
     </Frame>
   </Step>
-  <Step title="View prompt" stepNumber=" ">
+  <Step title="View Prompt Details" stepNumber=" ">
     Once the prompt is creaetd, You can see information about the prompt along with details on all past versions.
     <Frame>
       <img src="/images/docs-prompt-hub-details.png" />
     </Frame>
   </Step>
-  <Step title="Retrieve Prompt">
+  <Step title="Retrieve the Prompt">
     <Steps>
       <Step title="Create an API Key">
       To authenticate your requests, you need an API key. Here's how you can create one:
@@ -93,12 +93,12 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
               |-------------------|------------------------------------------------------------------------------------------------------------------------------------|
               | `url`             | Sets the Openlit URL. Defaults to the `OPENLIT_URL` environment variable.                                                          |
               | `api_key`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
-              | `name`            | Sets the name to fetch a unique prompt. Use this or `promptId`.                                                                    |
-              | `prompt_id`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                         |
-              | `version`         | Sets the version to retrieve a specific prompt. Optional                                                                                   |
-              | `compile`         | Compiles the prompt using the provided variables. Optional                                                                                 |
-              | `variables`       | Sets the variables for prompt compilation. Optional                                                                                        |
-              | `meta_properties` | Sets the meta-properties for storing in the prompt's access history metadata. Optional                                                     |
+              | `name`            | Sets the name to fetch a unique prompt. Use this or `prompt_id`.                                                                    |
+              | `prompt_id`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
+              | `version`         | Set to `True` to get the prompt with variable substitution.. Optional                                                              |
+              | `compile`         | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
+              | `variables`       | Sets the variables for prompt compilation. Optional                                                                                |
+              | `meta_properties` | Sets the meta-properties for storing in the prompt's access history metadata. Optional                                             |
 
             </Tab>
             <Tab title="Typescript">
@@ -136,16 +136,16 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
 
               Below are the parameters for use with the SDK, formatted to indicate whether each is required or optional:
 
-              | Parameter        | Description                                                                                                                        | Required/Optional |
-              |------------------|------------------------------------------------------------------------------------------------------------------------------------|-------------------|
-              | `url`            | Sets the Openlit URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000` if not set.                    | Optional          |
-              | `apiKey`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     | Required          |
-              | `name`           | Sets the name to fetch a unique prompt. Use this or `promptId`.                                                                    | Optional          |
-              | `promptId`       | Sets the ID to fetch a unique prompt. Use this or `name`.                                                                          | Optional          |
-              | `version`        | Sets the version to retrieve a specific prompt.                                                                                    | Optional          |
-              | `compile`        | Compiles the prompt using the provided variables.                                                                                  | Optional          |
-              | `variables`      | Sets the variables for prompt compilation.                                                                                         | Optional          |
-              | `metaProperties` | Sets the meta-properties for storing in the prompt's access history metadata.                                                      | Optional          |
+              | Parameter        | Description                                                                                                                        |
+              |------------------|------------------------------------------------------------------------------------------------------------------------------------|
+              | `url`            | Sets the Openlit URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000` if not set.                    |
+              | `apiKey`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+              | `name`           | Sets the name to fetch a unique prompt. Use this or `promptId`.                                                                    |
+              | `promptId`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
+              | `version`        | Sets the version to retrieve a specific prompt. Optional                                                                           | 
+              | `compile`        | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
+              | `variables`      | Sets the variables for prompt compilation. Optional                                                                                | 
+              | `metaProperties` | Sets the meta-properties for storing in the prompt's access history metadata.                                                      | 
 
           </Tab>
           <Tab title="API">
