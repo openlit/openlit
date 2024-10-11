@@ -67,7 +67,7 @@ export async function getCompiledPrompt(
 	promptObject.metaProperties = jsonParse(promptObject.metaProperties);
 	promptObject.tags = jsonParse(promptObject.tags);
 
-	if (promptCompiledInput.compile === false) {
+	if (promptCompiledInput.shouldCompile === false) {
 		promptObject.compiledPrompt = promptObject.prompt;
 	} else {
 		promptObject.compiledPrompt = compilePrompt(

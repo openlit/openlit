@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 		version: formData.version,
 		apiKey,
 		variables: formData.variables || {},
-		compile: !!formData.compile,
+		shouldCompile: !!formData.shouldCompile,
 		downloadMetaProperties: formData.metaProperties,
 		downloadSource: formData.source,
 	};

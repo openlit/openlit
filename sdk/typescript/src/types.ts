@@ -52,7 +52,7 @@ export type PromptHubOptions = {
   apiKey?: string;
   name?: string;
   version?: string;
-  compile?: boolean;
+  shouldCompile?: boolean;
   variables?: Record<string, any>;
   promptId?: string;
   metaProperties?: Record<string, any>;

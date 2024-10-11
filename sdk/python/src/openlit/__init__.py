@@ -357,7 +357,7 @@ def get_prompt(url=None, name=None, api_key=None, id=None, version=None, compile
         'apiKey': api_key,
         'id': id,
         'version': version,
-        'compile': compile,
+        'shouldCompile': should_compile,
         'variables': variables,
         'metaProperties': meta_properties
     }

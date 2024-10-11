@@ -33,7 +33,7 @@ You can create and manage prompts using the OpenLIT UI, which supports versionin
 
             response = openlit.get_prompt(
               name="prompt_name",         # Fetch the prompt by name
-              compile=True,               # Compile the prompt with provided variables
+              should_compile=True,               # Compile the prompt with provided variables
               variables={
                 "name": "John",           # Pass variables for prompt compilation
               }
@@ -48,7 +48,7 @@ You can create and manage prompts using the OpenLIT UI, which supports versionin
 
             const response = await Openlit.getPrompts({
               name: "prompt_1",     // Fetch the prompt by name
-              compile: true,                 // Compile the prompt with provided variables
+              shouldCompile: true,                 // Compile the prompt with provided variables
               variables: {
                 name: "John",                // Pass variables for prompt compilation
               }
@@ -90,6 +90,6 @@ The following table describes the parameters that can be used with the SDK:
 | `name`      | This key is used to fetch a unique prompt by name. You can use either `name` or `promptId`. This is optional.                                                    |
 | `promptId`        | This key is used to fetch a unique prompt by its ID. You can use either `promptId` or `name`. This is optional.                                                  |
 | `version`         | This key is used to fetch a specific version of the prompt. This is optional.                                                                                          |
-| `compile`         | This key is used to fetch the prompt compiled with the passed variables. This is optional.                                                                             |
+| `shouldCompile`         | This key is used to check whether the prompt is required to be compiled with the passed variables. This is optional.                                                                             |
 | `variables`       | This key is used to pass variables to compile the prompt. This is optional.                                                                                            |
 | `metaProperties`  | This key is used to pass meta-properties that will be stored in the metadata of the prompt access history. This is optional.                                            |

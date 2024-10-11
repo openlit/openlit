@@ -27,7 +27,7 @@ export default class PromptHub {
         body: JSON.stringify({
           name: options.name,
           version: options.version,
-          compile: !!options.compile,
+          shouldCompile: !!options.shouldCompile,
           variables: options.variables || {},
           id: options.promptId,
           metaProperties,

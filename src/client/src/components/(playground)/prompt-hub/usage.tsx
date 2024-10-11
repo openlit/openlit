@@ -45,7 +45,19 @@ function PromptUsageType() {
 					<CardContent className="space-y-2">
 						<CodeBlock
 							className="text-xs"
-							code={`pip install openlit`}
+							code={`
+from openlit import Openlit  # Import the Openlit SDK
+
+response = openlit.get_prompt(
+	name="prompt_name",         # Fetch the prompt by name
+	should_compile=True,               # Compile the prompt with provided variables
+	variables={
+		"name": "John",           # Pass variables for prompt compilation
+	}
+)
+
+print(response)               # Print or process the fetched and compiled prompt
+							`}
 							language="bash"
 						/>
 					</CardContent>
@@ -64,7 +76,7 @@ function PromptUsageType() {
 							code={`
 const response = await Openlit.getPrompts({
   name: "prompt_name",
-  compile: true,
+  shouldCompile: true,
   variables: {
     name: "John",
   }
@@ -114,7 +126,7 @@ const data = [
 			"This key is used to fetch specific version. This is optional.",
 	},
 	{
-		key: "compile",
+		key: "shouldCompile",
 		description:
 			"This key is used to fetch prompt compiled with passed variables. This is optional. ",
 	},

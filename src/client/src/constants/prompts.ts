@@ -44,7 +44,7 @@ export type PromptCompiledInput = {
 	apiKey: string;
 	variables?: Record<string, any>;
 	version?: string;
-	compile?: boolean;
+	shouldCompile?: boolean;
 	downloadSource?: string;
 	downloadMetaProperties?: Record<string, unknown>;
 };
