@@ -8,10 +8,10 @@ large language models (LLMs).
 from typing import Dict
 import logging
 import os
-import requests
 from importlib.util import find_spec
 from functools import wraps
 from contextlib import contextmanager
+import requests
 
 
 # Import internal modules for setting up tracing and fetching pricing info.
@@ -318,14 +318,17 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)
 
-def get_prompt(url=None, name=None, api_key=None, id=None, version=None, compile=None, variables=None, meta_properties=None):
+def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
+    version=None, should_compile=None, variables=None, meta_properties=None):
+    """
+    Retrieve and returns the prompt from OpenLIT Prompt Hub
+    """
 
     def get_env_variable(name, arg_value, error_message):
         """
         Retrieve an environment variable if the argument is not provided
         and raise an error if both are not set.
         """
-
         if arg_value is not None:
             return arg_value
         value = os.getenv(name)
@@ -336,8 +339,8 @@ def get_prompt(url=None, name=None, api_key=None, id=None, version=None, compile
 
     # Validate and set the base URL
     url = get_env_variable(
-        'OPENLIT_URL', 
-        url, 
+        'OPENLIT_URL',
+        url,
         'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
     )
 
@@ -354,8 +357,7 @@ def get_prompt(url=None, name=None, api_key=None, id=None, version=None, compile
     # Prepare the payload
     payload = {
         'name': name,
-        'apiKey': api_key,
-        'id': id,
+        'promptId': prompt_id,
         'version': version,
         'shouldCompile': should_compile,
         'variables': variables,
@@ -365,9 +367,15 @@ def get_prompt(url=None, name=None, api_key=None, id=None, version=None, compile
     # Remove None values from payload
     payload = {k: v for k, v in payload.items() if v is not None}
 
+    # Prepare headers
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+
     try:
-        # Make the GET request to the API
-        response = requests.post(endpoint, json=payload)
+        # Make the POST request to the API with headers
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
 
         # Check if the response is successful
         response.raise_for_status()

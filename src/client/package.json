@@ -1,6 +1,6 @@
 {
   "name": "openlit",
-  "version": "1.9.2",
+  "version": "1.10.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
