@@ -2,7 +2,7 @@
 import { Resource } from '@opentelemetry/resources';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 
-export type InstrumentationType = 'openai' | 'anthropic';
+export type InstrumentationType = 'openai' | 'anthropic' | 'cohere';
 
 export type OpenlitInstrumentations = Partial<Record<InstrumentationType, any>>;
 

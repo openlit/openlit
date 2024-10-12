@@ -1,7 +1,6 @@
 import { MouseEventHandler } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import {
 	Tooltip,
 	TooltipContent,

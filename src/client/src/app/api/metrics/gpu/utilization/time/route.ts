@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
 	const validationParam = validateMetricsRequest(
 		params,
-		validateMetricsRequestType.UTILIZATION_PERCENTAGE_PER_TIME
+		validateMetricsRequestType.UTILIZATION_PER_TIME
 	);
 
 	if (!validationParam.success)

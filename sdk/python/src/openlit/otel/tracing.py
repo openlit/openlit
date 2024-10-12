@@ -45,7 +45,7 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
 
         if not TRACER_SET:
             # Create a resource with the service name attribute.
-            resource = Resource(attributes={
+            resource = Resource.create(attributes={
                 SERVICE_NAME: application_name,
                 DEPLOYMENT_ENVIRONMENT: environment,
                 TELEMETRY_SDK_NAME: "openlit"}

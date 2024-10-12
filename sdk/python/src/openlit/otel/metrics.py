@@ -34,7 +34,7 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
     try:
         if meter is None and not METER_SET:
             # Create a resource with the service name attribute.
-            resource = Resource(attributes={
+            resource = Resource.create(attributes={
                 SERVICE_NAME: application_name,
                 DEPLOYMENT_ENVIRONMENT: environment,
                 TELEMETRY_SDK_NAME: "openlit"}

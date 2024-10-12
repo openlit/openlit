@@ -2,14 +2,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-
-const TIME_RANGE_TYPE: Record<"24H" | "7D" | "1M" | "3M" | "CUSTOM", string> = {
-	"24H": "24H",
-	"7D": "7D",
-	"1M": "1M",
-	"3M": "3M",
-	CUSTOM: "CUSTOM",
-};
+import { TIME_RANGE_TYPE } from "@/store/filter";
 
 const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 	TIME_RANGE_TYPE

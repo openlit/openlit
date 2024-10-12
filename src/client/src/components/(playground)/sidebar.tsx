@@ -17,6 +17,7 @@ import {
 	ShieldAlert,
 	SquarePlay,
 } from "lucide-react";
+import VersionInfo from "./version-Info";
 
 type SidebarItemProps = {
 	className?: string;
@@ -155,6 +156,7 @@ export default function Sidebar() {
 						{...item}
 					/>
 				))}
+				<VersionInfo />
 			</nav>
 		</aside>
 	);
