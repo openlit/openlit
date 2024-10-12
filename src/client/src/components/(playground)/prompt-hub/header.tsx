@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import PromptForm from "./form";
 import RouteBreadcrumbs from "../route-breadcrumbs";
 import { useRootStore } from "@/store";
-import { getPingDetails, getPingStatus } from "@/selectors/database-config";
+import { getPingStatus } from "@/selectors/database-config";
 import PromptUsage from "./usage";
 
 export default function PromptHubHeader({

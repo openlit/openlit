@@ -2,7 +2,7 @@
 import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
 import { useParams } from "next/navigation";
 
-export default function PlaygroundLayout({
+export default function PromptLayout({
 	children,
 }: {
 	children: React.ReactNode;
