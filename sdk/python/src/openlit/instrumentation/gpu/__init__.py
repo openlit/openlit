@@ -9,6 +9,8 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from opentelemetry.metrics import get_meter, CallbackOptions, Observation
 
+import xmltodict
+
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -116,17 +118,27 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
         try:
             gpu_stats = xmltodict.parse(check_output(["/usr/bin/nvidia-smi", "-x", "-q"]))
 
-            for gpu in gpu_stats.gpus:
-                attributes = {
+            if gpu_stats['attached_gpus'] == 1:
+                atrtibutes = {
                     TELEMETRY_SDK_NAME: "openlit",
                     SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
                     SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                    SemanticConvetion.GPU_INDEX: gpu.index,
-                    SemanticConvetion.GPU_UUID: gpu.uuid,
-                    SemanticConvetion.GPU_NAME: gpu.name,
+                    SemanticConvetion.GPU_INDEX: 0,
+                    SemanticConvetion.GPU_UUID: gpu_stats['gpu']['uuid'],
+                    SemanticConvetion.GPU_NAME: gpu['gpu']['product_name'],
                 }
+            else:
+                for gpu in gpu_stats.gpu:
+                    attributes = {
+                        TELEMETRY_SDK_NAME: "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                        SemanticConvetion.GPU_INDEX: gpu_stats.index(gpu),
+                        SemanticConvetion.GPU_UUID: gpu['uuid'],
+                        SemanticConvetion.GPU_NAME: gpu['product_name'],
+                    }
 
-                yield Observation(check_and_record(getattr(gpu, metric_name, 0)), attributes)
+                    yield Observation(check_and_record(getattr(gpu, metric_name, 0)), attributes)
 
         except Exception as e:
             logger.error("Error in GPU metrics collection: %s", e)
