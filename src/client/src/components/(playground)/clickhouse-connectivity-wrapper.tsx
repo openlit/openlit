@@ -11,6 +11,7 @@ const ALLOWED_CONNECTIVITY_ALERT = [
 	"/requests",
 	"/exceptions",
 	"/prompt-hub",
+	"/vault",
 ];
 
 export default function ClickhouseConnectivityWrapper() {

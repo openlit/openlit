@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
+	BookKey,
 	BookText,
 	Component,
 	DatabaseBackup,
@@ -52,6 +53,11 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		icon: <Component className={ICON_CLASSES} />,
 		text: "Prompt Hub",
 		link: "/prompt-hub",
+	},
+	{
+		icon: <BookKey className={ICON_CLASSES} />,
+		text: "Vault",
+		link: "/vault",
 	},
 	{
 		icon: <MonitorPlay className={ICON_CLASSES} />,

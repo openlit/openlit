@@ -1,5 +1,7 @@
-import createPromptMigration from "./create-prompt-migration";
+import CreatePromptMigration from "./create-prompt-migration";
+import CreateVaultMigration from "./create-vault-migration";
 
 export default async function migrations(databaseConfigId?: string) {
-	await createPromptMigration(databaseConfigId);
+	await CreatePromptMigration(databaseConfigId);
+	await CreateVaultMigration(databaseConfigId);
 }

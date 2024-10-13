@@ -1,4 +1,4 @@
-import { generateAPIKey, getAllAPIKeys } from "@/lib/platform/prompt/api-keys";
+import { generateAPIKey, getAllAPIKeys } from "@/lib/platform/api-keys";
 import asaw from "@/utils/asaw";
 
 export async function GET() {

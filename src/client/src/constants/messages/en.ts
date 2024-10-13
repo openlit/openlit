@@ -16,3 +16,10 @@ export const VERSION_NOT_CREATED = "Version cannot be created";
 export const VERSION_NOT_SAVED = "Version cannot be saved";
 export const VERSION_SAVED = "Prompt Version saved successfully!";
 export const DOWNLOAD_INFO_NOT_SAVED = "Download info cannot be saved!";
+
+// Vault
+export const SECRET_NAME_TAKEN = "Secret name is taken!";
+export const SECRET_SAVED = "Secret saved successfully!";
+export const SECRET_NOT_SAVED = "Secret cannot be saved";
+export const SECRET_DELETED = "Secret deleted successfully!";
+export const SECRET_NOT_DELETED = "Error deleting secret!";

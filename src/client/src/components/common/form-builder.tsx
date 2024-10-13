@@ -58,6 +58,8 @@ const FormBuilder = ({
 							formElement[field.fieldTypeProps.name].value,
 						];
 					}
+				} else if (field.fieldTypeProps.name) {
+					acc[field.fieldTypeProps.name] = [];
 				}
 			} else if (field.fieldType === "KEYVALUE" && field.fieldTypeProps.name) {
 				formElement
@@ -85,7 +87,7 @@ const FormBuilder = ({
 
 				return onSubmit(e, getFormData(e));
 			}}
-			onKeyDown={(e) => (!(e.key === "Enter"))}
+			onKeyDown={(e) => !(e.key === "Enter")}
 		>
 			<Card className="w-full border-0 flex flex-col h-full">
 				{heading && (

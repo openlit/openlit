@@ -1,6 +1,6 @@
-import OpenlitConfig from './config';
-import { OPENLIT_URL } from './constant';
-import { PromptHubOptions } from './types';
+import OpenlitConfig from '../config';
+import { OPENLIT_URL } from '../constant';
+import { PromptHubOptions } from '../types';
 
 export default class PromptHub {
   static async getPrompts(options: PromptHubOptions) {

@@ -14,6 +14,7 @@ const PATH_TO_TITLE_MAP = {
 	"/requests": "Request",
 	"/exceptions": "Exceptions",
 	"/prompt-hub": "Prompts",
+	"/vault": "Vault",
 	"/openground": "Openground",
 	"/database-config": "Databases",
 	"/profile": "Profile",
