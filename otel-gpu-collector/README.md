@@ -51,6 +51,37 @@ docker run --gpus all \
     ghcr.io/openlit/otel-gpu-collector:latest
 ```
 
+**Note:** If you've deployed **'OpenLIT'** using [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml), make sure to use the host's IP address or add OTel GPU Collector to the [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml):
+
+<details>
+<summary>Docker Compose: Add the following config under `services`</summary>
+
+```yaml
+otel-gpu-collector:
+  image: ghcr.io/openlit/otel-gpu-collector:latest
+  environment:
+    GPU_APPLICATION_NAME: 'chatbot'
+    GPU_ENVIRONMENT: 'staging'
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+  device_requests:
+  - driver: nvidia
+    count: all
+    capabilities: [gpu]
+  depends_on:
+  - otel-collector
+  restart: always
+```
+
+</details>
+
+<details>
+<summary>Host IP: Use the Host IP to connect to OTel Collector</summary>
+
+```sh
+OTEL_EXPORTER_OTLP_ENDPOINT="http://192.168.10.15:4318"
+```
+</details>
+
 ### Environment Variables
 
 OTel GPU Collector supports several environment variables for configuration. Below is a table that describes each variable:
@@ -60,7 +91,7 @@ OTel GPU Collector supports several environment variables for configuration. Bel
 | `GPU_APPLICATION_NAME`          | Name of the application running on the GPU                    | `default_app`           |
 | `GPU_ENVIRONMENT`               | Environment name (e.g., staging, production)                  | `production`            |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`   | OpenTelemetry OTLP endpoint URL                               | (required)              |
-| `OTEL_EXPORTER_OTLP_HEADERS`    | Headers for authenticating with the OTLP endpoint             | (required)              |
+| `OTEL_EXPORTER_OTLP_HEADERS`    | Headers for authenticating with the OTLP endpoint             | Ignore if using OpenLIT |
 
 ## Alternative: Using OpenLIT SDK
 
