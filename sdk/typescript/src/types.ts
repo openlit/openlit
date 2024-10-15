@@ -46,3 +46,14 @@ export type OpenlitOptions = {
 export type SetupTracerOptions = OpenlitOptions & {
   resource: Resource;
 };
+
+export type PromptHubOptions = {
+  url?: string;
+  apiKey?: string;
+  name?: string;
+  version?: string;
+  shouldCompile?: boolean;
+  variables?: Record<string, any>;
+  promptId?: string;
+  metaProperties?: Record<string, any>;
+};
