@@ -91,7 +91,7 @@ OTel GPU Collector supports several environment variables for configuration. Bel
 | `GPU_APPLICATION_NAME`          | Name of the application running on the GPU                    | `default_app`           |
 | `GPU_ENVIRONMENT`               | Environment name (e.g., staging, production)                  | `production`            |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`   | OpenTelemetry OTLP endpoint URL                               | (required)              |
-| `OTEL_EXPORTER_OTLP_HEADERS`    | Headers for authenticating with the OTLP endpoint             | (safe to ignore)              |
+| `OTEL_EXPORTER_OTLP_HEADERS`    | Headers for authenticating with the OTLP endpoint             | Ignore if using OpenLIT |
 
 ## Alternative: Using OpenLIT SDK
 
