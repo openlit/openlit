@@ -20,7 +20,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from openlit.semcov import SemanticConvetion
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
-from openlit.__helpers import fetch_pricing_info
+from openlit.__helpers import fetch_pricing_info, get_env_variable
 
 
 # Instrumentors for various large language models.
@@ -324,19 +324,6 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
     Retrieve and returns the prompt from OpenLIT Prompt Hub
     """
 
-    def get_env_variable(name, arg_value, error_message):
-        """
-        Retrieve an environment variable if the argument is not provided
-        and raise an error if both are not set.
-        """
-        if arg_value is not None:
-            return arg_value
-        value = os.getenv(name)
-        if not value:
-            logging.error(error_message)
-            raise RuntimeError(error_message)
-        return value
-
     # Validate and set the base URL
     url = get_env_variable(
         'OPENLIT_URL',
@@ -386,23 +373,10 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
         print(f"Error fetching prompt: {error}")
         return None
 
-def get_secrets(url=None, key=None, tags=None, should_set_env=None):
+def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None):
     """
     Retrieve and returns the secrets from OpenLIT Vault and sets all to env is should_set_env is True
     """
-
-    def get_env_variable(name, arg_value, error_message):
-        """
-        Retrieve an environment variable if the argument is not provided
-        and raise an error if both are not set.
-        """
-        if arg_value is not None:
-            return arg_value
-        value = os.getenv(name)
-        if not value:
-            logging.error(error_message)
-            raise RuntimeError(error_message)
-        return value
 
     # Validate and set the base URL
     url = get_env_variable(
@@ -419,7 +393,7 @@ def get_secrets(url=None, key=None, tags=None, should_set_env=None):
     )
 
     # Construct the API endpoint
-    endpoint = url + "/api/prompt/get-secrets"
+    endpoint = url + "/api/vault/get-secrets"
 
     # Prepare the payload
     payload = {
@@ -451,7 +425,6 @@ def get_secrets(url=None, key=None, tags=None, should_set_env=None):
         if should_set_env is True:
             for key, value in res.items():
                 os.environ[key] = str(value)
-
         return vaultResponse
     except requests.RequestException as error:
         print(f"Error fetching secrets: {error}")
