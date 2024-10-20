@@ -145,7 +145,7 @@ To send telemetry to OpenTelemetry backends requiring authentication, set the `o
 ### Step 3: Visualize and Optimize!
 With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application’s performance, behavior, and identify areas of improvement.
 
-To begin exploring your LLM Application's performance data within the OpenLIT UI, please see the [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
+To begin exploring your LLM Application's performance data within the OpenLIT, please see the [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
 
 If you want to integrate and send metrics and traces to your existing observability tools, refer to our [Connections Guide](https://docs.openlit.io/latest/connections/intro) for detailed instructions.
 

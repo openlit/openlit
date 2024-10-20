@@ -47,7 +47,7 @@ flowchart TB;
         end
         subgraph " "
             direction RL;
-            OpenLIT_UI[OpenLIT UI] -->|Pulls Data| ClickHouseDB;
+            OpenLIT[OpenLIT] -->|Pulls Data| ClickHouseDB;
         end
     end
 ```
@@ -134,7 +134,7 @@ To send telemetry to OpenTelemetry backends requiring authentication, set the `o
 ### Step 4: Visualize and Optimize!
 With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
 
-Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
+Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
   - **Email**: `user@openlit.io`
   - **Password**: `openlituser`
 
@@ -151,7 +151,7 @@ Unsure where to start? Here are a few ways to get involved:
 
 Your input helps us grow and improve, and we're here to support you every step of the way.
 
-[![Openlit - One click observability, evals for LLMs & GPUs | Product Hunt](https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=460690&theme=light)](https://www.producthunt.com/posts/openlit?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-openlit)
+[![OpenLIT - One click observability, evals for LLMs & GPUs | Product Hunt](https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=460690&theme=light)](https://www.producthunt.com/posts/openlit?embed=true&utm_source=badge-featured&utm_medium=badge&utm_souce=badge-openlit)
 <a href="https://fazier.com/launches/openlit-2" target="_blank" rel="noopener noreferrer"><img src="https://fazier.com/api/v1/public/badges/embed_image.svg?launch_id=779&badge_type=daily" width="270" alt="Example Image" class="d-inline-block mt-3 p-3 rounded img-fluid" /></a>
 
 ## 💚 Community & Support
