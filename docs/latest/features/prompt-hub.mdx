@@ -44,7 +44,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
       <Step title="Create an API Key">
       To authenticate your requests, you need an API key. Here's how you can create one:
 
-      - Go to the OpenLIT UI.
+      - Go to the OpenLIT.
       - Navigate to the **API Keys** page.
       - Click on **Create API Key**.
       - Enter a name for your API key.
@@ -91,7 +91,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
 
               | Parameter         | Description                                                                                                                        |
               |-------------------|------------------------------------------------------------------------------------------------------------------------------------|
-              | `url`             | Sets the Openlit URL. Defaults to the `OPENLIT_URL` environment variable.                                                          |
+              | `url`             | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable.                                                          |
               | `api_key`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
               | `name`            | Sets the name to fetch a unique prompt. Use this or `prompt_id`.                                                                    |
               | `prompt_id`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
@@ -105,7 +105,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
               Here's how you can fetch and compile a prompt in Typescript/Javascript:
 
               ```typescript
-              import Openlit from 'openlit'; // Import the Openlit SDK
+              import Openlit from 'openlit'; // Import OpenLIT
 
               const response = await Openlit.getPrompts({
                 name: "prompt_name",     // Fetch the prompt by name
@@ -138,7 +138,7 @@ The Prompt-Hub allows you to manage prompts, fetch specific versions of the prom
 
               | Parameter        | Description                                                                                                                        |
               |------------------|------------------------------------------------------------------------------------------------------------------------------------|
-              | `url`            | Sets the Openlit URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000` if not set.                    |
+              | `url`            | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000` if not set.                    |
               | `apiKey`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
               | `name`           | Sets the name to fetch a unique prompt. Use this or `promptId`.                                                                    |
               | `promptId`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
