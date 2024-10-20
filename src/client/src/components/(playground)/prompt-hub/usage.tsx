@@ -46,7 +46,7 @@ function PromptUsageType() {
 						<CodeBlock
 							className="text-xs"
 							code={`
-from openlit import Openlit  # Import the Openlit SDK
+from openlit import Openlit  # Import the OpenLIT SDK
 
 response = openlit.get_prompt(
 	name="prompt_name",         # Fetch the prompt by name
@@ -164,7 +164,7 @@ export default function PromptUsage() {
 						Want to use prompts in your application?
 					</DialogTitle>
 					<DialogDescription>
-						Create your prompts in the Openlit UI and use them via our sdks.
+						Create your prompts in the OpenLIT and use them via our sdks.
 					</DialogDescription>
 				</DialogHeader>
 				<div className="flex flex-col w-full overflow-y-auto py-2 gap-6">
