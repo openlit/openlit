@@ -44,7 +44,7 @@ Follow the steps below to get OpenLIT Client running in your environment. Both D
     --name openlit-client ghcr.io/openlit/openlit-client:latest
     ```
 
-3. Login to OpenLIT UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
+3. Login to OpenLIT at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
     - Email as `user@openlit.io`
     - Password as `openlituser`
 
@@ -95,7 +95,7 @@ You can also use the [OpenLIT Helm Chart](https://github.com/openlit/helm/tree/m
     ```sh
     npm run dev
     ```
-8. Login to OpenLIT UI at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
+8. Login to OpenLIT at `127.0.0.1:3000` using the default credentials and start monitoring and evaluating your LLM Applications
     - Email as `user@openlit.io`
     - Password as `openlituser`
 
