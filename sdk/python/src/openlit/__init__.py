@@ -386,7 +386,7 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
         print(f"Error fetching prompt: {error}")
         return None
 
-def get_secrets(url=None, key=None, tags=None, should_set_env=None):
+def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None):
     """
     Retrieve and returns the secrets from OpenLIT Vault and sets all to env is should_set_env is True
     """
