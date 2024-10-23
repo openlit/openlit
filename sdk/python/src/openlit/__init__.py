@@ -375,7 +375,7 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
 
 def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None):
     """
-    Retrieve and returns the secrets from OpenLIT Vault and sets all to env is should_set_env is True
+    Retrieve & returns the secrets from OpenLIT Vault & sets all to env is should_set_env is True
     """
 
     # Validate and set the base URL
@@ -418,14 +418,14 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
         response.raise_for_status()
 
         # Return the JSON response
-        vaultResponse = response.json()
+        vault_response = response.json()
 
-        res = vaultResponse.get('res', [])
+        res = vault_response.get('res', [])
 
         if should_set_env is True:
-            for key, value in res.items():
-                os.environ[key] = str(value)
-        return vaultResponse
+            for token, value in res.items():
+                os.environ[token] = str(value)
+        return vault_response
     except requests.RequestException as error:
         print(f"Error fetching secrets: {error}")
         return None
