@@ -64,6 +64,7 @@
         "latest/features/gpu",
         "latest/features/pricing",
         "latest/features/prompt-hub",
+        "latest/features/vault",
         "latest/features/multiple-db"
       ],
       "version": "latest"
@@ -156,6 +157,13 @@
           "group": "Prompt Hub",
           "pages": [
             "latest/api-reference/endpoint/prompt-hub/get"
+          ],
+          "version": "latest"
+        },
+        {
+          "group": "Vault",
+          "pages": [
+            "latest/api-reference/endpoint/vault/get"
           ],
           "version": "latest"
         }

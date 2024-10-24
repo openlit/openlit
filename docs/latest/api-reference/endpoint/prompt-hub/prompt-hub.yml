@@ -83,7 +83,6 @@ paths:
                         example: 'Hello John'
       security:
         - apiKeyAuth: []
-
 components:
   securitySchemes:
     apiKeyAuth:

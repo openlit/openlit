@@ -73,6 +73,7 @@ export const config = {
 		"/openground",
 		"/exceptions",
 		"/prompt-hub",
+		"/vault",
 		"/api-keys",
 	],
 };

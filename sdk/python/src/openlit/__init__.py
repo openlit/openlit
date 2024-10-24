@@ -20,7 +20,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from openlit.semcov import SemanticConvetion
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
-from openlit.__helpers import fetch_pricing_info
+from openlit.__helpers import fetch_pricing_info, get_env_variable
 
 
 # Instrumentors for various large language models.
@@ -324,19 +324,6 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
     Retrieve and returns the prompt from OpenLIT Prompt Hub
     """
 
-    def get_env_variable(name, arg_value, error_message):
-        """
-        Retrieve an environment variable if the argument is not provided
-        and raise an error if both are not set.
-        """
-        if arg_value is not None:
-            return arg_value
-        value = os.getenv(name)
-        if not value:
-            logging.error(error_message)
-            raise RuntimeError(error_message)
-        return value
-
     # Validate and set the base URL
     url = get_env_variable(
         'OPENLIT_URL',
@@ -384,6 +371,63 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
         return response.json()
     except requests.RequestException as error:
         print(f"Error fetching prompt: {error}")
+        return None
+
+def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None):
+    """
+    Retrieve & returns the secrets from OpenLIT Vault & sets all to env is should_set_env is True
+    """
+
+    # Validate and set the base URL
+    url = get_env_variable(
+        'OPENLIT_URL',
+        url,
+        'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
+    )
+
+    # Validate and set the API key
+    api_key = get_env_variable(
+        'OPENLIT_API_KEY', 
+        api_key,
+        'Missing API key: Provide as arg or set OPENLIT_API_KEY env var.'
+    )
+
+    # Construct the API endpoint
+    endpoint = url + "/api/vault/get-secrets"
+
+    # Prepare the payload
+    payload = {
+        'key': key,
+        'tags': tags,
+    }
+
+    # Remove None values from payload
+    payload = {k: v for k, v in payload.items() if v is not None}
+
+    # Prepare headers
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        # Make the POST request to the API with headers
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+
+        # Check if the response is successful
+        response.raise_for_status()
+
+        # Return the JSON response
+        vault_response = response.json()
+
+        res = vault_response.get('res', [])
+
+        if should_set_env is True:
+            for token, value in res.items():
+                os.environ[token] = str(value)
+        return vault_response
+    except requests.RequestException as error:
+        print(f"Error fetching secrets: {error}")
         return None
 
 def trace(wrapped):
