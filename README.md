@@ -189,7 +189,3 @@ Connect with OpenLIT community and maintainers for support, discussions, and upd
 ## License
 
 OpenLIT is available under the [Apache-2.0 license](LICENSE).
-
-## Visualize! Analyze! Optimize!
-
-Join us on this voyage to reshape the future of AI Observability. Share your thoughts, suggest features, and explore contributions. Engage with us on [GitHub](https://github.com/openlit/openlit) and be part of OpenLIT's community-led innovation.
