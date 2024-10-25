@@ -19,13 +19,13 @@
 
 </div>
 
-OpenLIT SDK is a monitoring framework built on top of **OpenTelemetry** that gives your complete Observability for your AI stack, from language models to vector databases and GPUs, with just one line of code with tracing and metrics. It also allows you to send the generated traces and metrics to your existing monitoring tools like Grafana, New Relic, and more.
+OpenLIT SDK is a monitoring framework built on top of **OpenTelemetry** that gives your complete Observability for your AI stack, from LLMs to vector databases and GPUs, with just one line of code with tracing and metrics. It also allows you to send the generated traces and metrics to your existing monitoring tools like Grafana, New Relic, and more.
 
 This project proudly follows and maintains the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) with the OpenTelemetry community, consistently updating to align with the latest standards in Observability.
 
 ## ⚡ Features
 
-- 🔎 **Auto Instrumentation**: Works with over 30 LLM providers, vector databases, and GPUs with just one line of code.
+- 🔎 **Auto Instrumentation**: Works with 30+ LLM providers, vector databases, and GPUs with just one line of code.
 - 🔭 **OpenTelemetry-Native Observability SDKs**: Vendor-neutral SDKs that can send traces and metrics to your existing observability tool like Prometheus and Jaeger.
 - 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Pass custom pricing files for accurate budgeting of custom and fine-tuned models.
 - 🚀 **Suppport for OpenLIT Features**: Includes suppprt for prompt management and secrets management features available in OpenLIT.
