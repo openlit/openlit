@@ -64,14 +64,22 @@ flowchart TB;
 ### Step 1: Deploy OpenLIT Stack
 
 1. Git Clone OpenLIT Repository
+
+   Open your command line or terminal and run:
+
    ```shell
    git clone git@github.com:openlit/openlit.git
    ```
 
 2. Start Docker Compose
+  
+   Deploy and run OpenLIT with the following command:
+
    ```shell
    docker compose up -d
    ```
+
+For instructions on installing in Kubernetes using Helm, refer to the [Kubernetes Helm installation guide](https://docs.openlit.io/latest/installation#kubernetes).
 
 ### Step 2: Install OpenLIT SDK
 
