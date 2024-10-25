@@ -35,7 +35,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 - 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Tailor cost estimations for specific models using custom pricing files for precise budgeting.
 
-- ❗ **Exceptions Monitoring Dashboard**: Quickly spot and resolve issues by tracking common exceptions and errors with a dedicated monitoring dashboard.
+- 🔔 **Exceptions Monitoring Dashboard**: Quickly spot and resolve issues by tracking common exceptions and errors with a dedicated monitoring dashboard.
 
 - 💭 **Prompt Management**: Manage and version prompts using Prompt Hub for consistent and easy access across applications.
 
