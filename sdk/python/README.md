@@ -19,7 +19,7 @@
 
 </div>
 
-OpenLIT SDK is a set of extension built on top of **OpenTelemetry** that gives your complete Observability for your AI stack, from language models to vector databases and GPUs, with just one line of code. It also allows you to send the generated traces and metrics to your existing monitoring tools like Grafana, New Relic, and more.
+OpenLIT SDK is a monitoring framework built on top of **OpenTelemetry** that gives your complete Observability for your AI stack, from language models to vector databases and GPUs, with just one line of code with tracing and metrics. It also allows you to send the generated traces and metrics to your existing monitoring tools like Grafana, New Relic, and more.
 
 This project proudly follows and maintains the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) with the OpenTelemetry community, consistently updating to align with the latest standards in Observability.
 
@@ -76,7 +76,7 @@ pip install openlit
 
 ## 🚀 Getting Started with LLM Observability
 
-### Step 1: Install OpenLIT
+### Step 1: Install OpenLIT SDK
 
 Open your command line or terminal and run:
 
