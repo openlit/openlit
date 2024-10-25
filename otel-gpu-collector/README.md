@@ -2,7 +2,7 @@
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
 OpenTelemetry GPU Collector</h1>
 
-**[Documentation](https://docs.openlit.io/latest/features/gpu) | [Quickstart](#-getting-started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Metrics](#metrics)**
+**[Documentation](https://docs.openlit.io/latest/features/gpu) | [Quickstart](-getting-started-with-gpu-monitoring) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Metrics](#metrics)**
 
 **[Roadmap](#️-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)** 
 
