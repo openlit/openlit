@@ -79,7 +79,7 @@ flowchart TB;
    docker compose up -d
    ```
 
-For instructions on installing in Kubernetes using Helm, refer to the [Kubernetes Helm installation guide](https://docs.openlit.io/latest/installation#kubernetes).
+> For instructions on installing in Kubernetes using Helm, refer to the [Kubernetes Helm installation guide](https://docs.openlit.io/latest/installation#kubernetes).
 
 ### Step 2: Install OpenLIT SDK
 
@@ -89,7 +89,7 @@ Open your command line or terminal and run:
 pip install openlit
 ```
 
-For instructions on using the TypeScript SDK, visit the [TypeScript SDK Installation guide](https://github.com/openlit/openlit/tree/main/sdk/typescript#-installation).
+> For instructions on using the TypeScript SDK, visit the [TypeScript SDK Installation guide](https://github.com/openlit/openlit/tree/main/sdk/typescript#-installation).
 
 ### Step 3: Initialize OpenLIT in your Application
 
