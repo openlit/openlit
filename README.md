@@ -1,18 +1,19 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
-<h3>OpenTelemetry-native</h3>
-<h1>Observability & Evals for hosted and on-prem LLMs</h1>
 
-**[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python)**
+#### Observability, Exceptions, Prompts, Vault, Playground
 
-[![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://github.com/openlit/openlit)
+# Open Source Platform for AI Engineering
+
+**[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)** 
+
+[![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://openlit.io/)
 [![License](https://img.shields.io/github/license/openlit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/openlit/openlit/blob/main/LICENSE)
 [![Downloads](https://static.pepy.tech/badge/openlit/month)](https://pepy.tech/project/openlit)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/openlit/openlit)](https://github.com/openlit/openlit/pulse)
 [![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
-[![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/f6mwYAXv)
 [![X](https://img.shields.io/badge/follow-%40openlit__io-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
 </div>
 
@@ -20,21 +21,27 @@
 
 ![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/github-readme-repo-banner.png?raw=true)
 
-**OpenLIT** is an **OpenTelemetry-native** tool designed to help developers gain insights into the performance of their LLM applications in production. It automatically collects LLM input and output metadata, and monitors GPU performance for self-hosted LLMs.
+**OpenLIT** allows you to simplify your AI development workflow, especially for Generative AI and LLMs. It streamlines essential tasks like experimenting with LLMs, organizing and versioning prompts, and securely handling API keys. With just one line of code, you can enable **OpenTelemetry-native** observability, offering full-stack monitoring that includes LLMs, vector databases, and GPUs. This enables developers to confidently build AI features and applications, transitioning smoothly from testing to production.
 
-OpenLIT makes integrating observability into GenAI projects effortless with just **a single line of code**. Whether you're working with popular LLM providers such as OpenAI and HuggingFace, or leveraging vector databases like ChromaDB, OpenLIT ensures your applications are monitored seamlessly, providing critical insights including GPU performance stats for self-hosted LLMs to improve performance and reliability.
-
-This project proudly follows the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) of the OpenTelemetry community, consistently updating to align with the latest standards in observability.
-
-## What is LIT?
-`LIT` stands for **Learning and Inference Tool**, which is a visual and interactive tool designed for understanding AI models and visualizing data. The term `LIT` was introduced by [Google](https://developers.google.com/machine-learning/glossary#learning-interpretability-tool-lit).
+This project proudly follows and maintains the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) with the OpenTelemetry community, consistently updating to align with the latest standards in Observability.
 
 ## ⚡ Features
-- **Advanced Monitoring of LLM and VectorDB Performance**: OpenLIT offers automatic instrumentation that generates traces and metrics, providing insights into the performance and costs of your LLM and VectorDB usage. This helps you analyze how your applications perform in different environments, such as production, enabling you to optimize resource ussage and scale efficiently.
-- **Cost Tracking for Custom and Fine-Tuned Models**: OpenLIT enables you to tailor cost tracking for specific models by using a custom JSON file. This feature allows for precise budgeting and ensures that cost estimations are perfectly aligned with your project needs.
-- **OpenTelemetry-native & vendor-neutral SDKs**: OpenLIT is built with native support for OpenTelemetry, making it blend seamlessly with your projects. This vendor-neutral approach reduces barriers to integration, making OpenLIT an intuitive part of your software stack rather than an additional complexity.
 
-## 🚀 Getting Started
+- **Analytics Dashboard**: Monitor your AI application's health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
+
+- **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs to send traces and metrics to your existing observability tools. 
+
+- **Cost Tracking for Custom and Fine-Tuned Models**: Tailor cost estimations for specific models using custom pricing files for precise budgeting.
+
+- **Exceptions Monitoring Dashboard**: Quickly spot and resolve issues by tracking common exceptions and errors with a dedicated monitoring dashboard.
+
+- **Prompt Management**: Manage and version prompts using Prompt Hub for consistent and easy access across applications.
+
+- **API Keys and Secrets Management**: Securely handle your API keys and secrets centrally, avoiding insecure practices.
+
+- **Experiemnt with different LLMs**: Use OpenGround to explore, test and compare various LLMs side by side.
+
+## 🚀 Getting Started with Observability
 
 ```mermaid
 flowchart TB;
@@ -72,8 +79,11 @@ Open your command line or terminal and run:
 pip install openlit
 ```
 
+For instructions on using the TypeScript SDK, visit the [TypeScript SDK Installation guide](https://github.com/openlit/openlit/tree/main/sdk/typescript#-installation).
+
 ### Step 3: Initialize OpenLIT in your Application
-Integrating OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**: 
+
+Integrating OpenLIT into your AI applications by adding the following lines to your code.
 
 ```python
 import openlit
@@ -81,11 +91,14 @@ import openlit
 openlit.init()
 ```
 
-To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlp_endpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
+Configure the telemetry data destination as follows:
 
-> 💡 Info: If you dont provide `otlp_endpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, The OpenLIT SDK directs the trace directly to your console, which can be useful during development.
+| Purpose                                   | Parameter/Environment Variable                   | For Sending to OpenLIT         |
+|-------------------------------------------|--------------------------------------------------|--------------------------------|
+| Send data to an HTTP OTLP endpoint        | `otlp_endpoint` or `OTEL_EXPORTER_OTLP_ENDPOINT` | `"http://127.0.0.1:4318"`     |
+| Authenticate telemetry backends           | `otlp_headers` or `OTEL_EXPORTER_OTLP_HEADERS`   | Not required by default       |
 
-To send telemetry to OpenTelemetry backends requiring authentication, set the `otlp_headers` parameter with its desired value. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as recommended in the OpenTelemetry documentation.
+> 💡 Info: If the `otlp_endpoint` or `OTEL_EXPORTER_OTLP_ENDPOINT` is not provided, the OpenLIT SDK will output traces directly to your console, which is recommended during the development phase.
 
 #### Example
 
@@ -132,7 +145,7 @@ To send telemetry to OpenTelemetry backends requiring authentication, set the `o
 ---
 
 ### Step 4: Visualize and Optimize!
-With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
+With the Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your AI application's performance, behavior, and identify areas of improvement.
 
 Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
   - **Email**: `user@openlit.io`
