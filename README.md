@@ -181,7 +181,6 @@ We are dedicated to continuously improving OpenLIT. Here's a look at what's been
 | [Human Feedback for LLM Events]()                                                            | 🔜 Coming Soon |
 | [Dataset Generation Based on LLM Events]()                                                   | 🔜 Coming Soon |
 | [Real-Time Guardrails Implementation]()                                                      | 📝 Planned    |
-| [Security Checks and Jailbreak Detection]()                                                  | 📝 Planned    |
 ## 🌱 Contributing
 
 Whether it's big or small, we love contributions 💚. Check out our [Contribution guide](./CONTRIBUTING.md) to get started
