@@ -93,7 +93,7 @@ pip install openlit
 
 ### Step 3: Initialize OpenLIT in your Application
 
-Integrating OpenLIT into your AI applications by adding the following lines to your code.
+Integrate OpenLIT into your AI applications by adding the following lines to your code.
 
 ```python
 import openlit
@@ -181,6 +181,7 @@ We are dedicated to continuously improving OpenLIT. Here's a look at what's been
 | [Human Feedback for LLM Events]()                                                            | 🔜 Coming Soon |
 | [Dataset Generation Based on LLM Events]()                                                   | 🔜 Coming Soon |
 | [Real-Time Guardrails Implementation]()                                                      | 📝 Planned    |
+
 ## 🌱 Contributing
 
 Whether it's big or small, we love contributions 💚. Check out our [Contribution guide](./CONTRIBUTING.md) to get started
