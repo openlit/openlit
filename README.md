@@ -43,7 +43,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 - 🎮 **Experiemnt with different LLMs**: Use OpenGround to explore, test and compare various LLMs side by side.
 
-## 🚀 Getting Started with Observability
+## 🚀 Getting Started with LLM Observability
 
 ```mermaid
 flowchart TB;
