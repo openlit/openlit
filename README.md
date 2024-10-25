@@ -71,7 +71,7 @@ flowchart TB;
    git clone git@github.com:openlit/openlit.git
    ```
 
-2. Start Docker Compose
+2. Self-host using Docker
   
    Deploy and run OpenLIT with the following command:
 
