@@ -1,4 +1,4 @@
-name: Test OpenLIT UI
+name: Test OpenLIT
 
 on:
   pull_request_target:

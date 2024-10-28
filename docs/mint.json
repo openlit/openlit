@@ -57,6 +57,19 @@
       "version": "latest"
     },
     {
+      "group": "Features",
+      "pages": [
+        "latest/features/tracing",
+        "latest/features/metrics",
+        "latest/features/gpu",
+        "latest/features/pricing",
+        "latest/features/prompt-hub",
+        "latest/features/vault",
+        "latest/features/multiple-db"
+      ],
+      "version": "latest"
+    },
+    {
       "group": "Integrations",
       "version": "latest",
       "pages": [
@@ -116,17 +129,6 @@
       ]
     },
     {
-      "group": "Features",
-      "pages": [
-        "latest/features/tracing",
-        "latest/features/metrics",
-        "latest/features/gpu",
-        "latest/features/pricing",
-        "latest/features/multiple-db"
-      ],
-      "version": "latest"
-    },
-    {
       "group": "Connections",
       "pages": [
         "latest/connections/intro",
@@ -145,6 +147,27 @@
         "latest/connections/highlight",
         "latest/connections/murnitur",
         "latest/connections/middleware"
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "latest/api-reference/introduction",
+        {
+          "group": "Prompt Hub",
+          "pages": [
+            "latest/api-reference/endpoint/prompt-hub/get"
+          ],
+          "version": "latest"
+        },
+        {
+          "group": "Vault",
+          "pages": [
+            "latest/api-reference/endpoint/vault/get"
+          ],
+          "version": "latest"
+        }
       ],
       "version": "latest"
     }

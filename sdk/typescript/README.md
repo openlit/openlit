@@ -1,8 +1,9 @@
 <div align="center">
-<img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
-OpenTelemetry Auto-Instrumentation for GenAI & LLM Applications</h1>
+<img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
+<h3>OpenTelemetry-native</h3>
+<h1>AI Observability, Monitoring and Evaluation Framework</h1>
 
-**[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript)**
+**[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started-with-llm-observability) | [Roadmap](#️-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)** 
 
 [![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://github.com/openlit/openlit)
 [![License](https://img.shields.io/github/license/openlit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/openlit/openlit/blob/main/LICENSE)
@@ -11,18 +12,23 @@ OpenTelemetry Auto-Instrumentation for GenAI & LLM Applications</h1>
 [![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
-[![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/CQnXwNT3)
 [![X](https://img.shields.io/badge/follow-%40openlit__io-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
 
 ![OpenLIT Connections Banner](https://github.com/openlit/.github/blob/main/profile/assets/github-readme-connections-banner.png?raw=true)
 
 </div>
 
-OpenLIT Typescript SDK is an **OpenTelemetry-native** Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects. Designed with simplicity and efficiency, OpenLIT offers the ability to embed observability into your GenAI-driven projects effortlessly using just **a single line of code**.
+OpenLIT SDK is a monitoring framework built on top of **OpenTelemetry** that gives your complete Observability for your AI stack, from LLMs to vector databases, with just one line of code with tracing and metrics. It also allows you to send the generated traces and metrics to your existing monitoring tools like Grafana, New Relic, and more.
 
-Whether you're directly using LLM Libraries like OpenAI or Anthropic, OpenLIT seamlessly integrates observability into your applications, ensuring enhanced performance and reliability across diverse scenarios.
+This project proudly follows and maintains the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) with the OpenTelemetry community, consistently updating to align with the latest standards in Observability.
 
-This project adheres to the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) proposed by the OpenTelemetry community. You can check out the current definitions [here](src/semantic-convention.ts).
+## ⚡ Features
+
+- 🔎 **Auto Instrumentation**: Works with 30+ LLM providers and vector databases with just one line of code.
+- 🔭 **OpenTelemetry-Native Observability SDKs**: Vendor-neutral SDKs that can send traces and metrics to your existing observability tool like Prometheus and Jaeger.
+- 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Pass custom pricing files for accurate budgeting of custom and fine-tuned models.
+- 🚀 **Suppport for OpenLIT Features**: Includes suppprt for prompt management and secrets management features available in OpenLIT.
+
 
 ## Auto Instrumentation Capabilities
 
@@ -30,6 +36,7 @@ This project adheres to the [Semantic Conventions](https://github.com/open-telem
 | --------------------------------------------------------------------- | 
 | [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)       | [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb) | [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm) |     |
 | [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic) |
+| [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere) |
 
 ## Supported Destinations
 
@@ -65,7 +72,7 @@ npm install openlit
 
 ### Step 2: Initialize OpenLIT in your Application
 
-Integrating the OpenLIT into LLM applications is straightforward. Start monitoring for your LLM Application with just **two lines of code**:
+Integrate OpenLIT into your AI applications by adding the following lines to your code.
 
 ```typescript
 import Openlit from 'openlit';
@@ -73,11 +80,14 @@ import Openlit from 'openlit';
 Openlit.init();
 ```
 
-To forward telemetry data to an HTTP OTLP endpoint, such as the OpenTelemetry Collector, set the `otlpEndpoint` parameter with the desired endpoint. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable as recommended in the OpenTelemetry documentation.
+Configure the telemetry data destination as follows:
 
-> 💡 Info: If you dont provide `otlpEndpoint` function argument or set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable, OpenLIT directs the trace directly to your console, which can be useful during development.
+| Purpose                                   | Parameter/Environment Variable                   | For Sending to OpenLIT         |
+|-------------------------------------------|--------------------------------------------------|--------------------------------|
+| Send data to an HTTP OTLP endpoint        | `otlpEndpoint` or `OTEL_EXPORTER_OTLP_ENDPOINT` | `"http://127.0.0.1:4318"`     |
+| Authenticate telemetry backends           | `otlpHeaders` or `OTEL_EXPORTER_OTLP_HEADERS`   | Not required by default       |
 
-To send telemetry to OpenTelemetry backends requiring authentication, set the `otlpHeaders` parameter with its desired value. Alternatively, you can configure the endpoint by setting the `OTEL_EXPORTER_OTLP_HEADERS` environment variable as recommended in the OpenTelemetry documentation.
+> 💡 Info: If the `otlp_endpoint` or `OTEL_EXPORTER_OTLP_ENDPOINT` is not provided, the OpenLIT SDK will output traces directly to your console, which is recommended during the development phase.
 
 #### Example
 
@@ -129,16 +139,17 @@ export OTEL_EXPORTER_OTLP_HEADERS = "YOUR_OTEL_ENDPOINT_AUTH"
 ---
 
 ### Step 3: Visualize and Optimize!
+Now that your LLM observability data is being collected and sent to configured OpenTelemetry destination, the next step is to visualize and analyze this data. This will help you understand your LLM application's performance and behavior and identify where it can be improved.
 
-With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application’s performance, behavior, and identify areas of improvement.
+If you want to use OpenLIT's Observability Dashboard to monitor LLM usage—like cost, tokens, and user interactions—please check out our [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
 
-To begin exploring your LLM Application's performance data within the OpenLIT UI, please see the [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
-
-If you want to integrate and send metrics and traces to your existing observability tools, refer to our [Connections Guide](https://docs.openlit.io/latest/connections/intro) for detailed instructions.
+If you're sending metrics and traces to other observability tools, take a look at our [Connections Guide](https://docs.openlit.io/latest/connections/intro) to start using a pre-built dashboard we have created for these tools.
 
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
 
-### Configuration
+## Configuration
+
+### Observability - `Openlit.init()`
 
 Below is a detailed overview of the configuration options available, allowing you to adjust OpenLIT's behavior and functionality to align with your specific observability needs:
 
@@ -154,6 +165,36 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `disabledInstrumentations` | List of instrumentations to disable.                                                    | `undefined`                                                             | No       |
 | `instrumentations`        | Object of instrumentation modules for manual patching                                          | `undefined`                                                            | No       |
 | `pricing_json`           | URL or file path of the pricing JSON file.                                           | `https://github.com/openlit/openlit/blob/main/assets/pricing.json` | No       |
+
+### OpenLIT Prompt Hub - `openlit.get_prompt()`
+
+Below are the parameters for use with the SDK for OpenLIT Prompt Hub for prompt management:
+
+| Parameter        | Description                                                                                                                        |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `url`            | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000` if not set.                    |
+| `apiKey`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+| `name`           | Sets the name to fetch a unique prompt. Use this or `promptId`.                                                                    |
+| `promptId`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
+| `version`        | Sets the version to retrieve a specific prompt. Optional                                                                           | 
+| `shouldCompile`        | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
+| `variables`      | Sets the variables for prompt compilation. Optional                                                                                | 
+| `metaProperties` | Sets the meta-properties for storing in the prompt's access history metadata.                                                      | 
+
+
+### OpenLIT Vault - `openlit.get_secrets()`
+
+Below are the parameters for use with the SDK for OpenLIT Vault for secret management:
+
+| Parameter        | Description                                                                                                  |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `url`            | Sets the Openlit URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000` if not set.                    |
+| `apiKey`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+| `key`            | Sets the key to fetch a specific secret.     Optional                                                   |
+| `tags`       | Sets the tags for fetching only the secrets that have the mentioned tags assigned. Optional                      |
+| `shouldSetEnv`        | Boolean value that sets all the secrets as environment variables for the application. Optional                                                      |
+
+
 
 ## 🌱 Contributing
 

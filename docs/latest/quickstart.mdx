@@ -18,13 +18,13 @@ flowchart TB;
         end
         subgraph " "
             direction RL;
-            OpenLIT_UI[OpenLIT UI] -->|Pulls Data| ClickHouseDB;
+            OpenLIT_UI[OpenLIT] -->|Pulls Data| ClickHouseDB;
         end
     end
 ```
 
 <Steps>
-    <Step title="Deploy OpenLIT UI">
+    <Step title="Deploy OpenLIT">
       <Steps>
         <Step title="Git Clone OpenLIT Repository">
         ```shell
@@ -43,12 +43,12 @@ flowchart TB;
         <Tabs>
         <Tab title="Python">
            ```shell
-                pip install openlit
+           pip install openlit
            ```
         </Tab>
         <Tab title="Typescript">
            ```shell
-                npm install openlit
+           npm install openlit
            ```
         </Tab>
         </Tabs>
@@ -254,7 +254,7 @@ flowchart TB;
     <Step title="Visualize and Analyze">
     With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
 
-    Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
+    Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
     - **Email**: `user@openlit.io`
     - **Password**: `openlituser`
     <Frame>

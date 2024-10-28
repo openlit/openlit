@@ -20,7 +20,7 @@ export default function VersionInfo() {
 				side="right"
 				className="text-xs w-auto flex gap-2"
 			>
-				<span className="font-bold">Openlit: </span>
+				<span className="font-bold">OpenLIT: </span>
 				<span>({version.version})</span>
 				{process.env.NODE_ENV === "development" && (
 					<span className="font-light">(Development mode)</span>
