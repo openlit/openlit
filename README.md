@@ -35,7 +35,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 - 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Tailor cost estimations for specific models using custom pricing files for precise budgeting.
 
-- 🔔 **Exceptions Monitoring Dashboard**: Quickly spot and resolve issues by tracking common exceptions and errors with a dedicated monitoring dashboard.
+- 🐛 **Exceptions Monitoring Dashboard**: Quickly spot and resolve issues by tracking common exceptions and errors with a dedicated monitoring dashboard.
 
 - 💭 **Prompt Management**: Manage and version prompts using Prompt Hub for consistent and easy access across applications.
 
@@ -172,9 +172,9 @@ We are dedicated to continuously improving OpenLIT. Here's a look at what's been
 |----------------------------------------------------------------------------------------------|---------------|
 | [OpenTelemetry-native Observability SDK for Tracing and Metrics](https://github.com/openlit/openlit/tree/text-upgrade/sdk/python) | ✅ Completed  |
 | [OpenTelemetry-native GPU Monitoring](https://docs.openlit.io/latest/features/gpu)           | ✅ Completed  |
-| [Exceptions and Error Monitoring]()                                                          | ✅ Completed  |
+| [Exceptions and Error Monitoring](https://docs.openlit.io/latest/features/exceptions)                                                          | ✅ Completed  |
 | [Prompt Hub for Managing and Versioning Prompts](https://docs.openlit.io/latest/features/prompt-hub) | ✅ Completed  |
-| [OpenGround for Testing and Comparing LLMs]()                                                | ✅ Completed  |
+| [OpenGround for Testing and Comparing LLMs](https://docs.openlit.io/latest/features/openground)                                                | ✅ Completed  |
 | [Vault for Central Management of LLM API Keys and Secrets](https://docs.openlit.io/latest/features/vault) | ✅ Completed  |
 | [Cost Tracking for Custom Models](https://docs.openlit.io/latest/features/pricing)           | ✅ Completed  |
 | [Auto-Evaluation Metrics Based on Usage](https://github.com/openlit/openlit/issues/470)                                                   | 🔜 Coming Soon |
