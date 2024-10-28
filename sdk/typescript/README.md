@@ -166,7 +166,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `instrumentations`        | Object of instrumentation modules for manual patching                                          | `undefined`                                                            | No       |
 | `pricing_json`           | URL or file path of the pricing JSON file.                                           | `https://github.com/openlit/openlit/blob/main/assets/pricing.json` | No       |
 
-### OpenLIT Prompt Hub - `openlit.get_prompt()`
+### OpenLIT Prompt Hub - `Openlit.getPrompt()`
 
 Below are the parameters for use with the SDK for OpenLIT Prompt Hub for prompt management:
 
@@ -182,7 +182,7 @@ Below are the parameters for use with the SDK for OpenLIT Prompt Hub for prompt 
 | `metaProperties` | Sets the meta-properties for storing in the prompt's access history metadata.                                                      | 
 
 
-### OpenLIT Vault - `openlit.get_secrets()`
+### OpenLIT Vault - `Openlit.getSecrets()`
 
 Below are the parameters for use with the SDK for OpenLIT Vault for secret management:
 

@@ -59,12 +59,15 @@
     {
       "group": "Features",
       "pages": [
+        "latest/features/overview",
         "latest/features/tracing",
         "latest/features/metrics",
         "latest/features/gpu",
         "latest/features/pricing",
         "latest/features/prompt-hub",
         "latest/features/vault",
+        "latest/features/exceptions",
+        "latest/features/openground",
         "latest/features/multiple-db"
       ],
       "version": "latest"
