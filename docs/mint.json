@@ -148,7 +148,8 @@
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
         "latest/connections/highlight",
-        "latest/connections/murnitur"
+        "latest/connections/murnitur",
+        "latest/connections/middleware"
       ],
       "version": "latest"
     },
