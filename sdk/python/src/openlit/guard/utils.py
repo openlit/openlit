@@ -3,6 +3,10 @@ import json
 from pydantic import BaseModel
 from typing import Optional, Tuple
 import os
+from opentelemetry.metrics import get_meter
+from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+import logging
+from openlit.semcov import SemanticConvetion
 
 class JsonOutput(BaseModel):
     """
@@ -34,29 +38,30 @@ def setup_provider(provider: Optional[str], api_key: Optional[str], model: Optio
     Raises:
         ValueError: If the provider is unsupported or if the API key is not provided.
     """
-    if provider is not None:
-        if provider.lower() == "openai":
-            env_var = "OPENAI_API_KEY"
-        elif provider.lower() == "anthropic":
-            env_var = "ANTHROPIC_API_KEY"
-        else:
-            raise ValueError(f"Unsupported provider: {provider}")
+    PROVIDER_CONFIGS = {
+        "openai": {"env_var": "OPENAI_API_KEY"},
+        "anthropic": {"env_var": "ANTHROPIC_API_KEY"}
+    }
 
-        # Set environment variable for API key if it is provided
-        if api_key:
-            os.environ[env_var] = api_key
+    if provider is None:
+        return None, None, None
 
-        # Fetch API key from environment variable if not provided via function argument
-        api_key = os.getenv(env_var)
+    provider = provider.lower()
+    if provider not in PROVIDER_CONFIGS:
+        raise ValueError(f"Unsupported provider: {provider}")
 
-        if not api_key:
-            raise ValueError(f"An API key must be provided either via the 'api_key' parameter or by setting the '{env_var}' environment variable.")
+    config = PROVIDER_CONFIGS[provider]
+    env_var = config["env_var"]
 
-        model = model
-        base_url = base_url
+    # Handle API key
+    if api_key:
+        os.environ[env_var] = api_key
+    api_key = os.getenv(env_var)
 
-        return api_key, model, base_url
-    return None, None, None
+    if not api_key:
+        raise ValueError(f"API key required via 'api_key' parameter or '{env_var}' environment variable")
+
+    return api_key, model, base_url
 
 
 def format_prompt(system_prompt: str, text: str) -> str:
@@ -204,3 +209,48 @@ def custom_rule_detection(text: str, custom_rules: list) -> JsonOutput:
                 explanation=rule.get("explanation")
             )
     return JsonOutput(score=0, type="none", explanation="none")
+
+from opentelemetry.metrics import get_meter
+
+def guard_metrics():
+    """
+    Initializes OpenTelemetry meter and counter.
+
+    Args:
+        meter_name (str): The name of the meter.
+        version (str): The version of the meter.
+        schema_url (str): The schema URL for the meter.
+        counter_name (str): The name of the counter.
+        counter_description (str): Description for the counter.
+
+    Returns:
+        counter: The initialized telemetry counter.
+    """
+
+    meter = get_meter(
+        __name__,
+        "0.1.0",
+        schema_url="https://opentelemetry.io/schemas/1.11.0",
+    )
+
+    guard_requests = meter.create_counter(
+        name=SemanticConvetion.GUARD_REQUESTS,
+        description="Counter for Guard requests",
+        unit="1"
+    )
+    
+    return guard_requests
+
+def guard_metric_attributes(score, validator, type, explanation):
+    return {
+            TELEMETRY_SDK_NAME:
+                "openlit",
+            SemanticConvetion.GUARD_SCORE:
+                score,
+            SemanticConvetion.GUARD_CATEGORY:
+                validator,
+            SemanticConvetion.GUARD_TYPE:
+                type,
+            SemanticConvetion.GUARD_EXPLANATION:
+                explanation,
+    }

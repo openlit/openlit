@@ -1,20 +1,13 @@
 from typing import Optional, List, Dict
-from openlit.guard.utils import setup_provider, JsonOutput, format_prompt, llm_response, parse_llm_response, custom_rule_detection
-from opentelemetry.metrics import get_meter
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-import logging
-from openlit.semcov import SemanticConvetion
-
-meter = get_meter(
-    __name__,
-    "0.1.0",
-    schema_url="https://opentelemetry.io/schemas/1.11.0",
-)
-
-guard_counter = meter.create_counter(
-    name="guage.requests",
-    description="Counter for Guage requests",
-    unit="1"
+from openlit.guard.utils import (
+    setup_provider,
+    JsonOutput,
+    format_prompt,
+    llm_response,
+    parse_llm_response,
+    custom_rule_detection,
+    guard_metrics,
+    guard_metric_attributes
 )
 
 def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None) -> str:
@@ -84,7 +77,11 @@ class PromptInjection:
         custom_categories (Optional[Dict[str, str]]): Additional categories for prompt injections.
     """
 
-    def __init__(self, provider: Optional[str] = None, api_key: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None, custom_rules: Optional[List[dict]] = None, custom_categories: Optional[Dict[str, str]] = None):
+    def __init__(self, provider: Optional[str] = None, api_key: Optional[str] = None, 
+                 model: Optional[str] = None, base_url: Optional[str] = None, 
+                 custom_rules: Optional[List[dict]] = None, 
+                 custom_categories: Optional[Dict[str, str]] = None,
+                 collect_metrics: Optional[bool] = False):
         """
         Initializes the PromptInjection with specified LLM settings, custom rules, and categories.
 
@@ -103,6 +100,7 @@ class PromptInjection:
         self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
         self.system_prompt = get_system_prompt(custom_categories)
         self.custom_rules = custom_rules or []
+        self.collect_metrics = collect_metrics
 
     def detect(self, text: str) -> JsonOutput:
         """
@@ -123,20 +121,11 @@ class PromptInjection:
             llm_result = parse_llm_response(llm_response(self.provider, prompt, self.model, self.base_url))
         
         result = max(custom_rule_result, llm_result, key=lambda x: x.score)
-        
-        attributes = {
-            TELEMETRY_SDK_NAME:
-                "openlit",
-            SemanticConvetion.GUARD_SCORE:
-                result.score,
-            SemanticConvetion.GUARD_CATEGORY:
-                "prompt_injection",
-            SemanticConvetion.GUARD_TYPE:
-                result.type,
-            SemanticConvetion.GUARD_EXPLANATION:
-                result.explanation,
-        }
 
-        guard_counter.add(1, attributes)
+        if self.collect_metrics is True:
+            guard_counter = guard_metrics()
+            attributes = guard_metric_attributes(result.score, "prompt_injection",
+                                                 result.type, result.explanation)
+            guard_counter.add(1, attributes)
         
         return result

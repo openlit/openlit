@@ -1,20 +1,12 @@
 from typing import Optional, List, Dict
-from openlit.guard.utils import setup_provider, JsonOutput, format_prompt, llm_response, parse_llm_response
-from opentelemetry.metrics import get_meter
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-import logging
-from openlit.semcov import SemanticConvetion
-
-meter = get_meter(
-    __name__,
-    "0.1.0",
-    schema_url="https://opentelemetry.io/schemas/1.11.0",
-)
-
-guard_counter = meter.create_counter(
-    name="guage.requests",
-    description="Counter for Guage requests",
-    unit="1"
+from openlit.guard.utils import (
+    setup_provider,
+    JsonOutput,
+    format_prompt,
+    llm_response,
+    parse_llm_response,
+    guard_metrics,
+    guard_metric_attributes
 )
 
 def get_system_prompt(valid_topics: Optional[List[str]] = None) -> str:
@@ -79,7 +71,12 @@ class RestrictTopic:
         valid_topics (Optional[List[str]]): List of valid topics.
     """
 
-    def __init__(self, provider: Optional[str], api_key: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None, custom_rules: Optional[List[dict]] = None, custom_categories: Optional[Dict[str, str]] = None, valid_topics: Optional[List[str]] = None):
+    def __init__(self, provider: Optional[str], api_key: Optional[str] = None,
+                 model: Optional[str] = None, base_url: Optional[str] = None,
+                 custom_rules: Optional[List[dict]] = None,
+                 custom_categories: Optional[Dict[str, str]] = None,
+                 valid_topics: Optional[List[str]] = None,
+                 collect_metrics: Optional[bool] = False):
         """
         Initializes the RestrictTopic with specified LLM settings, custom rules, and categories.
 
@@ -97,11 +94,12 @@ class RestrictTopic:
         """
         self.provider = provider
         if self.provider is None:
-            raise ValueError(f"An LLM provider must be specified for RestrictTopic Validator")
+            raise ValueError("An LLM provider must be specified for RestrictTopic Validator")
         self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
         self.system_prompt = get_system_prompt(valid_topics)
         self.custom_rules = custom_rules or []
         self.valid_topics = valid_topics or []
+        self.collect_metrics = collect_metrics
 
     def detect(self, text: str) -> JsonOutput:
         """
@@ -123,19 +121,10 @@ class RestrictTopic:
         else:
             result = JsonOutput(score=llm_result.score, type="invalid_topic", explanation=llm_result.explanation)
         
-        attributes = {
-            TELEMETRY_SDK_NAME:
-                "openlit",
-            SemanticConvetion.GUARD_SCORE:
-                result.score,
-            SemanticConvetion.GUARD_CATEGORY:
-                "restrict_topic",
-            SemanticConvetion.GUARD_TYPE:
-                result.type,
-            SemanticConvetion.GUARD_EXPLANATION:
-                result.explanation,
-        }
-
-        guard_counter.add(1, attributes)
+        if self.collect_metrics is True:
+            guard_counter = guard_metrics()
+            attributes = guard_metric_attributes(result.score, "restrict_to_topic",
+                                                 result.type, result.explanation)
+            guard_counter.add(1, attributes)
 
         return result

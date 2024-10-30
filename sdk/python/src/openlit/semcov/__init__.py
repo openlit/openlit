@@ -172,6 +172,7 @@ class SemanticConvetion:
     GPU_POWER_LIMIT = "gpu.power.limit"
 
     # Guard
+    GUARD_REQUESTS = "guard.requests"
     GUARD_SCORE = "guard.score"
     GUARD_CATEGORY = "guard.category"
     GUARD_TYPE = "guard.type"
