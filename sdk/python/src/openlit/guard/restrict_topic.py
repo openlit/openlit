@@ -1,5 +1,21 @@
 from typing import Optional, List, Dict
 from openlit.guard.utils import setup_provider, JsonOutput, format_prompt, llm_response, parse_llm_response
+from opentelemetry.metrics import get_meter
+from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+import logging
+from openlit.semcov import SemanticConvetion
+
+meter = get_meter(
+    __name__,
+    "0.1.0",
+    schema_url="https://opentelemetry.io/schemas/1.11.0",
+)
+
+guard_counter = meter.create_counter(
+    name="guage.requests",
+    description="Counter for Guage requests",
+    unit="1"
+)
 
 def get_system_prompt(valid_topics: Optional[List[str]] = None) -> str:
     """
@@ -103,6 +119,23 @@ class RestrictTopic:
         llm_result = parse_llm_response(response)
         
         if llm_result.score == 0.0 and llm_result.type == "valid_topic":
-            return JsonOutput(score=llm_result.score, type="valid_topic", explanation=llm_result.explanation)
+            result = JsonOutput(score=llm_result.score, type="valid_topic", explanation=llm_result.explanation)
         else:
-            return JsonOutput(score=llm_result.score, type="invalid_topic", explanation=llm_result.explanation)
+            result = JsonOutput(score=llm_result.score, type="invalid_topic", explanation=llm_result.explanation)
+        
+        attributes = {
+            TELEMETRY_SDK_NAME:
+                "openlit",
+            SemanticConvetion.GUARD_SCORE:
+                result.score,
+            SemanticConvetion.GUARD_CATEGORY:
+                "restrict_topic",
+            SemanticConvetion.GUARD_TYPE:
+                result.type,
+            SemanticConvetion.GUARD_EXPLANATION:
+                result.explanation,
+        }
+
+        guard_counter.add(1, attributes)
+
+        return result

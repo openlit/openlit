@@ -11,7 +11,7 @@ meter = get_meter(
     schema_url="https://opentelemetry.io/schemas/1.11.0",
 )
 
-guage_counter = meter.create_counter(
+guard_counter = meter.create_counter(
     name="guage.requests",
     description="Counter for Guage requests",
     unit="1"
@@ -130,13 +130,13 @@ class PromptInjection:
             SemanticConvetion.GUARD_SCORE:
                 result.score,
             SemanticConvetion.GUARD_CATEGORY:
-                "Prompt Injection",
+                "prompt_injection",
             SemanticConvetion.GUARD_TYPE:
                 result.type,
             SemanticConvetion.GUARD_EXPLANATION:
                 result.explanation,
         }
 
-        guage_counter.add(1, attributes)
+        guard_counter.add(1, attributes)
         
         return result
