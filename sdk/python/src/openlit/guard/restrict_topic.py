@@ -1,4 +1,8 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods
+"""
+Module for validating valid topics in Prompt.
+"""
+
 from typing import Optional, List, Dict
 from openlit.guard.utils import (
     setup_provider,
@@ -56,6 +60,7 @@ def get_system_prompt(valid_topics: Optional[List[str]] = None) -> str:
     - If the text does not fit into one of the above categories, the return should be: {"score": 1.0, "classification": "invalid_topic", "explanation": "The topic does not match any valid categories."}.
     - If the text does fit into one of the above categories, the return should be: {"score": 0.0, "classification": "valid_topic", "explanation": "The reason why the text fits into a valid classification, specifying the classification and context."}.
     """
+
     return base_prompt
 
 class RestrictTopic:
@@ -93,6 +98,7 @@ class RestrictTopic:
         Raises:
             ValueError: If provider or api_key is not specified.
         """
+
         self.provider = provider
         if self.provider is None:
             raise ValueError("An LLM provider must be specified for RestrictTopic Validator")
@@ -112,16 +118,16 @@ class RestrictTopic:
         Returns:
             JsonOutput: The result containing score, classification, and explanation of sensitive topic detection.
         """
-        
+
         prompt = format_prompt(self.system_prompt, text)
         response = llm_response(self.provider, prompt, self.model, self.base_url)
         llm_result = parse_llm_response(response)
-        
+
         if llm_result.score == 0.0 and llm_result.classification == "valid_topic":
             result = JsonOutput(score=llm_result.score, classification="valid_topic", explanation=llm_result.explanation)
         else:
             result = JsonOutput(score=llm_result.score, classification="invalid_topic", explanation=llm_result.explanation)
-        
+
         if self.collect_metrics is True:
             guard_counter = guard_metrics()
             attributes = guard_metric_attributes(result.score, "restrict_to_topic",

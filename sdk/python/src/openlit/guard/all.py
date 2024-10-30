@@ -1,4 +1,8 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods
+"""
+Module for validating sensitive topics, valid topics and prompt injection.
+"""
+
 from typing import Optional, List, Dict
 from openlit.guard.utils import (
     setup_provider,
@@ -157,7 +161,7 @@ class All:
             prompt = format_prompt(self.system_prompt, text)
 
             llm_result = parse_llm_response(llm_response(self.provider, prompt, self.model, self.base_url))
-        
+
         result = max(custom_rule_result, llm_result, key=lambda x: x.score)
 
         if self.collect_metrics is True:

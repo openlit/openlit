@@ -1,4 +1,8 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods
+"""
+Module for validating sensitive topics in Prompt.
+"""
+
 from typing import Optional, List, Dict
 from openlit.guard.utils import (
     setup_provider,
@@ -60,6 +64,7 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None) -> str
     Final Steps:
     - If no sensitive topics are detected, or if the topic does not fit into one of the above categories, the return should be: {"score": 0, "classification": "none", explanation="none"}.
     """
+
     return base_prompt
 
 class SensitiveTopic:
@@ -94,10 +99,12 @@ class SensitiveTopic:
         Raises:
             ValueError: If provider or api_key is not specified.
         """
+
         self.provider = provider
         self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
         self.system_prompt = get_system_prompt(custom_categories)
         self.custom_rules = custom_rules or []
+        self.collect_metrics = collect_metrics
 
     def detect(self, text: str) -> JsonOutput:
         """
@@ -111,11 +118,11 @@ class SensitiveTopic:
         """
         custom_rule_result = custom_rule_detection(text, self.custom_rules)
         llm_result = JsonOutput(score=0, classification="none", explanation="none")
-        
+
         if self.provider:
             prompt = format_prompt(self.system_prompt, text)
             llm_result = parse_llm_response(llm_response(self.provider, prompt, self.model, self.base_url))
-        
+
         result =  max(custom_rule_result, llm_result, key=lambda x: x.score)
 
         if self.collect_metrics is True:

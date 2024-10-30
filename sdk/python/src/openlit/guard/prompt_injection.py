@@ -1,4 +1,8 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods
+"""
+Module for validating prompt injection.
+"""
+
 from typing import Optional, List, Dict
 from openlit.guard.utils import (
     setup_provider,
@@ -97,6 +101,7 @@ class PromptInjection:
         Raises:
             ValueError: If provider or api_key is not specified.
         """
+
         self.provider = provider
         self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
         self.system_prompt = get_system_prompt(custom_categories)
@@ -113,14 +118,14 @@ class PromptInjection:
         Returns:
             JsonOutput: The result containing score, classification, and explanation of prompt injection.
         """
-        global latest_score
+
         custom_rule_result = custom_rule_detection(text, self.custom_rules)
         llm_result = JsonOutput(score=0, classification="none", explanation="none")
-        
+
         if self.provider:
             prompt = format_prompt(self.system_prompt, text)
             llm_result = parse_llm_response(llm_response(self.provider, prompt, self.model, self.base_url))
-        
+
         result = max(custom_rule_result, llm_result, key=lambda x: x.score)
 
         if self.collect_metrics is True:
@@ -128,5 +133,5 @@ class PromptInjection:
             attributes = guard_metric_attributes(result.score, "prompt_injection",
                                                  result.classification, result.explanation)
             guard_counter.add(1, attributes)
-        
+
         return result

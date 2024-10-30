@@ -1,3 +1,6 @@
+# pylint: disable=duplicate-code, no-name-in-module
+"""Utiliy functions for openlit.guard"""
+
 import re
 import json
 import os
@@ -6,7 +9,8 @@ from pydantic import BaseModel
 
 from opentelemetry.metrics import get_meter
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-
+from anthropic import Anthropic
+from openai import OpenAI
 from openlit.semcov import SemanticConvetion
 
 class JsonOutput(BaseModel):
@@ -23,7 +27,9 @@ class JsonOutput(BaseModel):
     classification: str
     explanation: str
 
-def setup_provider(provider: Optional[str], api_key: Optional[str], model: Optional[str], base_url: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+def setup_provider(provider: Optional[str], api_key: Optional[str],
+                   model: Optional[str],
+                   base_url: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Sets up the provider, API key, model, and base URL.
 
@@ -34,12 +40,12 @@ def setup_provider(provider: Optional[str], api_key: Optional[str], model: Optio
         base_url (Optional[str]): The base URL for the LLM API.
 
     Returns:
-        Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]: The API key, model, base URL, and system prompt.
+        Tuple: The API key, model, base URL, and system prompt.
 
     Raises:
         ValueError: If the provider is unsupported or if the API key is not provided.
     """
-    PROVIDER_CONFIGS = {
+    provider_configs = {
         "openai": {"env_var": "OPENAI_API_KEY"},
         "anthropic": {"env_var": "ANTHROPIC_API_KEY"}
     }
@@ -48,10 +54,10 @@ def setup_provider(provider: Optional[str], api_key: Optional[str], model: Optio
         return None, None, None
 
     provider = provider.lower()
-    if provider not in PROVIDER_CONFIGS:
+    if provider not in provider_configs:
         raise ValueError(f"Unsupported provider: {provider}")
 
-    config = PROVIDER_CONFIGS[provider]
+    config = provider_configs[provider]
     env_var = config["env_var"]
 
     # Handle API key
@@ -60,31 +66,44 @@ def setup_provider(provider: Optional[str], api_key: Optional[str], model: Optio
     api_key = os.getenv(env_var)
 
     if not api_key:
+        # pylint: disable=line-too-long
         raise ValueError(f"API key required via 'api_key' parameter or '{env_var}' environment variable")
 
     return api_key, model, base_url
 
 
 def format_prompt(system_prompt: str, text: str) -> str:
+    """
+    Format the prompt.
+
+    Args:
+        sysytem_prompt (str): The system prompt to send to the LLM.
+        text: The prompt from the user
+
+    Returns:
+        str: The formatted prompt.
+    """
+
     return system_prompt.replace("{{prompt}}", text)
 
 def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
-        """
-        Generates an LLM response using the configured provider.
+    """
+    Generates an LLM response using the configured provider.
 
-        Args:
-            prompt (str): The formatted prompt to send to the LLM.
+    Args:
+        prompt (str): The formatted prompt to send to the LLM.
 
-        Returns:
-            str: The response from the LLM as a string.
-        """
+    Returns:
+        str: The response from the LLM as a string.
+    """
 
-        if provider.lower() == "openai":
-            return llm_response_openai(prompt, model, base_url)
-        elif provider.lower() == "anthropic":
-            return llm_response_anthropic(prompt, model)
-        else:
-            raise ValueError(f"Unsupported provider: {provider}")
+    # pylint: disable=no-else-return
+    if provider.lower() == "openai":
+        return llm_response_openai(prompt, model, base_url)
+    elif provider.lower() == "anthropic":
+        return llm_response_anthropic(prompt, model)
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
 
 def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     """
@@ -97,12 +116,11 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
         str: The content of the response from OpenAI.
     """
 
-    from openai import OpenAI
     client = OpenAI(base_url=base_url)
 
     if model is None:
         model = "gpt-4o"
-    
+
     if base_url is None:
         base_url = "https://api.openai.com/v1"
 
@@ -127,7 +145,6 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
         str: The content of the response from Anthropic.
     """
 
-    from anthropic import Anthropic
     client = Anthropic()
 
     if model is None:
@@ -135,14 +152,14 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
 
     tools = [
         {
-            "name": "prompt_injection_analysis",
+            "name": "prompt_analysis",
             "description": "Prints the Prompt Injection score of a given prompt.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "score": {"type": "number", "description": "The positive sentiment score, ranging from 0.0 to 1.0."},
-                    "classification": {"type": "number", "description": "The negative sentiment score, ranging from 0.0 to 1.0."},
-                    "explanation": {"type": "number", "description": "The neutral sentiment score, ranging from 0.0 to 1.0."}
+                    "score": {"type": "number", "description": "prompt score from Guard."},
+                    "classification": {"type": "number", "description": "Incorrect prompt type"},
+                    "explanation": {"type": "number", "description": "reason for classification"}
                 },
                 "required": ["score", "classification", "explanation"]
             }
@@ -161,7 +178,7 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
     )
 
     for content in response.content:
-        if content.type == "tool_use" and content.name == "prompt_injection_analysis":
+        if content.type == "tool_use" and content.name == "prompt_analysis":
             response = content.input
             break
 
@@ -215,13 +232,6 @@ def guard_metrics():
     """
     Initializes OpenTelemetry meter and counter.
 
-    Args:
-        meter_name (str): The name of the meter.
-        version (str): The version of the meter.
-        schema_url (str): The schema URL for the meter.
-        counter_name (str): The name of the counter.
-        counter_description (str): Description for the counter.
-
     Returns:
         counter: The initialized telemetry counter.
     """
@@ -237,10 +247,23 @@ def guard_metrics():
         description="Counter for Guard requests",
         unit="1"
     )
-    
+
     return guard_requests
 
 def guard_metric_attributes(score, validator, classification, explanation):
+    """
+    Initializes OpenTelemetry attributes for metrics.
+
+    Args:
+        score (float): The name of the attribute for Guard Score.
+        validator (str): The name of the attribute for Guard.
+        classification (str): The name of the attribute for Guard classification.
+        explaination (str): The name of the attribute for Guard explanation.
+
+    Returns:
+        counter: The initialized telemetry counter.
+    """
+
     return {
             TELEMETRY_SDK_NAME:
                 "openlit",
