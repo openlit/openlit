@@ -177,3 +177,11 @@ class SemanticConvetion:
     GUARD_CLASSIFICATION = "guard.classification"
     GUARD_VALIDATOR = "guard.validator"
     GUARD_EXPLANATION = "guard.explanation"
+
+    # Evals
+    EVAL_REQUESTS = "eval.requests"
+    EVAL_SCORE = "eval.score"
+    EVAL_CLASSIFICATION = "eval.classification"
+    EVAL_VALIDATOR = "eval.validator"
+    EVAL_EXPLANATION = "eval.explanation"
+    
