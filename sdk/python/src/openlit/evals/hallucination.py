@@ -1,5 +1,6 @@
+# pylint: disable=duplicate-code, line-too-long
 """
-Module for finding Hallucination in AI response.
+Module for finding Hallucination in text.
 """
 
 from typing import Optional, List, Dict

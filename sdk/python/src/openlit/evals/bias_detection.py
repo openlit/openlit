@@ -1,3 +1,8 @@
+# pylint: disable=duplicate-code, line-too-long
+"""
+Module for finding Bias in text.
+"""
+
 from typing import Optional, List, Dict
 from openlit.evals.utils import (
     setup_provider,
@@ -96,7 +101,6 @@ def get_system_prompt(prompt: Optional[str] = None, contexts: Optional[List[str]
     """
     return base_prompt
 
-
 class BiasDetector:
     """
     A class to detect Bias in AI responses using LLM or custom categories.
@@ -153,11 +157,10 @@ class BiasDetector:
 
         self.system_prompt = get_system_prompt(prompt, contexts, text, self.custom_categories, self.threshold_score)
         llm_prompt = format_prompt(self.system_prompt, prompt, contexts, text)
-        print(llm_prompt)
         response = llm_response(self.provider, llm_prompt, self.model, self.base_url)
         llm_result = parse_llm_response(response)
         result_verdict = "yes" if llm_result.score > self.threshold_score else "no"
-        
+
         result = JsonOutput(score=llm_result.score, evaluation=llm_result.evaluation,
                             classification=llm_result.classification, 
                             explanation=llm_result.explanation, verdict=result_verdict)
