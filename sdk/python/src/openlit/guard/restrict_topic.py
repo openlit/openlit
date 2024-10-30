@@ -3,7 +3,7 @@
 Module for validating valid topics in Prompt.
 """
 
-from typing import Optional, List, Dict
+from typing import Optional, List
 from openlit.guard.utils import (
     setup_provider,
     JsonOutput,
