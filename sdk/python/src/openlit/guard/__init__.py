@@ -1,3 +1,5 @@
+# pylint: line-too-long
+
 """
 openlit.guard
 
