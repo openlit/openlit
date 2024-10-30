@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long, too-few-public-methods
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods, too-many-instance-attributes
 """
 Module for validating sensitive topics, valid topics and prompt injection.
 """

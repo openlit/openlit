@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long, too-few-public-methods
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods, too-many-instance-attributes
 """
 Module for validating valid topics in Prompt.
 """
@@ -72,15 +72,11 @@ class RestrictTopic:
         api_key (Optional[str]): The API key for authenticating with the LLM.
         model (Optional[str]): The name of the model to use in the LLM.
         base_url (Optional[str]): The base URL for the LLM API.
-        custom_rules (Optional[List[dict]]): Custom rules for detecting sensitive topics.
-        custom_categories (Optional[Dict[str, str]]): Additional categories for sensitive topics.
         valid_topics (Optional[List[str]]): List of valid topics.
     """
 
     def __init__(self, provider: Optional[str], api_key: Optional[str] = None,
                  model: Optional[str] = None, base_url: Optional[str] = None,
-                 custom_rules: Optional[List[dict]] = None,
-                 custom_categories: Optional[Dict[str, str]] = None,
                  valid_topics: Optional[List[str]] = None,
                  collect_metrics: Optional[bool] = False):
         """
@@ -91,8 +87,6 @@ class RestrictTopic:
             api_key (Optional[str]): The API key for authenticating with the LLM.
             model (Optional[str]): The name of the model to use in the LLM.
             base_url (Optional[str]): The base URL for the LLM API.
-            custom_rules (Optional[List[dict]]): Custom rules for detecting sensitive topics.
-            custom_categories (Optional[Dict[str, str]]): Additional categories for sensitive topics.
             valid_topics (Optional[List[str]]): List of valid topics.
 
         Raises:
@@ -104,7 +98,6 @@ class RestrictTopic:
             raise ValueError("An LLM provider must be specified for RestrictTopic Validator")
         self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
         self.system_prompt = get_system_prompt(valid_topics)
-        self.custom_rules = custom_rules or []
         self.valid_topics = valid_topics or []
         self.collect_metrics = collect_metrics
 

@@ -82,9 +82,9 @@ class PromptInjection:
         custom_categories (Optional[Dict[str, str]]): Additional categories for prompt injections.
     """
 
-    def __init__(self, provider: Optional[str] = None, api_key: Optional[str] = None, 
-                 model: Optional[str] = None, base_url: Optional[str] = None, 
-                 custom_rules: Optional[List[dict]] = None, 
+    def __init__(self, provider: Optional[str] = None, api_key: Optional[str] = None,
+                 model: Optional[str] = None, base_url: Optional[str] = None,
+                 custom_rules: Optional[List[dict]] = None,
                  custom_categories: Optional[Dict[str, str]] = None,
                  collect_metrics: Optional[bool] = False):
         """
