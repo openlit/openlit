@@ -1,11 +1,12 @@
 import re
 import json
-from pydantic import BaseModel
-from typing import Optional, Tuple
 import os
+from typing import Optional, Tuple
+from pydantic import BaseModel
+
 from opentelemetry.metrics import get_meter
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-import logging
+
 from openlit.semcov import SemanticConvetion
 
 class JsonOutput(BaseModel):
@@ -14,12 +15,12 @@ class JsonOutput(BaseModel):
 
     Attributes:
         score (float): The score of the prompt injection likelihood.
-        type (str): The type of prompt injection detected.
+        classification (str): The classification of prompt injection detected.
         explanation (str): A detailed explanation of the detection.
     """
 
     score: float
-    type: str
+    classification: str
     explanation: str
 
 def setup_provider(provider: Optional[str], api_key: Optional[str], model: Optional[str], base_url: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
@@ -140,10 +141,10 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
                 "type": "object",
                 "properties": {
                     "score": {"type": "number", "description": "The positive sentiment score, ranging from 0.0 to 1.0."},
-                    "type": {"type": "number", "description": "The negative sentiment score, ranging from 0.0 to 1.0."},
+                    "classification": {"type": "number", "description": "The negative sentiment score, ranging from 0.0 to 1.0."},
                     "explanation": {"type": "number", "description": "The neutral sentiment score, ranging from 0.0 to 1.0."}
                 },
-                "required": ["score", "type", "explanation"]
+                "required": ["score", "classification", "explanation"]
             }
         }
     ]
@@ -188,7 +189,7 @@ def parse_llm_response(response) -> JsonOutput:
         return JsonOutput(**data)
     except (json.JSONDecodeError, TypeError) as e:
         print(f"Error parsing LLM response: {e}")
-        return JsonOutput(score=0, type="none", explanation="none")
+        return JsonOutput(score=0, classification="none", explanation="none")
 
 def custom_rule_detection(text: str, custom_rules: list) -> JsonOutput:
     """
@@ -205,12 +206,10 @@ def custom_rule_detection(text: str, custom_rules: list) -> JsonOutput:
         if re.search(rule["pattern"], text):
             return JsonOutput(
                 score=rule.get("score", 0.5),
-                type=rule.get("type", "custom"),
+                classification=rule.get("classification", "custom"),
                 explanation=rule.get("explanation")
             )
-    return JsonOutput(score=0, type="none", explanation="none")
-
-from opentelemetry.metrics import get_meter
+    return JsonOutput(score=0, classification="none", explanation="none")
 
 def guard_metrics():
     """
@@ -241,16 +240,16 @@ def guard_metrics():
     
     return guard_requests
 
-def guard_metric_attributes(score, validator, type, explanation):
+def guard_metric_attributes(score, validator, classification, explanation):
     return {
             TELEMETRY_SDK_NAME:
                 "openlit",
             SemanticConvetion.GUARD_SCORE:
                 score,
-            SemanticConvetion.GUARD_CATEGORY:
+            SemanticConvetion.GUARD_VALIDATOR:
                 validator,
-            SemanticConvetion.GUARD_TYPE:
-                type,
+            SemanticConvetion.GUARD_CLASSIFICATION:
+                classification,
             SemanticConvetion.GUARD_EXPLANATION:
                 explanation,
     }
