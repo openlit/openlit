@@ -170,3 +170,10 @@ class SemanticConvetion:
     GPU_MEMORY_FREE = "gpu.memory.free"
     GPU_POWER_DRAW = "gpu.power.draw"
     GPU_POWER_LIMIT = "gpu.power.limit"
+
+    # Guard
+    GUARD_REQUESTS = "guard.requests"
+    GUARD_SCORE = "guard.score"
+    GUARD_CLASSIFICATION = "guard.classification"
+    GUARD_VALIDATOR = "guard.validator"
+    GUARD_EXPLANATION = "guard.explanation"
