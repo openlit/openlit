@@ -14,6 +14,7 @@ from openlit.evals.utils import (
     eval_metric_attributes
 )
 
+# pylint: disable=unused-argument
 def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None,
                       threshold_score: Optional[float] = 0.5) -> str:
     """
@@ -157,7 +158,7 @@ class Hallucination:
         llm_result = parse_llm_response(response)
         result_verdict = "yes" if llm_result.score > self.threshold_score else "no"
         result = JsonOutput(score=llm_result.score, evaluation=llm_result.evaluation,
-                            classification=llm_result.classification, 
+                            classification=llm_result.classification,
                             explanation=llm_result.explanation, verdict=result_verdict)
 
         if self.collect_metrics:

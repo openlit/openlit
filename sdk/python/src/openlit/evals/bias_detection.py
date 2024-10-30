@@ -161,7 +161,7 @@ class BiasDetector:
         result_verdict = "yes" if llm_result.score > self.threshold_score else "no"
 
         result = JsonOutput(score=llm_result.score, evaluation=llm_result.evaluation,
-                            classification=llm_result.classification, 
+                            classification=llm_result.classification,
                             explanation=llm_result.explanation, verdict=result_verdict)
 
         if self.collect_metrics:
