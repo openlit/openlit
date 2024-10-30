@@ -1,7 +1,7 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
 <h3>OpenTelemetry-native</h3>
-<h1>AI Observability, Evaluation and Security Framework</h1>
+<h1>AI Observability, Evaluation and Guardrails Framework</h1>
 
 **[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started-with-llm-observability) | [Roadmap](#️-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)** 
 

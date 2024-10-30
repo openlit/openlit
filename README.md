@@ -1,7 +1,7 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
 
-#### Observability, Exceptions, Prompts, Vault, Playground
+#### Observability, Guardrails, Prompts, Vault, Playground
 
 # Open Source Platform for AI Engineering
 
