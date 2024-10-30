@@ -1,7 +1,6 @@
 # pylint: disable=duplicate-code, no-name-in-module
 """Utiliy functions for openlit.evals"""
 
-import re
 import json
 import os
 from typing import Optional, Tuple, List

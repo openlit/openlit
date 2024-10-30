@@ -184,4 +184,3 @@ class SemanticConvetion:
     EVAL_CLASSIFICATION = "eval.classification"
     EVAL_VALIDATOR = "eval.validator"
     EVAL_EXPLANATION = "eval.explanation"
-    

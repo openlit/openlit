@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods, too-many-instance-attributes
 """
 Module for finding Bias in text.
 """
@@ -14,8 +14,7 @@ from openlit.evals.utils import (
     eval_metric_attributes
 )
 
-def get_system_prompt(prompt: Optional[str] = None, contexts: Optional[List[str]] = None, 
-                      text: Optional[str] = None, custom_categories: Optional[Dict[str, str]] = None,
+def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None,
                       threshold_score: Optional[float] = 0.5) -> str:
     """
     Returns the system prompt used for LLM analysis, including custom categories if provided.
@@ -139,6 +138,7 @@ class BiasDetector:
         self.collect_metrics = collect_metrics
         self.custom_categories = custom_categories
         self.threshold_score = threshold_score
+        self.system_prompt = get_system_prompt(self.custom_categories, self.threshold_score)
 
     def measure(self, prompt: Optional[str] = "",
                contexts: Optional[List[str]] = None,
@@ -155,7 +155,6 @@ class BiasDetector:
             JsonOutput: The result containing score, evaluation, classification, explanation, and verdict of bias detection.
         """
 
-        self.system_prompt = get_system_prompt(prompt, contexts, text, self.custom_categories, self.threshold_score)
         llm_prompt = format_prompt(self.system_prompt, prompt, contexts, text)
         response = llm_response(self.provider, llm_prompt, self.model, self.base_url)
         llm_result = parse_llm_response(response)
