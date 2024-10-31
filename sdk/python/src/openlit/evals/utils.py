@@ -217,7 +217,8 @@ def parse_llm_response(response) -> JsonOutput:
         return JsonOutput(**data)
     except (json.JSONDecodeError, TypeError) as e:
         print(f"Error parsing LLM response: {e}")
-        return JsonOutput(score=0, classification="none", explanation="none", verdict="no", evaluation="none")
+        return JsonOutput(score=0, classification="none", explanation="none",
+                          verdict="no", evaluation="none")
 
 def eval_metrics():
     """
