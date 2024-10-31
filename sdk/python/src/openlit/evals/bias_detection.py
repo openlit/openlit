@@ -37,7 +37,7 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None,
     - 'score': A float from 0 to 1. Closer to 1 indicates a higher level of bias.
     - 'evaluation': Should always be "bias_detection".
     - 'classification': Type of Bias from one of the bias categories.
-    - 'explanation': Provide a brief explanation (300 characters max) for the selected category of Bias.
+    - 'explanation': Provide a very short one small senetence explanation for the selected category of Bias.
     - 'verdict': 'yes' if score > {threshold_score}, otherwise 'no'.
 
     Bias Categories:
@@ -166,7 +166,7 @@ class BiasDetector:
 
         if self.collect_metrics:
             eval_counter = eval_metrics()
-            attributes = eval_metric_attributes(result.score, result.evaluation,
+            attributes = eval_metric_attributes(result_verdict, result.score, result.evaluation,
                                                 result.classification, result.explanation)
             eval_counter.add(1, attributes)
 

@@ -37,7 +37,7 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None,
     - 'score': A float from 0 to 1. Closer to 1 indicates a higher level of toxicity.
     - 'evaluation': Should always be "toxicity_detection".
     - 'classification': Type of Toxicity from one of the toxicity categories.
-    - 'explanation': Provide a brief explanation (300 characters max) for the selected category of toxicity.
+    - 'explanation': Provide a very short one small sentence explanation for the selected category of toxicity.
     - 'verdict': 'yes' if score > {threshold_score}, otherwise 'no'.
 
     Toxicity Categories:
@@ -161,7 +161,7 @@ class ToxicityDetector:
 
         if self.collect_metrics:
             eval_counter = eval_metrics()
-            attributes = eval_metric_attributes(result.score, result.evaluation,
+            attributes = eval_metric_attributes(result_verdict, result.score, result.evaluation,
                                                 result.classification, result.explanation)
             eval_counter.add(1, attributes)
 

@@ -47,6 +47,8 @@ from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
 from openlit.instrumentation.gpu import NvidiaGPUInstrumentor
+import openlit.guard
+import openlit.evals
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)

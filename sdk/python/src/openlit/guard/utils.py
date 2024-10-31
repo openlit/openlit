@@ -1,12 +1,11 @@
 # pylint: disable=duplicate-code, no-name-in-module
-"""Utiliy functions for openlit.guard"""
+"""Utility functions for openlit.guard"""
 
 import re
 import json
 import os
 from typing import Optional, Tuple
 from pydantic import BaseModel
-
 from opentelemetry.metrics import get_meter
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from anthropic import Anthropic
@@ -18,33 +17,23 @@ class JsonOutput(BaseModel):
     A model representing the structure of JSON output for prompt injection detection.
 
     Attributes:
-        score (float): The score of the prompt injection likelihood.
-        classification (str): The classification of prompt injection detected.
+        score (float): The score of the harmful prompt likelihood.
+        verdict (str): Verdict if detection is harmful or not.
+        guard (str): The type of guardrail.
+        classification (str): The classification of prompt detected.
         explanation (str): A detailed explanation of the detection.
     """
 
     score: float
+    verdict: str
+    guard: str
     classification: str
     explanation: str
 
 def setup_provider(provider: Optional[str], api_key: Optional[str],
                    model: Optional[str],
                    base_url: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    """
-    Sets up the provider, API key, model, and base URL.
-
-    Args:
-        provider (Optional[str]): The name of the LLM provider.
-        api_key (Optional[str]): The API key for authenticating with the LLM.
-        model (Optional[str]): The name of the model to use in the LLM.
-        base_url (Optional[str]): The base URL for the LLM API.
-
-    Returns:
-        Tuple: The API key, model, base URL, and system prompt.
-
-    Raises:
-        ValueError: If the provider is unsupported or if the API key is not provided.
-    """
+    """Function to setup LLM provider"""
     provider_configs = {
         "openai": {"env_var": "OPENAI_API_KEY"},
         "anthropic": {"env_var": "ANTHROPIC_API_KEY"}
@@ -73,30 +62,11 @@ def setup_provider(provider: Optional[str], api_key: Optional[str],
 
 
 def format_prompt(system_prompt: str, text: str) -> str:
-    """
-    Format the prompt.
-
-    Args:
-        sysytem_prompt (str): The system prompt to send to the LLM.
-        text: The prompt from the user
-
-    Returns:
-        str: The formatted prompt.
-    """
-
+    """Function to format the prompt"""
     return system_prompt.replace("{{prompt}}", text)
 
 def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
-    """
-    Generates an LLM response using the configured provider.
-
-    Args:
-        prompt (str): The formatted prompt to send to the LLM.
-
-    Returns:
-        str: The response from the LLM as a string.
-    """
-
+    """Function to get LLM response based on provider"""
     # pylint: disable=no-else-return
     if provider.lower() == "openai":
         return llm_response_openai(prompt, model, base_url)
@@ -106,16 +76,7 @@ def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
         raise ValueError(f"Unsupported provider: {provider}")
 
 def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
-    """
-    Interacts with the OpenAI API to get a LLM response.
-
-    Args:
-        prompt (str): The prompt to send to the OpenAI LLM.
-
-    Returns:
-        str: The content of the response from OpenAI.
-    """
-
+    """Function to make LLM call to OpenAI"""
     client = OpenAI(base_url=base_url)
 
     if model is None:
@@ -135,16 +96,7 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     return response.choices[0].message.content
 
 def llm_response_anthropic(prompt: str, model: str) -> str:
-    """
-    Interacts with the Anthropic API to get a LLM response.
-
-    Args:
-        prompt (str): The prompt to send to the Anthropic LLM.
-
-    Returns:
-        str: The content of the response from Anthropic.
-    """
-
+    """Function to make LLM call to Anthropic"""
     client = Anthropic()
 
     if model is None:
@@ -157,11 +109,13 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "score": {"type": "number", "description": "prompt score from Guard."},
-                    "classification": {"type": "number", "description": "Incorrect prompt type"},
-                    "explanation": {"type": "number", "description": "reason for classification"}
+                    "verdict": {"type": "string", "description": "Verdict of guardrail"},
+                    "guard": {"type": "string", "description": "Type of guard"},
+                    "score": {"type": "number", "description": "Prompt score from Guard."},
+                    "classification": {"type": "string", "description": "Incorrect prompt type"},
+                    "explanation": {"type": "string", "description": "Reason for classification"}
                 },
-                "required": ["score", "classification", "explanation"]
+                "required": ["verdict", "guard", "score", "classification", "explanation"]
             }
         }
     ]
@@ -194,7 +148,6 @@ def parse_llm_response(response) -> JsonOutput:
     Returns:
         JsonOutput: The structured output representing the LLM's assessment.
     """
-
     try:
         if isinstance(response, str):
             data = json.loads(response)
@@ -206,7 +159,8 @@ def parse_llm_response(response) -> JsonOutput:
         return JsonOutput(**data)
     except (json.JSONDecodeError, TypeError) as e:
         print(f"Error parsing LLM response: {e}")
-        return JsonOutput(score=0, classification="none", explanation="none")
+        return JsonOutput(score=0, classification="none", explanation="none",
+                          verdict="none", guard="none")
 
 def custom_rule_detection(text: str, custom_rules: list) -> JsonOutput:
     """
@@ -218,15 +172,17 @@ def custom_rule_detection(text: str, custom_rules: list) -> JsonOutput:
     Returns:
         JsonOutput: The structured output based on custom rule matches.
     """
-
     for rule in custom_rules:
         if re.search(rule["pattern"], text):
             return JsonOutput(
+                verdict=rule.get("verdict", "yes"),
+                guard=rule.get("guard", "prompt_injection"),
                 score=rule.get("score", 0.5),
                 classification=rule.get("classification", "custom"),
-                explanation=rule.get("explanation")
+                explanation=rule.get("explanation", "Matched custom rule pattern.")
             )
-    return JsonOutput(score=0, classification="none", explanation="none")
+    return JsonOutput(score=0, classification="none", explanation="none",
+                      verdict="none", guard="none")
 
 def guard_metrics():
     """
@@ -235,7 +191,6 @@ def guard_metrics():
     Returns:
         counter: The initialized telemetry counter.
     """
-
     meter = get_meter(
         __name__,
         "0.1.0",
@@ -250,7 +205,7 @@ def guard_metrics():
 
     return guard_requests
 
-def guard_metric_attributes(score, validator, classification, explanation):
+def guard_metric_attributes(verdict, score, validator, classification, explanation):
     """
     Initializes OpenTelemetry attributes for metrics.
 
@@ -263,16 +218,11 @@ def guard_metric_attributes(score, validator, classification, explanation):
     Returns:
         counter: The initialized telemetry counter.
     """
-
     return {
-            TELEMETRY_SDK_NAME:
-                "openlit",
-            SemanticConvetion.GUARD_SCORE:
-                score,
-            SemanticConvetion.GUARD_VALIDATOR:
-                validator,
-            SemanticConvetion.GUARD_CLASSIFICATION:
-                classification,
-            SemanticConvetion.GUARD_EXPLANATION:
-                explanation,
+        TELEMETRY_SDK_NAME: "openlit",
+        SemanticConvetion.GUARD_VERDICT: verdict,
+        SemanticConvetion.GUARD_SCORE: score,
+        SemanticConvetion.GUARD_VALIDATOR: validator,
+        SemanticConvetion.GUARD_CLASSIFICATION: classification,
+        SemanticConvetion.GUARD_EXPLANATION: explanation,
     }
