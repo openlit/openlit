@@ -166,13 +166,13 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "verdict": {"type": "number", "description": "Evaluation verdict"},
-                    "evaluation": {"type": "number", "description": "Evaluation type"},
+                    "verdict": {"type": "string", "description": "Evaluation verdict"},
+                    "evaluation": {"type": "string", "description": "Evaluation type"},
                     "score": {"type": "number", "description": "Evaluation score"},
-                    "classification": {"type": "number", "description": "Evaluation category"},
-                    "explanation": {"type": "number", "description": "Evaluation reason"}
+                    "classification": {"type": "string", "description": "Evaluation category"},
+                    "explanation": {"type": "string", "description": "Evaluation reason"}
                 },
-                "required": ["score", "classification", "explanation"]
+                "required": ["verdict", "evaluation", "score", "classification", "explanation"]
             }
         }
     ]
@@ -217,7 +217,7 @@ def parse_llm_response(response) -> JsonOutput:
         return JsonOutput(**data)
     except (json.JSONDecodeError, TypeError) as e:
         print(f"Error parsing LLM response: {e}")
-        return JsonOutput(score=0, classification="none", explanation="none")
+        return JsonOutput(score=0, classification="none", explanation="none", verdict="no", evaluation="none")
 
 def eval_metrics():
     """
@@ -241,7 +241,7 @@ def eval_metrics():
 
     return guard_requests
 
-def eval_metric_attributes(score, validator, classification, explanation):
+def eval_metric_attributes(verdict, score, validator, classification, explanation):
     """
     Initializes OpenTelemetry attributes for metrics.
 
@@ -258,6 +258,8 @@ def eval_metric_attributes(score, validator, classification, explanation):
     return {
             TELEMETRY_SDK_NAME:
                 "openlit",
+            SemanticConvetion.EVAL_VERDICT:
+                verdict,
             SemanticConvetion.EVAL_SCORE:
                 score,
             SemanticConvetion.EVAL_VALIDATOR:

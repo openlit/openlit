@@ -74,7 +74,7 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     client = OpenAI(base_url=base_url)
 
     if model is None:
-        model = "gpt-4o-mini"
+        model = "gpt-4o"
 
     if base_url is None:
         base_url = "https://api.openai.com/v1"
@@ -104,11 +104,11 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
                 "properties": {
                     "verdict": {"type": "string", "description": "Verdict of guardrail"},
                     "guard": {"type": "string", "description": "Type of guard"},
-                    "score": {"type": "float", "description": "Prompt score from Guard."},
+                    "score": {"type": "number", "description": "Prompt score from Guard."},
                     "classification": {"type": "string", "description": "Incorrect prompt type"},
                     "explanation": {"type": "string", "description": "Reason for classification"}
                 },
-                "required": ["score", "classification", "explanation"]
+                "required": ["verdict", "guard", "score", "classification", "explanation"]
             }
         }
     ]

@@ -38,7 +38,7 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None,
     - 'score': A float from 0 to 1. Closer to 1 indicates a higher level of hallucination.
     - 'evaluation': Should always be "hallucination".
     - 'classification': Type of Hallucination from one of the hallucination categories.
-    - 'explanation': Provide a brief explanation (300 characters max) for the selected category of Hallucination. Explanation should be very short.
+    - 'explanation': Provide a very short sentence explanation for the selected category of Hallucination.
     - 'verdict': 'yes' if score > {threshold_score}, otherwise 'no'.
 
     Hallucination Categories:
@@ -70,7 +70,7 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None,
         "score": 0.8,
         "evaluation": "hallucination",
         "classification": "factual_inaccuracy",
-        "explanation": "The text incorrectly states that Einstein won the Nobel Prize in 1969. Based on context 2, it was actually 1968, leading to factual inconsistency.",
+        "explanation": "The output has incorrect facts",
         "verdict": "yes"
     }
 
@@ -163,7 +163,7 @@ class Hallucination:
 
         if self.collect_metrics:
             eval_counter = eval_metrics()
-            attributes = eval_metric_attributes(result.score, result.evaluation,
+            attributes = eval_metric_attributes(result_verdict, result.score, result.evaluation,
                                                 result.classification, result.explanation)
             eval_counter.add(1, attributes)
 

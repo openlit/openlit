@@ -103,7 +103,6 @@ class SensitiveTopic:
 
         if self.provider:
             prompt = format_prompt(self.system_prompt, text)
-            print(prompt)
             llm_result = parse_llm_response(llm_response(self.provider, prompt, self.model, self.base_url))
 
         result = max(custom_rule_result, llm_result, key=lambda x: x.score)
