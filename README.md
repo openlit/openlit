@@ -177,10 +177,11 @@ We are dedicated to continuously improving OpenLIT. Here's a look at what's been
 | [OpenGround for Testing and Comparing LLMs](https://docs.openlit.io/latest/features/openground)                                                | ✅ Completed  |
 | [Vault for Central Management of LLM API Keys and Secrets](https://docs.openlit.io/latest/features/vault) | ✅ Completed  |
 | [Cost Tracking for Custom Models](https://docs.openlit.io/latest/features/pricing)           | ✅ Completed  |
+| [Real-Time Guardrails Implementation](https://docs.openlit.io/latest/features/guardrails)                                                      | ✅ Completed    |
+| [Programmatic Evaluation for LLM Response](https://docs.openlit.io/latest/features/evaluations)                                                      | ✅ Completed    |
 | [Auto-Evaluation Metrics Based on Usage](https://github.com/openlit/openlit/issues/470)                                                   | 🔜 Coming Soon |
 | [Human Feedback for LLM Events](https://github.com/openlit/openlit/issues/471)                                                            | 🔜 Coming Soon |
 | [Dataset Generation Based on LLM Events](https://github.com/openlit/openlit/issues/472)                                                   | 🔜 Coming Soon |
-| [Real-Time Guardrails Implementation]()                                                      | 📝 Planned    |
 
 ## 🌱 Contributing
 

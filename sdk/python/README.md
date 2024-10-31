@@ -220,8 +220,9 @@ We are dedicated to continuously improving OpenLIT SDKs. Here's a look at what's
 | [OpenTelmetry auto-instrumentation for Vector databases like Pinecone, Chroma]()             | ✅ Completed  |
 | [OpenTelmetry auto-instrumentation for LLM Frameworks like LangChain, LlamaIndex]()          | ✅ Completed  |
 | [OpenTelemetry-native auto-instrumentation for NVIDIA GPU Monitoring](https://docs.openlit.io/latest/features/gpu)           | ✅ Completed  |
+| [Real-Time Guardrails Implementation](https://docs.openlit.io/latest/features/guardrails)                                                      | ✅ Completed    |
+| [Programmatic Evaluation for LLM Response](https://docs.openlit.io/latest/features/evaluations)                                                      | ✅ Completed    |
 | [OpenTelmetry auto-instrumentation for Agent Frameworks like CrewAI, DsPy]()             | 🔜 Coming Soon  |
-| [Evaluation Metrics]()             | 🔜 Coming Soon  |
 
 
 ## 🌱 Contributing
