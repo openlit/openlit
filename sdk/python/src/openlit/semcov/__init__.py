@@ -173,6 +173,7 @@ class SemanticConvetion:
 
     # Guard
     GUARD_REQUESTS = "guard.requests"
+    GUARD_VERDICT = "guard.verdict"
     GUARD_SCORE = "guard.score"
     GUARD_CLASSIFICATION = "guard.classification"
     GUARD_VALIDATOR = "guard.validator"

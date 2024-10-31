@@ -28,7 +28,7 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None) -> str
     base_prompt = """
     Output Requirement: JSON Format Only
 
-    Your task is to carefully analyze the provided text and identify any instances of sensitive topics, categorizing the classification when found. Apply strict criteria in your assessment.
+    Your task is to carefully analyze the provided text and identify any instances of sensitive topics, and categorize the classification when found. Apply strict criteria in your assessment.
 
     Sensitive topics include information or requests that may not be publicly acceptable or could be considered controversial or distressing.
 
@@ -39,12 +39,16 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None) -> str
 
     {
         "score": "float",
-        "classification": "TYPE_OF_SENSITIVE_TOPIC",
-        "explanation": "Detailed reason"
+        "verdict": "yes or no",
+        "guard": "sensitive_topic",
+        "classification": "CATEGORY_OF_SENSITIVE_TOPIC",
+        "explanation": "Very short one-sentence reason"
     }
 
     Scoring System:
-    - The score ranges from 0 to 1. Treat scores below 0.25 as indicating no sensitive topics are present.
+    - The score ranges from 0 to 1. Scores should be 0 if the classification is "none". Any other classification must be accompanied by a valid category and a score reflecting the sensitivity.
+
+    Important: Use only the categories below to classify sensitive topics. If the text does not fit any listed category, classify it as "none" with a score of 0.
 
     Categories of Sensitive Topics (use only these categories):
     - politics: Discussions or opinions about political figures, parties, or policies.
@@ -62,7 +66,7 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None) -> str
 
     base_prompt += """
     Final Steps:
-    - If no sensitive topics are detected, or if the topic does not fit into one of the above categories, the return should be: {"score": 0, "classification": "none", explanation="none"}.
+    - If no sensitive topics are detected, or if the topic does not fit into one of the above categories, the return must be: {"score": 0, "verdict": "no", "guard": "none", "classification": "none", "explanation": "none"}.
     """
 
     return base_prompt
@@ -84,51 +88,41 @@ class SensitiveTopic:
                  model: Optional[str] = None, base_url: Optional[str] = None,
                  custom_rules: Optional[List[dict]] = None,
                  custom_categories: Optional[Dict[str, str]] = None,
+                 threshold_score: float = 0.25,
                  collect_metrics: Optional[bool] = False):
-        """
-        Initializes the SensitiveTopic with specified LLM settings, custom rules, and categories.
-
-        Args:
-            provider (Optional[str]): The name of the LLM provider.
-            api_key (Optional[str]): The API key for authenticating with the LLM.
-            model (Optional[str]): The name of the model to use in the LLM.
-            base_url (Optional[str]): The base URL for the LLM API.
-            custom_rules (Optional[List[dict]]): Custom rules for detecting sensitive topics.
-            custom_categories (Optional[Dict[str, str]]): Additional categories for sensitive topics.
-
-        Raises:
-            ValueError: If provider or api_key is not specified.
-        """
-
         self.provider = provider
         self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
         self.system_prompt = get_system_prompt(custom_categories)
         self.custom_rules = custom_rules or []
+        self.threshold_score = threshold_score
         self.collect_metrics = collect_metrics
 
     def detect(self, text: str) -> JsonOutput:
-        """
-        Detects sensitive topics using either LLM or custom rules.
-
-        Args:
-            text (str): The text to analyze for sensitive topics.
-
-        Returns:
-            JsonOutput: The result containing score, classification, and explanation of sensitive topic detection.
-        """
         custom_rule_result = custom_rule_detection(text, self.custom_rules)
-        llm_result = JsonOutput(score=0, classification="none", explanation="none")
+        llm_result = JsonOutput(score=0, classification="none", explanation="none", verdict="no", guard="none")
 
         if self.provider:
             prompt = format_prompt(self.system_prompt, text)
+            print(prompt)
             llm_result = parse_llm_response(llm_response(self.provider, prompt, self.model, self.base_url))
 
-        result =  max(custom_rule_result, llm_result, key=lambda x: x.score)
+        result = max(custom_rule_result, llm_result, key=lambda x: x.score)
+        score = result.score
+        if result.classification == "none":
+            score = 0
 
-        if self.collect_metrics is True:
+        verdict = "yes" if score > self.threshold_score else "no"
+
+        if self.collect_metrics:
             guard_counter = guard_metrics()
-            attributes = guard_metric_attributes(result.score, "sensitive_topic",
+            attributes = guard_metric_attributes(verdict, score, result.guard,
                                                  result.classification, result.explanation)
             guard_counter.add(1, attributes)
 
-        return result
+        return JsonOutput(
+            score=score,
+            guard=result.guard,
+            verdict=verdict,
+            classification=result.classification,
+            explanation=result.explanation
+        )
