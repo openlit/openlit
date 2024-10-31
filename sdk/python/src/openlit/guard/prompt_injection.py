@@ -100,10 +100,7 @@ class PromptInjection:
             llm_result = parse_llm_response(llm_response(self.provider, prompt, self.model, self.base_url))
 
         result = max(custom_rule_result, llm_result, key=lambda x: x.score)
-        score = result.score
-        if result.classification == "none":
-            score = 0
-
+        score = 0 if result.classification == "none" else result.score
         verdict = "yes" if score > self.threshold_score else "no"
 
         if self.collect_metrics is True:
