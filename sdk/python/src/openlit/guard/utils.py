@@ -33,6 +33,7 @@ class JsonOutput(BaseModel):
 def setup_provider(provider: Optional[str], api_key: Optional[str],
                    model: Optional[str],
                    base_url: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Function to setup LLM provider"""
     provider_configs = {
         "openai": {"env_var": "OPENAI_API_KEY"},
         "anthropic": {"env_var": "ANTHROPIC_API_KEY"}
@@ -54,15 +55,19 @@ def setup_provider(provider: Optional[str], api_key: Optional[str],
     api_key = os.getenv(env_var)
 
     if not api_key:
+        # pylint: disable=line-too-long
         raise ValueError(f"API key required via 'api_key' parameter or '{env_var}' environment variable")
 
     return api_key, model, base_url
 
 
 def format_prompt(system_prompt: str, text: str) -> str:
+    """Function to format the prompt"""
     return system_prompt.replace("{{prompt}}", text)
 
 def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
+    """Function to get LLM response based on provider"""
+    # pylint: disable=no-else-return
     if provider.lower() == "openai":
         return llm_response_openai(prompt, model, base_url)
     elif provider.lower() == "anthropic":
@@ -71,6 +76,7 @@ def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
         raise ValueError(f"Unsupported provider: {provider}")
 
 def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
+    """Function to make LLM call to OpenAI"""
     client = OpenAI(base_url=base_url)
 
     if model is None:
@@ -90,6 +96,7 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     return response.choices[0].message.content
 
 def llm_response_anthropic(prompt: str, model: str) -> str:
+    """Function to make LLM call to Anthropic"""
     client = Anthropic()
 
     if model is None:
@@ -152,7 +159,8 @@ def parse_llm_response(response) -> JsonOutput:
         return JsonOutput(**data)
     except (json.JSONDecodeError, TypeError) as e:
         print(f"Error parsing LLM response: {e}")
-        return JsonOutput(score=0, classification="none", explanation="none", verdict="none", guard="none")
+        return JsonOutput(score=0, classification="none", explanation="none",
+                          verdict="none", guard="none")
 
 def custom_rule_detection(text: str, custom_rules: list) -> JsonOutput:
     """
@@ -173,7 +181,8 @@ def custom_rule_detection(text: str, custom_rules: list) -> JsonOutput:
                 classification=rule.get("classification", "custom"),
                 explanation=rule.get("explanation", "Matched custom rule pattern.")
             )
-    return JsonOutput(score=0, classification="none", explanation="none", verdict="none", guard="none")
+    return JsonOutput(score=0, classification="none", explanation="none",
+                      verdict="none", guard="none")
 
 def guard_metrics():
     """

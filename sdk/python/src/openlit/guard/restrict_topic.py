@@ -50,7 +50,7 @@ def get_system_prompt(valid_topics: Optional[List[str]] = None, invalid_topics: 
 
     Categories of Valid Topics (use only these categories):
     """
-    
+
     # Add valid topics to the prompt if provided
     if valid_topics:
         valid_topics_str = "\n".join([f"- {topic}" for topic in valid_topics])

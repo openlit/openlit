@@ -78,7 +78,7 @@ def get_all_system_prompt(valid_topics: Optional[List[str]] = None, invalid_topi
     
     Categories of Valid Topics:
     """
-    
+
     # Append valid topics if provided
     if valid_topics:
         valid_topics_str = "\n".join([f"- {topic}" for topic in valid_topics])
@@ -90,7 +90,7 @@ def get_all_system_prompt(valid_topics: Optional[List[str]] = None, invalid_topi
 
     Categories of Invalid Topics:
     """
-    
+
     # Append invalid topics if provided
     if invalid_topics:
         invalid_topics_str = "\n".join([f"- {topic}" for topic in invalid_topics])

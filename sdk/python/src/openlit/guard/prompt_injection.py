@@ -1,3 +1,8 @@
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods, too-many-instance-attributes
+"""
+Module for validating Prompt Injection in Prompt.
+"""
+
 from typing import Optional, List, Dict
 from openlit.guard.utils import (
     setup_provider,
@@ -69,6 +74,8 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None) -> str
     return base_prompt
 
 class PromptInjection:
+    """Class to intialize Prompt Injection"""
+
     def __init__(self, provider: Optional[str] = None, api_key: Optional[str] = None,
                  model: Optional[str] = None, base_url: Optional[str] = None,
                  custom_rules: Optional[List[dict]] = None,
@@ -83,6 +90,8 @@ class PromptInjection:
         self.collect_metrics = collect_metrics
 
     def detect(self, text: str) -> JsonOutput:
+        """Functon to detect Prompt Injection and jailbreak attempts in input"""
+
         custom_rule_result = custom_rule_detection(text, self.custom_rules)
         llm_result = JsonOutput(score=0, classification="none", explanation="none", verdict="none", guard="none")
 

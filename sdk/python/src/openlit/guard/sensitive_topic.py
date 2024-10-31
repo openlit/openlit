@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long, too-few-public-methods
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods, too-many-instance-attributes
 """
 Module for validating sensitive topics in Prompt.
 """
@@ -98,6 +98,8 @@ class SensitiveTopic:
         self.collect_metrics = collect_metrics
 
     def detect(self, text: str) -> JsonOutput:
+        """Function to detect sensitive topic in AI response"""
+
         custom_rule_result = custom_rule_detection(text, self.custom_rules)
         llm_result = JsonOutput(score=0, classification="none", explanation="none", verdict="no", guard="none")
 
