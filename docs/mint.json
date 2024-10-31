@@ -69,6 +69,7 @@
         "latest/features/prompt-hub",
         "latest/features/vault",
         "latest/features/guardrails",
+        "latest/features/evaluations",
         "latest/features/exceptions",
         "latest/features/openground",
         "latest/features/multiple-db"
