@@ -46,7 +46,7 @@ We'll demonstrate how to use the `All` guardrail, which checks for all three asp
     </Tabs>
     The "All" guardrail is useful for simultaneously checking against Prompt Injection, Sensitive Topics, and Topic Restriction. For more efficient, targeted protection from harmful prompts, you can use specific guardrails like `openlit.guard.PromptInjection()`, `openlit.guard.SensitiveTopics()`, or `openlit.guard.TopicRestriction()`.
 
-    For details on how it works, and to see the supported providers, models, and parameters to pass, check our [Guardrails Guide](./guardrails-guide).
+    For details on how it works, and to see the supported providers, models, and parameters to pass, check our [Guardrails Guide](/latest/features/guardrails).
     </Step>
     <Step title="Collecting Guardrail Metrics">
         The `openlit.guard` module integrates with OpenTelemetry to track guardrail metrics as a counter, including score details and validation metadata. To enable metric collection, initialize OpenLIT with metrics tracking:
