@@ -1,7 +1,10 @@
+import { SERVER_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
 import { PromptCompiledInput } from "@/constants/prompts";
 import { getCompiledPrompt } from "@/lib/platform/prompt/compiled";
+import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
+import { randomUUID } from "crypto";
 
 export async function POST(request: Request) {
 	const authorizationHeader = request.headers.get("Authorization") || "";
@@ -15,6 +18,7 @@ export async function POST(request: Request) {
 		});
 	}
 
+	const start = Date.now();
 	const formData = await request.json();
 
 	const promptInput: PromptCompiledInput = {
@@ -29,6 +33,18 @@ export async function POST(request: Request) {
 	};
 
 	const [err, res]: any = await asaw(getCompiledPrompt(promptInput));
+	const end = Date.now();
+	PostHogServer.capture({
+		event: err
+			? SERVER_EVENTS.PROMPT_SDK_FETCH_FAILURE
+			: SERVER_EVENTS.PROMPT_SDK_FETCH_SUCCESS,
+		distinctId: randomUUID(),
+		properties: {
+			...(formData.metaProperties || {}),
+			downloadSource: formData.source,
+			responseTime: end - start,
+		},
+	});
 
 	return Response.json({
 		err,

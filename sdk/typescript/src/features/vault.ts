@@ -1,3 +1,4 @@
+import OpenlitConfig from '../config';
 import { OPENLIT_URL } from '../constant';
 import { VaultOptions } from '../types';
 
@@ -6,12 +7,19 @@ export default class Vault {
     const url = process.env.OPENLIT_URL || options.url || OPENLIT_URL;
     const apiKey = process.env.OPENLIT_API_KEY || options.apiKey || '';
 
+    const metaProperties = {
+      applicationName: OpenlitConfig.applicationName,
+      environment: OpenlitConfig.environment,
+    };
+
     try {
       const vaultResponse = await fetch(`${url}/api/vault/get-secrets`, {
         method: 'POST',
         body: JSON.stringify({
           key: options.key,
           tags: options.tags,
+          metaProperties,
+          source: 'ts-sdk',
         }),
         headers: {
           Authorization: `Bearer ${apiKey}`,

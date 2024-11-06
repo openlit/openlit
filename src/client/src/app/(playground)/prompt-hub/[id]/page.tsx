@@ -267,9 +267,13 @@ export default function PromptHub() {
 							</div>
 							...
 							<div className="w-max">
-								{formatDistance(versionItem.updatedAt, new Date(), {
-									addSuffix: true,
-								})}
+								{formatDistance(
+									new Date(versionItem.updatedAt),
+									new Date().toISOString().slice(0, -1),
+									{
+										addSuffix: true,
+									}
+								)}
 							</div>
 						</Link>
 					))}

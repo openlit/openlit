@@ -87,6 +87,7 @@ function FormTagsInputField(props: FieldProps) {
 	return (
 		<div className="grid grid-col-1 gap-2">
 			<Input
+				className="ph-no-capture"
 				key={
 					props.inputKey ||
 					`${props.fieldTypeProps.name}-${props.fieldTypeProps.defaultValue}`
@@ -98,6 +99,7 @@ function FormTagsInputField(props: FieldProps) {
 				{tags.map((tag, index) => (
 					<Fragment key={tag}>
 						<Input
+							className="ph-no-capture"
 							type="hidden"
 							name={`${props.fieldTypeProps.name}`}
 							value={tag}
@@ -149,6 +151,7 @@ function FormKeyValueField(props: FieldProps) {
 			{metaProperties.map((prop, index) => (
 				<div key={index} className="flex gap-2 items-center">
 					<Input
+						className="ph-no-capture"
 						placeholder={`${placeholder} Key`}
 						name={`${name}[${index}].key`}
 						value={prop.key}
@@ -156,6 +159,7 @@ function FormKeyValueField(props: FieldProps) {
 						onKeyDown={onKeyDownHandler}
 					/>
 					<Input
+						className="ph-no-capture"
 						placeholder={`${placeholder} Value`}
 						name={`${name}[${index}].value`}
 						value={prop.value}
@@ -163,6 +167,7 @@ function FormKeyValueField(props: FieldProps) {
 						onKeyDown={onKeyDownHandler}
 					/>
 					<Button
+						className="ph-no-capture"
 						onClick={() => removeMetaProperty(index)}
 						variant="ghost"
 						size="icon"
@@ -225,7 +230,7 @@ function FormRadioGroupField(props: FieldProps) {
 				defaultValue={fieldTypeProps.defaultValue as string}
 				name={fieldTypeProps.name}
 				ref={itemRef}
-				className="grid grid-cols-4 gap-8 pt-2"
+				className="grid grid-cols-4 gap-8 pt-2 ph-no-capture"
 			>
 				{fieldTypeProps.options.map((option) => {
 					return (
@@ -236,7 +241,10 @@ function FormRadioGroupField(props: FieldProps) {
 							data-value={option.value}
 							key={option.value}
 						>
-							<RadioGroupItem value={option.value} className="sr-only" />
+							<RadioGroupItem
+								value={option.value}
+								className="sr-only ph-no-capture"
+							/>
 							<div className="space-y-1 bg-stone-100 dark:bg-stone-800 p-4">
 								<h4 className="text-sm font-semibold">{option.title}</h4>
 								<p className="text-sm">{option.subText}</p>
@@ -255,7 +263,7 @@ function FormRadioGroupField(props: FieldProps) {
 function FormInputField(props: FieldProps) {
 	return (
 		<Input
-			className="col-span-2"
+			className="col-span-2 ph-no-capture"
 			key={props.inputKey || `${name}-${props.fieldTypeProps.defaultValue}`}
 			{...(props.fieldTypeProps as InputProps)}
 		/>
@@ -265,7 +273,7 @@ function FormInputField(props: FieldProps) {
 function FormTextareaField(props: FieldProps) {
 	return (
 		<Textarea
-			className="col-span-2"
+			className="col-span-2 ph-no-capture"
 			key={props.inputKey || `${name}-${props.fieldTypeProps.defaultValue}`}
 			{...(props.fieldTypeProps as TextareaProps)}
 		/>

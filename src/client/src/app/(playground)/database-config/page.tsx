@@ -22,12 +22,15 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { isNil, keyBy } from "lodash";
 import { MouseEventHandler, useCallback, useState } from "react";
 import { toast } from "sonner";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 function ModifyDatabaseConfig({
 	dbConfig,
 }: {
 	dbConfig?: DatabaseConfigWithActive;
 }) {
+	const posthog = usePostHog();
 	const { fireRequest, isLoading } = useFetchWrapper();
 
 	const modifyDetails: FormBuilderEvent = useCallback(
@@ -60,16 +63,30 @@ function ModifyDatabaseConfig({
 				url: "/api/db-config",
 				responseDataKey: "data",
 				successCb: () => {
-					fetchDatabaseConfigList();
+					fetchDatabaseConfigList((data: any[]) => {
+						posthog?.capture(CLIENT_EVENTS.DB_CONFIG_LIST, {
+							count: data.length,
+						});
+					});
 					toast.success("Db config updated!", {
 						id: "db-config-details",
 					});
 					if (!dbConfig?.id) formElement.reset();
+					posthog?.capture(
+						payload.id
+							? CLIENT_EVENTS.DB_CONFIG_UPDATE_SUCCESS
+							: CLIENT_EVENTS.DB_CONFIG_ADD_SUCCESS
+					);
 				},
 				failureCb: (err?: string) => {
 					toast.error(err || "Db config updation failed!", {
 						id: "db-config-details",
 					});
+					posthog?.capture(
+						payload.id
+							? CLIENT_EVENTS.DB_CONFIG_UPDATE_FAILURE
+							: CLIENT_EVENTS.DB_CONFIG_ADD_FAILURE
+					);
 				},
 			});
 		},
@@ -205,6 +222,7 @@ function DatabaseList({
 	dbConfigs: DatabaseConfigWithActive[];
 	isLoadingList: boolean;
 }) {
+	const posthog = usePostHog();
 	const [selectedDBConfigId, setSelectedDBConfigId] = useState<
 		string | undefined
 	>();
@@ -248,7 +266,9 @@ function DatabaseList({
 					id: "db-config-current",
 				}
 			);
-			changeActiveDatabaseConfig(itemId);
+			changeActiveDatabaseConfig(itemId, () => {
+				posthog?.capture(CLIENT_EVENTS.DB_CONFIG_ACTION_CHANGE);
+			});
 		}
 	};
 

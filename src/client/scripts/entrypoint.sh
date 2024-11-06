@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# Run fetching posthog creds
+set +e
+./fetch-posthog-creds.sh
 set -e
 
 # Generate and set NextAuth.js secret as an environment variable
