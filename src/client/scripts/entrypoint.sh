@@ -9,6 +9,10 @@ set -e
 export NEXTAUTH_SECRET=$(openssl rand -base64 32)
 
 # Set NextAuth.js environment variables
+# Default Telemetry enabled, Set this to false to disable telemetry tracking
+echo "TELEMETRY_ENABLED=true" >> /etc/environment
+echo "TELEMETRY_TRACK_EMAIL=true" >> /etc/environment
+
 echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
 echo "NEXTAUTH_URL=http://localhost:3000" >> /etc/environment
 echo "SQLITE_DATABASE_URL=${SQLITE_DATABASE_URL:-file:../data/data.db}" >> /etc/environment
