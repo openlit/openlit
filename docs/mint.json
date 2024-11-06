@@ -49,7 +49,9 @@
       "group": "Introduction",
       "pages": [
         "latest/introduction",
-        "latest/quickstart",
+        "latest/quickstart-observability",
+        "latest/quickstart-evals",
+        "latest/quickstart-guard",
         "latest/installation",
         "latest/sdk-configuration",
         "latest/ui-configuration"
@@ -59,12 +61,17 @@
     {
       "group": "Features",
       "pages": [
+        "latest/features/overview",
         "latest/features/tracing",
         "latest/features/metrics",
         "latest/features/gpu",
         "latest/features/pricing",
         "latest/features/prompt-hub",
         "latest/features/vault",
+        "latest/features/guardrails",
+        "latest/features/evaluations",
+        "latest/features/exceptions",
+        "latest/features/openground",
         "latest/features/multiple-db"
       ],
       "version": "latest"
@@ -145,7 +152,8 @@
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
         "latest/connections/highlight",
-        "latest/connections/murnitur"
+        "latest/connections/murnitur",
+        "latest/connections/middleware"
       ],
       "version": "latest"
     },
