@@ -255,7 +255,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             return
 
         # Setup meter and receive metrics_dict instead of meter.
-        metrics_dict = setup_meter(
+        metrics_dict, err = setup_meter(
             application_name=application_name,
             environment=environment,
             meter=meter,
@@ -263,8 +263,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             otlp_headers=otlp_headers,
         )
 
-        if not metrics_dict:
-            logger.error("openLIT metrics setup failed. Metrics will not be available.")
+        if err:
+            logger.error("OpenLIT metrics setup failed. Metrics will not be available: %s", err)
             return
 
         # Update global configuration with the provided settings.
