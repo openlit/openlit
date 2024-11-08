@@ -46,3 +46,23 @@ export type OpenlitOptions = {
 export type SetupTracerOptions = OpenlitOptions & {
   resource: Resource;
 };
+
+export interface BaseOpenlitOptions {
+  url?: string;
+  apiKey?: string;
+}
+
+export interface PromptHubOptions extends BaseOpenlitOptions {
+  name?: string;
+  version?: string;
+  shouldCompile?: boolean;
+  variables?: Record<string, any>;
+  promptId?: string;
+  metaProperties?: Record<string, any>;
+}
+
+export interface VaultOptions extends BaseOpenlitOptions {
+  key?: string;
+  tags?: string[];
+  shouldSetEnv?: boolean;
+}

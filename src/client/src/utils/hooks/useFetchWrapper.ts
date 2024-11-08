@@ -6,7 +6,7 @@ type useFetchWrapperProps = {
 	body?: string;
 	failureCb?: (s?: string) => void;
 	url: string;
-	requestType: "GET" | "POST" | "DELETE";
+	requestType: "GET" | "POST" | "DELETE" | "PUT";
 	responseDataKey?: string;
 	successCb?: (res?: any) => void;
 };
@@ -30,7 +30,11 @@ export default function useFetchWrapper() {
 			setError(null);
 			try {
 				let response;
-				if (requestType === "GET" || requestType === "POST") {
+				if (
+					requestType === "GET" ||
+					requestType === "POST" ||
+					requestType === "PUT"
+				) {
 					response = await getData({
 						body,
 						url,

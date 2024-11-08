@@ -1,6 +1,8 @@
 "use client";
 
-import FormBuilder from "@/components/common/form-builder";
+import FormBuilder, {
+	FormBuilderEvent,
+} from "@/components/common/form-builder";
 import DatabaseConfigTabs, {
 	DatabaseConfigTabItemProps,
 } from "@/app/(playground)/database-config/database-config-tabs";
@@ -18,12 +20,7 @@ import {
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { isNil, keyBy } from "lodash";
-import {
-	FormEventHandler,
-	MouseEventHandler,
-	useCallback,
-	useState,
-} from "react";
+import { MouseEventHandler, useCallback, useState } from "react";
 import { toast } from "sonner";
 
 function ModifyDatabaseConfig({
@@ -33,7 +30,7 @@ function ModifyDatabaseConfig({
 }) {
 	const { fireRequest, isLoading } = useFetchWrapper();
 
-	const modifyDetails: FormEventHandler<HTMLFormElement> = useCallback(
+	const modifyDetails: FormBuilderEvent = useCallback(
 		(event) => {
 			event.preventDefault();
 			const formElement = event.target as HTMLFormElement;
@@ -87,74 +84,98 @@ function ModifyDatabaseConfig({
 			fields={[
 				{
 					label: "Config Name",
-					type: "text",
-					name: "name",
-					placeholder: "db-config",
-					defaultValue: dbConfig?.name,
 					inputKey: `${dbConfig?.id}-name`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "name",
+						placeholder: "db-config",
+						defaultValue: dbConfig?.name,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Environment",
-					type: "text",
-					name: "environment",
-					placeholder: "production",
-					defaultValue: dbConfig?.environment,
 					inputKey: `${dbConfig?.id}-environment`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "environment",
+						placeholder: "production",
+						defaultValue: dbConfig?.environment,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Username",
-					type: "text",
-					name: "username",
-					placeholder: "username",
-					defaultValue: dbConfig?.username,
+					fieldType: "INPUT",
 					inputKey: `${dbConfig?.id}-username`,
-					disabled: formFieldsDisabled,
+					fieldTypeProps: {
+						type: "text",
+						name: "username",
+						placeholder: "username",
+						defaultValue: dbConfig?.username,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Password",
-					type: "password",
-					name: "password",
-					placeholder: "*******",
 					inputKey: `${dbConfig?.id}-password`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "password",
+						name: "password",
+						placeholder: "*******",
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Host",
-					type: "text",
-					name: "host",
-					placeholder: "127.0.0.1",
-					defaultValue: dbConfig?.host,
 					inputKey: `${dbConfig?.id}-host`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "host",
+						placeholder: "127.0.0.1",
+						defaultValue: dbConfig?.host,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Port",
-					type: "number",
-					name: "port",
-					placeholder: "8123",
-					defaultValue: dbConfig?.port,
 					inputKey: `${dbConfig?.id}-port`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "number",
+						name: "port",
+						placeholder: "8123",
+						defaultValue: dbConfig?.port,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Database",
-					type: "text",
-					name: "database",
-					placeholder: "default",
-					defaultValue: dbConfig?.database,
 					inputKey: `${dbConfig?.id}-database`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "database",
+						placeholder: "default",
+						defaultValue: dbConfig?.database,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Query params",
-					type: "text",
-					name: "query",
-					placeholder: "a=b&c=d",
-					defaultValue: dbConfig?.query,
 					inputKey: `${dbConfig?.id}-query`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "query",
+						placeholder: "a=b&c=d",
+						defaultValue: dbConfig?.query,
+						disabled: formFieldsDisabled,
+					},
 				},
 			]}
 			heading={`${
@@ -242,7 +263,7 @@ function DatabaseList({
 	}));
 
 	return (
-		<div className="flex flex-col w-full flex-1 h-full relative">
+		<div className="flex flex-col w-full flex-1 h-full relative gap-4">
 			<DatabaseConfigTabs
 				addButton
 				items={items}

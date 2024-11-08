@@ -2,35 +2,36 @@
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%"><h1>
 OpenTelemetry GPU Collector</h1>
 
-**[Documentation](https://docs.openlit.io/) | [Quickstart](#-getting-started) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Metrics](#metrics)**
+**[Documentation](https://docs.openlit.io/latest/features/gpu) | [Quickstart](-getting-started-with-gpu-monitoring) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Metrics](#metrics)**
 
-[![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://github.com/openlit/openlit)
+**[Roadmap](#️-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)** 
+
+[![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://openlit.io/)
 [![License](https://img.shields.io/github/license/openlit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/openlit/openlit/blob/main/LICENSE)
 [![GitHub Last Commit](https://img.shields.io/github/last-commit/openlit/openlit)](https://github.com/openlit/openlit/pulse)
 [![GitHub Contributors](https://img.shields.io/github/contributors/openlit/openlit)](https://github.com/openlit/openlit/graphs/contributors)
 
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=white)](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
-[![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/rjvTm6zd)
 [![X](https://img.shields.io/badge/follow-%40openlit__io-1DA1F2?logo=x&style=social)](https://twitter.com/openlit_io)
 
 </div>
 
-OpenTelemetry GPU Collector is a lightweight, efficient tool designed to collect GPU performancemetrics and send them to an OpenTelemetry-compatible endpoint for monitoring and observability. This tool is particularly useful for monitoring GPUs in high-performance computing environments, AI/ML tasks, and LLMs.
+OpenTelemetry GPU Collector is a lightweight, efficient COLLECTOR designed to collect GPU performance metrics and send them to an OpenTelemetry-compatible endpoint for monitoring and observability. This tool is particularly useful for monitoring GPUs in high-performance computing environments, AI/ML tasks, and LLMs.
 
-## Features
+## ⚡ Features
 
 - Collects detailed GPU performance metrics
 - OpenTelemetry-native
 - Lightweight and efficient
-- Supports multiple GPU and system architectures
+- Supports NVIDIA GPUs
 
-## Quick Start
+## 🚀 Getting Started with GPU Monitoring
 
 ### Prerequisites
 
-- Docker installed on your GPU system
+- Docker installed on your system
 
-### Installation
+### Step 1: Pull the Docker Image
 
 You can quickly start using the OTel GPU Collector by pulling the Docker image:
 
@@ -38,7 +39,7 @@ You can quickly start using the OTel GPU Collector by pulling the Docker image:
 docker pull ghcr.io/openlit/otel-gpu-collector:latest
 ```
 
-### Running the Container
+### Step 2: Run the Container
 
 Here's a quick example showing how to run the container with the required environment variables:
 
@@ -51,6 +52,37 @@ docker run --gpus all \
     ghcr.io/openlit/otel-gpu-collector:latest
 ```
 
+**Note:** If you've deployed **OpenLIT** using [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml), make sure to use the host's IP address or add OTel GPU Collector to the [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml):
+
+<details>
+<summary>Docker Compose: Add the following config under `services`</summary>
+
+```yaml
+otel-gpu-collector:
+  image: ghcr.io/openlit/otel-gpu-collector:latest
+  environment:
+    GPU_APPLICATION_NAME: 'chatbot'
+    GPU_ENVIRONMENT: 'staging'
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+  device_requests:
+  - driver: nvidia
+    count: all
+    capabilities: [gpu]
+  depends_on:
+  - otel-collector
+  restart: always
+```
+
+</details>
+
+<details>
+<summary>Host IP: Use the Host IP to connect to OTel Collector</summary>
+
+```sh
+OTEL_EXPORTER_OTLP_ENDPOINT="http://192.168.10.15:4318"
+```
+</details>
+
 ### Environment Variables
 
 OTel GPU Collector supports several environment variables for configuration. Below is a table that describes each variable:
@@ -60,7 +92,7 @@ OTel GPU Collector supports several environment variables for configuration. Bel
 | `GPU_APPLICATION_NAME`          | Name of the application running on the GPU                    | `default_app`           |
 | `GPU_ENVIRONMENT`               | Environment name (e.g., staging, production)                  | `production`            |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`   | OpenTelemetry OTLP endpoint URL                               | (required)              |
-| `OTEL_EXPORTER_OTLP_HEADERS`    | Headers for authenticating with the OTLP endpoint             | (required)              |
+| `OTEL_EXPORTER_OTLP_HEADERS`    | Headers for authenticating with the OTLP endpoint             | Ignore if using OpenLIT |
 
 ## Alternative: Using OpenLIT SDK
 
@@ -95,10 +127,24 @@ For more details, check out the [OpenLIT documentation](https://docs.openlit.io/
 To build the Docker image yourself, you can clone the repository and execute the following commands:
 
 ```sh
+# Clone the OpenLIT repository and set directory
 git clone https://github.com/openlit/openlit.git
 cd otel-gpu-collector
+
+# Build the Docker image
 docker build -t otel-gpu-collector .
 ```
+
+## 🛣️ Roadmap
+
+We are dedicated to continuously improving OpenTelemetry GPU Collector. Here's a look at what's been accomplished and what's on the horizon:
+
+| Feature                                                                                      | Status        |
+|----------------------------------------------------------------------------------------------|---------------|
+| [OpenTelmetry metrics for NVIDIA GPUs using `gpustat`]()               | ✅ Completed  |
+| [OpenTelmetry metrics for AMD GPUs]()             | 🔜 Coming Soon   |
+| [OpenTelmetry metrics for NVIDIA GPUs using `nvidia-smi`]()             | 🔜 Coming Soon   |
+
 
 
 ## 🌱 Contributing
@@ -122,8 +168,4 @@ Connect with OpenLIT community and maintainers for support, discussions, and upd
 
 ## License
 
-OpenLIT is available under the [Apache-2.0 license](LICENSE).
-
-## Visualize! Analyze! Optimize!
-
-Join us on this voyage to reshape the future of AI Observability. Share your thoughts, suggest features, and explore contributions. Engage with us on [GitHub](https://github.com/openlit/openlit) and be part of OpenLIT's community-led innovation.
+OpenTelemetry GPU Collector is built and maintained by OpenLIT under the [Apache-2.0 license](LICENSE).

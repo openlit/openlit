@@ -102,8 +102,8 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
             ),
         }
 
-        return metrics_dict
+        return metrics_dict, None
 
-    # pylint: disable=bare-except
-    except:
-        return None
+    # pylint: disable=broad-exception-caught
+    except Exception as err:
+        return None, err

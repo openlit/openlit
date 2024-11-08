@@ -9,8 +9,9 @@ import { OpenlitOptions } from './types';
 import Tracing from './tracing';
 import { DEFAULT_APPLICATION_NAME, DEFAULT_ENVIRONMENT, SDK_NAME } from './constant';
 import { SpanExporter } from '@opentelemetry/sdk-trace-base';
+import BaseOpenlit from './features/base';
 
-export default class Openlit {
+export default class Openlit extends BaseOpenlit {
   static resource: Resource;
   static options: OpenlitOptions;
   static _sdk: NodeSDK;
