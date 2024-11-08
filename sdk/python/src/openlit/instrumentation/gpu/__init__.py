@@ -4,12 +4,23 @@
 from typing import Collection, Iterable
 import logging
 from functools import partial
-from subprocess import check_output, CalledProcessError
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from opentelemetry.metrics import get_meter, CallbackOptions, Observation
-import xmltodict
-
+from pynvml import (
+    nvmlInit, 
+    nvmlDeviceGetHandleByIndex, 
+    nvmlDeviceGetCount,
+    nvmlDeviceGetTemperature,
+    nvmlDeviceGetUtilizationRates,
+    nvmlDeviceGetFanSpeed,
+    nvmlDeviceGetMemoryInfo,
+    nvmlDeviceGetPowerUsage,
+    nvmlDeviceGetEnforcedPowerLimit,
+    NVML_TEMPERATURE_GPU,
+    nvmlDeviceGetUUID,
+    nvmlDeviceGetName
+)
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -32,6 +43,9 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
             "0.1.0",
             schema_url="https://opentelemetry.io/schemas/1.11.0",
         )
+
+        # Initialize NVML
+        nvmlInit()
 
         metric_names = [
             ("GPU_UTILIZATION", "utilization"),
@@ -63,60 +77,49 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
                         metric_name,
                         options: CallbackOptions) -> Iterable[Observation]:
         try:
-            gpu_stats = xmltodict.parse(check_output(["/usr/bin/nvidia-smi", "-x", "-q"]))
+            gpu_count = nvmlDeviceGetCount()
 
-            def get_metric_value(gpu, metric_name):
-                try:
-                    if metric_name == "temperature":
-                        return int(gpu["temperature"]["gpu_temp"].replace(' C', ''))
-                    elif metric_name == "utilization":
-                        return int(gpu["utilization"]["gpu_util"].replace(' %', ''))
-                    elif metric_name == "utilization_enc":
-                        return int(gpu["utilization"]["encoder_util"].replace(' %', ''))
-                    elif metric_name == "utilization_dec":
-                        return int(gpu["utilization"]["decoder_util"].replace(' %', ''))
-                    elif metric_name == "fan_speed":
-                        fan_speed_value = gpu["fan_speed"]
-                        return 0 if fan_speed_value == 'N/A' else int(fan_speed_value.replace(' %', ''))
-                    elif metric_name == "memory_available":
-                        return int(gpu["fb_memory_usage"]["free"].replace(' MiB', '')) - int(gpu["fb_memory_usage"]["reserved"].replace(' MiB', ''))
-                    elif metric_name == "memory_total":
-                        return int(gpu["fb_memory_usage"]["total"].replace(' MiB', ''))
-                    elif metric_name == "memory_used":
-                        return int(gpu["fb_memory_usage"]["used"].replace(' MiB', ''))
-                    elif metric_name == "memory_free":
-                        return int(gpu["fb_memory_usage"]["free"].replace(' MiB', ''))
-                    elif metric_name == "power_draw":
-                        return float(gpu["gpu_power_readings"]["power_draw"].replace(' W', ''))
-                        print(float(gpu["gpu_power_readings"]["power_draw"].replace(' W', '')))
-                    elif metric_name == "power_limit":
-                        return float(gpu["gpu_power_readings"]["current_power_limit"].replace(' W', ''))
-                except KeyError as e:
-                    logger.error("Missing metric %s in GPU data: %s", metric_name, e)
-                except ValueError as e:
-                    logger.error("Invalid value for metric %s: %s", metric_name, e)
+            for gpu_index in range(gpu_count):
+                handle = nvmlDeviceGetHandleByIndex(gpu_index)
+                MB = 1024 * 1024
+                def get_metric_value(handle, metric_name):
+                    try:
+                        if metric_name == "temperature":
+                            return nvmlDeviceGetTemperature(handle, NVML_TEMPERATURE_GPU)
+                        elif metric_name == "utilization":
+                            return nvmlDeviceGetUtilizationRates(handle).gpu
+                        elif metric_name == "utilization_enc":
+                            return nvmlDeviceGetEncoderUtilization(handle)[0]
+                        elif metric_name == "utilization_dec":
+                            return nvmlDeviceGetDecoderUtilization(handle)[0]
+                        elif metric_name == "fan_speed":
+                            return nvmlDeviceGetFanSpeed(handle)
+                        elif metric_name == "memory_available":
+                            memory_info = nvmlDeviceGetMemoryInfo(handle)
+                            return (memory_info.total // MB) - (memory_info.free // MB)
+                        elif metric_name == "memory_total":
+                            return (nvmlDeviceGetMemoryInfo(handle).total // MB)
+                        elif metric_name == "memory_used":
+                            return (nvmlDeviceGetMemoryInfo(handle).used // MB)
+                        elif metric_name == "memory_free":
+                            return (nvmlDeviceGetMemoryInfo(handle).free // MB)
+                        elif metric_name == "power_draw":
+                            return (nvmlDeviceGetPowerUsage(handle) // 1000)
+                        elif metric_name == "power_limit":
+                            return (nvmlDeviceGetEnforcedPowerLimit(handle) // 1000)
+                    except Exception as e:
+                        logger.error("Error collecting metric %s for GPU %d: %s", metric_name, gpu_index, e)
+                    return 0
 
-                return 0
-
-            if gpu_stats["nvidia_smi_log"]["attached_gpus"] == "1":
-                # Single GPU case
-                gpus = [gpu_stats["nvidia_smi_log"]["gpu"]]
-            else:
-                # Multiple GPUs case
-                gpus = gpu_stats["nvidia_smi_log"]["gpu"]
-
-            for gpu in gpus:
                 attributes = {
                     TELEMETRY_SDK_NAME: "openlit",
                     SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
                     SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                    SemanticConvetion.GPU_INDEX: gpu['@id'],
-                    SemanticConvetion.GPU_UUID: gpu['uuid'],
-                    SemanticConvetion.GPU_NAME: gpu['product_name'],
+                    SemanticConvetion.GPU_INDEX: gpu_index,
+                    SemanticConvetion.GPU_UUID: nvmlDeviceGetUUID(handle),
+                    SemanticConvetion.GPU_NAME: nvmlDeviceGetName(handle)
                 }
-                yield Observation(get_metric_value(gpu, metric_name), attributes)
+                yield Observation(get_metric_value(handle, metric_name), attributes)
 
-        except CalledProcessError as e:
-            logger.error("Error executing nvidia-smi: %s", e)
         except Exception as e:
             logger.error("Error in GPU metrics collection: %s", e)
