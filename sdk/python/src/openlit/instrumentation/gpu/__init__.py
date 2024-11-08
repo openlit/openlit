@@ -7,20 +7,8 @@ from functools import partial
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from opentelemetry.metrics import get_meter, CallbackOptions, Observation
-from pynvml import (
-    nvmlInit, 
-    nvmlDeviceGetHandleByIndex, 
-    nvmlDeviceGetCount,
-    nvmlDeviceGetTemperature,
-    nvmlDeviceGetUtilizationRates,
-    nvmlDeviceGetFanSpeed,
-    nvmlDeviceGetMemoryInfo,
-    nvmlDeviceGetPowerUsage,
-    nvmlDeviceGetEnforcedPowerLimit,
-    NVML_TEMPERATURE_GPU,
-    nvmlDeviceGetUUID,
-    nvmlDeviceGetName
-)
+import pynvml
+
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -45,7 +33,7 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
         )
 
         # Initialize NVML
-        nvmlInit()
+        pynvml.nvmlInit()
 
         metric_names = [
             ("GPU_UTILIZATION", "utilization"),
@@ -77,36 +65,35 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
                         metric_name,
                         options: CallbackOptions) -> Iterable[Observation]:
         try:
-            gpu_count = nvmlDeviceGetCount()
+            gpu_count = pynvml.nvmlDeviceGetCount()
 
             for gpu_index in range(gpu_count):
-                handle = nvmlDeviceGetHandleByIndex(gpu_index)
-                MB = 1024 * 1024
+                handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_index)
+
                 def get_metric_value(handle, metric_name):
                     try:
                         if metric_name == "temperature":
-                            return nvmlDeviceGetTemperature(handle, NVML_TEMPERATURE_GPU)
+                            return pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
                         elif metric_name == "utilization":
-                            return nvmlDeviceGetUtilizationRates(handle).gpu
-                        elif metric_name == "utilization_enc":
-                            return nvmlDeviceGetEncoderUtilization(handle)[0]
-                        elif metric_name == "utilization_dec":
-                            return nvmlDeviceGetDecoderUtilization(handle)[0]
+                            return pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
+                        elif metric_name == "utilization_enc" or metric_name == "utilization_dec":
+                            # pynvml does not provide encoder/decoder utilization metrics directly
+                            return 0
                         elif metric_name == "fan_speed":
-                            return nvmlDeviceGetFanSpeed(handle)
+                            return pynvml.nvmlDeviceGetFanSpeed(handle)
                         elif metric_name == "memory_available":
-                            memory_info = nvmlDeviceGetMemoryInfo(handle)
-                            return (memory_info.total // MB) - (memory_info.free // MB)
+                            memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                            return memory_info.free  # Assuming reserved memory is 0
                         elif metric_name == "memory_total":
-                            return (nvmlDeviceGetMemoryInfo(handle).total // MB)
+                            return pynvml.nvmlDeviceGetMemoryInfo(handle).total
                         elif metric_name == "memory_used":
-                            return (nvmlDeviceGetMemoryInfo(handle).used // MB)
+                            return pynvml.nvmlDeviceGetMemoryInfo(handle).used
                         elif metric_name == "memory_free":
-                            return (nvmlDeviceGetMemoryInfo(handle).free // MB)
+                            return pynvml.nvmlDeviceGetMemoryInfo(handle).free
                         elif metric_name == "power_draw":
-                            return (nvmlDeviceGetPowerUsage(handle) // 1000)
+                            return pynvml.nvmlDeviceGetPowerUsage(handle) / 1000.0  # convert mW to W
                         elif metric_name == "power_limit":
-                            return (nvmlDeviceGetEnforcedPowerLimit(handle) // 1000)
+                            return pynvml.nvmlDeviceGetEnforcedPowerLimit(handle) / 1000.0  # convert mW to W
                     except Exception as e:
                         logger.error("Error collecting metric %s for GPU %d: %s", metric_name, gpu_index, e)
                     return 0
@@ -115,9 +102,9 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
                     TELEMETRY_SDK_NAME: "openlit",
                     SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
                     SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
-                    SemanticConvetion.GPU_INDEX: gpu_index,
-                    SemanticConvetion.GPU_UUID: nvmlDeviceGetUUID(handle),
-                    SemanticConvetion.GPU_NAME: nvmlDeviceGetName(handle)
+                    SemanticConvetion.GPU_INDEX: str(gpu_index),
+                    SemanticConvetion.GPU_UUID: pynvml.nvmlDeviceGetUUID(handle),
+                    SemanticConvetion.GPU_NAME: pynvml.nvmlDeviceGetName(handle)
                 }
                 yield Observation(get_metric_value(handle, metric_name), attributes)
 
