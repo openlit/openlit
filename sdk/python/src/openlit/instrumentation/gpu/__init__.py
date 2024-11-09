@@ -8,15 +8,15 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from opentelemetry.metrics import get_meter, CallbackOptions, Observation
 import pynvml
-
+import amdsmi
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-class NvidiaGPUInstrumentor(BaseInstrumentor):
+class GPUInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for collecting NVIDIA GPU metrics.
+    An instrumentor for collecting GPU metrics.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
@@ -32,8 +32,11 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
             schema_url="https://opentelemetry.io/schemas/1.11.0",
         )
 
-        # Initialize NVML
-        pynvml.nvmlInit()
+        gpu_type = self._get_gpu_type()
+        if not gpu_type:
+            logger.error("No supported GPU found")
+            return
+
 
         metric_names = [
             ("GPU_UTILIZATION", "utilization"),
@@ -61,7 +64,28 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
         # Proper uninstrumentation logic to revert patched methods
         pass
 
+    def _get_gpu_type(self) -> str:
+        try:
+            pynvml.nvmlInit()
+            return "nvidia"
+        except Exception:
+            try:
+                amdsmi.amdsmi_init()
+                return "amd"
+            except Exception:
+                return None
+
+
     def _collect_metric(self, environment, application_name,
+                        metric_name,
+                        options: CallbackOptions) -> Iterable[Observation]:
+        if gpu_type == "nvidia":
+            return self._collect_nvidia_metrics(environment, application_name, metric_name)
+        elif gpu_type == "amd":
+            return self._collect_amd_metrics(environment, application_name, metric_name)
+        return []
+
+    def _collect_nvidia_metrics(self, environment, application_name,
                         metric_name,
                         options: CallbackOptions) -> Iterable[Observation]:
         try:
@@ -77,7 +101,6 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
                         elif metric_name == "utilization":
                             return pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
                         elif metric_name == "utilization_enc" or metric_name == "utilization_dec":
-                            # pynvml does not provide encoder/decoder utilization metrics directly
                             return 0
                         elif metric_name == "fan_speed":
                             return 0
@@ -110,3 +133,55 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
 
         except Exception as e:
             logger.error("Error in GPU metrics collection: %s", e)
+    
+    def _collect_amd_metrics(self, environment, application_name,
+                             metric_name,
+                             options: CallbackOptions) -> Iterable[Observation]:
+        try:
+            # Get the number of AMD GPUs
+            devices = amdsmi.amdsmi_get_processor_handles()
+            MB = 1024 * 1024
+            for device_handle in devices:
+
+                def get_metric_value(device_handle, metric_name):
+                    try:
+                        if metric_name == "temperature":
+                            return amdsmi.amdsmi_get_temp_metric(device_handle, AmdSmiTemperatureType.EDGE,
+                                                                      AmdSmiTemperatureMetric.CURRENT)
+                        elif metric_name == "utilization":
+                            return amdsmi.amdsmi_get_utilization_count(device_handle,
+                                                                                   amdsmi.AmdSmiUtilizationCounterType.COARSE_GRAIN_GFX_ACTIVITY)
+                        elif metric_name == "utilization_enc" or metric_name == "utilization_dec":
+                            return 0  # Placeholder if unsupported
+                        elif metric_name == "fan_speed":
+                            return amdsmi.amdsmi_get_gpu_fan_speed(device_handle, 0)
+                        elif metric_name == "memory_available":
+                            return (amdsmi.amdsmi_get_gpu_memory_total(device_handle) // MB)
+                        elif metric_name == "memory_total":
+                            return (amdsmi.amdsmi_get_gpu_memory_total(device_handle) // MB)
+                        elif metric_name == "memory_used":
+                            return (amdsmi.amdsmi_get_gpu_memory_usage(device_handle) // MB)
+                        elif metric_name == "memory_free":
+                            total_memory = (amdsmi.amdsmi_get_gpu_memory_total(device_handle) // MB)
+                            used_memory = (amdsmi.amdsmi_get_gpu_memory_usage(device_handle) // MB)
+                            return (total_memory - used_memory)
+                        elif metric_name == "power_draw":
+                            return (amdsmi.amdsmi_get_power_info(device_handle)['average_socket_power'] // 1000.0)
+                        elif metric_name == "power_limit":
+                            return (amdsmi.amdsmi_get_power_info(device_handle)['power_limit'] // 1000.0)
+                    except Exception as e:
+                        logger.error("Error collecting metric %s for AMD GPU %d: %s", metric_name, gpu_index, e)
+                    return 0
+
+                attributes = {
+                    TELEMETRY_SDK_NAME: "openlit",
+                    SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
+                    SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                    SemanticConvetion.GPU_INDEX: amdsmi.amdsmi_get_xgmi_info(device_handle)['index'],
+                    SemanticConvetion.GPU_UUID: amdsmi.amdsmi_get_gpu_asic_info(device_handle)['market_name'],
+                    SemanticConvetion.GPU_NAME: amdsmi.amdsmi_get_device_name(device_handle)
+                }
+                yield Observation(get_metric_value(device_handle, metric_name), attributes)
+
+        except Exception as e:
+            logger.error("Error in AMD GPU metrics collection: %s", e)
