@@ -91,7 +91,7 @@ class NvidiaGPUInstrumentor(BaseInstrumentor):
                         elif metric_name == "memory_free":
                             return (pynvml.nvmlDeviceGetMemoryInfo(handle).free // MB)
                         elif metric_name == "power_draw":
-                            return (pynvml.nvmlDeviceGetPowerUsage(handle) // 1000.0  
+                            return (pynvml.nvmlDeviceGetPowerUsage(handle) // 1000.0)
                         elif metric_name == "power_limit":
                             return (pynvml.nvmlDeviceGetEnforcedPowerLimit(handle) // 1000.0)
                     except Exception as e:
