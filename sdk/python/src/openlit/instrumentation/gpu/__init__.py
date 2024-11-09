@@ -7,8 +7,6 @@ from functools import partial
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from opentelemetry.metrics import get_meter, CallbackOptions, Observation
-import pynvml
-import amdsmi
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -34,9 +32,11 @@ class GPUInstrumentor(BaseInstrumentor):
 
         gpu_type = self._get_gpu_type()
         if not gpu_type:
-            logger.error("No supported GPU found")
+            logger.error(
+                "OpenLIT GPU Instrumentation Error: No supported GPUs found."
+                "If this is a non-GPU host, set `collect_gpu_stats=False` to disable GPU stats."
+            )          
             return
-
 
         metric_names = [
             ("GPU_UTILIZATION", "utilization"),
@@ -66,10 +66,12 @@ class GPUInstrumentor(BaseInstrumentor):
 
     def _get_gpu_type(self) -> str:
         try:
+            import pynvml
             pynvml.nvmlInit()
             return "nvidia"
         except Exception:
             try:
+                import amdsmi
                 amdsmi.amdsmi_init()
                 return "amd"
             except Exception:
