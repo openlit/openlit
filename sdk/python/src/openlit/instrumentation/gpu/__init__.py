@@ -127,6 +127,7 @@ class GPUInstrumentor(BaseInstrumentor):
                         elif metric_name == "power_limit":
                             return (pynvml.nvmlDeviceGetEnforcedPowerLimit(handle) // 1000.0)
                     except Exception as e:
+                        # pylint: disable=cell-var-from-loop
                         logger.error("Error collecting metric %s for GPU %d: %s", metric_name,
                                                                                   gpu_index, e)
                     return 0
