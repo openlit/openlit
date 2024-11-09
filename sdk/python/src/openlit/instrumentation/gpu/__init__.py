@@ -81,15 +81,16 @@ class GPUInstrumentor(BaseInstrumentor):
                         metric_name,
                         options: CallbackOptions) -> Iterable[Observation]:
         if self.gpu_type == "nvidia":
-            return self._collect_nvidia_metrics(environment, application_name, metric_name)
+            return self._collect_nvidia_metrics(environment, application_name, metric_name, options)
         elif self.gpu_type == "amd":
-            return self._collect_amd_metrics(environment, application_name, metric_name)
+            return self._collect_amd_metrics(environment, application_name, metric_name, options)
         return []
 
     def _collect_nvidia_metrics(self, environment, application_name,
                         metric_name,
                         options: CallbackOptions) -> Iterable[Observation]:
         try:
+            import pynvml
             gpu_count = pynvml.nvmlDeviceGetCount()
             MB = 1024 * 1024
             for gpu_index in range(gpu_count):
@@ -139,6 +140,7 @@ class GPUInstrumentor(BaseInstrumentor):
                              metric_name,
                              options: CallbackOptions) -> Iterable[Observation]:
         try:
+            import amdsmi
             # Get the number of AMD GPUs
             devices = amdsmi.amdsmi_get_processor_handles()
             MB = 1024 * 1024
