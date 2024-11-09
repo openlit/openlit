@@ -23,15 +23,14 @@ class GPUInstrumentor(BaseInstrumentor):
     def _instrument(self, **kwargs):
         application_name = kwargs.get("application_name", "default")
         environment = kwargs.get("environment", "default")
-
+        self.gpu_type = self._get_gpu_type()
         meter = get_meter(
             __name__,
             "0.1.0",
             schema_url="https://opentelemetry.io/schemas/1.11.0",
         )
 
-        gpu_type = self._get_gpu_type()
-        if not gpu_type:
+        if not self.gpu_type:
             logger.error(
                 "OpenLIT GPU Instrumentation Error: No supported GPUs found."
                 "If this is a non-GPU host, set `collect_gpu_stats=False` to disable GPU stats."
@@ -81,9 +80,9 @@ class GPUInstrumentor(BaseInstrumentor):
     def _collect_metric(self, environment, application_name,
                         metric_name,
                         options: CallbackOptions) -> Iterable[Observation]:
-        if gpu_type == "nvidia":
+        if self.gpu_type == "nvidia":
             return self._collect_nvidia_metrics(environment, application_name, metric_name)
-        elif gpu_type == "amd":
+        elif self.gpu_type == "amd":
             return self._collect_amd_metrics(environment, application_name, metric_name)
         return []
 
