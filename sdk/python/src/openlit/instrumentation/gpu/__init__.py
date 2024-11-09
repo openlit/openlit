@@ -1,4 +1,4 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, duplicate-code, import-outside-toplevel, broad-exception-caught, unused-argument, import-error, too-many-return-statements
+# pylint: disable=useless-return, bad-staticmethod-argument, duplicate-code, import-outside-toplevel, broad-exception-caught, unused-argument, import-error, too-many-return-statements, superfluous-parens
 """Initializer of Auto Instrumentation of GPU Metrics"""
 
 from typing import Collection, Iterable
@@ -23,6 +23,7 @@ class GPUInstrumentor(BaseInstrumentor):
     def _instrument(self, **kwargs):
         application_name = kwargs.get("application_name", "default")
         environment = kwargs.get("environment", "default")
+        # pylint: disable=attribute-defined-outside-init
         self.gpu_type = self._get_gpu_type()
         meter = get_meter(
             __name__,
@@ -80,9 +81,9 @@ class GPUInstrumentor(BaseInstrumentor):
     def _collect_metric(self, environment, application_name,
                         metric_name,
                         options: CallbackOptions) -> Iterable[Observation]:
+        # pylint: disable=no-else-return
         if self.gpu_type == "nvidia":
             return self._collect_nvidia_metrics(environment, application_name, metric_name, options)
-        # pylint: disable=no-else-return
         elif self.gpu_type == "amd":
             return self._collect_amd_metrics(environment, application_name, metric_name, options)
         return []
@@ -94,18 +95,22 @@ class GPUInstrumentor(BaseInstrumentor):
             import pynvml
             gpu_count = pynvml.nvmlDeviceGetCount()
             mega_bytes = 1024 * 1024
+            gpu_index = 0
             for gpu_index in range(gpu_count):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(gpu_index)
 
                 def get_metric_value(handle, metric_name):
                     try:
+                        # pylint: disable=no-else-return
                         if metric_name == "temperature":
                             return pynvml.nvmlDeviceGetTemperature(handle,
                                                                    pynvml.NVML_TEMPERATURE_GPU)
                         elif metric_name == "utilization":
                             return pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
-                        elif metric_name == "utilization_enc" or metric_name == "utilization_dec":
-                            return 0
+                        elif metric_name == "utilization_enc":
+                            return pynvml.nvmlDeviceGetEncoderUtilization(handle)[0]
+                        elif metric_name == "utilization_dec":
+                            return pynvml.nvmlDeviceGetDecoderUtilization(handle)[0]
                         elif metric_name == "fan_speed":
                             return 0
                         elif metric_name == "memory_available":
@@ -151,9 +156,10 @@ class GPUInstrumentor(BaseInstrumentor):
 
                 def get_metric_value(device_handle, metric_name):
                     try:
+                        # pylint: disable=no-else-return
                         if metric_name == "temperature":
                             # pylint: disable=line-too-long
-                            return amdsmi.amdsmi_get_temp_metric(device_handle, 
+                            return amdsmi.amdsmi_get_temp_metric(device_handle,
                                                                  amdsmi.AmdSmiTemperatureType.EDGE,
                                                                  amdsmi.AmdSmiTemperatureMetric.CURRENT)
                         elif metric_name == "utilization":
@@ -173,7 +179,7 @@ class GPUInstrumentor(BaseInstrumentor):
                         elif metric_name == "memory_free":
                             total_mem = (amdsmi.amdsmi_get_gpu_memory_total(device_handle) // mega_bytes)
                             used_mem = (amdsmi.amdsmi_get_gpu_memory_usage(device_handle) // mega_bytes)
-                            return (total_memory - used_memory)
+                            return (total_mem - used_mem)
                         elif metric_name == "power_draw":
                             # pylint: disable=line-too-long
                             return (amdsmi.amdsmi_get_power_info(device_handle)['average_socket_power'] // 1000.0)
@@ -182,13 +188,14 @@ class GPUInstrumentor(BaseInstrumentor):
                             return (amdsmi.amdsmi_get_power_info(device_handle)['power_limit'] // 1000.0)
                     except Exception as e:
                         logger.error("Error collecting metric %s for AMD GPU %d: %s", metric_name,
-                                                    amdsmi.amdsmi_get_xgmi_info(device_handle)['index'], e)
+                                      amdsmi.amdsmi_get_xgmi_info(device_handle)['index'], e)
                     return 0
 
                 attributes = {
                     TELEMETRY_SDK_NAME: "openlit",
                     SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
                     SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                    # pylint: disable=line-too-long
                     SemanticConvetion.GPU_INDEX: amdsmi.amdsmi_get_xgmi_info(device_handle)['index'],
                     # pylint: disable=line-too-long
                     SemanticConvetion.GPU_UUID: amdsmi.amdsmi_get_gpu_asic_info(device_handle)['market_name'],
