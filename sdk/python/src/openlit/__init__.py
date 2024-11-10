@@ -46,7 +46,7 @@ from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
-from openlit.instrumentation.gpu import NvidiaGPUInstrumentor
+from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
 
@@ -313,7 +313,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             disabled_instrumentors, module_name_map)
 
         if not disable_metrics and collect_gpu_stats:
-            NvidiaGPUInstrumentor().instrument(
+            GPUInstrumentor().instrument(
                 environment=config.environment,
                 application_name=config.application_name,
             )

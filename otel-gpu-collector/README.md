@@ -23,7 +23,7 @@ OpenTelemetry GPU Collector is a lightweight, efficient COLLECTOR designed to co
 - Collects detailed GPU performance metrics
 - OpenTelemetry-native
 - Lightweight and efficient
-- Supports NVIDIA GPUs
+- Supports NVIDIA and AMD GPUs
 
 ## 🚀 Getting Started with GPU Monitoring
 
@@ -141,9 +141,8 @@ We are dedicated to continuously improving OpenTelemetry GPU Collector. Here's a
 
 | Feature                                                                                      | Status        |
 |----------------------------------------------------------------------------------------------|---------------|
-| [OpenTelmetry metrics for NVIDIA GPUs using `gpustat`]()               | ✅ Completed  |
-| [OpenTelmetry metrics for AMD GPUs]()             | 🔜 Coming Soon   |
-| [OpenTelmetry metrics for NVIDIA GPUs using `nvidia-smi`]()             | 🔜 Coming Soon   |
+| [OpenTelmetry-native AMD GPU Monitoring]()             | ✅ Completed   |
+| [OpenTelmetry-native NVIDIA GPU Monitoring]()             | ✅ Completed   |
 
 
 

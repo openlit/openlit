@@ -31,7 +31,7 @@ langchainhub>=0.1.20
 embedchain>=0.1.104
 
 # GPU
-gpustat>=1.1.1
+xmltodict>=0.13.0
 
 # Utilities
 bs4
