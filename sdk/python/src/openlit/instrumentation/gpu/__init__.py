@@ -132,13 +132,18 @@ class GPUInstrumentor(BaseInstrumentor):
                                                                                   gpu_index, e)
                     return 0
 
+                def safe_decode(byte_string):
+                    if isinstance(byte_string, bytes):
+                        return byte_string.decode('utf-8')
+                    return byte_string
+
                 attributes = {
                     TELEMETRY_SDK_NAME: "openlit",
                     SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
                     SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
                     SemanticConvetion.GPU_INDEX: str(gpu_index),
-                    SemanticConvetion.GPU_UUID: pynvml.nvmlDeviceGetUUID(handle).decode('utf-8'),
-                    SemanticConvetion.GPU_NAME: pynvml.nvmlDeviceGetName(handle).decode('utf-8')
+                    SemanticConvetion.GPU_UUID: safe_decode(pynvml.nvmlDeviceGetUUID(handle)),
+                    SemanticConvetion.GPU_NAME: safe_decode(pynvml.nvmlDeviceGetName(handle))
                 }
                 yield Observation(get_metric_value(handle, metric_name), attributes)
 
