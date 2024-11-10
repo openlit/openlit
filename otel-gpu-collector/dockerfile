@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . .
 
 # Install necessary Python packages
-RUN pip install --no-cache-dir --no-binary :psutil: psutil openlit nvidia-ml-py amdsmi
+RUN pip install --no-cache-dir --no-binary :psutil: psutil==6.1.0 nvidia-ml-py==12.560.30 amdsmi==6.2.4 openlit
 
 # Expose any required ports, if necessary
 EXPOSE 80
