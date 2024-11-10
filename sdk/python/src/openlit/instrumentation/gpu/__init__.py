@@ -131,7 +131,7 @@ class GPUInstrumentor(BaseInstrumentor):
                         logger.error("Error collecting metric %s for GPU %d: %s", metric_name,
                                                                                   gpu_index, e)
                     return 0
-                
+
                 def safe_decode(byte_string):
                     if isinstance(byte_string, bytes):
                         return byte_string.decode('utf-8')
