@@ -39,8 +39,6 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                 *args,
                 **kwargs,
             ):
-            print("CustomWrapper")
-            # super().__init__(wrapped)
             self.__wrapped__ = wrapped
             self._span = span
             # Placeholder for aggregating streaming response
