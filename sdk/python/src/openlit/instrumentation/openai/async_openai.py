@@ -34,10 +34,13 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
     class TracedAsyncStream:
         """
         Wrapper for streaming responses to collect metrics and trace data.
-        It wraps the 'openai.AsyncStream' response to collect message IDs and aggregated response.
+        Wraps the 'openai.AsyncStream' response to collect message IDs and aggregated response.
 
-        This class implements the '__aiter__' and '__anext__' methods to handle asynchronous streaming responses.
-        This class also implements '__aenter__' and '__aexit__' methods to handle asynchronous context management protocol.
+        This class implements the '__aiter__' and '__anext__' methods that
+        handle asynchronous streaming responses.
+
+        This class also implements '__aenter__' and '__aexit__' methods that
+        handle asynchronous context management protocol.
         """
         def __init__(
                 self,
