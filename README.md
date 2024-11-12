@@ -20,15 +20,16 @@
 </div>
 
 ---
-https://openlit.io/static/images/demo.mp4
 
-![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/openlit-main-banner.png?raw=true)
+https://github.com/user-attachments/assets/6909bf4a-f5b4-4060-bde3-95e91fa36168
 
 **OpenLIT** allows you to simplify your AI development workflow, especially for Generative AI and LLMs. It streamlines essential tasks like experimenting with LLMs, organizing and versioning prompts, and securely handling API keys. With just one line of code, you can enable **OpenTelemetry-native** observability, offering full-stack monitoring that includes LLMs, vector databases, and GPUs. This enables developers to confidently build AI features and applications, transitioning smoothly from testing to production.
 
 This project proudly follows and maintains the [Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) with the OpenTelemetry community, consistently updating to align with the latest standards in Observability.
 
 ## ⚡ Features
+
+![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/openlit-main-banner.png?raw=true)
 
 - 📈 **Analytics Dashboard**: Monitor your AI application's health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
 
