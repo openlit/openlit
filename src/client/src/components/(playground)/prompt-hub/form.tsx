@@ -10,11 +10,13 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { PromptInput, PromptUpdate } from "@/constants/prompts";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { jsonParse } from "@/utils/json";
 import { objectEntries } from "@/utils/object";
 import { useRouter } from "next/navigation";
+import { usePostHog } from "posthog-js/react";
 import { KeyboardEvent, useCallback, useState } from "react";
 import { toast } from "sonner";
 
@@ -46,6 +48,7 @@ export default function PromptForm({
 	children: JSX.Element;
 	successCallback?: () => void;
 }) {
+	const posthog = usePostHog();
 	const router = useRouter();
 	const [isOpen, setIsOpen] = useState(false);
 	const { fireRequest, isLoading } = useFetchWrapper();
@@ -81,6 +84,7 @@ export default function PromptForm({
 					id: "prompt-hub",
 				});
 				setIsOpen(false);
+				posthog?.capture(CLIENT_EVENTS.PROMPT_ADD_SUCCESS);
 				if (response?.data?.promptId) {
 					router.push(`/prompt-hub/${response?.data?.promptId}`);
 				}
@@ -92,6 +96,7 @@ export default function PromptForm({
 				toast.error(err || "Creation of prompt failed!", {
 					id: "prompt-hub",
 				});
+				posthog?.capture(CLIENT_EVENTS.PROMPT_ADD_FAILURE);
 			},
 		});
 	}, []);
@@ -133,6 +138,7 @@ export default function PromptForm({
 					id: "prompt-hub",
 				});
 				setIsOpen(false);
+				posthog?.capture(CLIENT_EVENTS.PROMPT_VERSION_ADD_SUCCESS);
 				if (response?.data?.promptId) {
 					router.push(
 						`/prompt-hub/${response?.data?.promptId}?version=${payload.version}`
@@ -146,6 +152,7 @@ export default function PromptForm({
 				toast.error(err || "Updation of prompt version failed!", {
 					id: "prompt-hub",
 				});
+				posthog?.capture(CLIENT_EVENTS.PROMPT_VERSION_ADD_FAILURE);
 			},
 		});
 	}, []);

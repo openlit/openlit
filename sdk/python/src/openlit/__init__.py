@@ -350,7 +350,8 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
         'version': version,
         'shouldCompile': should_compile,
         'variables': variables,
-        'metaProperties': meta_properties
+        'metaProperties': meta_properties,
+        'source': 'python-sdk'
     }
 
     # Remove None values from payload
@@ -401,6 +402,7 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
     payload = {
         'key': key,
         'tags': tags,
+        'source': 'python-sdk'
     }
 
     # Remove None values from payload

@@ -4,7 +4,9 @@ import { deleteData, getData } from "@/utils/api";
 import asaw from "@/utils/asaw";
 import { toast } from "sonner";
 
-export const fetchDatabaseConfigList = async () => {
+export const fetchDatabaseConfigList = async (
+	successCb: (data: any[]) => void
+) => {
 	useRootStore.getState().databaseConfig.setIsLoading(true);
 	const [, data] = await asaw(
 		getData({
@@ -13,6 +15,7 @@ export const fetchDatabaseConfigList = async () => {
 		})
 	);
 
+	successCb(data || []);
 	useRootStore.getState().databaseConfig.setList(data || []);
 };
 
@@ -35,7 +38,10 @@ export const pingActiveDatabaseConfig = async () => {
 	});
 };
 
-export const changeActiveDatabaseConfig = async (databaseConfigId: string) => {
+export const changeActiveDatabaseConfig = async (
+	databaseConfigId: string,
+	successCb: () => void
+) => {
 	const [err, data] = await asaw(
 		getData({
 			method: "POST",
@@ -50,6 +56,7 @@ export const changeActiveDatabaseConfig = async (databaseConfigId: string) => {
 		return;
 	}
 
+	successCb();
 	const list = useRootStore.getState().databaseConfig.list || [];
 	const updatedList = list.reduce((acc: DatabaseConfigWithActive[], item) => {
 		if (item.id === databaseConfigId) acc.push({ ...item, isCurrent: true });

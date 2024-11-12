@@ -9,9 +9,11 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import { CLIENT_EVENTS } from "@/constants/events";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { jsonParse } from "@/utils/json";
 import { isEmpty } from "lodash";
+import { usePostHog } from "posthog-js/react";
 import { KeyboardEvent, useCallback, useState } from "react";
 import { toast } from "sonner";
 
@@ -24,6 +26,7 @@ export default function SecretForm({
 	children: JSX.Element;
 	successCallback?: () => void;
 }) {
+	const posthog = usePostHog();
 	const [isOpen, setIsOpen] = useState(false);
 	const { fireRequest, isLoading } = useFetchWrapper();
 	const upsertSecret: FormBuilderEvent = useCallback((event, formdata) => {
@@ -50,6 +53,11 @@ export default function SecretForm({
 					}
 				);
 				setIsOpen(false);
+				posthog?.capture(
+					payload.id
+						? CLIENT_EVENTS.VAULT_SECRET_UPDATE_SUCCESS
+						: CLIENT_EVENTS.VAULT_SECRET_ADD_SUCCESS
+				);
 				if (typeof successCallback === "function") {
 					successCallback();
 				}
@@ -60,6 +68,11 @@ export default function SecretForm({
 					{
 						id: "vault",
 					}
+				);
+				posthog?.capture(
+					payload.id
+						? CLIENT_EVENTS.VAULT_SECRET_UPDATE_SUCCESS
+						: CLIENT_EVENTS.VAULT_SECRET_ADD_SUCCESS
 				);
 			},
 		});

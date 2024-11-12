@@ -3,10 +3,12 @@
 import FormBuilder, {
 	FormBuilderEvent,
 } from "@/components/common/form-builder";
+import { CLIENT_EVENTS } from "@/constants/events";
 import { getUserDetails, setUser } from "@/selectors/user";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { User } from "@prisma/client";
+import { usePostHog } from "posthog-js/react";
 import { toast } from "sonner";
 
 const PROFILE_TOAST_ID = "profile-details";
@@ -18,6 +20,7 @@ function ModifyProfileDetails({
 	user: User | null;
 	fetchUser: () => void;
 }) {
+	const posthog = usePostHog();
 	const { fireRequest, isLoading } = useFetchWrapper();
 
 	const modifyDetails: FormBuilderEvent = (event) => {
@@ -54,11 +57,13 @@ function ModifyProfileDetails({
 				});
 				formElement.reset();
 				fetchUser();
+				posthog?.capture(CLIENT_EVENTS.PROFILE_UPDATE_SUCCESS);
 			},
 			failureCb: (err?: string) => {
 				toast.error(err || "Profile details updation failed!", {
 					id: PROFILE_TOAST_ID,
 				});
+				posthog?.capture(CLIENT_EVENTS.PROFILE_UPDATE_FAILURE);
 			},
 		});
 	};
