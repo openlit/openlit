@@ -16,8 +16,11 @@ import {
 import { FieldProps } from "@/components/common/form-field";
 import { jsonStringify } from "@/utils/json";
 import { useState } from "react";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 export default function Generate({ refresh }: { refresh: () => void }) {
+	const posthog = usePostHog();
 	const [isOpen, setIsOpen] = useState(false);
 	const { fireRequest: fireCreateRequest, isLoading: isCreating } =
 		useFetchWrapper();
@@ -45,11 +48,13 @@ export default function Generate({ refresh }: { refresh: () => void }) {
 				});
 				setIsOpen(false);
 				refresh();
+				posthog?.capture(CLIENT_EVENTS.API_KEY_ADD_SUCCESS);
 			},
 			failureCb: (err?: string) => {
 				toast.error(err || `Cannot connect to server!`, {
 					id: "api-key",
 				});
+				posthog?.capture(CLIENT_EVENTS.API_KEY_ADD_FAILURE);
 			},
 		});
 	};
