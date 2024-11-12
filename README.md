@@ -182,6 +182,7 @@ We are dedicated to continuously improving OpenLIT. Here's a look at what's been
 | [Auto-Evaluation Metrics Based on Usage](https://github.com/openlit/openlit/issues/470)                                                   | 🔜 Coming Soon |
 | [Human Feedback for LLM Events](https://github.com/openlit/openlit/issues/471)                                                            | 🔜 Coming Soon |
 | [Dataset Generation Based on LLM Events](https://github.com/openlit/openlit/issues/472)                                                   | 🔜 Coming Soon |
+| [Search over Traces]()                                                                       | 🔜 Coming Soon |
 
 ## 🌱 Contributing
 

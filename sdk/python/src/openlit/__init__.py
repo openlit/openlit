@@ -46,7 +46,7 @@ from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
-from openlit.instrumentation.gpu import NvidiaGPUInstrumentor
+from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
 
@@ -255,7 +255,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             return
 
         # Setup meter and receive metrics_dict instead of meter.
-        metrics_dict = setup_meter(
+        metrics_dict, err = setup_meter(
             application_name=application_name,
             environment=environment,
             meter=meter,
@@ -263,8 +263,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             otlp_headers=otlp_headers,
         )
 
-        if not metrics_dict:
-            logger.error("openLIT metrics setup failed. Metrics will not be available.")
+        if err:
+            logger.error("OpenLIT metrics setup failed. Metrics will not be available: %s", err)
             return
 
         # Update global configuration with the provided settings.
@@ -313,7 +313,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             disabled_instrumentors, module_name_map)
 
         if not disable_metrics and collect_gpu_stats:
-            NvidiaGPUInstrumentor().instrument(
+            GPUInstrumentor().instrument(
                 environment=config.environment,
                 application_name=config.application_name,
             )
