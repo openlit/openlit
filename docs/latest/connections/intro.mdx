@@ -4,9 +4,19 @@ description: "Send LLM Monitoring data to your existing Observablity Stack"
 sidebarTitle: "Introduction"
 ---
 
-OpenLIT enhances observability by seamlessly exporting processed LLM data to your observability stack. This assists developers in bringing together all application-related data, including LLM usage metrics, on a unified platform, simplifying the visualization and assessment of the entire application ecosystem.
+```mermaid
+flowchart TB;
+    subgraph " "
+        direction LR;
+        ApplicationCode[Application Code] -->|Instrumented with| OpenLIT_SDK[OpenLIT SDK];
+        OpenLIT_SDK -->|Sends Traces & Metrics| OT_Backend[OpenTelemetry Backend];
+    end
+```
 
-Below is a list of observability tools that work seamlessly with OpenLIT:
+
+The OpenLIT SDK can send processed execution traces and metrics from AI applications directly to your existing observability stack. This capability assists developers in consolidating all application-related data, including AI usage metrics, onto a unified platform, thereby simplifying the visualization and assessment of the entire AI application ecosystem.
+
+Below is a list of observability tools that work seamlessly with OpenLIT SDK:
 
 <CardGroup cols={2}>
   <Card
