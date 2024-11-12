@@ -178,6 +178,13 @@
         }
       ],
       "version": "latest"
+    },
+    {
+      "group": "Privacy",
+      "pages": [
+        "latest/anonymous-telemetry"
+      ],
+      "version": "latest"
     }
   ],
   "analytics": {

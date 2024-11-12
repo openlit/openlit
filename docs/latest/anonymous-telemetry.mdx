@@ -1,0 +1,28 @@
+---
+title: 'Anonymous Usage Stats'
+description: 'Details about OpenLIT anonymous usage statistics reporting'
+---
+
+## Why? 
+To enhance and improve the OpenLIT experience, we have introduced a telemetry feature that collects anonymous usage data. This data helps us understand how users interact with OpenLIT and identify areas for improvement. We assure you that all collected data is completely anonymous and is used solely for the purpose of enhancing our services.
+
+## What Do We Track?
+
+OpenLIT collects anonymous events from both the OpenLIT and the OpenLIT SDK to analyze usage. Events include:
+
+- **User Interactions**: Counts of login attempts, registrations, and page visits.
+- **Database Configurations**: Counts of additions, updates, and action changes.
+- **Profile Management**: Counts of profile updates, whether successful or failed.
+- **API Key Management**: Counts of added API keys and any failures.
+- **Prompt Operations**: Success/failure count on prompt additions and versioning.
+- **Vault Actions**: Counts of secret additions and updates.
+- **Openground Evaluations**: Counts of the success and failure of evaluations.
+- **SDK Operations**: Success/failure count in fetching prompts and vault secrets.
+
+## How to Disable the Collection of Usage Statistics
+
+Usage statistics collection in OpenLIT is enabled by default, but you can opt-out at any time. To disable statistics collection, set the `TELEMETRY_ENABLED=false` environment variable when starting OpenLIT.
+
+## Where Are Usage Statistics Stored?
+
+We use Posthog to securely store and visualize usage statistics, providing essential insights into how OpenLIT is used.
