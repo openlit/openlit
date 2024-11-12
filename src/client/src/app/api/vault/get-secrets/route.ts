@@ -36,7 +36,6 @@ export async function POST(request: Request) {
 			: SERVER_EVENTS.VAULT_SECRET_SDK_FETCH_SUCCESS,
 		distinctId: randomUUID(),
 		properties: {
-			...(formData.metaProperties || {}),
 			downloadSource: formData.source,
 			responseTime: end - start,
 		},

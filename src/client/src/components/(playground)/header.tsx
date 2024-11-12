@@ -45,10 +45,8 @@ export default function Header() {
 	};
 
 	useEffect(() => {
-		if (user?.id && process.env.TELEMETRY_TRACK_EMAIL) {
-			posthog?.identify(user.id, {
-				email: user.email,
-			});
+		if (user?.id) {
+			posthog?.identify(user.id);
 		}
 	}, [user]);
 
