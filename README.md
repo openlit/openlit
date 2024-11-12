@@ -20,6 +20,7 @@
 </div>
 
 ---
+https://openlit.io/static/images/demo.mp4
 
 ![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/openlit-main-banner.png?raw=true)
 
