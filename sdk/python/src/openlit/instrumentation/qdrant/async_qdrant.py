@@ -24,7 +24,7 @@ def object_count(obj):
 
     return cnt
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name,
+def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
@@ -46,7 +46,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 a new function that wraps 'wrapped' with additional tracing and logging.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         An inner wrapper function that executes the wrapped function, measures execution
         time, and records trace data using OpenTelemetry.
@@ -67,7 +67,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         errors are handled and logged appropriately.
         """
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
@@ -230,13 +230,6 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     db_operation = SemanticConvetion.DB_OPERATION_CREATE_INDEX
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
                                        SemanticConvetion.DB_OPERATION_CREATE_INDEX)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
-                                       kwargs.get("collection_name", ""))
-
-                elif gen_ai_endpoint == "qdrant.query_points":
-                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
-                                       SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
