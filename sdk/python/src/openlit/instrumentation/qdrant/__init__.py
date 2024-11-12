@@ -6,6 +6,7 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.qdrant.qdrant import general_wrap
+from openlit.instrumentation.qdrant.async_qdrant import async_general_wrap
 
 _instruments = ("qdrant-client >= 1.9.0",)
 
@@ -118,7 +119,146 @@ WRAPPED_METHODS = [
         "object": "QdrantClient.recommend",
         "endpoint": "qdrant.recommend",
         "wrapper": general_wrap,
-    }
+    },
+    {
+
+        "package": "qdrant_client",
+        "object": "QdrantClient.create_payload_index",
+        "endpoint": "qdrant.create_payload_index",
+        "wrapper": general_wrap,
+    },
+    {
+
+        "package": "qdrant_client",
+        "object": "QdrantClient.query_points",
+        "endpoint": "qdrant.query_points",
+        "wrapper": general_wrap,
+    },
+
+    # Async Client
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.create_collection",
+        "endpoint": "qdrant.create_collection",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.delete_collection",
+        "endpoint": "qdrant.delete_collection",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.update_collection",
+        "endpoint": "qdrant.update_collection",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.upload_collection",
+        "endpoint": "qdrant.upload_collection",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.upsert",
+        "endpoint": "qdrant.upsert",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.set_payload",
+        "endpoint": "qdrant.set_payload",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.overwrite_payload",
+        "endpoint": "qdrant.overwrite_payload",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.clear_payload",
+        "endpoint": "qdrant.clear_payload",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.delete_payload",
+        "endpoint": "qdrant.delete_payload",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.upload_points",
+        "endpoint": "qdrant.upload_points",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.update_vectors",
+        "endpoint": "qdrant.update_vectors",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.delete_vectors",
+        "endpoint": "qdrant.delete_vectors",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.delete",
+        "endpoint": "qdrant.delete",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.retrieve",
+        "endpoint": "qdrant.retrieve",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.scroll",
+        "endpoint": "qdrant.scroll",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.search",
+        "endpoint": "qdrant.search",
+        "wrapper": async_general_wrap,
+    },
+    {
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.search_groups",
+        "endpoint": "qdrant.search_groups",
+        "wrapper": async_general_wrap,
+    },
+    {
+
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.recommend",
+        "endpoint": "qdrant.recommend",
+        "wrapper": async_general_wrap,
+    },
+    {
+
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.create_payload_index",
+        "endpoint": "qdrant.create_payload_index",
+        "wrapper": async_general_wrap,
+    },
+    {
+
+        "package": "qdrant_client",
+        "object": "AsyncQdrantClient.query_points",
+        "endpoint": "qdrant.query_points",
+        "wrapper": async_general_wrap,
+    },
 ]
 
 class QdrantInstrumentor(BaseInstrumentor):
