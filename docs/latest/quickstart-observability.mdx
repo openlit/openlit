@@ -268,7 +268,18 @@ flowchart TB;
 
 You're all set! Following these steps should have you on your way to effectively monitoring your LLM applications with OpenTelemetry. 
 
-If you wish to send telemetry directly from the SDK to any other backend, You can now run the below command and refer to our [Connections](./connections/intro) guide.
+**Send Observability telemetry to other OpenTelemetry backends**
+
+```mermaid
+flowchart TB;
+    subgraph " "
+        direction LR;
+        ApplicationCode[Application Code] -->|Instrumented with| OpenLIT_SDK[OpenLIT SDK];
+        OpenLIT_SDK -->|Sends Traces & Metrics| OT_Backend[OpenTelemetry Backend];
+    end
+```
+
+If you wish to send telemetry directly from the SDK to another backend, you can stop the current Docker services by using the command below. For more details on sending the data to your existing OpenTelemetry backends, refer to our [Connections](./connections/intro) guide.
 
 ```sh
 docker compose down
