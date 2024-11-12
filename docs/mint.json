@@ -130,7 +130,8 @@
           "group": "GPUs",
           "version": "latest",
           "pages": [
-            "latest/integrations/nvidia-gpu"
+            "latest/integrations/nvidia-gpu",
+            "latest/integrations/amd-gpu"
           ]
         }
       ]
