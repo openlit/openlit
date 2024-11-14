@@ -559,6 +559,7 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name,
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             response = await wrapped(*args, **kwargs)
 
+            # Handling exception ensure observability without disrupting operation
             try:
                 # Set Span attributes
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
