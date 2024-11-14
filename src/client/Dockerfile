@@ -29,10 +29,6 @@ COPY --from=builder /app/client/package-lock.json ./package-lock.json
 COPY --from=builder /app/client/public ./public
 COPY --from=builder /app/client/prisma ./prisma
 
-# Fetch posthog creds
-COPY --from=builder /app/client/scripts/fetch-posthog-creds.sh ./fetch-posthog-creds.sh
-RUN chmod +x ./fetch-posthog-creds.sh
-
 # Execute entrypoint script to generate NextAuth.js secret and run commands
 COPY --from=builder /app/client/scripts/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
