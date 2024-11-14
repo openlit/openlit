@@ -53,8 +53,8 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                 self,
                 wrapped,
                 span,
-                *args,
-                **kwargs,
+                kwargs,
+                **args,
             ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -68,16 +68,16 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
         def __enter__(self):
             self.__wrapped__.__enter__()
             return self
-        
-        def __getattr__(self, name):
-            """Delegate attribute access to the wrapped object."""
-            return getattr(self.__wrapped__, name)
 
         def __exit__(self, exc_type, exc_value, traceback):
             self.__wrapped__.__exit__(exc_type, exc_value, traceback)
 
         def __iter__(self):
             return self
+        
+        def __getattr__(self, name):
+            """Delegate attribute access to the wrapped object."""
+            return getattr(self.__wrapped__, name)
 
         def __next__(self):
             try:
@@ -86,7 +86,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                 # Collect message IDs and aggregated response from events
                 if len(chunked.get('choices')) > 0:
                     # pylint: disable=line-too-long
-                    if hasattr(chunked.get('choices')[0], "delta") and hasattr(chunked.get('choices')[0].get('delta'), "content"):
+                    if ('delta' in chunked.get('choices')[0] and 'content' in chunked.get('choices')[0].get('delta')):
                         content = chunked.get('choices')[0].get('delta').get('content')
                         if content:
                             self._llmresponse += content
@@ -238,7 +238,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(gen_ai_endpoint, kind=SpanKind.CLIENT)
 
-            return TracedSyncStream(awaited_wrapped, span)
+            return TracedSyncStream(awaited_wrapped, span, kwargs)
 
         # Handling for non-streaming responses
         else:
@@ -344,7 +344,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                                 span.add_event(
                                     name=attribute_name,
                                     attributes={
-                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response_dict.get('choices')[i].get('message.content'),
+                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response_dict.get('choices')[i].get("message").get("content"),
                                     },
                                 )
                                 i += 1

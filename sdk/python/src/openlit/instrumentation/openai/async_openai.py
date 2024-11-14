@@ -6,8 +6,15 @@ Module for monitoring OpenAI API calls.
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, get_audio_model_cost
-from openlit.__helpers import get_image_model_cost, openai_tokens, handle_exception
+from openlit.__helpers import (
+    get_chat_model_cost,
+    get_embed_model_cost,
+    get_audio_model_cost,
+    get_image_model_cost,
+    openai_tokens,
+    handle_exception,
+    response_as_dict,
+)
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -46,8 +53,8 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                 self,
                 wrapped,
                 span,
-                *args,
-                **kwargs,
+                kwargs,
+                **args,
             ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -79,7 +86,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                 # Collect message IDs and aggregated response from events
                 if len(chunked.get('choices')) > 0:
                     # pylint: disable=line-too-long
-                    if hasattr(chunked.get('choices')[0], "delta") and hasattr(chunked.get('choices')[0].get('delta'), "content"):
+                    if ('delta' in chunked.get('choices')[0] and 'content' in chunked.get('choices')[0].get('delta')):
                         content = chunked.get('choices')[0].get('delta').get('content')
                         if content:
                             self._llmresponse += content
@@ -231,7 +238,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
             awaited_wrapped = await wrapped(*args, **kwargs)
             span = tracer.start_span(gen_ai_endpoint, kind=SpanKind.CLIENT)
 
-            return TracedAsyncStream(awaited_wrapped, span)
+            return TracedAsyncStream(awaited_wrapped, span, kwargs)
 
         # Handling for non-streaming responses
         else:
@@ -337,7 +344,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                 span.add_event(
                                     name=attribute_name,
                                     attributes={
-                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response_dict.get('choices')[i].get('message.content'),
+                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response_dict.get('choices')[i].get("message").get("content"),
                                     },
                                 )
                                 i += 1
@@ -558,7 +565,7 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
                 span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    "fine_tuning")
+                                   SemanticConvetion.GEN_AI_TYPE_FINETUNING)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -589,7 +596,22 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    metrics["genai_requests"].add(1)
+                    attributes = {
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_FINETUNING,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            kwargs.get("model", "gpt-3.5-turbo")
+                    }
+
+                    metrics["genai_requests"].add(1, attributes)
 
                 # Return original response
                 return response
