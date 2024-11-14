@@ -13,6 +13,16 @@ from opentelemetry.trace import Status, StatusCode
 # Set up logging
 logger = logging.getLogger(__name__)
 
+def response_as_dict(response):
+    if isinstance(response, dict):
+        return response
+    if hasattr(response, "model_dump"):
+        return response.model_dump()
+    elif hasattr(response, "parse"):
+        return response_as_dict(response.parse())
+    else:
+        return response
+
 def get_env_variable(name, arg_value, error_message):
     """
     Retrieve an environment variable if the argument is not provided
