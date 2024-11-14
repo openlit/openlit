@@ -14,6 +14,10 @@ from opentelemetry.trace import Status, StatusCode
 logger = logging.getLogger(__name__)
 
 def response_as_dict(response):
+    """
+    Return parsed response as a dict
+    """
+    # pylint: disable=no-else-return
     if isinstance(response, dict):
         return response
     if hasattr(response, "model_dump"):

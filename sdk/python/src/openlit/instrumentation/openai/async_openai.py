@@ -74,7 +74,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
 
         def __aiter__(self):
             return self
-        
+
         async def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
             return getattr(await self.__wrapped__, name)
@@ -84,12 +84,10 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                 chunk = await self.__wrapped__.__anext__()
                 chunked = response_as_dict(chunk)
                 # Collect message IDs and aggregated response from events
-                if len(chunked.get('choices')) > 0:
-                    # pylint: disable=line-too-long
-                    if ('delta' in chunked.get('choices')[0] and 'content' in chunked.get('choices')[0].get('delta')):
-                        content = chunked.get('choices')[0].get('delta').get('content')
-                        if content:
-                            self._llmresponse += content
+                if len(chunked.get('choices')) > 0 and ('delta' in chunked.get('choices')[0] and 'content' in chunked.get('choices')[0].get('delta')):
+                    content = chunked.get('choices')[0].get('delta').get('content')
+                    if content:
+                        self._llmresponse += content
                 self._response_id = chunked.get('id')
                 return chunk
             except StopAsyncIteration:
