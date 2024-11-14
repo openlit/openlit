@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Generate and set NextAuth.js secret as an environment variable
 export NEXTAUTH_SECRET=$(openssl rand -base64 32)
