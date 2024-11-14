@@ -234,6 +234,8 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 response = await wrapped(*args, **kwargs)
 
+                response_dict = response_as_dict(response)
+
                 try:
                     # Format 'messages' into a single string
                     message_prompt = kwargs.get("messages", "")
@@ -263,7 +265,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
-                                        response.id)
+                                        response_dict.get("id"))
                     span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                         environment)
                     span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
@@ -294,23 +296,21 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                             },
                         )
 
-                    span.set_status(Status(StatusCode.OK))
-
                     # Set span attributes when tools is not passed to the function call
                     if "tools" not in kwargs:
                         # Calculate cost of the operation
                         cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"),
-                                                    pricing_info, response.usage.prompt_tokens,
-                                                    response.usage.completion_tokens)
+                                                    pricing_info, response_dict.get('usage', {}).get('prompt_tokens', None),
+                                                    response_dict.get('usage', {}).get('completion_tokens', None))
 
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                            response.usage.prompt_tokens)
+                                           response_dict.get('usage', {}).get('prompt_tokens', None))
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                            response.usage.completion_tokens)
+                                           response_dict.get('usage', {}).get('completion_tokens', None))
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                            response.usage.total_tokens)
+                                           response_dict.get('usage', {}).get('total_tokens', None))
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                            [response.choices[0].finish_reason])
+                                           [response_dict.get('choices', [])[0].get('finish_reason', None)])
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
 
@@ -320,7 +320,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                 span.add_event(
                                     name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                                     attributes={
-                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.choices[0].message.content,
+                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response_dict.get('choices', [])[0].get("message").get("content"),
                                     },
                                 )
 
@@ -332,7 +332,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                 span.add_event(
                                     name=attribute_name,
                                     attributes={
-                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.choices[i].message.content,
+                                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response_dict.get('choices')[i].get('message.content'),
                                     },
                                 )
                                 i += 1
@@ -344,9 +344,8 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                     elif "tools" in kwargs:
                         # Calculate cost of the operation
                         cost = get_chat_model_cost(kwargs.get("model", "gpt-3.5-turbo"),
-                                                    pricing_info, response.usage.prompt_tokens,
-                                                    response.usage.completion_tokens)
-
+                                                    pricing_info, response_dict.get('usage').get('prompt_tokens'),
+                                                    response_dict.get('usage').get('completion_tokens'))
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
@@ -354,11 +353,11 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                             },
                         )
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                            response.usage.prompt_tokens)
+                                            response_dict.get('usage').get('prompt_tokens'))
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                            response.usage.completion_tokens)
+                                            response_dict.get('usage').get('completion_tokens'))
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                            response.usage.total_tokens)
+                                            response_dict.get('usage').get('total_tokens'))
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                             cost)
 
@@ -381,9 +380,9 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                         }
 
                         metrics["genai_requests"].add(1, attributes)
-                        metrics["genai_total_tokens"].add(response.usage.total_tokens, attributes)
-                        metrics["genai_completion_tokens"].add(response.usage.completion_tokens, attributes)
-                        metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, attributes)
+                        metrics["genai_total_tokens"].add(response_dict.get('usage').get('total_tokens'), attributes)
+                        metrics["genai_completion_tokens"].add(response_dict.get('usage').get('completion_tokens'), attributes)
+                        metrics["genai_prompt_tokens"].add(response_dict.get('usage').get('prompt_tokens'), attributes)
                         metrics["genai_cost"].record(cost, attributes)
 
                     # Return original response
