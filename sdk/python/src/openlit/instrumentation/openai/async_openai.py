@@ -84,7 +84,9 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                 chunk = await self.__wrapped__.__anext__()
                 chunked = response_as_dict(chunk)
                 # Collect message IDs and aggregated response from events
-                if len(chunked.get('choices')) > 0 and ('delta' in chunked.get('choices')[0] and 'content' in chunked.get('choices')[0].get('delta')):
+                if (len(chunked.get('choices')) > 0 and ('delta' in chunked.get('choices')[0] and
+                    'content' in chunked.get('choices')[0].get('delta'))):
+
                     content = chunked.get('choices')[0].get('delta').get('content')
                     if content:
                         self._llmresponse += content
