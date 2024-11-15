@@ -7,10 +7,10 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.litellm.litellm import (
-    completion
+    completion, embedding
 )
 from openlit.instrumentation.litellm.async_litellm import (
-   acompletion
+   acompletion, aembedding
 )
 
 _instruments = ("litellm >= 1.52.6",)
@@ -45,6 +45,20 @@ class LiteLLMInstrumentor(BaseInstrumentor):
             "litellm",
             "acompletion",
             acompletion("litellm.completion", version, environment, application_name,
+                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+        )
+
+        wrap_function_wrapper(
+            "litellm",
+            "embedding",
+            embedding("litellm.embedding", version, environment, application_name,
+                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+        )
+
+        wrap_function_wrapper(
+            "litellm",
+            "aembedding",
+            aembedding("litellm.embedding", version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

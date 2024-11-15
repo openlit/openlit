@@ -8,6 +8,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
     get_chat_model_cost,
+    get_embed_model_cost,
     openai_tokens,
     handle_exception,
     response_as_dict,
@@ -402,5 +403,117 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
 
                     # Return original response
                     return response
+
+    return wrapper
+
+def aembedding(gen_ai_endpoint, version, environment, application_name,
+                    tracer, pricing_info, trace_content, metrics, disable_metrics):
+    """
+    Generates a telemetry wrapper for embeddings to collect metrics.
+
+    Args:
+        gen_ai_endpoint: Endpoint identifier for logging and tracing.
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI usage.
+        trace_content: Flag indicating whether to trace the actual content.
+
+    Returns:
+        A function that wraps the embeddings method to add telemetry.
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the 'embeddings' API call to add telemetry.
+
+        This collects metrics such as execution time, cost, and token usage, and handles errors
+        gracefully, adding details to the trace for observability.
+
+        Args:
+            wrapped: The original 'embeddings' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'embeddings' method.
+            kwargs: Keyword arguments for the 'embeddings' method.
+
+        Returns:
+            The response from the original 'embeddings' method.
+        """
+
+        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+            response = await wrapped(*args, **kwargs)
+            response_dict = response_as_dict(response)
+            try:
+                # Calculate cost of the operation
+                cost = get_embed_model_cost(kwargs.get("model", "text-embedding-ada-002"),
+                                            pricing_info, response_dict.get('usage').get('prompt_tokens'))
+
+                # Set Span attributes
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
+                                    SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                                    gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    kwargs.get("model", "text-embedding-ada-002"))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_FORMAT,
+                                    kwargs.get("encoding_format", "float"))
+                # span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
+                #                     kwargs.get("dimensions", "null"))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
+                                    kwargs.get("user", ""))
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    response_dict.get('usage').get('prompt_tokens'))
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    response_dict.get('usage').get('total_tokens'))
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                    cost)
+                if trace_content:
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("input", ""),
+                        },
+                    )
+
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    attributes = {
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            kwargs.get("model", "text-embedding-ada-002")
+                    }
+
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_total_tokens"].add(response_dict.get('usage').get('total_tokens'), attributes)
+                    metrics["genai_prompt_tokens"].add(response_dict.get('usage').get('prompt_tokens'), attributes)
+                    metrics["genai_cost"].record(cost, attributes)
+
+                # Return original response
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
 
     return wrapper

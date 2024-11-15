@@ -41,7 +41,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)                      |                                          | [✅ EmbedChain](https://docs.openlit.io/latest/integrations/embedchain)    |               |                                       
 | [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)                    |                                                                          | [✅ Guardrails](https://docs.openlit.io/latest/integrations/guardrails)    |               |
 | [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai)          |                                                                          | [✅ CrewAI](https://docs.openlit.io/latest/integrations/crewai)            |               |
-| [✅ Azure AI Inference](https://docs.openlit.io/latest/integrations/azure-ai-inference) |                                                                          |                                         
+| [✅ Azure AI Inference](https://docs.openlit.io/latest/integrations/azure-ai-inference) |                                                                          | [✅ DSPy](#)                                    |               |
 | [✅ GitHub AI Models](https://docs.openlit.io/latest/integrations/github-models)  |                                                                          |                                       |               |
 | [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface) |                                                                          |                                       |               |
 | [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)             |                                                                          |                                       |               |
@@ -52,6 +52,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ OLA Krutrim](https://docs.openlit.io/latest/integrations/krutrim)                |                                                                          |                                       |               |
 | [✅ Google AI Studio](https://docs.openlit.io/latest/integrations/google-ai-studio)  |                                                                          |                                       |               |
 | [✅ NVIDIA NIM](https://docs.openlit.io/latest/integrations/nvidia-nim)              |                                                                          |                                       |               |
+
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
