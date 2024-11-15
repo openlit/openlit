@@ -447,7 +447,7 @@ def aembedding(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Calculate cost of the operation
                 cost = get_embed_model_cost(kwargs.get("model", "text-embedding-ada-002"),
-                                            pricing_info, response_dict.get('usage').get('prompt_tokens'))
+                                pricing_info, response_dict.get('usage').get('prompt_tokens'))
 
                 # Set Span attributes
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
@@ -502,8 +502,10 @@ def aembedding(gen_ai_endpoint, version, environment, application_name,
                     }
 
                     metrics["genai_requests"].add(1, attributes)
-                    metrics["genai_total_tokens"].add(response_dict.get('usage').get('total_tokens'), attributes)
-                    metrics["genai_prompt_tokens"].add(response_dict.get('usage').get('prompt_tokens'), attributes)
+                    metrics["genai_total_tokens"].add(
+                        response_dict.get('usage').get('total_tokens'), attributes)
+                    metrics["genai_prompt_tokens"].add(
+                        response_dict.get('usage').get('prompt_tokens'), attributes)
                     metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response

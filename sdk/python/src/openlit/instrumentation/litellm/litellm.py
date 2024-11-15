@@ -502,8 +502,10 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                     }
 
                     metrics["genai_requests"].add(1, attributes)
-                    metrics["genai_total_tokens"].add(response_dict.get('usage').get('total_tokens'), attributes)
-                    metrics["genai_prompt_tokens"].add(response_dict.get('usage').get('prompt_tokens'), attributes)
+                    metrics["genai_total_tokens"].add(
+                        response_dict.get('usage').get('total_tokens'), attributes)
+                    metrics["genai_prompt_tokens"].add(
+                        response_dict.get('usage').get('prompt_tokens'), attributes)
                     metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response
