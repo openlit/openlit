@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long
+# pylint: disable=duplicate-code, line-too-long, ungrouped-imports
 """
 Setups up OpenTelemetry Meter
 """
