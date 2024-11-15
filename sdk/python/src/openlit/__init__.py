@@ -46,6 +46,7 @@ from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
+from openlit.instrumentation.litellm import LiteLLMInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -228,6 +229,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "qdrant": "qdrant_client",
         "milvus": "pymilvus",
         "transformers": "transformers",
+        "litellm": "litellm",
     }
 
     invalid_instrumentors = [
@@ -305,6 +307,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "qdrant": QdrantInstrumentor(),
             "milvus": MilvusInstrumentor(),
             "transformers": TransformersInstrumentor(),
+            "litellm": LiteLLMInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
