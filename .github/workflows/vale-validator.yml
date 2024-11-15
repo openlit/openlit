@@ -1,4 +1,4 @@
-name: reviewdog
+name: Vale Validator
 on:
   pull_request:
     permissions:
