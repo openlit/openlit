@@ -3,14 +3,17 @@
 
 import json
 import os
+import logging
 from typing import Optional, Tuple, List
 from pydantic import BaseModel
-
 from opentelemetry.metrics import get_meter
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from anthropic import Anthropic
 from openai import OpenAI
 from openlit.semcov import SemanticConvetion
+
+# Initialize logger for logging potential issues and operations
+logger = logging.getLogger(__name__)
 
 class JsonOutput(BaseModel):
     """
@@ -216,7 +219,7 @@ def parse_llm_response(response) -> JsonOutput:
 
         return JsonOutput(**data)
     except (json.JSONDecodeError, TypeError) as e:
-        print(f"Error parsing LLM response: {e}")
+        logger.error("Error parsing LLM response: '%s'", e)
         return JsonOutput(score=0, classification="none", explanation="none",
                           verdict="no", evaluation="none")
 
