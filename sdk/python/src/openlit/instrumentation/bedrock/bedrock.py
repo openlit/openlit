@@ -102,12 +102,7 @@ def converse(gen_ai_endpoint, version, environment, application_name, tracer,
                         content = message["content"]
 
                         if isinstance(content, list):
-                            content_str = ", ".join(
-                                # pylint: disable=line-too-long
-                                f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
-                                if "type" in item else f'text: {item["text"]}'
-                                for item in content
-                            )
+                            content_str = content_str = ", ".join(f'text: {item["text"]}' for item in content if "text" in item)
                             formatted_messages.append(f"{role}: {content_str}")
                         else:
                             formatted_messages.append(f"{role}: {content}")
