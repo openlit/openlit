@@ -164,7 +164,6 @@ def generate(gen_ai_endpoint, version, environment, application_name,
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 response = wrapped(*args, **kwargs)
 
-                # print(instance._system_instruction.__dict__["_pb"].parts[0].text)
                 try:
                     prompt = ""
                     for arg in args:

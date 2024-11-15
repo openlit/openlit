@@ -379,7 +379,7 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
         # Return the JSON response
         return response.json()
     except requests.RequestException as error:
-        print(f"Error fetching prompt: {error}")
+        logger.error("Error fetching prompt: '%s'", error)
         return None
 
 def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None):
@@ -437,7 +437,7 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
                 os.environ[token] = str(value)
         return vault_response
     except requests.RequestException as error:
-        print(f"Error fetching secrets: {error}")
+        logger.error("Error fetching secrets: '%s'", error)
         return None
 
 def trace(wrapped):
