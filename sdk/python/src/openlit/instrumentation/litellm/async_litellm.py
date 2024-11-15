@@ -8,9 +8,6 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
     get_chat_model_cost,
-    get_embed_model_cost,
-    get_audio_model_cost,
-    get_image_model_cost,
     openai_tokens,
     handle_exception,
     response_as_dict,
