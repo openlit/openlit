@@ -33,14 +33,14 @@ class CrewAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "crewai.agent",
             "Agent.execute_task",
-            crew_wrap("crewai.agent", version, environment, application_name,
+            crew_wrap("crewai.agent_execute_task", version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "crewai.task",
-            "Task.execute_sync",
-            crew_wrap("crewai.task", version, environment, application_name,
+            "Task._execute_core",
+            crew_wrap("crewai.task_execute_core", version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

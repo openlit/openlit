@@ -8,10 +8,7 @@ import json
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
-    get_chat_model_cost,
-    openai_tokens,
     handle_exception,
-    response_as_dict,
 )
 from openlit.semcov import SemanticConvetion
 
@@ -93,20 +90,19 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
                             task[key] = value.role
                         else:
                             task[key] = str(value)
-                        print(key, " : ", value)
 
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TASK_ID,
-                                        task.get('id'))
+                                        task.get('id', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TASK,
-                                        task.get('description'))
+                                        task.get('description', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_EXPECTED_OUTPUT,
-                                        task.get('expected_output'))
+                                        task.get('expected_output', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ACTUAL_OUTPUT,
-                                        task.get('output'))
+                                        task.get('output', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_HUMAN_INPUT,
-                                        task.get('human_input'))
+                                        task.get('human_input', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TASK_ASSOCIATION,
-                                       str(task.get('processed_by_agents')))
+                                       str(task.get('processed_by_agents', '')))
 
                 elif instance_class == "Agent":
                     agent = {}
@@ -118,17 +114,25 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
                         agent[key] = str(value)
 
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
-                                        agent.get('id'))
+                                        agent.get('id', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ROLE,
-                                        agent.get('role'))
+                                        agent.get('role', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_GOAL,
-                                        agent.get('goal'))
+                                        agent.get('goal', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_CONTEXT,
-                                        agent.get('backstory'))
+                                        agent.get('backstory', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ENABLE_CACHE,
-                                        agent.get('cache'))
+                                        agent.get('cache', ''))
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ALLOW_DELEGATION,
-                                        agent.get('allow_delegation'))
+                                        agent.get('allow_delegation', ''))
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ALLOW_CODE_EXECUTION,
+                                        agent.get('allow_code_execution', ''))
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_MAX_RETRY_LIMIT,
+                                        agent.get('max_retry_limit', ''))
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TOOLS,
+                                        str(agent.get('tools', '')))
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TOOL_RESULTS,
+                                        str(agent.get('tools_results', '')))
 
                 span.set_status(Status(StatusCode.OK))
 
