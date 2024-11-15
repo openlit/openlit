@@ -3,14 +3,17 @@
 
 import json
 import os
+import logger
 from typing import Optional, Tuple, List
 from pydantic import BaseModel
-
 from opentelemetry.metrics import get_meter
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from anthropic import Anthropic
 from openai import OpenAI
 from openlit.semcov import SemanticConvetion
+
+# Initialize logger for logging potential issues and operations
+logger = logging.getLogger(__name__)
 
 class JsonOutput(BaseModel):
     """
