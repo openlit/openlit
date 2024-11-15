@@ -47,6 +47,7 @@ from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
 from openlit.instrumentation.litellm import LiteLLMInstrumentor
+from openlit.instrumentation.crewai import CrewAIInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -230,6 +231,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "milvus": "pymilvus",
         "transformers": "transformers",
         "litellm": "litellm",
+        "crewai": "crewai",
     }
 
     invalid_instrumentors = [
@@ -308,6 +310,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "milvus": MilvusInstrumentor(),
             "transformers": TransformersInstrumentor(),
             "litellm": LiteLLMInstrumentor(),
+            "crewai": CrewAIInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
