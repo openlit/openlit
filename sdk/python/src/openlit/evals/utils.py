@@ -3,7 +3,7 @@
 
 import json
 import os
-import logger
+import logging
 from typing import Optional, Tuple, List
 from pydantic import BaseModel
 from opentelemetry.metrics import get_meter
