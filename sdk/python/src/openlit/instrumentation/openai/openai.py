@@ -468,8 +468,8 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                                     kwargs.get("model", "text-embedding-ada-002"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_FORMAT,
                                     kwargs.get("encoding_format", "float"))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
-                                    kwargs.get("dimensions", ""))
+                # span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
+                #                     kwargs.get("dimensions", "null"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                     kwargs.get("user", ""))
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,

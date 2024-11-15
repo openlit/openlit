@@ -154,6 +154,24 @@ class SemanticConvetion:
     DB_SYSTEM_QDRANT = "qdrant"
     DB_SYSTEM_MILVUS = "milvus"
 
+    # Agents
+    GEN_AI_AGENT_ID = "gen_ai.agent.id"
+    GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
+    GEN_AI_AGENT_ROLE = "gen_ai.agent.role"
+    GEN_AI_AGENT_GOAL = "gen_ai.agent.goal"
+    GEN_AI_AGENT_CONTEXT = "gen_ai.agent.context"
+    GEN_AI_AGENT_ENABLE_CACHE = "gen_ai.agent.enable_cache"
+    GEN_AI_AGENT_ALLOW_DELEGATION = "gen_ai.agent.allow_delegation"
+    GEN_AI_AGENT_ALLOW_CODE_EXECUTION = "gen_ai.agent.allow_code_execution"
+    GEN_AI_AGENT_MAX_RETRY_LIMIT = "gen_ai.agent.max_retry_limit"
+    GEN_AI_AGENT_TOOLS = "gen_ai.agent.tools"
+    GEN_AI_AGENT_TOOL_RESULTS = "gen_ai.agent.tool_results"
+    GEN_AI_AGENT_TASK = "gen_ai.agent.task"
+    GEN_AI_AGENT_EXPECTED_OUTPUT = "gen_ai.agent.expected_output"
+    GEN_AI_AGENT_ACTUAL_OUTPUT = "gen_ai.agent.actual_output"
+    GEN_AI_AGENT_HUMAN_INPUT = "gen_ai.agent.human_input"
+    GEN_AI_AGENT_TASK_ASSOCIATION = "gen_ai.agent.task_associations"
+
     # GPU
     GPU_INDEX = "gpu.index"
     GPU_UUID = "gpu.uuid"
