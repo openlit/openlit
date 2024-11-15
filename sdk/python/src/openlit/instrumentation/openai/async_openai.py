@@ -446,11 +446,11 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
             response = await wrapped(*args, **kwargs)
-
+            response_dict = response_as_dict(response)
             try:
                 # Calculate cost of the operation
                 cost = get_embed_model_cost(kwargs.get("model", "text-embedding-ada-002"),
-                                            pricing_info, response.usage.prompt_tokens)
+                                    pricing_info, response_dict.get('usage').get('prompt_tokens'))
 
                 # Set Span attributes
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
@@ -473,9 +473,9 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                     kwargs.get("user", ""))
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                    response.usage.prompt_tokens)
+                                    response_dict.get('usage').get('prompt_tokens'))
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                    response.usage.total_tokens)
+                                    response_dict.get('usage').get('total_tokens'))
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
                 if trace_content:
@@ -505,8 +505,10 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                     }
 
                     metrics["genai_requests"].add(1, attributes)
-                    metrics["genai_total_tokens"].add(response.usage.total_tokens, attributes)
-                    metrics["genai_prompt_tokens"].add(response.usage.prompt_tokens, attributes)
+                    metrics["genai_total_tokens"].add(
+                        response_dict.get('usage').get('total_tokens'), attributes)
+                    metrics["genai_prompt_tokens"].add(
+                        response_dict.get('usage').get('prompt_tokens'), attributes)
                     metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response

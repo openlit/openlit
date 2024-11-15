@@ -120,7 +120,9 @@
           "pages": [
             "latest/integrations/langchain",
             "latest/integrations/litellm",
+            "latest/integrations/crewai",
             "latest/integrations/llama-index",
+            "latest/integrations/dspy",
             "latest/integrations/haystack",
             "latest/integrations/embedchain",
             "latest/integrations/guardrails"
