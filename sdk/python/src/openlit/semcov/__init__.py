@@ -88,6 +88,7 @@ class SemanticConvetion:
     GEN_AI_TYPE_FINETUNING = "fine_tuning"
     GEN_AI_TYPE_VECTORDB = "vectordb"
     GEN_AI_TYPE_FRAMEWORK = "framework"
+    GEN_AI_TYPE_AGENT = "agent"
 
     GEN_AI_SYSTEM_HUGGING_FACE = "huggingface"
     GEN_AI_SYSTEM_OPENAI = "openai"
@@ -108,6 +109,8 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
     GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
+    GEN_AI_SYSTEM_LITELLM = "litellm"
+    GEN_AI_SYSTEM_CREWAI = "crewai"
 
     # Vector DB
     DB_REQUESTS = "db.total.requests"

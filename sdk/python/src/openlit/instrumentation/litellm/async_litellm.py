@@ -26,9 +26,9 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
         gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using the OpenAI API.
+        application_name: Name of the application using the LiteLLM SDK.
         tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of OpenAI usage.
+        pricing_info: Information used for calculating the cost of LiteLLM usage.
         trace_content: Flag indicating whether to trace the actual content.
 
     Returns:
@@ -38,7 +38,6 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
     class TracedAsyncStream:
         """
         Wrapper for streaming responses to collect metrics and trace data.
-        Wraps the 'openai.AsyncStream' response to collect message IDs and aggregated response.
 
         This class implements the '__aiter__' and '__anext__' methods that
         handle asynchronous streaming responses.
@@ -125,7 +124,7 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
                     # Set Span attributes
                     self._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                        SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                                        SemanticConvetion.GEN_AI_SYSTEM_LITELLM)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
                                         SemanticConvetion.GEN_AI_TYPE_CHAT)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
@@ -185,7 +184,7 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_APPLICATION_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
-                                SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
+                                SemanticConvetion.GEN_AI_SYSTEM_LITELLM,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_TYPE:
@@ -268,7 +267,7 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
                     # Set base span attribues
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                        SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                                        SemanticConvetion.GEN_AI_SYSTEM_LITELLM)
                     span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
                                         SemanticConvetion.GEN_AI_TYPE_CHAT)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
@@ -379,7 +378,7 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_APPLICATION_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
-                                SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
+                                SemanticConvetion.GEN_AI_SYSTEM_LITELLM,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_TYPE:

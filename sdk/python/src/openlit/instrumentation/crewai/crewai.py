@@ -36,9 +36,9 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
         gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using the OpenAI API.
+        application_name: Name of the application using the CrewAI Agent.
         tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of OpenAI usage.
+        pricing_info: Information used for calculating the cost of CrewAI usage.
         trace_content: Flag indicating whether to trace the actual content.
 
     Returns:
@@ -70,9 +70,9 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
+                                    SemanticConvetion.GEN_AI_SYSTEM_CREWAI)
                 span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_CHAT)
+                                    SemanticConvetion.GEN_AI_TYPE_AGENT)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
 
