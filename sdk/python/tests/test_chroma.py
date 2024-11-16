@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module
+# pylint: disable=duplicate-code, no-name-in-module, assignment-from-no-return
 """
 This module contains tests for ChromaDB functionality using the ChromaDB Python library.
 

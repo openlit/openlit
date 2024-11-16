@@ -17,21 +17,20 @@ RUN npm install && npm run build
 # Use a smaller image for production
 FROM alpine
 
-RUN apk add --update nodejs npm
+RUN apk add --update nodejs npm curl grep sed
 
 # Set the working directory in the container
 WORKDIR /app/client
 
 # Copy only necessary files from the builder stage
 COPY --from=builder /app/client/.next ./.next
-# COPY --from=builder /app/client/node_modules ./node_modules
 COPY --from=builder /app/client/package.json ./package.json
 COPY --from=builder /app/client/package-lock.json ./package-lock.json
 COPY --from=builder /app/client/public ./public
 COPY --from=builder /app/client/prisma ./prisma
 
 # Execute entrypoint script to generate NextAuth.js secret and run commands
-COPY --from=builder /app/client/entrypoint.sh ./entrypoint.sh
+COPY --from=builder /app/client/scripts/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 # Installing extra packages
 RUN apk --no-cache add bash openssl

@@ -5,7 +5,7 @@ function NumberStats() {
 	return (
 		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 			<StatCard
-				dataKey="utilization_percentage"
+				dataKey="utilization"
 				heading="Avg utilization percentage"
 				textSuffix="%"
 				icon={UtilityPole}

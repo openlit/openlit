@@ -88,6 +88,7 @@ class SemanticConvetion:
     GEN_AI_TYPE_FINETUNING = "fine_tuning"
     GEN_AI_TYPE_VECTORDB = "vectordb"
     GEN_AI_TYPE_FRAMEWORK = "framework"
+    GEN_AI_TYPE_AGENT = "agent"
 
     GEN_AI_SYSTEM_HUGGING_FACE = "huggingface"
     GEN_AI_SYSTEM_OPENAI = "openai"
@@ -108,6 +109,8 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
     GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
+    GEN_AI_SYSTEM_LITELLM = "litellm"
+    GEN_AI_SYSTEM_CREWAI = "crewai"
 
     # Vector DB
     DB_REQUESTS = "db.total.requests"
@@ -154,6 +157,24 @@ class SemanticConvetion:
     DB_SYSTEM_QDRANT = "qdrant"
     DB_SYSTEM_MILVUS = "milvus"
 
+    # Agents
+    GEN_AI_AGENT_ID = "gen_ai.agent.id"
+    GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
+    GEN_AI_AGENT_ROLE = "gen_ai.agent.role"
+    GEN_AI_AGENT_GOAL = "gen_ai.agent.goal"
+    GEN_AI_AGENT_CONTEXT = "gen_ai.agent.context"
+    GEN_AI_AGENT_ENABLE_CACHE = "gen_ai.agent.enable_cache"
+    GEN_AI_AGENT_ALLOW_DELEGATION = "gen_ai.agent.allow_delegation"
+    GEN_AI_AGENT_ALLOW_CODE_EXECUTION = "gen_ai.agent.allow_code_execution"
+    GEN_AI_AGENT_MAX_RETRY_LIMIT = "gen_ai.agent.max_retry_limit"
+    GEN_AI_AGENT_TOOLS = "gen_ai.agent.tools"
+    GEN_AI_AGENT_TOOL_RESULTS = "gen_ai.agent.tool_results"
+    GEN_AI_AGENT_TASK = "gen_ai.agent.task"
+    GEN_AI_AGENT_EXPECTED_OUTPUT = "gen_ai.agent.expected_output"
+    GEN_AI_AGENT_ACTUAL_OUTPUT = "gen_ai.agent.actual_output"
+    GEN_AI_AGENT_HUMAN_INPUT = "gen_ai.agent.human_input"
+    GEN_AI_AGENT_TASK_ASSOCIATION = "gen_ai.agent.task_associations"
+
     # GPU
     GPU_INDEX = "gpu.index"
     GPU_UUID = "gpu.uuid"
@@ -170,3 +191,19 @@ class SemanticConvetion:
     GPU_MEMORY_FREE = "gpu.memory.free"
     GPU_POWER_DRAW = "gpu.power.draw"
     GPU_POWER_LIMIT = "gpu.power.limit"
+
+    # Guard
+    GUARD_REQUESTS = "guard.requests"
+    GUARD_VERDICT = "guard.verdict"
+    GUARD_SCORE = "guard.score"
+    GUARD_CLASSIFICATION = "guard.classification"
+    GUARD_VALIDATOR = "guard.validator"
+    GUARD_EXPLANATION = "guard.explanation"
+
+    # Evals
+    EVAL_REQUESTS = "evals.requests"
+    EVAL_VERDICT = "evals.verdict"
+    EVAL_SCORE = "evals.score"
+    EVAL_CLASSIFICATION = "evals.classification"
+    EVAL_VALIDATOR = "evals.validator"
+    EVAL_EXPLANATION = "evals.explanation"

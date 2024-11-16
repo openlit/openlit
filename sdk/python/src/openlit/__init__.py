@@ -7,9 +7,11 @@ large language models (LLMs).
 
 from typing import Dict
 import logging
+import os
 from importlib.util import find_spec
 from functools import wraps
 from contextlib import contextmanager
+import requests
 
 
 # Import internal modules for setting up tracing and fetching pricing info.
@@ -18,7 +20,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from openlit.semcov import SemanticConvetion
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
-from openlit.__helpers import fetch_pricing_info
+from openlit.__helpers import fetch_pricing_info, get_env_variable
 
 
 # Instrumentors for various large language models.
@@ -44,7 +46,11 @@ from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
-from openlit.instrumentation.gpu import NvidiaGPUInstrumentor
+from openlit.instrumentation.litellm import LiteLLMInstrumentor
+from openlit.instrumentation.crewai import CrewAIInstrumentor
+from openlit.instrumentation.gpu import GPUInstrumentor
+import openlit.guard
+import openlit.evals
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
@@ -224,6 +230,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "qdrant": "qdrant_client",
         "milvus": "pymilvus",
         "transformers": "transformers",
+        "litellm": "litellm",
+        "crewai": "crewai",
     }
 
     invalid_instrumentors = [
@@ -251,7 +259,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             return
 
         # Setup meter and receive metrics_dict instead of meter.
-        metrics_dict = setup_meter(
+        metrics_dict, err = setup_meter(
             application_name=application_name,
             environment=environment,
             meter=meter,
@@ -259,8 +267,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             otlp_headers=otlp_headers,
         )
 
-        if not metrics_dict:
-            logger.error("openLIT metrics setup failed. Metrics will not be available.")
+        if err:
+            logger.error("OpenLIT metrics setup failed. Metrics will not be available: %s", err)
             return
 
         # Update global configuration with the provided settings.
@@ -301,6 +309,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "qdrant": QdrantInstrumentor(),
             "milvus": MilvusInstrumentor(),
             "transformers": TransformersInstrumentor(),
+            "litellm": LiteLLMInstrumentor(),
+            "crewai": CrewAIInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
@@ -309,13 +319,126 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             disabled_instrumentors, module_name_map)
 
         if not disable_metrics and collect_gpu_stats:
-            NvidiaGPUInstrumentor().instrument(
+            GPUInstrumentor().instrument(
                 environment=config.environment,
                 application_name=config.application_name,
             )
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)
 
+def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
+    version=None, should_compile=None, variables=None, meta_properties=None):
+    """
+    Retrieve and returns the prompt from OpenLIT Prompt Hub
+    """
+
+    # Validate and set the base URL
+    url = get_env_variable(
+        'OPENLIT_URL',
+        url,
+        'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
+    )
+
+    # Validate and set the API key
+    api_key = get_env_variable(
+        'OPENLIT_API_KEY', 
+        api_key,
+        'Missing API key: Provide as arg or set OPENLIT_API_KEY env var.'
+    )
+
+    # Construct the API endpoint
+    endpoint = url + "/api/prompt/get-compiled"
+
+    # Prepare the payload
+    payload = {
+        'name': name,
+        'promptId': prompt_id,
+        'version': version,
+        'shouldCompile': should_compile,
+        'variables': variables,
+        'metaProperties': meta_properties,
+        'source': 'python-sdk'
+    }
+
+    # Remove None values from payload
+    payload = {k: v for k, v in payload.items() if v is not None}
+
+    # Prepare headers
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        # Make the POST request to the API with headers
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+
+        # Check if the response is successful
+        response.raise_for_status()
+
+        # Return the JSON response
+        return response.json()
+    except requests.RequestException as error:
+        logger.error("Error fetching prompt: '%s'", error)
+        return None
+
+def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None):
+    """
+    Retrieve & returns the secrets from OpenLIT Vault & sets all to env is should_set_env is True
+    """
+
+    # Validate and set the base URL
+    url = get_env_variable(
+        'OPENLIT_URL',
+        url,
+        'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
+    )
+
+    # Validate and set the API key
+    api_key = get_env_variable(
+        'OPENLIT_API_KEY', 
+        api_key,
+        'Missing API key: Provide as arg or set OPENLIT_API_KEY env var.'
+    )
+
+    # Construct the API endpoint
+    endpoint = url + "/api/vault/get-secrets"
+
+    # Prepare the payload
+    payload = {
+        'key': key,
+        'tags': tags,
+        'source': 'python-sdk'
+    }
+
+    # Remove None values from payload
+    payload = {k: v for k, v in payload.items() if v is not None}
+
+    # Prepare headers
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        # Make the POST request to the API with headers
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+
+        # Check if the response is successful
+        response.raise_for_status()
+
+        # Return the JSON response
+        vault_response = response.json()
+
+        res = vault_response.get('res', [])
+
+        if should_set_env is True:
+            for token, value in res.items():
+                os.environ[token] = str(value)
+        return vault_response
+    except requests.RequestException as error:
+        logger.error("Error fetching secrets: '%s'", error)
+        return None
 
 def trace(wrapped):
     """

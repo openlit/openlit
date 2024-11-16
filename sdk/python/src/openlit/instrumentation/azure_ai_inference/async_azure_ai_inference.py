@@ -195,7 +195,6 @@ def async_complete(gen_ai_endpoint, version, environment, application_name,
             with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
                 response = await wrapped(*args, **kwargs)
 
-                # print(instance._system_instruction.__dict__["_pb"].parts[0].text)
                 try:
                     # Format 'messages' into a single string
                     message_prompt = kwargs.get("messages", "")

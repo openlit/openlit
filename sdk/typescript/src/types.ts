@@ -2,7 +2,7 @@
 import { Resource } from '@opentelemetry/resources';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 
-export type InstrumentationType = 'openai' | 'anthropic';
+export type InstrumentationType = 'openai' | 'anthropic' | 'cohere';
 
 export type OpenlitInstrumentations = Partial<Record<InstrumentationType, any>>;
 
@@ -46,3 +46,23 @@ export type OpenlitOptions = {
 export type SetupTracerOptions = OpenlitOptions & {
   resource: Resource;
 };
+
+export interface BaseOpenlitOptions {
+  url?: string;
+  apiKey?: string;
+}
+
+export interface PromptHubOptions extends BaseOpenlitOptions {
+  name?: string;
+  version?: string;
+  shouldCompile?: boolean;
+  variables?: Record<string, any>;
+  promptId?: string;
+  metaProperties?: Record<string, any>;
+}
+
+export interface VaultOptions extends BaseOpenlitOptions {
+  key?: string;
+  tags?: string[];
+  shouldSetEnv?: boolean;
+}

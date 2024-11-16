@@ -17,8 +17,8 @@
     }
   },
   "topbarCtaButton": {
-    "name": "Website",
-    "url": "https://openlit.io/"
+    "type": "github",
+    "url": "https://github.com/openlit/openlit"
   },
   "modeToggle": {
     "default": "light"
@@ -49,10 +49,30 @@
       "group": "Introduction",
       "pages": [
         "latest/introduction",
-        "latest/quickstart",
+        "latest/quickstart-observability",
+        "latest/quickstart-evals",
+        "latest/quickstart-guard",
         "latest/installation",
         "latest/sdk-configuration",
         "latest/ui-configuration"
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "Features",
+      "pages": [
+        "latest/features/overview",
+        "latest/features/tracing",
+        "latest/features/metrics",
+        "latest/features/gpu",
+        "latest/features/pricing",
+        "latest/features/prompt-hub",
+        "latest/features/vault",
+        "latest/features/guardrails",
+        "latest/features/evaluations",
+        "latest/features/exceptions",
+        "latest/features/openground",
+        "latest/features/multiple-db"
       ],
       "version": "latest"
     },
@@ -100,7 +120,9 @@
           "pages": [
             "latest/integrations/langchain",
             "latest/integrations/litellm",
+            "latest/integrations/crewai",
             "latest/integrations/llama-index",
+            "latest/integrations/dspy",
             "latest/integrations/haystack",
             "latest/integrations/embedchain",
             "latest/integrations/guardrails"
@@ -110,21 +132,11 @@
           "group": "GPUs",
           "version": "latest",
           "pages": [
-            "latest/integrations/nvidia-gpu"
+            "latest/integrations/nvidia-gpu",
+            "latest/integrations/amd-gpu"
           ]
         }
       ]
-    },
-    {
-      "group": "Features",
-      "pages": [
-        "latest/features/tracing",
-        "latest/features/metrics",
-        "latest/features/gpu",
-        "latest/features/pricing",
-        "latest/features/multiple-db"
-      ],
-      "version": "latest"
     },
     {
       "group": "Connections",
@@ -143,7 +155,36 @@
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
         "latest/connections/highlight",
-        "latest/connections/murnitur"
+        "latest/connections/murnitur",
+        "latest/connections/middleware"
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "latest/api-reference/introduction",
+        {
+          "group": "Prompt Hub",
+          "pages": [
+            "latest/api-reference/endpoint/prompt-hub/get"
+          ],
+          "version": "latest"
+        },
+        {
+          "group": "Vault",
+          "pages": [
+            "latest/api-reference/endpoint/vault/get"
+          ],
+          "version": "latest"
+        }
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "Privacy",
+      "pages": [
+        "latest/anonymous-telemetry"
       ],
       "version": "latest"
     }

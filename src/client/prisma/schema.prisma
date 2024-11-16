@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -55,6 +55,8 @@ model User {
   dbConfigs        DatabaseConfigUser[]
   createdDBConfigs DatabaseConfig[]
   OpenGround       OpenGround[]
+  createdApiKeys   APIKeys[]            @relation("createdByUser")
+  deletedApiKeys   APIKeys[]            @relation("deletedByUser")
 
   @@map("users")
 }
@@ -89,6 +91,7 @@ model DatabaseConfig {
   createdByUser   User                        @relation(fields: [createdByUserId], references: [id])
   OpenGround      OpenGround[]
   dbInvitedUsers  DatabaseConfigInvitedUser[]
+  promptAPIKey    APIKeys[]
 
   @@unique([name])
   @@map("databaseconfig")
@@ -103,8 +106,8 @@ model DatabaseConfigUser {
   canEdit          Boolean         @default(false)
   canShare         Boolean         @default(false)
   canDelete        Boolean         @default(false)
-  createdAt        DateTime?         @default(now())
-  updatedAt        DateTime?        @updatedAt
+  createdAt        DateTime?       @default(now())
+  updatedAt        DateTime?       @updatedAt
 
   @@unique([databaseConfigId, userId])
   @@map("databaseconfiguser")
@@ -133,4 +136,25 @@ model DatabaseConfigInvitedUser {
   canDelete        Boolean         @default(false)
 
   @@unique([databaseConfigId, email])
+}
+
+model APIKeys {
+  id               String          @id @default(cuid())
+  name             String          @default("default")
+  apiKey           String          @unique
+  databaseConfigId String          @map("database_config_id")
+  databaseConfig   DatabaseConfig? @relation(fields: [databaseConfigId], references: [id])
+  isDeleted        Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  createdByUserId  String
+  createdByUser    User            @relation("createdByUser", fields: [createdByUserId], references: [id])
+  deletedAt        DateTime?
+  deletedByUserId  String?
+  deletedByUser    User?           @relation("deletedByUser", fields: [deletedByUserId], references: [id])
+}
+
+model ClickhouseMigrations {
+  id                    String @id @default(cuid())
+  databaseConfigId      String
+  clickhouseMigrationId String
 }

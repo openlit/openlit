@@ -1,11 +1,12 @@
 ---
-title: "Quickstart"
+title: "Get started with LLM Observability"
+sidebarTitle: "Quickstart: Observability"
 description: "Quickly start monitoring your LLM Applications in just a single line of code"
 icon: "bolt"
 ---
 
 This guide will walk you through setting up OpenTelemetry Auto Instrumentation for monitoring your LLM Application using OpenLIT. In just a few steps, you'll be able to track and analyze the performance and usage of your LLM Applications.
-In this guide, we'll show how you can send OpenTelemetry traces and metrics from your LLM Applications to Grafana Cloud
+In this guide, we'll show how you can send OpenTelemetry traces and metrics from your LLM Applications to OpenLIT.
 
 ```mermaid
 flowchart TB;
@@ -18,13 +19,13 @@ flowchart TB;
         end
         subgraph " "
             direction RL;
-            OpenLIT_UI[OpenLIT UI] -->|Pulls Data| ClickHouseDB;
+            OpenLIT_UI[OpenLIT] -->|Pulls Data| ClickHouseDB;
         end
     end
 ```
 
 <Steps>
-    <Step title="Deploy OpenLIT UI">
+    <Step title="Deploy OpenLIT">
       <Steps>
         <Step title="Git Clone OpenLIT Repository">
         ```shell
@@ -43,12 +44,12 @@ flowchart TB;
         <Tabs>
         <Tab title="Python">
            ```shell
-                pip install openlit
+           pip install openlit
            ```
         </Tab>
         <Tab title="Typescript">
            ```shell
-                npm install openlit
+           npm install openlit
            ```
         </Tab>
         </Tabs>
@@ -254,7 +255,7 @@ flowchart TB;
     <Step title="Visualize and Analyze">
     With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
 
-    Just head over to OpenLIT UI at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
+    Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
     - **Email**: `user@openlit.io`
     - **Password**: `openlituser`
     <Frame>
@@ -265,7 +266,7 @@ flowchart TB;
 
 </Steps>
 
-You're all set! Following these steps should have you on your way to effectively monitoring your LLM applications with OpenTelemetry. If you wish to send telemetry to any other backend, Refer to our [Connections](./connections/intro).
+You're all set! Following these steps should have you on your way to effectively monitoring your LLM applications with OpenTelemetry. If you wish to send telemetry to any other backend, Refer to our [Connections](./connections/intro) guide.
 
 If you have any questions or need support, reach out to our [community](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ).
 
@@ -277,7 +278,7 @@ If you have any questions or need support, reach out to our [community](https://
 		href="/latest/integrations/introduction"
 		icon="circle-nodes"
 	>
-		Integrate your LLM Stack with OpenLIT
+		Integrate your AI Stack with OpenLIT
 	</Card>
 	<Card title="Connections" href="/latest/connections/intro" icon="link">
 		Connect to your existing Observablity Stack

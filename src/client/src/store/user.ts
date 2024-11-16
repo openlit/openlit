@@ -21,6 +21,6 @@ export const userStoreSlice: UserStore = lens((setStore, getStore) => ({
 		setStore(() => ({
 			...getStore(),
 			details: undefined,
-			isFetched: true,
+			isFetched: false,
 		})),
 }));

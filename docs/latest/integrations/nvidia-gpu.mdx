@@ -102,6 +102,46 @@ OpenLIT uses OpenTelemetry to help you monitor NVIDIA GPUs. This includes tracki
 
         For more advanced configurations of the collector, visit the [OTel GPU Collector repository](https://github.com/openlit/openlit/tree/main/otel-gpu-collector/).
 
+        **Note:** If you've deployed **OpenLIT** using [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml), make sure to use the host's IP address or add OTel GPU Collector to the [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml):
+
+        <AccordionGroup>
+          <Accordion title="Docker Compose: Add the following config under `services`">
+
+          ```yaml
+          otel-gpu-collector:
+            image: ghcr.io/openlit/otel-gpu-collector:latest
+            environment:
+              GPU_APPLICATION_NAME: 'chatbot'
+              GPU_ENVIRONMENT: 'staging'
+              OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+            device_requests:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+            depends_on:
+            - otel-collector
+            restart: always
+          ```
+
+          </Accordion>
+          <Accordion title="Host IP: Use the Host IP to connect to OTel Collector">
+
+          ```sh
+          OTEL_EXPORTER_OTLP_ENDPOINT="http://192.168.10.15:4318"
+          ```
+
+          </Accordion>
+        </AccordionGroup>
+        ### Environment Variables
+
+        OTel GPU Collector supports several environment variables for configuration. Below is a table that describes each variable:
+
+        | Environment Variable            | Description                                                   | Default Value           |
+        |---------------------------------|---------------------------------------------------------------|-------------------------|
+        | `GPU_APPLICATION_NAME`          | Name of the application running on the GPU                    | `default_app`           |
+        | `GPU_ENVIRONMENT`               | Environment name (e.g., staging, production)                  | `production`            |
+        | `OTEL_EXPORTER_OTLP_ENDPOINT`   | OpenTelemetry OTLP endpoint URL                               | (required)              |
+        | `OTEL_EXPORTER_OTLP_HEADERS`    | Headers for authenticating with the OTLP endpoint             | Ignore if using OpenLIT |
       </Step>
     </Steps>
   </Accordion>

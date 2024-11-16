@@ -1,0 +1,303 @@
+---
+title: "Get started with LLM Observability"
+sidebarTitle: "Quickstart: Observability"
+description: "Quickly start monitoring your LLM Applications in just a single line of code"
+icon: "bolt"
+---
+
+This guide will walk you through setting up OpenTelemetry Auto Instrumentation for monitoring your LLM Application using OpenLIT. In just a few steps, you'll be able to track and analyze the performance and usage of your LLM Applications.
+In this guide, we'll show how you can send OpenTelemetry traces and metrics from your LLM Applications to OpenLIT.
+
+```mermaid
+flowchart TB;
+    subgraph " "
+        direction LR;
+        subgraph " "
+            direction LR;
+            OpenLIT_SDK[OpenLIT SDK] -->|Sends Traces & Metrics| OTC[OpenTelemetry Collector];
+            OTC -->|Stores Data| ClickHouseDB[ClickHouse];
+        end
+        subgraph " "
+            direction RL;
+            OpenLIT_UI[OpenLIT] -->|Pulls Data| ClickHouseDB;
+        end
+    end
+```
+
+<Steps>
+    <Step title="Deploy OpenLIT">
+      <Steps>
+        <Step title="Git Clone OpenLIT Repository">
+        ```shell
+        git clone git@github.com:openlit/openlit.git
+        ```
+        </Step>
+        <Step title="Start Docker Compose">
+        From the root directory of the [OpenLIT Repo](https://github.com/openlit/openlit), Run the below command:
+        ```shell
+        docker compose up -d
+        ```
+        </Step>
+      </Steps>
+    </Step>
+    <Step title="Install OpenLIT SDK">
+        <Tabs>
+        <Tab title="Python">
+           ```shell
+           pip install openlit
+           ```
+        </Tab>
+        <Tab title="Typescript">
+           ```shell
+           npm install openlit
+           ```
+        </Tab>
+        </Tabs>
+
+    </Step>
+    <Step title="Initialize OpenLIT in Your Application">
+      Add the following two lines to your application code:
+      <Tabs>
+      <Tab title="Setup using function arguments">
+      <Tabs>
+        <Tab title="Python">
+          ```python
+      import openlit
+
+      openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+      ```
+
+      Example Usage for monitoring `OpenAI` Usage:
+
+      ```python
+      from openai import OpenAI
+      import openlit
+
+      openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+      client = OpenAI(
+          api_key="YOUR_OPENAI_KEY"
+      )
+
+      chat_completion = client.chat.completions.create(
+          messages=[
+              {
+                  "role": "user",
+                  "content": "What is LLM Observability",
+              }
+          ],
+          model="gpt-3.5-turbo",
+      )
+      ```
+        </Tab>
+        <Tab title="Typescript">
+           ```typescript
+      import Openlit from "openlit"
+
+      Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })
+      ```
+
+      Example Usage for monitoring `OpenAI` Usage:
+
+      ```typescript
+      import Openlit from "openlit"
+
+      Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })
+
+      async function main() {
+            const OpenAI = await import("openai").then((e) => e.default);
+            const openai = new OpenAI({
+                apiKey: YOUR_OPENAI_KEY,
+            });
+            const completion = await openai.chat.completions.create({
+                messages: [{ role: "system", content: "Who are you ?" }],
+            });
+
+            console.log(completion?.choices?.[0]);
+        }
+
+        main();
+      ```
+        OR
+      ```typescript
+      import openlit from "openlit"
+      import OpenAI from "openai"
+
+      openlit.init({ 
+        otlpEndpoint: "http://127.0.0.1:4318/v1/traces", 
+        instrumentations: {
+          openai: OpenAI,
+        } 
+      })
+
+      async function main() {
+            const openai = new OpenAI({
+                apiKey: YOUR_OPENAI_KEY,
+            });
+            const completion = await openai.chat.completions.create({
+                messages: [{ role: "system", content: "Who are you ?" }],
+            });
+
+            console.log(completion?.choices?.[0]);
+        }
+
+        main();
+      ```
+        </Tab>
+        </Tabs>
+
+      </Tab>
+      <Tab title="Setup using Environment Variables">
+
+      <Tabs>
+        <Tab title="Python">
+           Add the following two lines to your application code:
+      ```python
+      import openlit
+
+      openlit.init()
+      ```
+
+      Run the following command to configure the OTEL export endpoint:
+      ```shell
+      export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
+      ```
+
+      Example Usage for monitoring `OpenAI` Usage:
+
+      ```python
+      from openai import OpenAI
+      import openlit
+
+      openlit.init()
+
+      client = OpenAI(
+          api_key="YOUR_OPENAI_KEY"
+      )
+
+      chat_completion = client.chat.completions.create(
+          messages=[
+              {
+                  "role": "user",
+                  "content": "What is LLM Observability",
+              }
+          ],
+          model="gpt-3.5-turbo",
+      )
+      ```
+        </Tab>
+        <Tab title="Typescript">
+           Add the following two lines to your application code:
+      ```typescript
+      import openlit from "openlit"
+
+      openlit.init()
+      ```
+
+      Run the following command to configure the OTEL export endpoint:
+      ```shell
+      export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
+      ```
+
+      Example Usage for monitoring `OpenAI` Usage:
+
+      ```typescript
+      import openlit from "openlit"
+
+      openlit.init()
+
+      async function main() {
+            const OpenAI = await import("openai").then((e) => e.default);
+            const openai = new OpenAI({
+                apiKey: YOUR_OPENAI_KEY,
+            });
+            const completion = await openai.chat.completions.create({
+                messages: [{ role: "system", content: "Who are you ?" }],
+            });
+
+            console.log(completion?.choices?.[0]);
+        }
+
+        main();
+      ```
+        OR
+      ```typescript
+      import openlit from "openlit"
+      import OpenAI from "openai"
+
+      openlit.init({
+        instrumentations: {
+          openai: OpenAI,
+        } 
+      })
+
+      async function main() {
+            const openai = new OpenAI({
+                apiKey: YOUR_OPENAI_KEY,
+            });
+            const completion = await openai.chat.completions.create({
+                messages: [{ role: "system", content: "Who are you ?" }],
+            });
+
+            console.log(completion?.choices?.[0]);
+        }
+
+        main();
+      ```
+        </Tab>
+        </Tabs>
+
+      
+      </Tab>
+      </Tabs>
+      Refer to OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) or [Typescript SDK repository](https://github.com/openlit/openlit/tree/main/sdk/typescript) for more advanced configurations and use cases.
+    </Step>
+    <Step title="Visualize and Analyze">
+    With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
+
+    Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
+    - **Email**: `user@openlit.io`
+    - **Password**: `openlituser`
+    <Frame>
+      <img src="https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true" />
+      <img src="https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-2.png?raw=true" />
+    </Frame>
+    </Step>
+
+</Steps>
+
+You're all set! Following these steps should have you on your way to effectively monitoring your LLM applications with OpenTelemetry. 
+
+**Send Observability telemetry to other OpenTelemetry backends**
+
+```mermaid
+flowchart TB;
+    subgraph " "
+        direction LR;
+        ApplicationCode[Application Code] -->|Instrumented with| OpenLIT_SDK[OpenLIT SDK];
+        OpenLIT_SDK -->|Sends Traces & Metrics| OT_Backend[OpenTelemetry Backend];
+    end
+```
+
+If you wish to send telemetry directly from the SDK to another backend, you can stop the current Docker services by using the command below. For more details on sending the data to your existing OpenTelemetry backends, refer to our [Connections](./connections/intro) guide.
+
+```sh
+docker compose down
+```
+
+If you have any questions or need support, reach out to our [community](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ).
+
+---
+
+<CardGroup cols={2}>
+	<Card
+		title="Integrations"
+		href="/latest/integrations/introduction"
+		icon="circle-nodes"
+	>
+		Integrate your AI Stack with OpenLIT
+	</Card>
+	<Card title="Connections" href="/latest/connections/intro" icon="link">
+		Connect to your existing Observablity Stack
+	</Card>
+</CardGroup>

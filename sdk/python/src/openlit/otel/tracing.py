@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long
+# pylint: disable=duplicate-code, line-too-long, ungrouped-imports
 """
 Setups up OpenTelemetry tracer
 """
@@ -10,8 +10,11 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
+if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+else:
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 # Global flag to check if the tracer provider initialization is complete.
 TRACER_SET = False
@@ -45,7 +48,7 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
 
         if not TRACER_SET:
             # Create a resource with the service name attribute.
-            resource = Resource(attributes={
+            resource = Resource.create(attributes={
                 SERVICE_NAME: application_name,
                 DEPLOYMENT_ENVIRONMENT: environment,
                 TELEMETRY_SDK_NAME: "openlit"}

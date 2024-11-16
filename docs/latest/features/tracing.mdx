@@ -1,6 +1,6 @@
 ---
-title: "LLM Application Traces"
-sidebarTitle: "Tracing"
+title: "Tracing"
+description: "Automatically track your AI apps with OpenTelemetry to gain insights into performance and behavior"
 ---
 
 OpenLIT provides OpenTelemetry Auto instrumentation for various LLM providers, frameworks, and VectorDBs, providing you with insights into the behavior and performance of your LLM applications.
@@ -9,7 +9,7 @@ This documentation covers tracing settings, understanding semantic conventions, 
 
 <CardGroup cols={2}>
   <Card title="Quickstart" href="/latest/quickstart" icon="bolt">
-    Get Started with monitoring your LLM Applications in 2 simple steps
+    Get Started with monitoring your AI Applications in 2 simple steps
   </Card>
   <Card title="Connections" href="/latest/connections/intro" icon="link">
     Connect to your existing Observablity Stack
@@ -30,6 +30,22 @@ tracer = ...
 
 # Pass the tracer to OpenLIT
 openlit.init(tracer=tracer)
+```
+
+## Add custom resource attributes
+
+The [`OTEL_RESOURCE_ATTRIBUTES`](https://opentelemetry.io/docs/languages/sdk-configuration/general/#otel_resource_attributes) environment variable allows you to provide additional OpenTelemetry resource attributes when starting your application with OpenLIT. OpenLIT already includes some default resource attributes:
+
+- `telemetry.sdk.name: openlit`
+- `service.name: YOUR_SERVICE_NAME`
+- `deployment.environment: YOUR_ENVIRONMENT_NAME`
+
+You can enhance these default resource attributes by adding your own using the `OTEL_RESOURCE_ATTRIBUTES` variable. Your custom attributes will be added on top of the existing OpenLIT attributes, providing additional context to your telemetry data. Simply format your attributes as `key1=value1,key2=value2`.
+
+For example:
+
+```shell
+export OTEL_RESOURCE_ATTRIBUTES="service.instance.id=YOUR_SERVICE_ID,k8s.pod.name=K8S_POD_NAME,k8s.namespace.name=K8S_NAMESPACE,k8s.node.name=K8S_NODE_NAME"
 ```
 
 ## Disable Tracing of Content
@@ -69,7 +85,6 @@ openlit.init(disabled_instrumentors=["anthropic", "langchain"])
 Using `openlit.trace`, you get access to manually create traces, allowing you to record every process within a single function.
 
 ```python python
-
 @openlit.trace
 def generate_one_liner():
     completion = client.chat.completions.create(
@@ -138,7 +153,7 @@ This section outlines fundamental definitions related to span types and names us
 
 ### General Span Attributes
 
-General span attributes encapsulate the environmental and operational context of LLM applications, offering insights into where and how the spans are generated.
+General span attributes encapsulate the environmental and operational context of AI applications, offering insights into where and how the spans are generated.
 
 | Attribute                 | Type   | Description                                                            | Examples                                                                                                                                                   |
 | ------------------------- | ------ | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -257,7 +272,7 @@ This section addresses attributes related to interactions with Vector Databases 
     href="/latest/integrations/introduction"
     icon="circle-nodes"
   >
-    Integrate your LLM Stack with OpenLIT
+    Integrate your AI Stack with OpenLIT
   </Card>
   <Card title="Connections" href="/latest/connections/intro" icon="link">
     Connect to your existing Observablity Stack

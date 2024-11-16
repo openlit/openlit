@@ -2,6 +2,7 @@
 """
 This module has functions to calculate model costs based on tokens and to fetch pricing information.
 """
+import os
 import json
 import logging
 from urllib.parse import urlparse
@@ -11,6 +12,33 @@ from opentelemetry.trace import Status, StatusCode
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+def response_as_dict(response):
+    """
+    Return parsed response as a dict
+    """
+    # pylint: disable=no-else-return
+    if isinstance(response, dict):
+        return response
+    if hasattr(response, "model_dump"):
+        return response.model_dump()
+    elif hasattr(response, "parse"):
+        return response_as_dict(response.parse())
+    else:
+        return response
+
+def get_env_variable(name, arg_value, error_message):
+    """
+    Retrieve an environment variable if the argument is not provided
+    and raise an error if both are not set.
+    """
+    if arg_value is not None:
+        return arg_value
+    value = os.getenv(name)
+    if not value:
+        logging.error(error_message)
+        raise RuntimeError(error_message)
+    return value
 
 def openai_tokens(text, model):
     """

@@ -11,9 +11,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Moon, Sun, User } from "lucide-react";
 import { useRootStore } from "@/store";
-import { getUserDetails } from "@/selectors/user";
+import { getUserDetails, resetUser } from "@/selectors/user";
 import useTheme from "@/utils/hooks/useTheme";
 import Link from "next/link";
+import RefreshRate from "./filter/refresh-rate";
+import { usePostHog } from "posthog-js/react";
+import { useEffect } from "react";
 
 const ThemeToggleSwitch = () => {
 	const { toggleTheme } = useTheme();
@@ -31,9 +34,21 @@ const ThemeToggleSwitch = () => {
 };
 
 export default function Header() {
+	const posthog = usePostHog();
 	const pathname = usePathname();
-	const onClickSignout = () => signOut();
 	const user = useRootStore(getUserDetails);
+	const resetUserFn = useRootStore(resetUser);
+	const onClickSignout = () => {
+		posthog?.reset();
+		signOut();
+		resetUserFn();
+	};
+
+	useEffect(() => {
+		if (user?.id) {
+			posthog?.identify(user.id);
+		}
+	}, [user]);
 
 	return (
 		<header className="flex h-[57px] items-center gap-1 border-b dark:border-stone-800 px-4 sm:px-6">
@@ -41,6 +56,7 @@ export default function Header() {
 				{pathname.substring(1).replaceAll("-", " ").split("/")[0]}
 			</h1>
 			<DatabaseConfigSwitch />
+			<RefreshRate />
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button

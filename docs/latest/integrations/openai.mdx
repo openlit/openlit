@@ -23,12 +23,12 @@ The integration is compatible with
     <Tabs>
         <Tab title="Python">
            ```shell
-                pip install openlit
+           pip install openlit
            ```
         </Tab>
         <Tab title="Typescript">
            ```shell
-                npm install openlit
+           npm install openlit
            ```
         </Tab>
         </Tabs>
@@ -41,23 +41,21 @@ The integration is compatible with
       Add the following two lines to your application code:
       <Tabs>
         <Tab title="Python">
-           ```python
-      import openlit
+          ```python
+          import openlit
 
-      openlit.init(
-        otlp_endpoint="YOUR_OTEL_ENDPOINT", 
-      )
-      ```
+          openlit.init(otlp_endpoint="YOUR_OTEL_ENDPOINT")
+          ```
 
         </Tab>
         <Tab title="Typescript">
         <Warning>Typescript sdk for openai doesn't support metrics tracking for now!</Warning>
 
-           ```typescript
-      import openlit from "openlit"
+          ```typescript
+          import openlit from "openlit"
 
-      openlit.init({ otlpEndpoint: "YOUR_OTEL_ENDPOINT" })
-      ```
+          openlit.init({ otlpEndpoint: "YOUR_OTEL_ENDPOINT" })
+          ```
         </Tab>
         </Tabs>
 
@@ -72,19 +70,19 @@ The integration is compatible with
 
       <Tabs>
         <Tab title="Python">
-           ```python
-      import openlit
+          ```python
+          import openlit
 
-      openlit.init()
-      ```
+          openlit.init()
+          ```
 
         </Tab>
         <Tab title="Typescript">
-           ```typescript
-      import openlit from "openlit"
+          ```typescript
+          import openlit from "openlit"
 
-      openlit.init()
-      ```
+          openlit.init()
+          ```
         </Tab>
         </Tabs>
 
