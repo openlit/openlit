@@ -1,7 +1,7 @@
 ---
-title: "Get started with LLM Observability"
-sidebarTitle: "Quickstart: Observability"
-description: "Quickly start monitoring your LLM Applications in just a single line of code"
+title: "Get started with AI Observability"
+sidebarTitle: "Quickstart: AI Observability"
+description: "Quickly start monitoring your AI Applications in just a single line of code"
 icon: "bolt"
 ---
 
@@ -62,87 +62,180 @@ flowchart TB;
       <Tabs>
         <Tab title="Python">
           ```python
-      import openlit
+          import openlit
 
-      openlit.init(otlp_endpoint="http://127.0.0.1:4318")
-      ```
+          openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+          ```
 
-      Example Usage for monitoring `OpenAI` Usage:
+          Examples:
 
-      ```python
-      from openai import OpenAI
-      import openlit
+          <CodeGroup>
 
-      openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+          ```python OpenAI
+          from openai import OpenAI
+          import openlit
 
-      client = OpenAI(
-          api_key="YOUR_OPENAI_KEY"
-      )
+          openlit.init(otlp_endpoint="http://127.0.0.1:4318")
 
-      chat_completion = client.chat.completions.create(
-          messages=[
-              {
-                  "role": "user",
-                  "content": "What is LLM Observability",
-              }
-          ],
-          model="gpt-3.5-turbo",
-      )
-      ```
+          client = OpenAI(
+              api_key="YOUR_OPENAI_KEY"
+          )
+
+          chat_completion = client.chat.completions.create(
+              messages=[
+                  {
+                      "role": "user",
+                      "content": "What is LLM Observability?",
+                  }
+              ],
+              model="gpt-3.5-turbo",
+          )
+          ```
+
+          ```python Anthropic
+          import os
+          from anthropic import Anthropic
+          import openlit
+
+          openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+          client = Anthropic(
+              # This is the default and can be omitted
+              api_key=os.environ.get("ANTHROPIC_API_KEY"),
+          )
+
+          message = client.messages.create(
+              max_tokens=1024,
+              messages=[
+                  {
+                      "role": "user",
+                      "content": "Hello, What is LLM Observability?",
+                  }
+              ],
+              model="claude-3-opus-20240229",
+          )
+          ```
+
+          ```python Cohere
+          import cohere
+          import openlit
+
+          openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+          co = cohere.Client(
+              api_key="YOUR_API_KEY",
+          )
+
+          chat = co.chat(
+              message="hello world!",
+              model="command"
+          )
+          ```
+
+          ```python LiteLLM
+          from litellm import completion
+          import os
+          import openlit
+
+          openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+          os.environ["HUGGINGFACE_API_KEY"] = "huggingface_api_key"
+
+          # e.g. Call 'WizardLM/WizardCoder-Python-34B-V1.0' hosted on HF Inference endpoints
+          response = completion(
+            model="huggingface/WizardLM/WizardCoder-Python-34B-V1.0",
+            messages=[{ "content": "Hello, how are you?","role": "user"}],
+            api_base="https://my-endpoint.huggingface.cloud"
+          )
+          ```
+
+          ```python Langchain
+          from langchain_core.messages import HumanMessage, SystemMessage
+          import openlit
+
+          openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+          from langchain_openai import ChatOpenAI
+
+          model = ChatOpenAI(model="gpt-4o-mini")
+
+          messages = [
+              SystemMessage(content="Translate the following from English into Italian"),
+              HumanMessage(content="hi!"),
+          ]
+
+          model.invoke(messages)
+          ```
+
+          ```python Ollama
+          import ollama
+          import openlit
+
+          openlit.init(otlp_endpoint="http://127.0.0.1:4318")
+
+          response = ollama.chat(model='llama3.1', messages=[
+            {
+              'role': 'user',
+              'content': 'Why is the sky blue?',
+            },
+          ])
+          ```
+
+          </CodeGroup>
         </Tab>
         <Tab title="Typescript">
            ```typescript
-      import Openlit from "openlit"
+          import Openlit from "openlit"
 
-      Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })
-      ```
+          Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })
+          ```
 
-      Example Usage for monitoring `OpenAI` Usage:
+          Example Usage for monitoring `OpenAI` Usage:
 
-      ```typescript
-      import Openlit from "openlit"
+          ```typescript
+          import Openlit from "openlit"
 
-      Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })
+          Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })
 
-      async function main() {
-            const OpenAI = await import("openai").then((e) => e.default);
-            const openai = new OpenAI({
-                apiKey: YOUR_OPENAI_KEY,
-            });
-            const completion = await openai.chat.completions.create({
-                messages: [{ role: "system", content: "Who are you ?" }],
-            });
+          async function main() {
+                const OpenAI = await import("openai").then((e) => e.default);
+                const openai = new OpenAI({
+                    apiKey: YOUR_OPENAI_KEY,
+                });
+                const completion = await openai.chat.completions.create({
+                    messages: [{ role: "system", content: "Who are you ?" }],
+                });
 
-            console.log(completion?.choices?.[0]);
-        }
+                console.log(completion?.choices?.[0]);
+            }
 
-        main();
-      ```
-        OR
-      ```typescript
-      import openlit from "openlit"
-      import OpenAI from "openai"
+            main();
+          ```
+          OR
+          ```typescript
+          import openlit from "openlit"
+          import OpenAI from "openai"
 
-      openlit.init({ 
-        otlpEndpoint: "http://127.0.0.1:4318/v1/traces", 
-        instrumentations: {
-          openai: OpenAI,
-        } 
-      })
+          openlit.init({ 
+            otlpEndpoint: "http://127.0.0.1:4318/v1/traces", 
+            instrumentations: {
+              openai: OpenAI,
+            } 
+          })
 
-      async function main() {
-            const openai = new OpenAI({
-                apiKey: YOUR_OPENAI_KEY,
-            });
-            const completion = await openai.chat.completions.create({
-                messages: [{ role: "system", content: "Who are you ?" }],
-            });
+          async function main() {
+                const openai = new OpenAI({
+                    apiKey: YOUR_OPENAI_KEY,
+                });
+                const completion = await openai.chat.completions.create({
+                    messages: [{ role: "system", content: "Who are you ?" }],
+                });
 
-            console.log(completion?.choices?.[0]);
-        }
+                console.log(completion?.choices?.[0]);
+            }
 
-        main();
-      ```
+            main();
+          ```
         </Tab>
         </Tabs>
 
@@ -151,40 +244,134 @@ flowchart TB;
 
       <Tabs>
         <Tab title="Python">
-           Add the following two lines to your application code:
-      ```python
-      import openlit
+          Add the following two lines to your application code:
+          ```python
+          import openlit
 
-      openlit.init()
-      ```
+          openlit.init()
+          ```
 
-      Run the following command to configure the OTEL export endpoint:
-      ```shell
-      export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
-      ```
+          Run the following command to configure the OTEL export endpoint:
+          ```shell
+          export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
+          ```
 
-      Example Usage for monitoring `OpenAI` Usage:
+          Examples:
 
-      ```python
-      from openai import OpenAI
-      import openlit
+          <CodeGroup>
 
-      openlit.init()
+          ```python OpenAI
+          from openai import OpenAI
+          import openlit
 
-      client = OpenAI(
-          api_key="YOUR_OPENAI_KEY"
-      )
+          openlit.init()
 
-      chat_completion = client.chat.completions.create(
-          messages=[
-              {
-                  "role": "user",
-                  "content": "What is LLM Observability",
-              }
-          ],
-          model="gpt-3.5-turbo",
-      )
-      ```
+          client = OpenAI(
+              api_key="YOUR_OPENAI_KEY"
+          )
+
+          chat_completion = client.chat.completions.create(
+              messages=[
+                  {
+                      "role": "user",
+                      "content": "What is LLM Observability?",
+                  }
+              ],
+              model="gpt-3.5-turbo",
+          )
+          ```
+
+          ```python Anthropic
+          import os
+          from anthropic import Anthropic
+          import openlit
+
+          openlit.init()
+
+          client = Anthropic(
+              # This is the default and can be omitted
+              api_key=os.environ.get("ANTHROPIC_API_KEY"),
+          )
+
+          message = client.messages.create(
+              max_tokens=1024,
+              messages=[
+                  {
+                      "role": "user",
+                      "content": "Hello, What is LLM Observability?",
+                  }
+              ],
+              model="claude-3-opus-20240229",
+          )
+          ```
+
+          ```python Cohere
+          import cohere
+          import openlit
+
+          openlit.init()
+
+          co = cohere.Client(
+              api_key="YOUR_API_KEY",
+          )
+
+          chat = co.chat(
+              message="hello world!",
+              model="command"
+          )
+          ```
+
+          ```python LiteLLM
+          from litellm import completion
+          import os
+          import openlit
+
+          openlit.init()
+
+          os.environ["HUGGINGFACE_API_KEY"] = "huggingface_api_key"
+
+          # e.g. Call 'WizardLM/WizardCoder-Python-34B-V1.0' hosted on HF Inference endpoints
+          response = completion(
+            model="huggingface/WizardLM/WizardCoder-Python-34B-V1.0",
+            messages=[{ "content": "Hello, how are you?","role": "user"}],
+            api_base="https://my-endpoint.huggingface.cloud"
+          )
+          ```
+
+          ```python Langchain
+          from langchain_core.messages import HumanMessage, SystemMessage
+          import openlit
+
+          openlit.init()
+
+          from langchain_openai import ChatOpenAI
+
+          model = ChatOpenAI(model="gpt-4o-mini")
+
+          messages = [
+              SystemMessage(content="Translate the following from English into Italian"),
+              HumanMessage(content="hi!"),
+          ]
+
+          model.invoke(messages)
+          ```
+
+          ```python Ollama
+          import ollama
+          import openlit
+
+          openlit.init()
+
+          response = ollama.chat(model='llama3.1', messages=[
+            {
+              'role': 'user',
+              'content': 'Why is the sky blue?',
+            },
+          ])
+          ```
+
+          </CodeGroup>
+      
         </Tab>
         <Tab title="Typescript">
            Add the following two lines to your application code:
