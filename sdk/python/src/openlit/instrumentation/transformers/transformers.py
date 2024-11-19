@@ -106,6 +106,7 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                     else:
                         attribute_name = SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT
                     if trace_content:
+                        # pylint: disable=bare-except
                         try:
                             llm_response = completion.get('generated_text', '')
                         except:
