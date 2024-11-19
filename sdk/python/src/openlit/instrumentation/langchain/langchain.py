@@ -28,7 +28,7 @@ def get_attribute_from_instance_or_kwargs(instance, attribute_name, default=-1):
         # Special handling for 'model' attribute to consider 'model_id'
         if attribute_name == 'model':
             return getattr(instance, 'model_id', 'default_model_id')
-        
+
         # Default if the attribute isn't found in model_kwargs or the instance
         return default
 
@@ -254,9 +254,9 @@ def allm(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                 str(get_attribute_from_instance_or_kwargs(instance, 'model')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                str(get_attribute_from_instance_or_kwargs(instance, 'temperature')))             
+                                str(get_attribute_from_instance_or_kwargs(instance, 'temperature')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
-                                str(get_attribute_from_instance_or_kwargs(instance, 'top_k')))           
+                                str(get_attribute_from_instance_or_kwargs(instance, 'top_k')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
                                 str(get_attribute_from_instance_or_kwargs(instance, 'top_p')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
@@ -394,9 +394,9 @@ def llm(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                 str(get_attribute_from_instance_or_kwargs(instance, 'model')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                str(get_attribute_from_instance_or_kwargs(instance, 'temperature')))             
+                                str(get_attribute_from_instance_or_kwargs(instance, 'temperature')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
-                                str(get_attribute_from_instance_or_kwargs(instance, 'top_k')))           
+                                str(get_attribute_from_instance_or_kwargs(instance, 'top_k')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
                                 str(get_attribute_from_instance_or_kwargs(instance, 'top_p')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
