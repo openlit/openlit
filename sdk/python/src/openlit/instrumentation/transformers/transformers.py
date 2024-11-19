@@ -67,7 +67,7 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                 else:
                     prompt = kwargs.get("args", "")
 
-                prompt_tokens = general_tokens(prompt)
+                prompt_tokens = general_tokens(prompt[0])
 
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
@@ -110,10 +110,10 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                             name=attribute_name,
                             attributes={
                                 # pylint: disable=line-too-long
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: completion["generated_text"],
+                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: completion[i].get('generated_text', ''),
                             },
                         )
-                    completion_tokens += general_tokens(completion["generated_text"])
+                    completion_tokens += general_tokens(completion[i].get('generated_text', ''))
 
                     i=i+1
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
