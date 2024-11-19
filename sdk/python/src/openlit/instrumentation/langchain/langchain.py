@@ -481,11 +481,12 @@ def chat(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                input_tokens = response.response_metadata.get("prompt_eval_count", 0)
-                output_tokens = response.response_metadata.get("eval_count", 0)
+                token_usage = response.response_metadata.get("token_usage", {})
+                input_tokens = token_usage.get("prompt_tokens", 0)
+                output_tokens = token_usage.get("completion_tokens", 0)
+                model = response.response_metadata.get("model_name", "gpt-4")
 
                 prompt = "" if isinstance(args[0], list) else args[0]
-                model = getattr(instance, 'model_name', getattr(instance, 'model', 'gpt-4'))
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
@@ -620,11 +621,12 @@ def achat(gen_ai_endpoint, version, environment, application_name,
             response = await wrapped(*args, **kwargs)
 
             try:
-                input_tokens = response.response_metadata.get("prompt_eval_count", 0)
-                output_tokens = response.response_metadata.get("eval_count", 0)
+                token_usage = response.response_metadata.get("token_usage", {})
+                input_tokens = token_usage.get("prompt_tokens", 0)
+                output_tokens = token_usage.get("completion_tokens", 0)
+                model = response.response_metadata.get("model_name", "gpt-4")
 
                 prompt = "" if isinstance(args[0], list) else args[0]
-                model = getattr(instance, 'model_name', getattr(instance, 'model', 'gpt-4'))
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
                     model,
