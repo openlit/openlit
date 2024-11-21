@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "openlit"
-version = "1.31.0"
+version = "1.31.1"
 description = "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications and GPUs, facilitating the integration of observability into your GenAI-driven projects"
 authors = ["OpenLIT"]
 repository = "https://github.com/openlit/openlit/tree/main/openlit/python"
