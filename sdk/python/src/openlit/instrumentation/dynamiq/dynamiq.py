@@ -4,7 +4,6 @@ Module for monitoring Dynamiq calls.
 """
 
 import logging
-import json
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
