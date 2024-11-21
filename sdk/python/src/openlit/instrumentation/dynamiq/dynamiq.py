@@ -63,6 +63,8 @@ def dynamiq_wrap(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_TYPE_AGENT)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
+                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                                    application_name)
 
                 if gen_ai_endpoint == "dynamiq.agent_run":
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
