@@ -112,6 +112,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_LITELLM = "litellm"
     GEN_AI_SYSTEM_CREWAI = "crewai"
     GEN_AI_SYSTEM_AG2 = "ag2"
+    GEN_AI_SYSTEM_DYNAMIQ = "dynamiq"
 
     # Vector DB
     DB_REQUESTS = "db.total.requests"
@@ -133,6 +134,7 @@ class SemanticConvetion:
     DB_OPERATION_PEEK = "peek"
     DB_ID_COUNT = "db.ids_count"
     DB_VECTOR_COUNT = "db.vector_count"
+    DB_METADATA = "db.metadata"
     DB_METADATA_COUNT = "db.metadatas_count"
     DB_DOCUMENTS_COUNT = "db.documents_count"
     DB_PAYLOAD_COUNT = "db.payload_count"
@@ -160,6 +162,7 @@ class SemanticConvetion:
 
     # Agents
     GEN_AI_AGENT_ID = "gen_ai.agent.id"
+    GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
     GEN_AI_AGENT_ROLE = "gen_ai.agent.role"
     GEN_AI_AGENT_GOAL = "gen_ai.agent.goal"
