@@ -111,6 +111,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
     GEN_AI_SYSTEM_LITELLM = "litellm"
     GEN_AI_SYSTEM_CREWAI = "crewai"
+    GEN_AI_SYSTEM_AG2 = "ag2"
 
     # Vector DB
     DB_REQUESTS = "db.total.requests"

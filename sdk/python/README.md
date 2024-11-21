@@ -35,14 +35,14 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | LLMs                                                                      | Vector DBs                                   | Frameworks                                      | GPUs          |
 |--------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------|---------------|
 | [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)                      | [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb)       | [✅ Langchain](https://docs.openlit.io/latest/integrations/langchain)      | [✅ NVIDIA](https://docs.openlit.io/latest/integrations/nvidia-gpu) |
-| [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)                      | [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)       | [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)          | [✅ AMD](#)                   |
+| [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)                      | [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)       | [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm)          | [✅ AMD](https://docs.openlit.io/latest/integrations/amd-gpu)      |
 | [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)                | [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)           | [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)   |               |
 | [✅ GPT4All](https://docs.openlit.io/latest/integrations/gpt4all)                    | [✅ Milvus](https://docs.openlit.io/latest/integrations/milvus)           | [✅ Haystack](https://docs.openlit.io/latest/integrations/haystack)        |               |
 | [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)                      |                                          | [✅ EmbedChain](https://docs.openlit.io/latest/integrations/embedchain)    |               |                                       
 | [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)                    |                                                                          | [✅ Guardrails](https://docs.openlit.io/latest/integrations/guardrails)    |               |
 | [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai)          |                                                                          | [✅ CrewAI](https://docs.openlit.io/latest/integrations/crewai)            |               |
-| [✅ Azure AI Inference](https://docs.openlit.io/latest/integrations/azure-ai-inference) |                                                                          | [✅ DSPy](https://docs.openlit.io/latest/integrations/dspy)                                    |               |
-| [✅ GitHub AI Models](https://docs.openlit.io/latest/integrations/github-models)  |                                                                          |                                       |               |
+| [✅ Azure AI Inference](https://docs.openlit.io/latest/integrations/azure-ai-inference) |                                                                          | [✅ DSPy](https://docs.openlit.io/latest/integrations/dspy)                |               |
+| [✅ GitHub AI Models](https://docs.openlit.io/latest/integrations/github-models)  |                                                                          | [✅ AG2](https://docs.openlit.io/latest/integrations/ag2)                  |               |
 | [✅ HuggingFace Transformers](https://docs.openlit.io/latest/integrations/huggingface) |                                                                          |                                       |               |
 | [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)             |                                                                          |                                       |               |
 | [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)                 |                                                                          |                                       |               |
@@ -53,7 +53,6 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Google AI Studio](https://docs.openlit.io/latest/integrations/google-ai-studio)  |                                                                          |                                       |               |
 | [✅ NVIDIA NIM](https://docs.openlit.io/latest/integrations/nvidia-nim)              |                                                                          |                                       |               |
 
-
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
 - [✅ Prometheus + Tempo](https://docs.openlit.io/latest/connections/prometheus-tempo)
@@ -61,6 +60,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 - [✅ Grafana Cloud](https://docs.openlit.io/latest/connections/grafanacloud)
 - [✅ New Relic](https://docs.openlit.io/latest/connections/new-relic)
 - [✅ Elastic](https://docs.openlit.io/latest/connections/elastic)
+- [✅ Middleware.io](https://docs.openlit.io/latest/connections/midlleware)
 - [✅ HyperDX](https://docs.openlit.io/latest/connections/hyperdx)
 - [✅ DataDog](https://docs.openlit.io/latest/connections/datadog)
 - [✅ SigNoz](https://docs.openlit.io/latest/connections/signoz)

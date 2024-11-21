@@ -48,6 +48,7 @@ from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
 from openlit.instrumentation.litellm import LiteLLMInstrumentor
 from openlit.instrumentation.crewai import CrewAIInstrumentor
+from openlit.instrumentation.ag2 import AG2Instrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -232,6 +233,9 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "transformers": "transformers",
         "litellm": "litellm",
         "crewai": "crewai",
+        "ag2": "ag2",
+        "autogen": "autogen",
+        "pyautogen": "pyautogen",
     }
 
     invalid_instrumentors = [
@@ -311,6 +315,9 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "transformers": TransformersInstrumentor(),
             "litellm": LiteLLMInstrumentor(),
             "crewai": CrewAIInstrumentor(),
+            "ag2": AG2Instrumentor(),
+            "autogen": AG2Instrumentor(),
+            "pyautogen": AG2Instrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
