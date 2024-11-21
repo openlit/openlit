@@ -60,7 +60,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 - [✅ Grafana Cloud](https://docs.openlit.io/latest/connections/grafanacloud)
 - [✅ New Relic](https://docs.openlit.io/latest/connections/new-relic)
 - [✅ Elastic](https://docs.openlit.io/latest/connections/elastic)
-- [✅ Middleware.io](https://docs.openlit.io/latest/connections/midlleware)
+- [✅ Middleware.io](https://docs.openlit.io/latest/connections/middleware)
 - [✅ HyperDX](https://docs.openlit.io/latest/connections/hyperdx)
 - [✅ DataDog](https://docs.openlit.io/latest/connections/datadog)
 - [✅ SigNoz](https://docs.openlit.io/latest/connections/signoz)
