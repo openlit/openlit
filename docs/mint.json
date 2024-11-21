@@ -123,6 +123,7 @@
             "latest/integrations/crewai",
             "latest/integrations/llama-index",
             "latest/integrations/dspy",
+            "latest/integrations/ag2",
             "latest/integrations/haystack",
             "latest/integrations/embedchain",
             "latest/integrations/guardrails"
