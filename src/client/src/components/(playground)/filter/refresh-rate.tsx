@@ -16,6 +16,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 const REFRESH_RATE_EVENT = "refresh-rate";
 
@@ -42,6 +44,7 @@ const REFRESH_RATE_TABS: { key: string; label: string }[] = Object.keys(
 }));
 
 const RefreshRate = () => {
+	const posthog = usePostHog();
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 	const refreshRateTimer = useRef<NodeJS.Timeout>();
@@ -49,6 +52,9 @@ const RefreshRate = () => {
 
 	const handleChange = (key: string) => {
 		updateFilter("refreshRate", key);
+		posthog?.capture(CLIENT_EVENTS.REFRESH_RATE_CHANGE, {
+			rate: key,
+		});
 	};
 
 	const intervalCallback = useCallback(() => {

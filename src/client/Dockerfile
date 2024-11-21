@@ -17,7 +17,7 @@ RUN npm install && npm run build
 # Use a smaller image for production
 FROM alpine
 
-RUN apk add --update nodejs npm curl grep sed
+RUN apk add --update nodejs npm
 
 # Set the working directory in the container
 WORKDIR /app/client
