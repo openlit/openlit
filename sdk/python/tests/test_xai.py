@@ -60,7 +60,7 @@ async def test_async_xai_chat_completions():
         AssertionError: If the chat completion response object is not as expected.
     """
 
-    response = async_client.chat.completions.create(
+    response = await async_client.chat.completions.create(
         model="grok-beta",
         messages=[
             {"role": "user", "content": "Hi"},
