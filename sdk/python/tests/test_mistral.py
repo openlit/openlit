@@ -17,7 +17,9 @@ from mistralai import Mistral
 import openlit
 
 # Initialize synchronous Mistral client
-client = Mistral()
+client = Mistral(
+    api_key=os.getenv("MISTRAL_API_KEY"),
+)
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-python-testing", application_name="openlit-python-mistral-test")
