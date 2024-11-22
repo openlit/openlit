@@ -100,8 +100,11 @@
             "latest/integrations/google-ai-studio",
             "latest/integrations/groq",
             "latest/integrations/nvidia-nim",
+            "latest/integrations/xai",
             "latest/integrations/elevenlabs",
-            "latest/integrations/krutrim"
+            "latest/integrations/reka",
+            "latest/integrations/krutrim",
+            "latest/integrations/titan-ml"
           ]
         },
         {
