@@ -14,7 +14,7 @@ on:
     - cron: '0 0 1-31/15 * *'
 
 env:
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_TOKEN }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   CO_API_KEY: ${{ secrets.CO_API_KEY }}
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
