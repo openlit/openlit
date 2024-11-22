@@ -37,6 +37,7 @@ from openlit.instrumentation.elevenlabs import ElevenLabsInstrumentor
 from openlit.instrumentation.vllm import VLLMInstrumentor
 from openlit.instrumentation.google_ai_studio import GoogleAIStudioInstrumentor
 from openlit.instrumentation.reka import RekaInstrumentor
+from openlit.instrumentation.premai import PremAIInstrumentor
 from openlit.instrumentation.azure_ai_inference import AzureAIInferenceInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
@@ -241,7 +242,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "pyautogen": "pyautogen",
         "dynamiq": "dynamiq",
         "phidata": "phi",
-        "reka-api": "reka"
+        "reka-api": "reka",
+        "premai": "premai",
     }
 
     invalid_instrumentors = [
@@ -327,6 +329,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "dynamiq": DynamiqInstrumentor(),
             "phidata": PhidataInstrumentor(),
             "reka-api": RekaInstrumentor(),
+            "premai": PremAIInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors

@@ -55,6 +55,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Titan ML](https://docs.openlit.io/latest/integrations/titan-ml)                                          |                                                                          |                                       |               |
 | [✅ Reka AI](https://docs.openlit.io/latest/integrations/reka)                                            |                                                                          |                                       |               |
 | [✅ xAI](https://docs.openlit.io/latest/integrations/xai)                                                    |                                                                          |                                       |               |
+| [✅ Prem AI](https://docs.openlit.io/latest/integrations/premai)                                            |                                                                          |                                       |               |
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)

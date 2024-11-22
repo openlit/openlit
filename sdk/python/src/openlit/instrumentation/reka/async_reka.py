@@ -78,7 +78,7 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_REKA)
+                                    SemanticConvetion.GEN_AI_SYSTEM_REKAAI)
                 span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
                                     SemanticConvetion.GEN_AI_TYPE_CHAT)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
@@ -132,7 +132,7 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                         SemanticConvetion.GEN_AI_APPLICATION_NAME:
                             application_name,
                         SemanticConvetion.GEN_AI_SYSTEM:
-                            SemanticConvetion.GEN_AI_SYSTEM_REKA,
+                            SemanticConvetion.GEN_AI_SYSTEM_REKAAI,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_TYPE:

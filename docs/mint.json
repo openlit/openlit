@@ -104,7 +104,8 @@
             "latest/integrations/elevenlabs",
             "latest/integrations/reka",
             "latest/integrations/krutrim",
-            "latest/integrations/titan-ml"
+            "latest/integrations/titan-ml",
+            "latest/integrations/premai"
           ]
         },
         {
