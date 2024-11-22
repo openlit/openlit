@@ -43,6 +43,7 @@ def test_sync_reka_chat():
                 )
             ],
             model="reka-core",
+            max_tokens=1,
         )
         assert response.model == 'reka-core'
 
@@ -71,6 +72,7 @@ async def test_async_reka_chat():
                 )
             ],
             model="reka-core",
+            max_tokens=1,
         )
         assert response.model == 'reka-core'
 
