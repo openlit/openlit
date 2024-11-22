@@ -12,6 +12,7 @@ Note: Ensure the environment is properly configured for Mistral access and OpenL
 prior to running these tests.
 """
 
+import os
 import pytest
 from mistralai import Mistral
 import openlit
