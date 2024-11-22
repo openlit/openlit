@@ -127,6 +127,7 @@
             "latest/integrations/haystack",
             "latest/integrations/embedchain",
             "latest/integrations/guardrails",
+            "latest/integrations/phidata",
             "latest/integrations/dynamiq"
           ]
         },

@@ -113,6 +113,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_CREWAI = "crewai"
     GEN_AI_SYSTEM_AG2 = "ag2"
     GEN_AI_SYSTEM_DYNAMIQ = "dynamiq"
+    GEN_AI_SYSTEM_PHIDATA = "phidata"
 
     # Vector DB
     DB_REQUESTS = "db.total.requests"
@@ -168,12 +169,15 @@ class SemanticConvetion:
     GEN_AI_AGENT_GOAL = "gen_ai.agent.goal"
     GEN_AI_AGENT_CONTEXT = "gen_ai.agent.context"
     GEN_AI_AGENT_ENABLE_CACHE = "gen_ai.agent.enable_cache"
+    GEN_AI_AGENT_ENABLE_HISTORY = "gen_ai.agent.enable_history"
     GEN_AI_AGENT_ALLOW_DELEGATION = "gen_ai.agent.allow_delegation"
     GEN_AI_AGENT_ALLOW_CODE_EXECUTION = "gen_ai.agent.allow_code_execution"
     GEN_AI_AGENT_MAX_RETRY_LIMIT = "gen_ai.agent.max_retry_limit"
     GEN_AI_AGENT_TOOLS = "gen_ai.agent.tools"
     GEN_AI_AGENT_TOOL_RESULTS = "gen_ai.agent.tool_results"
     GEN_AI_AGENT_TASK = "gen_ai.agent.task"
+    GEN_AI_AGENT_INSTRUCTIONS = "gen_ai.agent.instructions"
+    GEN_AI_AGENT_STORAGE = "gen_ai.agent.storage"
     GEN_AI_AGENT_EXPECTED_OUTPUT = "gen_ai.agent.expected_output"
     GEN_AI_AGENT_ACTUAL_OUTPUT = "gen_ai.agent.actual_output"
     GEN_AI_AGENT_HUMAN_INPUT = "gen_ai.agent.human_input"

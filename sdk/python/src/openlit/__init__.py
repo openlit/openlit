@@ -50,6 +50,7 @@ from openlit.instrumentation.litellm import LiteLLMInstrumentor
 from openlit.instrumentation.crewai import CrewAIInstrumentor
 from openlit.instrumentation.ag2 import AG2Instrumentor
 from openlit.instrumentation.dynamiq import DynamiqInstrumentor
+from openlit.instrumentation.phidata import PhidataInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -237,7 +238,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "ag2": "ag2",
         "autogen": "autogen",
         "pyautogen": "pyautogen",
-        "dynamiq": "dynamiq"
+        "dynamiq": "dynamiq",
+        "phidata": "phi",
     }
 
     invalid_instrumentors = [
@@ -321,6 +323,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "autogen": AG2Instrumentor(),
             "pyautogen": AG2Instrumentor(),
             "dynamiq": DynamiqInstrumentor(),
+            "phidata": PhidataInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
