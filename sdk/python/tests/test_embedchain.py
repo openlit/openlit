@@ -2,9 +2,11 @@
 """
 This module contains tests for Embedchain functionality using the embedchain Python library.
 
-Tests cover various functions, including WebBaseLoader, TextSplitter,
-and Prompt pull from Hub. 
+Tests cover various functions of embedchain.
 These tests validate integration with OpenLIT.
+
+Environment Variables:
+    - OPENAI_API_KEY: OpenAI API key for authentication.
 
 Note: Ensure the environment is properly configured for Embedchain and OpenLIT monitoring
 prior to running these tests.
@@ -15,8 +17,7 @@ from embedchain import App
 import openlit
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_TOKEN")
+openlit.init(environment="openlit-python-testing", application_name="openlit-python-embedchain-test")
 
 config = {
     'app': {
