@@ -9,7 +9,7 @@ pylint
 cohere
 openai
 anthropic
-mistralai
+mistralai >= 1.0.0
 transformers
 boto3
 botocore
