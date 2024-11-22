@@ -8,9 +8,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
     handle_exception,
-    general_tokens,
     get_chat_model_cost,
-    get_embed_model_cost
 )
 from openlit.semcov import SemanticConvetion
 
@@ -101,6 +99,7 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                         attributes={
+                            # pylint: disbale=line-too-long
                             SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.responses[0].message.content,
                         },
                     )

@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment, too-many-branches
 """
 Module for monitoring Prem AI API calls.
 """
@@ -39,7 +39,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
     class TracedSyncStream:
         """
         Wrapper for streaming responses to collect metrics and trace data.
-        Wraps the 'ChatCompletionResponseStreamContainer' response to collect message IDs and aggregated response.
+        Wraps the response to collect message IDs and aggregated response.
         """
 
         def __init__(self, wrapped, span, kwargs, **args):
@@ -74,6 +74,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
 
                     self._response_id = chunk.id
                     if not chunk:
+                        # pylint: disable= stop-iteration-return
                         raise StopIteration
                     yield chunk
 

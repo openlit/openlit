@@ -77,7 +77,7 @@ def multion_wrap(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
-                            
+
                 if gen_ai_endpoint == "multion.browse":
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
                                     kwargs.get("url", ""))
@@ -85,7 +85,7 @@ def multion_wrap(gen_ai_endpoint, version, environment, application_name,
                                     response.metadata.step_count)
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_RESPONSE_TIME,
                                     response.metadata.processing_time)
-                    
+
                     if trace_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
