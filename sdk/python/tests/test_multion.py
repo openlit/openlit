@@ -42,7 +42,7 @@ def test_sync_multion_browse():
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
-         if e.status_code == 402:
+        if e.status_code == 402:
             print("Insufficient balance:", e)
         else:
             raise

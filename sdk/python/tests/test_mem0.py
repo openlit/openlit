@@ -12,7 +12,6 @@ Note: Ensure the environment is properly configured for mem0 and OpenLIT monitor
 prior to running these tests.
 """
 
-import pytest
 from mem0 import Memory
 import openlit
 
@@ -32,13 +31,13 @@ def test_sync_memory_add():
 
     try:
         response = sync_memory.add(
-            "OpenLIT provides LLM Observability and Agent Observability", 
-            user_id="openlit", 
+            "OpenLIT provides LLM Observability and Agent Observability",
+            user_id="openlit",
             metadata={"category": "devtool"})
         assert response[0]["event"] == "ADD"
 
-    # pylint: disable=broad-exception-caught
-    except Exception as e:
+    # pylint: disable=broad-exception-caught, try-except-raise
+    except Exception:
         raise
 
 def test_sync_memory_get_all():
@@ -53,8 +52,8 @@ def test_sync_memory_get_all():
         response = sync_memory.get_all(user_id="openlit")
         assert response[0]["user_id"] == "openlit"
 
-    # pylint: disable=broad-exception-caught
-    except Exception as e:
+    # pylint: disable=broad-exception-caught, try-except-raise
+    except Exception:
         raise
 
 def test_sync_memory_get():
@@ -69,8 +68,8 @@ def test_sync_memory_get():
         response = sync_memory.get("bf4d4092-cf91-4181-bfeb-b6fa2ed3061b")
         assert response is None
 
-    # pylint: disable=broad-exception-caught
-    except Exception as e:
+    # pylint: disable=broad-exception-caught, try-except-raise
+    except Exception:
         raise
 
 def test_sync_memory_get():
@@ -85,6 +84,6 @@ def test_sync_memory_get():
         response = sync_memory.search(query="What does OpenLIT give?", user_id="openlit")
         assert isinstance(response, list)
 
-    # pylint: disable=broad-exception-caught
-    except Exception as e:
+    # pylint: disable=broad-exception-caught, try-except-raise
+    except Exception:
         raise

@@ -12,7 +12,6 @@ Note: Ensure the environment is properly configured for ElevenLabs access and Op
 prior to running these tests.
 """
 
-import os
 import types
 import pytest
 from elevenlabs.client import ElevenLabs, AsyncElevenLabs
@@ -24,7 +23,10 @@ sync_client = ElevenLabs()
 async_client = AsyncElevenLabs()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-elevenlabs-test")
+openlit.init(
+    environment="openlit-python-testing",
+    application_name="openlit-python-elevenlabs-test"
+)
 
 def test_sync_elevenlabs_generate():
     """

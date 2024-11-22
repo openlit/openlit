@@ -12,7 +12,6 @@ Note: Ensure the environment is properly configured for Pinecone access and Open
 prior to running these tests.
 """
 
-import os
 from pinecone import Pinecone
 import openlit
 

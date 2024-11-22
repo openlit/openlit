@@ -13,7 +13,6 @@ Note: Ensure the environment is properly configured for OpenAI access and OpenLI
 prior to running these tests.
 """
 
-import os
 import pytest
 from openai import OpenAI, AsyncOpenAI
 import openlit

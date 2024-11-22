@@ -13,7 +13,6 @@ prior to running these tests.
 """
 
 import os
-import pytest
 from premai import Prem
 import openlit
 
@@ -22,7 +21,7 @@ sync_client = Prem(
      api_key=os.getenv("PREM_API_KEY")
 )
 
-project_id = 7438
+PROJECT_ID = 7438
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-python-testing", application_name="openlit-python-prem-test")
@@ -37,7 +36,7 @@ def test_sync_prem_chat():
 
     try:
         response = sync_client.chat.completions.create(
-            project_id=project_id,
+            project_id=PROJECT_ID,
             system_prompt="You're an helpful assistant",
             max_tokens = 1,
             model = "gpt-4o-mini",
@@ -64,7 +63,7 @@ def test_sync_prem_embeddings():
 
     try:
         response = sync_client.embeddings.create(
-            project_id=project_id,
+            project_id=PROJECT_ID,
             input = ["LLM Observability"],
             model = "text-embedding-3-large"
         )
@@ -76,4 +75,3 @@ def test_sync_prem_embeddings():
             print("Insufficient balance:", e)
         else:
             raise
-
