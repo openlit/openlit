@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module
+# pylint: disable=duplicate-code, no-name-in-module, import-error, no-member
 """
 This module contains tests for MultiOn functionality using the MultiOn Python library.
 
@@ -57,7 +57,7 @@ async def test_async_multion_browse():
     """
 
     try:
-        response = async_client.browse(
+        response = await async_client.browse(
             url="https://docs.openlit.io",
             cmd="say hi"
         )

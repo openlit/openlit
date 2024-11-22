@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, no-name-in-module
 """
 This module contains tests for Mistral functionality using the Mistral Python library.
 
@@ -12,12 +12,15 @@ Note: Ensure the environment is properly configured for Mistral access and OpenL
 prior to running these tests.
 """
 
+import os
 import pytest
 from mistralai import Mistral
 import openlit
 
 # Initialize synchronous Mistral client
-client = Mistral()
+client = Mistral(
+    api_key=os.getenv("MISTRAL_API_KEY"),
+)
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-python-testing", application_name="openlit-python-mistral-test")

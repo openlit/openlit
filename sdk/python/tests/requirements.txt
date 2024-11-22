@@ -19,7 +19,6 @@ elevenlabs
 google-generativeai
 azure-ai-inference
 reka-api
-premai
 multion
 mem0ai
 
