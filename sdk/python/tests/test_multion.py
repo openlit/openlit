@@ -57,7 +57,7 @@ async def test_async_multion_browse():
     """
 
     try:
-        response = async_client.browse(
+        response = await async_client.browse(
             url="https://docs.openlit.io",
             cmd="say hi"
         )
