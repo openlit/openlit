@@ -36,11 +36,14 @@ from openlit.instrumentation.gpt4all import GPT4AllInstrumentor
 from openlit.instrumentation.elevenlabs import ElevenLabsInstrumentor
 from openlit.instrumentation.vllm import VLLMInstrumentor
 from openlit.instrumentation.google_ai_studio import GoogleAIStudioInstrumentor
+from openlit.instrumentation.reka import RekaInstrumentor
+from openlit.instrumentation.premai import PremAIInstrumentor
 from openlit.instrumentation.azure_ai_inference import AzureAIInferenceInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
 from openlit.instrumentation.embedchain import EmbedChainInstrumentor
+from openlit.instrumentation.mem0 import Mem0Instrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
@@ -49,6 +52,7 @@ from openlit.instrumentation.transformers import TransformersInstrumentor
 from openlit.instrumentation.litellm import LiteLLMInstrumentor
 from openlit.instrumentation.crewai import CrewAIInstrumentor
 from openlit.instrumentation.ag2 import AG2Instrumentor
+from openlit.instrumentation.multion import MultiOnInstrumentor
 from openlit.instrumentation.dynamiq import DynamiqInstrumentor
 from openlit.instrumentation.phidata import PhidataInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
@@ -228,6 +232,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "llama_index": "llama_index",
         "haystack": "haystack",
         "embedchain": "embedchain",
+        "mem0": "mem0",
         "chroma": "chromadb",
         "pinecone": "pinecone",
         "qdrant": "qdrant_client",
@@ -238,8 +243,11 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "ag2": "ag2",
         "autogen": "autogen",
         "pyautogen": "pyautogen",
+        "multion": "multion",
         "dynamiq": "dynamiq",
         "phidata": "phi",
+        "reka-api": "reka",
+        "premai": "premai",
     }
 
     invalid_instrumentors = [
@@ -312,6 +320,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "llama_index": LlamaIndexInstrumentor(),
             "haystack": HaystackInstrumentor(),
             "embedchain": EmbedChainInstrumentor(),
+            "mem0": Mem0Instrumentor(),
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),
             "qdrant": QdrantInstrumentor(),
@@ -320,10 +329,13 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "litellm": LiteLLMInstrumentor(),
             "crewai": CrewAIInstrumentor(),
             "ag2": AG2Instrumentor(),
+            "multion": MultiOnInstrumentor(),
             "autogen": AG2Instrumentor(),
             "pyautogen": AG2Instrumentor(),
             "dynamiq": DynamiqInstrumentor(),
             "phidata": PhidataInstrumentor(),
+            "reka-api": RekaInstrumentor(),
+            "premai": PremAIInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors

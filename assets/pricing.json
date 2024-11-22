@@ -381,6 +381,46 @@
         "gemma-7b-it": {
             "promptPrice": 0.0001,
             "completionPrice": 0.0001
+        },
+        "reka-core": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.002
+        },
+        "reka-core-20240415": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.002
+        },
+        "reka-core-20240501": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.002
+        },
+        "reka-flash": {
+            "promptPrice": 0.0002,
+            "completionPrice": 0.0008
+        },
+        "reka-flash-20240226": {
+            "promptPrice": 0.0002,
+            "completionPrice": 0.0008
+        },
+        "reka-edge": {
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0001
+        },
+        "reka-edge-20240208": {
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0001
+        },
+        "reka-spark": {
+            "promptPrice": 0.00005,
+            "completionPrice": 0.00005
+        },
+        "grok-beta": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
+        "grok-vision-beta": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
         }
     }
 }

@@ -104,14 +104,18 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_ELEVENLABS = "elevenlabs"
     GEN_AI_SYSTEM_VLLM = "vLLM"
     GEN_AI_SYSTEM_GOOGLE_AI_STUDIO = "google-ai-studio"
+    GEN_AI_SYSTEM_REKAAI = "rekaai"
+    GEN_AI_SYSTEM_PREMAI = "premai"
     GEN_AI_SYSTEM_AZURE_AI_INFERENCE = "azure-ai-inference"
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
     GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
+    GEN_AI_SYSTEM_MEM0 = "mem0"
     GEN_AI_SYSTEM_LITELLM = "litellm"
     GEN_AI_SYSTEM_CREWAI = "crewai"
     GEN_AI_SYSTEM_AG2 = "ag2"
+    GEN_AI_SYSTEM_MULTION = "multion"
     GEN_AI_SYSTEM_DYNAMIQ = "dynamiq"
     GEN_AI_SYSTEM_PHIDATA = "phidata"
 
@@ -155,6 +159,7 @@ class SemanticConvetion:
     DB_UPDATE_METADATA = "db.update.metadata"
     DB_UPDATE_VALUES = "db.update.values"
     DB_UPDATE_ID = "db.update.id"
+    DB_DELETE_ID = "db.delete.id"
 
     DB_SYSTEM_CHROMA = "chroma"
     DB_SYSTEM_PINECONE = "pinecone"
@@ -182,6 +187,9 @@ class SemanticConvetion:
     GEN_AI_AGENT_ACTUAL_OUTPUT = "gen_ai.agent.actual_output"
     GEN_AI_AGENT_HUMAN_INPUT = "gen_ai.agent.human_input"
     GEN_AI_AGENT_TASK_ASSOCIATION = "gen_ai.agent.task_associations"
+    GEN_AI_AGENT_BROWSE_URL = "gen_ai.agent.browse_url"
+    GEN_AI_AGENT_STEP_COUNT = "gen_ai.agent.step_count"
+    GEN_AI_AGENT_RESPONSE_TIME = "gen_ai.agent.response_time"
 
     # GPU
     GPU_INDEX = "gpu.index"

@@ -100,8 +100,12 @@
             "latest/integrations/google-ai-studio",
             "latest/integrations/groq",
             "latest/integrations/nvidia-nim",
+            "latest/integrations/xai",
             "latest/integrations/elevenlabs",
-            "latest/integrations/krutrim"
+            "latest/integrations/reka",
+            "latest/integrations/krutrim",
+            "latest/integrations/titan-ml",
+            "latest/integrations/premai"
           ]
         },
         {
@@ -126,8 +130,10 @@
             "latest/integrations/ag2",
             "latest/integrations/haystack",
             "latest/integrations/embedchain",
+            "latest/integrations/mem0",
             "latest/integrations/guardrails",
             "latest/integrations/phidata",
+            "latest/integrations/multion",
             "latest/integrations/dynamiq"
           ]
         },
