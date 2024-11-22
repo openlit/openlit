@@ -9,7 +9,7 @@ pylint
 cohere
 openai
 anthropic
-mistralai >= 1.0.0
+mistralai
 transformers
 boto3
 botocore
@@ -19,7 +19,6 @@ elevenlabs
 google-generativeai
 azure-ai-inference
 reka-api
-premai >= 0.3.78
 multion
 mem0ai
 
