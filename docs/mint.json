@@ -130,6 +130,7 @@
             "latest/integrations/ag2",
             "latest/integrations/haystack",
             "latest/integrations/embedchain",
+            "latest/integrations/mem0",
             "latest/integrations/guardrails",
             "latest/integrations/phidata",
             "latest/integrations/dynamiq"

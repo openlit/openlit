@@ -111,6 +111,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
     GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
+    GEN_AI_SYSTEM_MEM0 = "mem0"
     GEN_AI_SYSTEM_LITELLM = "litellm"
     GEN_AI_SYSTEM_CREWAI = "crewai"
     GEN_AI_SYSTEM_AG2 = "ag2"
@@ -157,6 +158,7 @@ class SemanticConvetion:
     DB_UPDATE_METADATA = "db.update.metadata"
     DB_UPDATE_VALUES = "db.update.values"
     DB_UPDATE_ID = "db.update.id"
+    DB_DELETE_ID = "db.delete.id"
 
     DB_SYSTEM_CHROMA = "chroma"
     DB_SYSTEM_PINECONE = "pinecone"

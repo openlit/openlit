@@ -43,6 +43,7 @@ from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
 from openlit.instrumentation.embedchain import EmbedChainInstrumentor
+from openlit.instrumentation.mem0 import Mem0Instrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
@@ -230,6 +231,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "llama_index": "llama_index",
         "haystack": "haystack",
         "embedchain": "embedchain",
+        "mem0": "mem0",
         "chroma": "chromadb",
         "pinecone": "pinecone",
         "qdrant": "qdrant_client",
@@ -316,6 +318,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "llama_index": LlamaIndexInstrumentor(),
             "haystack": HaystackInstrumentor(),
             "embedchain": EmbedChainInstrumentor(),
+            "mem0": Mem0Instrumentor(),
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),
             "qdrant": QdrantInstrumentor(),
