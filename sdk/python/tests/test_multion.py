@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module
+# pylint: disable=duplicate-code, no-name-in-module, import-error, no-member
 """
 This module contains tests for MultiOn functionality using the MultiOn Python library.
 

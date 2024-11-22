@@ -17,7 +17,10 @@ from embedchain import App
 import openlit
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-embedchain-test")
+openlit.init(
+    environment="openlit-python-testing",
+    application_name="openlit-python-embedchain-test"
+)
 
 config = {
     'app': {
