@@ -72,12 +72,12 @@ def test_sync_memory_get():
     except Exception:
         raise
 
-def test_sync_memory_get():
+def test_sync_memory_search():
     """
-    Tests synchronous get memory
+    Tests synchronous search memory
 
     Raises:
-        AssertionError: If the get memory response object is not as expected.
+        AssertionError: If the search memory response object is not as expected.
     """
 
     try:
