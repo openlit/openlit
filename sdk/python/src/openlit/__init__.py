@@ -52,6 +52,7 @@ from openlit.instrumentation.transformers import TransformersInstrumentor
 from openlit.instrumentation.litellm import LiteLLMInstrumentor
 from openlit.instrumentation.crewai import CrewAIInstrumentor
 from openlit.instrumentation.ag2 import AG2Instrumentor
+from openlit.instrumentation.multion import MultiOnInstrumentor
 from openlit.instrumentation.dynamiq import DynamiqInstrumentor
 from openlit.instrumentation.phidata import PhidataInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
@@ -242,6 +243,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "ag2": "ag2",
         "autogen": "autogen",
         "pyautogen": "pyautogen",
+        "multion": "multion",
         "dynamiq": "dynamiq",
         "phidata": "phi",
         "reka-api": "reka",
@@ -327,6 +329,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "litellm": LiteLLMInstrumentor(),
             "crewai": CrewAIInstrumentor(),
             "ag2": AG2Instrumentor(),
+            "multion": MultiOnInstrumentor(),
             "autogen": AG2Instrumentor(),
             "pyautogen": AG2Instrumentor(),
             "dynamiq": DynamiqInstrumentor(),

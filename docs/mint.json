@@ -133,6 +133,7 @@
             "latest/integrations/mem0",
             "latest/integrations/guardrails",
             "latest/integrations/phidata",
+            "latest/integrations/multion",
             "latest/integrations/dynamiq"
           ]
         },
