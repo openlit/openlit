@@ -14,7 +14,7 @@ from openlit.semcov import SemanticConvetion
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def multion_wrap(gen_ai_endpoint, version, environment, application_name,
+def async_multion_wrap(gen_ai_endpoint, version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
@@ -32,7 +32,7 @@ def multion_wrap(gen_ai_endpoint, version, environment, application_name,
         A function that wraps the chat completions method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'chat.completions' API call to add telemetry.
 
@@ -51,7 +51,7 @@ def multion_wrap(gen_ai_endpoint, version, environment, application_name,
 
         # pylint: disable=line-too-long
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 # Set base span attribues
