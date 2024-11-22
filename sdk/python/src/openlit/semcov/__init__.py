@@ -112,6 +112,8 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_LITELLM = "litellm"
     GEN_AI_SYSTEM_CREWAI = "crewai"
     GEN_AI_SYSTEM_AG2 = "ag2"
+    GEN_AI_SYSTEM_DYNAMIQ = "dynamiq"
+    GEN_AI_SYSTEM_PHIDATA = "phidata"
 
     # Vector DB
     DB_REQUESTS = "db.total.requests"
@@ -133,6 +135,7 @@ class SemanticConvetion:
     DB_OPERATION_PEEK = "peek"
     DB_ID_COUNT = "db.ids_count"
     DB_VECTOR_COUNT = "db.vector_count"
+    DB_METADATA = "db.metadata"
     DB_METADATA_COUNT = "db.metadatas_count"
     DB_DOCUMENTS_COUNT = "db.documents_count"
     DB_PAYLOAD_COUNT = "db.payload_count"
@@ -160,17 +163,21 @@ class SemanticConvetion:
 
     # Agents
     GEN_AI_AGENT_ID = "gen_ai.agent.id"
+    GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
     GEN_AI_AGENT_ROLE = "gen_ai.agent.role"
     GEN_AI_AGENT_GOAL = "gen_ai.agent.goal"
     GEN_AI_AGENT_CONTEXT = "gen_ai.agent.context"
     GEN_AI_AGENT_ENABLE_CACHE = "gen_ai.agent.enable_cache"
+    GEN_AI_AGENT_ENABLE_HISTORY = "gen_ai.agent.enable_history"
     GEN_AI_AGENT_ALLOW_DELEGATION = "gen_ai.agent.allow_delegation"
     GEN_AI_AGENT_ALLOW_CODE_EXECUTION = "gen_ai.agent.allow_code_execution"
     GEN_AI_AGENT_MAX_RETRY_LIMIT = "gen_ai.agent.max_retry_limit"
     GEN_AI_AGENT_TOOLS = "gen_ai.agent.tools"
     GEN_AI_AGENT_TOOL_RESULTS = "gen_ai.agent.tool_results"
     GEN_AI_AGENT_TASK = "gen_ai.agent.task"
+    GEN_AI_AGENT_INSTRUCTIONS = "gen_ai.agent.instructions"
+    GEN_AI_AGENT_STORAGE = "gen_ai.agent.storage"
     GEN_AI_AGENT_EXPECTED_OUTPUT = "gen_ai.agent.expected_output"
     GEN_AI_AGENT_ACTUAL_OUTPUT = "gen_ai.agent.actual_output"
     GEN_AI_AGENT_HUMAN_INPUT = "gen_ai.agent.human_input"
