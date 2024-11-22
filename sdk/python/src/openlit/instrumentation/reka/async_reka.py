@@ -99,7 +99,7 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                         attributes={
-                            # pylint: disbale=line-too-long
+                            # pylint: disable=line-too-long
                             SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.responses[0].message.content,
                         },
                     )
