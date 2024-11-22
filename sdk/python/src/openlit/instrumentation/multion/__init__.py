@@ -10,6 +10,10 @@ from openlit.instrumentation.multion.multion import (
     multion_wrap
 )
 
+from openlit.instrumentation.multion.async_multion import (
+    async_multion_wrap
+)
+
 _instruments = ("multion >= 1.3.8",)
 
 class MultiOnInstrumentor(BaseInstrumentor):
@@ -30,24 +34,43 @@ class MultiOnInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("multion")
 
+        # Synchronus
         wrap_function_wrapper(
             "multion.client",
             "MultiOn.browse",
             multion_wrap("multion.browse", version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
-
         wrap_function_wrapper(
             "multion.client",
             "MultiOn.retrieve",
             multion_wrap("multion.retrieve", version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
-
         wrap_function_wrapper(
             "multion.sessions.client",
             "SessionsClient.create",
             multion_wrap("multion.sessions.create", version, environment, application_name,
+                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+        )
+
+        # Asynchronus
+        wrap_function_wrapper(
+            "multion.client",
+            "AsyncMultiOn.browse",
+            async_multion_wrap("multion.browse", version, environment, application_name,
+                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+        )
+        wrap_function_wrapper(
+            "multion.client",
+            "AsyncMultiOn.retrieve",
+            async_multion_wrap("multion.retrieve", version, environment, application_name,
+                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+        )
+        wrap_function_wrapper(
+            "multion.sessions.client",
+            "AsyncSessionsClient.create",
+            async_multion_wrap("multion.sessions.create", version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

@@ -6,7 +6,7 @@ Tests cover various API endpoints, including upsert, query and delete.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - PINECONE_API_TOKEN: Pinecone API api_key for authentication.
+    - PINECONE_API_KEY: Pinecone API key for authentication.
 
 Note: Ensure the environment is properly configured for Pinecone access and OpenLIT monitoring
 prior to running these tests.
@@ -17,11 +17,11 @@ from pinecone import Pinecone
 import openlit
 
 # Initialize the Chroma client
-pc = Pinecone(api_key=os.getenv("PINECONE_API_TOKEN"))
+pc = Pinecone()
 index = pc.Index("openlit-tests")
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(environment="openlit-python-testing", application_name="openlit-python-piencone-test")
 
 def test_db_pinecone():
     """

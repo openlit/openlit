@@ -7,7 +7,7 @@ embeddings, fine-tuning job creation, image generation, image variation creation
 and audio speech generation. These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - OPENAI_API_TOKEN: OpenAI API key for authentication.
+    - OPENAI_API_KEY: OpenAI API key for authentication.
 
 Note: Ensure the environment is properly configured for OpenAI access and OpenLIT monitoring
 prior to running these tests.
@@ -19,17 +19,13 @@ from openai import OpenAI, AsyncOpenAI
 import openlit
 
 # Initialize synchronous OpenAI client
-sync_client = OpenAI(
-    api_key=os.getenv("OPENAI_API_TOKEN"),
-)
+sync_client = OpenAI()
 
 # Initialize asynchronous OpenAI client
-async_client = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_TOKEN"),
-)
+async_client = AsyncOpenAI()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(environment="openlit-python-testing", application_name="openlit-python-openai-test")
 
 def test_sync_openai_chat_completions():
     """

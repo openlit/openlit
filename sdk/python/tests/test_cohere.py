@@ -6,26 +6,25 @@ Tests cover various API endpoints, including chat and embeddings.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - COHERE_API_TOKEN: Cohere API api_key for authentication.
+    - CO_API_KEY: Cohere API key for authentication.
 
 Note: Ensure the environment is properly configured for Cohere access and OpenLIT monitoring
 prior to running these tests.
 """
 
-import os
 import cohere
 import openlit
 
 # Initialize synchronous Cohere client
-sync_client = cohere.Client(os.getenv("COHERE_API_TOKEN"))
+sync_client = cohere.Client()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(environment="openlit-python-testing", application_name="openlit-python-cohere-test")
 
 
 def test_embed():
     """
-    Tests synchronous embedding creation with the 'embed-english-v3.0' model.
+    Tests synchronous embedding creation.
 
     Raises:
         AssertionError: If the embedding response object is not as expected.
@@ -46,7 +45,7 @@ def test_embed():
 
 def test_chat():
     """
-    Tests synchronous chat with the 'command' model.
+    Tests synchronous chat.
 
     Raises:
         AssertionError: If the chat response object is not as expected.
