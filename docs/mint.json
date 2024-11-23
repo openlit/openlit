@@ -134,6 +134,7 @@
             "latest/integrations/guardrails",
             "latest/integrations/phidata",
             "latest/integrations/multion",
+            "latest/integrations/julep-ai",
             "latest/integrations/dynamiq"
           ]
         },

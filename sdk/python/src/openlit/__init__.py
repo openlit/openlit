@@ -55,6 +55,7 @@ from openlit.instrumentation.ag2 import AG2Instrumentor
 from openlit.instrumentation.multion import MultiOnInstrumentor
 from openlit.instrumentation.dynamiq import DynamiqInstrumentor
 from openlit.instrumentation.phidata import PhidataInstrumentor
+from openlit.instrumentation.julep import JulepInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -248,6 +249,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "phidata": "phi",
         "reka-api": "reka",
         "premai": "premai",
+        "julep": "julep",
     }
 
     invalid_instrumentors = [
@@ -336,6 +338,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "phidata": PhidataInstrumentor(),
             "reka-api": RekaInstrumentor(),
             "premai": PremAIInstrumentor(),
+            "julep": JulepInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors

@@ -47,7 +47,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Amazon Bedrock](https://docs.openlit.io/latest/integrations/bedrock)             |                                                                          | [✅ Phidata](https://docs.openlit.io/latest/integrations/phidata)          |               |
 |                                                                              |                                                                          | [✅ mem0](https://docs.openlit.io/latest/integrations/mem0)           |               |
 | [✅ Vertex AI](https://docs.openlit.io/latest/integrations/vertexai)                 |                                                                          | [✅ MultiOn](https://docs.openlit.io/latest/integrations/multion)           |               |
-| [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                          |                                                                          |                                       |               |
+| [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                          |                                                                          | [✅ Julep AI](https://docs.openlit.io/latest/integrations/julep-ai)                           |               |
 | [✅ ElevenLabs](https://docs.openlit.io/latest/integrations/elevenlabs)              |                                                                          |                                       |               |
 | [✅ vLLM](https://docs.openlit.io/latest/integrations/vllm)                          |                                                                          |                                       |               |
 | [✅ OLA Krutrim](https://docs.openlit.io/latest/integrations/krutrim)                |                                                                          |                                       |               |
@@ -57,6 +57,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Reka AI](https://docs.openlit.io/latest/integrations/reka)                                            |                                                                          |                                       |               |
 | [✅ xAI](https://docs.openlit.io/latest/integrations/xai)                                                    |                                                                          |                                       |               |
 | [✅ Prem AI](https://docs.openlit.io/latest/integrations/premai)                                            |                                                                          |                                       |               |
+
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
