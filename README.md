@@ -29,7 +29,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 ## ⚡ Features
 
-![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/openlit-main-banner.png?raw=true)
+![OpenLIT Banner](https://github.com/openlit/.github/blob/main/profile/assets/openlit-feature-banner.png?raw=true)
 
 - 📈 **Analytics Dashboard**: Monitor your AI application's health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
 
