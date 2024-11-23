@@ -21,6 +21,7 @@ azure-ai-inference
 reka-api
 multion
 mem0ai
+julep
 
 # Vector DBs
 chromadb

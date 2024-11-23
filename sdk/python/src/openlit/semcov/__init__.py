@@ -118,6 +118,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_MULTION = "multion"
     GEN_AI_SYSTEM_DYNAMIQ = "dynamiq"
     GEN_AI_SYSTEM_PHIDATA = "phidata"
+    GEN_AI_SYSTEM_JULEP = "julep"
 
     # Vector DB
     DB_REQUESTS = "db.total.requests"
