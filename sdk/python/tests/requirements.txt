@@ -43,6 +43,7 @@ tiktoken
 tensorflow
 tf_keras
 aiohttp
+pyyaml
 
 # OpenTelemetry
 opentelemetry-api
