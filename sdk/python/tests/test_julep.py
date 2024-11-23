@@ -22,8 +22,8 @@ sync_client = Julep()
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-python-testing", application_name="openlit-python-julep-test")
 
-AGENT_ID = ""
-TASK_ID = ""
+agent_id = None
+task_id = None
 
 TASK_YAML = """
 name: Storyteller
@@ -132,14 +132,16 @@ def test_sync_create_agent():
     Raises:
         AssertionError: If the agent creation response object is not as expected.
     """
+    
+    global agent_id
 
     try:
         response = sync_client.agents.create(
             name="Observability Expert",
             about="You are a AI Observability Expert.",
         )
-        AGENT_ID = response.id
-        assert isinstance(response.id, str)
+        agent_id = response.id
+        assert isinstance(agent_id, str)
 
     # pylint: disable=broad-exception-caught, try-except-raise
     except Exception:
@@ -153,12 +155,15 @@ def test_sync_task_create():
         AssertionError: If the task creation response object is not as expected.
     """
 
+    global task_id
+
     try:
         task = sync_client.tasks.create(
-            agent_id=AGENT_ID,
+            agent_id=agent_id,
             **yaml.safe_load(TASK_YAML)
         )
-        assert isinstance(task.id, str)
+        task_id = task.id
+        assert isinstance(task_id, str)
 
     # pylint: disable=broad-exception-caught, try-except-raise
     except Exception:
@@ -174,7 +179,7 @@ def test_sync_create_execution():
 
     try:
         execution = sync_client.executions.create(
-            task_id=TASK_ID,
+            task_id=task_id,
             input={"idea": "A cat who learns to fly"}
         )
         assert isinstance(execution.id, str)
