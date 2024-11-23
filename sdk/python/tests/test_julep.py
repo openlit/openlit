@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module
+# pylint: disable=duplicate-code, no-name-in-module, invalid-name, global-statement
 """
 This module contains tests for Julep functionality using the Julep Python library.
 
@@ -132,7 +132,7 @@ def test_sync_create_agent():
     Raises:
         AssertionError: If the agent creation response object is not as expected.
     """
-    
+
     global agent_id
 
     try:
