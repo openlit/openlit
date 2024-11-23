@@ -31,6 +31,7 @@ env:
   PREM_API_KEY: ${{ secrets.PREM_API_KEY }}
   MULTION_API_KEY: ${{ secrets.MULTION_API_KEY }}
   XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+  JULEP_API_KEY: ${{ secrets.JULEP_API_KEY }}
 
 jobs:
   build:
