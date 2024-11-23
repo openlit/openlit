@@ -13,6 +13,7 @@ prior to running these tests.
 """
 
 from julep import Julep
+import yaml
 import openlit
 
 # Initialize synchronous Julep client
@@ -137,7 +138,7 @@ def test_sync_create_agent():
             name="Observability Expert",
             about="You are a AI Observability Expert.",
         )
-        agent_id = response.id
+        AGENT_ID = response.id
         assert isinstance(response.id, str)
 
     # pylint: disable=broad-exception-caught, try-except-raise
