@@ -39,7 +39,7 @@ def test_db_chroma():
     #   metric=astrapy.constants.VectorMetric.COSINE,
     # )
     # assert collection.name == "openlit"
-    collection = database.get_collection("openlit")
+    collection = db.get_collection("openlit")
 
     response = collection.insert_one({"summary": "I was flying", "$vector": [-0.4, 0.7, 0]})
     assert isinstance(response.inserted_id, str)
