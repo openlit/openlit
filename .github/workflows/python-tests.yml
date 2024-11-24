@@ -32,6 +32,8 @@ env:
   MULTION_API_KEY: ${{ secrets.MULTION_API_KEY }}
   XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
   JULEP_API_KEY: ${{ secrets.JULEP_API_KEY }}
+  ASTRA_DB_API_ENDPOINT: ${{ secrets.ASTRA_DB_API_ENDPOINT }}
+  ASTRA_DB_APPLICATION_TOKEN: ${{ secrets.ASTRA_DB_APPLICATION_TOKEN }}
 
 jobs:
   build:
