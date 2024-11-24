@@ -83,12 +83,12 @@ def test_sync_ai21_chat_rag():
     assert isinstance(response.id, str)
 
 @pytest.mark.asyncio
-async def test_async_ai21_chat():
+async def test_async_ai21_test():
     """
-    Tests synchronous chat.
+    Tests asynchronous chat stream and rag operations.
 
     Raises:
-        AssertionError: If the chat response object is not as expected.
+        AssertionError: If the response object is not as expected.
     """
 
     response = await async_client.chat.completions.create(
@@ -97,15 +97,6 @@ async def test_async_ai21_chat():
         max_tokens=1,
     )
     assert isinstance(response.id, str)
-
-@pytest.mark.asyncio
-async def test_async_ai21_chat_stream():
-    """
-    Tests synchronous chat streaming.
-
-    Raises:
-        AssertionError: If the streaming chat response object is not as expected.
-    """
 
     responses = await async_client.chat.completions.create(
         messages=MESSAGES,
@@ -116,15 +107,6 @@ async def test_async_ai21_chat_stream():
     async for response in responses:
         assert isinstance(response.id, str)
         return
-
-@pytest.mark.asyncio
-async def test_async_ai21_chat_rag():
-    """
-    Tests synchronous chat rag.
-
-    Raises:
-        AssertionError: If the streaming chat rag response object is not as expected.
-    """
 
     response = await async_client.beta.conversational_rag.create(
         messages=MESSAGES,
