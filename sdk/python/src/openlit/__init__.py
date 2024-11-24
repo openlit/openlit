@@ -48,6 +48,7 @@ from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
+from openlit.instrumentation.astra import AstraInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
 from openlit.instrumentation.litellm import LiteLLMInstrumentor
 from openlit.instrumentation.crewai import CrewAIInstrumentor
@@ -250,6 +251,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "reka-api": "reka",
         "premai": "premai",
         "julep": "julep",
+        "astra": "astrapy",
     }
 
     invalid_instrumentors = [
@@ -339,6 +341,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "reka-api": RekaInstrumentor(),
             "premai": PremAIInstrumentor(),
             "julep": JulepInstrumentor(),
+            "astra": AstraInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
