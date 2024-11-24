@@ -25,7 +25,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 ## ⚡ Features
 
-- 🔎 **Auto Instrumentation**: Works with 30+ LLM providers, vector databases, and GPUs with just one line of code.
+- 🔎 **Auto Instrumentation**: Works with 40+ LLM providers, Agents, Vector databases, and GPUs with just one line of code.
 - 🔭 **OpenTelemetry-Native Observability SDKs**: Vendor-neutral SDKs that can send traces and metrics to your existing observability tool like Prometheus and Jaeger.
 - 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Pass custom pricing files for accurate budgeting of custom and fine-tuned models.
 - 🚀 **Suppport for OpenLIT Features**: Includes suppprt for prompt management and secrets management features available in OpenLIT.
