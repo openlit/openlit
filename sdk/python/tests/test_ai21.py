@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module
+# pylint: disable=duplicate-code, no-name-in-module, import-error
 """
 This module contains tests for AI21 functionality using the AI21 Python library.
 
@@ -59,7 +59,7 @@ def test_sync_ai21_chat_stream():
         stream=True,
         max_tokens=1,
     )
-    for response in response:
+    for response in responses:
         assert isinstance(response.id, str)
         return
 
@@ -83,7 +83,7 @@ def test_sync_ai21_chat_rag():
     assert isinstance(response.id, str)
 
 @pytest.mark.asyncio
-async def test_sync_ai21_chat():
+async def test_async_ai21_chat():
     """
     Tests synchronous chat.
 
@@ -99,7 +99,7 @@ async def test_sync_ai21_chat():
     assert isinstance(response.id, str)
 
 @pytest.mark.asyncio
-async def test_sync_ai21_chat_stream():
+async def test_async_ai21_chat_stream():
     """
     Tests synchronous chat streaming.
 
@@ -113,12 +113,12 @@ async def test_sync_ai21_chat_stream():
         stream=True,
         max_tokens=1,
     )
-    async for response in response:
+    async for response in responses:
         assert isinstance(response.id, str)
         return
 
 @pytest.mark.asyncio
-async def test_sync_ai21_chat_rag():
+async def test_async_ai21_chat_rag():
     """
     Tests synchronous chat rag.
 
