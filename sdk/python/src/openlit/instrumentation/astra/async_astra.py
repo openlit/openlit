@@ -17,10 +17,7 @@ def object_count(obj):
     Counts Length of object if it exists, Else returns None
     """
 
-    if obj:
-        return len(obj)
-
-    return None
+    return len(obj) if obj else None
 
 def general_wrap(gen_ai_endpoint, version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
