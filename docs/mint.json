@@ -102,6 +102,7 @@
             "latest/integrations/nvidia-nim",
             "latest/integrations/xai",
             "latest/integrations/elevenlabs",
+            "latest/integrations/ai21",
             "latest/integrations/reka",
             "latest/integrations/krutrim",
             "latest/integrations/titan-ml",

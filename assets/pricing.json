@@ -421,6 +421,14 @@
         "grok-vision-beta": {
             "promptPrice": 0.0005,
             "completionPrice": 0.0015
+        },
+        "jamba-1.5-mini": {
+            "promptPrice": 0.0002,
+            "completionPrice": 0.0004
+        },
+        "jamba-1.5-large": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.008
         }
     }
 }
