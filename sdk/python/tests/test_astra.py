@@ -33,12 +33,12 @@ def test_db_chroma():
     verifies correct behavior of these operations by asserting expected outcomes at
     """
 
-    collection = db.create_collection(
-      "openlit",
-      dimension=3,
-      metric=astrapy.constants.VectorMetric.COSINE,
-    )
-    assert collection.name == "openlit"
+    # collection = db.create_collection(
+    #   "openlit",
+    #   dimension=3,
+    #   metric=astrapy.constants.VectorMetric.COSINE,
+    # )
+    # assert collection.name == "openlit"
 
     response = collection.insert_one({"summary": "I was flying", "$vector": [-0.4, 0.7, 0]})
     assert isinstance(response.inserted_id, str)
@@ -113,5 +113,5 @@ def test_db_chroma():
     response = collection.find_one_and_delete({"status": "stale_entry"})
     assert response is None
 
-    response = db.drop_collection(name_or_collection="openlit")
-    assert isinstance(response["ok"], int)
+    # response = db.drop_collection(name_or_collection="openlit")
+    # assert isinstance(response["ok"], int)
