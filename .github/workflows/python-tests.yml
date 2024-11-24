@@ -34,6 +34,7 @@ env:
   JULEP_API_KEY: ${{ secrets.JULEP_API_KEY }}
   ASTRA_DB_API_ENDPOINT: ${{ secrets.ASTRA_DB_API_ENDPOINT }}
   ASTRA_DB_APPLICATION_TOKEN: ${{ secrets.ASTRA_DB_APPLICATION_TOKEN }}
+  AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
 
 jobs:
   build:
