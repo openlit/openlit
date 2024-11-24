@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches, too-many-instance-attributes, inconsistent-return-statements
 """
 Module for monitoring AI21 calls.
 """
@@ -8,8 +8,6 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
     get_chat_model_cost,
-    get_embed_model_cost,
-    openai_tokens,
     handle_exception,
     response_as_dict,
     general_tokens
@@ -90,7 +88,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     content = chunked.get('choices')[0].get('delta').get('content')
                     if content:
                         self._llmresponse += content
-                    
+
                     if chunked.get('usage'):
                         self._prompt_tokens = chunked.get('usage').get("prompt_tokens")
                         self._completion_tokens = chunked.get('usage').get("completion_tokens")

@@ -72,7 +72,7 @@ def test_sync_ai21_chat_rag():
     """
 
     response = sync_client.beta.conversational_rag.create(
-        messages=MESSAGES
+        messages=MESSAGES,
         file_ids=[],
         max_segments=15,
         retrieval_strategy="segments",

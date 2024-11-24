@@ -32,7 +32,7 @@ class AI21Instrumentor(BaseInstrumentor):
         trace_content = kwargs.get("trace_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("ai21")
-        
+
         #sync
         wrap_function_wrapper(
             "ai21.clients.studio.resources.chat.chat_completions",
