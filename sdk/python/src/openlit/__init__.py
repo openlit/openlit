@@ -57,6 +57,7 @@ from openlit.instrumentation.multion import MultiOnInstrumentor
 from openlit.instrumentation.dynamiq import DynamiqInstrumentor
 from openlit.instrumentation.phidata import PhidataInstrumentor
 from openlit.instrumentation.julep import JulepInstrumentor
+from openlit.instrumentation.ai21 import AI21Instrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -252,6 +253,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "premai": "premai",
         "julep": "julep",
         "astra": "astrapy",
+        "ai21": "ai21",
     }
 
     invalid_instrumentors = [
@@ -342,6 +344,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "premai": PremAIInstrumentor(),
             "julep": JulepInstrumentor(),
             "astra": AstraInstrumentor(),
+            "ai21": AI21Instrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors

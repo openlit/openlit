@@ -76,6 +76,14 @@ class SemanticConvetion:
     GEN_AI_CONTENT_COMPLETION = "gen_ai.completion"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
 
+    # GenAI Rag
+    GEN_AI_RAG_MAX_SEGMENTS = "gen_ai.rag.max_segments"
+    GEN_AI_RAG_STRATEGY = "gen_ai.rag.strategy"
+    GEN_AI_RAG_SIMILARITY_THRESHOLD = "gen_ai.rag.similarity_threshold"
+    GEN_AI_RAG_MAX_NEIGHBORS = "gen_ai.rag.max_neighbors"
+    GEN_AI_RAG_DOCUMENTS_PATH = "gen_ai.rag.documents_path"
+    GEN_AI_RAG_FILE_IDS = "gen_ai.rag.file_ids"
+
     # GenAI Evaluation Metrics
     GEN_AI_EVAL_CONTEXT_RELEVANCY = "gen_ai.eval.context_relevancy"
     GEN_AI_EVAL_ANSWER_RELEVANCY = "gen_ai.eval.answer_relevancy"
@@ -119,6 +127,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_DYNAMIQ = "dynamiq"
     GEN_AI_SYSTEM_PHIDATA = "phidata"
     GEN_AI_SYSTEM_JULEP = "julep"
+    GEN_AI_SYSTEM_AI21 = "ai21"
 
     # Vector DB
     DB_OPERATION_API_ENDPOINT = "db.operation.api_endpoint"
