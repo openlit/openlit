@@ -121,17 +121,21 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_JULEP = "julep"
 
     # Vector DB
+    DB_OPERATION_API_ENDPOINT = "db.operation.api_endpoint"
     DB_REQUESTS = "db.total.requests"
     DB_SYSTEM = "db.system"
     DB_COLLECTION_NAME = "db.collection.name"
     DB_OPERATION = "db.operation"
+    DB_OPERATION_ID = "db.operation.id"
     DB_OPERATION_STATUS = "db.operation.status"
     DB_OPERATION_COST = "db.operation.cost"
     DB_OPERATION_CREATE_INDEX = "create_index"
     DB_OPERATION_CREATE_COLLECTION = "create_collection"
     DB_OPERATION_UPDATE_COLLECTION = "update_collection"
     DB_OPERATION_DELETE_COLLECTION = "delete_collection"
+    DB_OPERATION_INSERT = "insert"
     DB_OPERATION_QUERY = "query"
+    DB_OPERATION_REPLACE = "replace"
     DB_OPERATION_DELETE = "delete"
     DB_OPERATION_UPDATE = "update"
     DB_OPERATION_UPSERT = "upsert"
@@ -166,6 +170,7 @@ class SemanticConvetion:
     DB_SYSTEM_PINECONE = "pinecone"
     DB_SYSTEM_QDRANT = "qdrant"
     DB_SYSTEM_MILVUS = "milvus"
+    DB_SYSTEM_ASTRA = "astra"
 
     # Agents
     GEN_AI_AGENT_ID = "gen_ai.agent.id"

@@ -28,6 +28,7 @@ chromadb
 pinecone-client
 qdrant-client
 pymilvus
+astrapy
 
 # Frameworks
 langchain

@@ -115,7 +115,8 @@
             "latest/integrations/chromadb",
             "latest/integrations/pinecone",
             "latest/integrations/qdrant",
-            "latest/integrations/milvus"
+            "latest/integrations/milvus",
+            "latest/integrations/astradb"
           ]
         },
         {
