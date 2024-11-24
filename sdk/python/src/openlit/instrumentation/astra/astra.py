@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment, too-many-branches
 """
 Module for monitoring AstraDB.
 """
@@ -184,7 +184,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        str(args))
                     span.set_attribute(SemanticConvetion.DB_DOCUMENTS_COUNT,
                                        response.deleted_count)
-                
+
                 elif gen_ai_endpoint == "astra.find_one_and_delete":
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE
                     span.set_attribute(SemanticConvetion.DB_OPERATION,
