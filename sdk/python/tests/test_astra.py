@@ -11,7 +11,6 @@ prior to running these tests.
 """
 
 import os
-import astrapy
 from astrapy import DataAPIClient
 import openlit
 
