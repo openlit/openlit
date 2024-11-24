@@ -104,8 +104,8 @@ async def test_async_ai21_test():
         stream=True,
         max_tokens=1,
     )
-    async for response in responses:
-        assert isinstance(response.id, str)
+    async for text in responses:
+        assert isinstance(text.id, str)
         return
 
     response = await async_client.beta.conversational_rag.create(
