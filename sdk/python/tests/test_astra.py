@@ -47,7 +47,7 @@ def test_db_chroma():
     response = collection.insert_many(
       [
           {
-              "_id": astrapy.ids.UUID("018e65c9-e33d-749b-9386-e848739582f0"),
+              "tags": ["food"],
               "summary": "A dinner on the Moon",
               "$vector": [0.2, -0.3, -0.5],
           },
