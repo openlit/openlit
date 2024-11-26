@@ -23,7 +23,7 @@ db = client.get_database_by_api_endpoint(
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-python-testing", application_name="openlit-python-astra-test")
 
-def test_db_chroma():
+def test_db_astra():
     """
     Tests basic operations within a AstraDB collection.
 

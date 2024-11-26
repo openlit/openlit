@@ -23,6 +23,7 @@ multion
 mem0ai
 julep
 ai21
+controlflow
 
 # Vector DBs
 chromadb

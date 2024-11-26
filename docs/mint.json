@@ -137,7 +137,8 @@
             "latest/integrations/phidata",
             "latest/integrations/multion",
             "latest/integrations/julep-ai",
-            "latest/integrations/dynamiq"
+            "latest/integrations/dynamiq",
+            "latest/integrations/controlflow"
           ]
         },
         {
