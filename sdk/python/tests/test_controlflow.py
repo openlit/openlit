@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module, import-error
+# pylint: disable=duplicate-code, no-name-in-module, import-error, no-member
 """
 This module contains tests for ControlFlow functionality using the ControlFlow Python library.
 
@@ -12,16 +12,14 @@ Note: Ensure the environment is properly configured for OpenAI access and OpenLI
 prior to running these tests.
 """
 
-import pytest
 import controlflow as cf
 import openlit
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-controlflow-test")
-
-MESSAGES = [
-    ChatMessage(content="say hi", role="user"),
-]
+openlit.init(
+    environment="openlit-python-testing",
+    application_name="openlit-python-controlflow-test"
+)
 
 def test_sync_controlflow_agent():
     """
@@ -47,7 +45,7 @@ def test_sync_controlflow_task():
     """
 
     task = cf.Task("Write OpenLIT AI Observability docs")
-    assert isinstance(agent, cf.Task)
+    assert isinstance(task, cf.Task)
 
 
 def test_sync_ai21_chat_rag():
