@@ -128,6 +128,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_PHIDATA = "phidata"
     GEN_AI_SYSTEM_JULEP = "julep"
     GEN_AI_SYSTEM_AI21 = "ai21"
+    GEN_AI_SYSTEM_CONTROLFLOW = "controlflow"
 
     # Vector DB
     DB_OPERATION_API_ENDPOINT = "db.operation.api_endpoint"
