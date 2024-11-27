@@ -102,7 +102,7 @@ def converse(gen_ai_endpoint, version, environment, application_name, tracer,
                         content = message["content"]
 
                         if isinstance(content, list):
-                            content_str = content_str = ", ".join(f'text: {item["text"]}' for item in content if "text" in item)
+                            content_str = ", ".join(f'text: {item["text"]}' for item in content if "text" in item)
                             formatted_messages.append(f"{role}: {content_str}")
                         else:
                             formatted_messages.append(f"{role}: {content}")
