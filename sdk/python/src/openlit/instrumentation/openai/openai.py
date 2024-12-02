@@ -103,12 +103,15 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                         content = message["content"]
 
                         if isinstance(content, list):
-                            content_str = ", ".join(
-                                # pylint: disable=line-too-long
-                                f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
-                                if "type" in item else f'text: {item["text"]}'
-                                for item in content
-                            )
+                            content_str_list = []
+                            for item in content:
+                                if item["type"] == "text":
+                                    content_str_list.append(f'text: {item["text"]}')
+                                elif (item["type"] == "image_url" and
+                                      not item["image_url"]["url"].startswith("data:")):
+                                    # pylint: disable=line-too-long
+                                    content_str_list.append(f'image_url: {item["image_url"]["url"]}')
+                            content_str = ", ".join(content_str_list)
                             formatted_messages.append(f"{role}: {content_str}")
                         else:
                             formatted_messages.append(f"{role}: {content}")
