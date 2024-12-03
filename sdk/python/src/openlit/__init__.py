@@ -38,6 +38,7 @@ from openlit.instrumentation.vllm import VLLMInstrumentor
 from openlit.instrumentation.google_ai_studio import GoogleAIStudioInstrumentor
 from openlit.instrumentation.reka import RekaInstrumentor
 from openlit.instrumentation.premai import PremAIInstrumentor
+from openlit.instrumentation.assemblyai import AssemblyAIInstrumentor
 from openlit.instrumentation.azure_ai_inference import AzureAIInferenceInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
@@ -256,6 +257,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "astra": "astrapy",
         "ai21": "ai21",
         "controlflow": "controlflow",
+        "assemblyai": "assemblyai",
     }
 
     invalid_instrumentors = [
@@ -348,6 +350,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "astra": AstraInstrumentor(),
             "ai21": AI21Instrumentor(),
             "controlflow": ControlFlowInstrumentor(),
+            "assemblyai": AssemblyAIInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors

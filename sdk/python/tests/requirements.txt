@@ -24,6 +24,7 @@ mem0ai
 julep
 ai21
 controlflow
+assemblyai
 
 # Vector DBs
 chromadb

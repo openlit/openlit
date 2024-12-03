@@ -103,6 +103,7 @@
             "latest/integrations/xai",
             "latest/integrations/elevenlabs",
             "latest/integrations/ai21",
+            "latest/integrations/assemblyai",
             "latest/integrations/reka",
             "latest/integrations/krutrim",
             "latest/integrations/titan-ml",

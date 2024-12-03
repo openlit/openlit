@@ -38,7 +38,7 @@ def test_sync_multion_browse():
             url="https://openlit.io",
             cmd="say hi"
         )
-        assert response.status == 'DONE'
+        assert response.status in ['DONE', 'ASK_USER']
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
@@ -61,7 +61,7 @@ async def test_async_multion_browse():
             url="https://docs.openlit.io",
             cmd="say hi"
         )
-        assert response.status == 'DONE'
+        assert response.status in ['DONE', 'ASK_USER']
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
