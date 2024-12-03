@@ -52,10 +52,7 @@ def transcribe(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                if response.speech_model:
-                    llm_model = response.speech_model
-                else:
-                    llm_model = "best"
+                llm_model = response.speech_model if response.speech_model else "best"
 
                 # Calculate cost of the operation
                 cost = get_audio_model_cost(llm_model,
