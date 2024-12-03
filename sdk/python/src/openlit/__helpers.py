@@ -133,7 +133,7 @@ def get_image_model_cost(model, pricing_info, size, quality):
         cost = 0
     return cost
 
-def get_audio_model_cost(model, pricing_info, prompt):
+def get_audio_model_cost(model, pricing_info, prompt, duration=None):
     """
     Retrieve the cost of processing for a given model based on prompt.
     
@@ -146,7 +146,10 @@ def get_audio_model_cost(model, pricing_info, prompt):
         float: The calculated cost for the operation.
     """
     try:
-        cost = (len(prompt) / 1000) * pricing_info["audio"][model]
+        if prompt:
+            cost = (len(prompt) / 1000) * pricing_info["audio"][model]
+        else:
+            cost = duration * pricing_info["audio"][model]
     except:
         cost = 0
     return cost

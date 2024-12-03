@@ -57,6 +57,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Reka AI](https://docs.openlit.io/latest/integrations/reka)                       |                                                                          |                                                |               |
 | [✅ xAI](https://docs.openlit.io/latest/integrations/xai)                            |                                                                          |                                                |               |
 | [✅ Prem AI](https://docs.openlit.io/latest/integrations/premai)                     |                                                                          |                                                |               |
+| [✅ Assembly AI](https://docs.openlit.io/latest/integrations/assemblyai)            |                                                                          |                                                |               |
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)

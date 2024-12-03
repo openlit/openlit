@@ -46,6 +46,7 @@ class SemanticConvetion:
     GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT = "gen_ai.request.audio_response_format"
     GEN_AI_REQUEST_AUDIO_SPEED = "gen_ai.request.audio_speed"
     GEN_AI_REQUEST_AUDIO_SETTINGS = "gen_ai.request.audio_settings"
+    GEN_AI_REQUEST_AUDIO_DURATION = "gen_ai.request.audio_duration"
     GEN_AI_REQUEST_FINETUNE_STATUS = "gen_ai.request.fine_tune_status"
     GEN_AI_REQUEST_FINETUNE_MODEL_SUFFIX = "gen_ai.request.fine_tune_model_suffix"
     GEN_AI_REQUEST_FINETUNE_MODEL_EPOCHS = "gen_ai.request.fine_tune_n_epochs"
@@ -129,6 +130,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_JULEP = "julep"
     GEN_AI_SYSTEM_AI21 = "ai21"
     GEN_AI_SYSTEM_CONTROLFLOW = "controlflow"
+    GEN_AI_SYSTEM_ASSEMBLYAI = "assemblyai"
 
     # Vector DB
     DB_OPERATION_API_ENDPOINT = "db.operation.api_endpoint"

@@ -79,7 +79,9 @@
         "eleven_english_v1": 0.24,
         "eleven_turbo_v2": 0.24,
         "eleven_english_sts_v2": 0.24,
-        "eleven_multilingual_sts_v2": 0.24
+        "eleven_multilingual_sts_v2": 0.24,
+        "best": 0.00010277777,
+        "nano": 0.00003333333
     },
     "chat": {
         "gpt-4o": {
