@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module, import-error
+# pylint: disable=duplicate-code, no-name-in-module, import-error, no-member
 """
 This module contains tests for Assembly AI functionality using the Assembly AI Python library.
 
@@ -12,11 +12,8 @@ Note: Ensure the environment is properly configured for Assembly AI access and O
 prior to running these tests.
 """
 
-import os
 import assemblyai as aai
 import openlit
-
-aai.settings.api_key = os.getenv("ASSEMBLYAI_API_KEY")
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(
