@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, unused-import
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, unused-import, too-many-function-args
 """
 Module for monitoring Langchain applications.
 """
@@ -569,10 +569,11 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                         },
                     )
+                    completion_content = getattr(response, 'content', "")
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: getattr(response, 'content', ""),
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: completion_content,
                         },
                     )
 
