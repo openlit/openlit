@@ -6,7 +6,7 @@ Module for monitoring Langchain applications.
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import handle_exception, get_chat_model_cost, general_tokens
+from openlit.__helpers import handle_exception, get_chat_model_cost, general_tokens, openai_tokens
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -516,7 +516,6 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     prompt = "" if isinstance(args[0], list) else args[0]
                 else:
                     if not isinstance(response, dict) or "output_text" not in response:
-                        logger.warning(f"Ignoring uninstrumented response: {response}")
                         return response
                     # Fallback: Calculate tokens manually if response_metadata is missing
                     model = "gpt-4o-mini"  # Fallback model
