@@ -15,6 +15,7 @@ import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { jsonParse } from "@/utils/json";
 import { objectEntries } from "@/utils/object";
+import { unescapeString } from "@/utils/string";
 import { format, formatDistance } from "date-fns";
 import { CalendarDays, CloudDownload, Rocket } from "lucide-react";
 import Link from "next/link";
@@ -190,8 +191,8 @@ export default function PromptHub() {
 					<h3 className="text-sm text-stone-500 mb-2 dark:text-stone-400">
 						Prompt
 					</h3>
-					<div className="flex bg-stone-100 dark:bg-stone-900 text-stone-500 dark:text-stone-300 p-4 gap-8">
-						{updatedData.prompt}
+					<div className="flex bg-stone-100 dark:bg-stone-900 text-stone-500 dark:text-stone-300 p-4 gap-8 whitespace-pre-wrap">
+						{unescapeString(updatedData.prompt)}
 					</div>
 				</div>
 				{metaPropertiesMap.length > 0 ? (

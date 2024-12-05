@@ -7,6 +7,7 @@ import { updateDownloadDetails } from "./version";
 import { jsonParse } from "@/utils/json";
 import { throwIfError } from "@/utils/error";
 import getMessage from "@/constants/messages";
+import { unescapeString } from "@/utils/string";
 
 function compilePrompt(
 	prompt: string,
@@ -66,6 +67,7 @@ export async function getCompiledPrompt(
 
 	promptObject.metaProperties = jsonParse(promptObject.metaProperties);
 	promptObject.tags = jsonParse(promptObject.tags);
+	promptObject.prompt = unescapeString(promptObject.prompt);
 
 	if (promptCompiledInput.shouldCompile === false) {
 		promptObject.compiledPrompt = promptObject.prompt;
