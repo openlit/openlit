@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, unused-import
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, unused-import, too-many-function-args
 """
 Module for monitoring Langchain applications.
 """
@@ -507,12 +507,25 @@ def chat(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                token_usage = response.response_metadata.get("token_usage", {})
-                input_tokens = token_usage.get("prompt_tokens", 0)
-                output_tokens = token_usage.get("completion_tokens", 0)
-                model = response.response_metadata.get("model_name", "gpt-4")
-
-                prompt = "" if isinstance(args[0], list) else args[0]
+                prompt = ""
+                if hasattr(response, 'response_metadata') and response.response_metadata:
+                    token_usage = response.response_metadata.get("token_usage", {})
+                    input_tokens = token_usage.get("prompt_tokens", 0)
+                    output_tokens = token_usage.get("completion_tokens", 0)
+                    model = response.response_metadata.get("model_name", "gpt-4")
+                    prompt = "" if isinstance(args[0], list) else args[0]
+                else:
+                    if not isinstance(response, dict) or "output_text" not in response:
+                        return response
+                    # Fallback: Calculate tokens manually if response_metadata is missing
+                    model = "gpt-4o-mini"  # Fallback model
+                    input_texts = [
+                    doc.page_content for doc in response.get("input_documents", [])
+                    if isinstance(doc.page_content, str)
+                    ]
+                    input_tokens = sum(general_tokens(text, model) for text in input_texts)
+                    output_text = response.get("output_text", "")
+                    output_tokens = general_tokens(output_text, model)
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
@@ -556,10 +569,11 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                         },
                     )
+                    completion_content = getattr(response, 'content', "")
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.content,
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: completion_content,
                         },
                     )
 

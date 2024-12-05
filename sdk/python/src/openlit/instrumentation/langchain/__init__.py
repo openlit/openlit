@@ -71,6 +71,12 @@ WRAPPED_METHODS = [
         "endpoint": "langchain.chat_models",
         "wrapper": achat,
     },
+    {
+        "package": "langchain.chains.base",
+        "object": "Chain.invoke",
+        "endpoint": "langchain.chain.invoke",
+        "wrapper": chat,
+    }
 ]
 
 class LangChainInstrumentor(BaseInstrumentor):
