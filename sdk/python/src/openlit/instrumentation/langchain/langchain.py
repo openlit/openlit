@@ -6,7 +6,7 @@ Module for monitoring Langchain applications.
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import handle_exception, get_chat_model_cost, general_tokens, openai_tokens
+from openlit.__helpers import handle_exception, get_chat_model_cost, general_tokens
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
@@ -523,9 +523,9 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     doc.page_content for doc in response.get("input_documents", [])
                     if isinstance(doc.page_content, str)
                     ]
-                    input_tokens = sum(openai_tokens(text, model) for text in input_texts)
+                    input_tokens = sum(general_tokens(text, model) for text in input_texts)
                     output_text = response.get("output_text", "")
-                    output_tokens = openai_tokens(output_text, model)
+                    output_tokens = general_tokens(output_text, model)
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
@@ -562,7 +562,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                     input_tokens + output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
-                if trace_content and hasattr(response, 'content'):
+                if trace_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
@@ -572,7 +572,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.content,
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: getattr(response, 'content', ""),
                         },
                     )
 
