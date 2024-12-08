@@ -523,9 +523,9 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     doc.page_content for doc in response.get("input_documents", [])
                     if isinstance(doc.page_content, str)
                     ]
-                    input_tokens = sum(general_tokens(text, model) for text in input_texts)
+                    input_tokens = sum(general_tokens(text) for text in input_texts)
                     output_text = response.get("output_text", "")
-                    output_tokens = general_tokens(output_text, model)
+                    output_tokens = general_tokens(output_text)
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
