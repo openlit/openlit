@@ -229,7 +229,7 @@ We are dedicated to continuously improving OpenLIT SDKs. Here's a look at what's
 | [OpenTelemetry-native auto-instrumentation for NVIDIA GPU Monitoring](https://docs.openlit.io/latest/features/gpu)           | ✅ Completed  |
 | [Real-Time Guardrails Implementation](https://docs.openlit.io/latest/features/guardrails)                                                      | ✅ Completed    |
 | [Programmatic Evaluation for LLM Response](https://docs.openlit.io/latest/features/evaluations)                                                      | ✅ Completed    |
-| [OpenTelmetry-native AI Agent Observability]()             | ✅ Completed  |
+| [OpenTelemetry-native AI Agent Observability]()             | ✅ Completed  |
 
 
 ## 🌱 Contributing
