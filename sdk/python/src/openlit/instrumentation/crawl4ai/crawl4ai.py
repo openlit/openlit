@@ -1,6 +1,6 @@
 # pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
-Module for monitoring Dynamiq calls.
+Module for monitoring Crawl4AI calls.
 """
 
 import logging
@@ -14,7 +14,7 @@ from openlit.semcov import SemanticConvetion
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def dynamiq_wrap(gen_ai_endpoint, version, environment, application_name,
+def wrap_crawl(gen_ai_endpoint, version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
@@ -23,9 +23,9 @@ def dynamiq_wrap(gen_ai_endpoint, version, environment, application_name,
         gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using the dynamiq Agent.
+        application_name: Name of the application using the Crawl4AI Agent.
         tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of dynamiq usage.
+        pricing_info: Information used for calculating the cost of Crawl4AI usage.
         trace_content: Flag indicating whether to trace the actual content.
 
     Returns:
@@ -57,7 +57,7 @@ def dynamiq_wrap(gen_ai_endpoint, version, environment, application_name,
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_DYNAMIQ)
+                                    SemanticConvetion.GEN_AI_SYSTEM_CRAWL4AI)
                 span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
                                     SemanticConvetion.GEN_AI_TYPE_AGENT)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
@@ -66,34 +66,44 @@ def dynamiq_wrap(gen_ai_endpoint, version, environment, application_name,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
+                span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TYPE,
+                                    "browser")
 
-                if gen_ai_endpoint == "dynamiq.agent_run":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
-                                       getattr(instance, 'id', '') or '')
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ROLE,
-                                       getattr(instance, 'name', '') or '')
+                if kwargs.get("url", "") == "":
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
+                                    str(args[0]))
+                else:
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
+                                    kwargs.get("url"))
+
+                extraction_strategy = kwargs.get("extraction_strategy", "NoExtractionStrategy")
+
+                if extraction_strategy == "NoExtractionStrategy":
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
+                                    extraction_strategy)
+
+                elif extraction_strategy.name == "LLMExtractionStrategy":
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
+                                    extraction_strategy.name)
+                    _, llm_model = extraction_strategy.provider.split('/')
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                       getattr(getattr(instance, 'llm', None), 'model', '') or '')
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TYPE,
-                                        str(getattr(instance, 'type', '')) or '')
+                                    llm_model)
 
-                elif gen_ai_endpoint == "dynamiq.workflow_run":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
-                                       getattr(instance, 'id', '') or '')
+                elif extraction_strategy.name == "CosineStrategy":
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
+                                    extraction_strategy.name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                      getattr(getattr(instance.flow, 'nodes', [None])[0], 'model', 'default_model'))
+                                    "all-MiniLM-L6-v2")
 
-                elif gen_ai_endpoint == "dynamiq.memory_add":
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
-                                       SemanticConvetion.DB_OPERATION_ADD)
-                    span.set_attribute(SemanticConvetion.DB_METADATA, str(kwargs.get('metadata', '')))
+                elif extraction_strategy.name == "JsonCssExtractionStrategy":
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
+                                    extraction_strategy.name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_SCHEMA,
+                                    str(extraction_strategy.schema))
 
-                elif gen_ai_endpoint == "dynamiq.memory_search":
-                    query_value = kwargs.get('query', '') or (args[0] if args else '')
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
-                                       SemanticConvetion.DB_OPERATION_GET)
-                    span.set_attribute(SemanticConvetion.DB_FILTER, str(kwargs.get('filters', '')))
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT, query_value)
+                elif extraction_strategy.name == "ContentSummarizationStrategy":
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
+                                    extraction_strategy.name)
 
                 span.set_status(Status(StatusCode.OK))
 

@@ -60,6 +60,7 @@ from openlit.instrumentation.phidata import PhidataInstrumentor
 from openlit.instrumentation.julep import JulepInstrumentor
 from openlit.instrumentation.ai21 import AI21Instrumentor
 from openlit.instrumentation.controlflow import ControlFlowInstrumentor
+from openlit.instrumentation.crawl4ai import Crawl4AIInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -258,6 +259,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "ai21": "ai21",
         "controlflow": "controlflow",
         "assemblyai": "assemblyai",
+        "crawl4ai": "crawl4ai",
     }
 
     invalid_instrumentors = [
@@ -351,6 +353,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "ai21": AI21Instrumentor(),
             "controlflow": ControlFlowInstrumentor(),
             "assemblyai": AssemblyAIInstrumentor(),
+            "crawl4ai": Crawl4AIInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
