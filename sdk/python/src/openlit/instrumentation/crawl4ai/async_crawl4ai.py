@@ -68,42 +68,26 @@ def async_wrap_crawl(gen_ai_endpoint, version, environment, application_name,
                                     environment)
                 span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TYPE,
                                     "browser")
+                span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ENABLE_CACHE, not kwargs.get("disable_cache", False))
 
-                if kwargs.get("url", "") == "":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
-                                    str(args[0]))
-                else:
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
-                                    kwargs.get("url"))
+                url = kwargs.get("url") if "url" in kwargs else str(args[0]) if args else None
+                if url is not None:
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL, url)
 
                 extraction_strategy = kwargs.get("extraction_strategy", "NoExtractionStrategy")
-
-                if extraction_strategy == "NoExtractionStrategy":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
-                                    extraction_strategy)
-
-                elif extraction_strategy.name == "LLMExtractionStrategy":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
-                                    extraction_strategy.name)
+                extraction_name = extraction_strategy.name if hasattr(extraction_strategy, 'name') else extraction_strategy
+                
+                span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY, extraction_name)
+                
+                if extraction_name == "LLMExtractionStrategy" and hasattr(extraction_strategy, 'provider'):
                     _, llm_model = extraction_strategy.provider.split('/')
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                    llm_model)
-
-                elif extraction_strategy.name == "CosineStrategy":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
-                                    extraction_strategy.name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                    "all-MiniLM-L6-v2")
-
-                elif extraction_strategy.name == "JsonCssExtractionStrategy":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
-                                    extraction_strategy.name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_SCHEMA,
-                                    str(extraction_strategy.schema))
-
-                elif extraction_strategy.name == "ContentSummarizationStrategy":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY,
-                                    extraction_strategy.name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, llm_model)
+                    
+                elif extraction_name == "CosineStrategy":
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, "all-MiniLM-L6-v2")
+                    
+                elif extraction_name == "JsonCssExtractionStrategy" and hasattr(extraction_strategy, 'schema'):
+                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_SCHEMA, str(extraction_strategy.schema))
 
                 span.set_status(Status(StatusCode.OK))
 
