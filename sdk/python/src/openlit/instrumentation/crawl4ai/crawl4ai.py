@@ -82,7 +82,7 @@ def wrap_crawl(gen_ai_endpoint, version, environment, application_name,
                 if extraction_name == "LLMExtractionStrategy" and hasattr(extraction_strategy, 'provider'):
                     _, llm_model = extraction_strategy.provider.split('/')
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, llm_model)
- 
+
                 elif extraction_name == "CosineStrategy":
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, "all-MiniLM-L6-v2")
 
