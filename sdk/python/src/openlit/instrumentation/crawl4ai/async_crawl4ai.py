@@ -76,16 +76,16 @@ def async_wrap_crawl(gen_ai_endpoint, version, environment, application_name,
 
                 extraction_strategy = kwargs.get("extraction_strategy", "NoExtractionStrategy")
                 extraction_name = extraction_strategy.name if hasattr(extraction_strategy, 'name') else extraction_strategy
-                
+
                 span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY, extraction_name)
-                
+
                 if extraction_name == "LLMExtractionStrategy" and hasattr(extraction_strategy, 'provider'):
                     _, llm_model = extraction_strategy.provider.split('/')
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, llm_model)
-                    
+
                 elif extraction_name == "CosineStrategy":
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, "all-MiniLM-L6-v2")
-                    
+
                 elif extraction_name == "JsonCssExtractionStrategy" and hasattr(extraction_strategy, 'schema'):
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_SCHEMA, str(extraction_strategy.schema))
 
