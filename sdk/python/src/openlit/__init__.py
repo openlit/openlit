@@ -62,6 +62,7 @@ from openlit.instrumentation.ai21 import AI21Instrumentor
 from openlit.instrumentation.controlflow import ControlFlowInstrumentor
 from openlit.instrumentation.crawl4ai import Crawl4AIInstrumentor
 from openlit.instrumentation.firecrawl import FireCrawlInstrumentor
+from openlit.instrumentation.letta import LettaInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -262,6 +263,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "assemblyai": "assemblyai",
         "crawl4ai": "crawl4ai",
         "firecrawl": "firecrawl",
+        "letta": "letta",
     }
 
     invalid_instrumentors = [
@@ -357,6 +359,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "assemblyai": AssemblyAIInstrumentor(),
             "crawl4ai": Crawl4AIInstrumentor(),
             "firecrawl": FireCrawlInstrumentor(),
+            "letta": LettaInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors

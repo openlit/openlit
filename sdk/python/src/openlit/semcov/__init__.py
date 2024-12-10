@@ -133,6 +133,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_ASSEMBLYAI = "assemblyai"
     GEN_AI_SYSTEM_CRAWL4AI = "crawl4ai"
     GEN_AI_SYSTEM_FIRECRAWL = "firecrawl"
+    GEN_AI_SYSTEM_LETTA = "letta"
 
     # Vector DB
     DB_OPERATION_API_ENDPOINT = "db.operation.api_endpoint"
