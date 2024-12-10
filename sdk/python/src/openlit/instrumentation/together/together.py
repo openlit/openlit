@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches, too-many-instance-attributes
 """
 Module for monitoring Together calls.
 """
@@ -8,7 +8,6 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
     get_chat_model_cost,
-    general_tokens,
     get_image_model_cost,
     handle_exception,
     response_as_dict,
@@ -323,7 +322,7 @@ def completion(gen_ai_endpoint, version, environment, application_name,
                                                         "model",
                                                         "meta-llama/Llama-3.3-70B-Instruct-Turbo"
                                                     ),
-                                                    pricing_info, 
+                                                    pricing_info,
                                                     response_dict.get('usage', {}).get('prompt_tokens', None),
                                                     response_dict.get('usage', {}).get('completion_tokens', None))
 
@@ -473,7 +472,7 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
                     image = "url"
 
                 # Calculate cost of the operation
-                image_size = str(kwargs.get("height", 1024)) + "x" + str(kwargs.get("width", 1024))
+                image_size = str(kwargs.get("width", 1024)) + "x" + str(kwargs.get("height", 1024))
                 cost = get_image_model_cost(kwargs.get("model", "black-forest-labs/FLUX.1-dev"),
                                             pricing_info, image_size,
                                             kwargs.get("quality", "standard"))

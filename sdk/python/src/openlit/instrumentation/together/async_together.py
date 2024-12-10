@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches, too-many-instance-attributes
 """
 Module for monitoring Together calls.
 """
@@ -8,7 +8,6 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
     get_chat_model_cost,
-    general_tokens,
     get_image_model_cost,
     handle_exception,
     response_as_dict,
@@ -58,6 +57,9 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
             # Placeholder for aggregating streaming response
             self._llmresponse = ""
             self._response_id = ""
+            self._prompt_tokens = 0
+            self._completion_tokens = 0
+            self._total_tokens = 0
 
             self._args = args
             self._kwargs = kwargs
@@ -138,7 +140,10 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                     self._span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                         application_name)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                        self._kwargs.get("model", "meta-llama/Llama-3.3-70B-Instruct-Turbo"))
+                                        self._kwargs.get(
+                                            "model",
+                                            "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+                                        ))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         self._kwargs.get("user", ""))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
@@ -452,7 +457,7 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                     image = "url"
 
                 # Calculate cost of the operation
-                image_size = str(kwargs.get("height", 1024)) + "x" + str(kwargs.get("width", 1024))
+                image_size = str(kwargs.get("width", 1024)) + "x" + str(kwargs.get("height", 1024))
                 cost = get_image_model_cost(kwargs.get("model", "black-forest-labs/FLUX.1-dev"),
                                             pricing_info, image_size,
                                             kwargs.get("quality", "standard"))

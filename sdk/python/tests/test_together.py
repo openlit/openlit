@@ -13,7 +13,7 @@ prior to running these tests.
 """
 
 import pytest
-from together import Together
+from together import Together, AsyncTogether
 import openlit
 
 # Initialize synchronous Together client
@@ -44,7 +44,7 @@ def test_sync_together_chat():
         max_tokens=1,
         stream=False,
     )
-    assert message.model == 'meta-llama/Llama-3.3-70B-Instruct-Turbo'
+    assert response.model == 'meta-llama/Llama-3.3-70B-Instruct-Turbo'
 
 def test_sync_together_image():
     """
@@ -62,7 +62,7 @@ def test_sync_together_image():
         n=1,
     )
 
-    assert message.model == 'black-forest-labs/FLUX.1-dev'
+    assert response.model == 'black-forest-labs/FLUX.1-dev'
 
 @pytest.mark.asyncio
 async def test_async_together_chat():
@@ -84,7 +84,7 @@ async def test_async_together_chat():
         max_tokens=1,
         stream=False,
     )
-    assert message.model == 'meta-llama/Llama-3.3-70B-Instruct-Turbo'
+    assert response.model == 'meta-llama/Llama-3.3-70B-Instruct-Turbo'
 
 @pytest.mark.asyncio
 async def test_async_together_image():
@@ -103,4 +103,4 @@ async def test_async_together_image():
         n=1,
     )
 
-    assert message.model == 'black-forest-labs/FLUX.1-dev'
+    assert response.model == 'black-forest-labs/FLUX.1-dev'
