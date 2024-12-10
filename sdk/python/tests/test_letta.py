@@ -32,12 +32,16 @@ def test_sync_letta_agent_ops():
 
     # set automatic defaults for LLM/embedding config
     sync_client.set_default_llm_config(LLMConfig.default_config(model_name="gpt-4"))
-    sync_client.set_default_embedding_config(EmbeddingConfig.default_config(model_name="text-embedding-ada-002"))
+    sync_client.set_default_embedding_config(
+        EmbeddingConfig.default_config(
+            model_name="text-embedding-ada-002"
+        )
+    )
 
     # create a new agent
-    response = client.create_agent()
+    response = sync_client.create_agent()
     assert isinstance(response.name, str)
 
     # Message an agent
-    response = client.send_message(agent_id=response.id, role="user", message="hello")
+    response = sync_client.send_message(agent_id=response.id, role="user", message="hello")
     assert isinstance(response.usage.total_tokens, int)
