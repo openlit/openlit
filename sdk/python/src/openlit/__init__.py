@@ -52,6 +52,7 @@ from openlit.instrumentation.milvus import MilvusInstrumentor
 from openlit.instrumentation.astra import AstraInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
 from openlit.instrumentation.litellm import LiteLLMInstrumentor
+from openlit.instrumentation.together import TogetherInstrumentor
 from openlit.instrumentation.crewai import CrewAIInstrumentor
 from openlit.instrumentation.ag2 import AG2Instrumentor
 from openlit.instrumentation.multion import MultiOnInstrumentor
@@ -188,7 +189,6 @@ def instrument_if_available(
                 metrics_dict=config.metrics_dict,
                 disable_metrics=config.disable_metrics,
             )
-            logger.info("Instrumented %s", instrumentor_name)
         else:
             # pylint: disable=line-too-long
             logger.info("Library for %s (%s) not found. Skipping instrumentation", instrumentor_name, module_name)
@@ -264,6 +264,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "crawl4ai": "crawl4ai",
         "firecrawl": "firecrawl",
         "letta": "letta",
+        "together": "together",
     }
 
     invalid_instrumentors = [
@@ -360,6 +361,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "crawl4ai": Crawl4AIInstrumentor(),
             "firecrawl": FireCrawlInstrumentor(),
             "letta": LettaInstrumentor(),
+            "together": TogetherInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
