@@ -25,6 +25,7 @@ julep
 ai21
 controlflow
 assemblyai
+firecrawl-py
 
 # Vector DBs
 chromadb
