@@ -140,8 +140,10 @@ def completion(gen_ai_endpoint, version, environment, application_name,
                     self._span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                         application_name)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                        self._kwargs.get("model",
-                                        "meta-llama/Llama-3.3-70B-Instruct-Turbo"))
+                                        self._kwargs.get(
+                                            "model",
+                                            "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+                                        ))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         self._kwargs.get("user", ""))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
@@ -371,6 +373,7 @@ def completion(gen_ai_endpoint, version, environment, application_name,
                                                     pricing_info,
                                                     response_dict.get('usage').get('prompt_tokens'),
                                                     response_dict.get('usage').get('completion_tokens'))
+
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
@@ -473,10 +476,13 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
 
                 # Calculate cost of the operation
                 image_size = str(kwargs.get("width", 1024)) + "x" + str(kwargs.get("height", 1024))
-                cost_per_million = get_image_model_cost(kwargs.get("model", "black-forest-labs/FLUX.1-dev"),
+                cost_per_million = get_image_model_cost(kwargs.get(
+                                            "model", "black-forest-labs/FLUX.1-dev"
+                                            ),
                                             pricing_info, "1000000",
                                             kwargs.get("quality", "standard"))
-                cost = (kwargs.get("width", 1024) * kwargs.get("height", 1024)) / 1_000_000 * cost_per_million
+                pixels = kwargs.get("width", 1024) * kwargs.get("height", 1024)
+                cost = pixels / 1_000_000 * cost_per_million
 
                 for items in response.data:
                     # Set Span attributes
