@@ -67,7 +67,7 @@ def async_wrap_crawl(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
                 span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TYPE,
-                                    "browser")
+                                    SemanticConvetion.GEN_AI_AGENT_TYPE_BROWSER)
                 span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ENABLE_CACHE, not kwargs.get("disable_cache", False))
 
                 url = kwargs.get("url") if "url" in kwargs else str(args[0]) if args else None

@@ -132,6 +132,7 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_CONTROLFLOW = "controlflow"
     GEN_AI_SYSTEM_ASSEMBLYAI = "assemblyai"
     GEN_AI_SYSTEM_CRAWL4AI = "crawl4ai"
+    GEN_AI_SYSTEM_FIRECRAWL = "firecrawl"
 
     # Vector DB
     DB_OPERATION_API_ENDPOINT = "db.operation.api_endpoint"
@@ -200,6 +201,7 @@ class SemanticConvetion:
     GEN_AI_AGENT_TOOLS = "gen_ai.agent.tools"
     GEN_AI_AGENT_TOOL_RESULTS = "gen_ai.agent.tool_results"
     GEN_AI_AGENT_TASK = "gen_ai.agent.task"
+    GEN_AI_AGENT_PARAMS = "gen_ai.agent.params"
     GEN_AI_AGENT_INSTRUCTIONS = "gen_ai.agent.instructions"
     GEN_AI_AGENT_STORAGE = "gen_ai.agent.storage"
     GEN_AI_AGENT_EXPECTED_OUTPUT = "gen_ai.agent.expected_output"
@@ -211,6 +213,8 @@ class SemanticConvetion:
     GEN_AI_AGENT_STEP_COUNT = "gen_ai.agent.step_count"
     GEN_AI_AGENT_RESPONSE_TIME = "gen_ai.agent.response_time"
     GEN_AI_AGENT_STRATEGY = "gen_ai.agent.strategy"
+
+    GEN_AI_AGENT_TYPE_BROWSER = "browser"
 
     # GPU
     GPU_INDEX = "gpu.index"
