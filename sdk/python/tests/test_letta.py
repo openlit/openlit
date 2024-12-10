@@ -17,7 +17,7 @@ from letta import EmbeddingConfig, LLMConfig, create_client
 import openlit
 
 # Initialize synchronous Letta client
-sync_client create_client()
+sync_client = create_client()
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-python-testing", application_name="openlit-python-letta-test")

@@ -4,7 +4,6 @@ Module for monitoring Letta calls.
 """
 
 import logging
-import json
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
@@ -156,7 +155,7 @@ def send_message(gen_ai_endpoint, version, environment, application_name,
                                     response.usage.total_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
-                
+
                 if trace_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -171,19 +170,6 @@ def send_message(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_CONTENT_COMPLETION: str(response.messages),
                         },
                     )
-                
-                # span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
-                #                     response.id)
-                # span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ROLE,
-                #                     response.name)
-                # span.set_attribute(SemanticConvetion.GEN_AI_AGENT_INSTRUCTIONS,
-                #                     response.system)
-                # span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                #                     response.llm_config.model)
-                # span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TYPE,
-                #                     response.agent_type)
-                # span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TOOLS,
-                #                     response.tool_names)
 
                 span.set_status(Status(StatusCode.OK))
 
