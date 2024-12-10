@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches, too-many-instance-attributes
 """
 Module for monitoring Together calls.
 """
@@ -8,7 +8,6 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from openlit.__helpers import (
     get_chat_model_cost,
-    general_tokens,
     get_image_model_cost,
     handle_exception,
     response_as_dict,
@@ -58,6 +57,9 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
             # Placeholder for aggregating streaming response
             self._llmresponse = ""
             self._response_id = ""
+            self._prompt_tokens = 0
+            self._completion_tokens = 0
+            self._total_tokens = 0
 
             self._args = args
             self._kwargs = kwargs
@@ -116,7 +118,10 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                     prompt = "\n".join(formatted_messages)
 
                     # Calculate cost of the operation
-                    cost = get_chat_model_cost(self._kwargs.get("model", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+                    cost = get_chat_model_cost(self._kwargs.get(
+                                                "model",
+                                                "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+                                                ),
                                                 pricing_info, self._prompt_tokens,
                                                 self._completion_tokens)
 
@@ -135,7 +140,10 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                     self._span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                         application_name)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                        self._kwargs.get("model", "meta-llama/Llama-3.3-70B-Instruct-Turbo"))
+                                        self._kwargs.get(
+                                            "model",
+                                            "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+                                        ))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         self._kwargs.get("user", ""))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
@@ -189,15 +197,20 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_TYPE:
                                 SemanticConvetion.GEN_AI_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                                self._kwargs.get("model", "meta-llama/Llama-3.3-70B-Instruct-Turbo")
+                                self._kwargs.get("model",
+                                "meta-llama/Llama-3.3-70B-Instruct-Turbo")
                         }
 
                         metrics["genai_requests"].add(1, attributes)
                         metrics["genai_total_tokens"].add(
                             self._total_tokens, attributes
                         )
-                        metrics["genai_completion_tokens"].add(self._completion_tokens, attributes)
-                        metrics["genai_prompt_tokens"].add(self._prompt_tokens, attributes)
+                        metrics["genai_completion_tokens"].add(
+                            self._completion_tokens, attributes
+                        )
+                        metrics["genai_prompt_tokens"].add(
+                            self._prompt_tokens, attributes
+                        )
                         metrics["genai_cost"].record(cost, attributes)
 
                 except Exception as e:
@@ -278,7 +291,8 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                        kwargs.get("model", "meta-llama/Llama-3.3-70B-Instruct-Turbo"))
+                                        kwargs.get("model",
+                                        "meta-llama/Llama-3.3-70B-Instruct-Turbo"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
                                         kwargs.get("top_p", 1.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
@@ -306,8 +320,12 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                     # Set span attributes when tools is not passed to the function call
                     if "tools" not in kwargs:
                         # Calculate cost of the operation
-                        cost = get_chat_model_cost(kwargs.get("model", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
-                                                    pricing_info, response_dict.get('usage', {}).get('prompt_tokens', None),
+                        cost = get_chat_model_cost(kwargs.get(
+                                                        "model",
+                                                        "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+                                                    ),
+                                                    pricing_info,
+                                                    response_dict.get('usage', {}).get('prompt_tokens', None),
                                                     response_dict.get('usage', {}).get('completion_tokens', None))
 
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
@@ -348,9 +366,14 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                     # Set span attributes when tools is passed to the function call
                     elif "tools" in kwargs:
                         # Calculate cost of the operation
-                        cost = get_chat_model_cost(kwargs.get("model", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
-                                                    pricing_info, response_dict.get('usage').get('prompt_tokens'),
+                        cost = get_chat_model_cost(kwargs.get(
+                                                    "model",
+                                                    "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+                                                    ),
+                                                    pricing_info,
+                                                    response_dict.get('usage').get('prompt_tokens'),
                                                     response_dict.get('usage').get('completion_tokens'))
+
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
@@ -385,9 +408,12 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                         }
 
                         metrics["genai_requests"].add(1, attributes)
-                        metrics["genai_total_tokens"].add(response_dict.get('usage').get('total_tokens'), attributes)
-                        metrics["genai_completion_tokens"].add(response_dict.get('usage').get('completion_tokens'), attributes)
-                        metrics["genai_prompt_tokens"].add(response_dict.get('usage').get('prompt_tokens'), attributes)
+                        metrics["genai_total_tokens"].add(
+                            response_dict.get('usage').get('total_tokens'), attributes)
+                        metrics["genai_completion_tokens"].add(
+                            response_dict.get('usage').get('completion_tokens'), attributes)
+                        metrics["genai_prompt_tokens"].add(
+                            response_dict.get('usage').get('prompt_tokens'), attributes)
                         metrics["genai_cost"].record(cost, attributes)
 
                     # Return original response
@@ -449,10 +475,14 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                     image = "url"
 
                 # Calculate cost of the operation
-                image_size = str(kwargs.get("height", 1024)) + "x" + str(kwargs.get("width", 1024))
-                cost = get_image_model_cost(kwargs.get("model", "black-forest-labs/FLUX.1-dev"),
-                                            pricing_info, image_size,
+                image_size = str(kwargs.get("width", 1024)) + "x" + str(kwargs.get("height", 1024))
+                cost_per_million = get_image_model_cost(kwargs.get(
+                                            "model", "black-forest-labs/FLUX.1-dev"
+                                            ),
+                                            pricing_info, "1000000",
                                             kwargs.get("quality", "standard"))
+                pixels = kwargs.get("width", 1024) * kwargs.get("height", 1024)
+                cost = pixels / 1_000_000 * cost_per_million
 
                 for items in response.data:
                     # Set Span attributes

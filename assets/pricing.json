@@ -59,6 +59,47 @@
                 "256x256": 0.016
             }
         },
+        "black-forest-labs/FLUX.1-dev": {
+            "standard": {
+                "1000000": 0.025
+            }
+        },
+        "black-forest-labs/FLUX.1-canny": {
+            "standard": {
+                "1000000": 0.025
+            }
+        },
+        "black-forest-labs/FLUX.1-depth": {
+            "standard": {
+                "1000000": 0.025
+            }
+        },
+        "black-forest-labs/FLUX.1-redux": {
+            "standard": {
+                "1000000": 0.025
+            }
+        },
+        "black-forest-labs/FLUX.1-schnell": {
+            "standard": {
+                "1000000": 0.0027
+            }
+        },
+        "black-forest-labs/FLUX.1-pro": {
+            "standard": {
+                "1000000": 0.04
+            }
+        },
+        "black-forest-labs/FLUX.1.1-pro": {
+            "standard": {
+                "1000000": 0.05
+            }
+        },
+        "stabilityai/stable-diffusion-xl-base-1.0": {
+            "standard": {
+                "512X512": 0.001,
+                "1024x1024": 0.01
+            }
+        },
         "amazon.titan-image-generator-v1": {
             "standard": {
                 "512x512": 0.008,
@@ -431,6 +472,58 @@
         "jamba-1.5-large": {
             "promptPrice": 0.002,
             "completionPrice": 0.008
+        },
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+            "promptPrice": 0.00088,
+            "completionPrice": 0.00088
+        },
+        "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo-vLLM-json":{
+            "promptPrice": 0.00088,
+            "completionPrice": 0.00088
+        },
+        "meta-llama/Meta-Llama-3.1-405B-Instruct-Lite-Pro-lora":{
+            "promptPrice": 0.00088,
+            "completionPrice": 0.00088
+        },
+        "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo":{
+            "promptPrice": 0.00088,
+            "completionPrice": 0.00088
+        },
+        "Qwen/QwQ-32B-Preview":{
+            "promptPrice": 0.0012,
+            "completionPrice": 0.0012
+        },
+        "codellama/CodeLlama-34b-Instruct-hf":{
+            "promptPrice": 0.0008,
+            "completionPrice":0.0008
+        },
+        "databricks/dbrx-instruct":{
+            "promptPrice": 0.0012,
+            "completionPrice": 0.0012
+        },
+        "deepseek-ai/deepseek-llm-67b-chat":{
+            "promptPrice": 0.0009,
+            "completionPrice": 0.0009
+        },
+        "google/gemma-2b-it":{
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0001
+        },
+        "google/gemma-2-27b-it":{
+            "promptPrice": 0.0008,
+            "completionPrice": 0.0008
+        },
+        "google/gemma-2-9b-it":{
+            "promptPrice": 0.0003,
+            "completionPrice": 0.0003
+        },
+        "Gryphe/MythoMax-L2-13b-Lite":{
+            "promptPrice": 0.0003,
+            "completionPrice": 0.0003
+        },
+        "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF":{
+            "promptPrice": 0.0088,
+            "completionPrice": 0.0088
         }
     }
 }
