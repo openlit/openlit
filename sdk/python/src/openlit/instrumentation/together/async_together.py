@@ -116,7 +116,10 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                     prompt = "\n".join(formatted_messages)
 
                     # Calculate cost of the operation
-                    cost = get_chat_model_cost(self._kwargs.get("model", "meta-llama/Llama-3.3-70B-Instruct-Turbo"),
+                    cost = get_chat_model_cost(self._kwargs.get(
+                                                "model",
+                                                "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+                                                ),
                                                 pricing_info, self._prompt_tokens,
                                                 self._completion_tokens)
 
