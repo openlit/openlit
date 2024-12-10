@@ -36,6 +36,7 @@ env:
   ASTRA_DB_APPLICATION_TOKEN: ${{ secrets.ASTRA_DB_APPLICATION_TOKEN }}
   AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
   ASSEMBLYAI_API_KEY: ${{ secrets.ASSEMBLYAI_API_KEY }}
+  FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
 
 jobs:
   build:
