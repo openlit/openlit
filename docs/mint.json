@@ -139,6 +139,7 @@
             "latest/integrations/multion",
             "latest/integrations/julep-ai",
             "latest/integrations/crawl4ai",
+            "latest/integrations/firecrawl",
             "latest/integrations/dynamiq",
             "latest/integrations/controlflow"
           ]
