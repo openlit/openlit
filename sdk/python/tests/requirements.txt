@@ -26,7 +26,6 @@ ai21
 controlflow
 assemblyai
 firecrawl-py
-letta
 
 # Vector DBs
 chromadb
