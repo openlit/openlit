@@ -34,7 +34,7 @@ def test_sync_together_chat():
     """
 
     response =  sync_client.chat.completions.create(
-        model="meta-llama/Llama-Vision-Free",
+        model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
         messages=[
             {
                     "role": "user",
@@ -44,7 +44,7 @@ def test_sync_together_chat():
         max_tokens=1,
         stream=False,
     )
-    assert response.model == 'meta-llama/Llama-Vision-Free'
+    assert response.model == 'meta-llama/Llama-3.3-70B-Instruct-Turbo'
 
 def test_sync_together_image():
     """
@@ -56,13 +56,13 @@ def test_sync_together_image():
 
     response = sync_client.images.generate(
         prompt="AI Observability dashboard",
-        model="black-forest-labs/FLUX.1-schnell-Free",
+        model="black-forest-labs/FLUX.1-dev",
         width=768,
         height=768,
         n=1,
     )
 
-    assert response.model == 'black-forest-labs/FLUX.1-schnell-Free'
+    assert response.model == 'black-forest-labs/FLUX.1-dev'
 
 @pytest.mark.asyncio
 async def test_async_together_chat():
@@ -74,7 +74,7 @@ async def test_async_together_chat():
     """
 
     response =  await async_client.chat.completions.create(
-        model="meta-llama/Llama-Vision-Free",
+        model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
         messages=[
             {
                     "role": "user",
@@ -97,10 +97,10 @@ async def test_async_together_image():
 
     response = await async_client.images.generate(
         prompt="AI Observability dashboard",
-        model="black-forest-labs/FLUX.1-schnell-Free",
+        model="black-forest-labs/FLUX.1-dev",
         width=768,
         height=768,
         n=1,
     )
 
-    assert response.model == 'black-forest-labs/FLUX.1-schnell-Free'
+    assert response.model == 'black-forest-labs/FLUX.1-dev'
