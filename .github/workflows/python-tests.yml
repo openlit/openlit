@@ -37,6 +37,7 @@ env:
   AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
   ASSEMBLYAI_API_KEY: ${{ secrets.ASSEMBLYAI_API_KEY }}
   FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+  TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
 
 jobs:
   build:
