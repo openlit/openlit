@@ -458,9 +458,10 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
 
                 # Calculate cost of the operation
                 image_size = str(kwargs.get("width", 1024)) + "x" + str(kwargs.get("height", 1024))
-                cost = get_image_model_cost(kwargs.get("model", "black-forest-labs/FLUX.1-dev"),
-                                            pricing_info, image_size,
+                cost_per_million = get_image_model_cost(kwargs.get("model", "black-forest-labs/FLUX.1-dev"),
+                                            pricing_info, "1000000",
                                             kwargs.get("quality", "standard"))
+                cost = (kwargs.get("width", 1024) * kwargs.get("height", 1024)) / 1_000_000 * cost_per_million
 
                 for items in response.data:
                     # Set Span attributes
