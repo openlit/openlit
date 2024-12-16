@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, unused-import
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, unused-import, too-many-function-args
 """
 Module for monitoring Langchain applications.
 """
@@ -11,6 +11,26 @@ from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
+
+def get_attribute_from_instance_or_kwargs(instance, attribute_name, default=-1):
+    """Return attribute from instance or kwargs"""
+    # Attempt to retrieve model_kwargs from the instance
+    model_kwargs = getattr(instance, 'model_kwargs', None)
+
+    # Check for attribute in model_kwargs if it exists
+    if model_kwargs and attribute_name in model_kwargs:
+        return model_kwargs[attribute_name]
+
+    # Attempt to get the attribute directly from the instance
+    try:
+        return getattr(instance, attribute_name)
+    except AttributeError:
+        # Special handling for 'model' attribute to consider 'model_id'
+        if attribute_name == 'model':
+            return getattr(instance, 'model_id', 'default_model_id')
+
+        # Default if the attribute isn't found in model_kwargs or the instance
+        return default
 
 def general_wrap(gen_ai_endpoint, version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
@@ -207,15 +227,18 @@ def allm(gen_ai_endpoint, version, environment, application_name,
             response = await wrapped(*args, **kwargs)
 
             try:
-                prompt = args[0] or ""
-                # input_tokens = general_tokens(prompt)
-                # output_tokens = general_tokens(response)
+                if args:
+                    prompt = str(args[0]) if args[0] is not None else ""
+                else:
+                    prompt = ""
+                input_tokens = general_tokens(prompt)
+                output_tokens = general_tokens(response)
 
-                # # Calculate cost of the operation
-                # cost = get_chat_model_cost(
-                #     str(getattr(instance, 'model')),
-                #     pricing_info, input_tokens, output_tokens
-                # )
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(
+                    str(get_attribute_from_instance_or_kwargs(instance, 'model')),
+                    pricing_info, input_tokens, output_tokens
+                )
 
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
@@ -229,23 +252,23 @@ def allm(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                    str(getattr(instance, 'model')))
+                                str(get_attribute_from_instance_or_kwargs(instance, 'model')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                    str(getattr(instance, 'temperature')))
+                                str(get_attribute_from_instance_or_kwargs(instance, 'temperature')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
-                                    str(getattr(instance, 'top_k')))
+                                str(get_attribute_from_instance_or_kwargs(instance, 'top_k')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                    str(getattr(instance, 'top_p')))
+                                str(get_attribute_from_instance_or_kwargs(instance, 'top_p')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                     False)
-                # span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                #                     input_tokens)
-                # span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                #                     output_tokens)
-                # span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                #                     input_tokens + output_tokens)
-                # span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                #                     cost)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    input_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                    output_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    input_tokens + output_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                    cost)
                 if trace_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -262,29 +285,29 @@ def allm(gen_ai_endpoint, version, environment, application_name,
 
                 span.set_status(Status(StatusCode.OK))
 
-                # if disable_metrics is False:
-                #     attributes = {
-                #         TELEMETRY_SDK_NAME:
-                #             "openlit",
-                #         SemanticConvetion.GEN_AI_APPLICATION_NAME:
-                #             application_name,
-                #         SemanticConvetion.GEN_AI_SYSTEM:
-                #             SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN,
-                #         SemanticConvetion.GEN_AI_ENVIRONMENT:
-                #             environment,
-                #         SemanticConvetion.GEN_AI_TYPE:
-                #             SemanticConvetion.GEN_AI_TYPE_CHAT,
-                #         SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                #             str(getattr(instance, 'model'))
-                #     }
+                if disable_metrics is False:
+                    attributes = {
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            str(get_attribute_from_instance_or_kwargs(instance, 'model'))
+                    }
 
-                #     metrics["genai_requests"].add(1, attributes)
-                #     metrics["genai_total_tokens"].add(
-                #         input_tokens + output_tokens, attributes
-                #     )
-                #     metrics["genai_completion_tokens"].add(output_tokens, attributes)
-                #     metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-                #     metrics["genai_cost"].record(cost, attributes)
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_total_tokens"].add(
+                        input_tokens + output_tokens, attributes
+                    )
+                    metrics["genai_completion_tokens"].add(output_tokens, attributes)
+                    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response
                 return response
@@ -344,15 +367,18 @@ def llm(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                prompt = args[0] or ""
-                # input_tokens = general_tokens(prompt)
-                # output_tokens = general_tokens(response)
+                if args:
+                    prompt = str(args[0]) if args[0] is not None else ""
+                else:
+                    prompt = ""
+                input_tokens = general_tokens(prompt)
+                output_tokens = general_tokens(response)
 
-                # # Calculate cost of the operation
-                # cost = get_chat_model_cost(
-                #     str(getattr(instance, 'model')),
-                #     pricing_info, input_tokens, output_tokens
-                # )
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(
+                    str(get_attribute_from_instance_or_kwargs(instance, 'model')),
+                    pricing_info, input_tokens, output_tokens
+                )
 
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
@@ -366,23 +392,23 @@ def llm(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                    str(getattr(instance, 'model')))
+                                str(get_attribute_from_instance_or_kwargs(instance, 'model')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                    str(getattr(instance, 'temperature')))
+                                str(get_attribute_from_instance_or_kwargs(instance, 'temperature')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
-                                    str(getattr(instance, 'top_k')))
+                                str(get_attribute_from_instance_or_kwargs(instance, 'top_k')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                    str(getattr(instance, 'top_p')))
+                                str(get_attribute_from_instance_or_kwargs(instance, 'top_p')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                     False)
-                # span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                #                     input_tokens)
-                # span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                #                     output_tokens)
-                # span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                #                     input_tokens + output_tokens)
-                # span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                #                     cost)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                                    input_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                                    output_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    input_tokens + output_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                    cost)
                 if trace_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -399,29 +425,29 @@ def llm(gen_ai_endpoint, version, environment, application_name,
 
                 span.set_status(Status(StatusCode.OK))
 
-                # if disable_metrics is False:
-                #     attributes = {
-                #         TELEMETRY_SDK_NAME:
-                #             "openlit",
-                #         SemanticConvetion.GEN_AI_APPLICATION_NAME:
-                #             application_name,
-                #         SemanticConvetion.GEN_AI_SYSTEM:
-                #             SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN,
-                #         SemanticConvetion.GEN_AI_ENVIRONMENT:
-                #             environment,
-                #         SemanticConvetion.GEN_AI_TYPE:
-                #             SemanticConvetion.GEN_AI_TYPE_CHAT,
-                #         SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                #             str(getattr(instance, 'model'))
-                #     }
+                if disable_metrics is False:
+                    attributes = {
+                        TELEMETRY_SDK_NAME:
+                            "openlit",
+                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            application_name,
+                        SemanticConvetion.GEN_AI_SYSTEM:
+                            SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN,
+                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            environment,
+                        SemanticConvetion.GEN_AI_TYPE:
+                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
+                            str(get_attribute_from_instance_or_kwargs(instance, 'model'))
+                    }
 
-                #     metrics["genai_requests"].add(1, attributes)
-                #     metrics["genai_total_tokens"].add(
-                #         input_tokens + output_tokens, attributes
-                #     )
-                #     metrics["genai_completion_tokens"].add(output_tokens, attributes)
-                #     metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-                #     metrics["genai_cost"].record(cost, attributes)
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_total_tokens"].add(
+                        input_tokens + output_tokens, attributes
+                    )
+                    metrics["genai_completion_tokens"].add(output_tokens, attributes)
+                    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response
                 return response
@@ -481,11 +507,25 @@ def chat(gen_ai_endpoint, version, environment, application_name,
             response = wrapped(*args, **kwargs)
 
             try:
-                input_tokens = response.response_metadata.get("prompt_eval_count", 0)
-                output_tokens = response.response_metadata.get("eval_count", 0)
-
-                prompt = "" if isinstance(args[0], list) else args[0]
-                model = getattr(instance, 'model_name', getattr(instance, 'model', 'gpt-4'))
+                prompt = ""
+                if hasattr(response, 'response_metadata') and response.response_metadata:
+                    token_usage = response.response_metadata.get("token_usage", {})
+                    input_tokens = token_usage.get("prompt_tokens", 0)
+                    output_tokens = token_usage.get("completion_tokens", 0)
+                    model = response.response_metadata.get("model_name", "gpt-4")
+                    prompt = "" if isinstance(args[0], list) else args[0]
+                else:
+                    if not isinstance(response, dict) or "output_text" not in response:
+                        return response
+                    # Fallback: Calculate tokens manually if response_metadata is missing
+                    model = "gpt-4o-mini"  # Fallback model
+                    input_texts = [
+                    doc.page_content for doc in response.get("input_documents", [])
+                    if isinstance(doc.page_content, str)
+                    ]
+                    input_tokens = sum(general_tokens(text) for text in input_texts)
+                    output_text = response.get("output_text", "")
+                    output_tokens = general_tokens(output_text)
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
@@ -529,10 +569,11 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                         },
                     )
+                    completion_content = getattr(response, 'content', "")
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.content,
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: completion_content,
                         },
                     )
 
@@ -620,11 +661,12 @@ def achat(gen_ai_endpoint, version, environment, application_name,
             response = await wrapped(*args, **kwargs)
 
             try:
-                input_tokens = response.response_metadata.get("prompt_eval_count", 0)
-                output_tokens = response.response_metadata.get("eval_count", 0)
+                token_usage = response.response_metadata.get("token_usage", {})
+                input_tokens = token_usage.get("prompt_tokens", 0)
+                output_tokens = token_usage.get("completion_tokens", 0)
+                model = response.response_metadata.get("model_name", "gpt-4")
 
                 prompt = "" if isinstance(args[0], list) else args[0]
-                model = getattr(instance, 'model_name', getattr(instance, 'model', 'gpt-4'))
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(
                     model,

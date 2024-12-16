@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, no-name-in-module
 """
 This module contains tests for Mistral functionality using the Mistral Python library.
 
@@ -6,7 +6,7 @@ Tests cover various API endpoints, including chat and embeddings.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - Mistral_API_TOKEN: Mistral API api_key for authentication.
+    - MISTRAL_API_KEY: Mistral API key for authentication.
 
 Note: Ensure the environment is properly configured for Mistral access and OpenLIT monitoring
 prior to running these tests.
@@ -19,11 +19,11 @@ import openlit
 
 # Initialize synchronous Mistral client
 client = Mistral(
-    api_key=os.getenv("MISTRAL_API_TOKEN")
+    api_key=os.getenv("MISTRAL_API_KEY"),
 )
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(environment="openlit-python-testing", application_name="openlit-python-mistral-test")
 
 def test_sync_mistral_chat():
     """

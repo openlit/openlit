@@ -6,8 +6,8 @@ type EventMessage = Parameters<PostHog["capture"]>[0];
 export default class PostHogServer {
 	static client: PostHog;
 	static createClient() {
-		this.client = new PostHog(process.env.POSTHOG_API_KEY!, {
-			host: process.env.POSTHOG_API_HOST,
+		this.client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY!, {
+			host: process.env.NEXT_PUBLIC_POSTHOG_API_HOST,
 			flushAt: 1,
 			flushInterval: 0,
 		});
@@ -15,7 +15,7 @@ export default class PostHogServer {
 
 	static capture(options: EventMessage) {
 		try {
-			if (process.env.TELEMETRY_ENABLED) {
+			if (process.env.NEXT_PUBLIC_TELEMETRY_ENABLED) {
 				if (!this.client) {
 					this.createClient();
 				}

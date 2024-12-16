@@ -100,8 +100,15 @@
             "latest/integrations/google-ai-studio",
             "latest/integrations/groq",
             "latest/integrations/nvidia-nim",
+            "latest/integrations/xai",
             "latest/integrations/elevenlabs",
-            "latest/integrations/krutrim"
+            "latest/integrations/ai21",
+            "latest/integrations/together",
+            "latest/integrations/assemblyai",
+            "latest/integrations/reka",
+            "latest/integrations/krutrim",
+            "latest/integrations/titan-ml",
+            "latest/integrations/premai"
           ]
         },
         {
@@ -111,7 +118,8 @@
             "latest/integrations/chromadb",
             "latest/integrations/pinecone",
             "latest/integrations/qdrant",
-            "latest/integrations/milvus"
+            "latest/integrations/milvus",
+            "latest/integrations/astradb"
           ]
         },
         {
@@ -123,9 +131,19 @@
             "latest/integrations/crewai",
             "latest/integrations/llama-index",
             "latest/integrations/dspy",
+            "latest/integrations/ag2",
             "latest/integrations/haystack",
             "latest/integrations/embedchain",
-            "latest/integrations/guardrails"
+            "latest/integrations/mem0",
+            "latest/integrations/guardrails",
+            "latest/integrations/phidata",
+            "latest/integrations/multion",
+            "latest/integrations/julep-ai",
+            "latest/integrations/letta",
+            "latest/integrations/crawl4ai",
+            "latest/integrations/firecrawl",
+            "latest/integrations/dynamiq",
+            "latest/integrations/controlflow"
           ]
         },
         {

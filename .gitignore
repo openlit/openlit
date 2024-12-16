@@ -6,4 +6,4 @@ yala.yml
 speech.mp3
 venv/
 path/
-__pycache__
+__pycache__/

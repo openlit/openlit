@@ -2,33 +2,31 @@
 """
 This module contains tests for ElevenLabs functionality using the ElevenLabs Python library.
 
-Tests cover various API endpoints, including chat. 
+Tests cover various API endpoints. 
 These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - ELEVENLABS_API_TOKEN: GroElevenLabsq API api_key for authentication.
+    - ELEVEN_API_KEY: ElevenLabs API key for authentication.
 
 Note: Ensure the environment is properly configured for ElevenLabs access and OpenLIT monitoring
 prior to running these tests.
 """
 
-import os
 import types
 import pytest
 from elevenlabs.client import ElevenLabs, AsyncElevenLabs
 import openlit
 
 # Initialize synchronous ElevenLabs client
-sync_client = ElevenLabs(
-  api_key=os.getenv("ELEVENLABS_API_TOKEN")
-)
+sync_client = ElevenLabs()
 
-async_client = AsyncElevenLabs(
-  api_key=os.getenv("ELEVENLABS_API_TOKEN")
-)
+async_client = AsyncElevenLabs()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(
+    environment="openlit-python-testing",
+    application_name="openlit-python-elevenlabs-test"
+)
 
 def test_sync_elevenlabs_generate():
     """

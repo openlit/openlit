@@ -19,6 +19,8 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FilterConfig, FilterType } from "@/store/filter";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 const DynamicFilters = ({
 	isVisibleFilters,
@@ -29,6 +31,7 @@ const DynamicFilters = ({
 	filter: FilterType;
 	areFiltersApplied: boolean;
 }) => {
+	const posthog = usePostHog();
 	const filterConfig = useRootStore(getFilterConfig);
 	const pingStatus = useRootStore(getPingStatus);
 	const filterDetails = useRootStore(getFilterDetails);
@@ -103,11 +106,13 @@ const DynamicFilters = ({
 
 	const updateFilterStore = () => {
 		updateFilter("selectedConfig", selectedFilterValues);
+		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_APPLIED);
 	};
 
 	const clearFilterStore = () => {
 		setSelectedFilterValues({});
 		updateFilter("selectedConfig", {});
+		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_CLEARED);
 	};
 
 	return (

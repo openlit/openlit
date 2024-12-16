@@ -15,6 +15,7 @@ import { PromptInput, PromptUpdate } from "@/constants/prompts";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { jsonParse } from "@/utils/json";
 import { objectEntries } from "@/utils/object";
+import { unescapeString } from "@/utils/string";
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { KeyboardEvent, useCallback, useState } from "react";
@@ -209,7 +210,7 @@ export default function PromptForm({
 			fieldTypeProps: {
 				name: "prompt",
 				placeholder: "How can I assist you?",
-				defaultValue: versionData?.prompt,
+				defaultValue: unescapeString(versionData?.prompt || ""),
 			},
 		},
 		{

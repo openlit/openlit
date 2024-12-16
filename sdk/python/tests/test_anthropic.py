@@ -6,29 +6,24 @@ Tests cover various API endpoints, including chat.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - ANTHROPIC_API_TOKEN: Anthropic API api_key for authentication.
+    - ANTHROPIC_API_KEY: Anthropic API key for authentication.
 
 Note: Ensure the environment is properly configured for Anthropic access and OpenLIT monitoring
 prior to running these tests.
 """
 
-import os
 import pytest
 from anthropic import Anthropic, AsyncAnthropic
 import openlit
 
 # Initialize synchronous Anthropic client
-sync_client = Anthropic(
-    api_key=os.getenv("ANTHROPIC_API_TOKEN")
-)
+sync_client = Anthropic()
 
 # Initialize asynchronous Anthropic client
-async_client = AsyncAnthropic(
-    api_key=os.getenv("ANTHROPIC_API_TOKEN")
-)
+async_client = AsyncAnthropic()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(environment="openlit-python-testing", application_name="openlit-python-anthropic-test")
 
 def test_sync_anthropic_messages():
     """
