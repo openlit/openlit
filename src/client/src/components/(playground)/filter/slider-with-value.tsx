@@ -31,9 +31,9 @@ export default function SlideWithValue({
 	const stepValue = step || maxValue / 1000;
 
 	return (
-		<div className="flex items-center shrink-0 w-96 px-4 ml-4 border border-stone-200 dark:border-0 dark:bg-stone-800 rounded-md text-stone-500 gap-2">
+		<div className="flex items-center shrink-0 w-96 pl-3 pr-2 border border-stone-200 dark:border-0 dark:bg-stone-800 rounded-md text-stone-500 gap-2">
 			<div className="flex items-center justify-between shrink-0">
-				<Label htmlFor={type}>{label}</Label>
+				<Label htmlFor={type} className="text-xs">{label}</Label>
 			</div>
 			<Slider
 				id={type}
@@ -50,7 +50,7 @@ export default function SlideWithValue({
 				step={stepValue}
 				value={value}
 				onChange={onInputValueChange}
-				className="border-0 text-right p-0 bg-transparent dark:bg-transparent"
+				className="border-0 text-right p-0 bg-transparent dark:bg-transparent h-auto"
 				type="number"
 			/>
 		</div>

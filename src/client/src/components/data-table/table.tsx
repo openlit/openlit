@@ -1,134 +1,119 @@
-"use client";
+import IntermediateState from "@/components/(playground)/intermediate-state";
+import { ReactNode } from "react";
+import { fill } from "lodash";
+import { objectEntries } from "@/utils/object";
+import { Columns } from "./columns";
+import { noop } from "@/utils/noop";
 
-import * as React from "react";
-import {
-	ColumnDef,
-	ColumnFiltersState,
-	SortingState,
-	VisibilityState,
-	flexRender,
-	getCoreRowModel,
-	getFacetedRowModel,
-	getFacetedUniqueValues,
-	getFilteredRowModel,
-	getPaginationRowModel,
-	getSortedRowModel,
-	useReactTable,
-} from "@tanstack/react-table";
+const RowWrapper = ({
+	children,
+	className = "",
+	onClick,
+}: {
+	children: ReactNode;
+	className?: string;
+	onClick?: (item: any) => void;
+}) => (
+	<div className={`flex w-full ${className}`} onClick={onClick}>
+		{children}
+	</div>
+);
 
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+const ColumnRowItem = ({
+	children,
+	className = "",
+}: {
+	children: ReactNode;
+	className?: string;
+}) => {
+	return (
+		<div
+			className={` flex-shrink-0 border-b dark:border-stone-800 py-2 px-3 overflow-hidden ${className}`}
+		>
+			{children}
+		</div>
+	);
+};
 
-// import { DataTablePagination } from "./data-table-pagination"
-// import { DataTableToolbar } from "./data-table-toolbar"
+const RenderLoader = ({ columns }: { columns: string[] }) =>
+	fill(new Array(5), 1).map((_, index) => (
+		<RowWrapper key={`loader-row-${index}`} className="animate-pulse">
+			{columns.map((_, index) => (
+				<ColumnRowItem
+					key={`loader-column-${index}`}
+					className="group-last-of-type:border-b-0 cursor-pointer py-4"
+				>
+					<div className="h-2 w-2/3 bg-stone-200 rounded" />
+				</ColumnRowItem>
+			))}
+		</RowWrapper>
+	));
 
-interface DataTableProps<TData, TValue> {
-	columns: ColumnDef<TData, TValue>[];
-	data: TData[];
-	normalizeFunction?: (row: any) => any;
-}
-
-export function DataTable<TData, TValue>({
+export default function Table({
 	columns,
 	data,
-	normalizeFunction,
-}: DataTableProps<TData, TValue>) {
-	const fn =
-		typeof normalizeFunction === "function"
-			? normalizeFunction
-			: (value: any) => value;
-	const normalizedData = data.map(fn);
-	const [rowSelection, setRowSelection] = React.useState({});
-	const [columnVisibility, setColumnVisibility] =
-		React.useState<VisibilityState>({});
-	const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-		[]
-	);
-	const [sorting, setSorting] = React.useState<SortingState>([]);
+	isFetched,
+	isLoading,
+	visibilityColumns,
+	onClick,
+}: {
+	columns: Columns<any, any>;
+	data: any[];
+	isFetched: boolean;
+	isLoading: boolean;
+	visibilityColumns: Record<string, boolean>;
+	onClick?: (item: any) => void;
+}) {
+	const visibleColumns = objectEntries(visibilityColumns)
+		.filter(([, value]) => value)
+		.map(([keys]) => keys);
+	const noData = !data?.length && !isLoading;
 
-	const table = useReactTable({
-		data: normalizedData,
-		columns,
-		state: {
-			sorting,
-			columnVisibility,
-			rowSelection,
-			columnFilters,
-		},
-		enableRowSelection: true,
-		onRowSelectionChange: setRowSelection,
-		onSortingChange: setSorting,
-		onColumnFiltersChange: setColumnFilters,
-		onColumnVisibilityChange: setColumnVisibility,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		getFacetedRowModel: getFacetedRowModel(),
-		getFacetedUniqueValues: getFacetedUniqueValues(),
-	});
+	const width = `basis-1/${visibleColumns.length}`;
 
+	const onClickHandler = (rowItem: any) =>
+		typeof onClick === "function" ? onClick(rowItem) : noop();
 	return (
-		<div className="flex grow w-full h-full  space-y-4">
-			{/* <DataTableToolbar table={table} /> */}
-			<div className="flex w-full rounded-md border">
-				<Table className="overflow-hidden h-full">
-					<TableHeader>
-						{table.getHeaderGroups().map((headerGroup) => (
-							<TableRow key={headerGroup.id} className="border-solid">
-								{headerGroup.headers.map((header) => {
-									return (
-										<TableHead key={header.id} colSpan={header.colSpan}>
-											{header.isPlaceholder
-												? null
-												: flexRender(
-														header.column.columnDef.header,
-														header.getContext()
-												  )}
-										</TableHead>
-									);
-								})}
-							</TableRow>
-						))}
-					</TableHeader>
-					<TableBody className="h-full overflow-auto">
-						{table.getRowModel().rows?.length ? (
-							table.getRowModel().rows.map((row) => (
-								<TableRow
-									key={row.id}
-									data-state={row.getIsSelected() && "selected"}
-									className="border-solid"
+		<div className="flex flex-col w-full overflow-auto border dark:border-stone-800 rounded-md">
+			<RowWrapper className="sticky top-0">
+				{visibleColumns.map((column) => (
+					<ColumnRowItem
+						key={column}
+						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-500 text-sm ${width}`}
+					>
+						{columns[column]?.header()}
+					</ColumnRowItem>
+				))}
+			</RowWrapper>
+			<div
+				className={`flex flex-col w-full ${
+					isFetched && isLoading ? "animate-pulse" : ""
+				}`}
+			>
+				{(!isFetched || (isLoading && !data?.length)) && (
+					<RenderLoader columns={visibleColumns} />
+				)}
+				{data?.map((rowItem) => {
+					return (
+						<RowWrapper
+							key={rowItem.id}
+							className="group text-sm text-stone-700 dark:text-stone-300"
+							onClick={() => onClickHandler(rowItem)}
+						>
+							{visibleColumns.map((column) => (
+								<ColumnRowItem
+									className={`group-last-of-type:border-b-0 group-hover:bg-stone-100  dark:group-hover:bg-stone-800 cursor-pointer ${width}`}
 								>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext()
-											)}
-										</TableCell>
-									))}
-								</TableRow>
-							))
-						) : (
-							<TableRow>
-								<TableCell
-									colSpan={columns.length}
-									className="h-24 text-center"
-								>
-									No results.
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
+									{columns[column]?.cell({
+										row: rowItem,
+									})}
+								</ColumnRowItem>
+							))}
+						</RowWrapper>
+					);
+				})}
+				{noData && <IntermediateState type="nodata" />}
 			</div>
-			{/* <DataTablePagination table={table} /> */}
 		</div>
 	);
 }

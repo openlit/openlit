@@ -26,7 +26,7 @@ export const TIME_RANGE_TYPE: Record<
 
 export const DEFAULT_TIME_RANGE = "24H";
 
-const DEFAULT_LIMIT = 10;
+const DEFAULT_LIMIT = 25;
 
 const DEFAULT_SORTING: FilterSorting = {
 	type: "Timestamp",
@@ -151,7 +151,10 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 		setStore({
 			details: {
 				...merge(getStore().details, object),
-				selectedConfig: resetConfig ? {} : getStore().details.selectedConfig,
+				selectedConfig:
+					resetConfig || extraParams?.clearFilter
+						? {}
+						: getStore().details.selectedConfig,
 			},
 			config: resetConfig ? undefined : getStore().config,
 		});

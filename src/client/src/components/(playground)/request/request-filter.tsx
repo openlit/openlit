@@ -19,8 +19,13 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FilterConfig, FilterType } from "@/store/filter";
+<<<<<<< Updated upstream
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
+=======
+import VisibilityColumns from "../filter/visibility-columns";
+import { columns } from "./columns";
+>>>>>>> Stashed changes
 
 const DynamicFilters = ({
 	isVisibleFilters,
@@ -111,8 +116,12 @@ const DynamicFilters = ({
 
 	const clearFilterStore = () => {
 		setSelectedFilterValues({});
+<<<<<<< Updated upstream
 		updateFilter("selectedConfig", {});
 		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_CLEARED);
+=======
+		updateFilter("selectedConfig", {}, { clearFilter: true });
+>>>>>>> Stashed changes
 	};
 
 	return (
@@ -121,67 +130,73 @@ const DynamicFilters = ({
 				isVisibleFilters ? "h-auto mt-4" : "h-0 mt-0"
 			}`}
 		>
-			{filterConfig?.traceTypes?.length ? (
-				<ComboDropdown
-					options={filterConfig?.traceTypes.map((p) => ({
-						label: p,
-						value: p,
-					}))}
-					title="Types"
-					type="traceTypes"
-					updateSelectedValues={updateSelectedValues}
-					selectedValues={selectedFilterValues.traceTypes}
-					clearItem={clearFilter}
-				/>
-			) : null}
-			{filterConfig?.models?.length ? (
-				<ComboDropdown
-					options={filterConfig?.models.map((m) => ({ label: m, value: m }))}
-					title="Models"
-					type="models"
-					updateSelectedValues={updateSelectedValues}
-					selectedValues={selectedFilterValues.models}
-					clearItem={clearFilter}
-				/>
-			) : null}
-			{filterConfig?.providers?.length ? (
-				<ComboDropdown
-					options={filterConfig?.providers.map((p) => ({ label: p, value: p }))}
-					title="Providers"
-					type="providers"
-					updateSelectedValues={updateSelectedValues}
-					selectedValues={selectedFilterValues.providers}
-					clearItem={clearFilter}
-				/>
-			) : null}
-			{filterConfig?.maxCost ? (
-				<SlideWithValue
-					label="Max Cost"
-					value={selectedFilterValues.maxCost || 0}
-					maxValue={filterConfig.maxCost}
-					onChange={updateSelectedValues}
-					type="maxCost"
-				/>
-			) : null}
-			<div className="grow" />
-			{areFiltersApplied && (
+			<div className="flex grow gap-3 overflow-auto">
+				{filterConfig?.traceTypes?.length ? (
+					<ComboDropdown
+						options={filterConfig?.traceTypes.map((p) => ({
+							label: p,
+							value: p,
+						}))}
+						title="Types"
+						type="traceTypes"
+						updateSelectedValues={updateSelectedValues}
+						selectedValues={selectedFilterValues.traceTypes}
+						clearItem={clearFilter}
+					/>
+				) : null}
+				{filterConfig?.models?.length ? (
+					<ComboDropdown
+						options={filterConfig?.models.map((m) => ({ label: m, value: m }))}
+						title="Models"
+						type="models"
+						updateSelectedValues={updateSelectedValues}
+						selectedValues={selectedFilterValues.models}
+						clearItem={clearFilter}
+					/>
+				) : null}
+				{filterConfig?.providers?.length ? (
+					<ComboDropdown
+						options={filterConfig?.providers.map((p) => ({
+							label: p,
+							value: p,
+						}))}
+						title="Providers"
+						type="providers"
+						updateSelectedValues={updateSelectedValues}
+						selectedValues={selectedFilterValues.providers}
+						clearItem={clearFilter}
+					/>
+				) : null}
+				{filterConfig?.maxCost ? (
+					<SlideWithValue
+						label="Max Cost"
+						value={selectedFilterValues.maxCost || 0}
+						maxValue={filterConfig.maxCost}
+						onChange={updateSelectedValues}
+						type="maxCost"
+					/>
+				) : null}
+			</div>
+			<div className="flex shrink-0 gap-3">
+				{areFiltersApplied && (
+					<Button
+						variant="ghost"
+						size="default"
+						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 py-1.5 px-2 relative h-auto text-xs"
+						onClick={clearFilterStore}
+					>
+						Clear Filters
+					</Button>
+				)}
 				<Button
-					variant="ghost"
+					variant="outline"
 					size="default"
-					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 p-2.5 relative"
-					onClick={clearFilterStore}
+					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 py-1.5 px-2 relative h-auto text-xs"
+					onClick={updateFilterStore}
 				>
-					Clear Filters
+					Apply Filters
 				</Button>
-			)}
-			<Button
-				variant="outline"
-				size="default"
-				className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 p-2.5 relative"
-				onClick={updateFilterStore}
-			>
-				Apply Filters
-			</Button>
+			</div>
 		</div>
 	);
 };
@@ -256,6 +271,7 @@ export default function RequestFilter({
 						onClickPageLimit={onClickPageLimit}
 					/>
 				)}
+				<VisibilityColumns columns={columns} />
 				{total > 0 && (
 					<Sorting
 						sorting={filter.sorting}
@@ -266,10 +282,10 @@ export default function RequestFilter({
 					<Button
 						variant="outline"
 						size="default"
-						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-2.5 relative"
+						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px] relative"
 						onClick={toggleIsVisibleFilters}
 					>
-						<SlidersHorizontal />
+						<SlidersHorizontal className="w-3 h-3" />
 						{areFiltersApplied && (
 							<span className="w-1 h-1 bg-primary absolute top-1 right-1 rounded-full" />
 						)}

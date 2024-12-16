@@ -48,15 +48,15 @@ export default function ComboDropdown({
 				<Button
 					variant="outline"
 					size="default"
-					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900"
+					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 h-auto py-1 text-xs"
 				>
-					<PlusCircleIcon className="mr-2 h-4 w-4" />
+					<PlusCircleIcon className="mr-2 h-3 w-3" />
 					{title}
 					{selectedValues?.length ? (
 						<>
 							<Separator
 								orientation="vertical"
-								className="mx-2 h-4 bg-stone-300 dark:bg-stone-600"
+								className="mx-2 h-3 bg-stone-300 dark:bg-stone-600"
 							/>
 							<Badge
 								variant="secondary"
@@ -68,7 +68,7 @@ export default function ComboDropdown({
 								{selectedValues.length > 2 ? (
 									<Badge
 										variant="secondary"
-										className="rounded-sm px-1 font-normal"
+										className="rounded-sm px-1 font-normal py-0"
 									>
 										{selectedValues.length} selected
 									</Badge>
@@ -79,7 +79,7 @@ export default function ComboDropdown({
 											<Badge
 												variant="secondary"
 												key={option.value}
-												className="rounded-sm px-1 font-normal capitalize"
+												className="rounded-sm px-1 py-0 font-normal capitalize max-w-[100px] text-ellipsis overflow-hidden inline-block"
 											>
 												{option.label}
 											</Badge>

@@ -175,3 +175,15 @@ export async function getRequestViaParentSpanId(parentSpanId: string) {
 		record: data,
 	};
 }
+
+export async function getRequestViaTraceId(traceId: string) {
+	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} WHERE ${getTraceMappingKeyFullPath(
+		"id"
+	)}='${traceId}'`;
+
+	const { data, err } = await dataCollector({ query });
+	return {
+		err,
+		record: (data as unknown[])?.[0],
+	};
+}

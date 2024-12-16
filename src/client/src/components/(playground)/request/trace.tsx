@@ -82,7 +82,10 @@ export default function Trace({ item, isLoading }: RenderRowProps) {
 			onClick={onClick}
 		>
 			<div className="py-2 px-3 col-span-1">
-				<Badge variant="outline" className="rounded-md text-stone-500 group-hover:text-stone-700">
+				<Badge
+					variant="outline"
+					className="rounded-md text-stone-500 group-hover:text-stone-700"
+				>
 					...{normalizedItem.id.substring(normalizedItem.id.length - 6)}
 				</Badge>
 			</div>
@@ -105,7 +108,10 @@ export default function Trace({ item, isLoading }: RenderRowProps) {
 				</span>
 			</div>
 			<div className="space-x-2 py-2 px-3 col-span-2 items-center">
-				<Badge variant="outline" className="rounded-md text-stone-500 group-hover:text-stone-700">
+				<Badge
+					variant="outline"
+					className="rounded-md text-stone-500 group-hover:text-stone-700"
+				>
 					{normalizedItem.statusCode.replace("STATUS_CODE_", "")}
 				</Badge>
 				<span className="max-w-[500px] truncate font-medium">

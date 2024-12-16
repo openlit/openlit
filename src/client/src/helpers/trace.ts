@@ -4,6 +4,8 @@ import {
 	TraceRow,
 	TransformedTraceRow,
 } from "@/constants/traces";
+import { objectKeys } from "@/utils/object";
+import { format } from "date-fns";
 import { get, round } from "lodash";
 
 export const integerParser = (value: string, offset?: number) =>
@@ -12,8 +14,37 @@ export const integerParser = (value: string, offset?: number) =>
 export const floatParser = (value: string, offset?: number) =>
 	parseFloat((value || "0") as string) * (offset || 1);
 
+export const getNormalizedTraceAttribute = (
+	traceKey: TraceMappingKeyType,
+	traceValue: unknown
+) => {
+	if (traceValue) {
+		if (TraceMapping[traceKey].type === "integer") {
+			return integerParser(traceValue as string, TraceMapping[traceKey].offset);
+		} else if (TraceMapping[traceKey].type === "float") {
+			return floatParser(
+				(traceValue || "0") as string,
+				TraceMapping[traceKey].offset
+			).toFixed(10);
+		} else if (TraceMapping[traceKey].type === "round") {
+			return round(traceValue as number, TraceMapping[traceKey].offset).toFixed(
+				10
+			);
+		} else if (TraceMapping[traceKey].type === "date") {
+			const date = new Date(
+				`${traceValue}${(traceValue as string).endsWith("Z") ? "" : "Z"}`
+			);
+			return format(date, "MMM do, y  HH:mm:ss a");
+		} else {
+			return traceValue;
+		}
+	} else {
+		return TraceMapping[traceKey].defaultValue;
+	}
+};
+
 export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
-	return Object.keys(TraceMapping).reduce(
+	return objectKeys(TraceMapping).reduce(
 		(acc: TransformedTraceRow, traceKey: TraceMappingKeyType) => {
 			let value: unknown;
 			if (TraceMapping[traceKey].isRoot) {
@@ -22,32 +53,10 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 				value = get(item.SpanAttributes, getTraceMappingKeyFullPath(traceKey));
 			}
 
-			if (value) {
-				if (TraceMapping[traceKey].type === "integer") {
-					acc[traceKey] = integerParser(
-						value as string,
-						TraceMapping[traceKey].offset
-					);
-				} else if (TraceMapping[traceKey].type === "float") {
-					acc[traceKey] = floatParser(
-						(value || "0") as string,
-						TraceMapping[traceKey].offset
-					).toFixed(10);
-				} else if (TraceMapping[traceKey].type === "round") {
-					acc[traceKey] = round(
-						value as number,
-						TraceMapping[traceKey].offset
-					).toFixed(10);
-				} else {
-					acc[traceKey] = value;
-				}
-			} else {
-				acc[traceKey] = TraceMapping[traceKey].defaultValue;
-			}
-
+			acc[traceKey] = getNormalizedTraceAttribute(traceKey, value);
 			return acc;
 		},
-		{}
+		{} as TransformedTraceRow
 	);
 };
 
@@ -98,6 +107,20 @@ export const getTraceMappingKeyFullPath = (
 	return returnString;
 };
 
+export const CODE_ITEM_DISPLAY_KEYS: TraceMappingKeyType[] = [
+	"prompt",
+	"revisedPrompt",
+	"response",
+	/* Vector */
+	"statement",
+	"whereDocument",
+	"filter",
+	/* Framework */
+	"retrievalSource",
+	/* Exception */
+	"statusMessage",
+];
+
 export const getRequestTableDisplayKeys = (
 	type: string
 ): TraceMappingKeyType[] => {
@@ -127,42 +150,4 @@ export const getRequestTableDisplayKeys = (
 
 export const getDisplayKeysForException = (): TraceMappingKeyType[] => {
 	return ["serviceName", "spanName", "deploymentType", "exceptionType"];
-};
-
-export const getRequestDetailsDisplayKeys = (
-	type: string,
-	isException?: boolean
-): TraceMappingKeyType[] => {
-	let keys: TraceMappingKeyType[] = isException
-		? getDisplayKeysForException()
-		: getRequestTableDisplayKeys(type);
-	if (isException) {
-		return keys.filter((i) => !["serviceName"].includes(i));
-	}
-
-	switch (type) {
-		case "vectordb":
-			keys = keys.concat(["environment", "type", "nResults", "endpoint"]);
-			break;
-		case "framework":
-			keys = keys.concat(["environment", "type"]);
-			break;
-		default:
-			keys = keys.concat([
-				"environment",
-				"type",
-				"audioVoice",
-				"audioFormat",
-				"audioSpeed",
-				"imageSize",
-				"imageQuality",
-				"imageStyle",
-				"endpoint",
-			]);
-			break;
-	}
-
-	return keys.filter(
-		(i) => !["applicationName", "provider", "system"].includes(i)
-	);
 };

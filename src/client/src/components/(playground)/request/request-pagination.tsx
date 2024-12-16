@@ -43,9 +43,9 @@ export default function RequestPagination(props: PaginationProps) {
 		props.totalPage === 0 || props.currentPage === props.totalPage;
 
 	return (
-		<div className="flex gap-4">
+		<div className="flex gap-4 self-start">
 			<div className="flex align-end justify-center">
-				<p className="text-xs shrink-0 mr-3 self-center text-stone-950 dark:text-stone-100">
+				<p className="text-xs shrink-0 mr-1 self-center text-stone-950 dark:text-stone-100">
 					Size :{" "}
 				</p>
 				<div className="w-[100px]">
@@ -55,7 +55,7 @@ export default function RequestPagination(props: PaginationProps) {
 					>
 						<SelectTrigger
 							id="model"
-							className="items-center [&_[data-description]]:hidden text-stone-950 dark:text-stone-100"
+							className="items-center [&_[data-description]]:hidden text-stone-950 dark:text-stone-100 h-auto py-1"
 						>
 							<SelectValue
 								placeholder={`${props.currentSize}`}
@@ -84,7 +84,7 @@ export default function RequestPagination(props: PaginationProps) {
 				<PaginationContent>
 					<PaginationItem>
 						<PaginationPrevious
-							className={`${
+							className={`py-1 h-auto ${
 								firstPage
 									? "pointer-events-none cursor-not-allowed text-stone-400"
 									: "text-stone-950 dark:text-stone-100"
@@ -101,7 +101,7 @@ export default function RequestPagination(props: PaginationProps) {
 					</PaginationItem>
 					<PaginationItem>
 						<PaginationNext
-							className={`${
+							className={`py-1 h-auto ${
 								lastPage
 									? "pointer-events-none cursor-not-allowed text-stone-400"
 									: "text-stone-950 dark:text-stone-100"

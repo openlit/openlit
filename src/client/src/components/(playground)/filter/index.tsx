@@ -35,9 +35,9 @@ const Filter = ({ className = "" }: { className?: string }) => {
 	return (
 		<div className={`flex grow gap-4 ${className}`}>
 			<Tabs defaultValue={filter.timeLimit.type} onValueChange={handleChange}>
-				<TabsList>
+				<TabsList className="p-0 h-[30px]">
 					{TIME_RANGE_TABS.map(({ label, key }) => (
-						<TabsTrigger key={key} value={key}>
+						<TabsTrigger key={key} value={key} className="py-1.5 text-xs">
 							{label}
 						</TabsTrigger>
 					))}
