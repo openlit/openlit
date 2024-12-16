@@ -12,12 +12,10 @@ export default function CustomPostHogProvider({
 }: {
 	children: ReactNode;
 }) {
+	const posthogAPIKey = process.env.NEXT_PUBLIC_POSTHOG_API_KEY;
 	if (process.env.NEXT_PUBLIC_TELEMETRY_ENABLED) {
 		return (
-			<PostHogProvider
-				apiKey={process.env.NEXT_PUBLIC_POSTHOG_API_KEY}
-				options={POSTHOG_OPTIONS}
-			>
+			<PostHogProvider apiKey={posthogAPIKey} options={POSTHOG_OPTIONS}>
 				{children}
 			</PostHogProvider>
 		);
