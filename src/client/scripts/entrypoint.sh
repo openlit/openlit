@@ -6,11 +6,11 @@ export NEXTAUTH_SECRET=$(openssl rand -base64 32)
 
 # Set NextAuth.js environment variables
 # Default Telemetry enabled, Set this to false to disable telemetry tracking
-echo "TELEMETRY_ENABLED=true" >> /etc/environment
+echo "NEXT_PUBLIC_TELEMETRY_ENABLED=true" >> /etc/environment
 
 # POSTHOG Key
-echo "POSTHOG_API_KEY=phc_JiR0FxzxAYeV3gDoMUltOxjLa3r7RnogMHPVrjDzTR9" >> /etc/environment
-echo "POSTHOG_HOST=https://us.i.posthog.com" >> /etc/environment
+echo "NEXT_PUBLIC_POSTHOG_API_KEY=phc_JiR0FxzxAYeV3gDoMUltOxjLa3r7RnogMHPVrjDzTR9" >> /etc/environment
+echo "NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com" >> /etc/environment
 
 echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
 echo "NEXTAUTH_URL=http://localhost:3000" >> /etc/environment
@@ -25,6 +25,7 @@ echo "INIT_DB_DATABASE=${INIT_DB_DATABASE}" >> /etc/environment
 
 # Load the environment variables
 source /etc/environment
+cp /etc/environment .env
 
 # Run Prisma migrations and generate prisma client
 npm install -g prisma
