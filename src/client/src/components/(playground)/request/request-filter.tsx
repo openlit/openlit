@@ -19,13 +19,10 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FilterConfig, FilterType } from "@/store/filter";
-<<<<<<< Updated upstream
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
-=======
 import VisibilityColumns from "../filter/visibility-columns";
 import { columns } from "./columns";
->>>>>>> Stashed changes
 
 const DynamicFilters = ({
 	isVisibleFilters,
@@ -116,12 +113,8 @@ const DynamicFilters = ({
 
 	const clearFilterStore = () => {
 		setSelectedFilterValues({});
-<<<<<<< Updated upstream
-		updateFilter("selectedConfig", {});
 		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_CLEARED);
-=======
 		updateFilter("selectedConfig", {}, { clearFilter: true });
->>>>>>> Stashed changes
 	};
 
 	return (
