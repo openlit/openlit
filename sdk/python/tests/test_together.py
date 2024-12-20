@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-name-in-module
+# pylint: disable=duplicate-code, no-name-in-module, broad-exception-caught
 """
 This module contains tests for Together functionality using the Together Python library.
 
