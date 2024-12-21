@@ -8,21 +8,25 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TraceMapping, TraceMappingKeyType } from "@/constants/traces";
-import { getRequestVisibilityColumns, setPageData } from "@/selectors/page";
+import { getVisibilityColumnsOfPage, setPageData } from "@/selectors/page";
 import { useRootStore } from "@/store";
-import { REQUEST_VISIBILITY_COLUMNS } from "@/store/page";
+import { PAGE, REQUEST_VISIBILITY_COLUMNS } from "@/store/page";
 import { objectEntries } from "@/utils/object";
 import { EyeIcon } from "lucide-react";
 
 export default function VisibilityColumns({
 	columns,
+	pageName,
 }: {
 	columns: Columns<any, any>;
+	pageName: PAGE;
 }) {
 	const updateFilter = useRootStore(setPageData);
-	const visibilityColumns = useRootStore(getRequestVisibilityColumns);
+	const visibilityColumns = useRootStore((state) =>
+		getVisibilityColumnsOfPage(state, pageName)
+	);
 	const onVisibilityChange = (key: TraceMappingKeyType, value: boolean) => {
-		updateFilter("request", `visibilityColumns.${key}`, value);
+		updateFilter(pageName, `visibilityColumns.${key}`, value);
 	};
 
 	return (

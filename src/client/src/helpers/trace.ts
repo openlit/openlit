@@ -120,34 +120,3 @@ export const CODE_ITEM_DISPLAY_KEYS: TraceMappingKeyType[] = [
 	/* Exception */
 	"statusMessage",
 ];
-
-export const getRequestTableDisplayKeys = (
-	type: string
-): TraceMappingKeyType[] => {
-	switch (type) {
-		case "vectordb":
-			return [
-				"applicationName",
-				"system",
-				"operation",
-				"documentsCount",
-				"idsCount",
-				"vectorCount",
-			];
-		case "framework":
-			return ["applicationName", "provider", "endpoint", "owner", "repo"];
-		default:
-			return [
-				"applicationName",
-				"provider",
-				"model",
-				"cost",
-				"promptTokens",
-				"totalTokens",
-			];
-	}
-};
-
-export const getDisplayKeysForException = (): TraceMappingKeyType[] => {
-	return ["serviceName", "spanName", "deploymentType", "exceptionType"];
-};

@@ -37,11 +37,12 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.spanName.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.spanName}>
+				<div className="block items-center overflow-hidden text-ellipsis" title={row.spanName}>
 					{row.spanName}
 				</div>
 			);
 		},
+    enableHiding: true,
 	},
 	requestDuration: {
 		header: () => TraceMapping.requestDuration.label,
@@ -50,7 +51,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 				TraceMapping.requestDuration.valueSuffix
 			}`;
 			return (
-				<div className="flex items-center" title={value}>
+				<div className="block items-center overflow-hidden text-ellipsis" title={value}>
 					{value}
 				</div>
 			);
@@ -61,78 +62,33 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.serviceName.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.serviceName}>
+				<div className="block items-center overflow-hidden text-ellipsis" title={row.serviceName}>
 					{row.serviceName}
 				</div>
 			);
 		},
-		enableHiding: true,
+    enableHiding: true,
 	},
-	applicationName: {
-		header: () => TraceMapping.applicationName.label,
+	deploymentType: {
+		header: () => TraceMapping.deploymentType.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.applicationName}>
-					{row.applicationName}
+				<div className="block items-center overflow-hidden text-ellipsis" title={row.deploymentType}>
+					{row.deploymentType}
 				</div>
 			);
 		},
-		enableHiding: true,
+    enableHiding: true,
 	},
-	cost: {
-		header: () => TraceMapping.cost.label,
+	exceptionType: {
+		header: () => TraceMapping.exceptionType.label,
 		cell: ({ row }) => {
-			const value = `${TraceMapping.cost.valuePrefix}${row.cost}`;
 			return (
-				<div className="flex items-center" title={value}>
-					{value}
+				<div className="block items-center overflow-hidden text-ellipsis" title={row.exceptionType}>
+					{row.exceptionType}
 				</div>
 			);
 		},
-		enableHiding: true,
-	},
-	totalTokens: {
-		header: () => TraceMapping.totalTokens.label,
-		cell: ({ row }) => {
-			return (
-				<div className="flex items-center" title={row.totalTokens}>
-					{row.totalTokens}
-				</div>
-			);
-		},
-		enableHiding: true,
-	},
-	model: {
-		header: () => TraceMapping.model.label,
-		cell: ({ row }) => {
-			return (
-				<div className="flex items-center" title={row.model}>
-					{row.model}
-				</div>
-			);
-		},
-		enableHiding: true,
-	},
-	system: {
-		header: () => TraceMapping.system.label,
-		cell: ({ row }) => {
-			return (
-				<div className="flex items-center" title={row.system}>
-					{row.system}
-				</div>
-			);
-		},
-		enableHiding: true,
-	},
-	vectorCount: {
-		header: () => TraceMapping.vectorCount.label,
-		cell: ({ row }) => {
-			return (
-				<div className="flex items-center" title={row.vectorCount}>
-					{row.vectorCount}
-				</div>
-			);
-		},
-		enableHiding: true,
+    enableHiding: true,
 	},
 };

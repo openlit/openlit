@@ -24,7 +24,7 @@ type PaginationProps = {
 
 const PageSizes = [10, 25, 50];
 
-export default function RequestPagination(props: PaginationProps) {
+export default function TracesPagination(props: PaginationProps) {
 	const onClickAction: MouseEventHandler = (ev) => {
 		const { action } = (ev.currentTarget as HTMLButtonElement).dataset;
 		if (action === "previous") {

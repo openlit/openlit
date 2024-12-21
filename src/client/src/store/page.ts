@@ -16,13 +16,16 @@ export type REQUEST_VISIBILITY_COLUMNS = Record<
 	boolean
 >;
 
-type PAGE = "dashboard" | "request";
+export type PAGE = "dashboard" | "request" | "exception";
 
 export type PageStore = {
 	dashboard: {
 		type: DASHBOARD_TYPE;
 	};
 	request: {
+		visibilityColumns: Partial<REQUEST_VISIBILITY_COLUMNS>;
+	};
+	exception: {
 		visibilityColumns: Partial<REQUEST_VISIBILITY_COLUMNS>;
 	};
 	setData: (p: PAGE, keyPath: string, value: unknown) => void;
@@ -39,6 +42,15 @@ export const pageStoreSlice: PageStore = lens((setStore, getStore) => ({
 			requestDuration: true,
 			spanName: true,
 			serviceName: true,
+		},
+	},
+	exception: {
+		visibilityColumns: {
+			id: true,
+			time: true,
+			spanName: true,
+			deploymentType: true,
+			exceptionType: true,
 		},
 	},
 	setData: (page, keyPath, value) => {

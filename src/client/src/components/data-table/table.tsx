@@ -1,5 +1,5 @@
 import IntermediateState from "@/components/(playground)/intermediate-state";
-import { ReactNode } from "react";
+import { CSSProperties, ReactNode } from "react";
 import { fill } from "lodash";
 import { objectEntries } from "@/utils/object";
 import { Columns } from "./columns";
@@ -9,12 +9,14 @@ const RowWrapper = ({
 	children,
 	className = "",
 	onClick,
+	style,
 }: {
 	children: ReactNode;
 	className?: string;
 	onClick?: (item: any) => void;
+	style?: CSSProperties;
 }) => (
-	<div className={`flex w-full ${className}`} onClick={onClick}>
+	<div className={`grid w-full ${className}`} onClick={onClick} style={style}>
 		{children}
 	</div>
 );
@@ -22,22 +24,35 @@ const RowWrapper = ({
 const ColumnRowItem = ({
 	children,
 	className = "",
+	style,
 }: {
 	children: ReactNode;
 	className?: string;
+	style?: CSSProperties;
 }) => {
 	return (
 		<div
 			className={` flex-shrink-0 border-b dark:border-stone-800 py-2 px-3 overflow-hidden ${className}`}
+			style={style}
 		>
 			{children}
 		</div>
 	);
 };
 
-const RenderLoader = ({ columns }: { columns: string[] }) =>
+const RenderLoader = ({
+	columns,
+	style,
+}: {
+	columns: string[];
+	style?: CSSProperties;
+}) =>
 	fill(new Array(5), 1).map((_, index) => (
-		<RowWrapper key={`loader-row-${index}`} className="animate-pulse">
+		<RowWrapper
+			key={`loader-row-${index}`}
+			className={`animate-pulse`}
+			style={style}
+		>
 			{columns.map((_, index) => (
 				<ColumnRowItem
 					key={`loader-column-${index}`}
@@ -69,17 +84,19 @@ export default function Table({
 		.map(([keys]) => keys);
 	const noData = !data?.length && !isLoading;
 
-	const width = `basis-1/${visibleColumns.length}`;
+	const style: CSSProperties = {
+		gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(0, 1fr))`,
+	};
 
 	const onClickHandler = (rowItem: any) =>
 		typeof onClick === "function" ? onClick(rowItem) : noop();
 	return (
 		<div className="flex flex-col w-full overflow-auto border dark:border-stone-800 rounded-md">
-			<RowWrapper className="sticky top-0">
+			<RowWrapper className={`sticky top-0 z-10`} style={style}>
 				{visibleColumns.map((column) => (
 					<ColumnRowItem
 						key={column}
-						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-500 text-sm ${width}`}
+						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-500 text-sm`}
 					>
 						{columns[column]?.header()}
 					</ColumnRowItem>
@@ -91,18 +108,20 @@ export default function Table({
 				}`}
 			>
 				{(!isFetched || (isLoading && !data?.length)) && (
-					<RenderLoader columns={visibleColumns} />
+					<RenderLoader columns={visibleColumns} style={style} />
 				)}
 				{data?.map((rowItem) => {
 					return (
 						<RowWrapper
 							key={rowItem.id}
-							className="group text-sm text-stone-700 dark:text-stone-300"
+							className={`group text-sm text-stone-700 dark:text-stone-300`}
 							onClick={() => onClickHandler(rowItem)}
+							style={style}
 						>
 							{visibleColumns.map((column) => (
 								<ColumnRowItem
-									className={`group-last-of-type:border-b-0 group-hover:bg-stone-100  dark:group-hover:bg-stone-800 cursor-pointer ${width}`}
+									key={`${column}-${rowItem.id}`}
+									className={`group-last-of-type:border-b-0 group-hover:bg-stone-100  dark:group-hover:bg-stone-800 cursor-pointer`}
 								>
 									{columns[column]?.cell({
 										row: rowItem,

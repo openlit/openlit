@@ -31,7 +31,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { ValueOf } from "@/utils/types";
 import JsonViewer from "@/components/common/json-viewer";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 
@@ -119,6 +119,7 @@ const AccordionData = ({
 									{isPlainObject(datumValue) ? (
 										objectEntries(datumValue).map(([key, value]) => (
 											<AccordionDataItem
+												key={key.toString()}
 												dataKey={key.toString()}
 												dataValue={value}
 											/>
@@ -138,14 +139,19 @@ const AccordionData = ({
 };
 
 export default function RequestDetails() {
+	const [isOpen, setIsOpen] = useState(false);
 	const [request, updateRequest] = useRequest();
-	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const { data, fireRequest, isLoading } = useFetchWrapper();
 
 	const onClose = (open: boolean) => {
-		if (!open) updateRequest(null);
+		if (!open) {
+			updateRequest(null);
+			setIsOpen(false);
+		}
 	};
 
 	const fetchData = useCallback(async () => {
+		setIsOpen(true);
 		fireRequest({
 			requestType: "GET",
 			url: `/api/metrics/request/trace/${request?.id}`,
@@ -161,127 +167,138 @@ export default function RequestDetails() {
 		if (request?.id) fetchData();
 	}, [fetchData, request]);
 
-	if (
-		(data as { record?: TraceRow })?.record?.TraceId !== request?.id ||
-		!request
-	)
-		return null;
+	// if (!request) return null;
 
-	const normalizedItem: TransformedTraceRow = normalizeTrace(
-		(data as { record: TraceRow }).record
-	);
+	const isFetchingData =
+		!(data as { record?: TraceRow })?.record?.TraceId || isLoading;
 
-	const reducedData = objectEntries(
-		(data as { record: TraceRow }).record
-	).reduce(
-		(
-			acc: {
-				arrays: [keyof TraceRow, ValueOf<TraceRow>][];
-				objects: [keyof TraceRow, ValueOf<TraceRow>][];
-				values: [keyof TraceRow, ValueOf<TraceRow>][];
-			},
-			[key, value]
-		) => {
-			if (isPlainObject(value)) {
-				acc.objects.push([key, value]);
-			} else if (isArray(value)) {
-				acc.arrays.push([key, value]);
-			} else {
-				acc.values.push([key, value]);
-			}
+	const normalizedItem: TransformedTraceRow | null = isFetchingData
+		? null
+		: normalizeTrace((data as { record: TraceRow }).record);
 
-			return acc;
-		},
-		{ arrays: [], objects: [], values: [] }
-	);
+	const reducedData = isFetchingData
+		? { arrays: [], objects: [], values: [] }
+		: objectEntries((data as { record: TraceRow }).record || {}).reduce(
+				(
+					acc: {
+						arrays: [keyof TraceRow, ValueOf<TraceRow>][];
+						objects: [keyof TraceRow, ValueOf<TraceRow>][];
+						values: [keyof TraceRow, ValueOf<TraceRow>][];
+					},
+					[key, value]
+				) => {
+					if (isPlainObject(value)) {
+						acc.objects.push([key, value]);
+					} else if (isArray(value)) {
+						acc.arrays.push([key, value]);
+					} else {
+						acc.values.push([key, value]);
+					}
+
+					return acc;
+				},
+				{ arrays: [], objects: [], values: [] }
+		  );
 
 	return (
-		<Sheet open onOpenChange={onClose}>
+		<Sheet open={isOpen} onOpenChange={onClose}>
 			<SheetContent className="max-w-none sm:max-w-none w-1/2 bg-stone-200 dark:bg-stone-500 p-0 border-none grid gap-0">
 				<SheetHeader className="bg-stone-950 px-4 py-3">
 					<SheetTitle>
 						<div className="flex flex-col text-stone-200">
 							<div className="flex items-center text-2xl font-bold leading-7">
-								<p className="capitalize">{normalizedItem.spanName}</p>
+								<p className="capitalize">
+									{isFetchingData || !normalizedItem
+										? "..."
+										: normalizedItem.spanName}
+								</p>
 							</div>
 						</div>
 					</SheetTitle>
 				</SheetHeader>
-				<div className="flex flex-col gap-3 overflow-y-scroll p-4">
-					<div className="flex items-start flex-wrap gap-3">
-						{reducedData.values.map(([key, value]) => {
-							const reverseKey = ReverseTraceMapping[key];
-							const normalizedValue = `${
-								reverseKey ? TraceMapping[reverseKey].valuePrefix || "" : ""
-							}${
-								reverseKey
-									? getNormalizedTraceAttribute(reverseKey, value)
-									: value
-							}${reverseKey ? TraceMapping[reverseKey].valueSuffix || "" : ""}`;
-							return (
-								!isNil(value) &&
-								value.toString().length > 0 && (
-									<InfoPill
+				{isFetchingData || !normalizedItem ? (
+					"Loading!!!"
+				) : (
+					<div className="flex flex-col gap-3 overflow-y-scroll p-4">
+						<div className="flex items-start flex-wrap gap-3">
+							{reducedData.values.map(([key, value]) => {
+								const reverseKey = ReverseTraceMapping[key];
+								const normalizedValue = `${
+									reverseKey ? TraceMapping[reverseKey].valuePrefix || "" : ""
+								}${
+									reverseKey
+										? getNormalizedTraceAttribute(reverseKey, value)
+										: value
+								}${
+									reverseKey ? TraceMapping[reverseKey].valueSuffix || "" : ""
+								}`;
+								return (
+									!isNil(value) &&
+									value.toString().length > 0 && (
+										<InfoPill
+											key={key}
+											title={reverseKey ? TraceMapping[reverseKey].label : key}
+											value={normalizedValue}
+										/>
+									)
+								);
+							})}
+						</div>
+
+						{CODE_ITEM_DISPLAY_KEYS.map(
+							(key) =>
+								normalizedItem[key] && (
+									<CodeItem
 										key={key}
-										title={reverseKey ? TraceMapping[reverseKey].label : key}
-										value={normalizedValue}
+										label={TraceMapping[key].label}
+										text={normalizedItem[key]}
 									/>
 								)
+						)}
+
+						{/* Image */}
+						{normalizedItem.image && normalizedItem.imageSize && (
+							<a
+								href={normalizedItem.image}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="flex items-center justify-center aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-stone-100 lg:aspect-none lg:h-80 mt-4 group relative p-4 text-center text-stone-500"
+							>
+								<Image
+									src={normalizedItem.image}
+									alt={normalizedItem.applicationName}
+									className="h-full w-full object-cover object-center lg:h-full lg:w-full"
+									width={parseInt(normalizedItem.imageSize.split("x")[0], 10)}
+									height={parseInt(normalizedItem.imageSize.split("x")[1], 10)}
+								/>
+								<span className="flex items-center justify-center opacity-0 group-hover:opacity-100 absolute top-0 left-0 w-full h-full text-primary bg-stone-100/[0.1]">
+									<ExternalLink className="w-6 h-6 ml-2 shrink-0" />
+								</span>
+							</a>
+						)}
+						{/* Image */}
+
+						{reducedData.objects.map(([key, value]) => {
+							return (
+								<AccordionData
+									key={key.toString()}
+									dataKey={key}
+									dataValue={value as Record<string, any>}
+								/>
 							);
 						})}
-					</div>
 
-					{CODE_ITEM_DISPLAY_KEYS.map(
-						(key) =>
-							normalizedItem[key] && (
-								<CodeItem
-									key={key}
-									label={TraceMapping[key].label}
-									text={normalizedItem[key]}
+						{reducedData.arrays.map(([key, value]) =>
+							(value as unknown[]).length > 0 ? (
+								<AccordionData
+									key={key.toString()}
+									dataKey={key}
+									dataValue={value as string[] | Record<string, any>[]}
 								/>
-							)
-					)}
-
-					{/* Image */}
-					{normalizedItem.image && normalizedItem.imageSize && (
-						<a
-							href={normalizedItem.image}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="flex items-center justify-center aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-stone-100 lg:aspect-none lg:h-80 mt-4 group relative p-4 text-center text-stone-500"
-						>
-							<Image
-								src={normalizedItem.image}
-								alt={normalizedItem.applicationName}
-								className="h-full w-full object-cover object-center lg:h-full lg:w-full"
-								width={parseInt(normalizedItem.imageSize.split("x")[0], 10)}
-								height={parseInt(normalizedItem.imageSize.split("x")[1], 10)}
-							/>
-							<span className="flex items-center justify-center opacity-0 group-hover:opacity-100 absolute top-0 left-0 w-full h-full text-primary bg-stone-100/[0.1]">
-								<ExternalLink className="w-6 h-6 ml-2 shrink-0" />
-							</span>
-						</a>
-					)}
-					{/* Image */}
-
-					{reducedData.objects.map(([key, value]) => {
-						return (
-							<AccordionData
-								dataKey={key}
-								dataValue={value as Record<string, any>}
-							/>
-						);
-					})}
-
-					{reducedData.arrays.map(([key, value]) =>
-						(value as unknown[]).length > 0 ? (
-							<AccordionData
-								dataKey={key}
-								dataValue={value as string[] | Record<string, any>[]}
-							/>
-						) : null
-					)}
-				</div>
+							) : null
+						)}
+					</div>
+				)}
 			</SheetContent>
 		</Sheet>
 	);

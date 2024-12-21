@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect } from "react";
-import RequestFilter from "@/components/(playground)/request/request-filter";
 import {
 	RequestProvider,
 	useRequest,
@@ -14,17 +13,20 @@ import { getPingStatus } from "@/selectors/database-config";
 import DataTable from "@/components/data-table/table";
 import { columns } from "@/components/(playground)/request/columns";
 import { normalizeTrace } from "@/helpers/trace";
-import { getRequestVisibilityColumns } from "@/selectors/page";
+import { getVisibilityColumnsOfPage } from "@/selectors/page";
+import TracesFilter from "@/components/(playground)/filter/traces-filter";
 
 function RequestPage() {
-	const [request, updateRequest] = useRequest();
+	const [, updateRequest] = useRequest();
 
 	const onClick = (item: any) => {
 		!isLoading && updateRequest(item);
 	};
 
 	const filter = useRootStore(getFilterDetails);
-	const visibilityColumns = useRootStore(getRequestVisibilityColumns);
+	const visibilityColumns = useRootStore((state) =>
+		getVisibilityColumnsOfPage(state, "request")
+	);
 	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
 	const fetchData = useCallback(async () => {
@@ -53,7 +55,12 @@ function RequestPage() {
 
 	return (
 		<>
-			<RequestFilter total={(data as any)?.total} supportDynamicFilters />
+			<TracesFilter
+				total={(data as any)?.total}
+				supportDynamicFilters
+				pageName="request"
+				columns={columns}
+			/>
 			<DataTable
 				columns={columns}
 				data={normalizedData}
