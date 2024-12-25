@@ -1,21 +1,30 @@
+"use client";
+import {
+	NEXT_PUBLIC_POSTHOG_API_HOST,
+	NEXT_PUBLIC_POSTHOG_API_KEY,
+} from "@/constants/posthog";
 import { PostHogConfig } from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
 import { ReactNode } from "react";
 
 const POSTHOG_OPTIONS: Partial<PostHogConfig> = {
-	api_host: process.env.NEXT_PUBLIC_POSTHOG_API_HOST,
+	api_host: NEXT_PUBLIC_POSTHOG_API_HOST,
 	autocapture: false,
 };
 
 export default function CustomPostHogProvider({
 	children,
+	telemetryEnabled,
 }: {
 	children: ReactNode;
+	telemetryEnabled: boolean;
 }) {
-	const posthogAPIKey = process.env.NEXT_PUBLIC_POSTHOG_API_KEY;
-	if (process.env.NEXT_PUBLIC_TELEMETRY_ENABLED) {
+	if (telemetryEnabled) {
 		return (
-			<PostHogProvider apiKey={posthogAPIKey} options={POSTHOG_OPTIONS}>
+			<PostHogProvider
+				apiKey={NEXT_PUBLIC_POSTHOG_API_KEY}
+				options={POSTHOG_OPTIONS}
+			>
 				{children}
 			</PostHogProvider>
 		);

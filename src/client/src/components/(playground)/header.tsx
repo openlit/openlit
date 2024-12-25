@@ -1,3 +1,4 @@
+"use client";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import DatabaseConfigSwitch from "./database-config-switch";
