@@ -1,4 +1,9 @@
+import {
+	NEXT_PUBLIC_POSTHOG_API_HOST,
+	NEXT_PUBLIC_POSTHOG_API_KEY,
+} from "@/constants/posthog";
 import { consoleLog } from "@/utils/log";
+import { isBoolean } from "lodash";
 import { PostHog } from "posthog-node";
 
 type EventMessage = Parameters<PostHog["capture"]>[0];
@@ -6,16 +11,18 @@ type EventMessage = Parameters<PostHog["capture"]>[0];
 export default class PostHogServer {
 	static client: PostHog;
 	static createClient() {
-		this.client = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_API_KEY!, {
-			host: process.env.NEXT_PUBLIC_POSTHOG_API_HOST,
+		this.client = new PostHog(NEXT_PUBLIC_POSTHOG_API_KEY, {
+			host: NEXT_PUBLIC_POSTHOG_API_HOST,
 			flushAt: 1,
 			flushInterval: 0,
 		});
 	}
 
 	static capture(options: EventMessage) {
+		const telemetryEnabled = process.env.TELEMETRY_ENABLED !== "false";
+
 		try {
-			if (process.env.NEXT_PUBLIC_TELEMETRY_ENABLED) {
+			if (telemetryEnabled) {
 				if (!this.client) {
 					this.createClient();
 				}

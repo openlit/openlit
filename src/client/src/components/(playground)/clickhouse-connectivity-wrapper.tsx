@@ -1,3 +1,4 @@
+"use client";
 import { pingActiveDatabaseConfig } from "@/helpers/database-config";
 import { getPingDetails } from "@/selectors/database-config";
 import { useRootStore } from "@/store";

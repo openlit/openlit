@@ -1,3 +1,4 @@
+"use client";
 import ManageKeys from "@/components/(playground)/api-keys/manage";
 
 export default function APIKeys() {
