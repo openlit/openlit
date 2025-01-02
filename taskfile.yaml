@@ -2,12 +2,18 @@ version: '3'
 
 tasks:
 
-  build-and-run:
+  build-dev-and-run:
     desc: Build Docker dev image and run it
     dir: src
     cmds:
     - docker-compose -f dev-docker-compose.yml build
     - docker compose up
+
+  install:
+    desc: Install npm dependencies
+    dir: src/client
+    cmds:
+    - npm install
 
   start:
     desc: Run Docker containers
