@@ -1,0 +1,35 @@
+version: '3'
+
+tasks:
+
+  build-and-run:
+    desc: Build Docker dev image and run it
+    dir: src
+    cmds:
+    - docker-compose -f dev-docker-compose.yml build
+    - docker compose up
+
+  start:
+    desc: Run Docker containers
+    cmds:
+    - docker-compose up -d
+
+  stop:
+    desc: Stop Docker containers
+    cmds:
+    - docker-compose stop
+
+  destroy:
+    desc: Stop and remove Docker containers, networks, and volumes
+    cmds:
+    - docker-compose down -v
+
+  logs:
+    desc: Logs Docker
+    cmds:
+    - docker-compose logs -f
+
+  default:
+    desc: Display available tasks
+    cmds:
+    - task --list
