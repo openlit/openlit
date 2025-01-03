@@ -87,7 +87,7 @@ You can also use the [OpenLIT Helm Chart](https://github.com/openlit/helm/tree/m
     ```sh
     npm install
     ```
-4. **Configure Environemnt Variables**
+4. **Configure Environment Variables**
 
     Below are the commands to set environment variables if needed during manual setup. Replace `<value>` with your actual configuration:
     ```sh
