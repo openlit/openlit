@@ -39,7 +39,7 @@ const TagItem = ({
 const CodeItem = ({ label, text }: { label: string; text: string }) => (
 	<div className="flex flex-col space-y-3 mt-4">
 		<span className="text-sm text-stone-500 font-medium">{label} : </span>
-		<code className="text-sm inline-flex text-left items-center bg-stone-950 text-stone-200 rounded-md p-4">
+		<code className="text-sm inline-flex text-left items-center bg-stone-950 text-stone-200 rounded-md p-4 whitespace-pre-wrap">
 			{text}
 		</code>
 	</div>
