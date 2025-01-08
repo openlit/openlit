@@ -20,7 +20,6 @@ echo "INIT_DB_DATABASE=${INIT_DB_DATABASE}" >> /etc/environment
 source /etc/environment
 
 # Run Prisma migrations and generate prisma client
-npm install -g prisma
 prisma migrate deploy
 prisma generate
 
