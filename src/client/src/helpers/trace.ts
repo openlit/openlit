@@ -1,4 +1,5 @@
 import {
+	TraceHeirarchySpan,
 	TraceMapping,
 	TraceMappingKeyType,
 	TraceRow,
@@ -6,7 +7,7 @@ import {
 } from "@/constants/traces";
 import { objectKeys } from "@/utils/object";
 import { format } from "date-fns";
-import { get, round } from "lodash";
+import { find, get, round } from "lodash";
 
 export const integerParser = (value: string, offset?: number) =>
 	parseInt((value || "0") as string, 10) * (offset || 1);
@@ -118,5 +119,49 @@ export const CODE_ITEM_DISPLAY_KEYS: TraceMappingKeyType[] = [
 	/* Framework */
 	"retrievalSource",
 	/* Exception */
-	"statusMessage",
+	"statusMessage"
 ];
+
+export const buildHierarchy = (data: any[]) => {
+	// Create a map for quick lookup of nodes by SpanId
+	const nodeMap = new Map();
+	data.forEach((item) => {
+		nodeMap.set(item.SpanId, { ...item, children: [] });
+	});
+
+	let root = null;
+
+	// Build the hierarchy
+	data.forEach((item) => {
+		const node = nodeMap.get(item.SpanId);
+		if (item.ParentSpanId === "") {
+			// Root node found
+			root = node;
+		} else if (nodeMap.has(item.ParentSpanId)) {
+			// Link the node to its parent
+			const parent = nodeMap.get(item.ParentSpanId);
+			parent.children.push(node);
+		}
+	});
+
+	return root; // Returns the hierarchical tree
+};
+
+export function findSpanInHierarchyLodash(
+	hierarchy: TraceHeirarchySpan,
+	targetSpanId: string
+): TraceHeirarchySpan | undefined {
+	// Check current span
+	if (hierarchy.SpanId === targetSpanId) {
+		return hierarchy;
+	}
+
+	// Search in children if they exist
+	if (hierarchy.children?.length) {
+		return find(hierarchy.children, (child) => {
+			return findSpanInHierarchyLodash(child, targetSpanId);
+		}) as TraceHeirarchySpan | undefined;
+	}
+
+	return undefined;
+}

@@ -43,6 +43,7 @@ export type TraceMappingKeyType =
 	| "statusCode"
 	| "serviceName"
 	| "statusMessage"
+	| "spanId"
 	| "spanName"
 	| "exceptionType"
 	| "deploymentType"
@@ -157,6 +158,12 @@ export const TraceMapping: Record<
 		label: "Error Message",
 		type: "string",
 		path: "StatusMessage",
+		isRoot: true,
+	},
+	spanId: {
+		label: "Span Id",
+		type: "string",
+		path: "SpanId",
 		isRoot: true,
 	},
 	spanName: {
@@ -560,4 +567,10 @@ export interface TraceRow {
 		TraceState: string;
 		Attributes: Record<string, string>;
 	}[];
+}
+export interface TraceHeirarchySpan {
+	SpanId: string;
+	SpanName: string;
+	Duration: number;
+	children?: TraceHeirarchySpan[];
 }

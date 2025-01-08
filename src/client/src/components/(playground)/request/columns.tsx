@@ -37,7 +37,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.spanName.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.spanName}>
+				<div className="truncate" title={row.spanName}>
 					{row.spanName}
 				</div>
 			);
@@ -50,7 +50,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 				TraceMapping.requestDuration.valueSuffix
 			}`;
 			return (
-				<div className="flex items-center" title={value}>
+				<div className="truncate" title={value}>
 					{value}
 				</div>
 			);
@@ -61,7 +61,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.serviceName.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.serviceName}>
+				<div className="truncate" title={row.serviceName}>
 					{row.serviceName}
 				</div>
 			);
@@ -72,7 +72,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.applicationName.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.applicationName}>
+				<div className="truncate" title={row.applicationName}>
 					{row.applicationName}
 				</div>
 			);
@@ -84,7 +84,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		cell: ({ row }) => {
 			const value = `${TraceMapping.cost.valuePrefix}${row.cost}`;
 			return (
-				<div className="flex items-center" title={value}>
+				<div className="truncate" title={value}>
 					{value}
 				</div>
 			);
@@ -95,7 +95,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.totalTokens.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.totalTokens}>
+				<div className="truncate" title={row.totalTokens}>
 					{row.totalTokens}
 				</div>
 			);
@@ -106,7 +106,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.model.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.model}>
+				<div className="truncate" title={row.model}>
 					{row.model}
 				</div>
 			);
@@ -117,7 +117,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.system.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.system}>
+				<div className="truncate" title={row.system}>
 					{row.system}
 				</div>
 			);
@@ -128,7 +128,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.vectorCount.label,
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center" title={row.vectorCount}>
+				<div className="truncate" title={row.vectorCount}>
 					{row.vectorCount}
 				</div>
 			);

@@ -1,5 +1,5 @@
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "./common";
-import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { buildHierarchy, getTraceMappingKeyFullPath } from "@/helpers/trace";
 import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
@@ -165,14 +165,14 @@ export async function getRequests(params: MetricParams) {
 	};
 }
 
-export async function getRequestViaParentSpanId(parentSpanId: string) {
+export async function getRequestViaSpanId(spanId: string) {
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
-		WHERE SpanId='${parentSpanId}'`;
+		WHERE SpanId='${spanId}'`;
 
 	const { data, err } = await dataCollector({ query });
 	return {
 		err,
-		record: data,
+		record: (data as unknown[])?.[0],
 	};
 }
 
@@ -185,5 +185,71 @@ export async function getRequestViaTraceId(traceId: string) {
 	return {
 		err,
 		record: (data as unknown[])?.[0],
+	};
+}
+
+export async function getHeirarchyViaSpanId(spanId: string) {
+	const commonQuery = (
+		dir: "upward" | "downward",
+		id: string
+	) => `WITH RECURSIVE trace_hierarchy AS (
+						SELECT
+								${getTraceMappingKeyFullPath("id")},
+								${getTraceMappingKeyFullPath("parentSpanId")},
+								${getTraceMappingKeyFullPath("spanId")},
+								${getTraceMappingKeyFullPath("spanName")},
+								${getTraceMappingKeyFullPath("requestDuration")},
+								0 AS level
+						FROM
+								${OTEL_TRACES_TABLE_NAME}
+						WHERE
+								SpanId = '${id}' -- Starting SpanId
+						
+						UNION ALL
+
+						SELECT
+								ot.${getTraceMappingKeyFullPath("id")},
+								ot.${getTraceMappingKeyFullPath("parentSpanId")},
+								ot.${getTraceMappingKeyFullPath("spanId")},
+								ot.${getTraceMappingKeyFullPath("spanName")},
+								ot.${getTraceMappingKeyFullPath("requestDuration")},
+								th.level + 1 AS level
+						FROM
+								${OTEL_TRACES_TABLE_NAME} ot
+						INNER JOIN
+								trace_hierarchy th
+						ON
+								${
+									dir === "upward"
+										? `ot.${getTraceMappingKeyFullPath(
+												"spanId"
+										  )} = th.${getTraceMappingKeyFullPath("parentSpanId")}`
+										: `ot.${getTraceMappingKeyFullPath(
+												"parentSpanId"
+										  )} = th.${getTraceMappingKeyFullPath("spanId")}`
+								}
+				)
+				SELECT *
+				FROM trace_hierarchy
+				ORDER BY level DESC;`;
+
+	const { data: upwardData, err: upwardErr } = await dataCollector({
+		query: commonQuery("upward", spanId),
+	});
+
+	if ((upwardData as any[])?.[0]?.SpanId) {
+		const { data: downwardData, err: downwardErr } = await dataCollector({
+			query: commonQuery("downward", (upwardData as any[])?.[0]?.SpanId),
+		});
+
+		return {
+			err: upwardErr || downwardErr,
+			record: buildHierarchy(downwardData as any[]),
+		};
+	}
+
+	return {
+		err: "Error in fetching heirarchy",
+		record: [],
 	};
 }
