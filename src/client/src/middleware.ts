@@ -75,5 +75,6 @@ export const config = {
 		"/prompt-hub",
 		"/vault",
 		"/api-keys",
+		"/telemetry-enabled",
 	],
 };

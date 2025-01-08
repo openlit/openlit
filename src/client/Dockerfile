@@ -32,8 +32,10 @@ COPY --from=builder /app/client/prisma ./prisma
 # Execute entrypoint script to generate NextAuth.js secret and run commands
 COPY --from=builder /app/client/scripts/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
+
 # Installing extra packages
-RUN apk --no-cache add bash openssl
+RUN apk --no-cache add bash openssl && \
+    npm install -g prisma
 
 # Expose the port that Next.js will run on
 EXPOSE 3000

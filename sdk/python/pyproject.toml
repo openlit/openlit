@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "openlit"
-version = "1.33.0"
+version = "1.33.2"
 description = "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications and GPUs, facilitating the integration of observability into your GenAI-driven projects"
 authors = ["OpenLIT"]
 repository = "https://github.com/openlit/openlit/tree/main/openlit/python"
@@ -22,7 +22,7 @@ opentelemetry-sdk = "^1.27.0"
 opentelemetry-exporter-otlp = "^1.27.0"
 opentelemetry-instrumentation = "^0.48b0"
 openai = "^1.1.1"
-anthropic = "^0.21.0"
+anthropic = "^0.42.0"
 
 [build-system]
 requires = ["poetry-core>=1.1.0"]

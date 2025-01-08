@@ -5,9 +5,9 @@
 
 # Open Source Platform for AI Engineering
 
-**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) |** 
+**[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) |**
 
-**[Roadmap](#️-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)** 
+**[Roadmap](#️-roadmap) | [Feature Request](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Araised_hand%3A+Up+for+Grabs%2C+%3Arocket%3A+Feature&projects=&template=feature-request.md&title=%5BFeat%5D%3A) | [Report a Bug](https://github.com/openlit/openlit/issues/new?assignees=&labels=%3Abug%3A+Bug%2C+%3Araised_hand%3A+Up+for+Grabs&projects=&template=bug.md&title=%5BBug%5D%3A)**
 
 [![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://openlit.io/)
 [![License](https://img.shields.io/github/license/openlit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/openlit/openlit/blob/main/LICENSE)
@@ -21,7 +21,7 @@
 
 ---
 
-https://github.com/user-attachments/assets/6909bf4a-f5b4-4060-bde3-95e91fa36168
+<https://github.com/user-attachments/assets/6909bf4a-f5b4-4060-bde3-95e91fa36168>
 
 **OpenLIT** allows you to simplify your AI development workflow, especially for Generative AI and LLMs. It streamlines essential tasks like experimenting with LLMs, organizing and versioning prompts, and securely handling API keys. With just one line of code, you can enable **OpenTelemetry-native** observability, offering full-stack monitoring that includes LLMs, vector databases, and GPUs. This enables developers to confidently build AI features and applications, transitioning smoothly from testing to production.
 
@@ -33,7 +33,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 - 📈 **Analytics Dashboard**: Monitor your AI application's health and performance with detailed dashboards that track metrics, costs, and user interactions, providing a clear view of overall efficiency.
 
-- 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs to send traces and metrics to your existing observability tools. 
+- 🔌 **OpenTelemetry-native Observability SDKs**: Vendor-neutral SDKs to send traces and metrics to your existing observability tools.
 
 - 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Tailor cost estimations for specific models using custom pricing files for precise budgeting.
 
@@ -105,10 +105,10 @@ openlit.init()
 
 Configure the telemetry data destination as follows:
 
-| Purpose                                   | Parameter/Environment Variable                   | For Sending to OpenLIT         |
-|-------------------------------------------|--------------------------------------------------|--------------------------------|
-| Send data to an HTTP OTLP endpoint        | `otlp_endpoint` or `OTEL_EXPORTER_OTLP_ENDPOINT` | `"http://127.0.0.1:4318"`      |
-| Authenticate telemetry backends           | `otlp_headers` or `OTEL_EXPORTER_OTLP_HEADERS`   | Not required by default        |
+| Purpose                            | Parameter/Environment Variable                   | For Sending to OpenLIT    |
+| ---------------------------------- | ------------------------------------------------ | ------------------------- |
+| Send data to an HTTP OTLP endpoint | `otlp_endpoint` or `OTEL_EXPORTER_OTLP_ENDPOINT` | `"http://127.0.0.1:4318"` |
+| Authenticate telemetry backends    | `otlp_headers` or `OTEL_EXPORTER_OTLP_HEADERS`   | Not required by default   |
 
 > 💡 Info: If the `otlp_endpoint` or `OTEL_EXPORTER_OTLP_ENDPOINT` is not provided, the OpenLIT SDK will output traces directly to your console, which is recommended during the development phase.
 
@@ -152,16 +152,19 @@ Configure the telemetry data destination as follows:
   ```env
   export OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318"
   ```
+
 </details>
 
 ---
 
-### Step 4: Visualize and Optimize!
+### Step 4: Visualize and Optimize
+
 With the Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your AI application's performance, behavior, and identify areas of improvement.
 
 Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
-  - **Email**: `user@openlit.io`
-  - **Password**: `openlituser`
+
+- **Email**: `user@openlit.io`
+- **Password**: `openlituser`
 
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-2.png?raw=true)
@@ -170,21 +173,21 @@ Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring
 
 We are dedicated to continuously improving OpenLIT. Here's a look at what's been accomplished and what's on the horizon:
 
-| Feature                                                                                      | Status        |
-|----------------------------------------------------------------------------------------------|---------------|
-| [OpenTelemetry-native Observability SDK for Tracing and Metrics](https://github.com/openlit/openlit/tree/text-upgrade/sdk/python) | ✅ Completed  |
-| [OpenTelemetry-native GPU Monitoring](https://docs.openlit.io/latest/features/gpu)           | ✅ Completed  |
-| [Exceptions and Error Monitoring](https://docs.openlit.io/latest/features/exceptions)                                                          | ✅ Completed  |
-| [Prompt Hub for Managing and Versioning Prompts](https://docs.openlit.io/latest/features/prompt-hub) | ✅ Completed  |
-| [OpenGround for Testing and Comparing LLMs](https://docs.openlit.io/latest/features/openground)                                                | ✅ Completed  |
-| [Vault for Central Management of LLM API Keys and Secrets](https://docs.openlit.io/latest/features/vault) | ✅ Completed  |
-| [Cost Tracking for Custom Models](https://docs.openlit.io/latest/features/pricing)           | ✅ Completed  |
-| [Real-Time Guardrails Implementation](https://docs.openlit.io/latest/features/guardrails)                                                      | ✅ Completed    |
-| [Programmatic Evaluation for LLM Response](https://docs.openlit.io/latest/features/evaluations)                                                      | ✅ Completed    |
-| [Auto-Evaluation Metrics Based on Usage](https://github.com/openlit/openlit/issues/470)                                                   | 🔜 Coming Soon |
-| [Human Feedback for LLM Events](https://github.com/openlit/openlit/issues/471)                                                            | 🔜 Coming Soon |
-| [Dataset Generation Based on LLM Events](https://github.com/openlit/openlit/issues/472)                                                   | 🔜 Coming Soon |
-| [Search over Traces]()                                                                       | 🔜 Coming Soon |
+| Feature                                                                                                                           | Status        |
+| --------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| [OpenTelemetry-native Observability SDK for Tracing and Metrics](https://github.com/openlit/openlit/tree/text-upgrade/sdk/python) | ✅ Completed   |
+| [OpenTelemetry-native GPU Monitoring](https://docs.openlit.io/latest/features/gpu)                                                | ✅ Completed   |
+| [Exceptions and Error Monitoring](https://docs.openlit.io/latest/features/exceptions)                                             | ✅ Completed   |
+| [Prompt Hub for Managing and Versioning Prompts](https://docs.openlit.io/latest/features/prompt-hub)                              | ✅ Completed   |
+| [OpenGround for Testing and Comparing LLMs](https://docs.openlit.io/latest/features/openground)                                   | ✅ Completed   |
+| [Vault for Central Management of LLM API Keys and Secrets](https://docs.openlit.io/latest/features/vault)                         | ✅ Completed   |
+| [Cost Tracking for Custom Models](https://docs.openlit.io/latest/features/pricing)                                                | ✅ Completed   |
+| [Real-Time Guardrails Implementation](https://docs.openlit.io/latest/features/guardrails)                                         | ✅ Completed   |
+| [Programmatic Evaluation for LLM Response](https://docs.openlit.io/latest/features/evaluations)                                   | ✅ Completed   |
+| [Auto-Evaluation Metrics Based on Usage](https://github.com/openlit/openlit/issues/470)                                           | 🔜 Coming Soon |
+| [Human Feedback for LLM Events](https://github.com/openlit/openlit/issues/471)                                                    | 🔜 Coming Soon |
+| [Dataset Generation Based on LLM Events](https://github.com/openlit/openlit/issues/472)                                           | 🔜 Coming Soon |
+| [Search over Traces]()                                                                                                            | 🔜 Coming Soon |
 
 ## 🌱 Contributing
 
@@ -211,3 +214,36 @@ Connect with OpenLIT community and maintainers for support, discussions, and upd
 ## License
 
 OpenLIT is available under the [Apache-2.0 license](LICENSE).
+
+
+## Getting started with taskfile
+
+### Installing Task
+
+#### Using package managers:
+
+```bash
+# macOS
+brew install go-task
+
+# Windows (Chocolatey)
+choco install go-task
+
+# Linux
+sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
+
+```
+
+### just Ask task
+
+```bash
+➜  openlit task
+task: [default] task --list
+task: Available tasks for this project:
+* build-and-run:       Build Docker images
+* default:             Display available tasks
+* destroy:             Stop and remove Docker containers, networks, and volumes
+* logs:                Logs Docker
+* start:               Run Docker containers
+* stop:                Stop Docker containers
+```
