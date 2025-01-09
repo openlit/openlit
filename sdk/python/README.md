@@ -75,6 +75,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 - [✅ Dynatrace](https://docs.openlit.io/latest/connections/dynatrace)
 - [✅ OpenObserve](https://docs.openlit.io/latest/connections/openobserve)
 - [✅ Highlight.io](https://docs.openlit.io/latest/connections/highlight)
+- [✅ SigLens](https://docs.openlit.io/latest/connections/siglens)
 
 ## 💿 Installation
 

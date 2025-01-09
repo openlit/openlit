@@ -174,8 +174,9 @@
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
         "latest/connections/highlight",
-        "latest/connections/murnitur",
-        "latest/connections/middleware"
+        "latest/connections/middleware",
+        "latest/connections/siglens",
+        "latest/connections/murnitur"
       ],
       "version": "latest"
     },
