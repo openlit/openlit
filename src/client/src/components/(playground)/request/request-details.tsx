@@ -142,7 +142,9 @@ export default function RequestDetails() {
 	}, [request]);
 
 	useEffect(() => {
-		if (request?.spanId) fetchData();
+		if (request?.spanId) {
+			fetchData();
+		}
 	}, [fetchData, request]);
 
 	useEffect(() => {

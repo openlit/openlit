@@ -18,10 +18,12 @@ interface TreeNodeProps {
 export function TreeNode({ span, level }: TreeNodeProps) {
 	const [request, updateRequest] = useRequest();
 	const onClick = () => {
-		if (request?.spanId !== span.SpanId)
+		if (request?.spanId !== span.SpanId) {
 			updateRequest({
 				spanId: span.SpanId,
 			});
+		}
+		return;
 	};
 
 	const spacingParent = level * 20 + 10;
@@ -109,7 +111,9 @@ export default function HeirarchyDisplay() {
 	}, [request, typedData, isLoading]);
 
 	const { record } = typedData;
-	if (isLoading || typedData.err || !record) return null;
+	if (isLoading || typedData.err || !record) {
+		return null;
+	}
 
 	return (
 		<div className="absolute left-0 -translate-x-full w-2/3 bg-stone-100 dark:bg-stone-900 border border-stone-200 border-t-0 dark:border-stone-900 border-r-0 text-stone-800 dark:text-stone-300 flex flex-col max-h-1/2">

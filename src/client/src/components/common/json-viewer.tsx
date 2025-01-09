@@ -1,34 +1,10 @@
-import { jsonParse, jsonStringify } from "@/utils/json";
+import { jsonParse } from "@/utils/json";
 import {
 	JsonViewer,
 	JsonViewerProps,
-	defineDataType,
 	defineEasyType,
 } from "@textea/json-viewer";
-import { isInteger, isString } from "lodash";
-
-// const imageType = defineDataType<string>({
-// 	is: (value) => {
-// 		if (typeof value !== "string") return false;
-// 		try {
-// 			const url = new URL(value);
-// 			return /\.png|\.jpg|\.gif|\.svg$/.test(url.pathname);
-// 		} catch {
-// 			return false;
-// 		}
-// 	},
-// 	Component: (props) => {
-// 		return (
-// 			<img
-// 				height={48}
-// 				width={48}
-// 				src={props.value}
-// 				alt={"hello"}
-// 				style={{ display: "inline-block" }}
-// 			/>
-// 		);
-// 	},
-// });
+import { isInteger } from "lodash";
 
 const integerType = defineEasyType<string>({
 	is: (value) => {
@@ -42,7 +18,9 @@ const integerType = defineEasyType<string>({
 
 const objectType = defineEasyType<string>({
 	is: (value) => {
-		if (!/^\[|\{/.test(value as string)) return false;
+		if (!/^\[|\{/.test(value as string)) {
+			return false;
+		}
 		return jsonParse(value as string);
 	},
 	type: "object",
@@ -57,20 +35,9 @@ const booleanType = defineEasyType<string>({
 	type: "bool",
 	colorKey: "base0E",
 	Renderer: (props) => {
-		return `${props.value === "true" ? true : false}`;
+		return `${!!(props.value === "true")}`;
 	},
 });
-
-// const stringType = defineEasyType<string>({
-// 	is: (value) => {
-// 		return isString(value);
-// 	},
-// 	type: "string",
-// 	colorKey: "base0A",
-// 	Renderer: (props) => {
-// 		return props.value;
-// 	},
-// });
 
 export default function JSONViewer(props: JsonViewerProps) {
 	return (
