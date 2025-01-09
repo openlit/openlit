@@ -1,20 +1,35 @@
 "use client";
 import { useCallback, useEffect } from "react";
-import { RequestProvider } from "@/components/(playground)/request/request-context";
+import {
+	RequestProvider,
+	useRequest,
+} from "@/components/(playground)/request/request-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
-import RequestFilter from "@/components/(playground)/request/request-filter";
 import { omit } from "lodash";
-import List from "./list";
 import RequestDetails from "@/components/(playground)/request/request-details";
+import { normalizeTrace } from "@/helpers/trace";
+import DataTable from "@/components/data-table/table";
+import { columns } from "@/components/(playground)/exceptions/columns";
+import { getVisibilityColumnsOfPage } from "@/selectors/page";
+import TracesFilter from "@/components/(playground)/filter/traces-filter";
 
-export default function RequestPage() {
+function ExceptionPage() {
 	const filter = useRootStore(getFilterDetails);
+	const [, updateRequest] = useRequest();
+
+	const onClick = (item: any) => {
+		!isLoading && updateRequest(item);
+	};
 	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const visibilityColumns = useRootStore((state) =>
+		getVisibilityColumnsOfPage(state, "exception")
+	);
+
 	const fetchData = useCallback(async () => {
 		fireRequest({
 			body: JSON.stringify(omit(filter, ["selectedConfig"])),
@@ -37,18 +52,33 @@ export default function RequestPage() {
 			fetchData();
 	}, [filter, fetchData, pingStatus]);
 
+	const normalizedData = ((data as any)?.records || []).map(normalizeTrace);
+
 	return (
-		<RequestProvider>
-			<RequestFilter
+		<>
+			<TracesFilter
 				total={(data as any)?.total}
 				includeOnlySorting={["Timestamp"]}
+				pageName={"exception"}
+				columns={columns}
 			/>
-			<List
-				data={(data as any)?.records || []}
+			<DataTable
+				columns={columns}
+				data={normalizedData}
 				isFetched={isFetched || pingStatus !== "pending"}
 				isLoading={isLoading || pingStatus === "pending"}
+				visibilityColumns={visibilityColumns}
+				onClick={onClick}
 			/>
 			<RequestDetails />
+		</>
+	);
+}
+
+export default function Page() {
+	return (
+		<RequestProvider>
+			<ExceptionPage />
 		</RequestProvider>
 	);
 }

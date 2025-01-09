@@ -1,4 +1,4 @@
-import { getRequestViaParentSpanId } from "@/lib/platform/request";
+import { getRequestViaTraceId } from "@/lib/platform/request";
 
 export async function GET(_: Request, context: any) {
 	const { id } = context.params || {};
@@ -8,6 +8,6 @@ export async function GET(_: Request, context: any) {
 			status: 400,
 		});
 
-	const res: any = await getRequestViaParentSpanId(id);
+	const res: any = await getRequestViaTraceId(id);
 	return Response.json(res);
 }

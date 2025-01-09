@@ -52,10 +52,10 @@ export default function Sorting({
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button
-					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-2.5 relative"
+					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 aspect-square p-1 h-[30px] relative"
 					variant="outline"
 				>
-					<ArrowDownUpIcon />
+					<ArrowDownUpIcon className="w-3 h-3" />
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent>
@@ -64,9 +64,9 @@ export default function Sorting({
 						{label}
 						{key === sorting.type &&
 							(sorting.direction === "asc" ? (
-								<ArrowUpIcon className="h-4 w-4 ml-auto" />
+								<ArrowUpIcon className="h-3 w-3 ml-auto" />
 							) : (
-								<ArrowDownIcon className="h-4 w-4 ml-auto" />
+								<ArrowDownIcon className="h-3 w-3 ml-auto" />
 							))}
 					</DropdownMenuItem>
 				))}

@@ -13,6 +13,7 @@ import {
 	DoorClosed,
 	Factory,
 	FileAudio2,
+	FileCog,
 	FileStack,
 	Fingerprint,
 	ImageIcon,
@@ -26,14 +27,75 @@ import {
 	TicketCheck,
 	TicketPlus,
 } from "lucide-react";
+import { objectKeys } from "@/utils/object";
+import { isArray } from "lodash";
 
-export const SpanAttributesGenAIPrefix = "gen_ai";
-export const SpanAttributesDBPrefix = "db";
+const SpanAttributesGenAIPrefix = "gen_ai";
+const SpanAttributesDBPrefix = "db";
 
-export type TraceKeyType = "string" | "integer" | "float" | "round";
+type TraceKeyType = "string" | "integer" | "float" | "round" | "date";
+
+export type TraceMappingKeyType =
+	| "time"
+	| "requestDuration"
+	| "id"
+	| "parentSpanId"
+	| "statusCode"
+	| "serviceName"
+	| "statusMessage"
+	| "spanId"
+	| "spanName"
+	| "exceptionType"
+	| "deploymentType"
+	| "provider"
+	| "applicationName"
+	| "environment"
+	| "type"
+	| "endpoint"
+	| "temperature"
+	| "cost"
+	| "promptTokens"
+	| "completionTokens"
+	| "totalTokens"
+	| "maxTokens"
+	| "audioVoice"
+	| "audioFormat"
+	| "audioSpeed"
+	| "image"
+	| "imageSize"
+	| "imageQuality"
+	| "imageStyle"
+	| "model"
+	| "prompt"
+	| "finishReason"
+	| "response"
+	| "randomSeed"
+	| "revisedPrompt"
+	| "embeddingFormat"
+	| "embeddingDimension"
+	| "trainingFile"
+	| "validationFile"
+	| "fineTuneBatchSize"
+	| "learningRateMultiplier"
+	| "fineTuneNEpochs"
+	| "fineTuneModelSuffix"
+	| "finetuneJobStatus"
+	| "operation"
+	| "system"
+	| "documentsCount"
+	| "idsCount"
+	| "vectorCount"
+	| "statement"
+	| "nResults"
+	| "collectionName"
+	| "whereDocument"
+	| "filter"
+	| "owner"
+	| "repo"
+	| "retrievalSource";
 
 export const TraceMapping: Record<
-	string,
+	TraceMappingKeyType,
 	{
 		label: string;
 		type: TraceKeyType;
@@ -43,21 +105,24 @@ export const TraceMapping: Record<
 		offset?: number;
 		icon?: LucideIcon;
 		defaultValue?: string | number | boolean;
+		valuePrefix?: string;
+		valueSuffix?: string;
 	}
 > = {
 	// Root Key
 	time: {
 		label: "Time",
-		type: "string",
+		type: "date",
 		path: "Timestamp",
 		isRoot: true,
 	},
 	requestDuration: {
 		label: "Request Duration",
-		type: "integer",
+		type: "float",
 		path: "Duration",
 		isRoot: true,
 		offset: 10e-10,
+		valueSuffix: "s",
 	},
 
 	id: {
@@ -87,11 +152,18 @@ export const TraceMapping: Record<
 		type: "string",
 		path: "ServiceName",
 		isRoot: true,
+		icon: FileCog,
 	},
 	statusMessage: {
 		label: "Error Message",
 		type: "string",
 		path: "StatusMessage",
+		isRoot: true,
+	},
+	spanId: {
+		label: "Span Id",
+		type: "string",
+		path: "SpanId",
 		isRoot: true,
 	},
 	spanName: {
@@ -165,6 +237,7 @@ export const TraceMapping: Record<
 		icon: CircleDollarSign,
 		offset: 10,
 		defaultValue: "-",
+		valuePrefix: "$",
 	},
 
 	promptTokens: {
@@ -284,6 +357,12 @@ export const TraceMapping: Record<
 		type: "float",
 		path: "request.seed",
 		prefix: SpanAttributesGenAIPrefix,
+	},
+	revisedPrompt: {
+		label: "Revised Prompt",
+		type: "string",
+		path: ["SpanAttributes", "gen_ai.content.revised_prompt"],
+		isRoot: true,
 	},
 
 	// Embedding
@@ -437,9 +516,24 @@ export const TraceMapping: Record<
 	},
 };
 
-export type TraceMappingKeyType = keyof typeof TraceMapping;
+function getReverseTraceMapping(): Record<string, TraceMappingKeyType> {
+	return objectKeys(TraceMapping).reduce(
+		(acc: Record<string, TraceMappingKeyType>, key) => {
+			const path: string = isArray(TraceMapping[key].path)
+				? (TraceMapping[key].path as string[]).join(",")
+				: (TraceMapping[key].path as string);
+			acc[path] = key;
+			return acc;
+		},
+		{}
+	);
+}
 
-export type TransformedTraceRow = Record<keyof typeof TraceMapping, any>;
+/**
+ * This Reverse Trace Mapping is for getting the mapping from path of a key in the trace request to the mapping key in the TraceMapping object in order to
+ */
+export const ReverseTraceMapping = getReverseTraceMapping();
+export type TransformedTraceRow = Record<TraceMappingKeyType, any>;
 
 export const SPAN_KIND = {
 	SPAN_KIND_INTERNAL: "SPAN_KIND_INTERNAL", // Defines exceptions
@@ -473,4 +567,10 @@ export interface TraceRow {
 		TraceState: string;
 		Attributes: Record<string, string>;
 	}[];
+}
+export interface TraceHeirarchySpan {
+	SpanId: string;
+	SpanName: string;
+	Duration: number;
+	children?: TraceHeirarchySpan[];
 }
