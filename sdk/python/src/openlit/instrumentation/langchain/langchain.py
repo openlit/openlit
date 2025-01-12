@@ -661,13 +661,14 @@ def achat(gen_ai_endpoint, version, environment, application_name,
             response = await wrapped(*args, **kwargs)
 
             try:
+                prompt = ""
                 if hasattr(response, 'usage_metadata') and response.usage_metadata:
                     token_usage = response.usage_metadata
                     input_tokens = token_usage.get("input_tokens", 0)
                     output_tokens = token_usage.get("output_tokens", 0)
                     model = instance.model_id
                     prompt = "" if isinstance(args[0], list) else args[0]
-                
+
                 else:
                     if not isinstance(response, dict) or "output_text" not in response:
                         return response
