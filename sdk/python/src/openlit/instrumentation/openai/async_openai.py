@@ -478,11 +478,12 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                                     response_dict.get('usage').get('total_tokens'))
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
+
                 if trace_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("input", ""),
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: str(kwargs.get("input", "")),
                         },
                     )
 
