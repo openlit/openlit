@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, consider-using-with, no-name-in-module
+# pylint: disable=duplicate-code, consider-using-with, no-name-in-module, no-member
 """
 This module contains tests for xAI functionality using the OpenAI Python library.
 
@@ -41,15 +41,22 @@ def test_sync_xai_chat_completions():
         AssertionError: If the chat completion response object is not as expected.
     """
 
-    response = sync_client.chat.completions.create(
-        model="grok-beta",
-        messages=[
-            {"role": "user", "content": "Hi"},
-        ],
-        max_tokens=1,
-    )
-    assert response.object == 'chat.completion'
+    try:
+        response = sync_client.chat.completions.create(
+            model="grok-beta",
+            messages=[
+                {"role": "user", "content": "Hi"},
+            ],
+            max_tokens=1,
+        )
+        assert response.object == 'chat.completion'
 
+    # pylint: disable=broad-exception-caught
+    except Exception as e:
+        if e.status_code == 429:
+            print("Insufficient balance:", e)
+        else:
+            raise
 
 @pytest.mark.asyncio
 async def test_async_xai_chat_completions():
@@ -60,11 +67,19 @@ async def test_async_xai_chat_completions():
         AssertionError: If the chat completion response object is not as expected.
     """
 
-    response = await async_client.chat.completions.create(
-        model="grok-beta",
-        messages=[
-            {"role": "user", "content": "Hi"},
-        ],
-        max_tokens=1,
-    )
-    assert response.object == 'chat.completion'
+    try:
+        response = await async_client.chat.completions.create(
+            model="grok-beta",
+            messages=[
+                {"role": "user", "content": "Hi"},
+            ],
+            max_tokens=1,
+        )
+        assert response.object == 'chat.completion'
+
+    # pylint: disable=broad-exception-caught
+    except Exception as e:
+        if e.status_code == 429:
+            print("Insufficient balance:", e)
+        else:
+            raise

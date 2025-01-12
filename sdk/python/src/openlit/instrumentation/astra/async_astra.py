@@ -87,7 +87,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.DB_INDEX_DIMENSION,
                                        kwargs.get("dimension", ""))
                     span.set_attribute(SemanticConvetion.DB_INDEX_METRIC,
-                                       kwargs.get("metric", ""))
+                                       str(kwargs.get("metric", "")))
                     span.set_attribute(SemanticConvetion.DB_OPERATION_API_ENDPOINT,
                                         instance.api_endpoint)
 
