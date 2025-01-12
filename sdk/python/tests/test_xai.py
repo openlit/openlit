@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, consider-using-with, no-name-in-module
+# pylint: disable=duplicate-code, consider-using-with, no-name-in-module, no-member
 """
 This module contains tests for xAI functionality using the OpenAI Python library.
 
@@ -57,7 +57,6 @@ def test_sync_xai_chat_completions():
             print("Insufficient balance:", e)
         else:
             raise
-
 
 @pytest.mark.asyncio
 async def test_async_xai_chat_completions():
