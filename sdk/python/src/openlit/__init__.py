@@ -568,7 +568,6 @@ def trace(wrapped):
                     meta_exception,
                     exc_info=True,
                 )
-                raise
 
             return response
 
