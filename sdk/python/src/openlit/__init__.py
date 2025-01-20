@@ -7,9 +7,11 @@ large language models (LLMs).
 
 from typing import Dict
 import logging
+import os
 from importlib.util import find_spec
 from functools import wraps
 from contextlib import contextmanager
+import requests
 
 
 # Import internal modules for setting up tracing and fetching pricing info.
@@ -18,7 +20,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from openlit.semcov import SemanticConvetion
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
-from openlit.__helpers import fetch_pricing_info
+from openlit.__helpers import fetch_pricing_info, get_env_variable
 
 
 # Instrumentors for various large language models.
@@ -33,16 +35,38 @@ from openlit.instrumentation.ollama import OllamaInstrumentor
 from openlit.instrumentation.gpt4all import GPT4AllInstrumentor
 from openlit.instrumentation.elevenlabs import ElevenLabsInstrumentor
 from openlit.instrumentation.vllm import VLLMInstrumentor
+from openlit.instrumentation.google_ai_studio import GoogleAIStudioInstrumentor
+from openlit.instrumentation.reka import RekaInstrumentor
+from openlit.instrumentation.premai import PremAIInstrumentor
+from openlit.instrumentation.assemblyai import AssemblyAIInstrumentor
+from openlit.instrumentation.azure_ai_inference import AzureAIInferenceInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
 from openlit.instrumentation.embedchain import EmbedChainInstrumentor
+from openlit.instrumentation.mem0 import Mem0Instrumentor
 from openlit.instrumentation.chroma import ChromaInstrumentor
 from openlit.instrumentation.pinecone import PineconeInstrumentor
 from openlit.instrumentation.qdrant import QdrantInstrumentor
 from openlit.instrumentation.milvus import MilvusInstrumentor
+from openlit.instrumentation.astra import AstraInstrumentor
 from openlit.instrumentation.transformers import TransformersInstrumentor
-from openlit.instrumentation.gpu import NvidiaGPUInstrumentor
+from openlit.instrumentation.litellm import LiteLLMInstrumentor
+from openlit.instrumentation.together import TogetherInstrumentor
+from openlit.instrumentation.crewai import CrewAIInstrumentor
+from openlit.instrumentation.ag2 import AG2Instrumentor
+from openlit.instrumentation.multion import MultiOnInstrumentor
+from openlit.instrumentation.dynamiq import DynamiqInstrumentor
+from openlit.instrumentation.phidata import PhidataInstrumentor
+from openlit.instrumentation.julep import JulepInstrumentor
+from openlit.instrumentation.ai21 import AI21Instrumentor
+from openlit.instrumentation.controlflow import ControlFlowInstrumentor
+from openlit.instrumentation.crawl4ai import Crawl4AIInstrumentor
+from openlit.instrumentation.firecrawl import FireCrawlInstrumentor
+from openlit.instrumentation.letta import LettaInstrumentor
+from openlit.instrumentation.gpu import GPUInstrumentor
+import openlit.guard
+import openlit.evals
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
@@ -128,6 +152,13 @@ class OpenlitConfig:
         cls.trace_content = trace_content
         cls.disable_metrics = disable_metrics
 
+def module_exists(module_name):
+    """Check if nested modules exist, addressing the dot notation issue."""
+    parts = module_name.split(".")
+    for i in range(1, len(parts) + 1):
+        if find_spec(".".join(parts[:i])) is None:
+            return False
+    return True
 
 def instrument_if_available(
     instrumentor_name,
@@ -138,12 +169,17 @@ def instrument_if_available(
 ):
     """Instruments the specified instrumentor if its library is available."""
     if instrumentor_name in disabled_instrumentors:
+        logger.info("Instrumentor %s is disabled", instrumentor_name)
         return
 
     module_name = module_name_map.get(instrumentor_name)
 
-    if not module_name or find_spec(module_name) is not None:
-        try:
+    if not module_name:
+        logger.error("No module mapping for %s", instrumentor_name)
+        return
+
+    try:
+        if module_exists(module_name):
             instrumentor_instance.instrument(
                 environment=config.environment,
                 application_name=config.application_name,
@@ -153,10 +189,12 @@ def instrument_if_available(
                 metrics_dict=config.metrics_dict,
                 disable_metrics=config.disable_metrics,
             )
+        else:
+            # pylint: disable=line-too-long
+            logger.info("Library for %s (%s) not found. Skipping instrumentation", instrumentor_name, module_name)
+    except Exception as e:
+        logger.error("Failed to instrument %s: %s", instrumentor_name, e)
 
-        # pylint: disable=broad-exception-caught
-        except Exception as e:
-            logger.error("Failed to instrument %s: %s", instrumentor_name, e)
 
 def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
          otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
@@ -182,7 +220,7 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         collect_gpu_stats (bool): Flag to enable or disable GPU metrics collection.
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
-    # Check for invalid instrumentor names
+    logger.info("Starting openLIT initialization...")
 
     module_name_map = {
         "openai": "openai",
@@ -196,24 +234,44 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         "gpt4all": "gpt4all",
         "elevenlabs": "elevenlabs",
         "vllm": "vllm",
+        "google-ai-studio": "google.generativeai",
+        "azure-ai-inference": "azure.ai.inference",
         "langchain": "langchain",
         "llama_index": "llama_index",
         "haystack": "haystack",
         "embedchain": "embedchain",
+        "mem0": "mem0",
         "chroma": "chromadb",
         "pinecone": "pinecone",
         "qdrant": "qdrant_client",
         "milvus": "pymilvus",
         "transformers": "transformers",
+        "litellm": "litellm",
+        "crewai": "crewai",
+        "ag2": "ag2",
+        "autogen": "autogen",
+        "pyautogen": "pyautogen",
+        "multion": "multion",
+        "dynamiq": "dynamiq",
+        "phidata": "phi",
+        "reka-api": "reka",
+        "premai": "premai",
+        "julep": "julep",
+        "astra": "astrapy",
+        "ai21": "ai21",
+        "controlflow": "controlflow",
+        "assemblyai": "assemblyai",
+        "crawl4ai": "crawl4ai",
+        "firecrawl": "firecrawl",
+        "letta": "letta",
+        "together": "together",
     }
 
     invalid_instrumentors = [
         name for name in disabled_instrumentors if name not in module_name_map
     ]
     for invalid_name in invalid_instrumentors:
-        logger.warning(
-            "Invalid instrumentor name detected and ignored: '%s'", invalid_name
-        )
+        logger.warning("Invalid instrumentor name detected and ignored: '%s'", invalid_name)
 
     try:
         # Retrieve or create the single configuration instance.
@@ -233,8 +291,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             logger.error("openLIT tracing setup failed. Tracing will not be available.")
             return
 
-        # Setup meter and receive metrics_dict instead of meter
-        metrics_dict = setup_meter(
+        # Setup meter and receive metrics_dict instead of meter.
+        metrics_dict, err = setup_meter(
             application_name=application_name,
             environment=environment,
             meter=meter,
@@ -242,8 +300,8 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             otlp_headers=otlp_headers,
         )
 
-        if not metrics_dict:
-            logger.error("openLIT metrics setup failed. Metrics will not be available.")
+        if err:
+            logger.error("OpenLIT metrics setup failed. Metrics will not be available: %s", err)
             return
 
         # Update global configuration with the provided settings.
@@ -273,31 +331,165 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
             "gpt4all": GPT4AllInstrumentor(),
             "elevenlabs": ElevenLabsInstrumentor(),
             "vllm": VLLMInstrumentor(),
+            "google-ai-studio": GoogleAIStudioInstrumentor(),
+            "azure-ai-inference": AzureAIInferenceInstrumentor(),
             "langchain": LangChainInstrumentor(),
             "llama_index": LlamaIndexInstrumentor(),
             "haystack": HaystackInstrumentor(),
             "embedchain": EmbedChainInstrumentor(),
+            "mem0": Mem0Instrumentor(),
             "chroma": ChromaInstrumentor(),
             "pinecone": PineconeInstrumentor(),
             "qdrant": QdrantInstrumentor(),
             "milvus": MilvusInstrumentor(),
             "transformers": TransformersInstrumentor(),
+            "litellm": LiteLLMInstrumentor(),
+            "crewai": CrewAIInstrumentor(),
+            "ag2": AG2Instrumentor(),
+            "multion": MultiOnInstrumentor(),
+            "autogen": AG2Instrumentor(),
+            "pyautogen": AG2Instrumentor(),
+            "dynamiq": DynamiqInstrumentor(),
+            "phidata": PhidataInstrumentor(),
+            "reka-api": RekaInstrumentor(),
+            "premai": PremAIInstrumentor(),
+            "julep": JulepInstrumentor(),
+            "astra": AstraInstrumentor(),
+            "ai21": AI21Instrumentor(),
+            "controlflow": ControlFlowInstrumentor(),
+            "assemblyai": AssemblyAIInstrumentor(),
+            "crawl4ai": Crawl4AIInstrumentor(),
+            "firecrawl": FireCrawlInstrumentor(),
+            "letta": LettaInstrumentor(),
+            "together": TogetherInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
             instrument_if_available(name, instrumentor, config,
-                                    disabled_instrumentors, module_name_map)
+            disabled_instrumentors, module_name_map)
 
-        if (disable_metrics is False) and (collect_gpu_stats is True):
-            NvidiaGPUInstrumentor().instrument(
+        if not disable_metrics and collect_gpu_stats:
+            GPUInstrumentor().instrument(
                 environment=config.environment,
                 application_name=config.application_name,
             )
-
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)
 
+def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
+    version=None, should_compile=None, variables=None, meta_properties=None):
+    """
+    Retrieve and returns the prompt from OpenLIT Prompt Hub
+    """
+
+    # Validate and set the base URL
+    url = get_env_variable(
+        'OPENLIT_URL',
+        url,
+        'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
+    )
+
+    # Validate and set the API key
+    api_key = get_env_variable(
+        'OPENLIT_API_KEY', 
+        api_key,
+        'Missing API key: Provide as arg or set OPENLIT_API_KEY env var.'
+    )
+
+    # Construct the API endpoint
+    endpoint = url + "/api/prompt/get-compiled"
+
+    # Prepare the payload
+    payload = {
+        'name': name,
+        'promptId': prompt_id,
+        'version': version,
+        'shouldCompile': should_compile,
+        'variables': variables,
+        'metaProperties': meta_properties,
+        'source': 'python-sdk'
+    }
+
+    # Remove None values from payload
+    payload = {k: v for k, v in payload.items() if v is not None}
+
+    # Prepare headers
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        # Make the POST request to the API with headers
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+
+        # Check if the response is successful
+        response.raise_for_status()
+
+        # Return the JSON response
+        return response.json()
+    except requests.RequestException as error:
+        logger.error("Error fetching prompt: '%s'", error)
+        return None
+
+def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None):
+    """
+    Retrieve & returns the secrets from OpenLIT Vault & sets all to env is should_set_env is True
+    """
+
+    # Validate and set the base URL
+    url = get_env_variable(
+        'OPENLIT_URL',
+        url,
+        'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
+    )
+
+    # Validate and set the API key
+    api_key = get_env_variable(
+        'OPENLIT_API_KEY', 
+        api_key,
+        'Missing API key: Provide as arg or set OPENLIT_API_KEY env var.'
+    )
+
+    # Construct the API endpoint
+    endpoint = url + "/api/vault/get-secrets"
+
+    # Prepare the payload
+    payload = {
+        'key': key,
+        'tags': tags,
+        'source': 'python-sdk'
+    }
+
+    # Remove None values from payload
+    payload = {k: v for k, v in payload.items() if v is not None}
+
+    # Prepare headers
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        # Make the POST request to the API with headers
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+
+        # Check if the response is successful
+        response.raise_for_status()
+
+        # Return the JSON response
+        vault_response = response.json()
+
+        res = vault_response.get('res', [])
+
+        if should_set_env is True:
+            for token, value in res.items():
+                os.environ[token] = str(value)
+        return vault_response
+    except requests.RequestException as error:
+        logger.error("Error fetching secrets: '%s'", error)
+        return None
 
 def trace(wrapped):
     """

@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server:24.2.2
+    image: clickhouse/clickhouse-server:24.4.1
     container_name: clickhouse
     environment:
       CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}   
@@ -21,6 +19,7 @@ services:
       dockerfile: Dockerfile
     container_name: openlit
     environment:
+      TELEMETRY_ENABLED: true
       INIT_DB_HOST: clickhouse
       INIT_DB_PORT: 8123
       INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}

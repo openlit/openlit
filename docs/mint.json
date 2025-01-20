@@ -17,8 +17,8 @@
     }
   },
   "topbarCtaButton": {
-    "name": "Website",
-    "url": "https://openlit.io/"
+    "type": "github",
+    "url": "https://github.com/openlit/openlit"
   },
   "modeToggle": {
     "default": "light"
@@ -49,10 +49,30 @@
       "group": "Introduction",
       "pages": [
         "latest/introduction",
-        "latest/quickstart",
+        "latest/quickstart-observability",
+        "latest/quickstart-evals",
+        "latest/quickstart-guard",
         "latest/installation",
         "latest/sdk-configuration",
         "latest/ui-configuration"
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "Features",
+      "pages": [
+        "latest/features/overview",
+        "latest/features/tracing",
+        "latest/features/metrics",
+        "latest/features/gpu",
+        "latest/features/pricing",
+        "latest/features/prompt-hub",
+        "latest/features/vault",
+        "latest/features/guardrails",
+        "latest/features/evaluations",
+        "latest/features/exceptions",
+        "latest/features/openground",
+        "latest/features/multiple-db"
       ],
       "version": "latest"
     },
@@ -71,12 +91,24 @@
             "latest/integrations/gpt4all",
             "latest/integrations/cohere",
             "latest/integrations/mistral",
+            "latest/integrations/github-models",
             "latest/integrations/azure-openai",
+            "latest/integrations/azure-ai-inference",
             "latest/integrations/huggingface",
             "latest/integrations/bedrock",
             "latest/integrations/vertexai",
+            "latest/integrations/google-ai-studio",
             "latest/integrations/groq",
-            "latest/integrations/elevenlabs"
+            "latest/integrations/nvidia-nim",
+            "latest/integrations/xai",
+            "latest/integrations/elevenlabs",
+            "latest/integrations/ai21",
+            "latest/integrations/together",
+            "latest/integrations/assemblyai",
+            "latest/integrations/reka",
+            "latest/integrations/krutrim",
+            "latest/integrations/titan-ml",
+            "latest/integrations/premai"
           ]
         },
         {
@@ -86,7 +118,8 @@
             "latest/integrations/chromadb",
             "latest/integrations/pinecone",
             "latest/integrations/qdrant",
-            "latest/integrations/milvus"
+            "latest/integrations/milvus",
+            "latest/integrations/astradb"
           ]
         },
         {
@@ -95,30 +128,34 @@
           "pages": [
             "latest/integrations/langchain",
             "latest/integrations/litellm",
+            "latest/integrations/crewai",
             "latest/integrations/llama-index",
+            "latest/integrations/dspy",
+            "latest/integrations/ag2",
             "latest/integrations/haystack",
-            "latest/integrations/embedchain"
+            "latest/integrations/embedchain",
+            "latest/integrations/mem0",
+            "latest/integrations/guardrails",
+            "latest/integrations/phidata",
+            "latest/integrations/multion",
+            "latest/integrations/julep-ai",
+            "latest/integrations/letta",
+            "latest/integrations/crawl4ai",
+            "latest/integrations/firecrawl",
+            "latest/integrations/dynamiq",
+            "latest/integrations/controlflow",
+            "latest/integrations/swarmzero"
           ]
         },
         {
           "group": "GPUs",
           "version": "latest",
           "pages": [
-            "latest/integrations/nvidia-gpu"
+            "latest/integrations/nvidia-gpu",
+            "latest/integrations/amd-gpu"
           ]
         }
       ]
-    },
-    {
-      "group": "Features",
-      "pages": [
-        "latest/features/tracing",
-        "latest/features/metrics",
-        "latest/features/gpu",
-        "latest/features/pricing",
-        "latest/features/multiple-db"
-      ],
-      "version": "latest"
     },
     {
       "group": "Connections",
@@ -130,12 +167,44 @@
         "latest/connections/grafanacloud",
         "latest/connections/new-relic",
         "latest/connections/elastic",
+        "latest/connections/hyperdx",
         "latest/connections/datadog",
-        "latest/connections/murnitur",
         "latest/connections/signoz",
+        "latest/connections/oneuptime",
         "latest/connections/dynatrace",
         "latest/connections/openobserve",
-        "latest/connections/highlight"
+        "latest/connections/highlight",
+        "latest/connections/middleware",
+        "latest/connections/siglens",
+        "latest/connections/murnitur"
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "latest/api-reference/introduction",
+        {
+          "group": "Prompt Hub",
+          "pages": [
+            "latest/api-reference/endpoint/prompt-hub/get"
+          ],
+          "version": "latest"
+        },
+        {
+          "group": "Vault",
+          "pages": [
+            "latest/api-reference/endpoint/vault/get"
+          ],
+          "version": "latest"
+        }
+      ],
+      "version": "latest"
+    },
+    {
+      "group": "Privacy",
+      "pages": [
+        "latest/anonymous-telemetry"
       ],
       "version": "latest"
     }

@@ -1,3 +1,4 @@
+"use client";
 import { ReactElement } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -9,14 +10,18 @@ import {
 } from "@/components/ui/tooltip";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
+	BookKey,
 	BookText,
+	Component,
 	DatabaseBackup,
 	FileJson2,
+	KeyIcon,
 	LayoutDashboard,
 	MonitorPlay,
 	ShieldAlert,
 	SquarePlay,
 } from "lucide-react";
+import VersionInfo from "./version-Info";
 
 type SidebarItemProps = {
 	className?: string;
@@ -27,8 +32,7 @@ type SidebarItemProps = {
 	target?: string;
 };
 
-const ICON_CLASSES =
-	"flex-shrink-0 size-5 transition duration-75 transition duration-75";
+const ICON_CLASSES = "flex-shrink-0 size-5";
 
 const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
@@ -47,14 +51,29 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		link: "/exceptions",
 	},
 	{
+		icon: <Component className={ICON_CLASSES} />,
+		text: "Prompt Hub",
+		link: "/prompt-hub",
+	},
+	{
+		icon: <BookKey className={ICON_CLASSES} />,
+		text: "Vault",
+		link: "/vault",
+	},
+	{
 		icon: <MonitorPlay className={ICON_CLASSES} />,
 		text: "Openground",
 		link: "/openground",
 	},
 	{
 		icon: <DatabaseBackup className={ICON_CLASSES} />,
-		text: "Settings",
+		text: "Databases",
 		link: "/database-config",
+	},
+	{
+		icon: <KeyIcon className={ICON_CLASSES} />,
+		text: "API Keys",
+		link: "/api-keys",
 	},
 ];
 
@@ -155,6 +174,7 @@ export default function Sidebar() {
 						{...item}
 					/>
 				))}
+				<VersionInfo />
 			</nav>
 		</aside>
 	);

@@ -1,6 +1,8 @@
 "use client";
 
-import FormBuilder from "@/components/common/form-builder";
+import FormBuilder, {
+	FormBuilderEvent,
+} from "@/components/common/form-builder";
 import DatabaseConfigTabs, {
 	DatabaseConfigTabItemProps,
 } from "@/app/(playground)/database-config/database-config-tabs";
@@ -18,22 +20,20 @@ import {
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { isNil, keyBy } from "lodash";
-import {
-	FormEventHandler,
-	MouseEventHandler,
-	useCallback,
-	useState,
-} from "react";
+import { MouseEventHandler, useCallback, useState } from "react";
 import { toast } from "sonner";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 function ModifyDatabaseConfig({
 	dbConfig,
 }: {
 	dbConfig?: DatabaseConfigWithActive;
 }) {
+	const posthog = usePostHog();
 	const { fireRequest, isLoading } = useFetchWrapper();
 
-	const modifyDetails: FormEventHandler<HTMLFormElement> = useCallback(
+	const modifyDetails: FormBuilderEvent = useCallback(
 		(event) => {
 			event.preventDefault();
 			const formElement = event.target as HTMLFormElement;
@@ -63,16 +63,30 @@ function ModifyDatabaseConfig({
 				url: "/api/db-config",
 				responseDataKey: "data",
 				successCb: () => {
-					fetchDatabaseConfigList();
+					fetchDatabaseConfigList((data: any[]) => {
+						posthog?.capture(CLIENT_EVENTS.DB_CONFIG_LIST, {
+							count: data.length,
+						});
+					});
 					toast.success("Db config updated!", {
 						id: "db-config-details",
 					});
 					if (!dbConfig?.id) formElement.reset();
+					posthog?.capture(
+						payload.id
+							? CLIENT_EVENTS.DB_CONFIG_UPDATE_SUCCESS
+							: CLIENT_EVENTS.DB_CONFIG_ADD_SUCCESS
+					);
 				},
 				failureCb: (err?: string) => {
 					toast.error(err || "Db config updation failed!", {
 						id: "db-config-details",
 					});
+					posthog?.capture(
+						payload.id
+							? CLIENT_EVENTS.DB_CONFIG_UPDATE_FAILURE
+							: CLIENT_EVENTS.DB_CONFIG_ADD_FAILURE
+					);
 				},
 			});
 		},
@@ -87,74 +101,98 @@ function ModifyDatabaseConfig({
 			fields={[
 				{
 					label: "Config Name",
-					type: "text",
-					name: "name",
-					placeholder: "db-config",
-					defaultValue: dbConfig?.name,
 					inputKey: `${dbConfig?.id}-name`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "name",
+						placeholder: "db-config",
+						defaultValue: dbConfig?.name,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Environment",
-					type: "text",
-					name: "environment",
-					placeholder: "production",
-					defaultValue: dbConfig?.environment,
 					inputKey: `${dbConfig?.id}-environment`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "environment",
+						placeholder: "production",
+						defaultValue: dbConfig?.environment,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Username",
-					type: "text",
-					name: "username",
-					placeholder: "username",
-					defaultValue: dbConfig?.username,
+					fieldType: "INPUT",
 					inputKey: `${dbConfig?.id}-username`,
-					disabled: formFieldsDisabled,
+					fieldTypeProps: {
+						type: "text",
+						name: "username",
+						placeholder: "username",
+						defaultValue: dbConfig?.username,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Password",
-					type: "password",
-					name: "password",
-					placeholder: "*******",
 					inputKey: `${dbConfig?.id}-password`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "password",
+						name: "password",
+						placeholder: "*******",
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Host",
-					type: "text",
-					name: "host",
-					placeholder: "127.0.0.1",
-					defaultValue: dbConfig?.host,
 					inputKey: `${dbConfig?.id}-host`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "host",
+						placeholder: "127.0.0.1",
+						defaultValue: dbConfig?.host,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Port",
-					type: "number",
-					name: "port",
-					placeholder: "8123",
-					defaultValue: dbConfig?.port,
 					inputKey: `${dbConfig?.id}-port`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "number",
+						name: "port",
+						placeholder: "8123",
+						defaultValue: dbConfig?.port,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Database",
-					type: "text",
-					name: "database",
-					placeholder: "default",
-					defaultValue: dbConfig?.database,
 					inputKey: `${dbConfig?.id}-database`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "database",
+						placeholder: "default",
+						defaultValue: dbConfig?.database,
+						disabled: formFieldsDisabled,
+					},
 				},
 				{
 					label: "Query params",
-					type: "text",
-					name: "query",
-					placeholder: "a=b&c=d",
-					defaultValue: dbConfig?.query,
 					inputKey: `${dbConfig?.id}-query`,
-					disabled: formFieldsDisabled,
+					fieldType: "INPUT",
+					fieldTypeProps: {
+						type: "text",
+						name: "query",
+						placeholder: "a=b&c=d",
+						defaultValue: dbConfig?.query,
+						disabled: formFieldsDisabled,
+					},
 				},
 			]}
 			heading={`${
@@ -184,6 +222,7 @@ function DatabaseList({
 	dbConfigs: DatabaseConfigWithActive[];
 	isLoadingList: boolean;
 }) {
+	const posthog = usePostHog();
 	const [selectedDBConfigId, setSelectedDBConfigId] = useState<
 		string | undefined
 	>();
@@ -227,7 +266,9 @@ function DatabaseList({
 					id: "db-config-current",
 				}
 			);
-			changeActiveDatabaseConfig(itemId);
+			changeActiveDatabaseConfig(itemId, () => {
+				posthog?.capture(CLIENT_EVENTS.DB_CONFIG_ACTION_CHANGE);
+			});
 		}
 	};
 
@@ -242,7 +283,7 @@ function DatabaseList({
 	}));
 
 	return (
-		<div className="flex flex-col w-full flex-1 h-full relative">
+		<div className="flex flex-col w-full flex-1 h-full relative gap-4">
 			<DatabaseConfigTabs
 				addButton
 				items={items}

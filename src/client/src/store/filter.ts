@@ -1,6 +1,17 @@
-import { set } from "lodash";
+import { merge, set } from "lodash";
 import { addDays, addMonths, addWeeks } from "date-fns";
 import { lens } from "@dhmk/zustand-lens";
+
+export const REFRESH_RATE_TYPE: Record<
+	"Never" | "30s" | "1m" | "5m" | "15m",
+	string
+> = {
+	Never: "Never",
+	"30s": "30s",
+	"1m": "1m",
+	"5m": "5m",
+	"15m": "15m",
+};
 
 export const TIME_RANGE_TYPE: Record<
 	"24H" | "7D" | "1M" | "3M" | "CUSTOM",
@@ -15,7 +26,7 @@ export const TIME_RANGE_TYPE: Record<
 
 export const DEFAULT_TIME_RANGE = "24H";
 
-const DEFAULT_LIMIT = 10;
+const DEFAULT_LIMIT = 25;
 
 const DEFAULT_SORTING: FilterSorting = {
 	type: "Timestamp",
@@ -37,6 +48,7 @@ export interface FilterType {
 	offset: number;
 	selectedConfig: Partial<FilterConfig>;
 	sorting: FilterSorting;
+	refreshRate: keyof typeof REFRESH_RATE_TYPE;
 }
 
 export interface FilterConfig {
@@ -47,11 +59,11 @@ export interface FilterConfig {
 	traceTypes: string[];
 }
 
-function getTimeLimitObject(
+export function getTimeLimitObject(
 	value: string,
 	keyPrefix: string,
 	extraParams?: any
-) {
+): unknown {
 	let object = {};
 	if (value === TIME_RANGE_TYPE["24H"]) {
 		const currentDate = new Date();
@@ -83,12 +95,16 @@ function getTimeLimitObject(
 const INITIAL_FILTER_DETAILS: FilterType = {
 	timeLimit: {
 		type: DEFAULT_TIME_RANGE,
-		...getTimeLimitObject(DEFAULT_TIME_RANGE, ""),
+		...(getTimeLimitObject(DEFAULT_TIME_RANGE, "") as {
+			end: Date;
+			start: Date;
+		}),
 	},
 	limit: DEFAULT_LIMIT,
 	offset: 0,
 	selectedConfig: {},
 	sorting: DEFAULT_SORTING,
+	refreshRate: "1m",
 };
 
 export type FilterStore = {
@@ -105,7 +121,10 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 		let resetConfig = false;
 		switch (key) {
 			case "timeLimit.type":
-				object = getTimeLimitObject(value, "timeLimit.", extraParams);
+				object = getTimeLimitObject(value, "timeLimit.", extraParams) as {
+					end: Date;
+					start: Date;
+				};
 				resetConfig = true;
 				break;
 			case "limit":
@@ -131,9 +150,11 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 
 		setStore({
 			details: {
-				...getStore().details,
-				selectedConfig: resetConfig ? {} : getStore().details.selectedConfig,
-				...object,
+				...merge(getStore().details, object),
+				selectedConfig:
+					resetConfig || extraParams?.clearFilter
+						? {}
+						: getStore().details.selectedConfig,
 			},
 			config: resetConfig ? undefined : getStore().config,
 		});

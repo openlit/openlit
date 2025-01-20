@@ -14,17 +14,30 @@ on:
     - cron: '0 0 1-31/15 * *'
 
 env:
-  OPENAI_API_TOKEN: ${{ secrets.OPENAI_API_TOKEN }}
-  COHERE_API_TOKEN: ${{ secrets.COHERE_API_TOKEN }}
-  ANTHROPIC_API_TOKEN: ${{ secrets.ANTHROPIC_API_TOKEN }}
-  MISTRAL_API_TOKEN: ${{ secrets.MISTRAL_API_TOKEN }}
-  PINECONE_API_TOKEN: ${{ secrets.PINECONE_API_TOKEN }}
-  GROQ_API_TOKEN: ${{ secrets.GROQ_API_TOKEN }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  CO_API_KEY: ${{ secrets.CO_API_KEY }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+  PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
   QDRANT_URL: ${{ secrets.QDRANT_URL }}
   QDRANT_API_TOKEN: ${{ secrets.QDRANT_API_TOKEN }}
   MILVUS_URL: ${{ secrets.MILVUS_URL }}
   MILVUS_API_TOKEN: ${{ secrets.MILVUS_API_TOKEN }}
-  ELEVENLABS_API_TOKEN: ${{ secrets.ELEVENLABS_API_TOKEN }}
+  ELEVEN_API_KEY: ${{ secrets.ELEVEN_API_KEY }}
+  GOOGLE_AI_STUDIO_API_TOKEN: ${{ secrets.GOOGLE_AI_STUDIO_API_TOKEN }}
+  AZURE_AI_INFERENCE_API_TOKEN: ${{ secrets.AZURE_AI_INFERENCE_API_TOKEN }}
+  REKA_API_KEY: ${{ secrets.REKA_API_KEY }}
+  PREM_API_KEY: ${{ secrets.PREM_API_KEY }}
+  MULTION_API_KEY: ${{ secrets.MULTION_API_KEY }}
+  XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+  JULEP_API_KEY: ${{ secrets.JULEP_API_KEY }}
+  ASTRA_DB_API_ENDPOINT: ${{ secrets.ASTRA_DB_API_ENDPOINT }}
+  ASTRA_DB_APPLICATION_TOKEN: ${{ secrets.ASTRA_DB_APPLICATION_TOKEN }}
+  AI21_API_KEY: ${{ secrets.AI21_API_KEY }}
+  ASSEMBLYAI_API_KEY: ${{ secrets.ASSEMBLYAI_API_KEY }}
+  FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+  TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
 
 jobs:
   build:
@@ -32,7 +45,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
     - name: Checkout base code

@@ -226,6 +226,22 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points_selector")))
 
+                elif gen_ai_endpoint == "qdrant.create_payload_index":
+                    db_operation = SemanticConvetion.DB_OPERATION_CREATE_INDEX
+                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                                       SemanticConvetion.DB_OPERATION_CREATE_INDEX)
+                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                                       kwargs.get("collection_name", ""))
+
+                elif gen_ai_endpoint == "qdrant.query_points":
+                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
+                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                                       SemanticConvetion.DB_OPERATION_QUERY)
+                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                                       kwargs.get("collection_name", ""))
+                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                                       str(kwargs.get("query", "")))
+
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:

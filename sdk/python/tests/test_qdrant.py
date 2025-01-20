@@ -26,7 +26,7 @@ client = QdrantClient(
 )
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(environment="openlit-python-testing", application_name="openlit-python-qdrant-test")
 COLLECTION_NAME = "openlit"
 
 def test_db_qdrant():

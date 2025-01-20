@@ -5,7 +5,14 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.langchain.langchain import general_wrap, hub, llm, allm
+from openlit.instrumentation.langchain.langchain import (
+    general_wrap,
+    hub,
+    llm,
+    allm,
+    chat,
+    achat
+)
 
 _instruments = ("langchain >= 0.1.20",)
 
@@ -52,6 +59,24 @@ WRAPPED_METHODS = [
         "endpoint": "langchain.llm",
         "wrapper": allm,
     },
+    {
+        "package": "langchain_core.language_models.chat_models",
+        "object": "BaseChatModel.invoke",
+        "endpoint": "langchain.chat_models",
+        "wrapper": chat,
+    },
+    {
+        "package": "langchain_core.language_models.chat_models",
+        "object": "BaseChatModel.ainvoke",
+        "endpoint": "langchain.chat_models",
+        "wrapper": achat,
+    },
+    {
+        "package": "langchain.chains.base",
+        "object": "Chain.invoke",
+        "endpoint": "langchain.chain.invoke",
+        "wrapper": chat,
+    }
 ]
 
 class LangChainInstrumentor(BaseInstrumentor):
@@ -66,6 +91,8 @@ class LangChainInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
         trace_content = kwargs.get("trace_content")
+        metrics = kwargs.get("metrics_dict")
+        disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("langchain")
 
         for wrapped_method in WRAPPED_METHODS:
@@ -77,7 +104,7 @@ class LangChainInstrumentor(BaseInstrumentor):
                 wrap_package,
                 wrap_object,
                 wrapper(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, trace_content, metrics, disable_metrics),
             )
 
     @staticmethod

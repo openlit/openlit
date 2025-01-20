@@ -20,7 +20,7 @@ import { getPingStatus } from "@/selectors/database-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { COLORS } from "../../../../../colors";
+import { COLORS } from "../../../../../styles/colors";
 import IntermediateState from "@/components/(playground)/intermediate-state";
 import { getFilterParamsForDashboard } from "@/helpers/filter";
 
@@ -233,6 +233,11 @@ function TokensPerTime() {
 
 	const updatedDataWithType = ((data || []) as any[]) || [];
 
+	const COLORS = {
+		promptokens: "hsl(12 76% 61%)",
+		completiontokens: "hsl(243 51.9 68.2%)",
+	};
+
 	return (
 		<Card className="w-full flex flex-col col-span-3">
 			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -270,26 +275,53 @@ function TokensPerTime() {
 								domain={[0, "dataMax + 15"]}
 							/>
 							<Tooltip labelClassName="dark:text-stone-700" />
+							<defs>
+								<linearGradient
+									id="completionTokens"
+									x1="0"
+									y1="0"
+									x2="0"
+									y2="1"
+								>
+									<stop
+										offset="5%"
+										stopColor={COLORS.completiontokens}
+										stopOpacity={0.8}
+									/>
+									<stop
+										offset="95%"
+										stopColor={COLORS.completiontokens}
+										stopOpacity={0.1}
+									/>
+								</linearGradient>
+								<linearGradient id="promptTokens" x1="0" y1="0" x2="0" y2="1">
+									<stop
+										offset="5%"
+										stopColor={COLORS.promptokens}
+										stopOpacity={0.8}
+									/>
+									<stop
+										offset="95%"
+										stopColor={COLORS.promptokens}
+										stopOpacity={0.1}
+									/>
+								</linearGradient>
+							</defs>
 							<Area
-								type="monotone"
-								dataKey="totaltokens"
-								stackId="1"
-								stroke="#8884d8"
-								fill="#8884d8"
-							/>
-							<Area
-								type="monotone"
-								dataKey="prompttokens"
-								stackId="1"
-								stroke="#82ca9d"
-								fill="#82ca9d"
-							/>
-							<Area
-								type="monotone"
+								type="natural"
 								dataKey="completiontokens"
-								stackId="1"
-								stroke="#ffc658"
-								fill="#ffc658"
+								stackId="0"
+								stroke={COLORS.completiontokens}
+								fill="url(#completionTokens)"
+								fillOpacity={0.4}
+							/>
+							<Area
+								type="natural"
+								dataKey="prompttokens"
+								stackId="0"
+								stroke={COLORS.promptokens}
+								fill="url(#promptTokens)"
+								fillOpacity={0.4}
 							/>
 						</AreaChart>
 					</ResponsiveContainer>

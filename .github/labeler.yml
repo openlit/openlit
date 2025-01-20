@@ -1,0 +1,15 @@
+openlit-python:
+- changed-files:
+  - any-glob-to-any-file: 'sdk/python/*'
+
+openlit-js:
+- changed-files:
+  - any-glob-to-any-file: 'sdk/typescript/*'
+
+client:
+- changed-files:
+  - any-glob-to-any-file: 'src/*'
+
+Documentation:
+- changed-files:
+  - any-glob-to-any-file: 'docs/*'

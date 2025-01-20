@@ -1,10 +1,13 @@
 import {
+	TraceHeirarchySpan,
 	TraceMapping,
 	TraceMappingKeyType,
 	TraceRow,
 	TransformedTraceRow,
 } from "@/constants/traces";
-import { get, round } from "lodash";
+import { objectKeys } from "@/utils/object";
+import { format } from "date-fns";
+import { find, get, round } from "lodash";
 
 export const integerParser = (value: string, offset?: number) =>
 	parseInt((value || "0") as string, 10) * (offset || 1);
@@ -12,8 +15,37 @@ export const integerParser = (value: string, offset?: number) =>
 export const floatParser = (value: string, offset?: number) =>
 	parseFloat((value || "0") as string) * (offset || 1);
 
+export const getNormalizedTraceAttribute = (
+	traceKey: TraceMappingKeyType,
+	traceValue: unknown
+) => {
+	if (traceValue) {
+		if (TraceMapping[traceKey].type === "integer") {
+			return integerParser(traceValue as string, TraceMapping[traceKey].offset);
+		} else if (TraceMapping[traceKey].type === "float") {
+			return floatParser(
+				(traceValue || "0") as string,
+				TraceMapping[traceKey].offset
+			).toFixed(10);
+		} else if (TraceMapping[traceKey].type === "round") {
+			return round(traceValue as number, TraceMapping[traceKey].offset).toFixed(
+				10
+			);
+		} else if (TraceMapping[traceKey].type === "date") {
+			const date = new Date(
+				`${traceValue}${(traceValue as string).endsWith("Z") ? "" : "Z"}`
+			);
+			return format(date, "MMM do, y  HH:mm:ss a");
+		} else {
+			return traceValue;
+		}
+	} else {
+		return TraceMapping[traceKey].defaultValue;
+	}
+};
+
 export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
-	return Object.keys(TraceMapping).reduce(
+	return objectKeys(TraceMapping).reduce(
 		(acc: TransformedTraceRow, traceKey: TraceMappingKeyType) => {
 			let value: unknown;
 			if (TraceMapping[traceKey].isRoot) {
@@ -22,32 +54,10 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 				value = get(item.SpanAttributes, getTraceMappingKeyFullPath(traceKey));
 			}
 
-			if (value) {
-				if (TraceMapping[traceKey].type === "integer") {
-					acc[traceKey] = integerParser(
-						value as string,
-						TraceMapping[traceKey].offset
-					);
-				} else if (TraceMapping[traceKey].type === "float") {
-					acc[traceKey] = floatParser(
-						(value || "0") as string,
-						TraceMapping[traceKey].offset
-					).toFixed(10);
-				} else if (TraceMapping[traceKey].type === "round") {
-					acc[traceKey] = round(
-						value as number,
-						TraceMapping[traceKey].offset
-					).toFixed(10);
-				} else {
-					acc[traceKey] = value;
-				}
-			} else {
-				acc[traceKey] = TraceMapping[traceKey].defaultValue;
-			}
-
+			acc[traceKey] = getNormalizedTraceAttribute(traceKey, value);
 			return acc;
 		},
-		{}
+		{} as TransformedTraceRow
 	);
 };
 
@@ -98,71 +108,60 @@ export const getTraceMappingKeyFullPath = (
 	return returnString;
 };
 
-export const getRequestTableDisplayKeys = (
-	type: string
-): TraceMappingKeyType[] => {
-	switch (type) {
-		case "vectordb":
-			return [
-				"applicationName",
-				"system",
-				"operation",
-				"documentsCount",
-				"idsCount",
-				"vectorCount",
-			];
-		case "framework":
-			return ["applicationName", "provider", "endpoint", "owner", "repo"];
-		default:
-			return [
-				"applicationName",
-				"provider",
-				"model",
-				"cost",
-				"promptTokens",
-				"totalTokens",
-			];
-	}
+export const CODE_ITEM_DISPLAY_KEYS: TraceMappingKeyType[] = [
+	"prompt",
+	"revisedPrompt",
+	"response",
+	/* Vector */
+	"statement",
+	"whereDocument",
+	"filter",
+	/* Framework */
+	"retrievalSource",
+	/* Exception */
+	"statusMessage"
+];
+
+export const buildHierarchy = (data: any[]) => {
+	// Create a map for quick lookup of nodes by SpanId
+	const nodeMap = new Map();
+	data.forEach((item) => {
+		nodeMap.set(item.SpanId, { ...item, children: [] });
+	});
+
+	let root = null;
+
+	// Build the hierarchy
+	data.forEach((item) => {
+		const node = nodeMap.get(item.SpanId);
+		if (item.ParentSpanId === "") {
+			// Root node found
+			root = node;
+		} else if (nodeMap.has(item.ParentSpanId)) {
+			// Link the node to its parent
+			const parent = nodeMap.get(item.ParentSpanId);
+			parent.children.push(node);
+		}
+	});
+
+	return root; // Returns the hierarchical tree
 };
 
-export const getDisplayKeysForException = (): TraceMappingKeyType[] => {
-	return ["serviceName", "spanName", "deploymentType", "exceptionType"];
-};
-
-export const getRequestDetailsDisplayKeys = (
-	type: string,
-	isException?: boolean
-): TraceMappingKeyType[] => {
-	let keys: TraceMappingKeyType[] = isException
-		? getDisplayKeysForException()
-		: getRequestTableDisplayKeys(type);
-	if (isException) {
-		return keys.filter((i) => !["serviceName"].includes(i));
+export function findSpanInHierarchyLodash(
+	hierarchy: TraceHeirarchySpan,
+	targetSpanId: string
+): TraceHeirarchySpan | undefined {
+	// Check current span
+	if (hierarchy.SpanId === targetSpanId) {
+		return hierarchy;
 	}
 
-	switch (type) {
-		case "vectordb":
-			keys = keys.concat(["environment", "type", "nResults", "endpoint"]);
-			break;
-		case "framework":
-			keys = keys.concat(["environment", "type"]);
-			break;
-		default:
-			keys = keys.concat([
-				"environment",
-				"type",
-				"audioVoice",
-				"audioFormat",
-				"audioSpeed",
-				"imageSize",
-				"imageQuality",
-				"imageStyle",
-				"endpoint",
-			]);
-			break;
+	// Search in children if they exist
+	if (hierarchy.children?.length) {
+		return find(hierarchy.children, (child) => {
+			return findSpanInHierarchyLodash(child, targetSpanId);
+		}) as TraceHeirarchySpan | undefined;
 	}
 
-	return keys.filter(
-		(i) => !["applicationName", "provider", "system"].includes(i)
-	);
-};
+	return undefined;
+}

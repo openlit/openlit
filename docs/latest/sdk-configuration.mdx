@@ -4,19 +4,104 @@ description: 'Configuring Options for OpenLIT SDK'
 icon: 'file-code'
 ---
 
+<Tabs>
+<Tab title="Python">
+
+## Observability - `openlit.init()`
+
 Below is a detailed overview of the configuration options available, allowing you to adjust OpenLIT's behavior and functionality to align with your specific observability needs:
 
-| Argument                | Description                                                                                   | Default Value  |
-|-------------------------|-----------------------------------------------------------------------------------------------|----------------|
-| `environment`           | The deployment environment of the application.                                                | `"default"`    |
-| `application_name`      | Identifies the name of your application.                                                      | `"default"`    |
-| `tracer`                | An instance of OpenTelemetry Tracer for tracing operations.                                   | `None`         |
-| `meter`                 | An OpenTelemetry Metrics instance for capturing metrics.                                      | `None`         |
-| `otlp_endpoint`         | Specifies the OTLP endpoint for transmitting telemetry data.                                  | `None`         |
-| `otlp_headers`          | Defines headers for the OTLP exporter, useful for backends requiring authentication.          | `None`         |
-| `disable_batch`         | A flag to disable batch span processing, favoring immediate dispatch.                         | `False`        |
-| `trace_content`         | Enables tracing of content for deeper insights.                                               | `True`         |
-| `disabled_instrumentors`| List of instrumentors to disable.                                                             | `None`         |
-| `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |
-| `pricing_json`          | URL or file path of the pricing JSON file.                                                    | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |
-| `collect_gpu_stats`     | Flag to enable or disable GPU metrics collection.                                             | `False`        |
+
+| Argument                | Description                                                                                   | Default Value  | Required |
+|-------------------------|-----------------------------------------------------------------------------------------------|----------------|----------|
+| `environment`           | The deployment environment of the application.                                                | `"default"`    |    Yes   |
+| `application_name`      | Identifies the name of your application.                                                      | `"default"`    |    Yes   |
+| `tracer`                | An instance of OpenTelemetry Tracer for tracing operations.                                   | `None`         |    No    |
+| `meter`                 | An OpenTelemetry Metrics instance for capturing metrics.                                      | `None`         |    No    |
+| `otlp_endpoint`         | Specifies the OTLP endpoint for transmitting telemetry data.                                  | `None`         |    No    |
+| `otlp_headers`          | Defines headers for the OTLP exporter, useful for backends requiring authentication.          | `None`         |    No    |
+| `disable_batch`         | A flag to disable batch span processing, favoring immediate dispatch.                         | `False`        |    No    |
+| `trace_content`         | Enables tracing of content for deeper insights.                                               | `True`         |    No    |
+| `disabled_instrumentors`| List of instrumentors to disable. | `None` |    No    |
+| `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
+| `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
+| `collect_gpu_stats`          | Flag to enable or disable GPU metrics collection.                                         | `False`        |    No    |
+
+## Prompt Hub - `openlit.get_prompt()`
+
+Below are the parameters for use with the SDK for OpenLIT Prompt Hub for prompt management:
+
+| Parameter         | Description                                                                                                                        |
+|-------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `url`             | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable.                                                          |
+| `api_key`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+| `name`            | Sets the name to fetch a unique prompt. Use this or `prompt_id`.                                                                    |
+| `prompt_id`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
+| `version`         | Set to `True` to get the prompt with variable substitution.. Optional                                                              |
+| `shouldCompile`        | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
+| `variables`       | Sets the variables for prompt compilation. Optional                                                                                |
+| `meta_properties` | Sets the meta-properties for storing in the prompt's access history metadata. Optional                                             |
+
+## Vault - `openlit.get_secrets()`
+
+Below are the parameters for use with the SDK for OpenLIT Vault for secret management:
+
+| Parameter         | Description                                                                                                                        |
+|-------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `url`             | Sets the Openlit URL. Defaults to the `OPENLIT_URL` environment variable.                                                          |
+| `api_key`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+| `key`            | Sets the key to fetch a specific secret.     Optional                                                   |
+| `should_set_env`        | Boolean value that sets all the secrets as environment variables for the application. Optional                                                     |
+| `tags`       | Sets the tags for fetching only the secrets that have the mentioned tags assigned. Optional                                                                                |
+
+</Tab>
+<Tab title="Typescript">
+
+## Observability - `Openlit.init()`
+
+Below is a detailed overview of the configuration options available, allowing you to adjust OpenLIT's behavior and functionality to align with your specific observability needs:
+
+| Argument                 | Description                                                                          | Default Value                                                      | Required |
+| ------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | -------- |
+| `environment`            | The deployment environment of the application.                                       | `"default"`                                                        | No      |
+| `applicationName`       | Identifies the name of your application.                                             | `"default"`                                                        | No      |
+| `tracer`                 | An instance of OpenTelemetry Tracer for tracing operations.                          | `undefined`                                                             | No       |
+| `otlpEndpoint`          | Specifies the OTLP endpoint for transmitting telemetry data.                         | `undefined`                                                             | No       |
+| `otlpHeaders`           | Defines headers for the OTLP exporter, useful for backends requiring authentication. | `undefined`                                                             | No       |
+| `disableBatch`          | A flag to disable batch span processing, favoring immediate dispatch.                | `true`                                                            | No       |
+| `traceContent`          | Enables tracing of content for deeper insights.                                      | `true`                                                             | No       |
+| `disabledInstrumentations` | List of instrumentations to disable.                                                    | `undefined`                                                             | No       |
+| `instrumentations`        | Object of instrumentation modules for manual patching                                          | `undefined`                                                            | No       |
+| `pricing_json`           | URL or file path of the pricing JSON file.                                           | `https://github.com/openlit/openlit/blob/main/assets/pricing.json` | No       |
+
+## Prompt Hub - `Openlit.getPrompt()`
+
+Below are the parameters for use with the SDK for OpenLIT Prompt Hub for prompt management:
+
+| Parameter        | Description                                                                                                                        |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `url`            | Sets the OpenLIT URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000` if not set.                    |
+| `apiKey`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+| `name`           | Sets the name to fetch a unique prompt. Use this or `promptId`.                                                                    |
+| `promptId`       | Sets the ID to fetch a unique prompt. Use this or `name`. Optional                                                                 |
+| `version`        | Sets the version to retrieve a specific prompt. Optional                                                                           | 
+| `shouldCompile`        | Boolean value that compiles the prompt using the provided variables. Optional                                                      |
+| `variables`      | Sets the variables for prompt compilation. Optional                                                                                | 
+| `metaProperties` | Sets the meta-properties for storing in the prompt's access history metadata.                                                      | 
+
+
+## Vault - `Openlit.getSecrets()`
+
+Below are the parameters for use with the SDK for OpenLIT Vault for secret management:
+
+| Parameter        | Description                                                                                                  |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `url`            | Sets the Openlit URL. Defaults to the `OPENLIT_URL` environment variable or `http://127.0.0.1:3000` if not set.                    |
+| `apiKey`         | Sets the OpenLIT API Key. Can also be provided via the `OPENLIT_API_KEY` environment variable.                                     |
+| `key`            | Sets the key to fetch a specific secret.     Optional                                                   |
+| `tags`       | Sets the tags for fetching only the secrets that have the mentioned tags assigned. Optional                      |
+| `shouldSetEnv`        | Boolean value that sets all the secrets as environment variables for the application. Optional                                                      |
+
+</Tab>
+</Tabs>
+

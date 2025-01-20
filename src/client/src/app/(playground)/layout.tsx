@@ -1,36 +1,37 @@
-"use client";
 import Sidebar from "@/components/(playground)/sidebar";
 import Header from "@/components/(playground)/header";
-import { useEffect } from "react";
-import { useRootStore } from "@/store";
-import { getIsUserFetched } from "@/selectors/user";
-import { fetchAndPopulateCurrentUserStore } from "@/helpers/user";
+import { Suspense } from "react";
 import ClickhouseConnectivityWrapper from "@/components/(playground)/clickhouse-connectivity-wrapper";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import CustomPostHogProvider from "@/components/(playground)/posthog";
+import NavigationEvents from "@/components/common/navigation-events";
+import AppInit from "@/components/common/app-init";
 
-export default function PlaygroundLayout({
+export default async function PlaygroundLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
-	const isFetched = useRootStore(getIsUserFetched);
-
-	useEffect(() => {
-		if (!isFetched) fetchAndPopulateCurrentUserStore();
-	}, [isFetched]);
+	const telemetryEnabled = process.env.TELEMETRY_ENABLED !== "false";
 
 	return (
-		<TooltipProvider>
-			<div className="flex h-screen w-full pl-[56px] overflow-hidden">
-				<Sidebar />
-				<div className="flex flex-col grow w-full">
-					<Header />
-					<main className="flex flex-col grow flex-1 items-start p-4 sm:px-6 overflow-hidden">
-						<ClickhouseConnectivityWrapper />
-						{children}
-					</main>
+		<CustomPostHogProvider telemetryEnabled={telemetryEnabled}>
+			<TooltipProvider>
+				<div className="flex h-screen w-full pl-[56px] overflow-hidden">
+					<Sidebar />
+					<div className="flex flex-col grow w-full">
+						<Header />
+						<main className="flex flex-col grow flex-1 items-start p-4 sm:px-6 overflow-hidden">
+							<ClickhouseConnectivityWrapper />
+							{children}
+						</main>
+					</div>
 				</div>
-			</div>
-		</TooltipProvider>
+			</TooltipProvider>
+			<Suspense fallback={null}>
+				<NavigationEvents />
+				<AppInit />
+			</Suspense>
+		</CustomPostHogProvider>
 	);
 }

@@ -1,152 +1,267 @@
 import { useRequest } from "@/components/(playground)/request/request-context";
 import Image from "next/image";
-import { round } from "lodash";
-import { format } from "date-fns";
-import { getRequestDetailsDisplayKeys, normalizeTrace } from "@/helpers/trace";
-import { TraceMapping, TransformedTraceRow } from "@/constants/traces";
+import { isArray, isNil, isPlainObject } from "lodash";
 import {
-	CalendarDays,
-	Clock,
-	ExternalLink,
-	LucideIcon,
-	PyramidIcon,
-	SquareTerminal,
-} from "lucide-react";
+	CODE_ITEM_DISPLAY_KEYS,
+	getNormalizedTraceAttribute,
+	normalizeTrace,
+} from "@/helpers/trace";
+import {
+	ReverseTraceMapping,
+	TraceMapping,
+	TraceRow,
+	TransformedTraceRow,
+} from "@/constants/traces";
+import { ExternalLink, X } from "lucide-react";
 import {
 	Sheet,
 	SheetContent,
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
-import { JsonViewer } from "@textea/json-viewer";
+import { objectEntries, objectKeys } from "@/utils/object";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { ValueOf } from "@/utils/types";
+import JsonViewer from "@/components/common/json-viewer";
+import { useCallback, useEffect, useState } from "react";
+import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import HeirarchyDisplay from "./heirarchy-display";
 
-const TagItem = ({
-	icon: IconComponent,
-	title,
-	value,
-}: {
-	icon?: LucideIcon;
-	title: string;
-	value: any;
-}) => (
-	<div className="flex items-center justify-center space-x-1 px-3 py-1 rounded-full text-xs bg-primary text-white font-medium">
-		{IconComponent && <IconComponent className="h-3" />}
-		<span>{title}</span>
-		<span>{value}</span>
-	</div>
-);
+const InfoPill = ({ title, value }: { title: string; value: any }) => {
+	return (
+		<Button
+			variant="outline"
+			size="default"
+			className="text-stone-500 bg-stone-300 dark:text-stone-300 dark:bg-stone-800 cursor-default px-2 py-1 h-auto overflow-hidden"
+		>
+			<span className="text-xs bg-transparent">{title}</span>
+			<Separator
+				orientation="vertical"
+				className="mx-1 h-4 bg-stone-300 dark:bg-stone-600"
+			/>
+			<Badge
+				variant="secondary"
+				className="rounded-sm px-1 font-normal bg-transparent py-0 block ellipsis overflow-hidden whitespace-normal"
+			>
+				{value}
+			</Badge>
+		</Button>
+	);
+};
 
 const CodeItem = ({ label, text }: { label: string; text: string }) => (
-	<div className="flex flex-col space-y-3 mt-4">
-		<span className="text-sm text-stone-500 font-medium">{label} : </span>
-		<code className="text-sm inline-flex text-left items-center bg-stone-950 text-stone-200 rounded-md p-4">
-			{text}
+	<div className="flex flex-col space-y-3 mt-4 group p-4 w-full">
+		<span className="text-sm text-stone-500 font-medium dark:text-stone-300">
+			{label} :
+		</span>
+		<code className="text-sm inline-flex text-left items-center bg-stone-300 text-stone-700 rounded-md p-4 group-hover:text-stone-900 cursor-pointer dark:bg-stone-800 dark:text-stone-200 dark:group-hover:text-stone-100">
+			<JsonViewer value={text} />
 		</code>
 	</div>
 );
 
-export default function RequestDetails() {
-	const [request, updateRequest] = useRequest();
+const ContentDataItem = ({
+	dataKey,
+	dataValue,
+}: {
+	dataKey: string;
+	dataValue?: string;
+}) => (
+	<div
+		className={`grid ${
+			dataValue ? "grid-cols-2" : ""
+		} px-4 py-2 group cursor-pointer dark:bg-stone-700 dark:border-stone-800 dark:last:border-stone-800 odd:bg-stone-200/[0.4] even:bg-stone-200/[0.8] dark:odd:bg-stone-700/[0.4] dark:even:bg-stone-700/[0.8]`}
+	>
+		<div className="break-all pr-2 text-stone-500 dark:text-stone-300">
+			{dataKey}
+		</div>
+		{!(isNil(dataValue) || dataValue === "") && (
+			<div className="break-all pl-2 group-hover:text-stone-950  dark:group-hover:text-stone-100">
+				<JsonViewer value={dataValue} />
+			</div>
+		)}
+	</div>
+);
 
-	const onClose = (open: boolean) => {
-		if (!open) updateRequest(null);
+const TabsContentData = ({
+	dataKey,
+	dataValue,
+}: {
+	dataKey: string;
+	dataValue: Record<string, any> | string[] | Record<string, any>[];
+}) => {
+	return isArray(dataValue)
+		? dataValue.map((datumValue, index) => (
+				<section key={`${dataKey}-${index}`}>
+					{index !== 0 ? (
+						<div className="py-1 px-2 dark:bg-stone-800"></div>
+					) : null}
+					{isPlainObject(datumValue) ? (
+						objectEntries(datumValue).map(([key, value]) => (
+							<ContentDataItem
+								key={key.toString()}
+								dataKey={key.toString()}
+								dataValue={value}
+							/>
+						))
+					) : (
+						<ContentDataItem dataKey={datumValue} />
+					)}
+				</section>
+		  ))
+		: objectEntries(dataValue).map(([key, value]) => (
+				<ContentDataItem key={key} dataKey={key} dataValue={value} />
+		  ));
+};
+
+export default function RequestDetails() {
+	const [isOpen, setIsOpen] = useState(false);
+	const [request, updateRequest] = useRequest();
+	const { data, fireRequest, isLoading } = useFetchWrapper();
+
+	const onClose = () => {
+		updateRequest(null);
+		setIsOpen(false);
 	};
 
-	if (!request) return null;
+	const fetchData = useCallback(async () => {
+		setIsOpen(true);
+		fireRequest({
+			requestType: "GET",
+			url: `/api/metrics/request/span/${request?.spanId}`,
+			failureCb: (err?: string) => {
+				toast.error(err || `Cannot connect to server!`, {
+					id: "request-page",
+				});
+			},
+		});
+	}, [request]);
 
-	const normalizedItem: TransformedTraceRow = normalizeTrace(request);
-	const isException = normalizedItem.statusCode === "STATUS_CODE_ERROR";
-	const displayKeys = getRequestDetailsDisplayKeys(
-		normalizedItem.type,
-		isException
-	);
+	useEffect(() => {
+		if (request?.spanId) {
+			fetchData();
+		}
+	}, [fetchData, request]);
+
+	useEffect(() => {
+		if (isOpen) {
+			// Pushing the change to the end of the call stack
+			const timer = setTimeout(() => {
+				document.body.style.pointerEvents = "";
+			}, 0);
+
+			return () => clearTimeout(timer);
+		} else {
+			document.body.style.pointerEvents = "auto";
+		}
+	}, [isOpen]);
+
+	const isFetchingData =
+		!(data as { record?: TraceRow })?.record?.TraceId || isLoading;
+
+	const normalizedItem: TransformedTraceRow | null = isFetchingData
+		? null
+		: normalizeTrace((data as { record: TraceRow }).record);
+
+	const tabKeys: string[] = [];
+	const reducedData = isFetchingData
+		? { arrays: [], objects: [], values: [] }
+		: objectEntries((data as { record: TraceRow }).record || {}).reduce(
+				(
+					acc: {
+						arrays: [keyof TraceRow, ValueOf<TraceRow>][];
+						objects: [keyof TraceRow, ValueOf<TraceRow>][];
+						values: [keyof TraceRow, ValueOf<TraceRow>][];
+					},
+					[key, value]
+				) => {
+					if (isPlainObject(value)) {
+						if (objectKeys(value as object).length > 0) {
+							acc.objects.push([key, value]);
+							tabKeys.push(key);
+						}
+					} else if (isArray(value)) {
+						if (value.length > 0) {
+							acc.arrays.push([key, value]);
+							tabKeys.push(key);
+						}
+					} else {
+						acc.values.push([key, value]);
+					}
+
+					return acc;
+				},
+				{ arrays: [], objects: [], values: [] }
+		  );
 
 	return (
-		<Sheet open onOpenChange={onClose}>
-			<SheetContent className="max-w-none sm:max-w-none w-1/2 bg-stone-200 dark:bg-stone-200">
-				<SheetHeader>
-					<SheetTitle>
-						{isException ? (
-							<div className="flex flex-col text-stone-800">
-								<div className="flex items-center text-2xl font-bold leading-7">
-									<p className="capitalize">{normalizedItem.serviceName}</p>
-								</div>
-							</div>
-						) : (
-							<div className="flex flex-col text-stone-800">
-								<div className="flex items-center text-2xl font-bold leading-7">
-									<p className="capitalize">{normalizedItem.applicationName}</p>
-								</div>
-								<div className="flex items-center mt-3">
-									<PyramidIcon size="12" />
-									<p className="ml-3 text-sm leading-none">
-										{normalizedItem.provider || normalizedItem.system}
-									</p>
-								</div>
-							</div>
-						)}
+		<Sheet open={isOpen}>
+			<SheetContent
+				className="max-w-none sm:max-w-none w-2/5 p-0 gap-0 flex flex-col border-l border-stone-200 dark:border-stone-800 top-[57px] h-auto"
+				displayOverlay={false}
+				displayClose={false}
+			>
+				<SheetHeader className="flex-row bg-stone-950 px-4 py-3 items-center space-y-0">
+					<SheetTitle className="text-stone-200 text-2xl font-bold leading-7 capitalize grow pr-3">
+						{isFetchingData || !normalizedItem
+							? "..."
+							: normalizedItem.spanName}
 					</SheetTitle>
+					<X
+						className="text-stone-200 shrink-0 mt-0 space-y-0 cursor-pointer"
+						onClick={onClose}
+					/>
 				</SheetHeader>
-				<div className="h-full w-full flex grow pb-8">
-					<div className="flex h-full w-full flex-col overflow-y-scroll">
-						<div className="relative py-6 flex-1 flex flex-col gap-3">
-							<div className="flex items-start flex-wrap gap-3">
-								<TagItem
-									icon={CalendarDays}
-									title="Request Time : "
-									value={format(normalizedItem.time, "MMM do, y  HH:mm:ss a")}
-								/>
-								<TagItem
-									icon={Clock}
-									title="Request duration : "
-									value={`${round(normalizedItem.requestDuration, 4)}s`}
-								/>
-								<TagItem
-									icon={SquareTerminal}
-									title="Status Code : "
-									value={normalizedItem.statusCode}
-								/>
-								{displayKeys.map(
-									(keyItem, index) =>
-										normalizedItem[keyItem] && (
-											<TagItem
-												key={`${keyItem}-${index}`}
-												icon={TraceMapping[keyItem].icon}
-												title={`${TraceMapping[keyItem].label} : `}
-												value={normalizedItem[keyItem]}
-											/>
-										)
-								)}
-							</div>
-
-							{/* Prompts */}
-							{normalizedItem.prompt && (
-								<CodeItem
-									label={TraceMapping["prompt"].label}
-									text={normalizedItem.prompt}
-								/>
+				{isFetchingData || !normalizedItem ? (
+					<div className="flex flex-col items-center justify-center h-full text-3xl">
+						...
+					</div>
+				) : (
+					<div className="flex flex-col gap-0 overflow-y-scroll bg-stone-100 dark:bg-stone-900 grow pb-4">
+						<div className="flex items-start flex-wrap gap-1 p-4 bg-stone-200 dark:bg-stone-100/[0.15]">
+							{reducedData.values.map(([key, value]) => {
+								const reverseKey = ReverseTraceMapping[key];
+								const normalizedValue = `${
+									reverseKey ? TraceMapping[reverseKey].valuePrefix || "" : ""
+								}${
+									reverseKey
+										? getNormalizedTraceAttribute(reverseKey, value)
+										: value
+								}${
+									reverseKey ? TraceMapping[reverseKey].valueSuffix || "" : ""
+								}`;
+								return (
+									!isNil(value) &&
+									value.toString().length > 0 && (
+										<InfoPill
+											key={key}
+											title={reverseKey ? TraceMapping[reverseKey].label : key}
+											value={normalizedValue}
+										/>
+									)
+								);
+							})}
+							{CODE_ITEM_DISPLAY_KEYS.map(
+								(key) =>
+									normalizedItem[key] && (
+										<CodeItem
+											key={key}
+											label={TraceMapping[key].label}
+											text={normalizedItem[key]}
+										/>
+									)
 							)}
-							{normalizedItem.revisedPrompt && (
-								<CodeItem
-									label={TraceMapping["revisedPrompt"].label}
-									text={normalizedItem.revisedPrompt}
-								/>
-							)}
-							{normalizedItem.response && (
-								<CodeItem
-									label={TraceMapping["response"].label}
-									text={normalizedItem.response}
-								/>
-							)}
-							{/* Prompts */}
-
 							{/* Image */}
 							{normalizedItem.image && normalizedItem.imageSize && (
 								<a
 									href={normalizedItem.image}
 									target="_blank"
 									rel="noopener noreferrer"
-									className="flex items-center justify-center aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-stone-100 lg:aspect-none lg:h-80 mt-4 group relative p-4 text-center text-stone-500"
+									className="flex items-center justify-center aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-md bg-stone-100 lg:aspect-none lg:h-80 mt-4 group relative p-4 text-center text-stone-500 shrink-0"
 								>
 									<Image
 										src={normalizedItem.image}
@@ -158,74 +273,60 @@ export default function RequestDetails() {
 											10
 										)}
 									/>
-									<span className="flex items-center justify-center opacity-0 group-hover:opacity-100 absolute top-0 left-0 w-full h-full text-primary bg-stone-100">
+									<span className="flex items-center justify-center opacity-0 group-hover:opacity-100 absolute top-0 left-0 w-full h-full text-primary bg-stone-100/[0.1]">
 										<ExternalLink className="w-6 h-6 ml-2 shrink-0" />
 									</span>
 								</a>
 							)}
 							{/* Image */}
-
-							{/* Vector */}
-							{normalizedItem.statement && (
-								<CodeItem
-									label={TraceMapping["statement"].label}
-									text={normalizedItem.statement}
-								/>
-							)}
-
-							{normalizedItem.whereDocument && (
-								<CodeItem
-									label={TraceMapping["whereDocument"].label}
-									text={normalizedItem.whereDocument}
-								/>
-							)}
-
-							{normalizedItem.filter && (
-								<CodeItem
-									label={TraceMapping["filter"].label}
-									text={normalizedItem.filter}
-								/>
-							)}
-							{/* Vector */}
-
-							{/* Framework */}
-							{normalizedItem.retrievalSource && (
-								<CodeItem
-									label={TraceMapping["retrievalSource"].label}
-									text={normalizedItem.retrievalSource}
-								/>
-							)}
-							{/* Framework */}
-
-							{/* Exception */}
-							{normalizedItem.statusMessage && (
-								<CodeItem
-									label={TraceMapping["statusMessage"].label}
-									text={normalizedItem.statusMessage}
-								/>
-							)}
-							{/* Exception */}
-
-							{/* Request full trace to explore */}
-							<div className="flex flex-col space-y-3 mt-4">
-								<span className="text-sm text-stone-500 font-medium">
-									Request Trace :{" "}
-								</span>
-								<code className="text-sm inline-flex text-left items-center bg-stone-950 text-stone-200 rounded-md p-4">
-									<JsonViewer
-										value={request}
-										className="overflow-auto p-3 h-[400px] w-full !rounded-none"
-										enableClipboard={false}
-										displayDataTypes={false}
-										displaySize={false}
-										theme="dark"
-									/>
-								</code>
-							</div>
-							{/* Request full trace to explore */}
 						</div>
+
+						<Tabs className="" defaultValue={tabKeys[0].toString()}>
+							<TabsList className="h-auto flex overflow-auto justify-start w-full rounded-none pt-2 bg-transparent dark:bg-transparent px-0">
+								{tabKeys.map((key) => {
+									return (
+										<TabsTrigger
+											value={key.toString()}
+											key={key.toString()}
+											className="data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent data-[state=active]:text-primary dark:data-[state=active]:text-primary data-[state=active]:border-primary dark:data-[state=active]:border-primary border-b border-transparent data-[state=active]:shadow-none rounded-none px-4"
+										>
+											{key}
+										</TabsTrigger>
+									);
+								})}
+							</TabsList>
+							{reducedData.objects.map(([key, value]) => {
+								return (
+									<TabsContent
+										value={key.toString()}
+										key={key.toString()}
+										className="mt-0"
+									>
+										<TabsContentData
+											dataKey={key}
+											dataValue={value as Record<string, any>}
+										/>
+									</TabsContent>
+								);
+							})}
+							{reducedData.arrays.map(([key, value]) => {
+								return (
+									<TabsContent
+										value={key.toString()}
+										key={key.toString()}
+										className="mt-0"
+									>
+										<TabsContentData
+											dataKey={key}
+											dataValue={value as string[] | Record<string, any>[]}
+										/>
+									</TabsContent>
+								);
+							})}
+						</Tabs>
 					</div>
-				</div>
+				)}
+				<HeirarchyDisplay />
 			</SheetContent>
 		</Sheet>
 	);

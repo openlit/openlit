@@ -9,6 +9,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 const errors = {
 	AccessDenied: "Access denied for this account.",
@@ -32,6 +34,7 @@ const SignInError = ({ error }: { error: keyof typeof errors }) => {
 };
 
 export function AuthForm({ type }: { type: "login" | "register" }) {
+	const posthog = usePostHog();
 	const searchParams = useSearchParams();
 	const callbackUrl: string =
 		(searchParams.get("callbackUrl") as string) || DEFAULT_LOGGED_IN_ROUTE;
@@ -49,6 +52,9 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 			return;
 		}
 
+		posthog?.capture(
+			type === "login" ? CLIENT_EVENTS.LOGIN : CLIENT_EVENTS.REGISTER
+		);
 		window.location.replace(callbackUrl);
 	}
 	async function login(formData: FormData) {
@@ -94,6 +100,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					<div className="grid gap-2">
 						<Label htmlFor="email">Email</Label>
 						<Input
+							className="ph-no-capture"
 							id="email"
 							name="email"
 							type="email"
@@ -107,6 +114,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 							<Label htmlFor="password">Password</Label>
 						</div>
 						<Input
+							className="ph-no-capture"
 							autoComplete="current-password"
 							id="password"
 							name="password"
@@ -115,7 +123,10 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 							required
 						/>
 					</div>
-					<Button type="submit" className="w-full bg-primary dark:bg-primary text-white dark:text-white hover:dark:bg-primary">
+					<Button
+						type="submit"
+						className="w-full bg-primary dark:bg-primary text-white dark:text-white hover:dark:bg-primary"
+					>
 						{type === "login" ? "Sign in" : "Sign Up"}
 					</Button>
 				</div>

@@ -2,14 +2,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getFilterDetails, getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-
-const TIME_RANGE_TYPE: Record<"24H" | "7D" | "1M" | "3M" | "CUSTOM", string> = {
-	"24H": "24H",
-	"7D": "7D",
-	"1M": "1M",
-	"3M": "3M",
-	CUSTOM: "CUSTOM",
-};
+import { TIME_RANGE_TYPE } from "@/store/filter";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 	TIME_RANGE_TYPE
@@ -19,23 +14,30 @@ const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 }));
 
 const Filter = ({ className = "" }: { className?: string }) => {
+	const posthog = usePostHog();
 	const filter = useRootStore(getFilterDetails);
 	const updateFilter = useRootStore(getUpdateFilter);
 
 	const handleChange = (key: string) => {
 		updateFilter("timeLimit.type", key);
+		posthog?.capture(CLIENT_EVENTS.TIME_FILTER_CHANGE, {
+			range: key,
+		});
 	};
 
 	const onCustomDateChange = (start: Date, end: Date) => {
 		updateFilter("timeLimit.type", TIME_RANGE_TYPE.CUSTOM, { start, end });
+		posthog?.capture(CLIENT_EVENTS.TIME_FILTER_CHANGE, {
+			range: TIME_RANGE_TYPE.CUSTOM,
+		});
 	};
 
 	return (
 		<div className={`flex grow gap-4 ${className}`}>
 			<Tabs defaultValue={filter.timeLimit.type} onValueChange={handleChange}>
-				<TabsList>
+				<TabsList className="p-0 h-[30px]">
 					{TIME_RANGE_TABS.map(({ label, key }) => (
-						<TabsTrigger key={key} value={key}>
+						<TabsTrigger key={key} value={key} className="py-1.5 text-xs">
 							{label}
 						</TabsTrigger>
 					))}

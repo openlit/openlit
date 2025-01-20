@@ -56,8 +56,8 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                 message_prompt = kwargs.get('messages', "")
                 formatted_messages = []
                 for message in message_prompt:
-                    role = message.role
-                    content = message.content
+                    role = message["role"]
+                    content = message["content"]
 
                     if isinstance(content, list):
                         content_str = ", ".join(
@@ -207,14 +207,14 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
                 llmresponse = ""
 
                 # Loop through streaming events capturing relevant details
-                async for event in wrapped(*args, **kwargs):
-                    response_id = event.id
-                    llmresponse += event.choices[0].delta.content
-                    if event.usage is not None:
-                        prompt_tokens = event.usage.prompt_tokens
-                        completion_tokens = event.usage.completion_tokens
-                        total_tokens = event.usage.total_tokens
-                        finish_reason = event.choices[0].finish_reason
+                async for event in await wrapped(*args, **kwargs):
+                    response_id = event.data.id
+                    llmresponse += event.data.choices[0].delta.content
+                    if event.data.usage is not None:
+                        prompt_tokens = event.data.usage.prompt_tokens
+                        completion_tokens = event.data.usage.completion_tokens
+                        total_tokens = event.data.usage.total_tokens
+                        finish_reason = event.data.choices[0].finish_reason
                     yield event
 
                 # Handling exception ensure observability without disrupting operation
@@ -223,8 +223,8 @@ def async_chat_stream(gen_ai_endpoint, version, environment, application_name,
                     message_prompt = kwargs.get('messages', "")
                     formatted_messages = []
                     for message in message_prompt:
-                        role = message.role
-                        content = message.content
+                        role = message["role"]
+                        content = message["content"]
 
                         if isinstance(content, list):
                             content_str = ", ".join(
@@ -364,7 +364,7 @@ def async_embeddings(gen_ai_endpoint, version, environment, application_name,
 
             try:
                 # Get prompt from kwargs and store as a single string
-                prompt = ', '.join(kwargs.get('input', []))
+                prompt = ', '.join(kwargs.get('inputs', []))
 
                 # Calculate cost of the operation
                 cost = get_embed_model_cost(kwargs.get('model', "mistral-embed"),

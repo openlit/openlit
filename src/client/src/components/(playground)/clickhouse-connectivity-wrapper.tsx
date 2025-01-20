@@ -1,3 +1,4 @@
+"use client";
 import { pingActiveDatabaseConfig } from "@/helpers/database-config";
 import { getPingDetails } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
@@ -6,7 +7,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-const ALLOWED_CONNECTIVITY_ALERT = ["/dashboard", "/requests"];
+const ALLOWED_CONNECTIVITY_ALERT = [
+	"/dashboard",
+	"/requests",
+	"/exceptions",
+	"/prompt-hub",
+	"/vault",
+];
 
 export default function ClickhouseConnectivityWrapper() {
 	const pingDetails = useRootStore(getPingDetails);

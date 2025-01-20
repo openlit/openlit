@@ -9,10 +9,10 @@ from openlit.instrumentation.mistral.mistral import chat, chat_stream, embedding
 from openlit.instrumentation.mistral.async_mistral import async_chat, async_chat_stream
 from openlit.instrumentation.mistral.async_mistral import async_embeddings
 
-_instruments = ("mistralai >= 0.1.0",)
+_instruments = ("mistralai >= 1.0.0",)
 
 class MistralInstrumentor(BaseInstrumentor):
-    """An instrumentor for Azure Mistral's client library."""
+    """An instrumentor for Mistral's client library."""
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
@@ -27,50 +27,50 @@ class MistralInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("mistralai")
 
-        #sync
+        # sync
         wrap_function_wrapper(
-            "mistralai.client",  
-            "MistralClient.chat",  
+            "mistralai.chat",  
+            "Chat.complete",  
             chat("mistral.chat", version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
-        #sync
+        # sync
         wrap_function_wrapper(
-            "mistralai.client",  
-            "MistralClient.chat_stream",  
+            "mistralai.chat",  
+            "Chat.stream",  
             chat_stream("mistral.chat", version, environment, application_name,
                         tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
-        #sync
+        # sync
         wrap_function_wrapper(
-            "mistralai.client",  
-            "MistralClient.embeddings",  
+            "mistralai.embeddings",  
+            "Embeddings.create",  
             embeddings("mistral.embeddings", version, environment, application_name,
                        tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         # Async
         wrap_function_wrapper(
-            "mistralai.async_client",  
-            "MistralAsyncClient.chat",  
+            "mistralai.chat",  
+            "Chat.complete_async",  
             async_chat("mistral.chat", version, environment, application_name,
                        tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
-        #sync
+        # Async
         wrap_function_wrapper(
-            "mistralai.async_client",  
-            "MistralAsyncClient.chat_stream",  
+            "mistralai.chat",  
+            "Chat.stream_async",  
             async_chat_stream("mistral.chat", version, environment, application_name,
                               tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         #sync
         wrap_function_wrapper(
-            "mistralai.async_client",  
-            "MistralAsyncClient.embeddings",  
+            "mistralai.embeddings",  
+            "Embeddings.create_async",  
             async_embeddings("mistral.embeddings", version, environment, application_name,
                              tracer, pricing_info, trace_content, metrics, disable_metrics),
         )

@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long
+# pylint: disable=duplicate-code, line-too-long, ungrouped-imports
 """
 Setups up OpenTelemetry Meter
 """
@@ -8,9 +8,12 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, ConsoleMetricExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-
 from openlit.semcov import SemanticConvetion
+
+if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
+    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+else:
+    from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 
 # Global flag to check if the meter provider initialization is complete.
 METER_SET = False
@@ -34,7 +37,7 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
     try:
         if meter is None and not METER_SET:
             # Create a resource with the service name attribute.
-            resource = Resource(attributes={
+            resource = Resource.create(attributes={
                 SERVICE_NAME: application_name,
                 DEPLOYMENT_ENVIRONMENT: environment,
                 TELEMETRY_SDK_NAME: "openlit"}
@@ -102,8 +105,8 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
             ),
         }
 
-        return metrics_dict
+        return metrics_dict, None
 
-    # pylint: disable=bare-except
-    except:
-        return None
+    # pylint: disable=broad-exception-caught
+    except Exception as err:
+        return None, err

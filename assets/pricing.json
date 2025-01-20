@@ -59,6 +59,47 @@
                 "256x256": 0.016
             }
         },
+        "black-forest-labs/FLUX.1-dev": {
+            "standard": {
+                "1000000": 0.025
+            }
+        },
+        "black-forest-labs/FLUX.1-canny": {
+            "standard": {
+                "1000000": 0.025
+            }
+        },
+        "black-forest-labs/FLUX.1-depth": {
+            "standard": {
+                "1000000": 0.025
+            }
+        },
+        "black-forest-labs/FLUX.1-redux": {
+            "standard": {
+                "1000000": 0.025
+            }
+        },
+        "black-forest-labs/FLUX.1-schnell": {
+            "standard": {
+                "1000000": 0.0027
+            }
+        },
+        "black-forest-labs/FLUX.1-pro": {
+            "standard": {
+                "1000000": 0.04
+            }
+        },
+        "black-forest-labs/FLUX.1.1-pro": {
+            "standard": {
+                "1000000": 0.05
+            }
+        },
+        "stabilityai/stable-diffusion-xl-base-1.0": {
+            "standard": {
+                "512X512": 0.001,
+                "1024x1024": 0.01
+            }
+        },
         "amazon.titan-image-generator-v1": {
             "standard": {
                 "512x512": 0.008,
@@ -79,16 +120,50 @@
         "eleven_english_v1": 0.24,
         "eleven_turbo_v2": 0.24,
         "eleven_english_sts_v2": 0.24,
-        "eleven_multilingual_sts_v2": 0.24
+        "eleven_multilingual_sts_v2": 0.24,
+        "best": 0.00010277777,
+        "nano": 0.00003333333
     },
     "chat": {
-        "gpt-3.5-turbo": {
+        "gpt-4o": {
             "promptPrice": 0.0005,
             "completionPrice": 0.0015
         },
-        "gpt-3.5-turbo-instruct": {
-            "promptPrice": 0.0015,
-            "completionPrice": 0.0020
+        "gpt-4o-2024-08-06": {
+            "promptPrice": 0.0025,
+            "completionPrice": 0.010
+        },
+        "gpt-4o-2024-05-13": {
+            "promptPrice": 0.005,
+            "completionPrice": 0.015
+        },
+        "gpt-4o-mini": {
+            "promptPrice": 0.00015,
+            "completionPrice": 0.0006
+        },
+        "gpt-4o-mini-2024-07-18": {
+            "promptPrice": 0.00015,
+            "completionPrice": 0.0006
+        },
+        "o1-mini": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.012
+        },
+        "o1-mini-2024-09-12": {
+            "promptPrice": 0.003,
+            "completionPrice": 0.012
+        },
+        "o1-preview": {
+            "promptPrice": 0.015,
+            "completionPrice": 0.06
+        },
+        "o1-preview-2024-09-12": {
+            "promptPrice": 0.015,
+            "completionPrice": 0.06
+        },
+        "gpt-3.5-turbo": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
         },
         "gpt-3.5-turbo-0125": {
             "promptPrice": 0.0005,
@@ -137,14 +212,6 @@
         "gpt-4-vision-preview": {
             "promptPrice": 0.01,
             "completionPrice": 0.03
-        },
-        "gpt-4o": {
-            "promptPrice": 0.005,
-            "completionPrice": 0.015
-        },
-        "gpt-4o-2024-05-13": {
-            "promptPrice": 0.005,
-            "completionPrice": 0.015
         },
         "azure_gpt-4": {
             "promptPrice": 0.03,
@@ -270,6 +337,18 @@
             "promptPrice": 0.0188,
             "completionPrice": 0.0188
         },
+        "gemini-1.0-pro": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
+        "gemini-1.5-flash": {
+            "promptPrice": 0.000075,
+            "completionPrice": 0.0003
+        },
+        "gemini-1.5-pro": {
+            "promptPrice": 0.0035,
+            "completionPrice": 0.0105
+        },
         "gemini-1.0-pro-002": {
             "promptPrice": 0.0005,
             "completionPrice": 0.0015
@@ -345,6 +424,106 @@
         "gemma-7b-it": {
             "promptPrice": 0.0001,
             "completionPrice": 0.0001
+        },
+        "reka-core": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.002
+        },
+        "reka-core-20240415": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.002
+        },
+        "reka-core-20240501": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.002
+        },
+        "reka-flash": {
+            "promptPrice": 0.0002,
+            "completionPrice": 0.0008
+        },
+        "reka-flash-20240226": {
+            "promptPrice": 0.0002,
+            "completionPrice": 0.0008
+        },
+        "reka-edge": {
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0001
+        },
+        "reka-edge-20240208": {
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0001
+        },
+        "reka-spark": {
+            "promptPrice": 0.00005,
+            "completionPrice": 0.00005
+        },
+        "grok-beta": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
+        "grok-vision-beta": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
+        "jamba-1.5-mini": {
+            "promptPrice": 0.0002,
+            "completionPrice": 0.0004
+        },
+        "jamba-1.5-large": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.008
+        },
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+            "promptPrice": 0.00088,
+            "completionPrice": 0.00088
+        },
+        "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo-vLLM-json":{
+            "promptPrice": 0.00088,
+            "completionPrice": 0.00088
+        },
+        "meta-llama/Meta-Llama-3.1-405B-Instruct-Lite-Pro-lora":{
+            "promptPrice": 0.00088,
+            "completionPrice": 0.00088
+        },
+        "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo":{
+            "promptPrice": 0.00088,
+            "completionPrice": 0.00088
+        },
+        "Qwen/QwQ-32B-Preview":{
+            "promptPrice": 0.0012,
+            "completionPrice": 0.0012
+        },
+        "codellama/CodeLlama-34b-Instruct-hf":{
+            "promptPrice": 0.0008,
+            "completionPrice":0.0008
+        },
+        "databricks/dbrx-instruct":{
+            "promptPrice": 0.0012,
+            "completionPrice": 0.0012
+        },
+        "deepseek-ai/deepseek-llm-67b-chat":{
+            "promptPrice": 0.0009,
+            "completionPrice": 0.0009
+        },
+        "google/gemma-2b-it":{
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0001
+        },
+        "google/gemma-2-27b-it":{
+            "promptPrice": 0.0008,
+            "completionPrice": 0.0008
+        },
+        "google/gemma-2-9b-it":{
+            "promptPrice": 0.0003,
+            "completionPrice": 0.0003
+        },
+        "Gryphe/MythoMax-L2-13b-Lite":{
+            "promptPrice": 0.0003,
+            "completionPrice": 0.0003
+        },
+        "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF":{
+            "promptPrice": 0.0088,
+            "completionPrice": 0.0088
         }
     }
 }
