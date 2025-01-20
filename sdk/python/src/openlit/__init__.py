@@ -152,6 +152,7 @@ class OpenlitConfig:
         cls.trace_content = trace_content
         cls.disable_metrics = disable_metrics
 
+
 def module_exists(module_name):
     """Check if nested modules exist, addressing the dot notation issue."""
     parts = module_name.split(".")
@@ -159,6 +160,7 @@ def module_exists(module_name):
         if find_spec(".".join(parts[:i])) is None:
             return False
     return True
+
 
 def instrument_if_available(
     instrumentor_name,
@@ -191,14 +193,29 @@ def instrument_if_available(
             )
         else:
             # pylint: disable=line-too-long
-            logger.info("Library for %s (%s) not found. Skipping instrumentation", instrumentor_name, module_name)
+            logger.info(
+                "Library for %s (%s) not found. Skipping instrumentation",
+                instrumentor_name,
+                module_name,
+            )
     except Exception as e:
         logger.error("Failed to instrument %s: %s", instrumentor_name, e)
 
 
-def init(environment="default", application_name="default", tracer=None, otlp_endpoint=None,
-         otlp_headers=None, disable_batch=False, trace_content=True, disabled_instrumentors=None,
-         meter=None, disable_metrics=False, pricing_json=None, collect_gpu_stats=False):
+def init(
+    environment="default",
+    application_name="default",
+    tracer=None,
+    otlp_endpoint=None,
+    otlp_headers=None,
+    disable_batch=False,
+    trace_content=True,
+    disabled_instrumentors=None,
+    meter=None,
+    disable_metrics=False,
+    pricing_json=None,
+    collect_gpu_stats=False,
+):
     """
     Initializes the openLIT configuration and setups tracing.
 
@@ -271,7 +288,9 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         name for name in disabled_instrumentors if name not in module_name_map
     ]
     for invalid_name in invalid_instrumentors:
-        logger.warning("Invalid instrumentor name detected and ignored: '%s'", invalid_name)
+        logger.warning(
+            "Invalid instrumentor name detected and ignored: '%s'", invalid_name
+        )
 
     try:
         # Retrieve or create the single configuration instance.
@@ -301,7 +320,9 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
         )
 
         if err:
-            logger.error("OpenLIT metrics setup failed. Metrics will not be available: %s", err)
+            logger.error(
+                "OpenLIT metrics setup failed. Metrics will not be available: %s", err
+            )
             return
 
         # Update global configuration with the provided settings.
@@ -366,8 +387,9 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
 
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
-            instrument_if_available(name, instrumentor, config,
-            disabled_instrumentors, module_name_map)
+            instrument_if_available(
+                name, instrumentor, config, disabled_instrumentors, module_name_map
+            )
 
         if not disable_metrics and collect_gpu_stats:
             GPUInstrumentor().instrument(
@@ -377,24 +399,33 @@ def init(environment="default", application_name="default", tracer=None, otlp_en
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)
 
-def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
-    version=None, should_compile=None, variables=None, meta_properties=None):
+
+def get_prompt(
+    url=None,
+    name=None,
+    api_key=None,
+    prompt_id=None,
+    version=None,
+    should_compile=None,
+    variables=None,
+    meta_properties=None,
+):
     """
     Retrieve and returns the prompt from OpenLIT Prompt Hub
     """
 
     # Validate and set the base URL
     url = get_env_variable(
-        'OPENLIT_URL',
+        "OPENLIT_URL",
         url,
-        'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
+        "Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.",
     )
 
     # Validate and set the API key
     api_key = get_env_variable(
-        'OPENLIT_API_KEY', 
+        "OPENLIT_API_KEY",
         api_key,
-        'Missing API key: Provide as arg or set OPENLIT_API_KEY env var.'
+        "Missing API key: Provide as arg or set OPENLIT_API_KEY env var.",
     )
 
     # Construct the API endpoint
@@ -402,23 +433,20 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
 
     # Prepare the payload
     payload = {
-        'name': name,
-        'promptId': prompt_id,
-        'version': version,
-        'shouldCompile': should_compile,
-        'variables': variables,
-        'metaProperties': meta_properties,
-        'source': 'python-sdk'
+        "name": name,
+        "promptId": prompt_id,
+        "version": version,
+        "shouldCompile": should_compile,
+        "variables": variables,
+        "metaProperties": meta_properties,
+        "source": "python-sdk",
     }
 
     # Remove None values from payload
     payload = {k: v for k, v in payload.items() if v is not None}
 
     # Prepare headers
-    headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Content-Type': 'application/json'
-    }
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     try:
         # Make the POST request to the API with headers
@@ -433,6 +461,7 @@ def get_prompt(url=None, name=None, api_key=None, prompt_id=None,
         logger.error("Error fetching prompt: '%s'", error)
         return None
 
+
 def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None):
     """
     Retrieve & returns the secrets from OpenLIT Vault & sets all to env is should_set_env is True
@@ -440,36 +469,29 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
 
     # Validate and set the base URL
     url = get_env_variable(
-        'OPENLIT_URL',
+        "OPENLIT_URL",
         url,
-        'Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.'
+        "Missing OpenLIT URL: Provide as arg or set OPENLIT_URL env var.",
     )
 
     # Validate and set the API key
     api_key = get_env_variable(
-        'OPENLIT_API_KEY', 
+        "OPENLIT_API_KEY",
         api_key,
-        'Missing API key: Provide as arg or set OPENLIT_API_KEY env var.'
+        "Missing API key: Provide as arg or set OPENLIT_API_KEY env var.",
     )
 
     # Construct the API endpoint
     endpoint = url + "/api/vault/get-secrets"
 
     # Prepare the payload
-    payload = {
-        'key': key,
-        'tags': tags,
-        'source': 'python-sdk'
-    }
+    payload = {"key": key, "tags": tags, "source": "python-sdk"}
 
     # Remove None values from payload
     payload = {k: v for k, v in payload.items() if v is not None}
 
     # Prepare headers
-    headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Content-Type': 'application/json'
-    }
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     try:
         # Make the POST request to the API with headers
@@ -481,7 +503,7 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
         # Return the JSON response
         vault_response = response.json()
 
-        res = vault_response.get('res', [])
+        res = vault_response.get("res", [])
 
         if should_set_env is True:
             for token, value in res.items():
@@ -491,32 +513,44 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
         logger.error("Error fetching secrets: '%s'", error)
         return None
 
+
 def trace(wrapped):
     """
     Generates a telemetry wrapper for messages to collect metrics.
     """
+    if not callable(wrapped):
+        raise TypeError(
+            f"@trace can only be applied to callable objects, got {type(wrapped).__name__}"
+        )
+
+    try:
+        __trace = t.get_tracer_provider()
+        tracer = __trace.get_tracer(__name__)
+    except Exception as tracer_exception:
+        logging.error(
+            "Failed to initialize tracer: %s", tracer_exception, exc_info=True
+        )
+        raise
 
     @wraps(wrapped)
     def wrapper(*args, **kwargs):
-        __trace = t.get_tracer_provider()
-        with __trace.get_tracer(__name__).start_as_current_span(
+        with tracer.start_as_current_span(
             name=wrapped.__name__,
             kind=SpanKind.CLIENT,
         ) as span:
+            response = None
             try:
                 response = wrapped(*args, **kwargs)
                 span.set_attribute(
-                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response
+                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response or ""
                 )
                 span.set_status(Status(StatusCode.OK))
-
             except Exception as e:
-                response = None
                 span.record_exception(e)
-                span.set_status(status=Status(StatusCode.ERROR), description=e)
+                span.set_status(status=Status(StatusCode.ERROR), description=str(e))
                 logging.error("Error in %s: %s", wrapped.__name__, e, exc_info=True)
+                raise
 
-            # Adding function arguments as metadata
             try:
                 span.set_attribute("function.args", str(args))
                 span.set_attribute("function.kwargs", str(kwargs))
@@ -527,7 +561,6 @@ def trace(wrapped):
                 span.set_attribute(
                     SemanticConvetion.GEN_AI_ENVIRONMENT, OpenlitConfig.environment
                 )
-
             except Exception as meta_exception:
                 logging.error(
                     "Failed to set metadata for %s: %s",
@@ -535,6 +568,7 @@ def trace(wrapped):
                     meta_exception,
                     exc_info=True,
                 )
+                raise
 
             return response
 
