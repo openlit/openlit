@@ -19,7 +19,7 @@ services:
       dockerfile: Dockerfile
     container_name: openlit
     environment:
-      TELEMETRY_ENABLED: true
+      TELEMETRY_ENABLED: "true"
       INIT_DB_HOST: clickhouse
       INIT_DB_PORT: 8123
       INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
