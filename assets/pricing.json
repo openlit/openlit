@@ -524,6 +524,14 @@
         "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF":{
             "promptPrice": 0.0088,
             "completionPrice": 0.0088
+        },
+        "deepseek-chat":{
+            "promptPrice": 0.00014,
+            "completionPrice": 0.00028
+        },
+        "deepseek-reasoner":{
+            "promptPrice": 0.00055,
+            "completionPrice": 0.00219
         }
     }
 }
