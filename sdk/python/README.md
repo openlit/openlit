@@ -59,6 +59,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 | [✅ Prem AI](https://docs.openlit.io/latest/integrations/premai)                     |                                                                          |                                                |               |
 | [✅ Assembly AI](https://docs.openlit.io/latest/integrations/assemblyai)             |                                                                          |                                                |               |
 | [✅ Together](https://docs.openlit.io/latest/integrations/together)                  |                                                                          |                                                |               |
+| [✅ DeepSeek](https://docs.openlit.io/latest/integrations/deepseek)                                                                     |                                                                          |                                                |               |
 
 ## Supported Destinations
 - [✅ OpenTelemetry Collector](https://docs.openlit.io/latest/connections/otelcol)
