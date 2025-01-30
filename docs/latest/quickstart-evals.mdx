@@ -26,13 +26,15 @@ We'll demonstrate how to use the `All` evaluator, which checks for all three asp
 
             ```python
             import openlit
+
+            # openlit can also read the OPENAI_API_KEY variable directy from env if not specified via function argument
+            openai_api_key=os.getenv("OPENAI_API_KEY")
             
             # The 'All' evaluator runs checks for Hallucination, Bias, and Toxicity
-            evals = openlit.evals.All()
+            evals = openlit.evals.All(provider="openai", api_key=openai_api_key)
 
             contexts = ["Einstein won the Nobel Prize for his discovery of the photoelectric effect in 1921"]
             prompt = "When and why did Einstein win the Nobel Prize?"
-
             text = "Einstein won the Nobel Prize in 1969 for his discovery of the photoelectric effect"
 
             result = evals.measure(prompt=prompt, contexts=contexts, text=text)
