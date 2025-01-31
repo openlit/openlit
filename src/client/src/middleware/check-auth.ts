@@ -1,3 +1,4 @@
+import { withAuth } from "next-auth/middleware"
 import { getToken } from "next-auth/jwt";
 import { NextFetchEvent, NextMiddleware, NextRequest, NextResponse } from "next/server";
 import {
@@ -6,7 +7,7 @@ import {
 } from "@/constants/route";
 
 export default function checkAuth(next: NextMiddleware) {
-  return async function middleware(request: NextRequest, _next: NextFetchEvent) {
+  return withAuth(async function middleware(request: NextRequest, _next: NextFetchEvent) {
     const pathname = request.nextUrl.pathname;
     if (
       pathname.startsWith("/_next") ||
@@ -50,5 +51,14 @@ export default function checkAuth(next: NextMiddleware) {
     }
 
     return NextResponse.next();
-  }
+  }, {
+    callbacks: {
+			async authorized() {
+				// This is a work-around for handling redirect on auth pages.
+				// We return true here so that the middleware function above
+				// is always called.
+				return true;
+			},
+		},
+  })
 }

@@ -9,11 +9,11 @@ export default function checkDemoAccount(next: NextMiddleware) {
     request: NextRequest,
     _next: NextFetchEvent
   ) => {
-    if (process.env.DEMO_ACCOUNTS && process.env.DEMO_ACCOUNTS !== "") {
+    if (process.env.DEMO_ACCOUNT_EMAIL) {
       const pathname = request.nextUrl.pathname;
       if (RESTRICTED_DEMO_ACCOUNT_ROUTES[request.method]?.some((regex) => (new RegExp(regex)).test(pathname))) {
         const token = await getToken({ req: request });
-        if ((process.env.DEMO_ACCOUNTS || "").split(/\s*,\s*/).some(email => email.toLowerCase() === token?.email?.toLowerCase())) {
+        if (process.env.DEMO_ACCOUNT_EMAIL.toLowerCase() === token?.email?.toLowerCase()) {
           return NextResponse.json("This Action is not allowed for demo accounts!",
             { status: 403 }
           );
