@@ -1,27 +1,26 @@
-import { chain } from '@/middleware/chain';
-import checkAuth from '@/middleware/check-auth';
-import checkDemoAccount from '@/middleware/check-demo-account';
-
+import { chain } from "@/middleware/chain";
+import checkAuth from "@/middleware/check-auth";
+import checkDemoAccount from "@/middleware/check-demo-account";
 
 export const middleware = chain([
-  checkDemoAccount,
-  checkAuth,
+	checkDemoAccount,
+	// @ts-expect-error Type 'NextMiddlewareWithAuth' is not assignable to type 'NextMiddleware'.
+	checkAuth,
 ]);
 
-
 export const config = {
-  matcher: [
-    "/api/:path*",
-    "/login",
-    "/register",
-    "/getting-started",
-    "/dashboard",
-    "/requests",
-    "/database-config",
-    "/openground",
-    "/exceptions",
-    "/prompt-hub",
-    "/vault",
-    "/api-keys",
-  ],
+	matcher: [
+		"/api/:path*",
+		"/login",
+		"/register",
+		"/getting-started",
+		"/dashboard",
+		"/requests",
+		"/database-config",
+		"/openground",
+		"/exceptions",
+		"/prompt-hub",
+		"/vault",
+		"/api-keys",
+	],
 };
