@@ -60,15 +60,14 @@ export default function AuthDetailsCarousel() {
 					height="50"
 					className="object-cover"
 				/>
-				<p className="text-primary bold text-sm">OpenLIT</p>
 			</div>
 			<Carousel
 				setApi={setApi}
 				plugins={[autoplayPlugin]}
 				className="w-full h-full"
-        opts={{
-          loop: true
-        }}
+				opts={{
+					loop: true,
+				}}
 			>
 				<CarouselContent>
 					{features.map((feature, index) => (

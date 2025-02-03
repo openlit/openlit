@@ -201,10 +201,10 @@ export default function AuthFormContainer({
 			<Confetti />
 			<div className="flex flex-col w-full max-w-sm mx-auto gap-12 z-10">
 				<div className="text-center">
-					<h1 className="text-3xl font-bold tracking-tight text-primary">
+					<h1 className="text-4xl font-bold tracking-tight text-primary">
 						Welcome to OpenLIT
 					</h1>
-					<p className="text-muted-foreground">
+					<p className="text-stone-600">
 						Open Source Platform for AI Engineering
 					</p>
 				</div>
@@ -216,7 +216,7 @@ export default function AuthFormContainer({
 						className="w-full"
 					>
 						<Button
-							className={`w-full rounded-full bg-neutral-900 text-sm text-white md:text-sm gap-2 font-bold`}
+							className={`w-full rounded-full gap-2 font-bold bg-stone-900 text-stone-50 hover:bg-stone-900/90 dark:bg-stone-900 dark:text-stone-50 dark:hover:bg-stone-900/90`}
 						>
 							Github
 							<GithubIcon className="ml-2 w-4" />
@@ -226,7 +226,7 @@ export default function AuthFormContainer({
 						href="https://docs.openlit.io/latest/introduction"
 						target="_blank"
 					>
-						<Button variant={"ghost"}>
+						<Button variant={"ghost"} className="hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-100 dark:hover:text-stone-900">
 							<b>Documentation</b>
 							<MoveRightIcon className="ml-2 h-5 w-5" />
 						</Button>

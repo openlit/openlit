@@ -80,7 +80,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 	}
 
 	return (
-		<div className="mx-auto grid gap-6 w-[350px] text-stone-900 dark:text-stone-100">
+		<div className="mx-auto grid gap-6 w-[350px] text-stone-900">
 			<div className="grid gap-2 text-center">
 			</div>
 			{error && <SignInError error={error as keyof typeof errors} />}
@@ -92,7 +92,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					<div className="grid gap-2">
 						<Label htmlFor="email">Email</Label>
 						<Input
-							className="ph-no-capture"
+							className="ph-no-capture dark:bg-white dark:border-stone-200"
 							id="email"
 							name="email"
 							type="email"
@@ -106,7 +106,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 							<Label htmlFor="password">Password</Label>
 						</div>
 						<Input
-							className="ph-no-capture"
+							className="ph-no-capture dark:bg-white dark:border-stone-200"
 							autoComplete="current-password"
 							id="password"
 							name="password"
@@ -117,7 +117,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					</div>
 					<Button
 						type="submit"
-						className="w-full bg-primary dark:bg-primary text-white dark:text-white hover:dark:bg-primary rounded-full"
+						className="w-full bg-primary dark:bg-primary text-white dark:text-white hover:dark:bg-primary rounded-full dark:hover:bg-stone-900/90"
 					>
 						{type === "login" ? "Sign in" : "Sign Up"}
 					</Button>
