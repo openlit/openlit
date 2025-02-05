@@ -1,6 +1,6 @@
 {
   "name": "openlit",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -43,6 +43,8 @@
     "cohere-ai": "^7.10.5",
     "copy-to-clipboard": "^3.3.3",
     "date-fns": "^3.6.0",
+    "embla-carousel-autoplay": "^8.5.2",
+    "embla-carousel-react": "^8.5.2",
     "generic-pool": "^3.9.0",
     "js-tiktoken": "^1.0.12",
     "lodash": "^4.17.21",

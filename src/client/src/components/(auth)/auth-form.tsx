@@ -80,27 +80,19 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 	}
 
 	return (
-		<div className="mx-auto grid gap-6 w-[350px] text-stone-900 dark:text-stone-100">
+		<div className="mx-auto grid gap-6 w-[350px] text-stone-900">
 			<div className="grid gap-2 text-center">
-				<h1 className="text-3xl font-bold">
-					{type === "login" ? "Login" : "Register"}
-				</h1>
-				<p className="text-balance text-muted-foreground">
-					{type === "login"
-						? "Use your email and password to sign in"
-						: "Create an account to enter"}
-				</p>
 			</div>
 			{error && <SignInError error={error as keyof typeof errors} />}
 			<form
 				action={type === "login" ? login : register}
-				className="flex flex-col space-y-4"
+				className="flex flex-col"
 			>
 				<div className="grid gap-4">
 					<div className="grid gap-2">
 						<Label htmlFor="email">Email</Label>
 						<Input
-							className="ph-no-capture"
+							className="ph-no-capture dark:bg-white dark:border-stone-200"
 							id="email"
 							name="email"
 							type="email"
@@ -114,7 +106,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 							<Label htmlFor="password">Password</Label>
 						</div>
 						<Input
-							className="ph-no-capture"
+							className="ph-no-capture dark:bg-white dark:border-stone-200"
 							autoComplete="current-password"
 							id="password"
 							name="password"
@@ -125,13 +117,13 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					</div>
 					<Button
 						type="submit"
-						className="w-full bg-primary dark:bg-primary text-white dark:text-white hover:dark:bg-primary"
+						className="w-full bg-primary dark:bg-primary text-white dark:text-white hover:dark:bg-primary rounded-full dark:hover:bg-stone-900/90"
 					>
 						{type === "login" ? "Sign in" : "Sign Up"}
 					</Button>
 				</div>
 			</form>
-			<div className="mt-4 text-center text-sm">
+			<div className="text-center text-sm">
 				{type === "login"
 					? "Don't have an account? "
 					: "Already have an account?"}{" "}

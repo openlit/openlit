@@ -30,5 +30,5 @@ export default function CustomPostHogProvider({
 		);
 	}
 
-	return children;
+	return children as JSX.Element;
 }
