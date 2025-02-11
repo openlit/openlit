@@ -26,6 +26,8 @@ Before sending any requests, you need to configure your credentials and endpoint
 import os
 import base64
 
+# Note: Replace the placeholder Langfuse API keys below with your actual credentials in production.
+
 LANGFUSE_PUBLIC_KEY = "pk-lf-..."
 LANGFUSE_SECRET_KEY = "sk-lf-..."
 LANGFUSE_AUTH = base64.b64encode(f"{LANGFUSE_PUBLIC_KEY}:{LANGFUSE_SECRET_KEY}".encode()).decode()
