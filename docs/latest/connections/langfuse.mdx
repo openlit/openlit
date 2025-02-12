@@ -3,18 +3,19 @@ title: 'Langfuse'
 description: 'LLM Observability with Langfuse and OpenLIT'
 ---
 
-# LLM Observability with Langfuse and OpenLIT
+<Frame>
+  <img src="https://langfuse.com/images/cookbook/otel-integration-openlit/openlit-openai-trace.png" />
+</Frame>
 
-Langfuse is an [OpenTelemetry backend](https://langfuse.com/docs/opentelemetry/example-openlit), allowing trace ingestion from various OpenTelemetry instrumentation libraries. This guide demonstrates how to use the [OpenLit](https://docs.openlit.io/latest/features/tracing) instrumentation library to instrument a compatible framework or LLM provider.
 
-> **What is Langfuse?** [Langfuse](https://langfuse.com) is an open-source platform for LLM engineering. It provides tracing and monitoring capabilities for AI agents, helping developers debug, analyze, and optimize their products. Langfuse integrates with various tools and frameworks via native integrations, OpenTelemetry, and SDKs.
+Langfuse is an [OpenTelemetry backend](https://langfuse.com/docs/opentelemetry/example-openlit), allowing trace ingestion from various OpenTelemetry instrumentation libraries. This guide demonstrates how to use the OpenLIT library to instrument a compatible framework or LLM provider.
 
 ## Step 1: Install Dependencies
 
 Install the necessary Python packages: `openai`, `langfuse`, and `openlit`. These will allow you to interact with OpenAI as well as setup the instrumentation for tracing.
 
 ```python
-%pip install openai langfuse openlit
+pip install openai langfuse openlit
 ```
 
 ## Step 2: Configure Environment Variables
@@ -75,8 +76,10 @@ print(chat_completion)
 
 You can view the generated trace data in Langfuse. You can view this [example trace](https://cloud.langfuse.com/project/cloramnkj0002jz088vzn1ja4/traces/64902f6a5b4f27738be939b7ad38eab3?timestamp=2025-02-02T22%3A09%3A53.053Z) in the Langfuse UI.
 
-![OpenLIT OpenAI Trace](https://langfuse.com/images/cookbook/otel-integration-openlit/openlit-openai-trace.png)
+---
 
-
-
-
+<CardGroup cols={2}>
+<Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
+Start Monitoring your LLM Application 
+</Card>
+</CardGroup>
