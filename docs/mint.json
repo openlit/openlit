@@ -179,6 +179,7 @@
         "latest/connections/middleware",
         "latest/connections/siglens",
         "latest/connections/oodle",
+        "latest/connections/langfuse",
         "latest/connections/murnitur"
       ],
       "version": "latest"
