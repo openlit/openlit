@@ -1,15 +1,22 @@
 {
   "compilerOptions": {
-    "target": "es2016",
-    "module": "commonjs",
-    "resolveJsonModule": true,
-    "outDir": "./dist",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "paths": {
-      "@/*": ["./src/*"]
-    },
-    "strict": true,
-    "skipLibCheck": true
-  }
+      "target": "ES2020",
+      "module": "CommonJS",
+      "outDir": "./dist",
+      "strict": true,
+      "esModuleInterop": true,
+      "declaration": true,
+      "skipLibCheck": true,
+      "sourceMap": true,
+      "forceConsistentCasingInFileNames": true,
+      "baseUrl": "./src",
+      "rootDir": "./src",
+  },
+  "include": [
+      "src/**/*"
+  ],
+  "exclude": [
+      "node_modules",
+      "**/*.spec.ts"
+  ]
 }

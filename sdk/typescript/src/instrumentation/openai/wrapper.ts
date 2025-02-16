@@ -15,7 +15,7 @@ export default class OpenAIWrapper extends BaseWrapper {
           .with(trace.setSpan(context.active(), span), async () => {
             return originalMethod.apply(this, args);
           })
-          .then((response) => {
+          .then((response: any) => {
             const { stream = false } = args[0];
 
             if (!!stream) {

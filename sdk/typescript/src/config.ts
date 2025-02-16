@@ -1,4 +1,3 @@
-import { Tracer } from '@opentelemetry/api';
 import OpenLitHelper from './helpers';
 import { OpenlitConfigInterface, PricingObject } from './types';
 

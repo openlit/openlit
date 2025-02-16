@@ -10,8 +10,19 @@
     "type": "git",
     "url": "https://github.com/openlit/openlit"
   },
+  "scripts": {
+    "build": "tsc --build",
+    "postinstall": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
   "description": "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "keywords": [
     "OpenTelemetry",
     "otel",
