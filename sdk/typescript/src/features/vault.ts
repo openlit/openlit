@@ -25,7 +25,7 @@ export default class Vault {
           Authorization: `Bearer ${apiKey}`,
         },
       })
-        .then(async (response) => {
+        .then(async (response: any) => {
           if (!response.ok) {
             return {
               err: `Openlit Error : HTTP error! Status: ${response.status}`,
