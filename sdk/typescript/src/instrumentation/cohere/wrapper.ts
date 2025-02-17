@@ -84,7 +84,7 @@ export default class CohereWrapper extends BaseWrapper {
           .with(trace.setSpan(context.active(), span), async () => {
             return originalMethod.apply(this, args);
           })
-          .then((response) => {
+          .then((response: any) => {
             return CohereWrapper._chat({ args, genAIEndpoint, response, span });
           })
           .catch((e: any) => {
@@ -104,7 +104,7 @@ export default class CohereWrapper extends BaseWrapper {
           .with(trace.setSpan(context.active(), span), async () => {
             return originalMethod.apply(this, args);
           })
-          .then((response) => {
+          .then((response: any) => {
             return OpenLitHelper.createStreamProxy(
               response,
               CohereWrapper._chatGenerator({

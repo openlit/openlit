@@ -35,7 +35,7 @@ export default class OllamaWrapper {
           .with(trace.setSpan(context.active(), span), async () => {
             return originalMethod.apply(this, args);
           })
-          .then((response) => {
+          .then((response: any) => {
             if (!!stream) {
               return OpenLitHelper.createStreamProxy(
                 response,
