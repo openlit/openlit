@@ -18,7 +18,10 @@
     "dist",
     "README.md",
     "LICENSE",
-    "package.json"
+    "package.json",
+    "tsconfig.json",
+    "eslint.config.mjs",
+    ".prettierrc.json"
   ],
   "description": "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects",
   "main": "dist/index.js",
