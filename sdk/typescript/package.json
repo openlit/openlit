@@ -11,8 +11,7 @@
     "url": "https://github.com/openlit/openlit"
   },
   "scripts": {
-    "build": "tsc --build",
-    "postinstall": "npm run build"
+    "build": "tsc --build"
   },
   "files": [
     "dist",
