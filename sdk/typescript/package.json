@@ -1,6 +1,6 @@
 {
   "name": "openlit",
-  "version": "1.4.0-beta.3",
+  "version": "1.4.0-beta.4",
   "homepage": "https://github.com/openlit/openlit#readme",
   "bugs": {
     "url": "https://github.com/openlit/openlit/issues",
@@ -17,10 +17,7 @@
     "dist",
     "README.md",
     "LICENSE",
-    "package.json",
-    "tsconfig.json",
-    "eslint.config.mjs",
-    ".prettierrc.json"
+    "package.json"
   ],
   "description": "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications, facilitating the integration of observability into your GenAI-driven projects",
   "main": "dist/index.js",
