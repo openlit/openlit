@@ -1,7 +1,7 @@
 import {
 	dateTruncGroupingLogic,
 	getFilterWhereConditionForGPU,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import {
 	GPUMetricParams,
 	OTEL_GPUS_TABLE_NAME,

@@ -5,6 +5,7 @@ import { DatabaseConfig, DatabaseConfigInvitedUser } from "@prisma/client";
 import migrations from "@/clickhouse/migrations";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
+import { consoleLog } from "@/utils/log";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
@@ -112,10 +113,6 @@ export const upsertDBConfig = async (
 			},
 		})
 	);
-
-	if (err) {
-		console.log(err, createddbConfig);
-	}
 
 	if (!id) {
 		await addDatabaseConfigUserEntry(user!.id, createddbConfig.id, {
@@ -283,7 +280,7 @@ export async function moveSharedDBConfigToDBUser(
 	);
 
 	if (sharedConfigErr) {
-		console.log(sharedConfigErr);
+		consoleLog(sharedConfigErr);
 		return;
 	}
 
@@ -303,8 +300,6 @@ export async function moveSharedDBConfigToDBUser(
 				),
 			})
 		);
-
-		if (configAddErr) console.log(configAddErr);
 
 		const ifNoCurrentDbConfig = await prisma.databaseConfigUser.count({
 			where: {

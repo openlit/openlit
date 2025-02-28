@@ -23,3 +23,32 @@ export const SECRET_SAVED = "Secret saved successfully!";
 export const SECRET_NOT_SAVED = "Secret cannot be saved";
 export const SECRET_DELETED = "Secret deleted successfully!";
 export const SECRET_NOT_DELETED = "Error deleting secret!";
+
+// Evaluations
+export const EVALUATION_CONFIG_NOT_FOUND = "Evaluation config not set!";
+export const EVALUATION_VAULT_SECRET_NOT_FOUND =
+	"Evaluation secret for provider not found!";
+export const EVALUATION_CONFIG_SET_ERROR = "Evaluation config cannot be set!";
+export const EVALUATION_CONFIG_NOT_SET =
+	"Evaluation config not set! Please set the config first to run evaluations.";
+export const EVALUATION_CONFIG_SET = "Go to settings!";
+export const EVALUATION_NOT_RUN_YET =
+	"Evaluation not run yet! Please run the evaluation to get results.";
+export const EVALUATION_RUN = "Run Evaluation";
+export const EVALUATION_DATA_LOADING = "Loading evaluation data...";
+export const EVALUATION_CREATED = "Evaluation created successfully!";
+export const EVALUATION_UPDATED = "Evaluation updated successfully!";
+export const EVALUATION_CONFIG_MODIFYING = "Modifying evaluation config...";
+export const EVALUATION_CONFIG_INVALID = "Invalid evaluation config!";
+export const EVALUATION_CONFIG_UPDATING_FAILED =
+	"Evaluation config updation failed!";
+export const EVALUATION_RUN_FAILURE = "Evaluation run failed!";
+
+// Traces
+export const TRACE_NOT_FOUND = "Trace not found!";
+export const TRACE_FETCHING_ERROR = "Error fetching trace!";
+
+// Cron
+export const CRON_RECURRING_TIME_INVALID =
+	"Invalid cron schedule. Please check the format.";
+export const CRON_JOB_UPDATION_ERROR = "Error updating cron job.";

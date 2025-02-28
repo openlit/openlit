@@ -2,10 +2,9 @@ import { noop } from "@/utils/noop";
 import React, { FormEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import FormField, { FieldProps } from "./form-field";
+import FormField from "./form-field";
 import { set } from "lodash";
-
-export type FormBuilderEvent = (e: FormEvent<Element>, formData: any) => void;
+import { FieldProps, FormBuilderEvent } from "@/types/form";
 
 const FormBuilder = ({
 	fields,
@@ -89,7 +88,7 @@ const FormBuilder = ({
 			}}
 			onKeyDown={(e) => !(e.key === "Enter")}
 		>
-			<Card className="w-full border-0 flex flex-col h-full">
+			<Card className="w-full border-0 flex flex-col h-full shadow-none">
 				{heading && (
 					<CardHeader className="shrink-0 px-0 pt-0 pb-4">
 						<CardTitle className="text-2xl">{heading}</CardTitle>

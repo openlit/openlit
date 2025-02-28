@@ -1,22 +1,9 @@
 "use client";
+import { DatabaseConfigStore } from "@/types/store/database-config";
 import { lens } from "@dhmk/zustand-lens";
-import { DatabaseConfigWithActive } from "@/constants/dbConfig";
 
-export type DatabaseStorePingStatus = "success" | "failure" | "pending";
 
-export type DatabaseStore = {
-	ping: {
-		error?: string;
-		status: DatabaseStorePingStatus;
-	};
-	list?: DatabaseConfigWithActive[];
-	isLoading: boolean;
-	setPing: (obj: { error?: string; status: DatabaseStorePingStatus }) => void;
-	setList: (u: DatabaseConfigWithActive[]) => void;
-	setIsLoading: (f?: boolean) => void;
-};
-
-export const databaseConfigStoreSlice: DatabaseStore = lens(
+export const databaseConfigStoreSlice: DatabaseConfigStore = lens(
 	(setStore, getStore) => ({
 		ping: { status: "pending" },
 		isLoading: false,

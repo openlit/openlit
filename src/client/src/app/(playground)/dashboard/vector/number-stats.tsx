@@ -1,7 +1,7 @@
 import PieChartCard from "@/components/(playground)/pie-chart-card";
 import StatCard from "@/components/(playground)/stat-card";
 import { TraceMapping } from "@/constants/traces";
-import { integerParser } from "@/helpers/trace";
+import { integerParser } from "@/helpers/client/trace";
 import { RadioTower, Timer } from "lucide-react";
 
 function NumberStats() {

@@ -12,48 +12,9 @@ import { Textarea, TextareaProps } from "@/components/ui/textarea";
 import { PlusIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-
-export type FieldTypes =
-	| "INPUT"
-	| "TEXTAREA"
-	| "TAGSINPUT"
-	| "KEYVALUE"
-	| "RADIOGROUP";
-interface RadioGroupProps {
-	name: string;
-	options: {
-		title: string;
-		subText: string;
-		description?: string;
-		value: string;
-	}[];
-	defaultValue?: string;
-	placeholder?: string;
-	onKeyUp?: any;
-	onChange?: any;
-}
-
-interface KeyValuePairProps {
-	name: string;
-	defaultValue?: { key: string; value: any }[];
-	placeholder?: string;
-	onKeyUp?: any;
-	onChange?: any;
-}
-
-export type FieldTypeProps =
-	| InputProps
-	| TextareaProps
-	| RadioGroupProps
-	| KeyValuePairProps;
-
-export type FieldProps = {
-	label: string;
-	description?: string;
-	fieldType: FieldTypes;
-	fieldTypeProps: FieldTypeProps;
-	inputKey?: string;
-};
+import { CustomSelect } from "@/components/ui/custom-select";
+import { CustomSelectProps, FieldProps, KeyValuePairProps, RadioGroupProps } from "@/types/form";
+import { Switch, SwitchProps } from "@/components/ui/switch";
 
 function FormTagsInputField(props: FieldProps) {
 	const [tags, setTags] = useState<string[]>(
@@ -76,8 +37,10 @@ function FormTagsInputField(props: FieldProps) {
 	);
 
 	const onKeyDownHandler = (e: KeyboardEvent<HTMLInputElement>) => {
-		typeof props.fieldTypeProps.onKeyUp === "function" &&
-			props.fieldTypeProps.onKeyUp(e as any);
+		const inputProps = props.fieldTypeProps as InputProps;
+		if (typeof inputProps?.onKeyUp === "function") {
+			inputProps.onKeyUp(e);
+		}
 		if (e.key === "Enter") {
 			e.preventDefault();
 			addTag(e);
@@ -92,11 +55,11 @@ function FormTagsInputField(props: FieldProps) {
 					props.inputKey ||
 					`${props.fieldTypeProps.name}-${props.fieldTypeProps.defaultValue}`
 				}
-				placeholder={props.fieldTypeProps.placeholder}
+				placeholder={(props.fieldTypeProps as InputProps).placeholder}
 				onKeyDown={onKeyDownHandler}
 			/>
 			<div className="flex flex-wrap gap-2 mb-2">
-				{tags.map((tag, index) => (
+				{tags.map((tag) => (
 					<Fragment key={tag}>
 						<Input
 							className="ph-no-capture"
@@ -144,7 +107,7 @@ function FormKeyValueField(props: FieldProps) {
 		}
 	};
 
-	const { name = "keyValue", placeholder = "" } = props.fieldTypeProps;
+	const { name = "keyValue", placeholder = "" } = props.fieldTypeProps as KeyValuePairProps;
 
 	return (
 		<div className="grid grid-col-1 w-100 gap-4">
@@ -280,6 +243,19 @@ function FormTextareaField(props: FieldProps) {
 	);
 }
 
+function FormSelectField(props: FieldProps) {
+	return (
+		<CustomSelect
+			key={props.inputKey || `${name}-${props.fieldTypeProps.defaultValue}`}
+			{...(props.fieldTypeProps as CustomSelectProps)}
+		/>
+	);
+}
+
+function FormSwitchField(props: FieldProps) {
+	return <Switch {...(props.fieldTypeProps as SwitchProps)} />;
+}
+
 export default function FormField(
 	props: FieldProps & {
 		boundaryClass?: string;
@@ -300,6 +276,10 @@ export default function FormField(
 				<FormKeyValueField {...props} />
 			) : props.fieldType === "RADIOGROUP" ? (
 				<FormRadioGroupField {...props} />
+			) : props.fieldType === "SELECT" ? (
+				<FormSelectField {...props} />
+			) : props.fieldType === "SWITCH" ? (
+				<FormSwitchField {...props} />
 			) : null}
 			{props.description ? (
 				<span className="text-xs text-stone-400 -mt-[5px]">

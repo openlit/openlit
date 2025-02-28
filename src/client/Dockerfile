@@ -17,7 +17,14 @@ RUN npm install && npm run build
 # Use a smaller image for production
 FROM alpine
 
-RUN apk add --update nodejs npm
+# Installing extra packages
+RUN apk add --no-cache nodejs npm bash openssl python3 py3-pip pipx rust cargo build-base
+
+# Create a virtual environment
+RUN python3 -m venv /app/client/venv
+
+# Install litellm inside the virtual environment
+RUN /app/client/venv/bin/pip install --no-cache-dir litellm
 
 # Set the working directory in the container
 WORKDIR /app/client
@@ -30,15 +37,14 @@ COPY --from=builder /app/client/public ./public
 COPY --from=builder /app/client/prisma ./prisma
 
 # Execute entrypoint script to generate NextAuth.js secret and run commands
-COPY --from=builder /app/client/scripts/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+COPY --from=builder /app/client/scripts ./scripts
+RUN chmod +x ./scripts/entrypoint.sh
 
-# Installing extra packages
-RUN apk --no-cache add bash openssl && \
-    npm install -g prisma
+# Install Prisma globally
+RUN npm install -g prisma
 
 # Expose the port that Next.js will run on
 EXPOSE 3000
 
-# Run Prisma migrations using npx
-CMD ["/app/client/entrypoint.sh"]
+# Run the entrypoint script
+CMD ["/app/client/scripts/entrypoint.sh"]

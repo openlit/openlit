@@ -3,9 +3,7 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { noop } from "@/utils/noop";
 import copy from "copy-to-clipboard";
 import { toast } from "sonner";
-import FormBuilder, {
-	FormBuilderEvent,
-} from "@/components/common/form-builder";
+import FormBuilder from "@/components/common/form-builder";
 import {
 	Dialog,
 	DialogContent,
@@ -13,11 +11,11 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
-import { FieldProps } from "@/components/common/form-field";
 import { jsonStringify } from "@/utils/json";
 import { useState } from "react";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
+import { FieldProps, FormBuilderEvent } from "@/types/form";
 
 export default function Generate({ refresh }: { refresh: () => void }) {
 	const posthog = usePostHog();

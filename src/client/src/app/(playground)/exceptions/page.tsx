@@ -11,7 +11,7 @@ import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import { omit } from "lodash";
 import RequestDetails from "@/components/(playground)/request/request-details";
-import { normalizeTrace } from "@/helpers/trace";
+import { normalizeTrace } from "@/helpers/client/trace";
 import DataTable from "@/components/data-table/table";
 import { columns } from "@/components/(playground)/exceptions/columns";
 import { getVisibilityColumnsOfPage } from "@/selectors/page";

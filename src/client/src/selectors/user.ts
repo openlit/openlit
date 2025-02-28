@@ -1,4 +1,4 @@
-import { RootStore } from "@/store";
+import { RootStore } from "@/types/store/root";
 
 export const getUserDetails = (state: RootStore) => state.user.details;
 

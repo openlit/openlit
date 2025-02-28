@@ -3,7 +3,7 @@ import { getResultGenerationByCategories } from "@/lib/platform/llm/category";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 
 export async function POST(request: Request) {
 	const formData = await request.json();

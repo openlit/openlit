@@ -16,8 +16,7 @@ const PATH_TO_TITLE_MAP = {
 	"/prompt-hub": "Prompts",
 	"/vault": "Vault",
 	"/openground": "Openground",
-	"/database-config": "Databases",
-	"/profile": "Profile",
+	"/settings": "Settings",
 };
 
 export default function RouteBreadcrumbs() {
