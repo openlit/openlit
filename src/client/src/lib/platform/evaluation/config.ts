@@ -19,7 +19,8 @@ import path, { dirname } from "path";
 
 export async function getEvaluationConfig(
 	dbConfig?: DatabaseConfig,
-	excludeVaultValue: boolean = true
+	excludeVaultValue: boolean = true,
+	validateVaultId: boolean = true,
 ): Promise<EvaluationConfigWithSecret> {
 	let updatedDBConfig: DatabaseConfig | undefined = dbConfig;
 	if (!dbConfig?.id) {
@@ -45,10 +46,16 @@ export async function getEvaluationConfig(
 
 	const updatedSecretData = (data as Secret[])?.[0] || {};
 
-	throwIfError(
-		!updatedSecretData?.id,
-		getMessage().EVALUATION_VAULT_SECRET_NOT_FOUND
-	);
+	if (validateVaultId) {
+		throwIfError(
+			!updatedSecretData?.id,
+			getMessage().EVALUATION_VAULT_SECRET_NOT_FOUND
+		);
+	} else {
+		if (!updatedSecretData.id) {
+			updatedConfig.vaultId = "";
+		}
+	}
 
 	return {
 		...updatedConfig,

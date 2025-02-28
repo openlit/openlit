@@ -7,7 +7,7 @@ import { NextRequest } from "next/server";
 import asaw from "@/utils/asaw";
 
 export async function GET(_: NextRequest) {
-	const res: any = await getEvaluationConfig();
+	const res: any = await getEvaluationConfig(undefined, true, false);
 	return Response.json(res);
 }
 

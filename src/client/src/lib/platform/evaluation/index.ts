@@ -177,7 +177,13 @@ async function getEvaluationConfigForTrace(
 
 				pythonProcess.on("close", (code) => {
 					if (code === 0) {
-						resolve(jsonParse(output));
+						const match = output.match(/\{.*\}/m);
+						if (match) {
+							const parsedData = jsonParse(match[0]) 
+							return resolve(parsedData);
+						}
+
+						return resolve({ success: false, error: output });
 					} else {
 						resolve({ success: false, error: errorOutput });
 					}
