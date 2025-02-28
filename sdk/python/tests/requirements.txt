@@ -30,7 +30,7 @@ together
 
 # Vector DBs
 chromadb
-pinecone-client
+pinecone
 qdrant-client
 pymilvus
 astrapy
