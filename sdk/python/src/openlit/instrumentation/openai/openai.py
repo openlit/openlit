@@ -51,13 +51,12 @@ def set_server_address_and_port(client_instance: Any) -> Tuple[str, int]:
 
     return server_address, server_port
 
-def chat_completions(gen_ai_endpoint, version, environment, application_name,
+def chat_completions(version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
 
     Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
         application_name: Name of the application using the OpenAI API.
@@ -487,13 +486,12 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
 
     return wrapper
 
-def embedding(gen_ai_endpoint, version, environment, application_name,
+def embedding(version, environment, application_name,
               tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
     Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
         application_name: Name of the application using the OpenAI API.
@@ -616,13 +614,12 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
 
     return wrapper
 
-def image_generate(gen_ai_endpoint, version, environment, application_name,
+def image_generate(version, environment, application_name,
                    tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for image generation to collect metrics.
     
     Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
         application_name: Name of the application using the OpenAI API.
@@ -764,13 +761,12 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
 
     return wrapper
 
-def image_variatons(gen_ai_endpoint, version, environment, application_name,
+def image_variatons(version, environment, application_name,
                     tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for creating image variations to collect metrics.
     
     Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
         application_name: Name of the application using the OpenAI API.
@@ -899,13 +895,12 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
 
     return wrapper
 
-def audio_create(gen_ai_endpoint, version, environment, application_name,
+def audio_create(version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for creating speech audio to collect metrics.
     
     Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
         application_name: Name of the application using the OpenAI API.
