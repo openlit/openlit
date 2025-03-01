@@ -8,8 +8,10 @@ import logging
 from urllib.parse import urlparse
 import requests
 import tiktoken
-from typing import List
+from typing import Tuple, Any, Dict, List
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
+from openlit.semcov import SemanticConvetion
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -222,3 +224,25 @@ def calculate_tbt(timestamps: List[float]) -> float:
         time_diffs = [timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))]
         return sum(time_diffs) / len(time_diffs)
     return 0.0
+
+def create_metrics_attributes(
+    service_name: str,
+    deployment_environment: str,
+    operation: str,
+    system: str,
+    request_model: str,
+    server_address: str,
+    server_port: int,
+    response_model: str,
+) -> Dict[Any, Any]:
+    return {
+        TELEMETRY_SDK_NAME: "openlit",
+        SERVICE_NAME: service_name,
+        DEPLOYMENT_ENVIRONMENT: deployment_environment,
+        SemanticConvetion.GEN_AI_OPERATION: operation,
+        SemanticConvetion.GEN_AI_SYSTEM: system,
+        SemanticConvetion.GEN_AI_REQUEST_MODEL: request_model,
+        SemanticConvetion.SERVER_ADDRESS: server_address,
+        SemanticConvetion.SERVER_PORT: server_port,
+        SemanticConvetion.GEN_AI_RESPONSE_MODEL: response_model
+    }

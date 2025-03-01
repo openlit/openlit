@@ -144,13 +144,13 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
         metrics_dict = {
             # OTel Semconv
             "genai_client_usage_tokens": meter.create_histogram(
-                name=SemanticConvetion.GEN_AI_CLIENT_OPERATION_DURATION,
+                name=SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE,
                 description="Measures number of input and output tokens used",
                 unit="{token}",
                 explicit_bucket_boundaries_advisory=_GEN_AI_CLIENT_TOKEN_USAGE_BUCKETS,
             ),
             "genai_client_operation_duration": meter.create_histogram(
-                name=SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE,
+                name=SemanticConvetion.GEN_AI_CLIENT_OPERATION_DURATION,
                 description="GenAI operation duration",
                 unit="s",
                 explicit_bucket_boundaries_advisory=_GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS,

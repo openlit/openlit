@@ -5,10 +5,9 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.openai.openai import chat_completions, embedding, finetune
+from openlit.instrumentation.openai.openai import chat_completions, embedding
 from openlit.instrumentation.openai.openai import image_generate, image_variatons, audio_create
 from openlit.instrumentation.openai.async_openai import async_chat_completions, async_embedding
-from openlit.instrumentation.openai.async_openai import async_finetune
 from openlit.instrumentation.openai.async_openai import async_image_generate, async_image_variatons
 from openlit.instrumentation.openai.async_openai import async_audio_create
 
@@ -134,22 +133,6 @@ class OpenAIInstrumentor(BaseInstrumentor):
             async_audio_create("openai.audio.speech", version, environment, application_name,
                                tracer, pricing_info, trace_content,
                                metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "openai.resources.fine_tuning.jobs",  
-            "Jobs.create",  
-            finetune("openai.audio.speech", version, environment, application_name,
-                     tracer, pricing_info, trace_content,
-                     metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "openai.resources.fine_tuning.jobs",  
-            "AsyncJobs.create",  
-            async_finetune("openai.fine_tuning.jo", version, environment, application_name,
-                           tracer, pricing_info, trace_content,
-                           metrics, disable_metrics),
         )
 
     @staticmethod
