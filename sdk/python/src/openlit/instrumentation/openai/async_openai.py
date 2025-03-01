@@ -435,7 +435,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                             },
                         )
 
-                    async for i in range(kwargs.get('n',1)):
+                    for i in range(kwargs.get('n',1)):
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                            [response_dict.get('choices')[i].get('finish_reason')])
                         if trace_content:
