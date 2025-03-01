@@ -11,13 +11,6 @@ from openlit.instrumentation.openai.async_openai import async_chat_completions, 
 from openlit.instrumentation.openai.async_openai import async_image_generate, async_image_variatons
 from openlit.instrumentation.openai.async_openai import async_audio_create
 
-from openlit.instrumentation.openai.azure_openai import azure_chat_completions, azure_completions
-from openlit.instrumentation.openai.azure_openai import azure_image_generate, azure_embedding
-from openlit.instrumentation.openai.async_azure_openai import azure_async_chat_completions
-from openlit.instrumentation.openai.async_azure_openai import azure_async_completions
-from openlit.instrumentation.openai.async_azure_openai import azure_async_image_generate
-from openlit.instrumentation.openai.async_azure_openai import azure_async_embedding
-
 _instruments = ("openai >= 1.1.1",)
 
 class OpenAIInstrumentor(BaseInstrumentor):
@@ -85,23 +78,6 @@ class OpenAIInstrumentor(BaseInstrumentor):
         )
 
         wrap_function_wrapper(
-            "openai.resources.completions",  
-            "Completions.create",  
-            azure_completions("azure_openai.completions", version, environment, application_name,
-                              tracer, pricing_info, trace_content,
-                              metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "openai.resources.completions",  
-            "AsyncCompletions.create",  
-            azure_async_completions("azure_openai.completions", version,
-                                    environment, application_name,
-                                    tracer, pricing_info, trace_content,
-                                    metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
             "openai.resources.images",  
             "Images.create_variation",  
             image_variatons("openai.images.variations", version,
@@ -151,18 +127,6 @@ def chat_wrapper(version, environment, application_name, tracer, pricing_info, t
                                            application_name, tracer, pricing_info, trace_content,
                                            metrics, disable_metrics)
 
-        # Check if it's an Azure instance by inspecting `base_url`
-        try:
-            base_url = getattr(instance, 'base_url', '')
-            if 'azure.com' in base_url:
-                # Switch to the Azure-specific chat completions logic
-                completion_func = azure_chat_completions("azure_openai.chat.completions",
-                                                         version, environment, application_name,
-                                                         tracer, pricing_info, trace_content,
-                                                         metrics, disable_metrics)
-        except AttributeError:
-            pass  # base_url attribute not found, proceed with the default
-
         # Execute the selected completion function
         return completion_func(wrapped, instance, args, kwargs)
 
@@ -181,19 +145,6 @@ def async_chat_wrapper(version, environment, application_name, tracer, pricing_i
                                                  pricing_info, trace_content,
                                                  metrics, disable_metrics)
 
-        # Check if it's an Azure instance by inspecting `base_url`
-        try:
-            base_url = getattr(instance, 'base_url', '')
-            if 'azure.com' in base_url:
-                # Switch to the Azure-specific chat completions logic
-                completion_func = azure_async_chat_completions("azure_openai.chat.completions",
-                                                               version, environment,
-                                                               application_name, tracer,
-                                                               pricing_info, trace_content,
-                                                               metrics, disable_metrics)
-        except AttributeError:
-            pass  # base_url attribute not found, proceed with the default
-
         # Execute the selected completion function
         return completion_func(wrapped, instance, args, kwargs)
 
@@ -210,18 +161,6 @@ def image_generate_wrapper(version, environment, application_name, tracer, prici
         completion_func = image_generate("openai.images.generate", version, environment,
                                          application_name, tracer, pricing_info, trace_content,
                                          metrics, disable_metrics)
-
-        # Check if it's an Azure instance by inspecting `base_url`
-        try:
-            base_url = getattr(instance, 'base_url', '')
-            if 'azure.com' in base_url:
-                # Switch to the Azure-specific chat completions logic
-                completion_func = azure_image_generate("azure_openai.images.generate",
-                                                       version, environment, application_name,
-                                                       tracer, pricing_info, trace_content,
-                                                       metrics, disable_metrics)
-        except AttributeError:
-            pass  # base_url attribute not found, proceed with the default
 
         # Execute the selected completion function
         return completion_func(wrapped, instance, args, kwargs)
@@ -241,19 +180,6 @@ def async_image_generate_wrapper(version, environment, application_name, tracer,
                                                pricing_info, trace_content,
                                                metrics, disable_metrics)
 
-        # Check if it's an Azure instance by inspecting `base_url`
-        try:
-            base_url = getattr(instance, 'base_url', '')
-            if 'azure.com' in base_url:
-                # Switch to the Azure-specific chat completions logic
-                completion_func = azure_async_image_generate("azure_openai.images.generate",
-                                                             version, environment,
-                                                             application_name, tracer,
-                                                             pricing_info, trace_content,
-                                                             metrics, disable_metrics)
-        except AttributeError:
-            pass  # base_url attribute not found, proceed with the default
-
         # Execute the selected completion function
         return completion_func(wrapped, instance, args, kwargs)
 
@@ -271,18 +197,6 @@ def embedding_wrapper(version, environment, application_name, tracer, pricing_in
                                     application_name, tracer, pricing_info, trace_content,
                                     metrics, disable_metrics)
 
-        # Check if it's an Azure instance by inspecting `base_url`
-        try:
-            base_url = getattr(instance, 'base_url', '')
-            if 'azure.com' in base_url:
-                # Switch to the Azure-specific chat completions logic
-                completion_func = azure_embedding("azure_openai.embeddings",
-                                                  version, environment, application_name,
-                                                  tracer, pricing_info, trace_content,
-                                                  metrics, disable_metrics)
-        except AttributeError:
-            pass  # base_url attribute not found, proceed with the default
-
         # Execute the selected completion function
         return completion_func(wrapped, instance, args, kwargs)
 
@@ -299,18 +213,6 @@ def async_embedding_wrapper(version, environment, application_name, tracer,
         completion_func = async_embedding("openai.embeddings", version, environment,
                                           application_name, tracer, pricing_info, trace_content,
                                           metrics, disable_metrics)
-
-        # Check if it's an Azure instance by inspecting `base_url`
-        try:
-            base_url = getattr(instance, 'base_url', '')
-            if 'azure.com' in base_url:
-                # Switch to the Azure-specific chat completions logic
-                completion_func = azure_async_embedding("azure_openai.embeddings", version,
-                                                        environment, application_name, tracer,
-                                                        pricing_info, trace_content,
-                                                        metrics, disable_metrics)
-        except AttributeError:
-            pass  # base_url attribute not found, proceed with the default
 
         # Execute the selected completion function
         return completion_func(wrapped, instance, args, kwargs)
