@@ -12,9 +12,6 @@ max-positional-arguments=12
 # Maximum allowed line length
 max-line-length=120
 
-# Maximum allowed lines per module/file
-max-lines=1500
-
 # Maximum number of instance attributes
 max-attributes=15
 
@@ -27,3 +24,4 @@ disable=
     unused-argument,
     too-many-branches,
     too-many-locals
+    too-many-lines

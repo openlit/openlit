@@ -106,6 +106,8 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
             self._timestamps = []
             self._ttft = 0
             self._tbt = 0
+            self._server_address = server_address
+            self._server_port = server_port
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -200,7 +202,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                         self._kwargs.get("seed", ""))
                     self._span.set_attribute(SemanticConvetion.SERVER_PORT,
-                                        server_port)
+                                        self._server_port)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
                                         self._kwargs.get("frequency_penalty", 0.0))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
@@ -224,7 +226,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                     self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         output_tokens)
                     self._span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                                        server_address)
+                                        self._server_address)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_REQUEST_SERVICE_TIER,
                                         self._kwargs.get("service_tier", "auto"))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SERVICE_TIER,
@@ -271,8 +273,8 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                             operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             system=SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                             request_model=request_model,
-                            server_address=server_address,
-                            server_port=server_port,
+                            server_address=self._server_address,
+                            server_port=self._server_port,
                             response_model=self._response_model,
                         )
 
