@@ -439,6 +439,7 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                             span.add_event(
                                 name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                                 attributes={
+                                    # pylint: disable=line-too-long
                                     SemanticConvetion.GEN_AI_CONTENT_COMPLETION: str(response_dict.get('choices')[i].get('message').get('content')),
                                 },
                             )

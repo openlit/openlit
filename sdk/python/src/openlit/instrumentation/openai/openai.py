@@ -124,7 +124,6 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
             return getattr(self.__wrapped__, name)
 
         def __next__(self):
-
             try:
                 chunk = self.__wrapped__.__next__()
                 end_time = time.time()
@@ -440,6 +439,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                             span.add_event(
                                 name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                                 attributes={
+                                    # pylint: disable=line-too-long
                                     SemanticConvetion.GEN_AI_CONTENT_COMPLETION: str(response_dict.get('choices')[i].get('message').get('content')),
                                 },
                             )
