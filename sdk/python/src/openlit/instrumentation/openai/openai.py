@@ -33,7 +33,8 @@ SERVER_PORT = 443
 
 def set_server_address_and_port(client_instance: Any) -> Tuple[str, int]:
     """
-    Sets and returns the global SERVER_ADDRESS and SERVER_PORT variables based on the provided client instance's base_url.
+    Sets and returns the global SERVER_ADDRESS and SERVER_PORT
+    variables based on the provided client instance's base_url.
     
     Args:
         client_instance (Any): The client object

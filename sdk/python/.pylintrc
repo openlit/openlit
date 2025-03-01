@@ -8,3 +8,6 @@ max-args=25
 
 # Maximum number of positional arguments (see R0917).
 max-positional-arguments=12
+
+# Maximum allowed line length
+max-line-length=120
