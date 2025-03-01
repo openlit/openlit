@@ -6,9 +6,9 @@ import os
 import json
 import logging
 from urllib.parse import urlparse
+from typing import Any, Dict, List
 import requests
 import tiktoken
-from typing import Tuple, Any, Dict, List
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
 from openlit.semcov import SemanticConvetion
@@ -235,6 +235,9 @@ def create_metrics_attributes(
     server_port: int,
     response_model: str,
 ) -> Dict[Any, Any]:
+    """
+    Returns OTel metrics attributes
+    """
     return {
         TELEMETRY_SDK_NAME: "openlit",
         SERVICE_NAME: service_name,

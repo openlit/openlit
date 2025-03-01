@@ -5,7 +5,7 @@ Module for monitoring OpenAI API calls.
 import logging
 import time
 from urllib.parse import urlparse
-from typing import Tuple, Any, List
+from typing import Tuple, Any
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
@@ -85,6 +85,8 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                 wrapped,
                 span,
                 kwargs,
+                server_address,
+                server_port,
                 **args,
             ):
             self.__wrapped__ = wrapped
@@ -328,7 +330,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            return TracedSyncStream(awaited_wrapped, span, kwargs)
+            return TracedSyncStream(awaited_wrapped, span, kwargs, server_address, server_port)
 
         # Handling for non-streaming responses
         else:
