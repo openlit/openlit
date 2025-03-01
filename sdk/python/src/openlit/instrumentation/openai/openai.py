@@ -170,7 +170,6 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                                     content_str_list.append(f'text: {item["text"]}')
                                 elif (item["type"] == "image_url" and
                                       not item["image_url"]["url"].startswith("data:")):
-                                    # pylint: disable=line-too-long
                                     content_str_list.append(f'image_url: {item["image_url"]["url"]}')
                             content_str = ", ".join(content_str_list)
                             formatted_messages.append(f"{role}: {content_str}")
@@ -336,7 +335,6 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
 
         # Handling for non-streaming responses
         else:
-            # pylint: disable=line-too-long
             with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
@@ -354,7 +352,6 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
 
                         if isinstance(content, list):
                             content_str = ", ".join(
-                                # pylint: disable=line-too-long
                                 f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                 if "type" in item else f'text: {item["text"]}'
                                 for item in content
