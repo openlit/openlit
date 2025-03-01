@@ -126,8 +126,8 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     self._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_AI21)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_CHAT)
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
@@ -146,9 +146,9 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                         self._kwargs.get("temperature", 1.0))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                         True)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                         self._prompt_tokens)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         self._completion_tokens)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                         self._prompt_tokens + self._completion_tokens)
@@ -180,8 +180,8 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                 SemanticConvetion.GEN_AI_SYSTEM_AI21,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_OPERATION:
+                                SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                 self._kwargs.get("model", "jamba-1.5-mini")
                         }
@@ -261,8 +261,8 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_AI21)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_CHAT)
+                    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
@@ -296,9 +296,9 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                                     pricing_info, response_dict.get('usage', {}).get('prompt_tokens', None),
                                                     response_dict.get('usage', {}).get('completion_tokens', None))
 
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                            response_dict.get('usage', {}).get('prompt_tokens', None))
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                            response_dict.get('usage', {}).get('completion_tokens', None))
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                            response_dict.get('usage', {}).get('total_tokens', None))
@@ -345,9 +345,9 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                 SemanticConvetion.GEN_AI_CONTENT_COMPLETION: "Function called with tools",
                             },
                         )
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                             response_dict.get('usage').get('prompt_tokens'))
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                             response_dict.get('usage').get('completion_tokens'))
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                             response_dict.get('usage').get('total_tokens'))
@@ -366,8 +366,8 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                 SemanticConvetion.GEN_AI_SYSTEM_AI21,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_OPERATION:
+                                SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                 kwargs.get("model", "jamba-1.5-mini")
                         }
@@ -470,8 +470,8 @@ def chat_rag(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_AI21)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_CHAT)
+                    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
@@ -553,9 +553,9 @@ def chat_rag(gen_ai_endpoint, version, environment, application_name,
                                 SemanticConvetion.GEN_AI_CONTENT_COMPLETION: "Function called with tools",
                             },
                         )
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                             prompt_tokens)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                             completion_tokens)
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                             prompt_tokens + completion_tokens)
@@ -579,8 +579,8 @@ def chat_rag(gen_ai_endpoint, version, environment, application_name,
                                 SemanticConvetion.GEN_AI_SYSTEM_AI21,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_OPERATION:
+                                SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                 kwargs.get("model", "jamba-1.5-mini")
                         }

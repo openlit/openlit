@@ -115,7 +115,7 @@ def converse(gen_ai_endpoint, version, environment, application_name, tracer,
 
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                        SemanticConvetion.GEN_AI_SYSTEM_BEDROCK)
+                                        SemanticConvetion.GEN_AI_SYSTEM_AWS_BEDROCK)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -124,9 +124,9 @@ def converse(gen_ai_endpoint, version, environment, application_name, tracer,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         model)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                         input_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         output_tokens)
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                         input_tokens + output_tokens)
@@ -162,11 +162,11 @@ def converse(gen_ai_endpoint, version, environment, application_name, tracer,
                             SemanticConvetion.GEN_AI_APPLICATION_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
-                                SemanticConvetion.GEN_AI_SYSTEM_BEDROCK,
+                                SemanticConvetion.GEN_AI_SYSTEM_AWS_BEDROCK,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_OPERATION:
+                                SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                 model
                         }

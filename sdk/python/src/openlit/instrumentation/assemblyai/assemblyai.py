@@ -62,8 +62,8 @@ def transcribe(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_AUDIO)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -105,8 +105,8 @@ def transcribe(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_AUDIO,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             llm_model,
                     }

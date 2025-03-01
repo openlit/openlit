@@ -4,7 +4,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM = 'gen_ai.system';
   static GEN_AI_ENVIRONMENT = 'gen_ai.environment';
   static GEN_AI_APPLICATION_NAME = 'gen_ai.application_name';
-  static GEN_AI_TYPE = 'gen_ai.type';
+  static GEN_AI_OPERATION = 'gen_ai.type';
   static GEN_AI_HUB_OWNER = 'gen_ai.hub.owner';
   static GEN_AI_HUB_REPO = 'gen_ai.hub.repo';
   static GEN_AI_RETRIEVAL_SOURCE = 'gen_ai.retrieval.source';
@@ -21,7 +21,7 @@ export default class SemanticConvention {
   static GEN_AI_REQUEST_SEED = 'gen_ai.request.seed';
   static GEN_AI_REQUEST_FREQUENCY_PENALTY = 'gen_ai.request.frequency_penalty';
   static GEN_AI_REQUEST_PRESENCE_PENALTY = 'gen_ai.request.presence_penalty';
-  static GEN_AI_REQUEST_EMBEDDING_FORMAT = 'gen_ai.request.embedding_format';
+  static GEN_AI_REQUEST_ENCODING_FORMATS = 'gen_ai.request.embedding_format';
   static GEN_AI_REQUEST_EMBEDDING_DIMENSION = 'gen_ai.request.embedding_dimension';
   static GEN_AI_REQUEST_TOOL_CHOICE = 'gen_ai.request.tool_choice';
   static GEN_AI_REQUEST_AUDIO_VOICE = 'gen_ai.request.audio_voice';
@@ -40,8 +40,8 @@ export default class SemanticConvention {
   static GEN_AI_REQUEST_IMAGE_STYLE = 'gen_ai.request.image_style';
 
   // GenAI Usage
-  static GEN_AI_USAGE_PROMPT_TOKENS = 'gen_ai.usage.input_tokens';
-  static GEN_AI_USAGE_COMPLETION_TOKENS = 'gen_ai.usage.output_tokens';
+  static GEN_AI_USAGE_INPUT_TOKENS = 'gen_ai.usage.input_tokens';
+  static GEN_AI_USAGE_OUTPUT_TOKENS = 'gen_ai.usage.output_tokens';
   static GEN_AI_USAGE_TOTAL_TOKENS = 'gen_ai.usage.total_tokens';
   static GEN_AI_USAGE_COST = 'gen_ai.usage.cost';
 
@@ -58,13 +58,13 @@ export default class SemanticConvention {
   static GEN_AI_CONTENT_COMPLETION = 'gen_ai.completion';
   static GEN_AI_CONTENT_REVISED_PROMPT = 'gen_ai.content.revised_prompt';
 
-  static GEN_AI_TYPE_CHAT = 'chat';
-  static GEN_AI_TYPE_EMBEDDING = 'embedding';
-  static GEN_AI_TYPE_IMAGE = 'image';
-  static GEN_AI_TYPE_AUDIO = 'audio';
-  static GEN_AI_TYPE_FINETUNING = 'fine_tuning';
-  static GEN_AI_TYPE_VECTORDB = 'vectordb';
-  static GEN_AI_TYPE_FRAMEWORK = 'framework';
+  static GEN_AI_OPERATION_TYPE_CHAT = 'chat';
+  static GEN_AI_OPERATION_TYPE_EMBEDDING = 'embedding';
+  static GEN_AI_OPERATION_TYPE_IMAGE = 'image';
+  static GEN_AI_OPERATION_TYPE_AUDIO = 'audio';
+  static GEN_AI_OPERATION_TYPE_FINETUNING = 'fine_tuning';
+  static GEN_AI_OPERATION_TYPE_VECTORDB = 'vectordb';
+  static GEN_AI_OPERATION_TYPE_FRAMEWORK = 'framework';
 
   static GEN_AI_SYSTEM_HUGGING_FACE = 'huggingface';
   static GEN_AI_SYSTEM_OPENAI = 'openai';
@@ -72,7 +72,7 @@ export default class SemanticConvention {
   static GEN_AI_SYSTEM_ANTHROPIC = 'anthropic';
   static GEN_AI_SYSTEM_COHERE = 'cohere';
   static GEN_AI_SYSTEM_MISTRAL = 'mistral';
-  static GEN_AI_SYSTEM_BEDROCK = 'bedrock';
+  static GEN_AI_SYSTEM_AWS_BEDROCK = 'bedrock';
   static GEN_AI_SYSTEM_VERTEXAI = 'vertexai';
   static GEN_AI_SYSTEM_LANGCHAIN = 'langchain';
 

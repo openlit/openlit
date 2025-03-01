@@ -107,8 +107,8 @@ def complete(gen_ai_endpoint, version, environment, application_name,
                         span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                         span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                             SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE)
-                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                            SemanticConvetion.GEN_AI_TYPE_CHAT)
+                        span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                         span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                             gen_ai_endpoint)
                         span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -135,9 +135,9 @@ def complete(gen_ai_endpoint, version, environment, application_name,
                                             kwargs.get("seed", ""))
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                             response_id)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                         input_tokens)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                             output_tokens)
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                             total_tokens)
@@ -171,8 +171,8 @@ def complete(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE,
                                 SemanticConvetion.GEN_AI_ENVIRONMENT:
                                     environment,
-                                SemanticConvetion.GEN_AI_TYPE:
-                                    SemanticConvetion.GEN_AI_TYPE_CHAT,
+                                SemanticConvetion.GEN_AI_OPERATION:
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                                 SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                     model
                             }
@@ -221,8 +221,8 @@ def complete(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_CHAT)
+                    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -273,9 +273,9 @@ def complete(gen_ai_endpoint, version, environment, application_name,
                     cost = get_chat_model_cost(model,
                                                 pricing_info, input_tokens, output_tokens)
 
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                         input_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         output_tokens)
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                         total_tokens)
@@ -294,8 +294,8 @@ def complete(gen_ai_endpoint, version, environment, application_name,
                                 SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_OPERATION:
+                                SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                 model
                         }
@@ -365,8 +365,8 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -375,13 +375,13 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     kwargs.get("model", "text-embedding-ada-002"))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_FORMAT,
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_ENCODING_FORMATS,
                                     kwargs.get("encoding_format", "float"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
                                     kwargs.get("dimensions", ""))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                     kwargs.get("user", ""))
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     response.usage.prompt_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                     response.usage.total_tokens)
@@ -407,8 +407,8 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             kwargs.get("model", "text-embedding-ada-002")
                     }

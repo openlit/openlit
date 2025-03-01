@@ -85,8 +85,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_RETRIEVAL_SOURCE,
@@ -159,8 +159,8 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_HUB_OWNER,
@@ -247,8 +247,8 @@ def allm(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
@@ -261,9 +261,9 @@ def allm(gen_ai_endpoint, version, environment, application_name,
                                 str(get_attribute_from_instance_or_kwargs(instance, 'top_p')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                     False)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                     output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                     input_tokens + output_tokens)
@@ -295,8 +295,8 @@ def allm(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             str(get_attribute_from_instance_or_kwargs(instance, 'model'))
                     }
@@ -387,8 +387,8 @@ def llm(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
@@ -401,9 +401,9 @@ def llm(gen_ai_endpoint, version, environment, application_name,
                                 str(get_attribute_from_instance_or_kwargs(instance, 'top_p')))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                     False)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                     output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                     input_tokens + output_tokens)
@@ -435,8 +435,8 @@ def llm(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             str(get_attribute_from_instance_or_kwargs(instance, 'model'))
                     }
@@ -540,8 +540,8 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_CHAT)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
@@ -554,9 +554,9 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                     str(getattr(instance, 'top_p', 1)))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                     False)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                     output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                     input_tokens + output_tokens)
@@ -589,8 +589,8 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             model
                     }
@@ -695,8 +695,8 @@ def achat(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_CHAT)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
@@ -709,9 +709,9 @@ def achat(gen_ai_endpoint, version, environment, application_name,
                                     str(getattr(instance, 'top_p',1)))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                     False)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                     output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                     input_tokens + output_tokens)
@@ -743,8 +743,8 @@ def achat(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_LANGCHAIN,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             model
                     }
