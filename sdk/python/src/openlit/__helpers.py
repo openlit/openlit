@@ -8,6 +8,7 @@ import logging
 from urllib.parse import urlparse
 import requests
 import tiktoken
+from typing import List
 from opentelemetry.trace import Status, StatusCode
 
 # Set up logging
@@ -197,3 +198,27 @@ def handle_exception(span,e):
     # Record the exception details within the span
     span.record_exception(e)
     span.set_status(Status(StatusCode.ERROR))
+
+def calculate_ttft(timestamps: List[float], start_time: float) -> float:
+    """
+    Calculate the time to the first tokens.
+    
+    :param timestamps: List of timestamps for received tokens
+    :param start_time: The start time of the streaming process
+    :return: Time to the first tokens
+    """
+    if timestamps:
+        return timestamps[0] - start_time
+    return 0.0
+
+def calculate_tbt(timestamps: List[float]) -> float:
+    """
+    Calculate the average time between tokens.
+    
+    :param timestamps: List of timestamps for received tokens
+    :return: Average time between tokens
+    """
+    if len(timestamps) > 1:
+        time_diffs = [timestamps[i] - timestamps[i - 1] for i in range(1, len(timestamps))]
+        return sum(time_diffs) / len(time_diffs)
+    return 0.0

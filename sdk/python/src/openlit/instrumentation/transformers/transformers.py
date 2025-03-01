@@ -78,8 +78,8 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                                    environment)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                   SemanticConvetion.GEN_AI_TYPE_CHAT)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                   SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                    instance.model.config.name_or_path)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
@@ -95,7 +95,7 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                         },
                     )
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                 prompt_tokens)
 
                 i = 0
@@ -122,7 +122,7 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                     completion_tokens += general_tokens(llm_response)
 
                     i=i+1
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                    completion_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                    prompt_tokens + completion_tokens)
@@ -138,8 +138,8 @@ def text_wrap(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_HUGGING_FACE,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             instance.model.config.name_or_path
                     }

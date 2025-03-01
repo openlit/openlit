@@ -129,8 +129,8 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                     self._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_CHAT)
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
@@ -157,9 +157,9 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                         self._kwargs.get("seed", ""))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
                                         True)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                         prompt_tokens)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         completion_tokens)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                         prompt_tokens + completion_tokens)
@@ -191,8 +191,8 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                 SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_OPERATION:
+                                SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                 self._kwargs.get("model", "gpt-3.5-turbo")
                         }
@@ -272,8 +272,8 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_CHAT)
+                    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
@@ -315,9 +315,9 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                                     pricing_info, response_dict.get('usage', {}).get('prompt_tokens', None),
                                                     response_dict.get('usage', {}).get('completion_tokens', None))
 
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                            response_dict.get('usage', {}).get('prompt_tokens', None))
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                            response_dict.get('usage', {}).get('completion_tokens', None))
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                            response_dict.get('usage', {}).get('total_tokens', None))
@@ -364,9 +364,9 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                 SemanticConvetion.GEN_AI_CONTENT_COMPLETION: "Function called with tools",
                             },
                         )
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                             response_dict.get('usage').get('prompt_tokens'))
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                             response_dict.get('usage').get('completion_tokens'))
                         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                             response_dict.get('usage').get('total_tokens'))
@@ -385,8 +385,8 @@ def async_chat_completions(gen_ai_endpoint, version, environment, application_na
                                 SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_OPERATION:
+                                SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                 kwargs.get("model", "gpt-3.5-turbo")
                         }
@@ -456,8 +456,8 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -466,13 +466,13 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     kwargs.get("model", "text-embedding-ada-002"))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_FORMAT,
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_ENCODING_FORMATS,
                                     kwargs.get("encoding_format", "float"))
                 # span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
                 #                     kwargs.get("dimensions", "null"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                     kwargs.get("user", ""))
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     response_dict.get('usage').get('prompt_tokens'))
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                     response_dict.get('usage').get('total_tokens'))
@@ -499,8 +499,8 @@ def async_embedding(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             kwargs.get("model", "text-embedding-ada-002")
                     }
@@ -568,8 +568,8 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                   SemanticConvetion.GEN_AI_TYPE_FINETUNING)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                   SemanticConvetion.GEN_AI_OPERATION_TYPE_FINETUNING)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -593,7 +593,7 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name,
                                     kwargs.get("suffix", ""))
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                     response.id)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     response.usage.prompt_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FINETUNE_STATUS,
                                     response.status)
@@ -609,8 +609,8 @@ def async_finetune(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_FINETUNING,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_FINETUNING,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             kwargs.get("model", "gpt-3.5-turbo")
                     }
@@ -685,8 +685,8 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_IMAGE)
+                    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
@@ -738,8 +738,8 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                             SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_IMAGE,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             kwargs.get("model", "dall-e-2")
                     }
@@ -814,8 +814,8 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_IMAGE)
+                    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
@@ -857,8 +857,8 @@ def async_image_variatons(gen_ai_endpoint, version, environment, application_nam
                             SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_IMAGE,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             kwargs.get("model", "dall-e-2")
                     }
@@ -925,8 +925,8 @@ def async_audio_create(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_OPENAI)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_AUDIO)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -963,8 +963,8 @@ def async_audio_create(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_AUDIO,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             kwargs.get("model", "tts-1")
                     }

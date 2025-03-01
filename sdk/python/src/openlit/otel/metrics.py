@@ -18,6 +18,75 @@ else:
 # Global flag to check if the meter provider initialization is complete.
 METER_SET = False
 
+_GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS = [
+    0.01,
+    0.02,
+    0.04,
+    0.08,
+    0.16,
+    0.32,
+    0.64,
+    1.28,
+    2.56,
+    5.12,
+    10.24,
+    20.48,
+    40.96,
+    81.92,
+]
+
+_GEN_AI_SERVER_TBT = [
+    0.01,
+    0.025,
+    0.05,
+    0.075,
+    0.1,
+    0.15,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.75,
+    1.0,
+    2.5
+]
+
+_GEN_AI_SERVER_TFTT = [
+    0.001,
+    0.005,
+    0.01,
+    0.02,
+    0.04,
+    0.06,
+    0.08,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1.0,
+    2.5,
+    5.0,
+    7.5,
+    10.0
+]
+
+_GEN_AI_CLIENT_TOKEN_USAGE_BUCKETS = [
+    1,
+    4,
+    16,
+    64,
+    256,
+    1024,
+    4096,
+    16384,
+    65536,
+    262144,
+    1048576,
+    4194304,
+    16777216,
+    67108864,
+]
+
 def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_headers):
     """
     Sets up OpenTelemetry metrics with a counter for total requests.
@@ -73,24 +142,46 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
 
         # Define and create the metrics
         metrics_dict = {
+            # OTel Semconv
+            "genai_client_usage_tokens": meter.create_histogram(
+                name=SemanticConvetion.GEN_AI_CLIENT_OPERATION_DURATION,
+                description="Measures number of input and output tokens used",
+                unit="{token}",
+                explicit_bucket_boundaries_advisory=_GEN_AI_CLIENT_TOKEN_USAGE_BUCKETS,
+            ),
+            "genai_client_operation_duration": meter.create_histogram(
+                name=SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE,
+                description="GenAI operation duration",
+                unit="s",
+                explicit_bucket_boundaries_advisory=_GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS,
+            ),
+            "genai_server_tbt": meter.create_histogram(
+                name=SemanticConvetion.GEN_AI_SERVER_TBT,
+                description="Time per output token generated after the first token for successful responses",
+                unit="s",
+                explicit_bucket_boundaries_advisory=_GEN_AI_SERVER_TBT,
+            ),
+            "genai_server_ttft": meter.create_histogram(
+                name=SemanticConvetion.GEN_AI_SERVER_TTFT,
+                description="Time to generate first token for successful responses",
+                unit="s",
+                explicit_bucket_boundaries_advisory=_GEN_AI_SERVER_TFTT,
+            ),
+
+            # Extra
             "genai_requests": meter.create_counter(
                 name=SemanticConvetion.GEN_AI_REQUESTS,
                 description="Number of requests to GenAI",
                 unit="1",
             ),
             "genai_prompt_tokens": meter.create_counter(
-                name=SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                name=SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                 description="Number of prompt tokens processed.",
                 unit="1",
             ),
             "genai_completion_tokens": meter.create_counter(
-                name=SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                name=SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                 description="Number of completion tokens processed.",
-                unit="1",
-            ),
-            "genai_total_tokens": meter.create_counter(
-                name=SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                description="Number of total tokens processed.",
                 unit="1",
             ),
             "genai_cost": meter.create_histogram(

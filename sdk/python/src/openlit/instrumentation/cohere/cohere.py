@@ -64,8 +64,8 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_COHERE)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_EMBEDDING)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -74,7 +74,7 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     kwargs.get("model", "embed-english-v2.0"))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_FORMAT,
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_ENCODING_FORMATS,
                                     kwargs.get("embedding_types", "float"))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_EMBEDDING_DIMENSION,
                                     kwargs.get("input_type", ""))
@@ -82,7 +82,7 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
                                     kwargs.get("user", ""))
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                     response.id)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     response.meta.billed_units.input_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                     response.meta.billed_units.input_tokens)
@@ -108,8 +108,8 @@ def embed(gen_ai_endpoint, version, environment, application_name, tracer,
                             SemanticConvetion.GEN_AI_SYSTEM_COHERE,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_EMBEDDING,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             kwargs.get("model", "embed-english-v2.0")
                     }
@@ -184,8 +184,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_COHERE)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_CHAT)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -210,9 +210,9 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                                     response.generation_id)
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                     [response.finish_reason])
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     response.meta.billed_units.input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                     response.meta.billed_units.output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                     response.meta.billed_units.input_tokens +
@@ -246,8 +246,8 @@ def chat(gen_ai_endpoint, version, environment, application_name, tracer,
                             SemanticConvetion.GEN_AI_SYSTEM_COHERE,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_CHAT,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                         SemanticConvetion.GEN_AI_REQUEST_MODEL:
                             kwargs.get("model", "command")
                     }
@@ -336,8 +336,8 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                         SemanticConvetion.GEN_AI_SYSTEM_COHERE)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_CHAT)
+                    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
@@ -362,9 +362,9 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                                         response_id)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                         [finish_reason])
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                         prompt_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         completion_tokens)
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                         prompt_tokens + completion_tokens)
@@ -396,8 +396,8 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                                 SemanticConvetion.GEN_AI_SYSTEM_COHERE,
                             SemanticConvetion.GEN_AI_ENVIRONMENT:
                                 environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
+                            SemanticConvetion.GEN_AI_OPERATION:
+                                SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             SemanticConvetion.GEN_AI_REQUEST_MODEL:
                                 kwargs.get("model", "command")
                         }

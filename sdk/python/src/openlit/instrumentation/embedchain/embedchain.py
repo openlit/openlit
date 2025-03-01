@@ -65,8 +65,8 @@ def evaluate(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_EVAL_CONTEXT_RELEVANCY,
@@ -143,8 +143,8 @@ def get_data_sources(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_DATA_SOURCES,

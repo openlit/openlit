@@ -73,8 +73,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                    environment)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                   SemanticConvetion.GEN_AI_TYPE_VECTORDB)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                   SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB)
                 span.set_attribute(SemanticConvetion.DB_SYSTEM,
                                    SemanticConvetion.DB_SYSTEM_ASTRA)
 
@@ -205,8 +205,8 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.DB_SYSTEM_ASTRA,
                         SemanticConvetion.GEN_AI_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_VECTORDB,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB,
                         SemanticConvetion.DB_OPERATION:
                             db_operation
                     }

@@ -194,7 +194,7 @@ export default class AnthropicWrapper extends BaseWrapper {
     }
 
     const prompt = formattedMessages.join('\n');
-    span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_CHAT);
+    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
     const model = result.model || 'claude-3-sonnet-20240229';
@@ -231,9 +231,9 @@ export default class AnthropicWrapper extends BaseWrapper {
     }
     // Request Params attributes : End
 
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS, result.usage.input_tokens);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, result.usage.input_tokens);
     span.setAttribute(
-      SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
+      SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
       result.usage.output_tokens
     );
     span.setAttribute(
