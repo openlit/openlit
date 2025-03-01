@@ -1,4 +1,3 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches
 """
 Module for monitoring OpenAI API calls.
 """
@@ -6,8 +5,7 @@ Module for monitoring OpenAI API calls.
 import logging
 import time
 from urllib.parse import urlparse
-from httpx import URL
-from typing import Tuple, Any, Dict, List
+from typing import Tuple, Any, List
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
@@ -27,23 +25,13 @@ from openlit.semcov import SemanticConvetion
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-# Default global values for server address and port
-SERVER_ADDRESS = "api.openai.com"
-SERVER_PORT = 443
-
 def set_server_address_and_port(client_instance: Any) -> Tuple[str, int]:
     """
-    Sets and returns the global SERVER_ADDRESS and SERVER_PORT
-    variables based on the provided client instance's base_url.
-    
-    Args:
-        client_instance (Any): The client object
-    
-    Returns:
-        Tuple[str, int]: The updated server address and port.
+    Determines and returns the server address and port based on the provided client's `base_url`,
+    using defaults if none found or values are None.
     """
-
-    global SERVER_ADDRESS, SERVER_PORT  # Declare global to modify them
+    default_server_address = "api.openai.com"
+    default_server_port = 443
 
     base_client = getattr(client_instance, "_client", None)
     base_url = getattr(base_client, "base_url", None)
@@ -51,15 +39,17 @@ def set_server_address_and_port(client_instance: Any) -> Tuple[str, int]:
     if base_url:
         if isinstance(base_url, str):
             url = urlparse(base_url)
-            SERVER_ADDRESS = url.hostname if url.hostname else SERVER_ADDRESS
-            SERVER_PORT = url.port if url.port is not None else SERVER_PORT
-        else:
-            # Assuming base_url is an object with 'host' and 'port' attributes
-            SERVER_ADDRESS = getattr(base_url, "host", SERVER_ADDRESS)
-            server_port = getattr(base_url, "port", SERVER_PORT)
-            SERVER_PORT = server_port if server_port is not None else SERVER_PORT
+            server_address = url.hostname or default_server_address
+            server_port = url.port if url.port is not None else default_server_port
+        else:  # base_url might not be a str; handle as an object.
+            server_address = getattr(base_url, "host", None) or default_server_address
+            port_attr = getattr(base_url, "port", None)
+            server_port = port_attr if port_attr is not None else default_server_port
+    else:  # no base_url provided; use defaults.
+        server_address = default_server_address
+        server_port = default_server_port
 
-    return SERVER_ADDRESS, SERVER_PORT
+    return server_address, server_port
 
 def chat_completions(gen_ai_endpoint, version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics):
@@ -208,7 +198,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                         self._kwargs.get("seed", ""))
                     self._span.set_attribute(SemanticConvetion.SERVER_PORT,
-                                        SERVER_PORT)
+                                        server_port)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
                                         self._kwargs.get("frequency_penalty", 0.0))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
@@ -232,7 +222,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                     self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         output_tokens)
                     self._span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                                        SERVER_ADDRESS)
+                                        server_address)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_REQUEST_SERVICE_TIER,
                                         self._kwargs.get("service_tier", "auto"))
                     self._span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SERVICE_TIER,
@@ -279,8 +269,8 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                             operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             system=SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                             request_model=request_model,
-                            server_address=SERVER_ADDRESS,
-                            server_port=SERVER_PORT,
+                            server_address=server_address,
+                            server_port=server_port,
                             response_model=self._response_model,
                         )
 
@@ -327,7 +317,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
 
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
-        SERVER_ADDRESS, SERVER_PORT = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance)
         request_model = kwargs.get("model", "gpt-4o")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -389,7 +379,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
                                         kwargs.get("seed", ""))
                     span.set_attribute(SemanticConvetion.SERVER_PORT,
-                                        SERVER_PORT)
+                                        server_port)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
                                         kwargs.get("frequency_penalty", 0.0))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
@@ -411,7 +401,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         output_tokens)
                     span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                                        SERVER_ADDRESS)
+                                        server_address)
                     span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_REQUEST_SERVICE_TIER,
                                         kwargs.get("service_tier", "auto"))
                     span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SERVICE_TIER,
@@ -441,7 +431,7 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                                 SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                             },
                         )
-                    
+
                     for i in range(kwargs.get('n',1)):
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                            [response_dict.get('choices')[i].get('finish_reason')])
@@ -465,8 +455,8 @@ def chat_completions(gen_ai_endpoint, version, environment, application_name,
                             operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
                             system=SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                             request_model=request_model,
-                            server_address=SERVER_ADDRESS,
-                            server_port=SERVER_PORT,
+                            server_address=server_address,
+                            server_port=server_port,
                             response_model=response_dict.get('model'),
                         )
 
@@ -531,7 +521,7 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'embeddings' method.
         """
 
-        SERVER_ADDRESS, SERVER_PORT = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance)
         request_model = kwargs.get("model", "text-embedding-ada-002")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
@@ -563,9 +553,9 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
                                     response_dict.get('model'))
                 span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                                    SERVER_ADDRESS)
+                                    server_address)
                 span.set_attribute(SemanticConvetion.SERVER_PORT,
-                                    SERVER_PORT)
+                                    server_port)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
 
@@ -598,8 +588,8 @@ def embedding(gen_ai_endpoint, version, environment, application_name,
                         operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
                         system=SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                         request_model=request_model,
-                        server_address=SERVER_ADDRESS,
-                        server_port=SERVER_PORT,
+                        server_address=server_address,
+                        server_port=server_port,
                         response_model=response_dict.get('model'),
                     )
                     metrics["genai_client_usage_tokens"].record(
@@ -660,7 +650,7 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'images.generate' method.
         """
 
-        SERVER_ADDRESS, SERVER_PORT = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance)
         request_model = kwargs.get("model", "dall-e-2")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE} {request_model}"
@@ -696,9 +686,9 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         request_model)
                     span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                                        SERVER_ADDRESS)
+                                        server_address)
                     span.set_attribute(SemanticConvetion.SERVER_PORT,
-                                        SERVER_PORT)
+                                        server_port)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                         response.created)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
@@ -750,8 +740,8 @@ def image_generate(gen_ai_endpoint, version, environment, application_name,
                         operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE,
                         system=SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                         request_model=request_model,
-                        server_address=SERVER_ADDRESS,
-                        server_port=SERVER_PORT,
+                        server_address=server_address,
+                        server_port=server_port,
                         response_model=request_model,
                     )
 
@@ -808,7 +798,7 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'images.create.variations' method.
         """
 
-        SERVER_ADDRESS, SERVER_PORT = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance)
         request_model = kwargs.get("model", "dall-e-2")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE} {request_model}"
@@ -841,9 +831,9 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         request_model)
                     span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                                        SERVER_ADDRESS)
+                                        server_address)
                     span.set_attribute(SemanticConvetion.SERVER_PORT,
-                                        SERVER_PORT)
+                                        server_port)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                         response.created)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
@@ -885,8 +875,8 @@ def image_variatons(gen_ai_endpoint, version, environment, application_name,
                         operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE,
                         system=SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                         request_model=request_model,
-                        server_address=SERVER_ADDRESS,
-                        server_port=SERVER_PORT,
+                        server_address=server_address,
+                        server_port=server_port,
                         response_model=request_model,
                     )
 
@@ -943,7 +933,7 @@ def audio_create(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'audio.speech.create' method.
         """
 
-        SERVER_ADDRESS, SERVER_PORT = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance)
         request_model = kwargs.get("model", "tts-1")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}"
@@ -967,9 +957,9 @@ def audio_create(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     request_model)
                 span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                                    SERVER_ADDRESS)
+                                    server_address)
                 span.set_attribute(SemanticConvetion.SERVER_PORT,
-                                    SERVER_PORT)
+                                    server_port)
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
                                     request_model)
                 span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
@@ -1004,8 +994,8 @@ def audio_create(gen_ai_endpoint, version, environment, application_name,
                         operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO,
                         system=SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
                         request_model=request_model,
-                        server_address=SERVER_ADDRESS,
-                        server_port=SERVER_PORT,
+                        server_address=server_address,
+                        server_port=server_port,
                         response_model=request_model,
                     )
 
