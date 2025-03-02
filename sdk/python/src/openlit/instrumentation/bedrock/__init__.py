@@ -32,7 +32,7 @@ class BedrockInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "botocore.client",  
             "ClientCreator.create_client",  
-            converse("bedrock.converse", version, environment, application_name,
+            converse(version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

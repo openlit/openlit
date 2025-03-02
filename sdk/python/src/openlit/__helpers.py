@@ -257,8 +257,14 @@ def set_server_address_and_port(client_instance: Any,
     using defaults if none found or values are None.
     """
 
+    # Try getting base_url from multiple potential attributes
     base_client = getattr(client_instance, "_client", None)
     base_url = getattr(base_client, "base_url", None)
+
+    if not base_url:
+        # Attempt to get endpoint from instance._config.endpoint if base_url is not set
+        config = getattr(client_instance, "_config", None)
+        base_url = getattr(config, "endpoint", None)
 
     if base_url:
         if isinstance(base_url, str):
@@ -269,7 +275,7 @@ def set_server_address_and_port(client_instance: Any,
             server_address = getattr(base_url, "host", None) or default_server_address
             port_attr = getattr(base_url, "port", None)
             server_port = port_attr if port_attr is not None else default_server_port
-    else:  # no base_url provided; use defaults.
+    else:  # no base_url or endpoint provided; use defaults.
         server_address = default_server_address
         server_port = default_server_port
 

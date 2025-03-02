@@ -244,7 +244,7 @@ def async_chat(version, environment, application_name, tracer,
                                     kwargs.get("stop_sequences", []))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
                                     kwargs.get("temperature", 0.3))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
                                     kwargs.get("k", 1.0))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
                                     kwargs.get("p", 1.0))

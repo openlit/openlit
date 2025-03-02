@@ -24,4 +24,6 @@ disable=
     unused-argument,
     too-many-branches,
     too-many-locals,
-    too-many-lines
+    too-many-lines,
+    no-name-in-module,
+    protected-access,

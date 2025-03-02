@@ -580,7 +580,7 @@ def embedding(version, environment, application_name,
                         request_model=request_model,
                         server_address=server_address,
                         server_port=server_port,
-                        response_model=response_dict.get('model'),
+                        response_model=request_model,
                     )
                     metrics["genai_client_usage_tokens"].record(
                             input_tokens, attributes
