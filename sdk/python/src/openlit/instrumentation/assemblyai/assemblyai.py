@@ -1,19 +1,24 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment
 """
 Module for monitoring Assembly AI API calls.
 """
 
 import logging
+import time
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import get_audio_model_cost
-from openlit.__helpers import handle_exception
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from openlit.__helpers import (
+    get_audio_model_cost,
+    handle_exception,
+    response_as_dict,
+    create_metrics_attributes,
+    set_server_address_and_port
+)
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def transcribe(gen_ai_endpoint, version, environment, application_name,
+def transcribe(version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for creating speech audio to collect metrics.
@@ -48,43 +53,55 @@ def transcribe(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'transcribe' method.
         """
 
-        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+        server_address, server_port = set_server_address_and_port(instance, "api.assemblyai.com", 443)
+        request_model = kwargs.get("speech_model", "best")
+
+        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}"
+
+        with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
+            start_time = time.time()
             response = wrapped(*args, **kwargs)
+            end_time = time.time()
 
             try:
-                llm_model = response.speech_model if response.speech_model else "best"
-
                 # Calculate cost of the operation
-                cost = get_audio_model_cost(llm_model,
+                cost = get_audio_model_cost(request_model,
                                             pricing_info, None, response.audio_duration)
 
                 # Set Span attributes
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI)
                 span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                    gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                    environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
-                                    response.id)
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                    llm_model)
+                                    request_model)
+                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                                    server_address)
+                span.set_attribute(SemanticConvetion.SERVER_PORT,
+                                    server_port)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                                    request_model)
+                span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                    "text")
+
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SERVICE_NAME,
+                                    application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_DURATION,
                                     response.audio_duration)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
+                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                    version)
 
                 if trace_content:
                     span.add_event(
-                                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
-                                attributes={
-                                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: response.audio_url,
-                                },
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: response.audio_url,
+                        },
                     )
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
@@ -96,21 +113,20 @@ def transcribe(gen_ai_endpoint, version, environment, application_name,
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    attributes = {
-                        TELEMETRY_SDK_NAME:
-                            "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
-                            application_name,
-                        SemanticConvetion.GEN_AI_SYSTEM:
-                            SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT:
-                            environment,
-                        SemanticConvetion.GEN_AI_OPERATION:
-                            SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO,
-                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                            llm_model,
-                    }
+                    attributes = create_metrics_attributes(
+                        service_name=application_name,
+                        deployment_environment=environment,
+                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO,
+                        system=SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI,
+                        request_model=request_model,
+                        server_address=server_address,
+                        server_port=server_port,
+                        response_model=request_model,
+                    )
 
+                    metrics["genai_client_operation_duration"].record(
+                        end_time - start_time, attributes
+                    )
                     metrics["genai_requests"].add(1, attributes)
                     metrics["genai_cost"].record(cost, attributes)
 
