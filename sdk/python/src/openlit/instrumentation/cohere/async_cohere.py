@@ -21,7 +21,7 @@ from openlit.semcov import SemanticConvetion
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def embed(version, environment, application_name, tracer,
+def async_embed(version, environment, application_name, tracer,
           pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
@@ -38,7 +38,7 @@ def embed(version, environment, application_name, tracer,
         A function that wraps the embeddings method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'embed' API call to add telemetry.
 
@@ -62,7 +62,7 @@ def embed(version, environment, application_name, tracer,
 
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             end_time = time.time()
 
             response_dict = response_as_dict(response)
@@ -148,7 +148,7 @@ def embed(version, environment, application_name, tracer,
 
     return wrapper
 
-def chat(version, environment, application_name, tracer,
+def async_chat(version, environment, application_name, tracer,
          pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat to collect metrics.
@@ -165,7 +165,7 @@ def chat(version, environment, application_name, tracer,
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'chat' API call to add telemetry.
         
@@ -189,7 +189,7 @@ def chat(version, environment, application_name, tracer,
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             end_time = time.time()
 
             response_dict = response_as_dict(response)
@@ -335,7 +335,7 @@ def chat(version, environment, application_name, tracer,
 
     return wrapper
 
-def chat_stream(version, environment, application_name,
+def async_chat_stream(version, environment, application_name,
                 tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat_stream to collect metrics.
@@ -353,7 +353,7 @@ def chat_stream(version, environment, application_name,
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'chat_stream' API call to add telemetry.
         
@@ -370,7 +370,7 @@ def chat_stream(version, environment, application_name,
             The response from the original 'chat_stream' method.
         """
 
-        class TracedSyncStream:
+        class TracedAsyncStream:
             """
             Wrapper for streaming responses to collect metrics and trace data.
             Wraps the 'cohere.AsyncStream' response to collect message IDs and aggregated response.
@@ -409,23 +409,23 @@ def chat_stream(version, environment, application_name,
                 self._server_address = server_address
                 self._server_port = server_port
 
-            def __enter__(self):
-                self.__wrapped__.__enter__()
+            async def __aenter__(self):
+                await self.__wrapped__.__aenter__()
                 return self
 
-            def __exit__(self, exc_type, exc_value, traceback):
-                self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+            async def __aexit__(self, exc_type, exc_value, traceback):
+                await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
 
-            def __iter__(self):
+            def __aiter__(self):
                 return self
 
-            def __getattr__(self, name):
+            async def __getattr__(self, name):
                 """Delegate attribute access to the wrapped object."""
-                return getattr(self.__wrapped__, name)
+                return getattr(await self.__wrapped__, name)
 
-            def __next__(self):
+            async def __anext__(self):
                 try:
-                    chunk = self.__wrapped__.__next__()
+                    chunk = await self.__wrapped__.__anext__()
                     end_time = time.time()
                     # Record the timestamp for the current chunk
                     self._timestamps.append(end_time)
@@ -450,7 +450,7 @@ def chat_stream(version, environment, application_name,
                         self._output_tokens = chunked.get('delta').get('usage').get('billed_units').get('output_tokens')
 
                     return chunk
-                except StopIteration:
+                except StopAsyncIteration:
                     # Handling exception ensure observability without disrupting operation
                     try:
                         self._end_time = time.time()
@@ -604,8 +604,8 @@ def chat_stream(version, environment, application_name,
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
-        awaited_wrapped = wrapped(*args, **kwargs)
+        awaited_wrapped = await wrapped(*args, **kwargs)
         span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-        return TracedSyncStream(awaited_wrapped, span, kwargs, server_address, server_port)
+        return TracedAsyncStream(awaited_wrapped, span, kwargs, server_address, server_port)
 
     return wrapper

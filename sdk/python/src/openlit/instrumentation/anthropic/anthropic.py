@@ -148,7 +148,7 @@ def messages(version, environment, application_name, tracer,
                             formatted_messages.append(f"{role}: {content}")
                     prompt = "\n".join(formatted_messages)
 
-                    request_model = self._kwargs.get("model", "gpt-4o")
+                    request_model = self._kwargs.get("model", "claude-3-5-sonnet-latest")
 
                     # Calculate cost of the operation
                     cost = get_chat_model_cost(request_model,
@@ -312,7 +312,6 @@ def messages(version, environment, application_name, tracer,
 
                         if isinstance(content, list):
                             content_str = ", ".join(
-                                # pylint: disable=line-too-long
                                 f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
                                 if "type" in item else f'text: {item["text"]}'
                                 for item in content
@@ -397,7 +396,6 @@ def messages(version, environment, application_name, tracer,
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                # pylint: disable=line-too-long
                                 SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llm_response,
                             },
                         )
