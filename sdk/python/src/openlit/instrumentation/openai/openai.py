@@ -205,6 +205,12 @@ def chat_completions(version, environment, application_name,
                                         self._openai_response_service_tier)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT,
                                         self._openai_system_fingerprint)
+                    if isinstance(self._llmresponse, str):
+                        self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                        "text")
+                    else:
+                        self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                        "json")
 
                     # Set Span attributes (Extra)
                     self._span.set_attribute(DEPLOYMENT_ENVIRONMENT,
@@ -424,6 +430,13 @@ def chat_completions(version, environment, application_name,
                         if kwargs.get('tools'):
                             span.set_attribute(SemanticConvetion.GEN_AI_TOOL_CALLS,
                                             str(response_dict.get('choices')[i].get('message').get('tool_calls')))
+
+                        if isinstance(response_dict.get('choices')[i].get('message').get('content'), str):
+                            span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                            "text")
+                        elif response_dict.get('choices')[i].get('message').get('content') is not None:
+                            span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                            "json")
 
                     span.set_status(Status(StatusCode.OK))
 
