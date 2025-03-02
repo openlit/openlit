@@ -223,6 +223,8 @@ def chat_completions(version, environment, application_name,
                                         self._tbt)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
                                         self._ttft)
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                        version)
                     if trace_content:
                         self._span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -398,6 +400,8 @@ def chat_completions(version, environment, application_name,
                                         cost)
                     span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
                                         end_time - start_time)
+                    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                        version)
                     if trace_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -544,6 +548,8 @@ def embedding(version, environment, application_name,
                                     input_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
+                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                    version)
 
                 if trace_content:
                     span.add_event(
@@ -684,6 +690,8 @@ def image_generate(version, environment, application_name,
                                         items.revised_prompt if items.revised_prompt else "")
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
+                    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                    version)
 
                     if trace_content:
                         span.add_event(
@@ -824,6 +832,8 @@ def image_variatons(version, environment, application_name,
                                         "standard")
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
+                    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                    version)
 
                     if trace_content:
                         attribute_name = f"{SemanticConvetion.GEN_AI_RESPONSE_IMAGE}.{images_count}"
@@ -948,6 +958,8 @@ def audio_create(version, environment, application_name,
                                     kwargs.get("speed", 1))
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
+                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                    version)
                 if trace_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,

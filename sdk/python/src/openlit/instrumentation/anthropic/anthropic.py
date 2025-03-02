@@ -189,8 +189,6 @@ def messages(version, environment, application_name, tracer,
                                         self._output_tokens)
                     self._span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
                                         self._server_address)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
-                                        version)
                     if isinstance(self._llmresponse, str):
                         self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
                                         "text")
@@ -213,6 +211,8 @@ def messages(version, environment, application_name, tracer,
                                         self._tbt)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
                                         self._ttft)
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                        version)
                     if trace_content:
                         self._span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -369,8 +369,6 @@ def messages(version, environment, application_name, tracer,
                                         output_tokens)
                     span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
                                         server_address)
-                    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
-                                        version)
 
                     span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
                                         response_dict.get('content')[0].get('type'))
@@ -388,6 +386,8 @@ def messages(version, environment, application_name, tracer,
                                         cost)
                     span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
                                         end_time - start_time)
+                    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                        version)
 
                     if trace_content:
                         span.add_event(
