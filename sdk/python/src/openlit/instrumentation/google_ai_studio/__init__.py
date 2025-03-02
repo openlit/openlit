@@ -14,11 +14,11 @@ from openlit.instrumentation.google_ai_studio.async_google_ai_studio import (
     async_generate
 )
 
-_instruments = ("google-generativeai >= 0.2.0",)
+_instruments = ("google-genai >= 1.3.0",)
 
 class GoogleAIStudioInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for google-generativeai's client library.
+    An instrumentor for google-genai's client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
@@ -32,20 +32,20 @@ class GoogleAIStudioInstrumentor(BaseInstrumentor):
         pricing_info = kwargs.get("pricing_info", {})
         trace_content = kwargs.get("trace_content", False)
         disable_metrics = kwargs.get("disable_metrics")
-        version = importlib.metadata.version("google-generativeai")
+        version = importlib.metadata.version("google-genai")
 
         # sync generate
         wrap_function_wrapper(
-            "google.generativeai.generative_models",
-            "GenerativeModel.generate_content",
-            generate("google_ai_studio.generate_content", version, environment, application_name,
+            "google.genai.models",
+            "Models.generate_content",
+            generate(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         # async generate
         wrap_function_wrapper(
-            "google.generativeai.generative_models",
-            "GenerativeModel.generate_content_async",
+            "google.genai.models",
+            "AsyncModels.generate_content",
             async_generate("google_ai_studio.generate_content", version, environment,
                            application_name, tracer, pricing_info, trace_content, metrics,
                            disable_metrics),
