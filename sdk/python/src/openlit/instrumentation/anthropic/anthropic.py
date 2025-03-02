@@ -148,7 +148,7 @@ def messages(version, environment, application_name, tracer,
                             formatted_messages.append(f"{role}: {content}")
                     prompt = "\n".join(formatted_messages)
 
-                    request_model = self._kwargs.get("model", "gpt-4o")
+                    request_model = self._kwargs.get("model", "claude-3-5-sonnet-latest")
 
                     # Calculate cost of the operation
                     cost = get_chat_model_cost(request_model,

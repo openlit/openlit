@@ -390,9 +390,9 @@ def chat_completions(version, environment, application_name,
                                         response_dict.get('system_fingerprint'))
 
                     # Set base span attribues (Extras)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                    span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    span.set_attribute(SERVICE_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_USER,
                                         kwargs.get("user", ""))
@@ -522,7 +522,6 @@ def embedding(version, environment, application_name,
 
             response_dict = response_as_dict(response)
             try:
-                request_model = kwargs.get("model", "text-embedding-ada-002")
                 input_tokens = response_dict.get('usage').get('prompt_tokens')
 
                 # Calculate cost of the operation
@@ -538,9 +537,9 @@ def embedding(version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     request_model)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_ENCODING_FORMATS,
-                                    kwargs.get('encoding_format', 'float'))
+                                    [kwargs.get('encoding_format', 'float')])
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
-                                    response_dict.get('model'))
+                                    request_model)
                 span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
                                     server_address)
                 span.set_attribute(SemanticConvetion.SERVER_PORT,
@@ -589,7 +588,6 @@ def embedding(version, environment, application_name,
                     metrics["genai_client_operation_duration"].record(
                         end_time - start_time, attributes
                     )
-
                     metrics["genai_requests"].add(1, attributes)
                     metrics["genai_prompt_tokens"].add(input_tokens, attributes)
                     metrics["genai_cost"].record(cost, attributes)
