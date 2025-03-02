@@ -1,4 +1,3 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment
 """
 Module for monitoring Cohere API calls.
 """
