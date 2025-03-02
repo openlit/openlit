@@ -250,7 +250,8 @@ def create_metrics_attributes(
         SemanticConvetion.GEN_AI_RESPONSE_MODEL: response_model
     }
 
-def set_server_address_and_port(client_instance: Any, default_server_address: str, default_server_port: int) -> Tuple[str, int]:
+def set_server_address_and_port(client_instance: Any,
+    default_server_address: str, default_server_port: int) -> Tuple[str, int]:
     """
     Determines and returns the server address and port based on the provided client's `base_url`,
     using defaults if none found or values are None.
