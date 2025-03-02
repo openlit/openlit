@@ -64,7 +64,7 @@ def embed(version, environment, application_name, tracer,
             start_time = time.time()
             response = wrapped(*args, **kwargs)
             end_time = time.time()
-            
+
             response_dict = response_as_dict(response)
             try:
                 input_tokens = response_dict.get('meta').get('billed_units').get('input_tokens')
@@ -443,7 +443,7 @@ def chat_stream(version, environment, application_name,
                         content = chunked.get('delta').get('message').get('text')
                         if content:
                             self._llmresponse += content
-                    
+
                     if chunked.get('type') == 'message-end':
                         self._finish_reason = chunked.get('delta').get('finish_reason')
                         self._input_tokens = chunked.get('delta').get('usage').get('billed_units').get('input_tokens')
@@ -598,7 +598,7 @@ def chat_stream(version, environment, application_name,
                     finally:
                         self._span.end()
                     raise
-        
+
         server_address, server_port = set_server_address_and_port(instance, "api.cohere.com", 443)
         request_model = kwargs.get("model", "command-r-plus")
 
