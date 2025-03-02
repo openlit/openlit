@@ -52,10 +52,10 @@ def transcribe(version, environment, application_name,
             The response from the original 'transcribe' method.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.assemblyai.com", 443)
-        request_model = kwargs.get("speech_model", "best")
+        server_address, server_port = set_server_address_and_port(instance, 'api.assemblyai.com', 443)
+        request_model = kwargs.get('speech_model', 'best')
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}"
+        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}'
 
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -67,8 +67,8 @@ def transcribe(version, environment, application_name,
                 cost = get_audio_model_cost(request_model,
                                             pricing_info, None, response.audio_duration)
 
-                # Set Span attributes
-                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+                # Set Span attributes (OTel Semconv)
+                span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
                 span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO)
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
@@ -82,8 +82,9 @@ def transcribe(version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
                                     request_model)
                 span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
-                                    "text")
+                                    'text')
 
+                # Set Span attributes (Extras)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
                 span.set_attribute(SERVICE_NAME,
@@ -123,18 +124,18 @@ def transcribe(version, environment, application_name,
                         response_model=request_model,
                     )
 
-                    metrics["genai_client_operation_duration"].record(
+                    metrics['genai_client_operation_duration'].record(
                         end_time - start_time, attributes
                     )
-                    metrics["genai_requests"].add(1, attributes)
-                    metrics["genai_cost"].record(cost, attributes)
+                    metrics['genai_requests'].add(1, attributes)
+                    metrics['genai_cost'].record(cost, attributes)
 
                 # Return original response
                 return response
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in trace creation: %s", e)
+                logger.error('Error in trace creation: %s', e)
 
                 # Return original response
                 return response
