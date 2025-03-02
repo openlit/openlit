@@ -50,7 +50,7 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
         Returns:
             The response from the original 'generate' method.
         """
-        url = urlparse(instance._ws_base_url)
+        url = urlparse(instance._client_wrapper._base_url)
         server_address, server_port = url.hostname, url.port or 443
         request_model = kwargs.get('model', kwargs.get('model_id', 'eleven_multilingual_v2'))
 

@@ -46,7 +46,7 @@ class GoogleAIStudioInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "google.genai.models",
             "AsyncModels.generate_content",
-            async_generate("google_ai_studio.generate_content", version, environment,
+            async_generate(version, environment,
                            application_name, tracer, pricing_info, trace_content, metrics,
                            disable_metrics),
         )
