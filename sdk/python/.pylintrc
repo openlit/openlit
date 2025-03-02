@@ -25,4 +25,5 @@ disable=
     too-many-branches,
     too-many-locals,
     too-many-lines,
-    no-name-in-module
+    no-name-in-module,
+    protected-access,

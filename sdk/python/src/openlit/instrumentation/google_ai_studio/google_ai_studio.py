@@ -118,7 +118,7 @@ def generate(version, environment, application_name,
                                     request_model)
                 span.set_attribute(SemanticConvetion.SERVER_PORT,
                                     server_port)
-                
+
                 inference_config = kwargs.get('config', {})
 
                 # List of attributes and their config keys

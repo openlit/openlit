@@ -11,7 +11,6 @@ from openlit.__helpers import (
     get_audio_model_cost,
     handle_exception,
     create_metrics_attributes,
-    set_server_address_and_port
 )
 from openlit.semcov import SemanticConvetion
 

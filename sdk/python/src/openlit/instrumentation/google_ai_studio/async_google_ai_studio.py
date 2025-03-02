@@ -18,7 +18,7 @@ from openlit.semcov import SemanticConvetion
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def generate(version, environment, application_name,
+def async_generate(version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat to collect metrics.
@@ -118,7 +118,7 @@ def generate(version, environment, application_name,
                                     request_model)
                 span.set_attribute(SemanticConvetion.SERVER_PORT,
                                     server_port)
-                
+
                 inference_config = kwargs.get('config', {})
 
                 # List of attributes and their config keys
