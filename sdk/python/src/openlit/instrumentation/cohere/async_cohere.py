@@ -341,7 +341,6 @@ def async_chat_stream(version, environment, application_name,
     Generates a telemetry wrapper for chat_stream to collect metrics.
 
     Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
         application_name: Name of the application using the Cohere API.
