@@ -27,7 +27,7 @@ async_client = AsyncAI21Client()
 openlit.init(environment="openlit-python-testing", application_name="openlit-python-ai21-test")
 
 MESSAGES = [
-    ChatMessage(content="say hi", role="user"),
+    ChatMessage(content="hi", role="user"),
 ]
 
 def test_sync_ai21_chat():
