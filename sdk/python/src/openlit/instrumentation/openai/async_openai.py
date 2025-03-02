@@ -19,37 +19,12 @@ from openlit.__helpers import (
     calculate_ttft,
     calculate_tbt,
     create_metrics_attributes,
+    set_server_address_and_port
 )
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
-
-def set_server_address_and_port(client_instance: Any) -> Tuple[str, int]:
-    """
-    Determines and returns the server address and port based on the provided client's `base_url`,
-    using defaults if none found or values are None.
-    """
-    default_server_address = "api.openai.com"
-    default_server_port = 443
-
-    base_client = getattr(client_instance, "_client", None)
-    base_url = getattr(base_client, "base_url", None)
-
-    if base_url:
-        if isinstance(base_url, str):
-            url = urlparse(base_url)
-            server_address = url.hostname or default_server_address
-            server_port = url.port if url.port is not None else default_server_port
-        else:  # base_url might not be a str; handle as an object.
-            server_address = getattr(base_url, "host", None) or default_server_address
-            port_attr = getattr(base_url, "port", None)
-            server_port = port_attr if port_attr is not None else default_server_port
-    else:  # no base_url provided; use defaults.
-        server_address = default_server_address
-        server_port = default_server_port
-
-    return server_address, server_port
 
 def async_chat_completions(version, environment, application_name,
                            tracer, pricing_info, trace_content, metrics, disable_metrics):
@@ -318,7 +293,7 @@ def async_chat_completions(version, environment, application_name,
 
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
-        server_address, server_port = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
         request_model = kwargs.get("model", "gpt-4o")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -333,7 +308,7 @@ def async_chat_completions(version, environment, application_name,
 
         # Handling for non-streaming responses
         else:
-            with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
+            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = await wrapped(*args, **kwargs)
                 end_time = time.time()
@@ -520,7 +495,7 @@ def async_embedding(version, environment, application_name,
             The response from the original 'embeddings' method.
         """
 
-        server_address, server_port = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
         request_model = kwargs.get("model", "text-embedding-ada-002")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
@@ -648,7 +623,7 @@ def async_image_generate(version, environment, application_name,
             The response from the original 'images.generate' method.
         """
 
-        server_address, server_port = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
         request_model = kwargs.get("model", "dall-e-2")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE} {request_model}"
@@ -795,7 +770,7 @@ def async_image_variatons(version, environment, application_name,
             The response from the original 'images.create.variations' method.
         """
 
-        server_address, server_port = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
         request_model = kwargs.get("model", "dall-e-2")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE} {request_model}"
@@ -929,7 +904,7 @@ def async_audio_create(version, environment, application_name,
             The response from the original 'audio.speech.create' method.
         """
 
-        server_address, server_port = set_server_address_and_port(instance)
+        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
         request_model = kwargs.get("model", "tts-1")
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}"

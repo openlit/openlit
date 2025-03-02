@@ -141,6 +141,7 @@ class SemanticConvetion:
     GEN_AI_DATA_SOURCES = "gen_ai.data_source_count"
     GEN_AI_ENVIRONMENT = "gen_ai.environment"
     GEN_AI_APPLICATION_NAME = "gen_ai.application_name"
+    GEN_AI_SDK_VERSION = "gen_ai.sdk.version"
 
     # GenAI Response Attributes (Extra)
     GEN_AI_USAGE_TOTAL_TOKENS = "gen_ai.usage.total_tokens"

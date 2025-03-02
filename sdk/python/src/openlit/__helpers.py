@@ -6,7 +6,7 @@ import os
 import json
 import logging
 from urllib.parse import urlparse
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import requests
 import tiktoken
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
@@ -249,3 +249,27 @@ def create_metrics_attributes(
         SemanticConvetion.SERVER_PORT: server_port,
         SemanticConvetion.GEN_AI_RESPONSE_MODEL: response_model
     }
+
+def set_server_address_and_port(client_instance: Any, default_server_address: str, default_server_port: int) -> Tuple[str, int]:
+    """
+    Determines and returns the server address and port based on the provided client's `base_url`,
+    using defaults if none found or values are None.
+    """
+
+    base_client = getattr(client_instance, "_client", None)
+    base_url = getattr(base_client, "base_url", None)
+
+    if base_url:
+        if isinstance(base_url, str):
+            url = urlparse(base_url)
+            server_address = url.hostname or default_server_address
+            server_port = url.port if url.port is not None else default_server_port
+        else:  # base_url might not be a str; handle as an object.
+            server_address = getattr(base_url, "host", None) or default_server_address
+            port_attr = getattr(base_url, "port", None)
+            server_port = port_attr if port_attr is not None else default_server_port
+    else:  # no base_url provided; use defaults.
+        server_address = default_server_address
+        server_port = default_server_port
+
+    return server_address, server_port
