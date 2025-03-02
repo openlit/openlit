@@ -9,7 +9,6 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     get_audio_model_cost,
     handle_exception,
-    response_as_dict,
     create_metrics_attributes,
     set_server_address_and_port
 )
