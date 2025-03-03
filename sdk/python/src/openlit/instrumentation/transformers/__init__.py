@@ -28,7 +28,7 @@ class TransformersInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "transformers",  
             "TextGenerationPipeline.__call__",  
-            text_wrap("huggingface.text_generation", version, environment, application_name,
+            text_wrap(version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

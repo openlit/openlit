@@ -37,7 +37,7 @@ class TogetherInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "together.resources.chat.completions",  
             "ChatCompletions.create",  
-            completion("together.chat.completions", version, environment, application_name,
+            completion(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -45,7 +45,7 @@ class TogetherInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "together.resources.images",  
             "Images.generate",  
-            image_generate("together.image.generate", version, environment, application_name,
+            image_generate(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -53,7 +53,7 @@ class TogetherInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "together.resources.chat.completions",  
             "AsyncChatCompletions.create",  
-            async_completion("together.chat.completions", version, environment, application_name,
+            async_completion(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -61,7 +61,7 @@ class TogetherInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "together.resources.images",  
             "AsyncImages.generate",  
-            async_image_generate("together.image.generate", version, environment, application_name,
+            async_image_generate(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
