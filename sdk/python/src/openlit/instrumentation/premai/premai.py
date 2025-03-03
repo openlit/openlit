@@ -373,7 +373,6 @@ def chat(version, environment, application_name,
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                # pylint: disable=line-too-long
                                 SemanticConvetion.GEN_AI_CONTENT_COMPLETION: str(response.choices[0].message.content),
                             },
                         )
