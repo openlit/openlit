@@ -5,7 +5,7 @@ Module for monitoring Crawl4AI calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
     handle_exception,
 )
@@ -62,9 +62,9 @@ def wrap_crawl(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_AGENT)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SERVICE_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
                 span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TYPE,
                                     SemanticConvetion.GEN_AI_AGENT_TYPE_BROWSER)

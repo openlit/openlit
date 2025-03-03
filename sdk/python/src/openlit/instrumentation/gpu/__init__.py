@@ -5,7 +5,7 @@ from typing import Collection, Iterable
 import logging
 from functools import partial
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.metrics import get_meter, CallbackOptions, Observation
 from openlit.semcov import SemanticConvetion
 
@@ -139,8 +139,8 @@ class GPUInstrumentor(BaseInstrumentor):
 
                 attributes = {
                     TELEMETRY_SDK_NAME: "openlit",
-                    SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                    SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                    SERVICE_NAME: application_name,
+                    DEPLOYMENT_ENVIRONMENT: environment,
                     SemanticConvetion.GPU_INDEX: str(gpu_index),
                     SemanticConvetion.GPU_UUID: safe_decode(pynvml.nvmlDeviceGetUUID(handle)),
                     SemanticConvetion.GPU_NAME: safe_decode(pynvml.nvmlDeviceGetName(handle))
@@ -199,8 +199,8 @@ class GPUInstrumentor(BaseInstrumentor):
 
                 attributes = {
                     TELEMETRY_SDK_NAME: "openlit",
-                    SemanticConvetion.GEN_AI_APPLICATION_NAME: application_name,
-                    SemanticConvetion.GEN_AI_ENVIRONMENT: environment,
+                    SERVICE_NAME: application_name,
+                    DEPLOYMENT_ENVIRONMENT: environment,
                     # pylint: disable=line-too-long
                     SemanticConvetion.GPU_INDEX: amdsmi.amdsmi_get_xgmi_info(device_handle)['index'],
                     # pylint: disable=line-too-long

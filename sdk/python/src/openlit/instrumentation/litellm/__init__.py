@@ -37,31 +37,30 @@ class LiteLLMInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "litellm",
             "completion",
-            completion("litellm.completion", version, environment, application_name,
+            completion(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "litellm",
             "acompletion",
-            acompletion("litellm.completion", version, environment, application_name,
+            acompletion(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "litellm",
             "embedding",
-            embedding("litellm.embedding", version, environment, application_name,
+            embedding(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "litellm",
             "aembedding",
-            aembedding("litellm.embedding", version, environment, application_name,
+            aembedding(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
-
 
     def _uninstrument(self, **kwargs):
         # Proper uninstrumentation logic to revert patched methods

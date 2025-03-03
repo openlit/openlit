@@ -5,7 +5,7 @@ Module for monitoring Mistral API calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import get_chat_model_cost, get_embed_model_cost, handle_exception
 from openlit.semcov import SemanticConvetion
 
@@ -85,9 +85,9 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                     response.id)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SERVICE_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     kwargs.get("model", "mistral-small-latest"))
@@ -132,11 +132,11 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     attributes = {
                         TELEMETRY_SDK_NAME:
                             "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                        SERVICE_NAME:
                             application_name,
                         SemanticConvetion.GEN_AI_SYSTEM:
                             SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                        DEPLOYMENT_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_OPERATION:
                             SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -251,9 +251,9 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                         response_id)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                    span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    span.set_attribute(SERVICE_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "mistral-small-latest"))
@@ -297,11 +297,11 @@ def chat_stream(gen_ai_endpoint, version, environment, application_name,
                         attributes = {
                             TELEMETRY_SDK_NAME:
                                 "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            SERVICE_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
                                 SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            DEPLOYMENT_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_OPERATION:
                                 SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -377,9 +377,9 @@ def embeddings(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SERVICE_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     kwargs.get('model', "mistral-embed"))
@@ -407,11 +407,11 @@ def embeddings(gen_ai_endpoint, version, environment, application_name,
                     attributes = {
                         TELEMETRY_SDK_NAME:
                             "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                        SERVICE_NAME:
                             application_name,
                         SemanticConvetion.GEN_AI_SYSTEM:
                             SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                        DEPLOYMENT_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_OPERATION:
                             SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
