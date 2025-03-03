@@ -512,7 +512,10 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     token_usage = response.usage_metadata
                     input_tokens = token_usage.get("input_tokens", 0)
                     output_tokens = token_usage.get("output_tokens", 0)
-                    model = instance.model_id
+                    if hasattr(instance, "model_id"):
+                        model = instance.model_id
+                    else:
+                        model = instance.model_name
                     prompt = "" if isinstance(args[0], list) else args[0]
                 else:
                     if not isinstance(response, dict) or "output_text" not in response:
@@ -666,9 +669,11 @@ def achat(gen_ai_endpoint, version, environment, application_name,
                     token_usage = response.usage_metadata
                     input_tokens = token_usage.get("input_tokens", 0)
                     output_tokens = token_usage.get("output_tokens", 0)
-                    model = instance.model_id
+                    if hasattr(instance, "model_id"):
+                        model = instance.model_id
+                    else:
+                        model = instance.model_name
                     prompt = "" if isinstance(args[0], list) else args[0]
-
                 else:
                     if not isinstance(response, dict) or "output_text" not in response:
                         return response
