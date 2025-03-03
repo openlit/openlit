@@ -37,7 +37,7 @@ class RekaInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "reka.chat.client",
             "ChatClient.create",
-            chat("reka.chat", version, environment, application_name,
+            chat(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -45,7 +45,7 @@ class RekaInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "reka.chat.client",
             "AsyncChatClient.create",
-            async_chat("reka.chat", version, environment, application_name,
+            async_chat(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

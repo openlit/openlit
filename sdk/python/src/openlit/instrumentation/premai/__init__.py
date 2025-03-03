@@ -34,7 +34,7 @@ class PremAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "premai.api",
             "ChatCompletionsModule.create",
-            chat("premai.chat.completions", version, environment, application_name,
+            chat(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -42,7 +42,7 @@ class PremAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "premai.api",
             "EmbeddingsModule.create",
-            embedding("premai.embeddings", version, environment, application_name,
+            embedding(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
