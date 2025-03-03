@@ -197,11 +197,11 @@ def async_chat_completions(version, environment, application_name,
                                         output_tokens)
                     self._span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
                                         self._server_address)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_REQUEST_SERVICE_TIER,
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SERVICE_TIER,
                                         self._kwargs.get("service_tier", "auto"))
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SERVICE_TIER,
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SERVICE_TIER,
                                         self._openai_response_service_tier)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT,
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
                                         self._openai_system_fingerprint)
                     if isinstance(self._llmresponse, str):
                         self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
@@ -382,11 +382,11 @@ def async_chat_completions(version, environment, application_name,
                                         output_tokens)
                     span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
                                         server_address)
-                    span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_REQUEST_SERVICE_TIER,
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SERVICE_TIER,
                                         kwargs.get("service_tier", "auto"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SERVICE_TIER,
+                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SERVICE_TIER,
                                         response_dict.get('service_tier'))
-                    span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT,
+                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
                                         response_dict.get('system_fingerprint'))
 
                     # Set base span attribues (Extras)

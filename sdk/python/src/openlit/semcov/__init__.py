@@ -88,9 +88,9 @@ class SemanticConvetion:
     GEN_AI_SYSTEM_XAI = "xai"
 
     # GenAI OpenAI Attributes (OTel Semconv)
-    GEN_AI_OPENAI_REQUEST_SERVICE_TIER = "gen_ai.openai.request.service_tier"
-    GEN_AI_OPENAI_RESPONSE_SERVICE_TIER = "gen_ai.openai.response.service_tier"
-    GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT = "gen_ai.openai.response.system_fingerprint"
+    GEN_AI_REQUEST_SERVICE_TIER = "gen_ai.request.service_tier"
+    GEN_AI_RESPONSE_SERVICE_TIER = "gen_ai.response.service_tier"
+    GEN_AI_RESPONSE_SYSTEM_FINGERPRINT = "gen_ai.response.system_fingerprint"
 
     # GenAI System Names (Extra)
     GEN_AI_SYSTEM_HUGGING_FACE = "huggingface"
