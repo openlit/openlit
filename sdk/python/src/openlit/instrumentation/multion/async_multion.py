@@ -64,6 +64,8 @@ def async_multion_wrap(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                                    environment)
 
                 if gen_ai_endpoint == "multion.browse":
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,

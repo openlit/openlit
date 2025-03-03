@@ -7,7 +7,7 @@ import logging
 from typing import Optional, Tuple, List
 from pydantic import BaseModel
 from opentelemetry.metrics import get_meter
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from anthropic import Anthropic
 from openai import OpenAI
 from openlit.semcov import SemanticConvetion

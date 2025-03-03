@@ -77,6 +77,8 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                                    environment)
 
                 instance_class = instance.__class__.__name__
 

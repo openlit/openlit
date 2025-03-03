@@ -10,7 +10,6 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     get_chat_model_cost,
     handle_exception,
-    response_as_dict,
     general_tokens,
     calculate_ttft,
     calculate_tbt,
@@ -248,8 +247,6 @@ def chat(gen_ai_endpoint, version, environment, application_name,
             start_time = time.time()
             response = wrapped(*args, **kwargs)
             end_time = time.time()
-
-            response_dict = response_as_dict(response)
 
             try:
                 # Format 'messages' into a single string

@@ -64,6 +64,8 @@ def phidata_wrap(gen_ai_endpoint, version, environment, application_name,
                                     gen_ai_endpoint)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                                    environment)
                 span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
                                     getattr(instance, 'agent_id', '') or '')
                 span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ROLE,
