@@ -9,7 +9,6 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     get_chat_model_cost,
     handle_exception,
-    response_as_dict,
     general_tokens,
     create_metrics_attributes,
     set_server_address_and_port
@@ -70,8 +69,6 @@ def text_wrap(version, environment, application_name,
             start_time = time.time()
             response = wrapped(*args, **kwargs)
             end_time = time.time()
-
-            response_dict = response_as_dict(response)
 
             # pylint: disable=protected-access
             forward_params = instance._forward_params
@@ -151,14 +148,14 @@ def text_wrap(version, environment, application_name,
                                    output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                    input_tokens + output_tokens)
-                
+
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(request_model,
                                             pricing_info, input_tokens,
                                             output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                                     cost)
-           
+
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:

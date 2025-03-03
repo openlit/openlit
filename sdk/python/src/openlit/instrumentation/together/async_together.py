@@ -9,7 +9,6 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     get_chat_model_cost,
     get_image_model_cost,
-    general_tokens,
     handle_exception,
     response_as_dict,
     calculate_ttft,
@@ -39,7 +38,7 @@ def async_completion(version, environment, application_name,
         A function that wraps the chat completions method to add telemetry.
     """
 
-    class TracedSyncStream:
+    class TracedAsyncStream:
         """
         Wrapper for streaming responses to collect metrics and trace data.
         Wraps the response to collect message IDs and aggregated response.
