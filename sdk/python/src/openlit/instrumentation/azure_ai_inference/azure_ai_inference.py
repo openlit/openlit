@@ -42,7 +42,7 @@ def complete(version, environment, application_name,
     class TracedSyncStream:
         """
         Wrapper for streaming responses to collect metrics and trace data.
-        Wraps the 'az.ai.inference.AsyncStream' response to collect message IDs and aggregated response.
+        Wraps the response to collect message IDs and aggregated response.
 
         This class implements the '__aiter__' and '__anext__' methods that
         handle asynchronous streaming responses.

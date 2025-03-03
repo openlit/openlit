@@ -44,7 +44,7 @@ def chat_completions(version, environment, application_name,
     class TracedSyncStream:
         """
         Wrapper for streaming responses to collect metrics and trace data.
-        Wraps the 'openai.AsyncStream' response to collect message IDs and aggregated response.
+        Wraps the response to collect message IDs and aggregated response.
 
         This class implements the '__aiter__' and '__anext__' methods that
         handle asynchronous streaming responses.
@@ -656,8 +656,6 @@ def image_generate(version, environment, application_name,
                     image = "b64_json"
                 else:
                     image = "url"
-
-                request_model = kwargs.get("model", "dall-e-2")
 
                 # Calculate cost of the operation
                 cost = get_image_model_cost(request_model,

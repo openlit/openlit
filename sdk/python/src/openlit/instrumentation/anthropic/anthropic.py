@@ -40,7 +40,7 @@ def messages(version, environment, application_name, tracer,
     class TracedSyncStream:
         """
         Wrapper for streaming responses to collect metrics and trace data.
-        Wraps the 'anthropic.AsyncStream' response to collect message IDs and aggregated response.
+        Wraps the response to collect message IDs and aggregated response.
 
         This class implements the '__aiter__' and '__anext__' methods that
         handle asynchronous streaming responses.
