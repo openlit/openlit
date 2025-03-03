@@ -58,7 +58,7 @@ def chat(version, environment, application_name,
             self._timestamps = []
             self._ttft = 0
             self._tbt = 0
-            self_response_model = ''
+            self._response_model = ''
             self._finish_reason = ''
 
         def __enter__(self):
