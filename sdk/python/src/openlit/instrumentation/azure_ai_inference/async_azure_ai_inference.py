@@ -191,7 +191,7 @@ def async_complete(version, environment, application_name,
                                         output_tokens)
                     self._span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
                                         self._server_address)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT,
+                    self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
                                         self._system_fingerprint)
                     if isinstance(self._llmresponse, str):
                         self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
@@ -370,7 +370,7 @@ def async_complete(version, environment, application_name,
                                         output_tokens)
                     span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
                                         server_address)
-                    span.set_attribute(SemanticConvetion.GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT,
+                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
                                         response_dict.get('system_fingerprint'))
 
                     # Set base span attribues (Extras)
