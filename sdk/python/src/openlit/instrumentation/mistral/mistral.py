@@ -128,7 +128,6 @@ def chat(version, environment, application_name, tracer,
                                     output_tokens)
                 span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
                                     server_address)
-                response_type = kwargs.get('response_format', {}).get('type')
 
                 # Set base span attribues (Extras)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
@@ -274,6 +273,7 @@ def chat_stream(version, environment, application_name,
                 # Placeholder for aggregating streaming response
                 self._llmresponse = ''
                 self._response_id = ''
+                self._response_model = ''
                 self._finish_reason = ''
                 self._input_tokens = ''
                 self._output_tokens = ''

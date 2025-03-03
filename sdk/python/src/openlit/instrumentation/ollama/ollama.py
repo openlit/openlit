@@ -157,7 +157,7 @@ def chat(version, environment, application_name,
                                         request_model)
                     self._span.set_attribute(SemanticConvetion.SERVER_PORT,
                                         self._server_port)
-                    
+
                     # List of attributes and their config keys
                     attributes = [
                         (SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'repeat_penalty'),
@@ -402,7 +402,7 @@ def chat(version, environment, application_name,
                             attributes={
                                 SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                             },
-                        ),
+                        )
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
@@ -412,7 +412,7 @@ def chat(version, environment, application_name,
                         )
                         if kwargs.get('tools'):
                             span.set_attribute(SemanticConvetion.GEN_AI_TOOL_CALLS,
-                                            str(response_dict.get('choices')[i].get('message').get('tool_calls')))
+                                            str(response_dict.get('message').get('tool_calls')))
 
                     span.set_status(Status(StatusCode.OK))
 
@@ -498,7 +498,6 @@ def embeddings(version, environment, application_name,
             response = wrapped(*args, **kwargs)
             end_time = time.time()
 
-            response_dict = response_as_dict(response)
             try:
                 input_tokens = general_tokens(str(kwargs.get('prompt')))
 
