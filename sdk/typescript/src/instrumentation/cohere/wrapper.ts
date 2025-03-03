@@ -30,8 +30,8 @@ export default class CohereWrapper extends BaseWrapper {
             );
 
             span.setAttribute(
-              SemanticConvention.GEN_AI_TYPE,
-              SemanticConvention.GEN_AI_TYPE_EMBEDDING
+              SemanticConvention.GEN_AI_OPERATION,
+              SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING
             );
 
             const { dimensions, encoding_format = 'float', input, user, texts = [] } = args[0];
@@ -46,7 +46,7 @@ export default class CohereWrapper extends BaseWrapper {
 
             // Request Params attributes : Start
 
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_FORMAT, encoding_format);
+            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, encoding_format);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION, dimensions);
             if (traceContent) {
               span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, JSON.stringify(texts));
@@ -56,7 +56,7 @@ export default class CohereWrapper extends BaseWrapper {
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.id);
 
             span.setAttribute(
-              SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
+              SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
               response.meta.billedUnits.inputTokens
             );
             span.setAttribute(
@@ -236,7 +236,7 @@ export default class CohereWrapper extends BaseWrapper {
     }
     // Request Params attributes : End
 
-    span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_CHAT);
+    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
 
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.response_id);
 
@@ -259,11 +259,11 @@ export default class CohereWrapper extends BaseWrapper {
     });
 
     span.setAttribute(
-      SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
+      SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
       result.meta.billedUnits.inputTokens
     );
     span.setAttribute(
-      SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
+      SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
       result.meta.billedUnits.outputTokens
     );
     span.setAttribute(

@@ -34,7 +34,7 @@ class AssemblyAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "assemblyai.transcriber",
             "Transcriber.transcribe",
-            transcribe("assemblyai.transcribe", version, environment, application_name,
+            transcribe(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

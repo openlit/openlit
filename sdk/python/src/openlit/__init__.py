@@ -251,7 +251,7 @@ def init(
         "gpt4all": "gpt4all",
         "elevenlabs": "elevenlabs",
         "vllm": "vllm",
-        "google-ai-studio": "google.generativeai",
+        "google-ai-studio": "google.genai",
         "azure-ai-inference": "azure.ai.inference",
         "langchain": "langchain",
         "llama_index": "llama_index",

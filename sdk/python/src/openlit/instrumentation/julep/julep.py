@@ -68,8 +68,8 @@ def wrap_julep(gen_ai_endpoint, version, environment, application_name,
                                    environment)
                 span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                   SemanticConvetion.GEN_AI_TYPE_AGENT)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                   SemanticConvetion.GEN_AI_OPERATION_TYPE_AGENT)
 
                 if gen_ai_endpoint == "julep.agents_create":
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,

@@ -1,21 +1,24 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment, protected-access
 """
 Module for monitoring Google AI Studio API calls.
 """
 
 import logging
+import time
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
-    handle_exception,
     get_chat_model_cost,
+    handle_exception,
+    response_as_dict,
+    create_metrics_attributes,
+    set_server_address_and_port
 )
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def generate(gen_ai_endpoint, version, environment, application_name,
+def generate(version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat to collect metrics.
@@ -35,230 +38,190 @@ def generate(gen_ai_endpoint, version, environment, application_name,
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the 'chat' API call to add telemetry.
-        
+        Wraps the 'chat.completions' API call to add telemetry.
+
         This collects metrics such as execution time, cost, and token usage, and handles errors
         gracefully, adding details to the trace for observability.
 
         Args:
-            wrapped: The original 'chat' method to be wrapped.
+            wrapped: The original 'chat.completions' method to be wrapped.
             instance: The instance of the class where the original method is defined.
-            args: Positional arguments for the 'chat' method.
-            kwargs: Keyword arguments for the 'chat' method.
+            args: Positional arguments for the 'chat.completions' method.
+            kwargs: Keyword arguments for the 'chat.completions' method.
 
         Returns:
-            The response from the original 'chat' method.
+            The response from the original 'chat.completions' method.
         """
-        # pylint: disable=no-else-return
-        if kwargs.get("stream", False) is True:
-            # Special handling for streaming response to accommodate the nature of data flow
-            def stream_generator():
-                with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-                    # Placeholder for aggregating streaming response
-                    llmresponse = ""
 
-                    # Loop through streaming events capturing relevant details
-                    for chunk in wrapped(*args, **kwargs):
-                        # Collect message IDs and aggregated response from events
-                        content = chunk.text
-                        if content:
-                            llmresponse += content
+        server_address, server_port = set_server_address_and_port(instance, "generativelanguage.googleapis.com", 443)
+        request_model = kwargs.get("model", "gemini-2.0-flash")
 
-                        input_tokens = chunk.usage_metadata.prompt_token_count
-                        output_tokens = chunk.usage_metadata.candidates_token_count
-                        yield chunk
+        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
-                    # Handling exception ensure observability without disrupting operation
-                    try:
-                        prompt = ""
-                        for arg in args:
-                            if isinstance(arg, str):
-                                prompt = f"{prompt}{arg}\n"
-                            elif isinstance(arg, list):
-                                for subarg in arg:
-                                    prompt = f"{prompt}{subarg}\n"
-                        if hasattr(instance, "_model_id"):
-                            model = instance._model_id
-                        if hasattr(instance, "_model_name"):
-                            model = instance._model_name.replace("publishers/google/models/", "")
-                        if model.startswith("models/"):
-                            model = model[len("models/"):]
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+            response = wrapped(*args, **kwargs)
+            end_time = time.time()
 
-                        total_tokens = input_tokens + output_tokens
-                        # Calculate cost of the operation
-                        cost = get_chat_model_cost(model,
-                                                    pricing_info, input_tokens,
-                                                    output_tokens)
+            response_dict = response_as_dict(response)
 
-                        # Set Span attributes
-                        span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                            SemanticConvetion.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO)
-                        span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                            SemanticConvetion.GEN_AI_TYPE_CHAT)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                            gen_ai_endpoint)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                            environment)
-                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                            application_name)
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                            model)
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
-                                            True)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                            input_tokens)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
+            try:
+                # Format 'messages' into a single string
+                message_prompt = kwargs.get("contents", [])
+                formatted_messages = []
+
+                for content in message_prompt:
+                    role = content.role
+                    parts = content.parts
+                    content_str = []
+
+                    for part in parts:
+                        # Collect relevant fields and handle each type of data that Part could contain
+                        if part.text:
+                            content_str.append(f"text: {part.text}")
+                        if part.video_metadata:
+                            content_str.append(f"video_metadata: {part.video_metadata}")
+                        if part.thought:
+                            content_str.append(f"thought: {part.thought}")
+                        if part.code_execution_result:
+                            content_str.append(f"code_execution_result: {part.code_execution_result}")
+                        if part.executable_code:
+                            content_str.append(f"executable_code: {part.executable_code}")
+                        if part.file_data:
+                            content_str.append(f"file_data: {part.file_data}")
+                        if part.function_call:
+                            content_str.append(f"function_call: {part.function_call}")
+                        if part.function_response:
+                            content_str.append(f"function_response: {part.function_response}")
+                        if part.inline_data:
+                            content_str.append(f"inline_data: {part.inline_data}")
+
+                    formatted_messages.append(f"{role}: {', '.join(content_str)}")
+
+                prompt = "\n".join(formatted_messages)
+
+                input_tokens = response_dict.get('usage_metadata').get('prompt_token_count')
+                output_tokens = response_dict.get('usage_metadata').get('candidates_token_count')
+
+                # Calculate cost of the operation
+                cost = get_chat_model_cost(request_model,
+                                            pricing_info, input_tokens,
                                             output_tokens)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                            total_tokens)
-                        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                            cost)
-                        if trace_content:
-                            span.add_event(
-                                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
-                                attributes={
-                                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
-                                },
-                            )
-                            span.add_event(
-                                name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
-                                attributes={
-                                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse,
-                                },
-                            )
 
-                        span.set_status(Status(StatusCode.OK))
+                # Set base span attribues (OTel Semconv)
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_GEMINI)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    request_model)
+                span.set_attribute(SemanticConvetion.SERVER_PORT,
+                                    server_port)
 
-                        if disable_metrics is False:
-                            attributes = {
-                                TELEMETRY_SDK_NAME:
-                                    "openlit",
-                                SemanticConvetion.GEN_AI_APPLICATION_NAME:
-                                    application_name,
-                                SemanticConvetion.GEN_AI_SYSTEM:
-                                    SemanticConvetion.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO,
-                                SemanticConvetion.GEN_AI_ENVIRONMENT:
-                                    environment,
-                                SemanticConvetion.GEN_AI_TYPE:
-                                    SemanticConvetion.GEN_AI_TYPE_CHAT,
-                                SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                                    model
-                            }
+                inference_config = kwargs.get('config', {})
 
-                            metrics["genai_requests"].add(1, attributes)
-                            metrics["genai_total_tokens"].add(
-                                total_tokens, attributes
-                            )
-                            metrics["genai_completion_tokens"].add(output_tokens, attributes)
-                            metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-                            metrics["genai_cost"].record(cost, attributes)
+                # List of attributes and their config keys
+                attributes = [
+                    (SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'frequency_penalty'),
+                    (SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS, 'max_tokens'),
+                    (SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY, 'presence_penalty'),
+                    (SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES, 'stop_sequences'),
+                    (SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
+                    (SemanticConvetion.GEN_AI_REQUEST_TOP_P, 'top_p'),
+                    (SemanticConvetion.GEN_AI_REQUEST_TOP_K, 'top_k'),
+                ]
 
-                    except Exception as e:
-                        handle_exception(span, e)
-                        logger.error("Error in trace creation: %s", e)
+                # Set each attribute if the corresponding value exists and is not None
+                for attribute, key in attributes:
+                    # Use getattr to get the attribute value from the object
+                    value = getattr(inference_config, key, None)
+                    if value is not None:
+                        span.set_attribute(attribute, value)
 
-            return stream_generator()
-        else:
-            # pylint: disable=line-too-long
-            with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-                response = wrapped(*args, **kwargs)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                                    response_dict.get('model_version'))
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                                    input_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                                    output_tokens)
+                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                                    server_address)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                                    [str(response_dict.get('candidates')[0].get('finish_reason'))])
 
-                try:
-                    prompt = ""
-                    for arg in args:
-                        if isinstance(arg, str):
-                            prompt = f"{prompt}{arg}\n"
-                        elif isinstance(arg, list):
-                            for subarg in arg:
-                                prompt = f"{prompt}{subarg}\n"
+                # Set base span attribues (Extras)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SERVICE_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                                    False)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    input_tokens + output_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                    cost)
+                span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
+                                    end_time - start_time)
+                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                    version)
+                if trace_content:
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                        },
+                    )
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.text,
+                        },
+                    )
 
-                    if hasattr(instance, "_model_id"):
-                        model = instance._model_id
-                    if hasattr(instance, "_model_name"):
-                        model = instance._model_name.replace("publishers/google/models/", "")
-                    if model.startswith("models/"):
-                        model = model[len("models/"):]
+                    if isinstance(response_dict.get('text'), str):
+                        span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                        "text")
+                    elif response_dict.get('text') is not None:
+                        span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                        "json")
 
-                    # Set base span attribues
-                    span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                        SemanticConvetion.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO)
-                    span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                        SemanticConvetion.GEN_AI_TYPE_CHAT)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                        gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                        environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                        application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                        model)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
-                                        False)
+                span.set_status(Status(StatusCode.OK))
 
-                    if trace_content:
-                        span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
-                            attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
-                            },
-                        )
-                        span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
-                            attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.text,
-                            },
-                        )
+                if disable_metrics is False:
+                    attributes = create_metrics_attributes(
+                        service_name=application_name,
+                        deployment_environment=environment,
+                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
+                        system=SemanticConvetion.GEN_AI_SYSTEM_GEMINI,
+                        request_model=request_model,
+                        server_address=server_address,
+                        server_port=server_port,
+                        response_model=response_dict.get('model_version'),
+                    )
 
-                    prompt_tokens = response.usage_metadata.prompt_token_count
-                    completion_tokens = response.usage_metadata.candidates_token_count
-                    total_tokens = response.usage_metadata.total_token_count
-                    # Calculate cost of the operation
-                    cost = get_chat_model_cost(model,
-                                                pricing_info, prompt_tokens, completion_tokens)
+                    metrics["genai_client_usage_tokens"].record(
+                        input_tokens + output_tokens, attributes
+                    )
+                    metrics["genai_client_operation_duration"].record(
+                        end_time - start_time, attributes
+                    )
+                    metrics["genai_server_ttft"].record(
+                        end_time - start_time, attributes
+                    )
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_completion_tokens"].add(output_tokens, attributes)
+                    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
 
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                        prompt_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                        completion_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                        total_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                        cost)
+                # Return original response
+                return response
 
-                    span.set_status(Status(StatusCode.OK))
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in trace creation: %s", e)
 
-                    if disable_metrics is False:
-                        attributes = {
-                            TELEMETRY_SDK_NAME:
-                                "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
-                                application_name,
-                            SemanticConvetion.GEN_AI_SYSTEM:
-                                SemanticConvetion.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT:
-                                environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
-                            SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                                model
-                        }
-
-                        metrics["genai_requests"].add(1, attributes)
-                        metrics["genai_total_tokens"].add(total_tokens, attributes)
-                        metrics["genai_completion_tokens"].add(completion_tokens, attributes)
-                        metrics["genai_prompt_tokens"].add(prompt_tokens, attributes)
-                        metrics["genai_cost"].record(cost, attributes)
-
-                    # Return original response
-                    return response
-
-                except Exception as e:
-                    handle_exception(span, e)
-                    logger.error("Error in trace creation: %s", e)
-
-                    # Return original response
-                    return response
+                # Return original response
+                return response
 
     return wrapper

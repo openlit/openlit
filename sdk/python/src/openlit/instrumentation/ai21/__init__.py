@@ -37,13 +37,13 @@ class AI21Instrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "ai21.clients.studio.resources.chat.chat_completions",
             "ChatCompletions.create",
-            chat("ai21.chat.completions", version, environment, application_name,
+            chat(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
             "StudioConversationalRag.create",
-            chat_rag("ai21.conversational_rag", version, environment, application_name,
+            chat_rag(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -51,13 +51,13 @@ class AI21Instrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "ai21.clients.studio.resources.chat.async_chat_completions",
             "AsyncChatCompletions.create",
-            async_chat("ai21.chat.completions", version, environment, application_name,
+            async_chat(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
             "AsyncStudioConversationalRag.create",
-            async_chat_rag("ai21.conversational_rag", version, environment, application_name,
+            async_chat_rag(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
