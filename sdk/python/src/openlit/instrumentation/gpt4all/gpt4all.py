@@ -9,7 +9,6 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     handle_exception,
     general_tokens,
-    response_as_dict,
     create_metrics_attributes,
     set_server_address_and_port,
     calculate_tbt,
@@ -409,6 +408,8 @@ def embed(version, environment, application_name,
         """
 
         server_address, server_port = set_server_address_and_port(instance, "localhost", 80)
+
+        # pylint: disable=line-too-long
         request_model = str(instance.gpt4all.model.model_path).rsplit('/', maxsplit=1)[-1] or "all-MiniLM-L6-v2.gguf2.f16.gguf"
 
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
