@@ -31,7 +31,7 @@ class MistralInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "mistralai.chat",  
             "Chat.complete",  
-            chat("mistral.chat", version, environment, application_name,
+            chat(version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -39,7 +39,7 @@ class MistralInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "mistralai.chat",  
             "Chat.stream",  
-            chat_stream("mistral.chat", version, environment, application_name,
+            chat_stream(version, environment, application_name,
                         tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -47,7 +47,7 @@ class MistralInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "mistralai.embeddings",  
             "Embeddings.create",  
-            embeddings("mistral.embeddings", version, environment, application_name,
+            embeddings(version, environment, application_name,
                        tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -55,7 +55,7 @@ class MistralInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "mistralai.chat",  
             "Chat.complete_async",  
-            async_chat("mistral.chat", version, environment, application_name,
+            async_chat(version, environment, application_name,
                        tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -63,7 +63,7 @@ class MistralInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "mistralai.chat",  
             "Chat.stream_async",  
-            async_chat_stream("mistral.chat", version, environment, application_name,
+            async_chat_stream(version, environment, application_name,
                               tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -71,7 +71,7 @@ class MistralInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "mistralai.embeddings",  
             "Embeddings.create_async",  
-            async_embeddings("mistral.embeddings", version, environment, application_name,
+            async_embeddings(version, environment, application_name,
                              tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

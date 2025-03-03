@@ -61,8 +61,7 @@ def generate(gen_ai_endpoint, version, environment, application_name,
             start_time = time.time()
             response = wrapped(*args, **kwargs)
             end_time = time.time()
-            for key, value in instance.__dict__.items():
-                print(f'{key}: {value}')
+
             try:
                 # Calculate cost of the operation
                 cost = get_audio_model_cost(request_model,

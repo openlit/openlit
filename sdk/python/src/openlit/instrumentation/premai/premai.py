@@ -108,7 +108,6 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                     cost = get_chat_model_cost(self._kwargs.get("model", "gpt-4o-mini"),
                                                 pricing_info, prompt_tokens,
                                                 completion_tokens)
-                    print(self._kwargs)
                     # Set Span attributes
                     self._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
