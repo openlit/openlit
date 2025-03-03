@@ -5,7 +5,7 @@ Module for monitoring Ollama API calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
     handle_exception,
     general_tokens,
@@ -108,9 +108,9 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                                             SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                         span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                             gen_ai_endpoint)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                        span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                             environment)
-                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                        span.set_attribute(SERVICE_NAME,
                                             application_name)
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                             kwargs.get("model", "llama3"))
@@ -144,11 +144,11 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                             attributes = {
                                 TELEMETRY_SDK_NAME:
                                     "openlit",
-                                SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                SERVICE_NAME:
                                     application_name,
                                 SemanticConvetion.GEN_AI_SYSTEM:
                                     SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
-                                SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                DEPLOYMENT_ENVIRONMENT:
                                     environment,
                                 SemanticConvetion.GEN_AI_OPERATION:
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -202,9 +202,9 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                                         SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                    span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    span.set_attribute(SERVICE_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "llama3"))
@@ -248,11 +248,11 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                         attributes = {
                             TELEMETRY_SDK_NAME:
                                 "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            SERVICE_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
                                 SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            DEPLOYMENT_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_OPERATION:
                                 SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -351,9 +351,9 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
                                             SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                         span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                             gen_ai_endpoint)
-                        span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                        span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                             environment)
-                        span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                        span.set_attribute(SERVICE_NAME,
                                             application_name)
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                             kwargs.get("model", "llama3"))
@@ -388,11 +388,11 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
                             attributes = {
                                 TELEMETRY_SDK_NAME:
                                     "openlit",
-                                SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                                SERVICE_NAME:
                                     application_name,
                                 SemanticConvetion.GEN_AI_SYSTEM:
                                     SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
-                                SemanticConvetion.GEN_AI_ENVIRONMENT:
+                                DEPLOYMENT_ENVIRONMENT:
                                     environment,
                                 SemanticConvetion.GEN_AI_OPERATION:
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -427,9 +427,9 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
                                         SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                     span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                         gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                    span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    span.set_attribute(SERVICE_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "llama3"))
@@ -473,11 +473,11 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
                         attributes = {
                             TELEMETRY_SDK_NAME:
                                 "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            SERVICE_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
                                 SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            DEPLOYMENT_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_OPERATION:
                                 SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -554,9 +554,9 @@ def async_embeddings(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SERVICE_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     kwargs.get('model', "llama3"))
@@ -580,11 +580,11 @@ def async_embeddings(gen_ai_endpoint, version, environment, application_name,
                     attributes = {
                         TELEMETRY_SDK_NAME:
                             "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                        SERVICE_NAME:
                             application_name,
                         SemanticConvetion.GEN_AI_SYSTEM:
                             SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                        DEPLOYMENT_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_OPERATION:
                             SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,

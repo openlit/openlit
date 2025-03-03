@@ -5,7 +5,7 @@ Module for monitoring LiteLLM calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
     get_chat_model_cost,
     get_embed_model_cost,
@@ -132,9 +132,9 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
                                         gen_ai_endpoint)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                         self._response_id)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                    self._span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    self._span.set_attribute(SERVICE_NAME,
                                         application_name)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         self._kwargs.get("model", "gpt-3.5-turbo"))
@@ -182,11 +182,11 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
                         attributes = {
                             TELEMETRY_SDK_NAME:
                                 "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            SERVICE_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
                                 SemanticConvetion.GEN_AI_SYSTEM_LITELLM,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            DEPLOYMENT_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_OPERATION:
                                 SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -275,9 +275,9 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                         response_dict.get("id"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                    span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    span.set_attribute(SERVICE_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "gpt-3.5-turbo"))
@@ -376,11 +376,11 @@ def acompletion(gen_ai_endpoint, version, environment, application_name,
                         attributes = {
                             TELEMETRY_SDK_NAME:
                                 "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            SERVICE_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
                                 SemanticConvetion.GEN_AI_SYSTEM_LITELLM,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            DEPLOYMENT_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_OPERATION:
                                 SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -457,9 +457,9 @@ def aembedding(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SERVICE_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     kwargs.get("model", "text-embedding-ada-002"))
@@ -489,11 +489,11 @@ def aembedding(gen_ai_endpoint, version, environment, application_name,
                     attributes = {
                         TELEMETRY_SDK_NAME:
                             "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                        SERVICE_NAME:
                             application_name,
                         SemanticConvetion.GEN_AI_SYSTEM:
                             SemanticConvetion.GEN_AI_SYSTEM_OPENAI,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                        DEPLOYMENT_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_OPERATION:
                             SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,

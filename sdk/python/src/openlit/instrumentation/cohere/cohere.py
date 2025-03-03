@@ -222,7 +222,7 @@ def chat(version, environment, application_name, tracer,
 
                 llm_response = response_dict.get('message').get('content')[0].get('text')
 
-                 # Set base span attribues (OTel Semconv)
+                # Set base span attribues (OTel Semconv)
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)

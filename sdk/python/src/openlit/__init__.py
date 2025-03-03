@@ -555,11 +555,11 @@ def trace(wrapped):
                 span.set_attribute("function.args", str(args))
                 span.set_attribute("function.kwargs", str(kwargs))
                 span.set_attribute(
-                    SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    SERVICE_NAME,
                     OpenlitConfig.application_name,
                 )
                 span.set_attribute(
-                    SemanticConvetion.GEN_AI_ENVIRONMENT, OpenlitConfig.environment
+                    DEPLOYMENT_ENVIRONMENT, OpenlitConfig.environment
                 )
             except Exception as meta_exception:
                 logging.error(

@@ -5,7 +5,7 @@ Module for monitoring Together calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
     get_chat_model_cost,
     get_image_model_cost,
@@ -135,9 +135,9 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                                         gen_ai_endpoint)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                         self._response_id)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                    self._span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    self._span.set_attribute(SERVICE_NAME,
                                         application_name)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         self._kwargs.get(
@@ -188,11 +188,11 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                         attributes = {
                             TELEMETRY_SDK_NAME:
                                 "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            SERVICE_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
                                 SemanticConvetion.GEN_AI_SYSTEM_TOGETHER,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            DEPLOYMENT_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_OPERATION:
                                 SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -286,9 +286,9 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                         response_dict.get("id"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                    span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    span.set_attribute(SERVICE_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model",
@@ -395,11 +395,11 @@ def async_completion(gen_ai_endpoint, version, environment, application_name,
                         attributes = {
                             TELEMETRY_SDK_NAME:
                                 "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                            SERVICE_NAME:
                                 application_name,
                             SemanticConvetion.GEN_AI_SYSTEM:
                                 SemanticConvetion.GEN_AI_SYSTEM_TOGETHER,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT:
+                            DEPLOYMENT_ENVIRONMENT:
                                 environment,
                             SemanticConvetion.GEN_AI_OPERATION:
                                 SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
@@ -495,9 +495,9 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                                         gen_ai_endpoint)
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                         response.id)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                    span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    span.set_attribute(SERVICE_NAME,
                                         application_name)
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                         kwargs.get("model", "black-forest-labs/FLUX.1-dev"))
@@ -530,11 +530,11 @@ def async_image_generate(gen_ai_endpoint, version, environment, application_name
                     attributes = {
                         TELEMETRY_SDK_NAME:
                             "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                        SERVICE_NAME:
                             application_name,
                         SemanticConvetion.GEN_AI_SYSTEM:
                             SemanticConvetion.GEN_AI_SYSTEM_TOGETHER,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                        DEPLOYMENT_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_OPERATION:
                             SemanticConvetion.GEN_AI_OPERATION_TYPE_IMAGE,

@@ -41,7 +41,7 @@ def get_attribute_from_instance_or_kwargs(instance, attribute_name, default=-1):
         # Default if the attribute isn't found in model_kwargs or the instance
         return default
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name,
+def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
@@ -63,7 +63,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 a new function that wraps 'wrapped' with additional tracing and logging.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         An inner wrapper function that executes the wrapped function, measures execution
         time, and records trace data using OpenTelemetry.
@@ -84,7 +84,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         errors are handled and logged appropriately.
         """
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
@@ -114,7 +114,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
     return wrapper
 
-def hub(gen_ai_endpoint, version, environment, application_name, tracer,
+def async_hub(gen_ai_endpoint, version, environment, application_name, tracer,
         pricing_info, trace_content, metrics, disable_metrics):
     """
     Creates a wrapper around Langchain hub operations for tracing and logging.
@@ -137,7 +137,7 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
                 logging, tracing, and metric calculation functionalities.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         An inner wrapper specifically designed for Langchain hub operations,
         providing tracing, logging, and execution metrics.
@@ -158,7 +158,7 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
         """
 
         with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
@@ -189,7 +189,7 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
 
     return wrapper
 
-def chat(gen_ai_endpoint, version, environment, application_name,
+def async_chat(gen_ai_endpoint, version, environment, application_name,
                  tracer, pricing_info, trace_content, metrics, disable_metrics):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
@@ -210,7 +210,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                 a new function that wraps 'wrapped' with additional tracing and logging.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         An inner wrapper function that executes the wrapped function, measures execution
         time, and records trace data using OpenTelemetry.
@@ -246,7 +246,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             end_time = time.time()
 
             response_dict = response_as_dict(response)
@@ -338,10 +338,11 @@ def chat(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                         },
                     )
+                    completion_content = getattr(response, 'content', "")
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response,
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: completion_content,
                         },
                     )
 
