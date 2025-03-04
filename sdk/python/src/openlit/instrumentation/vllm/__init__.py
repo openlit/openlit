@@ -34,7 +34,7 @@ class VLLMInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "vllm",
             "LLM.generate",
-            generate("vllm.generate", version, environment, application_name,
+            generate(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
