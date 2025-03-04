@@ -9,6 +9,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     get_chat_model_cost,
     handle_exception,
+    general_tokens,
     create_metrics_attributes,
     set_server_address_and_port
 )
@@ -57,7 +58,7 @@ def generate(version, environment, application_name,
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         # pylint: disable=line-too-long
-        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+        with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
             response = wrapped(*args, **kwargs)
             end_time = time.time()
@@ -124,7 +125,7 @@ def generate(version, environment, application_name,
                                     output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
                                     input_tokens + output_tokens)
-                
+
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(request_model, pricing_info,
                                             input_tokens, output_tokens)
