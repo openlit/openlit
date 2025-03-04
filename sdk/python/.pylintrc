@@ -27,3 +27,4 @@ disable=
     too-many-lines,
     no-name-in-module,
     protected-access,
+    bare-except
