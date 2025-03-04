@@ -8,13 +8,10 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
     get_chat_model_cost,
-    get_embed_model_cost,
     handle_exception,
-    response_as_dict,
     calculate_ttft,
     calculate_tbt,
     create_metrics_attributes,
-    set_server_address_and_port
 )
 from openlit.semcov import SemanticConvetion
 
@@ -105,7 +102,6 @@ def send_message(version, environment, application_name, tracer,
                 self._llmresponse += str(chunk.text)
                 self._input_tokens = chunk.usage_metadata.prompt_token_count
                 self._output_tokens = chunk.usage_metadata.candidates_token_count
-                self._finish_reason = "as"
 
                 return chunk
             except StopIteration:
@@ -300,8 +296,6 @@ def send_message(version, environment, application_name, tracer,
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
                 end_time = time.time()
-
-                response_dict = response_as_dict(response)
 
                 try:
                     # Format 'messages' into a single string

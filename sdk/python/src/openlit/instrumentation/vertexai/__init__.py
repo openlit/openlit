@@ -10,11 +10,7 @@ from openlit.instrumentation.vertexai.vertexai import (
     send_message
 )
 from openlit.instrumentation.vertexai.async_vertexai import (
-    generate_content_async, predict_async,
-    predict_streaming_async,
-    send_message_async,
-    start_chat_async, start_chat_streaming_async,
-    embeddings_async
+    async_send_message
 )
 
 
@@ -52,7 +48,7 @@ class VertexAIInstrumentor(BaseInstrumentor):
             send_message(version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
-        
+
         wrap_function_wrapper(
             "vertexai.language_models",
             "ChatSession.send_message",
@@ -71,7 +67,7 @@ class VertexAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "vertexai.generative_models",
             "GenerativeModel.generate_content_async",
-            async_send_message(version, environment, application_name, 
+            async_send_message(version, environment, application_name,
                     tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -92,7 +88,7 @@ class VertexAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "vertexai.language_models",
             "ChatSession.send_message_streaming_async",
-            async_send_message(version, environment, application_name, 
+            async_send_message(version, environment, application_name,
                     tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
