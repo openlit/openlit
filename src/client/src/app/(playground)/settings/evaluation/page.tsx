@@ -31,6 +31,7 @@ const EvaluationVaultCreate = ({
 };
 
 const EVALUATION_TOAST_ID = "evaluation-config";
+const EVALUATION_CONFIG_FORM = "evaluation-config-form";
 
 function ModifyEvaluationSettings({
 	evaluation,
@@ -53,6 +54,10 @@ function ModifyEvaluationSettings({
 	const modifyDetails: FormBuilderEvent = (event) => {
 		event.preventDefault();
 		const formElement = event.target as HTMLFormElement;
+
+		if (formElement.name !== EVALUATION_CONFIG_FORM) {
+			return;
+		}
 
 		const bodyObject = {
 			...(evaluation || {}),
@@ -149,6 +154,7 @@ function ModifyEvaluationSettings({
 
 	return (
 		<FormBuilder
+			formName={EVALUATION_CONFIG_FORM}
 			fields={[
 				{
 					label: "Model Provider",

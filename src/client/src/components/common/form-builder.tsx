@@ -16,6 +16,7 @@ const FormBuilder = ({
 	submitButtonText,
 	isAllowedToSubmit = true,
 	alignment = "horizontal",
+	formName = "builder-form",
 }: {
 	fields: FieldProps[];
 	heading?: string;
@@ -26,6 +27,7 @@ const FormBuilder = ({
 	submitButtonText: string;
 	isAllowedToSubmit?: boolean;
 	alignment?: "horizontal" | "vertical";
+	formName?: string;
 }) => {
 	const getFormData = (e: FormEvent) => {
 		const formElement = e.target as HTMLFormElement;
@@ -35,7 +37,10 @@ const FormBuilder = ({
 				field.fieldType === "TEXTAREA" ||
 				field.fieldType === "RADIOGROUP"
 			) {
-				if (field.fieldTypeProps.name) {
+				if (
+					field.fieldTypeProps.name &&
+					formElement[field.fieldTypeProps.name]
+				) {
 					acc[field.fieldTypeProps.name] =
 						formElement[field.fieldTypeProps.name].value;
 				}
@@ -87,6 +92,7 @@ const FormBuilder = ({
 				return onSubmit(e, getFormData(e));
 			}}
 			onKeyDown={(e) => !(e.key === "Enter")}
+			name={formName}
 		>
 			<Card className="w-full border-0 flex flex-col h-full shadow-none">
 				{heading && (
@@ -100,7 +106,7 @@ const FormBuilder = ({
 					</CardHeader>
 				)}
 				<CardContent className="flex gap-4 flex-col overflow-hidden p-0">
-					<div className="grid gap-6 relative flex-1 overflow-y-auto">
+					<div className="grid gap-6 relative flex-1 overflow-y-auto overflow-x-hidden">
 						{fields.map((field, index) => (
 							<FormField
 								key={index}
