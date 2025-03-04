@@ -9,7 +9,6 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     get_chat_model_cost,
     handle_exception,
-    response_as_dict,
     calculate_ttft,
     calculate_tbt,
     create_metrics_attributes,
