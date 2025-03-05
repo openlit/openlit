@@ -7,10 +7,10 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.ollama.ollama import (
-    chat, embeddings, generate
+    chat, embeddings
 )
 from openlit.instrumentation.ollama.async_ollama import (
-    async_chat, async_embeddings, async_generate
+    async_chat, async_embeddings
 )
 
 _instruments = ("ollama >= 0.2.0",)
@@ -37,13 +37,13 @@ class OllamaInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "ollama",
             "chat",
-            chat("ollama.chat", version, environment, application_name,
+            chat(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ollama",
             "Client.chat",
-            chat("ollama.chat", version, environment, application_name,
+            chat(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -51,27 +51,13 @@ class OllamaInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "ollama",
             "embeddings",
-            embeddings("ollama.embeddings", version, environment, application_name,
+            embeddings(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ollama",
             "Client.embeddings",
-            embeddings("ollama.embeddings", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
-        )
-
-        # sync generate
-        wrap_function_wrapper(
-            "ollama",
-            "generate",
-            generate("ollama.generate", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
-        )
-        wrap_function_wrapper(
-            "ollama",
-            "Client.generate",
-            generate("ollama.generate", version, environment, application_name,
+            embeddings(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -79,7 +65,7 @@ class OllamaInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "ollama",
             "AsyncClient.chat",
-            async_chat("ollama.chat", version, environment, application_name,
+            async_chat(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -87,15 +73,7 @@ class OllamaInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "ollama",
             "AsyncClient.embeddings",
-            async_embeddings("ollama.embeddings", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
-        )
-
-        # aync generate
-        wrap_function_wrapper(
-            "ollama",
-            "AsyncClient.generate",
-            async_generate("ollama.generate", version, environment, application_name,
+            async_embeddings(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

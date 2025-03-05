@@ -34,7 +34,7 @@ class GPT4AllInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "gpt4all",
             "GPT4All.generate",
-            generate("gpt4all.generate", version, environment, application_name,
+            generate(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -42,7 +42,7 @@ class GPT4AllInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "gpt4all",
             "Embed4All.embed",
-            embed("gpt4all.embed", version, environment, application_name,
+            embed(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

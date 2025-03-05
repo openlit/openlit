@@ -5,7 +5,7 @@ Module for monitoring EmbedChain applications.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import handle_exception
 from openlit.semcov import SemanticConvetion
 
@@ -63,11 +63,11 @@ def evaluate(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_SYSTEM_EMBEDCHAIN)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
+                span.set_attribute(SERVICE_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_EVAL_CONTEXT_RELEVANCY,
                                     response["context_relevancy"])
@@ -141,11 +141,11 @@ def get_data_sources(gen_ai_endpoint, version, environment, application_name,
                                     SemanticConvetion.GEN_AI_SYSTEM_EMBEDCHAIN)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_FRAMEWORK)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
+                span.set_attribute(SERVICE_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_DATA_SOURCES,
                                     len(response))

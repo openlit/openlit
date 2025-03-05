@@ -20,8 +20,8 @@ class AnthropicInstrumentor(BaseInstrumentor):
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name", "default_application")
-        environment = kwargs.get("environment", "default_environment")
+        application_name = kwargs.get("application_name", "default")
+        environment = kwargs.get("environment", "default")
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
@@ -33,7 +33,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "anthropic.resources.messages",  
             "Messages.create",  
-            messages("anthropic.messages", version, environment, application_name,
+            messages(version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -41,7 +41,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "anthropic.resources.messages",  
             "AsyncMessages.create",  
-            async_messages("anthropic.messages", version, environment, application_name,
+            async_messages(version, environment, application_name,
                             tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

@@ -215,7 +215,7 @@ export default class OllamaWrapper {
     }
 
     const prompt = formattedMessages.join('\n');
-    span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_CHAT);
+    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
     const model = result.model || args[0].model;
@@ -252,8 +252,8 @@ export default class OllamaWrapper {
     }
     // Request Params attributes : End
 
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS, promptTokens);
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS, completionTokens);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, promptTokens);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, completionTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, totalTokens);
 
     if (result.done_reason) {

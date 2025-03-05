@@ -219,7 +219,7 @@ export default class OpenAIWrapper extends BaseWrapper {
     }
     // Request Params attributes : End
 
-    span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_CHAT);
+    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
 
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
@@ -243,9 +243,9 @@ export default class OpenAIWrapper extends BaseWrapper {
       aiSystem: OpenAIWrapper.aiSystem,
     });
 
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS, result.usage.prompt_tokens);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, result.usage.prompt_tokens);
     span.setAttribute(
-      SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS,
+      SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
       result.usage.completion_tokens
     );
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, result.usage.total_tokens);
@@ -298,8 +298,8 @@ export default class OpenAIWrapper extends BaseWrapper {
             );
 
             span.setAttribute(
-              SemanticConvention.GEN_AI_TYPE,
-              SemanticConvention.GEN_AI_TYPE_EMBEDDING
+              SemanticConvention.GEN_AI_OPERATION,
+              SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING
             );
 
             const { dimensions, encoding_format = 'float', input, user } = args[0];
@@ -314,7 +314,7 @@ export default class OpenAIWrapper extends BaseWrapper {
 
             // Request Params attributes : Start
 
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_FORMAT, encoding_format);
+            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, encoding_format);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION, dimensions);
             if (traceContent) {
               span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, input);
@@ -322,7 +322,7 @@ export default class OpenAIWrapper extends BaseWrapper {
             // Request Params attributes : End
 
             span.setAttribute(
-              SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
+              SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
               response.usage.prompt_tokens
             );
             span.setAttribute(
@@ -369,8 +369,8 @@ export default class OpenAIWrapper extends BaseWrapper {
             });
 
             span.setAttribute(
-              SemanticConvention.GEN_AI_TYPE,
-              SemanticConvention.GEN_AI_TYPE_FINETUNING
+              SemanticConvention.GEN_AI_OPERATION,
+              SemanticConvention.GEN_AI_OPERATION_TYPE_FINETUNING
             );
 
             // Request Params attributes : Start
@@ -394,7 +394,7 @@ export default class OpenAIWrapper extends BaseWrapper {
 
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.id);
             span.setAttribute(
-              SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS,
+              SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
               response.usage.prompt_tokens
             );
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FINETUNE_STATUS, response.status);
@@ -429,7 +429,7 @@ export default class OpenAIWrapper extends BaseWrapper {
               user,
             } = args[0];
 
-            span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_IMAGE);
+            span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE);
 
             const model = response.model || 'dall-e-2';
 
@@ -504,7 +504,7 @@ export default class OpenAIWrapper extends BaseWrapper {
               user,
             } = args[0];
 
-            span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_IMAGE);
+            span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE);
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.created);
 
             const model = response.model || 'dall-e-2';
@@ -572,7 +572,7 @@ export default class OpenAIWrapper extends BaseWrapper {
 
             const { input, user, voice, response_format = 'mp3', speed = 1 } = args[0];
 
-            span.setAttribute(SemanticConvention.GEN_AI_TYPE, SemanticConvention.GEN_AI_TYPE_AUDIO);
+            span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO);
 
             const model = response.model || 'tts-1';
 

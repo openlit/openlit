@@ -33,7 +33,7 @@ class GroqInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "groq.resources.chat.completions",  
             "Completions.create",  
-            chat("groq.chat.completions", version, environment, application_name,
+            chat(version, environment, application_name,
                      tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -41,7 +41,7 @@ class GroqInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "groq.resources.chat.completions",  
             "AsyncCompletions.create",  
-            async_chat("groq.chat.completions", version, environment, application_name,
+            async_chat(version, environment, application_name,
                             tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 

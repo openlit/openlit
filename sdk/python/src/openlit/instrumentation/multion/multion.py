@@ -5,7 +5,7 @@ Module for monitoring multion calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
     handle_exception,
 )
@@ -58,12 +58,14 @@ def multion_wrap(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_MULTION)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_AGENT)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AGENT)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SERVICE_NAME,
                                     application_name)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                                    environment)
 
                 if gen_ai_endpoint == "multion.browse":
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,

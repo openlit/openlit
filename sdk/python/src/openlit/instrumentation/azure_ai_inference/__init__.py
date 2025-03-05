@@ -38,7 +38,7 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "azure.ai.inference",
             "ChatCompletionsClient.complete",
-            complete("azure_ai.complete", version, environment, application_name,
+            complete(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -46,7 +46,7 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "azure.ai.inference",
             "EmbeddingsClient.embed",
-            embedding("azure_ai.embed", version, environment, application_name,
+            embedding(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -54,7 +54,7 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "azure.ai.inference.aio",
             "ChatCompletionsClient.complete",
-            async_complete("azure_ai.complete", version, environment, application_name,
+            async_complete(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
@@ -62,7 +62,7 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "azure.ai.inference.aio",
             "EmbeddingsClient.embed",
-            async_embedding("azure_ai.embed", version, environment, application_name,
+            async_embedding(version, environment, application_name,
                   tracer, pricing_info, trace_content, metrics, disable_metrics),
         )
 
