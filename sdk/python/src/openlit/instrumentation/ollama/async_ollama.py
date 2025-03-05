@@ -15,7 +15,9 @@ from openlit.__helpers import (
     calculate_ttft,
     calculate_tbt,
     create_metrics_attributes,
-    set_server_address_and_port
+    set_server_address_and_port,
+    extract_and_format_input,
+    otel_event
 )
 from openlit.semcov import SemanticConvetion
 
@@ -23,7 +25,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def async_chat(version, environment, application_name,
-                     tracer, pricing_info, trace_content, metrics, disable_metrics):
+            tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
 
@@ -32,8 +34,11 @@ def async_chat(version, environment, application_name,
         environment: Deployment environment (e.g., production, staging).
         application_name: Name of the application using the Ollama API.
         tracer: OpenTelemetry tracer for creating spans.
+        event_provider: OpenTelemetry event provider for emitting events.
         pricing_info: Information used for calculating the cost of Ollama usage.
         trace_content: Flag indicating whether to trace the actual content.
+        metrics: Metrics dictionary for recording metrics.
+        disable_metrics: Flag to disable metrics collection.
 
     Returns:
         A function that wraps the chat completions method to add telemetry.
@@ -65,8 +70,10 @@ def async_chat(version, environment, application_name,
             self._llmresponse = ""
             self._response_model = ""
             self._finish_reason = ""
+            self._tool_calls = []
             self._input_tokens = 0
             self._output_tokens = 0
+            self._response_role = ''
 
             self._args = args
             self._kwargs = kwargs
@@ -78,23 +85,23 @@ def async_chat(version, environment, application_name,
             self._server_address = server_address
             self._server_port = server_port
 
-        async def __aenter__(self):
-            await self.__wrapped__.__aenter__()
+        def __enter__(self):
+            self.__wrapped__.__enter__()
             return self
 
-        async def __aexit__(self, exc_type, exc_value, traceback):
-            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
+        def __exit__(self, exc_type, exc_value, traceback):
+            self.__wrapped__.__exit__(exc_type, exc_value, traceback)
 
-        def __aiter__(self):
+        def __iter__(self):
             return self
 
-        async def __getattr__(self, name):
+        def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
-            return getattr(await self.__wrapped__, name)
+            return getattr(self.__wrapped__, name)
 
-        async def __anext__(self):
+        def __next__(self):
             try:
-                chunk = await self.__wrapped__.__anext__()
+                chunk = self.__wrapped__.__next__()
                 end_time = time.time()
                 # Record the timestamp for the current chunk
                 self._timestamps.append(end_time)
@@ -106,7 +113,11 @@ def async_chat(version, environment, application_name,
                 chunked = response_as_dict(chunk)
                 self._llmresponse += chunked.get('message').get('content')
 
+                if chunked.get('message').get('tool_calls'):
+                    self._tool_calls = chunked.get('message').get('tool_calls')
+
                 if chunked.get('eval_count'):
+                    self._response_role = chunked.get('message').get('role')
                     self._input_tokens = chunked.get('prompt_eval_count')
                     self._output_tokens = chunked.get('eval_count')
                     self._response_model = chunked.get('model')
@@ -119,26 +130,8 @@ def async_chat(version, environment, application_name,
                     if len(self._timestamps) > 1:
                         self._tbt = calculate_tbt(self._timestamps)
 
-                    # Format 'messages' into a single string
-                    message_prompt = self._kwargs.get("messages", "")
-                    formatted_messages = []
-                    for message in message_prompt:
-                        role = message["role"]
-                        content = message["content"]
-
-                        if isinstance(content, list):
-                            content_str_list = []
-                            for item in content:
-                                if item["type"] == "text":
-                                    content_str_list.append(f'text: {item["text"]}')
-                                elif (item["type"] == "image_url" and
-                                      not item["image_url"]["url"].startswith("data:")):
-                                    content_str_list.append(f'image_url: {item["image_url"]["url"]}')
-                            content_str = ", ".join(content_str_list)
-                            formatted_messages.append(f"{role}: {content_str}")
-                        else:
-                            formatted_messages.append(f"{role}: {content}")
-                    prompt = "\n".join(formatted_messages)
+                    # Extract messages and handle roles dynamically
+                    formatted_messages = extract_and_format_input(self._kwargs.get("messages", ""))
 
                     request_model = self._kwargs.get("model", "gpt-4o")
 
@@ -213,19 +206,89 @@ def async_chat(version, environment, application_name,
                                         self._ttft)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                         version)
-                    if trace_content:
-                        self._span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+
+                    choice_event_body = {
+                        "finish_reason": self._finish_reason,
+                        "index": 0,
+                        "message": {
+                            **({"content": self._llmresponse} if trace_content else {}),
+                            "role": self._response_role
+                        }
+                    }
+
+                    if self._tool_calls != []:
+                        function_call = self._tool_calls[0]
+                        choice_event_body["message"].update({
+                            "tool_calls": {
+                                "function": {
+                                    "name": function_call.get('function', {}).get('name', ''),
+                                    "arguments": function_call.get('function', {}).get('arguments', '')
+                                },
+                                "id": function_call.get('id', ''),
+                                "type": "function"
+                            }
+                        })   
+                    if formatted_messages.get('user', {}).get('content', ''):
+                        prompt_event = otel_event(
+                            name=SemanticConvetion.GEN_AI_USER_MESSAGE,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
                             },
+                            body={
+                                **({"content": formatted_messages.get('user', {}).get('content', '')} if trace_content else {}),
+                                "role":  formatted_messages.get('user', {}).get('role', [])
+                            }
                         )
-                        self._span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                        event_provider.emit(prompt_event)
+
+                    if formatted_messages.get('system', {}).get('content', ''):
+                        system_event = otel_event(
+                            name=SemanticConvetion.GEN_AI_SYSTEM_MESSAGE,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: self._llmresponse,
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
                             },
+                            body={
+                                **({"content": formatted_messages.get('system', {}).get('content', '')} if trace_content else {}),
+                                "role":  formatted_messages.get('system', {}).get('role', [])
+                            }
                         )
+                        event_provider.emit(system_event)
+
+                    if formatted_messages.get('assistant', {}).get('content', ''):
+                        assistant_event = otel_event(
+                            name=SemanticConvetion.GEN_AI_ASSISTANT_MESSAGE,
+                            attributes={
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+                            },
+                            body={
+                                **({"content": formatted_messages.get('assistant', {}).get('content', '')} if trace_content else {}),
+                                "role":  formatted_messages.get('assistant', {}).get('role', [])
+                            }
+                        )
+                        event_provider.emit(assistant_event)
+                    
+                    if formatted_messages.get('tool', {}).get('content', ''):
+                        tools_event = otel_event(
+                            name=SemanticConvetion.GEN_AI_ASSISTANT_MESSAGE,
+                            attributes={
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+                            },
+                            body={
+                                **({"content": formatted_messages.get('assistant', {}).get('content', '')} if trace_content else {}),
+                                "role":  formatted_messages.get('assistant', {}).get('role', [])
+                            }
+                        )
+                        event_provider.emit(tools_event)
+                    
+                    choice_event = otel_event(
+                        name=SemanticConvetion.GEN_AI_CHOICE,
+                            attributes={
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+                            },
+                            body=choice_event_body
+                    )
+                    event_provider.emit(choice_event)
+                    
                     self._span.set_status(Status(StatusCode.OK))
 
                     if disable_metrics is False:
@@ -306,23 +369,8 @@ def async_chat(version, environment, application_name,
                 response_dict = response_as_dict(response)
 
                 try:
-                    # Format 'messages' into a single string
-                    message_prompt = kwargs.get("messages", "")
-                    formatted_messages = []
-                    for message in message_prompt:
-                        role = message["role"]
-                        content = message["content"]
-
-                        if isinstance(content, list):
-                            content_str = ", ".join(
-                                f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
-                                if "type" in item else f'text: {item["text"]}'
-                                for item in content
-                            )
-                            formatted_messages.append(f"{role}: {content_str}")
-                        else:
-                            formatted_messages.append(f"{role}: {content}")
-                    prompt = "\n".join(formatted_messages)
+                    # Extract messages and handle roles dynamically
+                    formatted_messages = extract_and_format_input(kwargs.get("messages", ""))
 
                     input_tokens = response_dict.get('prompt_eval_count')
                     output_tokens = response_dict.get('eval_count')
@@ -396,23 +444,91 @@ def async_chat(version, environment, application_name,
                                         end_time - start_time)
                     span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                         version)
-                    if trace_content:
-                        span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+
+                    choice_event_body = {
+                        "finish_reason": response_dict.get('done_reason'),
+                        "index": 0,
+                        "message": {
+                            **({"content": formatted_messages.get('tool', {}).get('content', '')} if trace_content else {}),
+                            "role": formatted_messages.get('tool', {}).get('role', [])
+                        }
+                    }
+
+                    # Check for tool calls and construct additional details if they exist
+                    tool_calls = response_dict.get('message', {}).get('tool_calls')
+                    if tool_calls:
+                        function_call = tool_calls[0]  # Assuming you want the first function call
+                        choice_event_body["message"].update({
+                            "tool_calls": {
+                                "function": {
+                                    "name": function_call.get('function', {}).get('name', ''),
+                                    "arguments": function_call.get('function', {}).get('arguments', '')
+                                },
+                                "id": function_call.get('id', ''),
+                                "type": "function"
+                            }
+                        })   
+
+                    if formatted_messages.get('user', {}).get('content', ''):
+                        prompt_event = otel_event(
+                            name=SemanticConvetion.GEN_AI_USER_MESSAGE,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
                             },
+                            body={
+                                **({"content": formatted_messages.get('user', {}).get('content', '')} if trace_content else {}),
+                                "role":  formatted_messages.get('user', {}).get('role', [])
+                            }
                         )
-                        span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                        event_provider.emit(prompt_event)
+
+                    if formatted_messages.get('system', {}).get('content', ''):
+                        system_event = otel_event(
+                            name=SemanticConvetion.GEN_AI_SYSTEM_MESSAGE,
                             attributes={
-                                # pylint: disable=line-too-long
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: str(response_dict.get('message').get('content')),
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
                             },
+                            body={
+                                **({"content": formatted_messages.get('system', {}).get('content', '')} if trace_content else {}),
+                                "role":  formatted_messages.get('system', {}).get('role', [])
+                            }
                         )
-                        if kwargs.get('tools'):
-                            span.set_attribute(SemanticConvetion.GEN_AI_TOOL_CALLS,
-                                            str(response_dict.get('message').get('tool_calls')))
+                        event_provider.emit(system_event)
+
+                    if formatted_messages.get('assistant', {}).get('content', ''):
+                        assistant_event = otel_event(
+                            name=SemanticConvetion.GEN_AI_ASSISTANT_MESSAGE,
+                            attributes={
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+                            },
+                            body={
+                                **({"content": formatted_messages.get('assistant', {}).get('content', '')} if trace_content else {}),
+                                "role":  formatted_messages.get('assistant', {}).get('role', [])
+                            }
+                        )
+                        event_provider.emit(assistant_event)
+                    
+                    if formatted_messages.get('tool', {}).get('content', ''):
+                        tools_event = otel_event(
+                            name=SemanticConvetion.GEN_AI_ASSISTANT_MESSAGE,
+                            attributes={
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+                            },
+                            body={
+                                **({"content": formatted_messages.get('assistant', {}).get('content', '')} if trace_content else {}),
+                                "role":  formatted_messages.get('assistant', {}).get('role', [])
+                            }
+                        )
+                        event_provider.emit(tools_event)
+
+                    choice_event = otel_event(
+                        name=SemanticConvetion.GEN_AI_CHOICE,
+                            attributes={
+                                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+                            },
+                            body=choice_event_body
+                    )
+                    event_provider.emit(choice_event)
 
                     span.set_status(Status(StatusCode.OK))
 
@@ -455,7 +571,7 @@ def async_chat(version, environment, application_name,
     return wrapper
 
 def async_embeddings(version, environment, application_name,
-              tracer, pricing_info, trace_content, metrics, disable_metrics):
+              tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -534,13 +650,18 @@ def async_embeddings(version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
 
-                if trace_content:
-                    span.add_event(
-                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                if formatted_messages.get('user', {}).get('content', ''):
+                    prompt_event = otel_event(
+                        name=SemanticConvetion.GEN_AI_USER_MESSAGE,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: str(kwargs.get('prompt', '')),
+                            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
                         },
+                        body={
+                            **({"content": kwargs.get('prompt', '')} if trace_content else {}),
+                            "role":  formatted_messages.get('user', {}).get('role', [])
+                        }
                     )
+                    event_provider.emit(prompt_event)
 
                 span.set_status(Status(StatusCode.OK))
 

@@ -11,6 +11,7 @@ import requests
 import tiktoken
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
+from opentelemetry._events import Event
 from openlit.semcov import SemanticConvetion
 
 # Set up logging
@@ -285,3 +286,57 @@ def set_server_address_and_port(client_instance: Any,
         server_port = default_server_port
 
     return server_address, server_port
+
+def otel_event(name, attributes, body):
+    return Event(
+        name=name,
+        attributes=attributes,
+        body=body,
+    )
+
+def extract_and_format_input(messages):
+    """
+    Process a list of messages to extract content and categorize
+    them into fixed roles like 'user', 'assistant', 'system'.
+
+    Parameters:
+    - messages: List of message objects or dictionaries to process.
+
+    Returns:
+    - A dictionary with fixed keys for roles and a dictionary 
+      containing dynamically extracted role and concatenated content as values.
+    """
+    fixed_roles = ['user', 'assistant', 'system', 'tool']  # Ensure these are your fixed keys
+    # Initialize the dictionary with fixed keys and empty structures
+    formatted_messages = {role_key: {"role": "", "content": ""} for role_key in fixed_roles}
+
+    for message in messages:
+        # Normalize the message structure
+        message = response_as_dict(message)
+
+        # Extract role and content
+        role = message.get("role")
+        if role not in fixed_roles:
+            continue  # Skip any role not in our predefined roles
+
+        content = message.get("content", "")
+
+        # Prepare content as a string
+        if isinstance(content, list):
+            content_str = ", ".join(
+                f'{item.get("type", "text")}: {item.get("text", item.get("image_url", "").get("url", "") if isinstance(item.get("image_url", ""), dict) else item.get("image_url", ""))}'
+                for item in content
+            )
+        else:
+            content_str = content
+
+        # Set the role in the formatted message and concatenate content
+        if not formatted_messages[role]["role"]:
+            formatted_messages[role]["role"] = role
+
+        if formatted_messages[role]["content"]:
+            formatted_messages[role]["content"] += " " + content_str
+        else:
+            formatted_messages[role]["content"] = content_str
+
+    return formatted_messages

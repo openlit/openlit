@@ -28,6 +28,13 @@ class SemanticConvetion:
     GEN_AI_SERVER_TBT = "gen_ai.server.time_per_output_token"
     GEN_AI_SERVER_TTFT = "gen_ai.server.time_to_first_token"
 
+    # GenAI Event Names (OTel Semconv)
+    GEN_AI_USER_MESSAGE = "gen_ai.user.message"
+    GEN_AI_SYSTEM_MESSAGE = "gen_ai.system.message"
+    GEN_AI_ASSISTANT_MESSAGE = "gen_ai.assistant.message"
+    GEN_AI_TOOLS_MESSAGE = "gen_ai.tools.message"
+    GEN_AI_CHOICE = "gen_ai.choice"
+
     # GenAI Request Attributes (OTel Semconv)
     GEN_AI_OPERATION = "gen_ai.operation.name"
     GEN_AI_SYSTEM = "gen_ai.system"
