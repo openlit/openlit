@@ -1,5 +1,5 @@
 "use client";
-import { pingActiveDatabaseConfig } from "@/helpers/database-config";
+import { pingActiveDatabaseConfig } from "@/helpers/client/database-config";
 import { getPingDetails } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import Image from "next/image";
@@ -36,7 +36,7 @@ export default function ClickhouseConnectivityWrapper() {
 							active clickhouse database.
 						</div>
 						<Link
-							href="/database-config"
+							href="/settings/database-config"
 							className="inline-flex my-2 border rounded md py-2 px-4 text-center bg-primary cursor-pointer text-white hover:bg-stone-950 outline-none self-start text-sm"
 						>
 							Take me there!

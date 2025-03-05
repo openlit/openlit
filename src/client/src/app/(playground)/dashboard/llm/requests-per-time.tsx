@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { COLORS } from "../../../../../styles/colors";
 import IntermediateState from "@/components/(playground)/intermediate-state";
 import { toast } from "sonner";
-import { getFilterParamsForDashboard } from "@/helpers/filter";
+import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 
 export default function RequestsPerTime() {
 	const filter = useRootStore(getFilterDetails);

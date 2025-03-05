@@ -28,7 +28,7 @@ function VaultUsageType() {
 					<TabsTrigger value="typescript">Typescript</TabsTrigger>
 				</TabsList>
 				<div className="col-start-4">
-					<Link href="/api-keys">
+					<Link href="/settings/api-keys">
 						<Button variant="outline" className="w-full">
 							Get API Key
 						</Button>

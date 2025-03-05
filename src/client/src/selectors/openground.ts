@@ -1,4 +1,4 @@
-import { RootStore } from "@/store";
+import { RootStore } from "@/types/store/root";
 
 export const getSelectedProviders = (state: RootStore) =>
 	state.openground.selectedProviders;

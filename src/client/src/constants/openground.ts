@@ -1,4 +1,4 @@
-import { ProviderType, Providers } from "@/store/openground";
+import { ProviderType, Providers } from "@/types/store/openground";
 
 export const providersConfig: Record<Providers, ProviderType> = {
 	openai: {

@@ -3,15 +3,11 @@ import Image from "next/image";
 import { isArray, isNil, isPlainObject } from "lodash";
 import {
 	CODE_ITEM_DISPLAY_KEYS,
+	getExtraTabsContentTypes,
 	getNormalizedTraceAttribute,
 	normalizeTrace,
-} from "@/helpers/trace";
-import {
-	ReverseTraceMapping,
-	TraceMapping,
-	TraceRow,
-	TransformedTraceRow,
-} from "@/constants/traces";
+} from "@/helpers/client/trace";
+import { ReverseTraceMapping, TraceMapping } from "@/constants/traces";
 import { ExternalLink, X } from "lucide-react";
 import {
 	Sheet,
@@ -20,103 +16,17 @@ import {
 	SheetTitle,
 } from "@/components/ui/sheet";
 import { objectEntries, objectKeys } from "@/utils/object";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { ValueOf } from "@/utils/types";
-import JsonViewer from "@/components/common/json-viewer";
+import { ValueOf } from "@/types/util";
 import { useCallback, useEffect, useState } from "react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HeirarchyDisplay from "./heirarchy-display";
-
-const InfoPill = ({ title, value }: { title: string; value: any }) => {
-	return (
-		<Button
-			variant="outline"
-			size="default"
-			className="text-stone-500 bg-stone-300 dark:text-stone-300 dark:bg-stone-800 cursor-default px-2 py-1 h-auto overflow-hidden"
-		>
-			<span className="text-xs bg-transparent">{title}</span>
-			<Separator
-				orientation="vertical"
-				className="mx-1 h-4 bg-stone-300 dark:bg-stone-600"
-			/>
-			<Badge
-				variant="secondary"
-				className="rounded-sm px-1 font-normal bg-transparent py-0 block ellipsis overflow-hidden whitespace-normal"
-			>
-				{value}
-			</Badge>
-		</Button>
-	);
-};
-
-const CodeItem = ({ label, text }: { label: string; text: string }) => (
-	<div className="flex flex-col space-y-3 mt-4 group p-4 w-full">
-		<span className="text-sm text-stone-500 font-medium dark:text-stone-300">
-			{label} :
-		</span>
-		<code className="text-sm inline-flex text-left items-center bg-stone-300 text-stone-700 rounded-md p-4 group-hover:text-stone-900 cursor-pointer dark:bg-stone-800 dark:text-stone-200 dark:group-hover:text-stone-100">
-			<JsonViewer value={text} />
-		</code>
-	</div>
-);
-
-const ContentDataItem = ({
-	dataKey,
-	dataValue,
-}: {
-	dataKey: string;
-	dataValue?: string;
-}) => (
-	<div
-		className={`grid ${
-			dataValue ? "grid-cols-2" : ""
-		} px-4 py-2 group cursor-pointer dark:bg-stone-700 dark:border-stone-800 dark:last:border-stone-800 odd:bg-stone-200/[0.4] even:bg-stone-200/[0.8] dark:odd:bg-stone-700/[0.4] dark:even:bg-stone-700/[0.8]`}
-	>
-		<div className="break-all pr-2 text-stone-500 dark:text-stone-300">
-			{dataKey}
-		</div>
-		{!(isNil(dataValue) || dataValue === "") && (
-			<div className="break-all pl-2 group-hover:text-stone-950  dark:group-hover:text-stone-100">
-				<JsonViewer value={dataValue} />
-			</div>
-		)}
-	</div>
-);
-
-const TabsContentData = ({
-	dataKey,
-	dataValue,
-}: {
-	dataKey: string;
-	dataValue: Record<string, any> | string[] | Record<string, any>[];
-}) => {
-	return isArray(dataValue)
-		? dataValue.map((datumValue, index) => (
-				<section key={`${dataKey}-${index}`}>
-					{index !== 0 ? (
-						<div className="py-1 px-2 dark:bg-stone-800"></div>
-					) : null}
-					{isPlainObject(datumValue) ? (
-						objectEntries(datumValue).map(([key, value]) => (
-							<ContentDataItem
-								key={key.toString()}
-								dataKey={key.toString()}
-								dataValue={value}
-							/>
-						))
-					) : (
-						<ContentDataItem dataKey={datumValue} />
-					)}
-				</section>
-		  ))
-		: objectEntries(dataValue).map(([key, value]) => (
-				<ContentDataItem key={key} dataKey={key} dataValue={value} />
-		  ));
-};
+import { TraceRow, TransformedTraceRow } from "@/types/trace";
+import InfoPill from "./components/info-pill";
+import CodeItem from "./components/code-item";
+import TabsContentData from "./components/tabs-content";
+import ExtraTabs from "./components/extra-tabs";
 
 export default function RequestDetails() {
 	const [isOpen, setIsOpen] = useState(false);
@@ -167,7 +77,10 @@ export default function RequestDetails() {
 		? null
 		: normalizeTrace((data as { record: TraceRow }).record);
 
-	const tabKeys: string[] = [];
+	const extraTabs = normalizedItem
+		? getExtraTabsContentTypes(normalizedItem)
+		: [];
+	const tabKeys: string[] = [...extraTabs];
 	const reducedData = isFetchingData
 		? { arrays: [], objects: [], values: [] }
 		: objectEntries((data as { record: TraceRow }).record || {}).reduce(
@@ -205,8 +118,8 @@ export default function RequestDetails() {
 				displayOverlay={false}
 				displayClose={false}
 			>
-				<SheetHeader className="flex-row bg-stone-950 px-4 py-3 items-center space-y-0">
-					<SheetTitle className="text-stone-200 text-2xl font-bold leading-7 capitalize grow pr-3">
+				<SheetHeader className="flex-row bg-stone-950 px-3 py-2 items-center space-y-0">
+					<SheetTitle className="text-stone-200 text-md font-bold leading-7 capitalize grow pr-3">
 						{isFetchingData || !normalizedItem
 							? "..."
 							: normalizedItem.spanName}
@@ -295,6 +208,13 @@ export default function RequestDetails() {
 									);
 								})}
 							</TabsList>
+							{extraTabs.map((tab) => {
+								return (
+									<TabsContent value={tab.toString()} key={tab.toString()}>
+										<ExtraTabs tabKey={tab} trace={normalizedItem} />
+									</TabsContent>
+								);
+							})}
 							{reducedData.objects.map(([key, value]) => {
 								return (
 									<TabsContent

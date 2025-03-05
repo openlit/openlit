@@ -1,4 +1,4 @@
-import { RootStore } from "@/store";
+import { RootStore } from "@/types/store/root";
 
 export const getFilterDetails = (state: RootStore) => state.filter.details;
 

@@ -1,6 +1,6 @@
 import { Pool } from "generic-pool";
 import { getDBConfigById, getDBConfigByUser } from "../db-config";
-import createClickhousePool from "./clickhouse-client";
+import createClickhousePool from "./clickhouse/clickhouse-client";
 import asaw from "@/utils/asaw";
 import {
 	ClickHouseClient,
@@ -9,11 +9,10 @@ import {
 	ExecParams,
 	CommandParams,
 } from "@clickhouse/client-common";
+import { OPERATION_TYPE } from "@/types/platform";
 
 export const OTEL_TRACES_TABLE_NAME = "otel_traces";
 export const OTEL_GPUS_TABLE_NAME = "otel_metrics_gauge";
-
-export type OPERATION_TYPE = "llm" | "vectordb";
 
 export type TimeLimit = {
 	start: Date | string;

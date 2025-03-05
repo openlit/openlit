@@ -1,8 +1,8 @@
-import { FilterConfig } from "@/store/filter";
+import { FilterConfig } from "@/types/store/filter";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { ChangeEventHandler, useState } from "react";
+import { ChangeEventHandler } from "react";
 
 export default function SlideWithValue({
 	label,

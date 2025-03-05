@@ -1,11 +1,16 @@
 import { merge, set } from "lodash";
 import { addDays, addMonths, addWeeks } from "date-fns";
 import { lens } from "@dhmk/zustand-lens";
+import {
+	FilterConfig,
+	FilterSorting,
+	FilterStore,
+	FilterType,
+	REFRESH_RATES,
+	TIME_RANGES,
+} from "@/types/store/filter";
 
-export const REFRESH_RATE_TYPE: Record<
-	"Never" | "30s" | "1m" | "5m" | "15m",
-	string
-> = {
+export const REFRESH_RATE_TYPE: Record<REFRESH_RATES, string> = {
 	Never: "Never",
 	"30s": "30s",
 	"1m": "1m",
@@ -13,10 +18,7 @@ export const REFRESH_RATE_TYPE: Record<
 	"15m": "15m",
 };
 
-export const TIME_RANGE_TYPE: Record<
-	"24H" | "7D" | "1M" | "3M" | "CUSTOM",
-	string
-> = {
+export const TIME_RANGE_TYPE: Record<TIME_RANGES, string> = {
 	"24H": "24H",
 	"7D": "7D",
 	"1M": "1M",
@@ -32,32 +34,6 @@ const DEFAULT_SORTING: FilterSorting = {
 	type: "Timestamp",
 	direction: "desc",
 };
-
-export type FilterSorting = {
-	type: string;
-	direction: "asc" | "desc";
-};
-
-export interface FilterType {
-	timeLimit: {
-		start?: Date;
-		end?: Date;
-		type: keyof typeof TIME_RANGE_TYPE;
-	};
-	limit: number;
-	offset: number;
-	selectedConfig: Partial<FilterConfig>;
-	sorting: FilterSorting;
-	refreshRate: keyof typeof REFRESH_RATE_TYPE;
-}
-
-export interface FilterConfig {
-	providers: string[];
-	maxCost: number;
-	models: string[];
-	totalRows: number;
-	traceTypes: string[];
-}
 
 export function getTimeLimitObject(
 	value: string,
@@ -105,13 +81,6 @@ const INITIAL_FILTER_DETAILS: FilterType = {
 	selectedConfig: {},
 	sorting: DEFAULT_SORTING,
 	refreshRate: "1m",
-};
-
-export type FilterStore = {
-	details: FilterType;
-	config?: FilterConfig;
-	updateFilter: (key: string, value: any, extraParams?: any) => void;
-	updateConfig: (config: FilterConfig) => void;
 };
 
 export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({

@@ -1,9 +1,9 @@
 import {
 	getFilterPreviousParams,
 	getFilterWhereCondition,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
-import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 
 export async function getTotalCost(params: MetricParams) {
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("cost")}']`;

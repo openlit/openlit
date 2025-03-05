@@ -91,7 +91,7 @@ model DatabaseConfig {
   createdByUser   User                        @relation(fields: [createdByUserId], references: [id])
   OpenGround      OpenGround[]
   dbInvitedUsers  DatabaseConfigInvitedUser[]
-  promptAPIKey    APIKeys[]
+  apiKeys         APIKeys[]
 
   @@unique([name])
   @@map("databaseconfig")
@@ -157,4 +157,15 @@ model ClickhouseMigrations {
   id                    String @id @default(cuid())
   databaseConfigId      String
   clickhouseMigrationId String
+}
+
+model EvaluationConfigs {
+  id               String  @id @default(cuid())
+  databaseConfigId String  @unique @map("database_config_id")
+  provider         String
+  model            String
+  vaultId          String
+  auto             Boolean @default(false)
+  recurringTime    String
+  meta             String
 }

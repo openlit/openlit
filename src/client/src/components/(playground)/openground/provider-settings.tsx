@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sheet";
 import { ReactNode } from "react";
 import { setProviderConfig } from "@/selectors/openground";
-import { ProviderType, Providers } from "@/store/openground";
+import { ProviderType, Providers } from "@/types/store/openground";
 import { useRootStore } from "@/store";
 
 const ProviderSettings = ({
