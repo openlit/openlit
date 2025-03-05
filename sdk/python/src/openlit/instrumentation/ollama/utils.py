@@ -43,35 +43,25 @@ def process_chunk(self, chunk):
         self._response_model = chunked.get('model', '')
         self._finish_reason = chunked.get('done_reason', '')
 
-def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics, 
-        event_provider, trace_content=False, disable_metrics=False, version=''):
+def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
+                        event_provider, trace_content, disable_metrics, version, is_stream):
+    scope._end_time = time.time()
+    if len(scope._timestamps) > 1:
+        scope._tbt = calculate_tbt(scope._timestamps)
 
-    self._end_time = time.time()
-    if len(self._timestamps) > 1:
-        self._tbt = calculate_tbt(self._timestamps)
+    formatted_messages = extract_and_format_input(scope._kwargs.get("messages", ""))
+    request_model = scope._kwargs.get("model", "gpt-4o")
 
-    # Extract messages and handle roles dynamically
-    formatted_messages = extract_and_format_input(self._kwargs.get("messages", ""))
-
-    request_model = self._kwargs.get("model", "gpt-4o")
-
-    # Calculate cost of the operation
-    cost = get_chat_model_cost(request_model,
-                                pricing_info, self._input_tokens,
-                                self._output_tokens)
+    cost = get_chat_model_cost(request_model, pricing_info, scope._input_tokens, scope._output_tokens)
 
     # Set Span attributes (OTel Semconv)
-    self._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-    self._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                        SemanticConvetion.GEN_AI_SYSTEM_OLLAMA)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                        request_model)
-    self._span.set_attribute(SemanticConvetion.SERVER_PORT,
-                        self._server_port)
-
-    # List of attributes and their config keys
+    scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION, SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OLLAMA)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, request_model)
+    scope._span.set_attribute(SemanticConvetion.SERVER_PORT, scope._server_port)
+    
+    options = scope._kwargs.get('options', {})
     attributes = [
         (SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'repeat_penalty'),
         (SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS, 'max_tokens'),
@@ -82,62 +72,40 @@ def process_streaming_chat_response(self, pricing_info, environment, application
         (SemanticConvetion.GEN_AI_REQUEST_TOP_K, 'top_k'),
     ]
 
-    # Safely get the options dictionary from kwargs
-    options = self._kwargs.get('options', {})
-
-    # Set each attribute if the corresponding value exists and is not None
     for attribute, key in attributes:
-        # Use dictionary `get` to retrieve values from the options dictionary
         value = options.get(key)
         if value is not None:
-            self._span.set_attribute(attribute, value)
+            scope._span.set_attribute(attribute, value)
 
-    self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                        [self._finish_reason])
-    self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
-                        self._response_model)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
-                        self._input_tokens)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
-                        self._output_tokens)
-    self._span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                        self._server_address)
-    if isinstance(self._llmresponse, str):
-        self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
-                        "text")
-    else:
-        self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
-                        "json")
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason])
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, scope._response_model)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens)
+    scope._span.set_attribute(SemanticConvetion.SERVER_ADDRESS, scope._server_address)
 
-    # Set Span attributes (Extra)
-    self._span.set_attribute(DEPLOYMENT_ENVIRONMENT,
-                        environment)
-    self._span.set_attribute(SERVICE_NAME,
-                        application_name)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
-                        True)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                        self._input_tokens + self._output_tokens)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                        cost)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TBT,
-                        self._tbt)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
-                        self._ttft)
-    self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
-                        version)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                              "text" if isinstance(scope._llmresponse, str) else "json")
+
+    scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
+    scope._span.set_attribute(SERVICE_NAME, application_name)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, is_stream)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS, scope._input_tokens + scope._output_tokens)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TBT, scope._tbt)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT, scope._ttft)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION, version)
 
     choice_event_body = {
-        "finish_reason": self._finish_reason,
+        "finish_reason": scope._finish_reason,
         "index": 0,
         "message": {
-            **({"content": self._llmresponse} if trace_content else {}),
-            "role": self._response_role
+            **({"content": scope._llmresponse} if trace_content else {}),
+            "role": scope._response_role
         }
     }
 
-    if self._tool_calls != []:
-        function_call = self._tool_calls[0]
+    if scope._tool_calls:
+        function_call = scope._tool_calls[0]
         choice_event_body["message"].update({
             "tool_calls": {
                 "function": {
@@ -147,306 +115,84 @@ def process_streaming_chat_response(self, pricing_info, environment, application
                 "id": function_call.get('id', ''),
                 "type": "function"
             }
-        })   
-    if formatted_messages.get('user', {}).get('content', ''):
-        prompt_event = otel_event(
-            name=SemanticConvetion.GEN_AI_USER_MESSAGE,
-            attributes={
-                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-            },
-            body={
-                **({"content": formatted_messages.get('user', {}).get('content', '')} if trace_content else {}),
-                "role":  formatted_messages.get('user', {}).get('role', [])
-            }
-        )
-        event_provider.emit(prompt_event)
+        })
 
-    if formatted_messages.get('system', {}).get('content', ''):
-        system_event = otel_event(
-            name=SemanticConvetion.GEN_AI_SYSTEM_MESSAGE,
-            attributes={
-                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-            },
-            body={
-                **({"content": formatted_messages.get('system', {}).get('content', '')} if trace_content else {}),
-                "role":  formatted_messages.get('system', {}).get('role', [])
-            }
-        )
-        event_provider.emit(system_event)
+    # Emit events
+    for role in ['user', 'system', 'assistant', 'tool']:
+        if formatted_messages.get(role, {}).get('content', ''):
+            event = otel_event(
+                name=getattr(SemanticConvetion, f'GEN_AI_{role.upper()}_MESSAGE'),
+                attributes={
+                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+                },
+                body={
+                    **({"content": formatted_messages.get(role, {}).get('content', '')} if trace_content else {}),
+                    "role": formatted_messages.get(role, {}).get('role', [])
+                }
+            )
+            event_provider.emit(event)
 
-    if formatted_messages.get('assistant', {}).get('content', ''):
-        assistant_event = otel_event(
-            name=SemanticConvetion.GEN_AI_ASSISTANT_MESSAGE,
-            attributes={
-                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-            },
-            body={
-                **({"content": formatted_messages.get('assistant', {}).get('content', '')} if trace_content else {}),
-                "role":  formatted_messages.get('assistant', {}).get('role', [])
-            }
-        )
-        event_provider.emit(assistant_event)
-    
-    if formatted_messages.get('tool', {}).get('content', ''):
-        tools_event = otel_event(
-            name=SemanticConvetion.GEN_AI_ASSISTANT_MESSAGE,
-            attributes={
-                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-            },
-            body={
-                **({"content": formatted_messages.get('assistant', {}).get('content', '')} if trace_content else {}),
-                "role":  formatted_messages.get('assistant', {}).get('role', [])
-            }
-        )
-        event_provider.emit(tools_event)
-    
     choice_event = otel_event(
         name=SemanticConvetion.GEN_AI_CHOICE,
-            attributes={
-                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-            },
-            body=choice_event_body
+        attributes={
+            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+        },
+        body=choice_event_body
     )
     event_provider.emit(choice_event)
     
-    self._span.set_status(Status(StatusCode.OK))
+    scope._span.set_status(Status(StatusCode.OK))
 
-    if disable_metrics is False:
-        attributes = create_metrics_attributes(
+    if not disable_metrics:
+        metrics_attributes = create_metrics_attributes(
             service_name=application_name,
             deployment_environment=environment,
             operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
             system=SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
             request_model=request_model,
-            server_address=self._server_address,
-            server_port=self._server_port,
-            response_model=self._response_model,
+            server_address=scope._server_address,
+            server_port=scope._server_port,
+            response_model=scope._response_model,
         )
 
-        metrics["genai_client_usage_tokens"].record(
-            self._input_tokens + self._output_tokens, attributes
-        )
-        metrics["genai_client_operation_duration"].record(
-            self._end_time - self._start_time, attributes
-        )
-        metrics["genai_server_tbt"].record(
-            self._tbt, attributes
-        )
-        metrics["genai_server_ttft"].record(
-            self._ttft, attributes
-        )
-        metrics["genai_requests"].add(1, attributes)
-        metrics["genai_completion_tokens"].add(self._output_tokens, attributes)
-        metrics["genai_prompt_tokens"].add(self._input_tokens, attributes)
-        metrics["genai_cost"].record(cost, attributes)
+        metrics["genai_client_usage_tokens"].record(scope._input_tokens + scope._output_tokens, metrics_attributes)
+        metrics["genai_client_operation_duration"].record(scope._end_time - scope._start_time, metrics_attributes)
+        metrics["genai_server_tbt"].record(scope._tbt, metrics_attributes)
+        metrics["genai_server_ttft"].record(scope._ttft, metrics_attributes)
+        metrics["genai_requests"].add(1, metrics_attributes)
+        metrics["genai_completion_tokens"].add(scope._output_tokens, metrics_attributes)
+        metrics["genai_prompt_tokens"].add(scope._input_tokens, metrics_attributes)
+        metrics["genai_cost"].record(cost, metrics_attributes)
+
+
+def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics,
+                                    event_provider, trace_content=False, disable_metrics=False, version=''):
+    common_chat_logic(self, pricing_info, environment, application_name, metrics, 
+                        event_provider, trace_content, disable_metrics, version, is_stream=True)
+
 
 def process_chat_response(response, request_model, pricing_info, server_port, server_address,
-                     environment, application_name, metrics, event_provider,
-                     start_time, span, trace_content=False, disable_metrics=False, version="1.0.0", **kwargs):
-    end_time = time.time()
+                          environment, application_name, metrics, event_provider, start_time,
+                          span, trace_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+    self = type('GenericScope', (), {})()
+    self._start_time = start_time
+    self._span = span
+    self._llmresponse = response.get('message', {}).get('content', '')
+    self._response_role = response.get('message', {}).get('role', 'assistant')
+    self._input_tokens = response.get('prompt_eval_count')
+    self._output_tokens = response.get('eval_count')
+    self._response_model = response.get('model', '')
+    self._finish_reason = response.get('done_reason', '')
+    self._timestamps = []
+    self._ttft, self._tbt, self._end_time = 0, 0, time.time()
+    self._server_address, self._server_port = server_address, server_port
+    self._kwargs = kwargs
+    self._tool_calls = response.get('message', {}).get('tool_calls', [])
 
-    response_dict = response_as_dict(response)
-
-    try:
-        # Extract messages and handle roles dynamically
-        formatted_messages = extract_and_format_input(kwargs.get("messages", ""))
-
-        input_tokens = response_dict.get('prompt_eval_count')
-        output_tokens = response_dict.get('eval_count')
-
-        # Calculate cost of the operation
-        cost = get_chat_model_cost(request_model,
-                                    pricing_info, input_tokens,
-                                    output_tokens)
-
-        # Set base span attribues (OTel Semconv)
-        span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-        span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                            SemanticConvetion.GEN_AI_SYSTEM_OLLAMA)
-        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                            request_model)
-        span.set_attribute(SemanticConvetion.SERVER_PORT,
-                            server_port)
-
-        # List of attributes and their config keys
-        attributes = [
-            (SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'repeat_penalty'),
-            (SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS, 'max_tokens'),
-            (SemanticConvetion.GEN_AI_REQUEST_SEED, 'seed'),
-            (SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES, 'stop'),
-            (SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
-            (SemanticConvetion.GEN_AI_REQUEST_TOP_P, 'top_p'),
-            (SemanticConvetion.GEN_AI_REQUEST_TOP_K, 'top_k'),
-        ]
-
-        # Safely get the options dictionary from kwargs
-        options = kwargs.get('options', {})
-
-        # Set each attribute if the corresponding value exists and is not None
-        for attribute, key in attributes:
-            # Use dictionary `get` to retrieve values from the options dictionary
-            value = options.get(key)
-            if value is not None:
-                span.set_attribute(attribute, value)
-
-        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
-                            response_dict.get('model'))
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
-                            input_tokens)
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
-                            output_tokens)
-        span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                            server_address)
-        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                [response_dict.get('done_reason')])
-        if kwargs.get('format'):
-            span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
-                                'json')
-        else:
-            span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
-                                'text')
-
-        # Set base span attribues (Extras)
-        span.set_attribute(DEPLOYMENT_ENVIRONMENT,
-                            environment)
-        span.set_attribute(SERVICE_NAME,
-                            application_name)
-        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
-                            False)
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                            input_tokens + output_tokens)
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                            cost)
-        span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
-                            end_time - start_time)
-        span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
-                            version)
-
-        choice_event_body = {
-            "finish_reason": response_dict.get('done_reason'),
-            "index": 0,
-            "message": {
-                **({"content": response_dict.get('message', {}).get('content', '')} if trace_content else {}),
-                "role": response_dict.get('message', {}).get('role', 'assistant')
-            }
-        }
-
-        # Check for tool calls and construct additional details if they exist
-        tool_calls = response_dict.get('message', {}).get('tool_calls')
-        if tool_calls:
-            function_call = tool_calls[0]  # Assuming you want the first function call
-            choice_event_body["message"].update({
-                "tool_calls": {
-                    "function": {
-                        "name": function_call.get('function', {}).get('name', ''),
-                        "arguments": function_call.get('function', {}).get('arguments', '')
-                    },
-                    "id": function_call.get('id', ''),
-                    "type": "function"
-                }
-            })   
-
-        if formatted_messages.get('user', {}).get('content', ''):
-            prompt_event = otel_event(
-                name=SemanticConvetion.GEN_AI_USER_MESSAGE,
-                attributes={
-                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-                },
-                body={
-                    **({"content": formatted_messages.get('user', {}).get('content', '')} if trace_content else {}),
-                    "role":  formatted_messages.get('user', {}).get('role', [])
-                }
-            )
-            event_provider.emit(prompt_event)
-
-        if formatted_messages.get('system', {}).get('content', ''):
-            system_event = otel_event(
-                name=SemanticConvetion.GEN_AI_SYSTEM_MESSAGE,
-                attributes={
-                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-                },
-                body={
-                    **({"content": formatted_messages.get('system', {}).get('content', '')} if trace_content else {}),
-                    "role":  formatted_messages.get('system', {}).get('role', [])
-                }
-            )
-            event_provider.emit(system_event)
-
-        if formatted_messages.get('assistant', {}).get('content', ''):
-            assistant_event = otel_event(
-                name=SemanticConvetion.GEN_AI_ASSISTANT_MESSAGE,
-                attributes={
-                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-                },
-                body={
-                    **({"content": formatted_messages.get('assistant', {}).get('content', '')} if trace_content else {}),
-                    "role":  formatted_messages.get('assistant', {}).get('role', [])
-                }
-            )
-            event_provider.emit(assistant_event)
-        
-        if formatted_messages.get('tool', {}).get('content', ''):
-            tools_event = otel_event(
-                name=SemanticConvetion.GEN_AI_ASSISTANT_MESSAGE,
-                attributes={
-                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-                },
-                body={
-                    **({"content": formatted_messages.get('assistant', {}).get('content', '')} if trace_content else {}),
-                    "role":  formatted_messages.get('assistant', {}).get('role', [])
-                }
-            )
-            event_provider.emit(tools_event)
-
-        choice_event = otel_event(
-            name=SemanticConvetion.GEN_AI_CHOICE,
-                attributes={
-                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-                },
-                body=choice_event_body
-        )
-        event_provider.emit(choice_event)
-
-        span.set_status(Status(StatusCode.OK))
-
-        if disable_metrics is False:
-            attributes = create_metrics_attributes(
-                service_name=application_name,
-                deployment_environment=environment,
-                operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                system=SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
-                request_model=request_model,
-                server_address=server_address,
-                server_port=server_port,
-                response_model=response_dict.get('model'),
-            )
-
-            metrics["genai_client_usage_tokens"].record(
-                input_tokens + output_tokens, attributes
-            )
-            metrics["genai_client_operation_duration"].record(
-                end_time - start_time, attributes
-            )
-            metrics["genai_server_ttft"].record(
-                end_time - start_time, attributes
-            )
-            metrics["genai_requests"].add(1, attributes)
-            metrics["genai_completion_tokens"].add(output_tokens, attributes)
-            metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-            metrics["genai_cost"].record(cost, attributes)
-        
-        # Return original response
-        return response
-
-    except Exception as e:
-        handle_exception(span, e)
-        logger.error("Error in trace creation: %s", e)
-
-        # Return original response
-        return response
-
+    common_chat_logic(self, pricing_info, environment, application_name, metrics, 
+                        event_provider, trace_content, disable_metrics, version, is_stream=False)
+    
+    return response
 
 def process_embedding_response(response, request_model, pricing_info, server_port, server_address,
     environment, application_name, metrics, event_provider,
