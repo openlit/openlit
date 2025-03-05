@@ -107,6 +107,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     }
 
     if scope._tool_calls:
+        print(scope._tool_calls)
         function_call = scope._tool_calls[0]
         choice_event_body["message"].update({
             "tool_calls": {
@@ -127,9 +128,22 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
                 attributes={
                     SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
                 },
-                body={
+                body = {
                     **({"content": formatted_messages.get(role, {}).get('content', '')} if capture_message_content else {}),
-                    "role": formatted_messages.get(role, {}).get('role', [])
+                    "role": formatted_messages.get(role, {}).get('role', []),
+                    **({
+                        "tool_calls": {
+                            "function": {
+                                "name": (scope._tool_calls[0].get('function', {}).get('name', '') if scope._tool_calls else ''),
+                                "arguments": (scope._tool_calls[0].get('function', {}).get('arguments', '') if scope._tool_calls else '')
+                            },
+                            "id": (scope._tool_calls[0].get('id', '') if scope._tool_calls else ''),
+                            "type": "function"
+                        }
+                    } if role == 'assistant' else {}),
+                    **({
+                        "id": (scope._tool_calls[0].get('id', '') if scope._tool_calls else '')
+                    } if role == 'tool' else {})
                 }
             )
             event_provider.emit(event)
