@@ -12,7 +12,8 @@ from openlit.__helpers import (
 from openlit.instrumentation.ollama.utils import (
     process_chunk, 
     process_chat_response, 
-    process_streaming_chat_response
+    process_streaming_chat_response,
+    process_embedding_response
 )
 from openlit.semcov import SemanticConvetion
 
@@ -160,7 +161,23 @@ def async_embeddings(version, environment, application_name,
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
             response = await wrapped(*args, **kwargs)
-            response = process_embedding_response()
+            response = process_embedding_response(
+                response=response,
+                request_model=request_model,
+                pricing_info=pricing_info,
+                server_port=server_port,
+                server_address=server_address,
+                environment=environment,
+                application_name=application_name,
+                metrics=metrics,
+                event_provider=event_provider,
+                start_time=start_time,
+                span=span,
+                capture_message_content=capture_message_content,
+                disable_metrics=disable_metrics,
+                version=version,
+                **kwargs
+            )
 
         return response
 

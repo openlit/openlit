@@ -7,8 +7,10 @@ from openlit.__helpers import (
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
+    general_tokens,
     extract_and_format_input,
     get_chat_model_cost,
+    get_embed_model_cost,
     handle_exception,
     create_metrics_attributes,
     otel_event
@@ -236,18 +238,17 @@ def process_embedding_response(response, request_model, pricing_info, server_por
         span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                             version)
 
-        if formatted_messages.get('user', {}).get('content', ''):
-            prompt_event = otel_event(
-                name=SemanticConvetion.GEN_AI_USER_MESSAGE,
-                attributes={
-                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
-                },
-                body={
-                    **({"content": kwargs.get('prompt', '')} if capture_message_content else {}),
-                    "role":  formatted_messages.get('user', {}).get('role', [])
-                }
-            )
-            event_provider.emit(prompt_event)
+        prompt_event = otel_event(
+            name=SemanticConvetion.GEN_AI_USER_MESSAGE,
+            attributes={
+                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+            },
+            body={
+                **({"content": kwargs.get('prompt', '')} if capture_message_content else {}),
+                "role":  'user'
+            }
+        )
+        event_provider.emit(prompt_event)
 
         span.set_status(Status(StatusCode.OK))
 
@@ -277,7 +278,6 @@ def process_embedding_response(response, request_model, pricing_info, server_por
 
     except Exception as e:
         handle_exception(span, e)
-        logger.error('Error in trace creation: %s', e)
 
         # Return original response
         return response

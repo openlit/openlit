@@ -72,7 +72,7 @@ def setup_events(application_name, environment, event_logger, otlp_endpoint, otl
             # Configure the span exporter and processor based on whether the endpoint is effectively set.
             if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
                 event_exporter = OTLPLogExporter()
-                logger_provider.add_log_record_processor(BatchLogRecordProcessor(event_exporter)) if not disable_batch else logger_provider.add_log_record_processor(SimpleLogRecordProcessor(event_exporter))
+                logger_provider.add_log_record_processor(SimpleLogRecordProcessor(event_exporter)) if disable_batch else logger_provider.add_log_record_processor(BatchLogRecordProcessor(event_exporter))
             else:
                 event_exporter = ConsoleLogExporter()
                 logger_provider.add_log_record_processor(SimpleLogRecordProcessor(event_exporter))

@@ -20,17 +20,8 @@ TRACER_SET = False
 
 def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_headers, disable_batch):
     """
-    Sets up tracing with OpenTelemetry. Initializes the tracer provider and configures the span processor and exporter.
-
-    Params:
-        application_name (str): The name of the application to be used in traces.
-        tracer (Tracer): Optional custom tracer. If provided, it is immediately returned and no setup is performed.
-        otlp_endpoint (str): The OTLP exporter endpoint. Falls back to the OTEL_EXPORTER_OTLP_ENDPOINT environment variable if not specified.
-        otlp_headers (dict): Headers for the OTLP request. Falls back to the OTEL_EXPORTER_OTLP_HEADERS environment variable if not specified.
-        disable_batch (bool): Flag to disable the batch span processor in favor of a simpler processor for exporting.
-
-    Returns:
-        The provided custom tracer if not None; otherwise, a tracer instance configured according to the given parameters or environment variables.
+    Sets up tracing with OpenTelemetry.
+    Initializes the tracer provider and configures the span processor and exporter.
     """
 
     # If an external tracer is provided, return it immediately.
@@ -71,6 +62,7 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
             # Configure the span exporter and processor based on whether the endpoint is effectively set.
             if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
                 span_exporter = OTLPSpanExporter()
+                # pylint: disable=line-too-long
                 span_processor = BatchSpanProcessor(span_exporter) if not disable_batch else SimpleSpanProcessor(span_exporter)
             else:
                 span_exporter = ConsoleSpanExporter()
