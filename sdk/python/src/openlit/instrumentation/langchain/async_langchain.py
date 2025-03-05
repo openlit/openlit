@@ -41,7 +41,7 @@ def get_attribute_from_instance_or_kwargs(instance, attribute_name, default=-1):
         return default
 
 def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics):
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
 
@@ -55,7 +55,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
     - application_name (str): Name of the Langchain application.
     - tracer (opentelemetry.trace.Tracer): The tracer object used for OpenTelemetry tracing.
     - pricing_info (dict): Information about the pricing for internal metrics (currently not used).
-    - trace_content (bool): Flag indicating whether to trace the content of the response.
+    - capture_message_content (bool): Flag indicating whether to trace the content of the response.
 
     Returns:
     - function: A higher-order function that takes a function 'wrapped' and returns
@@ -114,7 +114,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
     return wrapper
 
 def async_hub(gen_ai_endpoint, version, environment, application_name, tracer,
-        pricing_info, trace_content, metrics, disable_metrics):
+        pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Creates a wrapper around Langchain hub operations for tracing and logging.
 
@@ -129,7 +129,7 @@ def async_hub(gen_ai_endpoint, version, environment, application_name, tracer,
     - application_name (str): Name of the Langchain application.
     - tracer (opentelemetry.trace.Tracer): The tracer for OpenTelemetry tracing.
     - pricing_info (dict): Pricing information for the operation (not currently used).
-    - trace_content (bool): Indicates if the content of the response should be traced.
+    - capture_message_content (bool): Indicates if the content of the response should be traced.
 
     Returns:
     - function: A new function that wraps the original hub operation call with added
@@ -189,7 +189,7 @@ def async_hub(gen_ai_endpoint, version, environment, application_name, tracer,
     return wrapper
 
 def async_chat(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics):
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
 
@@ -202,7 +202,7 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
     - application_name (str): Name of the Langchain application.
     - tracer (opentelemetry.trace.Tracer): The tracer object used for OpenTelemetry tracing.
     - pricing_info (dict): Information about the pricing for internal metrics (currently not used).
-    - trace_content (bool): Flag indicating whether to trace the content of the response.
+    - capture_message_content (bool): Flag indicating whether to trace the content of the response.
 
     Returns:
     - function: A higher-order function that takes a function 'wrapped' and returns
@@ -328,7 +328,7 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
 
-                if trace_content:
+                if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={

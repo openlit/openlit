@@ -90,7 +90,7 @@ class OpenlitConfig:
         otlp_endpoint (Optional[str]): Endpoint for OTLP.
         otlp_headers (Optional[Dict[str, str]]): Headers for OTLP.
         disable_batch (bool): Flag to disable batch span processing in tracing.
-        trace_content (bool): Flag to enable or disable tracing of content.
+        capture_message_content (bool): Flag to enable or disable tracing of content.
     """
 
     _instance = None
@@ -114,7 +114,7 @@ class OpenlitConfig:
         cls.otlp_endpoint = None
         cls.otlp_headers = None
         cls.disable_batch = False
-        cls.trace_content = True
+        cls.capture_message_content = True
         cls.disable_metrics = False
 
     @classmethod
@@ -127,7 +127,7 @@ class OpenlitConfig:
         otlp_endpoint,
         otlp_headers,
         disable_batch,
-        trace_content,
+        capture_message_content,
         metrics_dict,
         disable_metrics,
         pricing_json,
@@ -144,7 +144,7 @@ class OpenlitConfig:
             otlp_endpoint (str): OTLP endpoint.
             otlp_headers (Dict[str, str]): OTLP headers.
             disable_batch (bool): Disable batch span processing flag.
-            trace_content (bool): Enable or disable content tracing.
+            capture_message_content (bool): Enable or disable content tracing.
             metrics_dict: Dictionary of metrics.
             disable_metrics (bool): Flag to disable metrics.
             pricing_json(str): path or url to the pricing json file
@@ -158,7 +158,7 @@ class OpenlitConfig:
         cls.otlp_endpoint = otlp_endpoint
         cls.otlp_headers = otlp_headers
         cls.disable_batch = disable_batch
-        cls.trace_content = trace_content
+        cls.capture_message_content = capture_message_content
         cls.disable_metrics = disable_metrics
 
 
@@ -197,7 +197,7 @@ def instrument_if_available(
                 tracer=config.tracer,
                 event_provider=config.event_provider,
                 pricing_info=config.pricing_info,
-                trace_content=config.trace_content,
+                capture_message_content=config.capture_message_content,
                 metrics_dict=config.metrics_dict,
                 disable_metrics=config.disable_metrics,
             )
@@ -220,7 +220,7 @@ def init(
     otlp_endpoint=None,
     otlp_headers=None,
     disable_batch=False,
-    trace_content=True,
+    capture_message_content=True,
     disabled_instrumentors=None,
     meter=None,
     disable_metrics=False,
@@ -242,7 +242,7 @@ def init(
         otlp_endpoint (str): OTLP endpoint for exporter (Optional).
         otlp_headers (Dict[str, str]): OTLP headers for exporter (Optional).
         disable_batch (bool): Flag to disable batch span processing (Optional).
-        trace_content (bool): Flag to trace content (Optional).
+        capture_message_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
         disable_metrics (bool): Flag to disable metrics (Optional).
         pricing_json(str): File path or url to the pricing json (Optional).
@@ -350,6 +350,9 @@ def init(
             )
             return
 
+        if os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT").lower == "false":
+            capture_message_content=False
+
         # Update global configuration with the provided settings.
         config.update_config(
             environment,
@@ -359,7 +362,7 @@ def init(
             otlp_endpoint,
             otlp_headers,
             disable_batch,
-            trace_content,
+            capture_message_content,
             metrics_dict,
             disable_metrics,
             pricing_json,

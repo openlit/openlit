@@ -23,7 +23,7 @@ class CohereInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
+        capture_message_content = kwargs.get("capture_message_content")
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("cohere")
 
@@ -32,19 +32,19 @@ class CohereInstrumentor(BaseInstrumentor):
             "cohere.client_v2",  
             "ClientV2.chat",  
             chat(version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics),
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "cohere.client_v2",  
             "ClientV2.chat_stream",  
             chat_stream(version, environment, application_name,
-                        tracer, pricing_info, trace_content, metrics, disable_metrics),
+                        tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "cohere.client_v2",  
             "ClientV2.embed",  
             embed(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Async Client
@@ -52,21 +52,21 @@ class CohereInstrumentor(BaseInstrumentor):
             "cohere.client_v2",  
             "AsyncClientV2.chat",  
             async_chat(version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics),
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "cohere.client_v2",  
             "AsyncClientV2.chat_stream",  
             async_chat_stream(version, environment, application_name,
-                        tracer, pricing_info, trace_content, metrics, disable_metrics),
+                        tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "cohere.client_v2",  
             "AsyncClientV2.embed",  
             async_embed(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     @staticmethod

@@ -26,7 +26,7 @@ class AG2Instrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("ag2")
 
@@ -34,14 +34,14 @@ class AG2Instrumentor(BaseInstrumentor):
             "autogen.agentchat.conversable_agent",
             "ConversableAgent.initiate_chat",
             wrap_ag2("ag2.initiate_chat", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "autogen.agentchat.conversable_agent",
             "ConversableAgent.generate_reply",
             wrap_ag2("ag2.generate_reply", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
 

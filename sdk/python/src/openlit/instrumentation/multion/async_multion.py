@@ -15,7 +15,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def async_multion_wrap(gen_ai_endpoint, version, environment, application_name,
-                     tracer, pricing_info, trace_content, metrics, disable_metrics):
+                     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
 
@@ -26,7 +26,7 @@ def async_multion_wrap(gen_ai_endpoint, version, environment, application_name,
         application_name: Name of the application using the multion Agent.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of multion usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the chat completions method to add telemetry.
@@ -75,7 +75,7 @@ def async_multion_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_RESPONSE_TIME,
                                     response.metadata.processing_time)
 
-                    if trace_content:
+                    if capture_message_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
@@ -92,7 +92,7 @@ def async_multion_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
                                     kwargs.get("url", ""))
 
-                    if trace_content:
+                    if capture_message_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
@@ -110,7 +110,7 @@ def async_multion_wrap(gen_ai_endpoint, version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
                                     kwargs.get("url", ""))
 
-                    if trace_content:
+                    if capture_message_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={

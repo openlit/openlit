@@ -21,7 +21,7 @@ Below is a detailed overview of the configuration options available, allowing yo
 | `otlp_endpoint`         | Specifies the OTLP endpoint for transmitting telemetry data.                                  | `None`         |    No    |
 | `otlp_headers`          | Defines headers for the OTLP exporter, useful for backends requiring authentication.          | `None`         |    No    |
 | `disable_batch`         | A flag to disable batch span processing, favoring immediate dispatch.                         | `False`        |    No    |
-| `trace_content`         | Enables tracing of content for deeper insights.                                               | `True`         |    No    |
+| `capture_message_content`         | Enables tracing of content for deeper insights.                                               | `True`         |    No    |
 | `disabled_instrumentors`| List of instrumentors to disable. | `None` |    No    |
 | `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
 | `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |

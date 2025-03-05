@@ -44,7 +44,7 @@ def process_chunk(self, chunk):
         self._finish_reason = chunked.get('done_reason', '')
 
 def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-                        event_provider, trace_content, disable_metrics, version, is_stream):
+                        event_provider, capture_message_content, disable_metrics, version, is_stream):
     scope._end_time = time.time()
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
@@ -99,7 +99,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         "finish_reason": scope._finish_reason,
         "index": 0,
         "message": {
-            **({"content": scope._llmresponse} if trace_content else {}),
+            **({"content": scope._llmresponse} if capture_message_content else {}),
             "role": scope._response_role
         }
     }
@@ -126,7 +126,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
                     SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
                 },
                 body={
-                    **({"content": formatted_messages.get(role, {}).get('content', '')} if trace_content else {}),
+                    **({"content": formatted_messages.get(role, {}).get('content', '')} if capture_message_content else {}),
                     "role": formatted_messages.get(role, {}).get('role', [])
                 }
             )
@@ -166,14 +166,14 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
 
 def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics,
-                                    event_provider, trace_content=False, disable_metrics=False, version=''):
+                                    event_provider, capture_message_content=False, disable_metrics=False, version=''):
     common_chat_logic(self, pricing_info, environment, application_name, metrics, 
-                        event_provider, trace_content, disable_metrics, version, is_stream=True)
+                        event_provider, capture_message_content, disable_metrics, version, is_stream=True)
 
 
 def process_chat_response(response, request_model, pricing_info, server_port, server_address,
                           environment, application_name, metrics, event_provider, start_time,
-                          span, trace_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+                          span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
     self = type('GenericScope', (), {})()
     self._start_time = start_time
     self._span = span
@@ -190,13 +190,13 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     self._tool_calls = response.get('message', {}).get('tool_calls', [])
 
     common_chat_logic(self, pricing_info, environment, application_name, metrics, 
-                        event_provider, trace_content, disable_metrics, version, is_stream=False)
+                        event_provider, capture_message_content, disable_metrics, version, is_stream=False)
     
     return response
 
 def process_embedding_response(response, request_model, pricing_info, server_port, server_address,
     environment, application_name, metrics, event_provider,
-    start_time, span, trace_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+    start_time, span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
 
     end_time = time.time()
 
@@ -243,7 +243,7 @@ def process_embedding_response(response, request_model, pricing_info, server_por
                     SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
                 },
                 body={
-                    **({"content": kwargs.get('prompt', '')} if trace_content else {}),
+                    **({"content": kwargs.get('prompt', '')} if capture_message_content else {}),
                     "role":  formatted_messages.get('user', {}).get('role', [])
                 }
             )

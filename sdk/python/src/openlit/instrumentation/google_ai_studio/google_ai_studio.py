@@ -19,7 +19,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def generate(version, environment, application_name,
-                     tracer, pricing_info, trace_content, metrics, disable_metrics):
+                     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat to collect metrics.
 
@@ -30,7 +30,7 @@ def generate(version, environment, application_name,
         application_name: Name of the application using the Google AI Studio API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of Google AI Studio usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the chat method to add telemetry.
@@ -165,7 +165,7 @@ def generate(version, environment, application_name,
                                     end_time - start_time)
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
-                if trace_content:
+                if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={

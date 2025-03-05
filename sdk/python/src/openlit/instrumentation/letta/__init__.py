@@ -26,7 +26,7 @@ class LettaInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("letta")
 
@@ -34,42 +34,42 @@ class LettaInstrumentor(BaseInstrumentor):
             "letta.client.client",
             "LocalClient.create_agent",
             create_agent("letta.create_agent", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "letta.client.client",
             "LocalClient.get_agent",
             create_agent("letta.get_agent", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "letta.client.client",
             "LocalClient.send_message",
             send_message("letta.send_message", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "letta.client.client",
             "RESTClient.create_agent",
             create_agent("letta.create_agent", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "letta.client.client",
             "RESTClient.get_agent",
             create_agent("letta.get_agent", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "letta.client.client",
             "RESTClient.send_message",
             send_message("letta.send_message", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

@@ -20,7 +20,7 @@ def object_count(obj):
     return len(obj) if obj else None
 
 def general_wrap(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics):
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Wraps a AstraDB operation to trace and log its execution metrics.
 
@@ -37,7 +37,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
     - application_name (str): The name of the application performing the AstraDB operation.
     - tracer (opentelemetry.trace.Tracer): An object used for OpenTelemetry tracing.
     - pricing_info (dict): Information about pricing, not used in current implementation.
-    - trace_content (bool): A flag indicating whether the content of responses should be traced.
+    - capture_message_content (bool): A flag indicating whether the content of responses should be traced.
 
     Returns:
     - function: A decorator function that, when applied, wraps the target function with

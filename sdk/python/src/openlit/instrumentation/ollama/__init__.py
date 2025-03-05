@@ -1,5 +1,6 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
-"""Initializer of Auto Instrumentation of Ollama Functions"""
+"""
+Initializer of Auto Instrumentation of Ollama Functions
+"""
 
 from typing import Collection
 import importlib.metadata
@@ -30,7 +31,7 @@ class OllamaInstrumentor(BaseInstrumentor):
         event_provider = kwargs.get("event_provider")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("ollama")
 
@@ -39,13 +40,13 @@ class OllamaInstrumentor(BaseInstrumentor):
             "ollama",
             "chat",
             chat(version, environment, application_name,
-                  tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ollama",
             "Client.chat",
             chat(version, environment, application_name,
-                  tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # sync embeddings
@@ -53,13 +54,13 @@ class OllamaInstrumentor(BaseInstrumentor):
             "ollama",
             "embeddings",
             embeddings(version, environment, application_name,
-                  tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ollama",
             "Client.embeddings",
             embeddings(version, environment, application_name,
-                  tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # async chat
@@ -67,7 +68,7 @@ class OllamaInstrumentor(BaseInstrumentor):
             "ollama",
             "AsyncClient.chat",
             async_chat(version, environment, application_name,
-                  tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # async embeddings
@@ -75,7 +76,7 @@ class OllamaInstrumentor(BaseInstrumentor):
             "ollama",
             "AsyncClient.embeddings",
             async_embeddings(version, environment, application_name,
-                  tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

@@ -25,7 +25,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def chat_completions(version, environment, application_name,
-                     tracer, pricing_info, trace_content, metrics, disable_metrics):
+                     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
 
@@ -35,7 +35,7 @@ def chat_completions(version, environment, application_name,
         application_name: Name of the application using the OpenAI API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of OpenAI usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the chat completions method to add telemetry.
@@ -229,7 +229,7 @@ def chat_completions(version, environment, application_name,
                                         self._ttft)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                         version)
-                    if trace_content:
+                    if capture_message_content:
                         self._span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
@@ -406,7 +406,7 @@ def chat_completions(version, environment, application_name,
                                         end_time - start_time)
                     span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                         version)
-                    if trace_content:
+                    if capture_message_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
@@ -417,7 +417,7 @@ def chat_completions(version, environment, application_name,
                     for i in range(kwargs.get('n',1)):
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                            [response_dict.get('choices')[i].get('finish_reason')])
-                        if trace_content:
+                        if capture_message_content:
                             span.add_event(
                                 name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                                 attributes={
@@ -477,7 +477,7 @@ def chat_completions(version, environment, application_name,
     return wrapper
 
 def embedding(version, environment, application_name,
-              tracer, pricing_info, trace_content, metrics, disable_metrics):
+              tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -487,7 +487,7 @@ def embedding(version, environment, application_name,
         application_name: Name of the application using the OpenAI API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of OpenAI usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
     
     Returns:
         A function that wraps the embeddings method to add telemetry.
@@ -561,7 +561,7 @@ def embedding(version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
 
-                if trace_content:
+                if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
@@ -605,7 +605,7 @@ def embedding(version, environment, application_name,
     return wrapper
 
 def image_generate(version, environment, application_name,
-                   tracer, pricing_info, trace_content, metrics, disable_metrics):
+                   tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for image generation to collect metrics.
     
@@ -615,7 +615,7 @@ def image_generate(version, environment, application_name,
         application_name: Name of the application using the OpenAI API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of OpenAI image generation.
-        trace_content: Flag indicating whether to trace the input prompt and generated images.
+        capture_message_content: Flag indicating whether to trace the input prompt and generated images.
     
     Returns:
         A function that wraps the image generation method to add telemetry.
@@ -700,7 +700,7 @@ def image_generate(version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
 
-                    if trace_content:
+                    if capture_message_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
@@ -752,7 +752,7 @@ def image_generate(version, environment, application_name,
     return wrapper
 
 def image_variatons(version, environment, application_name,
-                    tracer, pricing_info, trace_content, metrics, disable_metrics):
+                    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for creating image variations to collect metrics.
     
@@ -762,7 +762,7 @@ def image_variatons(version, environment, application_name,
         application_name: Name of the application using the OpenAI API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of generating image variations.
-        trace_content: Flag indicating whether to trace the input image and generated variations.
+        capture_message_content: Flag indicating whether to trace the input image and generated variations.
     
     Returns:
         A function that wraps the image variations creation method to add telemetry.
@@ -842,7 +842,7 @@ def image_variatons(version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
 
-                    if trace_content:
+                    if capture_message_content:
                         attribute_name = f"{SemanticConvetion.GEN_AI_RESPONSE_IMAGE}.{images_count}"
                         span.add_event(
                             name=attribute_name,
@@ -888,7 +888,7 @@ def image_variatons(version, environment, application_name,
     return wrapper
 
 def audio_create(version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics):
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for creating speech audio to collect metrics.
     
@@ -898,7 +898,7 @@ def audio_create(version, environment, application_name,
         application_name: Name of the application using the OpenAI API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of generating speech audio.
-        trace_content: Flag indicating whether to trace the input text and generated audio.
+        capture_message_content: Flag indicating whether to trace the input text and generated audio.
     
     Returns:
         A function that wraps the speech audio creation method to add telemetry.
@@ -967,7 +967,7 @@ def audio_create(version, environment, application_name,
                                     cost)
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
-                if trace_content:
+                if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={

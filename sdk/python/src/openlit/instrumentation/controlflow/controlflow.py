@@ -13,7 +13,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def wrap_controlflow(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics):
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
 
@@ -27,7 +27,7 @@ def wrap_controlflow(gen_ai_endpoint, version, environment, application_name,
     - application_name (str): Name of the Langchain application.
     - tracer (opentelemetry.trace.Tracer): The tracer object used for OpenTelemetry tracing.
     - pricing_info (dict): Information about the pricing for internal metrics (currently not used).
-    - trace_content (bool): Flag indicating whether to trace the content of the response.
+    - capture_message_content (bool): Flag indicating whether to trace the content of the response.
 
     Returns:
     - function: A higher-order function that takes a function 'wrapped' and returns

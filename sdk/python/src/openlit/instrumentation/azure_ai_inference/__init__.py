@@ -30,7 +30,7 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("azure-ai-inference")
 
@@ -39,7 +39,7 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
             "azure.ai.inference",
             "ChatCompletionsClient.complete",
             complete(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # sync embedding
@@ -47,7 +47,7 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
             "azure.ai.inference",
             "EmbeddingsClient.embed",
             embedding(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # async generate
@@ -55,7 +55,7 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
             "azure.ai.inference.aio",
             "ChatCompletionsClient.complete",
             async_complete(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # async embedding
@@ -63,7 +63,7 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
             "azure.ai.inference.aio",
             "EmbeddingsClient.embed",
             async_embedding(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

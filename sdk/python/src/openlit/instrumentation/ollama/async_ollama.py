@@ -19,7 +19,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def async_chat(version, environment, application_name,
-            tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics):
+            tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -88,7 +88,7 @@ def async_chat(version, environment, application_name,
                             application_name=application_name,
                             metrics=metrics,
                             event_provider=event_provider,
-                            trace_content=trace_content,
+                            capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version
                         )
@@ -131,7 +131,7 @@ def async_chat(version, environment, application_name,
                     event_provider=event_provider,
                     start_time=start_time,
                     span=span,
-                    trace_content=trace_content,
+                    capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
                     **kwargs
@@ -142,7 +142,7 @@ def async_chat(version, environment, application_name,
     return wrapper
 
 def async_embeddings(version, environment, application_name,
-              tracer, event_provider, pricing_info, trace_content, metrics, disable_metrics):
+              tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for GenAI function call
     """

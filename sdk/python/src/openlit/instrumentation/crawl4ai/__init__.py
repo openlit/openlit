@@ -29,7 +29,7 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("crawl4ai")
 
@@ -37,14 +37,14 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
             "crawl4ai.web_crawler",
             "WebCrawler.run",
             wrap_crawl("crawl4ai.web_crawl", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "crawl4ai.async_webcrawler",
             "AsyncWebCrawler.arun",
             async_wrap_crawl("crawl4ai.web_crawl", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

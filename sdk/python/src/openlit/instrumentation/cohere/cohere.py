@@ -22,7 +22,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def embed(version, environment, application_name, tracer,
-          pricing_info, trace_content, metrics, disable_metrics):
+          pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -32,7 +32,7 @@ def embed(version, environment, application_name, tracer,
         application_name: Name of the application using the Cohere API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of Cohere usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
     
     Returns:
         A function that wraps the embeddings method to add telemetry.
@@ -105,7 +105,7 @@ def embed(version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
 
-                if trace_content:
+                if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
@@ -149,7 +149,7 @@ def embed(version, environment, application_name, tracer,
     return wrapper
 
 def chat(version, environment, application_name, tracer,
-         pricing_info, trace_content, metrics, disable_metrics):
+         pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat to collect metrics.
 
@@ -159,7 +159,7 @@ def chat(version, environment, application_name, tracer,
         application_name: Name of the application using the Cohere API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of Cohere usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the chat method to add telemetry.
@@ -281,7 +281,7 @@ def chat(version, environment, application_name, tracer,
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
 
-                if trace_content:
+                if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
@@ -336,7 +336,7 @@ def chat(version, environment, application_name, tracer,
     return wrapper
 
 def chat_stream(version, environment, application_name,
-                tracer, pricing_info, trace_content, metrics, disable_metrics):
+                tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat_stream to collect metrics.
 
@@ -346,7 +346,7 @@ def chat_stream(version, environment, application_name,
         application_name: Name of the application using the Cohere API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of Cohere usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the chat method to add telemetry.
@@ -547,7 +547,7 @@ def chat_stream(version, environment, application_name,
                                             self._ttft)
                         self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                             version)
-                        if trace_content:
+                        if capture_message_content:
                             self._span.add_event(
                                 name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                                 attributes={

@@ -29,7 +29,7 @@ class AI21Instrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("ai21")
 
@@ -38,13 +38,13 @@ class AI21Instrumentor(BaseInstrumentor):
             "ai21.clients.studio.resources.chat.chat_completions",
             "ChatCompletions.create",
             chat(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
             "StudioConversationalRag.create",
             chat_rag(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         #Async
@@ -52,13 +52,13 @@ class AI21Instrumentor(BaseInstrumentor):
             "ai21.clients.studio.resources.chat.async_chat_completions",
             "AsyncChatCompletions.create",
             async_chat(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
             "AsyncStudioConversationalRag.create",
             async_chat_rag(version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):
