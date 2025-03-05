@@ -340,3 +340,22 @@ def extract_and_format_input(messages):
             formatted_messages[role]["content"] = content_str
 
     return formatted_messages
+
+# To be removed one the change to log events (from span events) is complete
+def concatenate_all_contents(formatted_messages):
+    """
+    Concatenate all 'content' fields from the formatted messages
+    dictionary into a single string.
+
+    Parameters:
+    - formatted_messages: Dictionary with roles as keys and corresponding
+      role and content as values.
+
+    Returns:
+    - A single string with all content concatenated.
+    """
+    return " ".join(
+        message_data['content']
+        for message_data in formatted_messages.values()
+        if message_data['content']
+    )

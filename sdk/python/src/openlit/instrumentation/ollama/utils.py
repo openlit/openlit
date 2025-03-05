@@ -13,7 +13,8 @@ from openlit.__helpers import (
     get_embed_model_cost,
     handle_exception,
     create_metrics_attributes,
-    otel_event
+    otel_event,
+    concatenate_all_contents
 )
 from openlit.semcov import SemanticConvetion
 
@@ -96,6 +97,22 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TBT, scope._tbt)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT, scope._ttft)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION, version)
+
+    # To be removed one the change to log events (from span events) is complete
+    prompt = concatenate_all_contents(formatted_messages)
+    if capture_message_content:
+        scope._span.add_event(
+            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+            attributes={
+                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+            },
+        )
+        scope._span.add_event(
+            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+            attributes={
+                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
+            },
+        )
 
     choice_event_body = {
         "finish_reason": scope._finish_reason,
@@ -192,6 +209,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
                           span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
     self = type('GenericScope', (), {})()
     self._start_time = start_time
+    self._end_time = time.time()
     self._span = span
     self._llmresponse = response.get('message', {}).get('content', '')
     self._response_role = response.get('message', {}).get('role', 'assistant')
@@ -200,7 +218,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     self._response_model = response.get('model', '')
     self._finish_reason = response.get('done_reason', '')
     self._timestamps = []
-    self._ttft, self._tbt, self._end_time = 0, 0, time.time()
+    self._ttft, self._tbt = self._end_time - self._start_time, 0
     self._server_address, self._server_port = server_address, server_port
     self._kwargs = kwargs
     self._tool_calls = response.get('message', {}).get('tool_calls', [])
