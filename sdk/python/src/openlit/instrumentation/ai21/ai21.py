@@ -157,7 +157,7 @@ def chat(version, environment, application_name,
     return wrapper
 
 def chat_rag(version, environment, application_name,
-                     tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics):
+                tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for GenAI function call
     """

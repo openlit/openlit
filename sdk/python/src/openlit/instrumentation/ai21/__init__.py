@@ -53,13 +53,13 @@ class AI21Instrumentor(BaseInstrumentor):
             "ai21.clients.studio.resources.chat.async_chat_completions",
             "AsyncChatCompletions.create",
             async_chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
             "AsyncStudioConversationalRag.create",
             async_chat_rag(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):
