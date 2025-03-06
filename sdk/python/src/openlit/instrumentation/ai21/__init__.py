@@ -45,7 +45,7 @@ class AI21Instrumentor(BaseInstrumentor):
             "ai21.clients.studio.resources.studio_conversational_rag",
             "StudioConversationalRag.create",
             chat_rag(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         #Async

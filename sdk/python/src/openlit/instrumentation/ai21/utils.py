@@ -284,3 +284,165 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
                         event_provider, capture_message_content, disable_metrics, version, is_stream=False)
 
     return response
+
+def process_chat_rag_response(response, request_model, pricing_info, server_port, server_address,
+                          environment, application_name, metrics, event_provider, start_time,
+                          span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+    
+    end_time = time.time()
+
+    try:
+        # Format 'messages' into a single string
+        message_prompt = kwargs.get("messages", "")
+        formatted_messages = []
+        for message in message_prompt:
+            role = message.role
+            content = message.content
+
+            if isinstance(content, list):
+                content_str = ", ".join(
+                    f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
+                    if "type" in item else f'text: {item["text"]}'
+                    for item in content
+                )
+                formatted_messages.append(f"{role}: {content_str}")
+            else:
+                formatted_messages.append(f"{role}: {content}")
+        prompt = "\n".join(formatted_messages)
+
+        input_tokens = general_tokens(prompt)
+
+        # Set base span attribues (OTel Semconv)
+        span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+        span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
+        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                            SemanticConvetion.GEN_AI_SYSTEM_AI21)
+        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                            request_model)
+        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
+                            kwargs.get("seed", ""))
+        span.set_attribute(SemanticConvetion.SERVER_PORT,
+                            server_port)
+        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+                            kwargs.get("frequency_penalty", 0.0))
+        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
+                            kwargs.get("max_tokens", -1))
+        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
+                            kwargs.get("presence_penalty", 0.0))
+        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES,
+                            kwargs.get("stop", []))
+        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
+                            kwargs.get("temperature", 0.4))
+        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
+                            kwargs.get("top_p", 1.0))
+        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                            response.get("id"))
+        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                            request_model)
+        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                            input_tokens)
+        span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                            server_address)
+
+        # Set base span attribues (Extras)
+        span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                            environment)
+        span.set_attribute(SERVICE_NAME,
+                            application_name)
+        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                            False)
+        span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
+                            end_time - start_time)
+        span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                            version)
+        span.set_attribute(SemanticConvetion.GEN_AI_RAG_MAX_SEGMENTS,
+                            kwargs.get("max_segments", -1))
+        span.set_attribute(SemanticConvetion.GEN_AI_RAG_STRATEGY,
+                            kwargs.get("retrieval_strategy", "segments"))
+        span.set_attribute(SemanticConvetion.GEN_AI_RAG_SIMILARITY_THRESHOLD,
+                            kwargs.get("retrieval_similarity_threshold", -1))
+        span.set_attribute(SemanticConvetion.GEN_AI_RAG_MAX_NEIGHBORS,
+                            kwargs.get("max_neighbors", -1))
+        span.set_attribute(SemanticConvetion.GEN_AI_RAG_FILE_IDS,
+                            str(kwargs.get("file_ids", "")))
+        span.set_attribute(SemanticConvetion.GEN_AI_RAG_DOCUMENTS_PATH,
+                            kwargs.get("path", ""))
+        if capture_message_content:
+            span.add_event(
+                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                attributes={
+                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                },
+            )
+
+        output_tokens = 0
+        for i in range(kwargs.get('n',1)):
+            output_tokens += general_tokens(response.get('choices')[i].get('content'))
+
+            if capture_message_content:
+                span.add_event(
+                    name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                    attributes={
+                        # pylint: disable=line-too-long
+                        SemanticConvetion.GEN_AI_CONTENT_COMPLETION: str(response.get('choices')[i].get('content')),
+                    },
+                )
+            if kwargs.get('tools'):
+                span.set_attribute(SemanticConvetion.GEN_AI_TOOL_CALLS,
+                                str(response.get('choices')[i].get('message').get('tool_calls')))
+
+            if isinstance(response.get('choices')[i].get('content'), str):
+                span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                "text")
+            elif response.get('choices')[i].get('content') is not None:
+                span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                "json")
+
+        # Calculate cost of the operation
+        cost = get_chat_model_cost(request_model,
+                                    pricing_info, input_tokens,
+                                    output_tokens)
+        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                            cost)
+        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                            output_tokens)
+        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                            input_tokens + output_tokens)
+
+        span.set_status(Status(StatusCode.OK))
+
+        if disable_metrics is False:
+            attributes = create_metrics_attributes(
+                service_name=application_name,
+                deployment_environment=environment,
+                operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
+                system=SemanticConvetion.GEN_AI_SYSTEM_AI21,
+                request_model=request_model,
+                server_address=server_address,
+                server_port=server_port,
+                response_model=request_model,
+            )
+
+            metrics["genai_client_usage_tokens"].record(
+                input_tokens + output_tokens, attributes
+            )
+            metrics["genai_client_operation_duration"].record(
+                end_time - start_time, attributes
+            )
+            metrics["genai_server_ttft"].record(
+                end_time - start_time, attributes
+            )
+            metrics["genai_requests"].add(1, attributes)
+            metrics["genai_completion_tokens"].add(output_tokens, attributes)
+            metrics["genai_prompt_tokens"].add(input_tokens, attributes)
+            metrics["genai_cost"].record(cost, attributes)
+
+        # Return original response
+        return response
+
+    except Exception as e:
+        handle_exception(span, e)
+
+        # Return original response
+        return response
