@@ -14,7 +14,6 @@ from openlit.__helpers import (
     general_tokens,
     extract_and_format_input,
     get_chat_model_cost,
-    get_embed_model_cost,
     handle_exception,
     create_metrics_attributes,
     otel_event,
@@ -64,11 +63,13 @@ def setup_common_span_attributes(span, request_model, kwargs, tokens,
     for key, value in extra_attrs.items():
         span.set_attribute(key, value)
 
-# ----------------------------------------------------------------------
-# Helper: Record common metrics for the operation.
 def record_common_metrics(metrics, application_name, environment, request_model,
                           server_address, server_port, start_time, end_time,
                           input_tokens, output_tokens, cost, include_tbt=False, tbt_value=None):
+    """
+    Record common metrics for the operation.
+    """
+
     attributes = create_metrics_attributes(
         service_name=application_name,
         deployment_environment=environment,
@@ -89,11 +90,12 @@ def record_common_metrics(metrics, application_name, environment, request_model,
     metrics["genai_prompt_tokens"].add(input_tokens, attributes)
     metrics["genai_cost"].record(cost, attributes)
 
-# ----------------------------------------------------------------------
-# Helper: Emit events common to both chat and chat rag operations.
 def emit_common_events(event_provider, choices, finish_reason, llmresponse, formatted_messages,
                        capture_message_content, n):
-    # Emit a choice event per choice if multiple choices are expected.
+    """
+    Emit events common to both chat and chat rag operations.
+    """
+
     if n > 1:
         for choice in choices:
             choice_event_body = {
@@ -179,11 +181,11 @@ def emit_common_events(event_provider, choices, finish_reason, llmresponse, form
             )
             event_provider.emit(event)
 
-# ----------------------------------------------------------------------
 def process_chunk(self, chunk):
     """
     Process a chunk of response data and update state.
     """
+
     end_time = time.time()
     # Record the timestamp for the current chunk.
     self._timestamps.append(end_time)
@@ -205,13 +207,12 @@ def process_chunk(self, chunk):
     self._choices += chunked.get('choices')
     self._finish_reason = chunked.get('choices')[0].get('finish_reason')
 
-# ----------------------------------------------------------------------
 def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
                       event_provider, capture_message_content, disable_metrics, version, is_stream):
     """
     Process chat request and generate Telemetry.
-    This common function is used by both synchronous and streaming methods.
     """
+
     scope._end_time = time.time()
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
@@ -270,45 +271,48 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
                               scope._input_tokens, scope._output_tokens, cost,
                               include_tbt=True, tbt_value=scope._tbt)
 
-# ----------------------------------------------------------------------
 def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics,
                                     event_provider, capture_message_content=False, disable_metrics=False, version=''):
     """
     Process a streaming chat response and generate Telemetry.
     """
+
     common_chat_logic(self, pricing_info, environment, application_name, metrics,
                       event_provider, capture_message_content, disable_metrics, version, is_stream=True)
 
-# ----------------------------------------------------------------------
 def process_chat_response(response, request_model, pricing_info, server_port, server_address,
                           environment, application_name, metrics, event_provider, start_time,
                           span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
     """
     Process a synchronous chat response and generate Telemetry.
     """
+
     # Create a generic scope object to hold telemetry data.
-    scope = type('GenericScope', (), {})()
-    scope._start_time = start_time
-    scope._end_time = time.time()
-    scope._span = span
+    self = type('GenericScope', (), {})()
+    
+    # pylint: disable = no-member
+    self._start_time = start_time
+    self._end_time = time.time()
+
+    self._span = span
     # Concatenate content from all choices.
-    scope._llmresponse = ''.join(
+    self._llmresponse = ''.join(
         (choice.get('message', {}).get('content') or '')
         for choice in response.get('choices', [])
     )
-    scope._response_role = response.get('message', {}).get('role', 'assistant')
-    scope._input_tokens = response.get('usage', {}).get('prompt_tokens', 0)
-    scope._output_tokens = response.get('usage', {}).get('completion_tokens', 0)
-    scope._response_id = response.get('id', '')
-    scope._response_model = request_model
-    scope._finish_reason = response.get('choices', [{}])[0].get('finish_reason')
-    scope._timestamps = []
-    scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
-    scope._server_address, scope._server_port = server_address, server_port
-    scope._kwargs = kwargs
-    scope._choices = response.get('choices')
+    self._response_role = response.get('message', {}).get('role', 'assistant')
+    self._input_tokens = response.get('usage', {}).get('prompt_tokens', 0)
+    self._output_tokens = response.get('usage', {}).get('completion_tokens', 0)
+    self._response_id = response.get('id', '')
+    self._response_model = request_model
+    self._finish_reason = response.get('choices', [{}])[0].get('finish_reason')
+    self._timestamps = []
+    self._ttft, self._tbt = self._end_time - self._start_time, 0
+    self._server_address, self._server_port = server_address, server_port
+    self._kwargs = kwargs
+    self._choices = response.get('choices')
 
-    common_chat_logic(scope, pricing_info, environment, application_name, metrics,
+    common_chat_logic(self, pricing_info, environment, application_name, metrics,
                       event_provider, capture_message_content, disable_metrics, version, is_stream=False)
 
     return response
@@ -317,8 +321,7 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
                               environment, application_name, metrics, event_provider, start_time,
                               span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
     """
-    Process a chat RAG response and generate Telemetry.
-    This function now concatenates all completion responses into one event.
+    Process a chat response and generate Telemetry.
     """
     end_time = time.time()
     try:

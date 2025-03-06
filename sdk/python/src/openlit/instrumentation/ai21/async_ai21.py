@@ -4,17 +4,11 @@ Module for monitoring AI21 calls.
 
 import logging
 import time
-from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
-    get_chat_model_cost,
     handle_exception,
     response_as_dict,
-    calculate_ttft,
-    calculate_tbt,
-    create_metrics_attributes,
     set_server_address_and_port,
-    general_tokens
 )
 from openlit.instrumentation.ai21.utils import (
     process_chunk,
@@ -151,7 +145,7 @@ def async_chat(version, environment, application_name,
                     version=version,
                     **kwargs
                 )
-            
+
             return response
 
     return wrapper
