@@ -48,12 +48,6 @@ def setup_events(application_name, environment, event_logger, otlp_endpoint, otl
                 TELEMETRY_SDK_NAME: "openlit"}
             )
 
-            # Get event logger with a name
-            event_logger = _events.get_event_logger("shopping.events")
-
-
-
-
             # Initialize the LoggerProvider with the created resource.
             logger_provider = LoggerProvider(resource=resource)
 

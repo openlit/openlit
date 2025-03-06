@@ -24,7 +24,6 @@ from openlit.otel.metrics import setup_meter
 from openlit.otel.events import setup_events
 from openlit.__helpers import fetch_pricing_info, get_env_variable
 
-
 # Instrumentors for various large language models.
 from openlit.instrumentation.openai import OpenAIInstrumentor
 from openlit.instrumentation.anthropic import AnthropicInstrumentor
@@ -321,7 +320,7 @@ def init(
         if not tracer:
             logger.error("OpenLIT tracing setup failed. Tracing will not be available.")
             return
-        
+
         # Setup events based on the provided or default configuration.
         event_provider = setup_events(
                 application_name=application_name,

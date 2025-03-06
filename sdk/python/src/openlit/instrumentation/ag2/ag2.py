@@ -7,7 +7,7 @@ import time
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
-    handle_exception, 
+    handle_exception,
     get_chat_model_cost,
     otel_event,
 )
@@ -54,7 +54,7 @@ def calculate_tokens_and_cost(response, request_model, pricing_info):
                 if isinstance(model_data, dict):
                     input_tokens += model_data.get('prompt_tokens', 0)
                     output_tokens += model_data.get('completion_tokens', 0)
-                    
+
     cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
     return input_tokens, output_tokens, cost
 
@@ -64,7 +64,7 @@ def emit_events(response, event_provider, capture_message_content):
     """
     for chat in response.chat_history:
         event_type = (
-            SemanticConvetion.GEN_AI_CHOICE if chat['role'] == 'user' 
+            SemanticConvetion.GEN_AI_CHOICE if chat['role'] == 'user'
             else SemanticConvetion.GEN_AI_USER_MESSAGE
         )
         choice_event = otel_event(
@@ -112,7 +112,7 @@ def conversable_agent(version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT, end_time - start_time)
 
                 span.set_status(Status(StatusCode.OK))
-                
+
                 return response
 
             except Exception as e:

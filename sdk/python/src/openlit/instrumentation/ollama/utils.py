@@ -1,3 +1,6 @@
+"""
+Ollama OpenTelemetry instrumentation utility functions
+"""
 import time
 
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
@@ -148,11 +151,13 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
                     SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
                 },
                 body = {
+                    # pylint: disable=line-too-long
                     **({"content": formatted_messages.get(role, {}).get('content', '')} if capture_message_content else {}),
                     "role": formatted_messages.get(role, {}).get('role', []),
                     **({
                         "tool_calls": {
                             "function": {
+                                # pylint: disable=line-too-long
                                 "name": (scope._tool_calls[0].get('function', {}).get('name', '') if scope._tool_calls else ''),
                                 "arguments": (scope._tool_calls[0].get('function', {}).get('arguments', '') if scope._tool_calls else '')
                             },
@@ -201,7 +206,11 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
 def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics,
                                     event_provider, capture_message_content=False, disable_metrics=False, version=''):
-    common_chat_logic(self, pricing_info, environment, application_name, metrics, 
+    """
+    Process chat request and generate Telemetry
+    """
+
+    common_chat_logic(self, pricing_info, environment, application_name, metrics,
                         event_provider, capture_message_content, disable_metrics, version, is_stream=True)
 
 def process_chat_response(response, request_model, pricing_info, server_port, server_address,
@@ -212,6 +221,8 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     """
 
     self = type('GenericScope', (), {})()
+
+    # pylint: disable = no-member
     self._start_time = start_time
     self._end_time = time.time()
     self._span = span
@@ -227,7 +238,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     self._kwargs = kwargs
     self._tool_calls = response.get('message', {}).get('tool_calls', [])
 
-    common_chat_logic(self, pricing_info, environment, application_name, metrics, 
+    common_chat_logic(self, pricing_info, environment, application_name, metrics,
                         event_provider, capture_message_content, disable_metrics, version, is_stream=False)
 
     return response

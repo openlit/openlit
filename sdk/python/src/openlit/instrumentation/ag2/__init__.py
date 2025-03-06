@@ -29,7 +29,7 @@ class AG2Instrumentor(BaseInstrumentor):
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("ag2")
-        
+
         wrap_function_wrapper(
             "autogen.agentchat.conversable_agent",
             "ConversableAgent.__init__",

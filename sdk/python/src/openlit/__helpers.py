@@ -288,6 +288,10 @@ def set_server_address_and_port(client_instance: Any,
     return server_address, server_port
 
 def otel_event(name, attributes, body):
+    """
+    Returns an OpenTelemetry Event object
+    """
+
     return Event(
         name=name,
         attributes=attributes,
@@ -298,14 +302,8 @@ def extract_and_format_input(messages):
     """
     Process a list of messages to extract content and categorize
     them into fixed roles like 'user', 'assistant', 'system'.
-
-    Parameters:
-    - messages: List of message objects or dictionaries to process.
-
-    Returns:
-    - A dictionary with fixed keys for roles and a dictionary 
-      containing dynamically extracted role and concatenated content as values.
     """
+
     fixed_roles = ['user', 'assistant', 'system', 'tool']  # Ensure these are your fixed keys
     # Initialize the dictionary with fixed keys and empty structures
     formatted_messages = {role_key: {"role": "", "content": ""} for role_key in fixed_roles}
@@ -324,6 +322,7 @@ def extract_and_format_input(messages):
         # Prepare content as a string
         if isinstance(content, list):
             content_str = ", ".join(
+                # pylint: disable=line-too-long
                 f'{item.get("type", "text")}: {item.get("text", item.get("image_url", "").get("url", "") if isinstance(item.get("image_url", ""), dict) else item.get("image_url", ""))}'
                 for item in content
             )
