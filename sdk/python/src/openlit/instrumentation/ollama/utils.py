@@ -92,7 +92,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     scope._span.set_attribute(SERVICE_NAME, application_name)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, is_stream)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS, scope._input_tokens + scope._output_tokens)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens + scope._output_tokens)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TBT, scope._tbt)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT, scope._ttft)
@@ -263,7 +263,7 @@ def process_embedding_response(response, request_model, pricing_info, server_por
                             environment)
         span.set_attribute(SERVICE_NAME,
                             application_name)
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+        span.set_attribute(SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE,
                             input_tokens)
         span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
                             cost)
