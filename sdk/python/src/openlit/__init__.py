@@ -349,7 +349,7 @@ def init(
             )
             return
 
-        if os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT").lower == "false":
+        if os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower == "false":
             capture_message_content=False
 
         # Update global configuration with the provided settings.

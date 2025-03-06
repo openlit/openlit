@@ -27,6 +27,7 @@ class AI21Instrumentor(BaseInstrumentor):
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
         tracer = kwargs.get("tracer")
+        event_provider = kwargs.get("event_provider")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
@@ -38,7 +39,7 @@ class AI21Instrumentor(BaseInstrumentor):
             "ai21.clients.studio.resources.chat.chat_completions",
             "ChatCompletions.create",
             chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
