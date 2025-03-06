@@ -265,7 +265,9 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     self._start_time = start_time
     self._end_time = time.time()
     self._span = span
-    self._llmresponse = ''.join(choice.get('message', {}).get('content', '') for choice in response.get('choices', []))
+    self._llmresponse = ''.join(
+        (choice.get('message', {}).get('content') or '') for choice in response.get('choices', [])
+    )
     self._response_role = response.get('message', {}).get('role', 'assistant')
     self._input_tokens = response.get('usage', {}).get('prompt_tokens', 0)
     self._output_tokens = response.get('usage', {}).get('completion_tokens', 0)

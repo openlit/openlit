@@ -132,7 +132,6 @@ def chat(version, environment, application_name,
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
                 response_dict =response_as_dict(response)
-
                 response = process_chat_response(
                     response=response_dict,
                     request_model=request_model,
