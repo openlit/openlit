@@ -42,6 +42,7 @@ def chat(version, environment, application_name,
                 self,
                 wrapped,
                 span,
+                span_name,
                 kwargs,
                 server_address,
                 server_port,
@@ -49,6 +50,7 @@ def chat(version, environment, application_name,
             ):
             self.__wrapped__ = wrapped
             self._span = span
+            self._span_name = span_name
             # Placeholder for aggregating streaming response
             self._llmresponse = ""
             self._response_id = ""
@@ -89,22 +91,21 @@ def chat(version, environment, application_name,
             except StopIteration:
                 # Handling exception ensure observability without disrupting operation
                 try:
-                    process_streaming_chat_response(
-                        self,
-                        pricing_info=pricing_info,
-                        environment=environment,
-                        application_name=application_name,
-                        metrics=metrics,
-                        event_provider=event_provider,
-                        capture_message_content=capture_message_content,
-                        disable_metrics=disable_metrics,
-                        version=version
-                    )
+                    with tracer.start_as_current_span(self._span_name, kind= SpanKind.CLIENT) as self._span:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            event_provider=event_provider,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version
+                        )
                 except Exception as e:
                     handle_exception(self._span, e)
                     logger.error("Error in trace creation: %s", e)
-                finally:
-                    self._span.end()
                 raise
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -114,6 +115,7 @@ def chat(version, environment, application_name,
 
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
+
         server_address, server_port = set_server_address_and_port(instance, "api.ai21.com", 443)
         request_model = kwargs.get("model", "jamba-1.5-mini")
 
@@ -124,7 +126,7 @@ def chat(version, environment, application_name,
             # Special handling for streaming response to accommodate the nature of data flow
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-            return TracedSyncStream(awaited_wrapped, span, kwargs, server_address, server_port)
+            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
 
         # Handling for non-streaming responses
         else:
