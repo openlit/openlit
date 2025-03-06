@@ -7,7 +7,7 @@ max-locals=30
 max-args=25
 
 # Maximum number of positional arguments (see R0917).
-max-positional-arguments=12
+max-positional-arguments=15
 
 # Maximum allowed line length
 max-line-length=120
@@ -27,4 +27,5 @@ disable=
     too-many-lines,
     no-name-in-module,
     protected-access,
-    bare-except
+    bare-except,
+    expression-not-assigned

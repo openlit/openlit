@@ -10,8 +10,8 @@ from openlit.__helpers import (
     set_server_address_and_port
 )
 from openlit.instrumentation.ollama.utils import (
-    process_chunk, 
-    process_chat_response, 
+    process_chunk,
+    process_chat_response,
     process_streaming_chat_response,
     process_embedding_response
 )

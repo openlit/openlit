@@ -1,3 +1,7 @@
+"""
+Module for monitoring AG2 API calls.
+"""
+
 import logging
 import time
 from opentelemetry.trace import SpanKind, Status, StatusCode
@@ -17,18 +21,24 @@ REQUEST_MODEL = ''
 SYSTEM_MESSAGE = ''
 MODEL_AND_NAME_SET = False
 
-def set_span_attributes(span, version, environment, application_name, server_address, server_port, request_model):
+def set_span_attributes(span, version, operation_name, environment,
+        application_name, server_address, server_port, request_model):
     """
     Set common attributes for the span.
     """
+
+    # Set Span attributes (OTel Semconv)
     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION, operation_name)
     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AG2)
     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_NAME, AGENT_NAME)
     span.set_attribute(SemanticConvetion.SERVER_ADDRESS, server_address)
     span.set_attribute(SemanticConvetion.SERVER_PORT, server_port)
+    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, request_model)
+
+    # Set Span attributes (Extras)
     span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     span.set_attribute(SERVICE_NAME, application_name)
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, request_model)
     span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION, version)
 
 def calculate_tokens_and_cost(response, request_model, pricing_info):
@@ -37,7 +47,7 @@ def calculate_tokens_and_cost(response, request_model, pricing_info):
     """
     input_tokens = 0
     output_tokens = 0
-    
+
     for usage_data in response.cost.values():
         if isinstance(usage_data, dict):
             for model_data in usage_data.values():
@@ -80,7 +90,7 @@ def conversable_agent(version, environment, application_name,
     def wrapper(wrapped, instance, args, kwargs):
         server_address, server_port = '127.0.0.1', 80
         global AGENT_NAME, MODEL_AND_NAME_SET, REQUEST_MODEL, SYSTEM_MESSAGE
-        
+
         if not MODEL_AND_NAME_SET:
             AGENT_NAME = kwargs.get("name", "NOT_FOUND")
             REQUEST_MODEL = kwargs.get("llm_config", {}).get('model', 'gpt-4o')
@@ -95,10 +105,11 @@ def conversable_agent(version, environment, application_name,
                 response = wrapped(*args, **kwargs)
                 end_time = time.time()
 
-                set_span_attributes(span, version, environment, application_name, server_address, server_port, REQUEST_MODEL)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION, SemanticConvetion.GEN_AI_OPERATION_TYPE_CREATE_AGENT)
+                set_span_attributes(span, version, SemanticConvetion.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
+                    environment, application_name, server_address, server_port, REQUEST_MODEL)
                 span.set_attribute(SemanticConvetion.GEN_AI_AGENT_DESCRIPTION, SYSTEM_MESSAGE)
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, REQUEST_MODEL)
+                span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT, end_time - start_time)
 
                 span.set_status(Status(StatusCode.OK))
                 
@@ -118,7 +129,7 @@ def agent_run(version, environment, application_name,
     """
     def wrapper(wrapped, instance, args, kwargs):
         server_address, server_port = '127.0.0.1', 80
-        global AGENT_NAME, REQUEST_MODEL
+
         span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK} {AGENT_NAME}"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -126,17 +137,18 @@ def agent_run(version, environment, application_name,
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
                 end_time = time.time()
-                
-                input_tokens, output_tokens, cost = calculate_tokens_and_cost(response, REQUEST_MODEL, pricing_info)
 
-                set_span_attributes(span, version, environment, application_name, server_address, server_port, REQUEST_MODEL)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION, SemanticConvetion.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK)
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, 
-                                   list(response.cost.get('usage_including_cached_inference', {}).keys())[1])
+                input_tokens, output_tokens, cost = calculate_tokens_and_cost(response, REQUEST_MODEL, pricing_info)
+                response_model = list(response.cost.get('usage_including_cached_inference', {}).keys())[1]
+
+                set_span_attributes(span, version, SemanticConvetion.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
+                    environment, application_name, server_address, server_port, REQUEST_MODEL)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, response_model)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
+                span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT, end_time - start_time)
 
                 emit_events(response, event_provider, capture_message_content)
                 span.set_status(Status(StatusCode.OK))

@@ -1,7 +1,7 @@
 import time
 
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT, TELEMETRY_SDK_VERSION
-from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
     calculate_ttft,
@@ -20,11 +20,9 @@ from openlit.semcov import SemanticConvetion
 
 def process_chunk(self, chunk):
     """
-    Process a chunk of response data and update internal state.
-
-    Parameters:
-    - chunk: The chunk of response data to process.
+    Process a chunk of response data and update state.
     """
+
     end_time = time.time()
     # Record the timestamp for the current chunk
     self._timestamps.append(end_time)
@@ -48,6 +46,10 @@ def process_chunk(self, chunk):
 
 def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
                         event_provider, capture_message_content, disable_metrics, version, is_stream):
+    """
+    Process chat request and generate Telemetry
+    """
+
     scope._end_time = time.time()
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
@@ -63,7 +65,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OLLAMA)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, request_model)
     scope._span.set_attribute(SemanticConvetion.SERVER_PORT, scope._server_port)
-    
+
     options = scope._kwargs.get('options', {})
     attributes = [
         (SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'repeat_penalty'),
@@ -173,7 +175,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         body=choice_event_body
     )
     event_provider.emit(choice_event)
-    
+
     scope._span.set_status(Status(StatusCode.OK))
 
     if not disable_metrics:
@@ -197,16 +199,18 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         metrics["genai_prompt_tokens"].add(scope._input_tokens, metrics_attributes)
         metrics["genai_cost"].record(cost, metrics_attributes)
 
-
 def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics,
                                     event_provider, capture_message_content=False, disable_metrics=False, version=''):
     common_chat_logic(self, pricing_info, environment, application_name, metrics, 
                         event_provider, capture_message_content, disable_metrics, version, is_stream=True)
 
-
 def process_chat_response(response, request_model, pricing_info, server_port, server_address,
                           environment, application_name, metrics, event_provider, start_time,
                           span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+    """
+    Process chat request and generate Telemetry
+    """
+
     self = type('GenericScope', (), {})()
     self._start_time = start_time
     self._end_time = time.time()
@@ -225,12 +229,15 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
 
     common_chat_logic(self, pricing_info, environment, application_name, metrics, 
                         event_provider, capture_message_content, disable_metrics, version, is_stream=False)
-    
+
     return response
 
 def process_embedding_response(response, request_model, pricing_info, server_port, server_address,
-    environment, application_name, metrics, event_provider,
-    start_time, span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+        environment, application_name, metrics, event_provider,
+        start_time, span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+    """
+    Process embedding request and generate Telemetry
+    """
 
     end_time = time.time()
 
