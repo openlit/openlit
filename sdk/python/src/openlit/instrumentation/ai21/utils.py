@@ -289,7 +289,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
 
     # Create a generic scope object to hold telemetry data.
     self = type('GenericScope', (), {})()
-    
+
     # pylint: disable = no-member
     self._start_time = start_time
     self._end_time = time.time()
