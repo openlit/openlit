@@ -387,7 +387,7 @@ def chat_completions(version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SERVICE_TIER,
                                         response_dict.get('service_tier'))
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
-                                        response_dict.get('system_fingerprint'))
+                                        str(response_dict.get('system_fingerprint', '')))
 
                     # Set base span attribues (Extras)
                     span.set_attribute(DEPLOYMENT_ENVIRONMENT,

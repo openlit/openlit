@@ -287,6 +287,11 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                     pricing_info, input_tokens, output_tokens
                 )
 
+                try:
+                    llm_response = response.content
+                except AttributeError:
+                    llm_response = response
+
                 # Set base span attribues (OTel Semconv)
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
