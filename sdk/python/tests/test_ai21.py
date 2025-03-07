@@ -60,7 +60,7 @@ def test_sync_ai21_chat_stream():
         max_tokens=1,
     )
     for response in responses:
-        assert isinstance(response['id'], str)
+        assert isinstance(response.id, str)
         return
 
 def test_sync_ai21_chat_rag():
@@ -105,7 +105,7 @@ async def test_async_ai21_test():
         max_tokens=1,
     )
     async for text in responses:
-        assert isinstance(text['id'], str)
+        assert isinstance(text.id, str)
         return
 
     response = await async_client.beta.conversational_rag.create(
