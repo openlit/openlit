@@ -23,7 +23,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def async_complete(version, environment, application_name,
-                     tracer, pricing_info, trace_content, metrics, disable_metrics):
+                     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat to collect metrics.
 
@@ -33,7 +33,7 @@ def async_complete(version, environment, application_name,
         application_name: Name of the application using the Azure AI Inference API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of Azure AI Inference usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the chat method to add telemetry.
@@ -217,7 +217,7 @@ def async_complete(version, environment, application_name,
                                         self._ttft)
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                         version)
-                    if trace_content:
+                    if capture_message_content:
                         self._span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
@@ -388,7 +388,7 @@ def async_complete(version, environment, application_name,
                                         end_time - start_time)
                     span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                         version)
-                    if trace_content:
+                    if capture_message_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
@@ -399,7 +399,7 @@ def async_complete(version, environment, application_name,
                     for i in range(kwargs.get('n',1)):
                         span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                            [response_dict.get('choices')[i].get('finish_reason')])
-                        if trace_content:
+                        if capture_message_content:
                             span.add_event(
                                 name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                                 attributes={
@@ -459,7 +459,7 @@ def async_complete(version, environment, application_name,
     return wrapper
 
 def async_embedding(version, environment, application_name,
-              tracer, pricing_info, trace_content, metrics, disable_metrics):
+              tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for embeddings to collect metrics.
     
@@ -469,7 +469,7 @@ def async_embedding(version, environment, application_name,
         application_name: Name of the application using the Azure Inference API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of Azure Inference usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
     
     Returns:
         A function that wraps the embeddings method to add telemetry.
@@ -541,7 +541,7 @@ def async_embedding(version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
 
-                if trace_content:
+                if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={

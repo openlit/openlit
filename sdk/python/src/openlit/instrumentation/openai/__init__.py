@@ -25,7 +25,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
+        capture_message_content = kwargs.get("capture_message_content")
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("openai")
 
@@ -33,7 +33,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "openai.resources.chat.completions",  
             "Completions.create",  
             chat_completions(version, environment, application_name,
-                         tracer, pricing_info, trace_content,
+                         tracer, pricing_info, capture_message_content,
                          metrics, disable_metrics),
         )
 
@@ -41,7 +41,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "openai.resources.chat.completions",  
             "AsyncCompletions.create",  
             async_chat_completions(version, environment, application_name,
-                               tracer, pricing_info, trace_content,
+                               tracer, pricing_info, capture_message_content,
                                metrics, disable_metrics),
         )
 
@@ -49,7 +49,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "openai.resources.images",  
             "Images.generate",  
             image_generate(version, environment, application_name,
-                                   tracer, pricing_info, trace_content,
+                                   tracer, pricing_info, capture_message_content,
                                    metrics, disable_metrics),
         )
 
@@ -57,7 +57,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "openai.resources.images",  
             "AsyncImages.generate",  
             async_image_generate(version, environment, application_name,
-                                         tracer, pricing_info, trace_content,
+                                         tracer, pricing_info, capture_message_content,
                                          metrics, disable_metrics),
         )
 
@@ -65,7 +65,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "openai.resources.embeddings",  
             "Embeddings.create",  
             embedding(version, environment, application_name,
-                              tracer, pricing_info, trace_content,
+                              tracer, pricing_info, capture_message_content,
                               metrics, disable_metrics),
         )
 
@@ -73,7 +73,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "openai.resources.embeddings",  
             "AsyncEmbeddings.create",  
             async_embedding(version, environment, application_name,
-                                    tracer, pricing_info, trace_content,
+                                    tracer, pricing_info, capture_message_content,
                                     metrics, disable_metrics),
         )
 
@@ -82,7 +82,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "Images.create_variation",  
             image_variatons(version,
                             environment, application_name,
-                            tracer, pricing_info, trace_content,
+                            tracer, pricing_info, capture_message_content,
                             metrics, disable_metrics),
         )
 
@@ -91,7 +91,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "AsyncImages.create_variation",  
             async_image_variatons(version,
                                   environment, application_name,
-                                  tracer, pricing_info, trace_content,
+                                  tracer, pricing_info, capture_message_content,
                                   metrics, disable_metrics),
         )
 
@@ -99,7 +99,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "openai.resources.audio.speech",  
             "Speech.create",  
             audio_create(version, environment, application_name,
-                         tracer, pricing_info, trace_content,
+                         tracer, pricing_info, capture_message_content,
                          metrics, disable_metrics),
         )
 
@@ -107,7 +107,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
             "openai.resources.audio.speech",  
             "AsyncSpeech.create",  
             async_audio_create(version, environment, application_name,
-                               tracer, pricing_info, trace_content,
+                               tracer, pricing_info, capture_message_content,
                                metrics, disable_metrics),
         )
 

@@ -19,7 +19,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def generate(version, environment, application_name,
-                     tracer, pricing_info, trace_content, metrics, disable_metrics):
+                     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for generate to collect metrics.
 
@@ -29,7 +29,7 @@ def generate(version, environment, application_name,
         application_name: Name of the application using the vLLM API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of vLLM usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the generate method to add telemetry.
@@ -97,7 +97,7 @@ def generate(version, environment, application_name,
                 output_tokens = 0
                 cost = 0
 
-                if trace_content:
+                if capture_message_content:
                     prompt_attributes = {}
                     completion_attributes = {}
 

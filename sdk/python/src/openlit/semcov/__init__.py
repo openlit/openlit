@@ -28,6 +28,13 @@ class SemanticConvetion:
     GEN_AI_SERVER_TBT = "gen_ai.server.time_per_output_token"
     GEN_AI_SERVER_TTFT = "gen_ai.server.time_to_first_token"
 
+    # GenAI Event Names (OTel Semconv)
+    GEN_AI_USER_MESSAGE = "gen_ai.user.message"
+    GEN_AI_SYSTEM_MESSAGE = "gen_ai.system.message"
+    GEN_AI_ASSISTANT_MESSAGE = "gen_ai.assistant.message"
+    GEN_AI_TOOL_MESSAGE = "gen_ai.tools.message"
+    GEN_AI_CHOICE = "gen_ai.choice"
+
     # GenAI Request Attributes (OTel Semconv)
     GEN_AI_OPERATION = "gen_ai.operation.name"
     GEN_AI_SYSTEM = "gen_ai.system"
@@ -64,6 +71,7 @@ class SemanticConvetion:
     GEN_AI_OPERATION_TYPE_FRAMEWORK = "framework"
     GEN_AI_OPERATION_TYPE_AGENT = "agent"
     GEN_AI_OPERATION_TYPE_CREATE_AGENT = "create_agent"
+    GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = "execute_task"
 
     # GenAI Output Types (OTel Semconv)
     GEN_AI_OUTPUT_TYPE_IMAGE = "image"
@@ -221,8 +229,12 @@ class SemanticConvetion:
     DB_SYSTEM_MILVUS = "milvus"
     DB_SYSTEM_ASTRA = "astra"
 
-    # Agents
+    # GenAI Request Attributes (OTel Semconv)
     GEN_AI_AGENT_ID = "gen_ai.agent.id"
+    GEN_AI_AGENT_NAME = "gen_ai.agent.name"
+    GEN_AI_AGENT_DESCRIPTION = "gen_ai.agent.description"
+
+
     GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
     GEN_AI_AGENT_ROLE = "gen_ai.agent.role"

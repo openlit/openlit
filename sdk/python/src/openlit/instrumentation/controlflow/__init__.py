@@ -26,7 +26,7 @@ class ControlFlowInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("controlflow")
 
@@ -34,21 +34,21 @@ class ControlFlowInstrumentor(BaseInstrumentor):
             "controlflow.agents.agent",
             "Agent.__init__",
             wrap_controlflow("controlflow.create_agent", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "controlflow.tasks.task",
             "Task.__init__",
             wrap_controlflow("controlflow.create_task", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "controlflow",
             "run",
             wrap_controlflow("controlflow.run", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

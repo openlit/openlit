@@ -13,7 +13,7 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def async_wrap_julep(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics):
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
 
@@ -27,7 +27,7 @@ def async_wrap_julep(gen_ai_endpoint, version, environment, application_name,
     - application_name (str): Name of the application.
     - tracer (opentelemetry.trace.Tracer): The tracer object used for OpenTelemetry tracing.
     - pricing_info (dict): Information about the pricing for internal metrics (currently not used).
-    - trace_content (bool): Flag indicating whether to trace the content of the response.
+    - capture_message_content (bool): Flag indicating whether to trace the content of the response.
 
     Returns:
     - function: A higher-order function that takes a function 'wrapped' and returns
@@ -88,7 +88,7 @@ def async_wrap_julep(gen_ai_endpoint, version, environment, application_name,
                 elif gen_ai_endpoint == "julep.execution_create":
                     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TASK_ID,
                                     kwargs.get("task_id", ""))
-                    if trace_content:
+                    if capture_message_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={

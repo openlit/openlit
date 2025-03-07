@@ -96,7 +96,7 @@ class LangChainInstrumentor(BaseInstrumentor):
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
+        capture_message_content = kwargs.get("capture_message_content")
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("langchain")
@@ -110,7 +110,7 @@ class LangChainInstrumentor(BaseInstrumentor):
                 wrap_package,
                 wrap_object,
                 wrapper(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics),
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
             )
 
     @staticmethod

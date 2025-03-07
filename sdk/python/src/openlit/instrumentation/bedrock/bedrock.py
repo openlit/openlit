@@ -53,7 +53,7 @@ class CustomStreamWrapper(StreamingBody):
         return data_chunk
 
 def converse(version, environment, application_name, tracer,
-         pricing_info, trace_content, metrics, disable_metrics):
+         pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for messages to collect metrics.
 
@@ -64,7 +64,7 @@ def converse(version, environment, application_name, tracer,
         application_name: Name of the application using the Bedrock API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information for calculating Bedrock usage cost.
-        trace_content: Whether to trace the actual content.
+        capture_message_content: Whether to trace the actual content.
         metrics: Metrics collector.
         disable_metrics: Flag to toggle metrics collection.
     Returns:
@@ -194,7 +194,7 @@ def converse(version, environment, application_name, tracer,
                     span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                         version)
 
-                    if trace_content:
+                    if capture_message_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
