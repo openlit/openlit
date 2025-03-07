@@ -38,7 +38,7 @@ RUN apk --no-cache add bash openssl && \
     npm install -g prisma
 
 # Expose the port that Next.js will run on
-EXPOSE 3000
+EXPOSE ${DOCKER_PORT:-3000}
 
 # Run Prisma migrations using npx
 CMD ["/app/client/entrypoint.sh"]

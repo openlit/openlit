@@ -6,7 +6,7 @@ export NEXTAUTH_SECRET=$(openssl rand -base64 32)
 
 # Set NextAuth.js environment variables
 echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
-echo "NEXTAUTH_URL=http://localhost:3000" >> /etc/environment
+echo "NEXTAUTH_URL=http://localhost:${DOCKER_PORT:-3000}" >> /etc/environment
 echo "SQLITE_DATABASE_URL=${SQLITE_DATABASE_URL:-file:../data/data.db}" >> /etc/environment
 
 # Environment variables for DB config
@@ -26,5 +26,6 @@ prisma generate
 # Run the seed 
 prisma db seed
 
+export PORT=${DOCKER_PORT:-3000} 
 # Start the Next.js application
 exec node --max_old_space_size=512 $(which npm) start
