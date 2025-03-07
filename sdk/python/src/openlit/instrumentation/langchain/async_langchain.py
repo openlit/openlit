@@ -340,11 +340,10 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
                             SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                         },
                     )
-                    completion_content = getattr(response, 'content', "")
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: completion_content,
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llm_response,
                         },
                     )
 
