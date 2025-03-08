@@ -253,7 +253,7 @@ export const getFilterWhereCondition = (
 			});
 		}
 
-		const { statusCode = ["STATUS_CODE_OK", "STATUS_CODE_UNSET"] } = filter;
+		const { statusCode = ["STATUS_CODE_OK", "STATUS_CODE_UNSET", "Ok", "Unset"] } = filter;
 		whereArray.push(
 			`StatusCode IN (${statusCode.map((type) => `'${type}'`).join(", ")})`
 		);
