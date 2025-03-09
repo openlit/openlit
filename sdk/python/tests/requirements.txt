@@ -45,7 +45,6 @@ xmltodict
 
 # Utilities
 bs4
-tiktoken
 tensorflow
 tf_keras
 aiohttp

@@ -11,7 +11,7 @@ from openlit.__helpers import (
     get_embed_model_cost,
     get_audio_model_cost,
     get_image_model_cost,
-    openai_tokens,
+    general_tokens,
     handle_exception,
     response_as_dict,
     calculate_ttft,
@@ -151,10 +151,8 @@ def async_chat_completions(version, environment, application_name,
                     request_model = self._kwargs.get("model", "gpt-4o")
 
                     # Calculate tokens using input prompt and aggregated response
-                    input_tokens = openai_tokens(prompt,
-                                                    request_model)
-                    output_tokens = openai_tokens(self._llmresponse,
-                                                        request_model)
+                    input_tokens = general_tokens(prompt)
+                    output_tokens = general_tokens(self._llmresponse)
 
                     # Calculate cost of the operation
                     cost = get_chat_model_cost(request_model,
