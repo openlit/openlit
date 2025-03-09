@@ -10,7 +10,8 @@ from openlit.__helpers import (
     get_audio_model_cost,
     handle_exception,
     create_metrics_attributes,
-    set_server_address_and_port
+    set_server_address_and_port,
+    otel_event
 )
 from openlit.semcov import SemanticConvetion
 
@@ -18,38 +19,15 @@ from openlit.semcov import SemanticConvetion
 logger = logging.getLogger(__name__)
 
 def transcribe(version, environment, application_name,
-                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+                 tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for creating speech audio to collect metrics.
-    
-    Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
-        version: Version of the monitoring package.
-        environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using the Assembly AI API.
-        tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of generating speech audio.
-        capture_message_content: Flag indicating whether to trace the input text and generated audio.
-    
-    Returns:
-        A function that wraps the speech audio creation method to add telemetry.
+    Generates a telemetry wrapper for GenAI function call
     """
+
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the 'generate' API call to add telemetry.
-
-        This collects metrics such as execution time, cost, and handles errors
-        gracefully, adding details to the trace for observability.
-
-        Args:
-            wrapped: The original 'generate' method to be wrapped.
-            instance: The instance of the class where the original method is defined.
-            args: Positional arguments for the 'generate' method.
-            kwargs: Keyword arguments for the 'generate' method.
-
-        Returns:
-            The response from the original 'transcribe' method.
+        Wraps the GenAI function call.
         """
 
         server_address, server_port = set_server_address_and_port(instance, 'api.assemblyai.com', 443)
@@ -96,6 +74,7 @@ def transcribe(version, environment, application_name,
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
 
+                # To be removed one the change to log events (from span events) is complete
                 if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -109,6 +88,34 @@ def transcribe(version, environment, application_name,
                             SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.text,
                         },
                     )
+
+                input_event = otel_event(
+                    name=SemanticConvetion.GEN_AI_USER_MESSAGE,
+                    attributes={
+                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI
+                    },
+                    body={
+                        **({'content': response.audio_url} if capture_message_content else {}),
+                        'role': 'user'
+                    }
+                )
+                event_provider.emit(input_event)
+
+                output_event = otel_event(
+                    name=SemanticConvetion.GEN_AI_CHOICE,
+                    attributes={
+                        SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI
+                    },
+                    body={
+                        'finish_reason': 'stop',
+                        'index': 0,
+                        'message': {
+                            **({'content': response.text} if capture_message_content else {}),
+                            'role': 'assistant'
+                        }
+                    }
+                )
+                event_provider.emit(output_event)
 
                 span.set_status(Status(StatusCode.OK))
 
