@@ -43,7 +43,7 @@ def test_sync_ai21_chat():
         model="jamba-1.5-mini",
         max_tokens=1,
     )
-    assert isinstance(response['id'], str)
+    assert isinstance(response.id, str)
 
 def test_sync_ai21_chat_stream():
     """
@@ -80,7 +80,7 @@ def test_sync_ai21_chat_rag():
         max_neighbors=1,
         max_tokens=1,
     )
-    assert isinstance(response['id'], str)
+    assert isinstance(response.id, str)
 
 @pytest.mark.asyncio
 async def test_async_ai21_test():
@@ -96,7 +96,7 @@ async def test_async_ai21_test():
         model="jamba-1.5-mini",
         max_tokens=1,
     )
-    assert isinstance(response['id'], str)
+    assert isinstance(response.id, str)
 
     responses = await async_client.chat.completions.create(
         messages=MESSAGES,
@@ -117,4 +117,4 @@ async def test_async_ai21_test():
         max_neighbors=1,
         max_tokens=1,
     )
-    assert isinstance(response['id'], str)
+    assert isinstance(response.id, str)

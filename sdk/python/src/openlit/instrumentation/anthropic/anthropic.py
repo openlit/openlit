@@ -127,8 +127,9 @@ def messages(version, environment, application_name, tracer, event_provider,
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
+                response_dict = response_as_dict(response)
                 response = process_chat_response(
-                    response=response_as_dict(response),
+                    response=response_dict,
                     request_model=request_model,
                     pricing_info=pricing_info,
                     server_port=server_port,
