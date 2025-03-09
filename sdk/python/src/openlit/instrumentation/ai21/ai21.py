@@ -7,7 +7,6 @@ import time
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
-    response_as_dict,
     set_server_address_and_port,
 )
 from openlit.instrumentation.ai21.utils import (
@@ -47,9 +46,9 @@ def chat(version, environment, application_name,
             self._span = span
             self._span_name = span_name
             # Placeholder for aggregating streaming response
-            self._llmresponse = ""
-            self._response_id = ""
-            self._finish_reason = ""
+            self._llmresponse = ''
+            self._response_id = ''
+            self._finish_reason = ''
             self._input_tokens = 0
             self._output_tokens = 0
             self._choices = []
@@ -100,7 +99,7 @@ def chat(version, environment, application_name,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
-                    logger.error("Error in trace creation: %s", e)
+                    logger.error('Error in trace creation: %s', e)
                 raise
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -109,12 +108,12 @@ def chat(version, environment, application_name,
         """
 
         # Check if streaming is enabled for the API call
-        streaming = kwargs.get("stream", False)
+        streaming = kwargs.get('stream', False)
 
-        server_address, server_port = set_server_address_and_port(instance, "api.ai21.com", 443)
-        request_model = kwargs.get("model", "jamba-1.5-mini")
+        server_address, server_port = set_server_address_and_port(instance, 'api.ai21.com', 443)
+        request_model = kwargs.get('model', 'jamba-1.5-mini')
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
 
         # pylint: disable=no-else-return
         if streaming:
@@ -129,7 +128,7 @@ def chat(version, environment, application_name,
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
                 response = process_chat_response(
-                    response=response_as_dict(response),
+                    response=response,
                     request_model=request_model,
                     pricing_info=pricing_info,
                     server_port=server_port,
@@ -161,16 +160,16 @@ def chat_rag(version, environment, application_name,
         Wraps the GenAI function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.ai21.com", 443)
-        request_model = kwargs.get("model", "jamba-1.5-mini")
+        server_address, server_port = set_server_address_and_port(instance, 'api.ai21.com', 443)
+        request_model = kwargs.get('model', 'jamba-1.5-mini')
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
 
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
             response = wrapped(*args, **kwargs)
             response = process_chat_rag_response(
-                response=response_as_dict(response),
+                response=response,
                 request_model=request_model,
                 pricing_info=pricing_info,
                 server_port=server_port,
