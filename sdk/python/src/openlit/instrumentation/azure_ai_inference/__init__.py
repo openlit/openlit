@@ -1,4 +1,3 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of Azure AI Inference Functions"""
 
 from typing import Collection
@@ -14,7 +13,7 @@ from openlit.instrumentation.azure_ai_inference.async_azure_ai_inference import 
     async_complete, async_embedding
 )
 
-_instruments = ("azure-ai-inference >= 1.0.0b4",)
+_instruments = ('azure-ai-inference >= 1.0.0b4',)
 
 class AzureAIInferenceInstrumentor(BaseInstrumentor):
     """
@@ -25,43 +24,43 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name", "default_application")
-        environment = kwargs.get("environment", "default_environment")
-        tracer = kwargs.get("tracer")
-        metrics = kwargs.get("metrics_dict")
-        pricing_info = kwargs.get("pricing_info", {})
-        capture_message_content = kwargs.get("capture_message_content", False)
-        disable_metrics = kwargs.get("disable_metrics")
-        version = importlib.metadata.version("azure-ai-inference")
+        application_name = kwargs.get('application_name', 'default')
+        environment = kwargs.get('environment', 'default')
+        tracer = kwargs.get('tracer')
+        metrics = kwargs.get('metrics_dict')
+        pricing_info = kwargs.get('pricing_info', {})
+        capture_message_content = kwargs.get('capture_message_content', False)
+        disable_metrics = kwargs.get('disable_metrics')
+        version = importlib.metadata.version('azure-ai-inference')
 
         # sync generate
         wrap_function_wrapper(
-            "azure.ai.inference",
-            "ChatCompletionsClient.complete",
+            'azure.ai.inference',
+            'ChatCompletionsClient.complete',
             complete(version, environment, application_name,
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # sync embedding
         wrap_function_wrapper(
-            "azure.ai.inference",
-            "EmbeddingsClient.embed",
+            'azure.ai.inference',
+            'EmbeddingsClient.embed',
             embedding(version, environment, application_name,
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # async generate
         wrap_function_wrapper(
-            "azure.ai.inference.aio",
-            "ChatCompletionsClient.complete",
+            'azure.ai.inference.aio',
+            'ChatCompletionsClient.complete',
             async_complete(version, environment, application_name,
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # async embedding
         wrap_function_wrapper(
-            "azure.ai.inference.aio",
-            "EmbeddingsClient.embed",
+            'azure.ai.inference.aio',
+            'EmbeddingsClient.embed',
             async_embedding(version, environment, application_name,
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )

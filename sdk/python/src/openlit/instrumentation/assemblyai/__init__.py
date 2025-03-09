@@ -1,4 +1,3 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of AssemblyAI Functions"""
 
 from typing import Collection
@@ -10,7 +9,7 @@ from openlit.instrumentation.assemblyai.assemblyai import (
     transcribe
 )
 
-_instruments = ("assemblyai >= 0.35.1",)
+_instruments = ('assemblyai >= 0.35.1',)
 
 class AssemblyAIInstrumentor(BaseInstrumentor):
     """
@@ -21,21 +20,22 @@ class AssemblyAIInstrumentor(BaseInstrumentor):
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name", "default")
-        environment = kwargs.get("environment", "default")
-        tracer = kwargs.get("tracer")
-        metrics = kwargs.get("metrics_dict")
-        pricing_info = kwargs.get("pricing_info", {})
-        capture_message_content = kwargs.get("capture_message_content", False)
-        disable_metrics = kwargs.get("disable_metrics")
-        version = importlib.metadata.version("assemblyai")
+        application_name = kwargs.get('application_name', 'default')
+        environment = kwargs.get('environment', 'default')
+        tracer = kwargs.get('tracer')
+        event_provider = kwargs.get('event_provider')
+        metrics = kwargs.get('metrics_dict')
+        pricing_info = kwargs.get('pricing_info', {})
+        capture_message_content = kwargs.get('capture_message_content', False)
+        disable_metrics = kwargs.get('disable_metrics')
+        version = importlib.metadata.version('assemblyai')
 
         # sync transcribe
         wrap_function_wrapper(
-            "assemblyai.transcriber",
-            "Transcriber.transcribe",
+            'assemblyai.transcriber',
+            'Transcriber.transcribe',
             transcribe(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):
