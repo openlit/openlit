@@ -8,7 +8,7 @@ import logging
 from urllib.parse import urlparse
 from typing import Any, Dict, List, Tuple
 import requests
-import tiktoken
+import math
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry._events import Event
@@ -45,27 +45,12 @@ def get_env_variable(name, arg_value, error_message):
         raise RuntimeError(error_message)
     return value
 
-def openai_tokens(text, model):
-    """
-    Calculate the number of tokens a given text would take up for a specified model.
-    """
-
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except:
-        encoding = tiktoken.get_encoding("cl100k_base")
-
-    num_tokens = len(encoding.encode(text))
-    return num_tokens
-
 def general_tokens(text):
     """
     Calculate the number of tokens a given text would take up.
     """
 
-    encoding = tiktoken.get_encoding('gpt2')
-
-    num_tokens = len(encoding.encode(text))
+    num_tokens = math.ceil(len(text) / 2)
     return num_tokens
 
 def get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens):
