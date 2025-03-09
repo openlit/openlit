@@ -29,4 +29,4 @@ disable=
     protected-access,
     bare-except,
     expression-not-assigned,
-    nnecessary-direct-lambda-call
+    unnecessary-direct-lambda-call
