@@ -10,11 +10,8 @@ from openlit.__helpers import (
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
-    general_tokens,
     extract_and_format_input,
     get_chat_model_cost,
-    get_embed_model_cost,
-    handle_exception,
     create_metrics_attributes,
     otel_event,
     concatenate_all_contents
@@ -244,6 +241,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     self._ttft, self._tbt = self._end_time - self._start_time, 0
     self._server_address, self._server_port = server_address, server_port
     self._kwargs = kwargs
+    #pylint: disable=line-too-long
     self._tool_calls = (lambda c: c[1] if len(c) > 1 and c[1].get('type') == 'tool_use' else None)(response.get('content', []))
 
     common_chat_logic(self, pricing_info, environment, application_name, metrics,

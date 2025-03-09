@@ -13,7 +13,7 @@ max-positional-arguments=15
 max-line-length=120
 
 # Maximum number of instance attributes
-max-attributes=20
+max-attributes=25
 
 [MESSAGES CONTROL]
 disable=
@@ -29,3 +29,4 @@ disable=
     protected-access,
     bare-except,
     expression-not-assigned
+    nnecessary-direct-lambda-call

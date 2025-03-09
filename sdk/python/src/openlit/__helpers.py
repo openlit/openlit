@@ -293,6 +293,7 @@ def extract_text_from_item(item):
     Extract text from inpit message
     """
 
+    #pylint: disable=no-else-return
     if item.get('type') == 'text':
         return item.get('text', '')
     elif item.get('type') == 'image':

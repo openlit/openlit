@@ -42,7 +42,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
             'anthropic.resources.messages',  
             'AsyncMessages.create',  
             async_messages(version, environment, application_name,
-                            tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                            tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):
