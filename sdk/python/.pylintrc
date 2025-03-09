@@ -28,5 +28,5 @@ disable=
     no-name-in-module,
     protected-access,
     bare-except,
-    expression-not-assigned
+    expression-not-assigned,
     nnecessary-direct-lambda-call

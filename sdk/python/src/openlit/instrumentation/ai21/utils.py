@@ -289,6 +289,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
 
     # Create a generic scope object to hold telemetry data.
     self = type('GenericScope', (), {})()
+    response_dict = response_as_dict(response)
 
     # pylint: disable = no-member
     self._start_time = start_time
@@ -298,19 +299,19 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     # Concatenate content from all choices.
     self._llmresponse = ''.join(
         (choice.get('message', {}).get('content') or '')
-        for choice in response.get('choices', [])
+        for choice in response_dict.get('choices', [])
     )
-    self._response_role = response.get('message', {}).get('role', 'assistant')
-    self._input_tokens = response.get('usage', {}).get('prompt_tokens', 0)
-    self._output_tokens = response.get('usage', {}).get('completion_tokens', 0)
-    self._response_id = response.get('id', '')
+    self._response_role = response_dict.get('message', {}).get('role', 'assistant')
+    self._input_tokens = response_dict.get('usage', {}).get('prompt_tokens', 0)
+    self._output_tokens = response_dict.get('usage', {}).get('completion_tokens', 0)
+    self._response_id = response_dict.get('id', '')
     self._response_model = request_model
-    self._finish_reason = response.get('choices', [{}])[0].get('finish_reason')
+    self._finish_reason = response_dict.get('choices', [{}])[0].get('finish_reason')
     self._timestamps = []
     self._ttft, self._tbt = self._end_time - self._start_time, 0
     self._server_address, self._server_port = server_address, server_port
     self._kwargs = kwargs
-    self._choices = response.get('choices')
+    self._choices = response_dict.get('choices')
 
     common_chat_logic(self, pricing_info, environment, application_name, metrics,
                       event_provider, capture_message_content, disable_metrics, version, is_stream=False)
@@ -324,6 +325,7 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
     Process a chat response and generate Telemetry.
     """
     end_time = time.time()
+    response_dict = response_as_dict(response)
     try:
         # Format input messages into a single prompt string.
         messages_input = kwargs.get('messages', '')
@@ -332,7 +334,7 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
         input_tokens = general_tokens(prompt)
 
         # Create tokens dict and RAG-specific extra attributes.
-        tokens = {'response_id': response.get('id'), 'input_tokens': input_tokens}
+        tokens = {'response_id': response_dict.get('id'), 'input_tokens': input_tokens}
         extra_attrs = {
             SemanticConvetion.GEN_AI_REQUEST_IS_STREAM: False,
             SemanticConvetion.GEN_AI_SERVER_TTFT: end_time - start_time,
@@ -357,7 +359,7 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
             )
 
         output_tokens = 0
-        choices = response.get('choices', [])
+        choices = response_dict.get('choices', [])
         # Instead of adding a separate event per choice, we aggregate all completion content.
         aggregated_completion = []
         for i in range(kwargs.get('n', 1)):

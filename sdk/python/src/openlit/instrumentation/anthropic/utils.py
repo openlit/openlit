@@ -225,24 +225,25 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     """
 
     self = type('GenericScope', (), {})()
+    response_dict = response_as_dict(response)
 
     # pylint: disable = no-member
     self._start_time = start_time
     self._end_time = time.time()
     self._span = span
-    self._llmresponse = response.get('content', {})[0].get('text', '')
-    self._response_role = response.get('message', {}).get('role', 'assistant')
-    self._input_tokens = response.get('usage').get('input_tokens')
-    self._output_tokens = response.get('usage').get('output_tokens')
-    self._response_model = response.get('model', '')
-    self._finish_reason = response.get('stop_reason', '')
-    self._response_id = response.get('id', '')
+    self._llmresponse = response_dict.get('content', {})[0].get('text', '')
+    self._response_role = response_dict.get('message', {}).get('role', 'assistant')
+    self._input_tokens = response_dict.get('usage').get('input_tokens')
+    self._output_tokens = response_dict.get('usage').get('output_tokens')
+    self._response_model = response_dict.get('model', '')
+    self._finish_reason = response_dict.get('stop_reason', '')
+    self._response_id = response_dict.get('id', '')
     self._timestamps = []
     self._ttft, self._tbt = self._end_time - self._start_time, 0
     self._server_address, self._server_port = server_address, server_port
     self._kwargs = kwargs
     #pylint: disable=line-too-long
-    self._tool_calls = (lambda c: c[1] if len(c) > 1 and c[1].get('type') == 'tool_use' else None)(response.get('content', []))
+    self._tool_calls = (lambda c: c[1] if len(c) > 1 and c[1].get('type') == 'tool_use' else None)(response_dict.get('content', []))
 
     common_chat_logic(self, pricing_info, environment, application_name, metrics,
                         event_provider, capture_message_content, disable_metrics, version, is_stream=False)

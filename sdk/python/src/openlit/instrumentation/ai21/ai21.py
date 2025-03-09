@@ -7,7 +7,6 @@ import time
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
-    response_as_dict,
     set_server_address_and_port,
 )
 from openlit.instrumentation.ai21.utils import (
@@ -128,9 +127,8 @@ def chat(version, environment, application_name,
             with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
-                response_dict = response_as_dict(response)
                 response = process_chat_response(
-                    response=response_dict,
+                    response=response,
                     request_model=request_model,
                     pricing_info=pricing_info,
                     server_port=server_port,
@@ -170,9 +168,8 @@ def chat_rag(version, environment, application_name,
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
             response = wrapped(*args, **kwargs)
-            response_dict = response_as_dict(response)
             response = process_chat_rag_response(
-                response=response_dict,
+                response=response,
                 request_model=request_model,
                 pricing_info=pricing_info,
                 server_port=server_port,
