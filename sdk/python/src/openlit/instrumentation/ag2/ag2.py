@@ -28,7 +28,7 @@ def set_span_attributes(span, version, operation_name, environment,
     """
 
     # Set Span attributes (OTel Semconv)
-    span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+    span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
     span.set_attribute(SemanticConvetion.GEN_AI_OPERATION, operation_name)
     span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AG2)
     span.set_attribute(SemanticConvetion.GEN_AI_AGENT_NAME, AGENT_NAME)
@@ -73,10 +73,10 @@ def emit_events(response, event_provider, capture_message_content):
                 SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AG2
             },
             body={
-                "index": response.chat_history.index(chat),
-                "message": {
-                    **({"content": chat['content']} if capture_message_content else {}),
-                    "role": 'assistant' if chat['role'] == 'user' else 'user'
+                'index': response.chat_history.index(chat),
+                'message': {
+                    **({'content': chat['content']} if capture_message_content else {}),
+                    'role': 'assistant' if chat['role'] == 'user' else 'user'
                 }
             }
         )
@@ -92,12 +92,12 @@ def conversable_agent(version, environment, application_name,
         global AGENT_NAME, MODEL_AND_NAME_SET, REQUEST_MODEL, SYSTEM_MESSAGE
 
         if not MODEL_AND_NAME_SET:
-            AGENT_NAME = kwargs.get("name", "NOT_FOUND")
-            REQUEST_MODEL = kwargs.get("llm_config", {}).get('model', 'gpt-4o')
+            AGENT_NAME = kwargs.get('name', 'NOT_FOUND')
+            REQUEST_MODEL = kwargs.get('llm_config', {}).get('model', 'gpt-4o')
             SYSTEM_MESSAGE = kwargs.get('system_message', '')
             MODEL_AND_NAME_SET = True
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CREATE_AGENT} {AGENT_NAME}"
+        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CREATE_AGENT} {AGENT_NAME}'
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             try:
@@ -117,7 +117,7 @@ def conversable_agent(version, environment, application_name,
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in trace creation: %s", e)
+                logger.error('Error in trace creation: %s', e)
                 return response
 
     return wrapper
@@ -130,7 +130,7 @@ def agent_run(version, environment, application_name,
     def wrapper(wrapped, instance, args, kwargs):
         server_address, server_port = '127.0.0.1', 80
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK} {AGENT_NAME}"
+        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK} {AGENT_NAME}'
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             try:
@@ -157,7 +157,7 @@ def agent_run(version, environment, application_name,
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in trace creation: %s", e)
+                logger.error('Error in trace creation: %s', e)
                 return response
 
     return wrapper
