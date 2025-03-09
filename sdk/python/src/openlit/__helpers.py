@@ -50,8 +50,7 @@ def general_tokens(text):
     Calculate the number of tokens a given text would take up.
     """
 
-    num_tokens = math.ceil(len(text) / 2)
-    return num_tokens
+    return math.ceil(len(text) / 2)
 
 def get_chat_model_cost(model, pricing_info, prompt_tokens, completion_tokens):
     """
