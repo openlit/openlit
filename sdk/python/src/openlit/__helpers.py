@@ -7,8 +7,8 @@ import json
 import logging
 from urllib.parse import urlparse
 from typing import Any, Dict, List, Tuple
-import requests
 import math
+import requests
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry._events import Event
