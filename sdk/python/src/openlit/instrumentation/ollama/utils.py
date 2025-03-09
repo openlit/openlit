@@ -129,7 +129,6 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     }
 
     if scope._tool_calls:
-        print(scope._tool_calls)
         function_call = scope._tool_calls[0]
         choice_event_body["message"].update({
             "tool_calls": {
