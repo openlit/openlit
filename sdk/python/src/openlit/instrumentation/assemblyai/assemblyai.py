@@ -88,7 +88,7 @@ def transcribe(version, environment, application_name,
                             SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.text,
                         },
                     )
-                
+
                 input_event = otel_event(
                     name=SemanticConvetion.GEN_AI_USER_MESSAGE,
                     attributes={
@@ -107,7 +107,7 @@ def transcribe(version, environment, application_name,
                         SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI
                     },
                     body={
-                        'finish_reason': "stop",
+                        'finish_reason': 'stop',
                         'index': 0,
                         'message': {
                             **({'content': response.text} if capture_message_content else {}),
