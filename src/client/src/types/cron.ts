@@ -9,6 +9,7 @@ export type Job = {
 export enum CronRunStatus {
 	SUCCESS = "SUCCESS",
 	FAILURE = "FAILURE",
+	PARTIAL_SUCCESS = "PARTIAL_SUCCESS",
 }
 
 export enum CronType {
@@ -19,8 +20,8 @@ export interface CronLogData {
 	cronId: string;
 	cronType: CronType;
 	runStatus: CronRunStatus;
-	metaProperties?: Record<string, any>;
-	errorStacktrace?: string;
+	meta?: Record<string, any>;
+	errorStacktrace?: Record<string, any>;
 	startedAt: Date;
 	finishedAt: Date;
 	duration: number;

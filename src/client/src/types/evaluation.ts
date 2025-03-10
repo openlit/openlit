@@ -14,6 +14,7 @@ export interface EvaluationConfigResponse {
 	configErr: string;
 	data: EvaluationResponse;
 	err: string;
+	success?: boolean;
 }
 export interface Evaluation {
 	score: number;

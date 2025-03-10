@@ -15,8 +15,8 @@ export async function insertCronLog(
 					cron_id: data.cronId,
 					cron_type: data.cronType,
 					run_status: data.runStatus,
-					meta_properties: JSON.stringify(data.metaProperties || {}),
-					error_stacktrace: data.errorStacktrace || "",
+					meta: data.meta || {},
+					error_stacktrace: data.errorStacktrace || {},
 					started_at: format(data.startedAt, "yyyy-MM-dd HH:mm:ss"),
 					finished_at: format(data.finishedAt, "yyyy-MM-dd HH:mm:ss"),
 					duration: data.duration || 0,
@@ -85,7 +85,7 @@ export async function getCronLogs({
       cron_id as cronId,
       cron_type as cronType,
       run_status as runStatus,
-      meta_properties as metaProperties,
+      meta as meta,
       error_stacktrace as errorStacktrace,
       started_at as startedAt,
       finished_at as finishedAt,
@@ -131,4 +131,27 @@ export async function getLastRunCronLogByCronId(cronId: string) {
 	}
 
 	return (data as CronLogData[])[0].startedAt;
+}
+
+export async function getLastFailureCronLogBySpanId(spanId: string) {
+	const query = `
+		WITH last_failures AS (
+    	SELECT error_stacktrace as errorStacktrace
+			FROM ${OPENLIT_CRON_LOG_TABLE_NAME}
+			WHERE run_status = '${CronRunStatus.FAILURE}' 
+			AND has(JSONExtractArrayRaw(meta['spanIds']), '"${spanId}"')
+			ORDER BY started_at DESC
+			LIMIT 1
+		)
+			SELECT * 
+			FROM last_failures
+			WHERE NOT EXISTS (
+				SELECT 1
+				FROM ${OPENLIT_CRON_LOG_TABLE_NAME}
+				WHERE run_status = '${CronRunStatus.SUCCESS}'
+				AND has(JSONExtractArrayRaw(meta['spanIds']), '"${spanId}"')
+			);
+	`;
+
+	return await dataCollector({ query }, "query");
 }

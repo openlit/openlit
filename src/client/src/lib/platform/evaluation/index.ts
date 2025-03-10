@@ -24,9 +24,10 @@ import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 import { jsonParse } from "@/utils/json";
 import {
 	getLastRunCronLogByCronId,
+	getLastFailureCronLogBySpanId,
 	insertCronLog,
 } from "@/lib/platform/cron-log";
-import { CronType, CronRunStatus } from "@/types/cron";
+import { CronType, CronRunStatus, CronLogData } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 
@@ -71,6 +72,19 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		if (!evaluationConfigTyped?.id) {
 			return { configErr: getMessage().EVALUATION_CONFIG_NOT_FOUND };
 		}
+
+		const { data: lastFailureCronLog } = await getLastFailureCronLogBySpanId(
+			spanId
+		);
+
+		const errorMessage =
+			(lastFailureCronLog as CronLogData[])?.[0]?.errorStacktrace?.[spanId] ||
+			"";
+
+		if (errorMessage) {
+			return { err: errorMessage };
+		}
+
 		return { config: evaluationConfigTyped.id };
 	}
 	return { data: (data as EvaluationResponse[])?.[0] || {} };
@@ -179,7 +193,7 @@ async function getEvaluationConfigForTrace(
 					if (code === 0) {
 						const match = output.match(/\{.*\}/m);
 						if (match) {
-							const parsedData = jsonParse(match[0]) 
+							const parsedData = jsonParse(match[0]);
 							return resolve(parsedData);
 						}
 
@@ -277,7 +291,9 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 			{
 				...cronLogObject,
 				runStatus: CronRunStatus.FAILURE,
-				errorStacktrace: `${getMessage().TRACE_FETCHING_ERROR} : ${err}`,
+				errorStacktrace: {
+					error: `${getMessage().TRACE_FETCHING_ERROR} : ${err}`,
+				},
 				finishedAt,
 				duration: differenceInSeconds(finishedAt, startedAt),
 			},
@@ -287,6 +303,7 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 	}
 
 	const traces = data as TraceRow[];
+	let errorCount = 0;
 
 	const results = await Promise.all(
 		traces.map(async (trace) => {
@@ -298,25 +315,33 @@ export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
 		})
 	);
 
-	const errorArray = results.filter((r) => !r.success);
+	const errorObject = results.reduce(
+		(acc: Record<string, string>, r, index) => {
+			if (!r.success) {
+				acc[traces[index].SpanId] = r.error as string;
+				errorCount++;
+			}
+			return acc;
+		},
+		{}
+	);
 
 	const finishedAt = new Date();
 	const { err: cronLogErr } = await insertCronLog(
 		{
 			...cronLogObject,
-			runStatus: errorArray.length
-				? CronRunStatus.FAILURE
-				: CronRunStatus.SUCCESS,
-			errorStacktrace: errorArray
-				.map((r, index) => `SpanId: ${traces[index].SpanId} - ${r.error}`)
-				.join("\n"),
-			metaProperties: {
-				result: {
-					totalSpans: traces.length,
-					totalEvaluated: results.filter((r) => r.success).length,
-					totalFailed: errorArray.length,
-					spanIds: traces.map((t) => t.SpanId),
-				},
+			runStatus:
+				errorCount === results.length
+					? CronRunStatus.FAILURE
+					: errorCount > 0
+					? CronRunStatus.PARTIAL_SUCCESS
+					: CronRunStatus.SUCCESS,
+			errorStacktrace: errorObject,
+			meta: {
+				totalSpans: traces.length,
+				totalEvaluated: results.length - errorCount,
+				totalFailed: errorCount,
+				spanIds: traces.map((t) => t.SpanId),
 			},
 			finishedAt,
 			duration: differenceInSeconds(finishedAt, startedAt),

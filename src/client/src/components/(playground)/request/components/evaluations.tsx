@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import CodeItem from "./code-item";
 
 function getScoreColor(score: number): string {
 	if (score < 0.3)
@@ -22,9 +23,7 @@ function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
 	const [isExpanded, setIsExpanded] = useState(false);
 
 	return (
-		<Card
-			className={`shadow-none border-none rounded-xs`}
-		>
+		<Card className={`shadow-none border-none rounded-xs`}>
 			<CardHeader
 				className="cursor-pointer p-3 dark:text-stone-50 bg-stone-200 dark:bg-stone-800"
 				onClick={() => setIsExpanded(!isExpanded)}
@@ -60,12 +59,15 @@ function EvaluationCard({ evaluation }: { evaluation: Evaluation }) {
 }
 
 export default function Evaluations({ trace }: { trace: TransformedTraceRow }) {
+	const [error, setError] = useState<string | null>(null);
 	const {
 		data: responseData,
+		error: responseErr,
 		isLoading,
 		fireRequest,
 		isFetched,
 	} = useFetchWrapper<EvaluationConfigResponse>();
+
 	const evaluationData = responseData?.data;
 
 	const {
@@ -78,8 +80,12 @@ export default function Evaluations({ trace }: { trace: TransformedTraceRow }) {
 			url: `/api/evaluation/${trace.spanId}`,
 			requestType: "POST",
 			responseDataKey: "data",
-			successCb: () => {
-				getEvaluations();
+			successCb: (data: { success: boolean; error?: string }) => {
+				if (data?.success) {
+					getEvaluations();
+				} else {
+					setError(data?.error || getMessage().EVALUATION_RUN_FAILURE);
+				}
 			},
 			failureCb: () => {
 				toast.error(getMessage().EVALUATION_RUN_FAILURE);
@@ -117,6 +123,25 @@ export default function Evaluations({ trace }: { trace: TransformedTraceRow }) {
 						</Link>
 					</Button>
 				</>
+			) : responseData?.err || error || responseErr ? (
+				<div className="text-sm text-stone-500 dark:text-stone-300">
+					<CodeItem
+						text={{
+							error:
+								responseData?.err ||
+								error ||
+								responseErr ||
+								getMessage().EVALUATION_RUN_FAILURE,
+						}}
+					/>
+					<Button
+						variant="default"
+						className="w-fit bg-primary"
+						onClick={runEvaluation}
+					>
+						{getMessage().EVALUATION_RUN_AGAIN}
+					</Button>
+				</div>
 			) : responseData?.config ? (
 				<>
 					<div className="text-sm text-stone-500 dark:text-stone-300">
@@ -130,10 +155,6 @@ export default function Evaluations({ trace }: { trace: TransformedTraceRow }) {
 						{getMessage().EVALUATION_RUN}
 					</Button>
 				</>
-			) : responseData?.err ? (
-				<div className="text-sm text-stone-500 dark:text-stone-300">
-					{responseData?.err}
-				</div>
 			) : (
 				evaluationData?.evaluations?.map((evaluation, index) => (
 					<EvaluationCard key={index} evaluation={evaluation} />

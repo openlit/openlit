@@ -31,10 +31,11 @@ export const EVALUATION_VAULT_SECRET_NOT_FOUND =
 export const EVALUATION_CONFIG_SET_ERROR = "Evaluation config cannot be set!";
 export const EVALUATION_CONFIG_NOT_SET =
 	"Evaluation config not set! Please set the config first to run evaluations.";
-export const EVALUATION_CONFIG_SET = "Go to settings!";
+export const EVALUATION_CONFIG_SET = "Setup Evaluation!";
 export const EVALUATION_NOT_RUN_YET =
 	"Evaluation not run yet! Please run the evaluation to get results.";
 export const EVALUATION_RUN = "Run Evaluation";
+export const EVALUATION_RUN_AGAIN = "Run Evaluation Again";
 export const EVALUATION_DATA_LOADING = "Loading evaluation data...";
 export const EVALUATION_CREATED = "Evaluation created successfully!";
 export const EVALUATION_UPDATED = "Evaluation updated successfully!";

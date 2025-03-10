@@ -14,8 +14,8 @@ export default async function CreateCronLogMigration(
           cron_id String,  -- Unique identifier for cron job config id
           cron_type String,  -- Type of cron job
           run_status String,  -- Status of the cron execution
-          meta_properties String,  -- JSON string to store additional metadata
-          error_stacktrace String,  -- Stacktrace in case of failure
+          meta Map(LowCardinality(String), String),  -- JSON to store additional metadata
+          error_stacktrace Map(LowCardinality(String), String),  -- Stacktrace in case of failure
           started_at DateTime DEFAULT now(),  -- Start time of execution
           finished_at DateTime,  -- End time of execution
           duration Float64  -- Execution duration in seconds
