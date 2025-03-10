@@ -21,15 +21,15 @@ class TransformersInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
+        capture_message_content = kwargs.get("capture_message_content")
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("transformers")
 
         wrap_function_wrapper(
             "transformers",  
             "TextGenerationPipeline.__call__",  
-            text_wrap("huggingface.text_generation", version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics),
+            text_wrap(version, environment, application_name,
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     @staticmethod

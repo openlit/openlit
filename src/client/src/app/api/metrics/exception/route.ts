@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 		offset,
 		selectedConfig,
 		sorting,
-		statusCode: ["STATUS_CODE_ERROR"],
+		statusCode: ["STATUS_CODE_ERROR", "Error"],
 	};
 
 	const validationParam = validateMetricsRequest(

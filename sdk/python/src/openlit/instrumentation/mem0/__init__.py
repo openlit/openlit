@@ -59,7 +59,7 @@ class Mem0Instrumentor(BaseInstrumentor):
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
+        capture_message_content = kwargs.get("capture_message_content")
         version = importlib.metadata.version("mem0ai")
 
         for wrapped_method in WRAPPED_METHODS:
@@ -71,7 +71,7 @@ class Mem0Instrumentor(BaseInstrumentor):
                 wrap_package,
                 wrap_object,
                 wrapper(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                 tracer, pricing_info, capture_message_content),
             )
 
     @staticmethod

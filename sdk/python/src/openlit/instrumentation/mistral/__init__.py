@@ -23,7 +23,7 @@ class MistralInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
+        capture_message_content = kwargs.get("capture_message_content")
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("mistralai")
 
@@ -31,48 +31,48 @@ class MistralInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "mistralai.chat",  
             "Chat.complete",  
-            chat("mistral.chat", version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics),
+            chat(version, environment, application_name,
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # sync
         wrap_function_wrapper(
             "mistralai.chat",  
             "Chat.stream",  
-            chat_stream("mistral.chat", version, environment, application_name,
-                        tracer, pricing_info, trace_content, metrics, disable_metrics),
+            chat_stream(version, environment, application_name,
+                        tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # sync
         wrap_function_wrapper(
             "mistralai.embeddings",  
             "Embeddings.create",  
-            embeddings("mistral.embeddings", version, environment, application_name,
-                       tracer, pricing_info, trace_content, metrics, disable_metrics),
+            embeddings(version, environment, application_name,
+                       tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Async
         wrap_function_wrapper(
             "mistralai.chat",  
             "Chat.complete_async",  
-            async_chat("mistral.chat", version, environment, application_name,
-                       tracer, pricing_info, trace_content, metrics, disable_metrics),
+            async_chat(version, environment, application_name,
+                       tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Async
         wrap_function_wrapper(
             "mistralai.chat",  
             "Chat.stream_async",  
-            async_chat_stream("mistral.chat", version, environment, application_name,
-                              tracer, pricing_info, trace_content, metrics, disable_metrics),
+            async_chat_stream(version, environment, application_name,
+                              tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         #sync
         wrap_function_wrapper(
             "mistralai.embeddings",  
             "Embeddings.create_async",  
-            async_embeddings("mistral.embeddings", version, environment, application_name,
-                             tracer, pricing_info, trace_content, metrics, disable_metrics),
+            async_embeddings(version, environment, application_name,
+                             tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     @staticmethod

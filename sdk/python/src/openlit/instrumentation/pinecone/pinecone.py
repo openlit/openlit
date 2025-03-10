@@ -5,7 +5,7 @@ Module for monitoring Pinecone.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import handle_exception
 from openlit.semcov import SemanticConvetion
 
@@ -23,7 +23,7 @@ def object_count(obj):
     return None
 
 def general_wrap(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics):
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Wraps a Pinecone operation to trace and log its execution metrics.
 
@@ -40,7 +40,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
     - application_name (str): The name of the application performing the Pinecone operation.
     - tracer (opentelemetry.trace.Tracer): An object used for OpenTelemetry tracing.
     - pricing_info (dict): Information about pricing, not used in current implementation.
-    - trace_content (bool): A flag indicating whether the content of responses should be traced.
+    - capture_message_content (bool): A flag indicating whether the content of responses should be traced.
 
     Returns:
     - function: A decorator function that, when applied, wraps the target function with
@@ -72,12 +72,12 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                    gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                    environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SERVICE_NAME,
                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                   SemanticConvetion.GEN_AI_TYPE_VECTORDB)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                   SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB)
                 span.set_attribute(SemanticConvetion.DB_SYSTEM,
                                    SemanticConvetion.DB_SYSTEM_PINECONE)
 
@@ -146,14 +146,14 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     attributes = {
                         TELEMETRY_SDK_NAME:
                             "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
+                        SERVICE_NAME:
                             application_name,
                         SemanticConvetion.DB_SYSTEM:
                             SemanticConvetion.DB_SYSTEM_PINECONE,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT:
+                        DEPLOYMENT_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_VECTORDB,
+                        SemanticConvetion.GEN_AI_OPERATION:
+                            SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB,
                         SemanticConvetion.DB_OPERATION:
                             db_operation
                     }

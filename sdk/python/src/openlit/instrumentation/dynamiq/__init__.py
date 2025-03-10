@@ -26,7 +26,7 @@ class DynamiqInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("dynamiq")
 
@@ -34,28 +34,28 @@ class DynamiqInstrumentor(BaseInstrumentor):
             "dynamiq.nodes.agents.base",
             "Agent.run",
             dynamiq_wrap("dynamiq.agent_run", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "dynamiq",
             "Workflow.run",
             dynamiq_wrap("dynamiq.workflow_run", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "dynamiq.memory",
             "Memory.add",
             dynamiq_wrap("dynamiq.memory_add", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "dynamiq.memory",
             "Memory.search",
             dynamiq_wrap("dynamiq.memory_search", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
 

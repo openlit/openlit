@@ -29,7 +29,7 @@ class LiteLLMInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("litellm")
 
@@ -37,31 +37,30 @@ class LiteLLMInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "litellm",
             "completion",
-            completion("litellm.completion", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            completion(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "litellm",
             "acompletion",
-            acompletion("litellm.completion", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            acompletion(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "litellm",
             "embedding",
-            embedding("litellm.embedding", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            embedding(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "litellm",
             "aembedding",
-            aembedding("litellm.embedding", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            aembedding(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
-
 
     def _uninstrument(self, **kwargs):
         # Proper uninstrumentation logic to revert patched methods

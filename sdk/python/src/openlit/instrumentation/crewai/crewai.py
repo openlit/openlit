@@ -6,7 +6,7 @@ Module for monitoring LiteLLM calls.
 import logging
 import json
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
     handle_exception,
 )
@@ -28,7 +28,7 @@ def _parse_tools(tools):
     return json.dumps(result)
 
 def crew_wrap(gen_ai_endpoint, version, environment, application_name,
-                     tracer, pricing_info, trace_content, metrics, disable_metrics):
+                     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
 
@@ -39,7 +39,7 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
         application_name: Name of the application using the CrewAI Agent.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of CrewAI usage.
-        trace_content: Flag indicating whether to trace the actual content.
+        capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the chat completions method to add telemetry.
@@ -71,12 +71,14 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
                                     SemanticConvetion.GEN_AI_SYSTEM_CREWAI)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_AGENT)
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AGENT)
                 span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                span.set_attribute(SERVICE_NAME,
                                     application_name)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                                    environment)
 
                 instance_class = instance.__class__.__name__
 

@@ -44,7 +44,7 @@ RUN chmod +x ./scripts/entrypoint.sh
 RUN npm install -g prisma
 
 # Expose the port that Next.js will run on
-EXPOSE 3000
+EXPOSE ${DOCKER_PORT:-3000}
 
 # Run the entrypoint script
 CMD ["/app/client/scripts/entrypoint.sh"]

@@ -17,11 +17,12 @@ import requests
 # Import internal modules for setting up tracing and fetching pricing info.
 from opentelemetry import trace as t
 from opentelemetry.trace import SpanKind, Status, StatusCode, Span
+from opentelemetry.sdk.resources import SERVICE_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.semcov import SemanticConvetion
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
+from openlit.otel.events import setup_events
 from openlit.__helpers import fetch_pricing_info, get_env_variable
-
 
 # Instrumentors for various large language models.
 from openlit.instrumentation.openai import OpenAIInstrumentor
@@ -84,10 +85,11 @@ class OpenlitConfig:
         application_name (str): Name of the application using openLIT.
         pricing_info (Dict[str, Any]): Pricing information.
         tracer (Optional[Any]): Tracer instance for OpenTelemetry.
+        event_provider (Optional[Any]): Event logger provider for OpenTelemetry.
         otlp_endpoint (Optional[str]): Endpoint for OTLP.
         otlp_headers (Optional[Dict[str, str]]): Headers for OTLP.
         disable_batch (bool): Flag to disable batch span processing in tracing.
-        trace_content (bool): Flag to enable or disable tracing of content.
+        capture_message_content (bool): Flag to enable or disable tracing of content.
     """
 
     _instance = None
@@ -106,11 +108,12 @@ class OpenlitConfig:
         cls.application_name = "default"
         cls.pricing_info = {}
         cls.tracer = None
+        cls.event_provider = None
         cls.metrics_dict = {}
         cls.otlp_endpoint = None
         cls.otlp_headers = None
         cls.disable_batch = False
-        cls.trace_content = True
+        cls.capture_message_content = True
         cls.disable_metrics = False
 
     @classmethod
@@ -119,10 +122,11 @@ class OpenlitConfig:
         environment,
         application_name,
         tracer,
+        event_provider,
         otlp_endpoint,
         otlp_headers,
         disable_batch,
-        trace_content,
+        capture_message_content,
         metrics_dict,
         disable_metrics,
         pricing_json,
@@ -134,22 +138,26 @@ class OpenlitConfig:
             environment (str): Deployment environment.
             application_name (str): Application name.
             tracer: Tracer instance.
+            event_provider: Event logger provider instance.
             meter: Metric Instance
             otlp_endpoint (str): OTLP endpoint.
             otlp_headers (Dict[str, str]): OTLP headers.
             disable_batch (bool): Disable batch span processing flag.
-            trace_content (bool): Enable or disable content tracing.
+            capture_message_content (bool): Enable or disable content tracing.
+            metrics_dict: Dictionary of metrics.
+            disable_metrics (bool): Flag to disable metrics.
             pricing_json(str): path or url to the pricing json file
         """
         cls.environment = environment
         cls.application_name = application_name
         cls.pricing_info = fetch_pricing_info(pricing_json)
         cls.tracer = tracer
+        cls.event_provider = event_provider
         cls.metrics_dict = metrics_dict
         cls.otlp_endpoint = otlp_endpoint
         cls.otlp_headers = otlp_headers
         cls.disable_batch = disable_batch
-        cls.trace_content = trace_content
+        cls.capture_message_content = capture_message_content
         cls.disable_metrics = disable_metrics
 
 
@@ -186,8 +194,9 @@ def instrument_if_available(
                 environment=config.environment,
                 application_name=config.application_name,
                 tracer=config.tracer,
+                event_provider=config.event_provider,
                 pricing_info=config.pricing_info,
-                trace_content=config.trace_content,
+                capture_message_content=config.capture_message_content,
                 metrics_dict=config.metrics_dict,
                 disable_metrics=config.disable_metrics,
             )
@@ -206,10 +215,11 @@ def init(
     environment="default",
     application_name="default",
     tracer=None,
+    event_logger=None,
     otlp_endpoint=None,
     otlp_headers=None,
     disable_batch=False,
-    trace_content=True,
+    capture_message_content=True,
     disabled_instrumentors=None,
     meter=None,
     disable_metrics=False,
@@ -226,11 +236,12 @@ def init(
         environment (str): Deployment environment.
         application_name (str): Application name.
         tracer: Tracer instance (Optional).
+        event_logger: EventLoggerProvider instance (Optional).
         meter: OpenTelemetry Metrics Instance (Optional).
         otlp_endpoint (str): OTLP endpoint for exporter (Optional).
         otlp_headers (Dict[str, str]): OTLP headers for exporter (Optional).
         disable_batch (bool): Flag to disable batch span processing (Optional).
-        trace_content (bool): Flag to trace content (Optional).
+        capture_message_content (bool): Flag to trace content (Optional).
         disabled_instrumentors (List[str]): Optional. List of instrumentor names to disable.
         disable_metrics (bool): Flag to disable metrics (Optional).
         pricing_json(str): File path or url to the pricing json (Optional).
@@ -251,7 +262,7 @@ def init(
         "gpt4all": "gpt4all",
         "elevenlabs": "elevenlabs",
         "vllm": "vllm",
-        "google-ai-studio": "google.generativeai",
+        "google-ai-studio": "google.genai",
         "azure-ai-inference": "azure.ai.inference",
         "langchain": "langchain",
         "llama_index": "llama_index",
@@ -307,8 +318,21 @@ def init(
         )
 
         if not tracer:
-            logger.error("openLIT tracing setup failed. Tracing will not be available.")
+            logger.error("OpenLIT tracing setup failed. Tracing will not be available.")
             return
+
+        # Setup events based on the provided or default configuration.
+        event_provider = setup_events(
+                application_name=application_name,
+                environment=environment,
+                event_logger=event_logger,
+                otlp_endpoint=None,
+                otlp_headers=None,
+                disable_batch=disable_batch,
+            )
+
+        if not event_provider:
+            logger.error("OpenLIT events setup failed. Events will not be available")
 
         # Setup meter and receive metrics_dict instead of meter.
         metrics_dict, err = setup_meter(
@@ -325,15 +349,19 @@ def init(
             )
             return
 
+        if os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower == "false":
+            capture_message_content=False
+
         # Update global configuration with the provided settings.
         config.update_config(
             environment,
             application_name,
             tracer,
+            event_provider,
             otlp_endpoint,
             otlp_headers,
             disable_batch,
-            trace_content,
+            capture_message_content,
             metrics_dict,
             disable_metrics,
             pricing_json,
@@ -555,11 +583,11 @@ def trace(wrapped):
                 span.set_attribute("function.args", str(args))
                 span.set_attribute("function.kwargs", str(kwargs))
                 span.set_attribute(
-                    SemanticConvetion.GEN_AI_APPLICATION_NAME,
+                    SERVICE_NAME,
                     OpenlitConfig.application_name,
                 )
                 span.set_attribute(
-                    SemanticConvetion.GEN_AI_ENVIRONMENT, OpenlitConfig.environment
+                    DEPLOYMENT_ENVIRONMENT, OpenlitConfig.environment
                 )
             except Exception as meta_exception:
                 logging.error(

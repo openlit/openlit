@@ -30,7 +30,7 @@ class JulepInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("julep")
 
@@ -39,19 +39,19 @@ class JulepInstrumentor(BaseInstrumentor):
             "julep.resources.agents.agents",
             "AgentsResource.create",
             wrap_julep("julep.agents_create", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "julep.resources.tasks",
             "TasksResource.create",
             wrap_julep("julep.task_create", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "julep.resources.executions.executions",
             "ExecutionsResource.create",
             wrap_julep("julep.execution_create", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # async
@@ -59,19 +59,19 @@ class JulepInstrumentor(BaseInstrumentor):
             "julep.resources.agents.agents",
             "AsyncAgentsResource.create",
             async_wrap_julep("julep.agents_create", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "julep.resources.tasks",
             "AsyncTasksResource.create",
             async_wrap_julep("julep.task_create", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "julep.resources.executions.executions",
             "AsyncExecutionsResource.create",
             async_wrap_julep("julep.execution_create", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
 

@@ -1,31 +1,34 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, possibly-used-before-assignment
 """
 Module for monitoring Ollama API calls.
 """
 
 import logging
+import time
+from urllib.parse import urlparse
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import get_audio_model_cost
-from openlit.__helpers import handle_exception
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from openlit.__helpers import (
+    get_audio_model_cost,
+    handle_exception,
+    create_metrics_attributes,
+)
 from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
 def generate(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics):
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for creating speech audio to collect metrics.
     
     Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
         application_name: Name of the application using the ElevenLabs API.
         tracer: OpenTelemetry tracer for creating spans.
         pricing_info: Information used for calculating the cost of generating speech audio.
-        trace_content: Flag indicating whether to trace the input text and generated audio.
+        capture_message_content: Flag indicating whether to trace the input text and generated audio.
     
     Returns:
         A function that wraps the speech audio creation method to add telemetry.
@@ -48,78 +51,95 @@ def generate(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'generate' method.
         """
 
-        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+        url = urlparse(instance._client_wrapper._base_url)
+        server_address, server_port = url.hostname, url.port or 443
+        request_model = kwargs.get('model', kwargs.get('model_id', 'eleven_multilingual_v2'))
+
+        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}'
+
+        with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
+            start_time = time.time()
             response = wrapped(*args, **kwargs)
+            end_time = time.time()
 
             try:
                 # Calculate cost of the operation
-                cost = get_audio_model_cost(kwargs.get("model", "eleven_multilingual_v2"),
-                                            pricing_info, kwargs.get("text", ""))
+                cost = get_audio_model_cost(request_model,
+                                            pricing_info, kwargs.get('text', ''))
 
                 # Set Span attributes
-                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+                span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO)
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_ELEVENLABS)
-                span.set_attribute(SemanticConvetion.GEN_AI_TYPE,
-                                    SemanticConvetion.GEN_AI_TYPE_AUDIO)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                    gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                    environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                    application_name)
-                if gen_ai_endpoint == "elevenlabs.generate":
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                    kwargs.get("model", "eleven_multilingual_v2"))
-                    if isinstance(kwargs.get("voice", "Rachel"), str):
+                                    SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    request_model)
+                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                                    server_address)
+                span.set_attribute(SemanticConvetion.SERVER_PORT,
+                                    server_port)
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                                    request_model)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    request_model)
+                span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                    'audio')
+
+                # Set Span attributes (Extras)
+                if gen_ai_endpoint == 'elevenlabs.generate':
+                    if isinstance(kwargs.get('voice', 'Rachel'), str):
                         span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_VOICE,
-                                        kwargs.get("voice", "Rachel"))
+                                        kwargs.get('voice', 'Rachel'))
                 else:
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                    kwargs.get("model_id", "eleven_multilingual_v2"))
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_VOICE,
-                                        kwargs.get("voice_id", ""))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
-                                    kwargs.get("output_format", "mp3"))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_SETTINGS,
-                                    str(kwargs.get("voice_settings", "")))
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                    cost)
-                if trace_content:
+                                        kwargs.get('voice_id', ''))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
+                                        kwargs.get('output_format', 'mp3'))
+                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_SETTINGS,
+                                        str(kwargs.get('voice_settings', '')))
+                    span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                                        environment)
+                    span.set_attribute(SERVICE_NAME,
+                                        application_name)
+                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                        cost)
+                    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                        version)
+                if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: str(kwargs.get("text", "")),
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: str(kwargs.get('text', '')),
                         },
                     )
 
                 span.set_status(Status(StatusCode.OK))
 
                 if disable_metrics is False:
-                    attributes = {
-                        TELEMETRY_SDK_NAME:
-                            "openlit",
-                        SemanticConvetion.GEN_AI_APPLICATION_NAME:
-                            application_name,
-                        SemanticConvetion.GEN_AI_SYSTEM:
-                            SemanticConvetion.GEN_AI_SYSTEM_ELEVENLABS,
-                        SemanticConvetion.GEN_AI_ENVIRONMENT:
-                            environment,
-                        SemanticConvetion.GEN_AI_TYPE:
-                            SemanticConvetion.GEN_AI_TYPE_AUDIO,
-                        SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                            kwargs.get("model", "eleven_multilingual_v2")
-                    }
+                    attributes = create_metrics_attributes(
+                        service_name=application_name,
+                        deployment_environment=environment,
+                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO,
+                        system=SemanticConvetion.GEN_AI_SYSTEM_ELEVENLABS,
+                        request_model=request_model,
+                        server_address=server_address,
+                        server_port=server_port,
+                        response_model=request_model,
+                    )
 
-                    metrics["genai_requests"].add(1, attributes)
-                    metrics["genai_cost"].record(cost, attributes)
+                    metrics['genai_client_operation_duration'].record(
+                        end_time - start_time, attributes
+                    )
+                    metrics['genai_requests'].add(1, attributes)
+                    metrics['genai_cost'].record(cost, attributes)
 
                 # Return original response
                 return response
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in trace creation: %s", e)
+                logger.error('Error in trace creation: %s', e)
 
                 # Return original response
                 return response

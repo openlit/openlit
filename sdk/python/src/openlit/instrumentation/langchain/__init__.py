@@ -8,10 +8,10 @@ from wrapt import wrap_function_wrapper
 from openlit.instrumentation.langchain.langchain import (
     general_wrap,
     hub,
-    llm,
-    allm,
-    chat,
-    achat
+    chat
+)
+from openlit.instrumentation.langchain.async_langchain import (
+    async_chat
 )
 
 _instruments = ("langchain >= 0.1.20",)
@@ -51,13 +51,13 @@ WRAPPED_METHODS = [
         "package": "langchain_core.language_models.llms",
         "object": "BaseLLM.invoke",
         "endpoint": "langchain.llm",
-        "wrapper": llm,
+        "wrapper": chat,
     },
     {
         "package": "langchain_core.language_models.llms",
         "object": "BaseLLM.ainvoke",
         "endpoint": "langchain.llm",
-        "wrapper": allm,
+        "wrapper": async_chat,
     },
     {
         "package": "langchain_core.language_models.chat_models",
@@ -69,13 +69,19 @@ WRAPPED_METHODS = [
         "package": "langchain_core.language_models.chat_models",
         "object": "BaseChatModel.ainvoke",
         "endpoint": "langchain.chat_models",
-        "wrapper": achat,
+        "wrapper": async_chat,
     },
     {
         "package": "langchain.chains.base",
         "object": "Chain.invoke",
         "endpoint": "langchain.chain.invoke",
         "wrapper": chat,
+    },
+    {
+        "package": "langchain.chains.base",
+        "object": "Chain.invoke",
+        "endpoint": "langchain.chain.invoke",
+        "wrapper": async_chat,
     }
 ]
 
@@ -90,7 +96,7 @@ class LangChainInstrumentor(BaseInstrumentor):
         environment = kwargs.get("environment")
         tracer = kwargs.get("tracer")
         pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
+        capture_message_content = kwargs.get("capture_message_content")
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("langchain")
@@ -104,7 +110,7 @@ class LangChainInstrumentor(BaseInstrumentor):
                 wrap_package,
                 wrap_object,
                 wrapper(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics),
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
             )
 
     @staticmethod

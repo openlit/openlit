@@ -29,7 +29,7 @@ class TogetherInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("together")
 
@@ -37,32 +37,32 @@ class TogetherInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "together.resources.chat.completions",  
             "ChatCompletions.create",  
-            completion("together.chat.completions", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            completion(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Image generate
         wrap_function_wrapper(
             "together.resources.images",  
             "Images.generate",  
-            image_generate("together.image.generate", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            image_generate(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Chat completions
         wrap_function_wrapper(
             "together.resources.chat.completions",  
             "AsyncChatCompletions.create",  
-            async_completion("together.chat.completions", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            async_completion(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Image generate
         wrap_function_wrapper(
             "together.resources.images",  
             "AsyncImages.generate",  
-            async_image_generate("together.image.generate", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            async_image_generate(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

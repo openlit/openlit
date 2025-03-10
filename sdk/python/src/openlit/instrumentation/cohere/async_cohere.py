@@ -1,5 +1,5 @@
 """
-Module for monitoring Mistral API calls.
+Module for monitoring Cohere API calls.
 """
 
 import logging
@@ -21,7 +21,134 @@ from openlit.semcov import SemanticConvetion
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def chat(version, environment, application_name, tracer,
+def async_embed(version, environment, application_name, tracer,
+          pricing_info, capture_message_content, metrics, disable_metrics):
+    """
+    Generates a telemetry wrapper for embeddings to collect metrics.
+    
+    Args:
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the Cohere API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of Cohere usage.
+        capture_message_content: Flag indicating whether to trace the actual content.
+    
+    Returns:
+        A function that wraps the embeddings method to add telemetry.
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the 'embed' API call to add telemetry.
+
+        This collects metrics such as execution time, cost, and token usage, and handles errors
+        gracefully, adding details to the trace for observability.
+
+        Args:
+            wrapped: The original 'embed' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'embed' method.
+            kwargs: Keyword arguments for the 'embed' method.
+
+        Returns:
+            The response from the original 'embed' method.
+        """
+
+        server_address, server_port = set_server_address_and_port(instance, "api.cohere.com", 443)
+        request_model = kwargs.get("model", "mbed-english-v3.0")
+
+        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+
+        with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
+            start_time = time.time()
+            response = await wrapped(*args, **kwargs)
+            end_time = time.time()
+
+            response_dict = response_as_dict(response)
+            try:
+                input_tokens = response_dict.get('meta').get('billed_units').get('input_tokens')
+                # Calculate cost of the operation
+                cost = get_embed_model_cost(kwargs.get("model", "embed-english-v2.0"),
+                                            pricing_info, input_tokens)
+
+                # Set Span attributes (OTel Semconv)
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
+                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
+                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
+                                    SemanticConvetion.GEN_AI_SYSTEM_COHERE)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                                    request_model)
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_ENCODING_FORMATS,
+                                    kwargs.get('embedding_types', ['float']))
+                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                                    request_model)
+                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                                    server_address)
+                span.set_attribute(SemanticConvetion.SERVER_PORT,
+                                    server_port)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                                    input_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                    response_dict.get('response_type'))
+
+                # Set Span attributes (Extras)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
+                                    environment)
+                span.set_attribute(SERVICE_NAME,
+                                    application_name)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                                    input_tokens)
+                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                                    cost)
+                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                                    version)
+
+                if capture_message_content:
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: str(kwargs.get("texts", "")),
+                        },
+                    )
+
+                span.set_status(Status(StatusCode.OK))
+
+                if disable_metrics is False:
+                    attributes = create_metrics_attributes(
+                        service_name=application_name,
+                        deployment_environment=environment,
+                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        system=SemanticConvetion.GEN_AI_SYSTEM_COHERE,
+                        request_model=request_model,
+                        server_address=server_address,
+                        server_port=server_port,
+                        response_model=request_model,
+                    )
+                    metrics["genai_client_usage_tokens"].record(
+                            input_tokens, attributes
+                        )
+                    metrics["genai_client_operation_duration"].record(
+                        end_time - start_time, attributes
+                    )
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
+
+                # Return original response
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
+
+    return wrapper
+
+def async_chat(version, environment, application_name, tracer,
          pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat to collect metrics.
@@ -29,16 +156,16 @@ def chat(version, environment, application_name, tracer,
     Args:
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using the Mistral API.
+        application_name: Name of the application using the Cohere API.
         tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of Mistral usage.
+        pricing_info: Information used for calculating the cost of Cohere usage.
         capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'chat' API call to add telemetry.
         
@@ -55,25 +182,25 @@ def chat(version, environment, application_name, tracer,
             The response from the original 'chat' method.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, 'api.mistral.ai', 443)
-        request_model = kwargs.get('model', 'mistral-small-latest')
+        server_address, server_port = set_server_address_and_port(instance, "api.cohere.com", 443)
+        request_model = kwargs.get("model", "command-r-plus-08-2024")
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
+        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             end_time = time.time()
 
             response_dict = response_as_dict(response)
 
             try:
                 # Format 'messages' into a single string
-                message_prompt = kwargs.get('messages', '')
+                message_prompt = kwargs.get("messages", "")
                 formatted_messages = []
                 for message in message_prompt:
-                    role = message['role']
-                    content = message['content']
+                    role = message["role"]
+                    content = message["content"]
 
                     if isinstance(content, list):
                         content_str = ", ".join(
@@ -81,57 +208,66 @@ def chat(version, environment, application_name, tracer,
                             if "type" in item else f'text: {item["text"]}'
                             for item in content
                         )
-                        formatted_messages.append(f'{role}: {content_str}')
+                        formatted_messages.append(f"{role}: {content_str}")
                     else:
-                        formatted_messages.append(f'{role}: {content}')
-                prompt = '\n'.join(formatted_messages)
+                        formatted_messages.append(f"{role}: {content}")
+                prompt = "\n".join(formatted_messages)
 
-                input_tokens = response_dict.get('usage').get('prompt_tokens')
-                output_tokens = response_dict.get('usage').get('completion_tokens')
+                input_tokens = response_dict.get('usage').get('billed_units').get('input_tokens')
+                output_tokens = response_dict.get('usage').get('billed_units').get('output_tokens')
 
                 # Calculate cost of the operation
-                cost = get_chat_model_cost(request_model,
-                                            pricing_info, input_tokens,
-                                            output_tokens)
+                cost = get_chat_model_cost(request_model, pricing_info,
+                                            input_tokens, output_tokens)
 
-                # Set base span attribues (OTel Semconv)
-                span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
+                llm_response = response_dict.get('message').get('content')[0].get('text')
+
+                 # Set base span attribues (OTel Semconv)
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
                                     SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                 span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_MISTRAL)
+                                    SemanticConvetion.GEN_AI_SYSTEM_COHERE)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                     request_model)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
-                                    kwargs.get('seed', ''))
+                                    kwargs.get("seed", ""))
                 span.set_attribute(SemanticConvetion.SERVER_PORT,
                                     server_port)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                    kwargs.get('frequency_penalty', 0.0))
+                                    kwargs.get("frequency_penalty", 0.0))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                    kwargs.get('max_tokens', -1))
+                                    kwargs.get("max_tokens", -1))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                    kwargs.get('presence_penalty', 0.0))
+                                    kwargs.get("presence_penalty", 0.0))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES,
-                                    kwargs.get('stop', []))
+                                    kwargs.get("stop_sequences", []))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                    kwargs.get('temperature', 1.0))
+                                    kwargs.get("temperature", 0.3))
+                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
+                                    kwargs.get("k", 1.0))
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                    kwargs.get('top_p', 1.0))
+                                    kwargs.get("p", 1.0))
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
-                                    response_dict.get('id'))
+                                    response_dict.get("id"))
                 span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
-                                    response_dict.get('model'))
+                                    request_model)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
                 span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
                                     output_tokens)
                 span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
                                     server_address)
+                if isinstance(llm_response, str):
+                    span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                    "text")
+                else:
+                    span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                                    "json")
 
                 # Set base span attribues (Extras)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
-                                    environment)
+                                     environment)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
@@ -144,6 +280,7 @@ def chat(version, environment, application_name, tracer,
                                     end_time - start_time)
                 span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                     version)
+
                 if capture_message_content:
                     span.add_event(
                         name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -151,28 +288,12 @@ def chat(version, environment, application_name, tracer,
                             SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
                         },
                     )
-
-                for i in range(kwargs.get('n',1)):
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
-                                        [response_dict.get('choices')[i].get('finish_reason')])
-                    if capture_message_content:
-                        span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
-                            attributes={
-                                # pylint: disable=line-too-long
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: str(response_dict.get('choices')[i].get('message').get('content')),
-                            },
-                        )
-                    if kwargs.get('tools'):
-                        span.set_attribute(SemanticConvetion.GEN_AI_TOOL_CALLS,
-                                        str(response_dict.get('choices')[i].get('message').get('tool_calls')))
-
-                    if isinstance(response_dict.get('choices')[i].get('message').get('content'), str):
-                        span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
-                                        'text')
-                    elif response_dict.get('choices')[i].get('message').get('content') is not None:
-                        span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
-                                        'json')
+                    span.add_event(
+                        name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                        attributes={
+                            SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llm_response,
+                        },
+                    )
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -181,40 +302,40 @@ def chat(version, environment, application_name, tracer,
                         service_name=application_name,
                         deployment_environment=environment,
                         operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                        system=SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                        system=SemanticConvetion.GEN_AI_SYSTEM_COHERE,
                         request_model=request_model,
                         server_address=server_address,
                         server_port=server_port,
-                        response_model=response_dict.get('model'),
+                        response_model=request_model,
                     )
 
-                    metrics['genai_client_usage_tokens'].record(
+                    metrics["genai_client_usage_tokens"].record(
                         input_tokens + output_tokens, attributes
                     )
-                    metrics['genai_client_operation_duration'].record(
+                    metrics["genai_client_operation_duration"].record(
                         end_time - start_time, attributes
                     )
-                    metrics['genai_server_ttft'].record(
+                    metrics["genai_server_ttft"].record(
                         end_time - start_time, attributes
                     )
-                    metrics['genai_requests'].add(1, attributes)
-                    metrics['genai_completion_tokens'].add(output_tokens, attributes)
-                    metrics['genai_prompt_tokens'].add(input_tokens, attributes)
-                    metrics['genai_cost'].record(cost, attributes)
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_completion_tokens"].add(output_tokens, attributes)
+                    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
 
                 # Return original response
                 return response
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error('Error in trace creation: %s', e)
+                logger.error("Error in trace creation: %s", e)
 
                 # Return original response
                 return response
 
     return wrapper
 
-def chat_stream(version, environment, application_name,
+def async_chat_stream(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for chat_stream to collect metrics.
@@ -222,16 +343,16 @@ def chat_stream(version, environment, application_name,
     Args:
         version: Version of the monitoring package.
         environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using the Mistral API.
+        application_name: Name of the application using the Cohere API.
         tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of Mistral usage.
+        pricing_info: Information used for calculating the cost of Cohere usage.
         capture_message_content: Flag indicating whether to trace the actual content.
 
     Returns:
         A function that wraps the chat method to add telemetry.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the 'chat_stream' API call to add telemetry.
         
@@ -248,10 +369,10 @@ def chat_stream(version, environment, application_name,
             The response from the original 'chat_stream' method.
         """
 
-        class TracedSyncStream:
+        class TracedAsyncStream:
             """
             Wrapper for streaming responses to collect metrics and trace data.
-            Wraps the 'mistral.syncStream' response to collect message IDs and aggregated response.
+            Wraps the response to collect message IDs and aggregated response.
 
             This class implements the '__aiter__' and '__anext__' methods that
             handle asynchronous streaming responses.
@@ -271,12 +392,11 @@ def chat_stream(version, environment, application_name,
                 self.__wrapped__ = wrapped
                 self._span = span
                 # Placeholder for aggregating streaming response
-                self._llmresponse = ''
-                self._response_id = ''
-                self._response_model = ''
-                self._finish_reason = ''
-                self._input_tokens = ''
-                self._output_tokens = ''
+                self._llmresponse = ""
+                self._response_id = ""
+                self._finish_reason = ""
+                self._input_tokens = ""
+                self._output_tokens = ""
 
                 self._args = args
                 self._kwargs = kwargs
@@ -288,23 +408,23 @@ def chat_stream(version, environment, application_name,
                 self._server_address = server_address
                 self._server_port = server_port
 
-            def __enter__(self):
-                self.__wrapped__.__enter__()
+            async def __aenter__(self):
+                await self.__wrapped__.__aenter__()
                 return self
 
-            def __exit__(self, exc_type, exc_value, traceback):
-                self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+            async def __aexit__(self, exc_type, exc_value, traceback):
+                await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
 
-            def __iter__(self):
+            def __aiter__(self):
                 return self
 
-            def __getattr__(self, name):
+            async def __getattr__(self, name):
                 """Delegate attribute access to the wrapped object."""
-                return getattr(self.__wrapped__, name)
+                return getattr(await self.__wrapped__, name)
 
-            def __next__(self):
+            async def __anext__(self):
                 try:
-                    chunk = self.__wrapped__.__next__()
+                    chunk = await self.__wrapped__.__anext__()
                     end_time = time.time()
                     # Record the timestamp for the current chunk
                     self._timestamps.append(end_time)
@@ -315,16 +435,21 @@ def chat_stream(version, environment, application_name,
 
                     chunked = response_as_dict(chunk)
 
-                    self._llmresponse += chunked.get('data').get('choices')[0].get('delta').get('content')
-                    if chunked.get('data').get('usage') is not None:
-                        self._response_id = chunked.get('data').get('id')
-                        self._response_model = chunked.get('data').get('model')
-                        self._input_tokens = chunked.get('data').get('usage').get('prompt_tokens')
-                        self._output_tokens = chunked.get('data').get('usage').get('completion_tokens')
-                        self._finish_reason = chunked.get('data').get('choices')[0].get('finish_reason')
+                    if chunked.get('type') == 'message-start':
+                        self._response_id = chunked.get('id')
+
+                    if chunked.get('type') == 'content-delta':
+                        content = chunked.get('delta').get('message').get('text')
+                        if content:
+                            self._llmresponse += content
+
+                    if chunked.get('type') == 'message-end':
+                        self._finish_reason = chunked.get('delta').get('finish_reason')
+                        self._input_tokens = chunked.get('delta').get('usage').get('billed_units').get('input_tokens')
+                        self._output_tokens = chunked.get('delta').get('usage').get('billed_units').get('output_tokens')
 
                     return chunk
-                except StopIteration:
+                except StopAsyncIteration:
                     # Handling exception ensure observability without disrupting operation
                     try:
                         self._end_time = time.time()
@@ -332,27 +457,27 @@ def chat_stream(version, environment, application_name,
                             self._tbt = calculate_tbt(self._timestamps)
 
                         # Format 'messages' into a single string
-                        message_prompt = self._kwargs.get('messages', '')
+                        message_prompt = self._kwargs.get("messages", "")
                         formatted_messages = []
                         for message in message_prompt:
-                            role = message['role']
-                            content = message['content']
+                            role = message["role"]
+                            content = message["content"]
 
                             if isinstance(content, list):
                                 content_str_list = []
                                 for item in content:
-                                    if item['type'] == 'text':
+                                    if item["type"] == "text":
                                         content_str_list.append(f'text: {item["text"]}')
-                                    elif (item['type'] == 'image_url' and
-                                        not item['image_url']['url'].startswith('data:')):
+                                    elif (item["type"] == "image_url" and
+                                        not item["image_url"]["url"].startswith("data:")):
                                         content_str_list.append(f'image_url: {item["image_url"]["url"]}')
                                 content_str = ", ".join(content_str_list)
-                                formatted_messages.append(f'{role}: {content_str}')
+                                formatted_messages.append(f"{role}: {content_str}")
                             else:
-                                formatted_messages.append(f'{role}: {content}')
-                        prompt = '\n'.join(formatted_messages)
+                                formatted_messages.append(f"{role}: {content}")
+                        prompt = "\n".join(formatted_messages)
 
-                        request_model = self._kwargs.get('model', 'mistral-small-latest')
+                        request_model = self._kwargs.get("model", "command-r-plus")
 
                         # Calculate cost of the operation
                         cost = get_chat_model_cost(request_model,
@@ -360,37 +485,37 @@ def chat_stream(version, environment, application_name,
                                                     self._output_tokens)
 
                         # Set Span attributes (OTel Semconv)
-                        self._span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
+                        self._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                         self._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
                                             SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
                         self._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                            SemanticConvetion.GEN_AI_SYSTEM_MISTRAL)
+                                            SemanticConvetion.GEN_AI_SYSTEM_COHERE)
                         self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
                                             request_model)
                         self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
-                                            self._kwargs.get('seed', ''))
+                                            self._kwargs.get("seed", ""))
                         self._span.set_attribute(SemanticConvetion.SERVER_PORT,
                                             self._server_port)
                         self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                            self._kwargs.get('frequency_penalty', 0.0))
+                                            self._kwargs.get("frequency_penalty", 0.0))
                         self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
-                                            self._kwargs.get('max_tokens', -1))
+                                            self._kwargs.get("max_tokens", -1))
                         self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                            self._kwargs.get('presence_penalty', 0.0))
+                                            self._kwargs.get("presence_penalty", 0.0))
                         self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES,
-                                            self._kwargs.get('stop_sequences', []))
+                                            self._kwargs.get("stop_sequences", []))
                         self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
-                                            self._kwargs.get('temperature', 0.3))
+                                            self._kwargs.get("temperature", 0.3))
                         self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
-                                            self._kwargs.get('k', 1.0))
+                                            self._kwargs.get("k", 1.0))
                         self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
-                                            self._kwargs.get('p', 1.0))
+                                            self._kwargs.get("p", 1.0))
                         self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
                                             [self._finish_reason])
                         self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
                                             self._response_id)
                         self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
-                                            self._response_model)
+                                            request_model)
                         self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
                                             self._input_tokens)
                         self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
@@ -400,10 +525,10 @@ def chat_stream(version, environment, application_name,
 
                         if isinstance(self._llmresponse, str):
                             self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
-                                            'text')
+                                            "text")
                         else:
                             self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
-                                            'json')
+                                            "json")
 
                         # Set Span attributes (Extra)
                         self._span.set_attribute(DEPLOYMENT_ENVIRONMENT,
@@ -442,170 +567,44 @@ def chat_stream(version, environment, application_name,
                                 service_name=application_name,
                                 deployment_environment=environment,
                                 operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                                system=SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                                system=SemanticConvetion.GEN_AI_SYSTEM_COHERE,
                                 request_model=request_model,
                                 server_address=self._server_address,
                                 server_port=self._server_port,
-                                response_model=self._response_model,
+                                response_model=request_model,
                             )
 
-                            metrics['genai_client_usage_tokens'].record(
+                            metrics["genai_client_usage_tokens"].record(
                                 self._input_tokens + self._output_tokens, attributes
                             )
-                            metrics['genai_client_operation_duration'].record(
+                            metrics["genai_client_operation_duration"].record(
                                 self._end_time - self._start_time, attributes
                             )
-                            metrics['genai_server_tbt'].record(
+                            metrics["genai_server_tbt"].record(
                                 self._tbt, attributes
                             )
-                            metrics['genai_server_ttft'].record(
+                            metrics["genai_server_ttft"].record(
                                 self._ttft, attributes
                             )
-                            metrics['genai_requests'].add(1, attributes)
-                            metrics['genai_completion_tokens'].add(self._output_tokens, attributes)
-                            metrics['genai_prompt_tokens'].add(self._input_tokens, attributes)
-                            metrics['genai_cost'].record(cost, attributes)
+                            metrics["genai_requests"].add(1, attributes)
+                            metrics["genai_completion_tokens"].add(self._output_tokens, attributes)
+                            metrics["genai_prompt_tokens"].add(self._input_tokens, attributes)
+                            metrics["genai_cost"].record(cost, attributes)
 
                     except Exception as e:
                         handle_exception(self._span, e)
-                        logger.error('Error in trace creation: %s', e)
+                        logger.error("Error in trace creation: %s", e)
                     finally:
                         self._span.end()
                     raise
 
-        server_address, server_port = set_server_address_and_port(instance, 'api.mistral.ai', 443)
-        request_model = kwargs.get('model', 'mistral-small-latest')
+        server_address, server_port = set_server_address_and_port(instance, "api.cohere.com", 443)
+        request_model = kwargs.get("model", "command-r-plus")
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
+        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
-        awaited_wrapped = wrapped(*args, **kwargs)
+        awaited_wrapped = await wrapped(*args, **kwargs)
         span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-        return TracedSyncStream(awaited_wrapped, span, kwargs, server_address, server_port)
-
-    return wrapper
-
-def embeddings(version, environment, application_name,
-              tracer, pricing_info, capture_message_content, metrics, disable_metrics):
-    """
-    Generates a telemetry wrapper for embeddings to collect metrics.
-    
-    Args:
-        version: Version of the monitoring package.
-        environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using the Mistral API.
-        tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of Mistral usage.
-        capture_message_content: Flag indicating whether to trace the actual content.
-    
-    Returns:
-        A function that wraps the embeddings method to add telemetry.
-    """
-
-    def wrapper(wrapped, instance, args, kwargs):
-        """
-        Wraps the 'embeddings' API call to add telemetry.
-
-        This collects metrics such as execution time, cost, and token usage, and handles errors
-        gracefully, adding details to the trace for observability.
-
-        Args:
-            wrapped: The original 'embeddings' method to be wrapped.
-            instance: The instance of the class where the original method is defined.
-            args: Positional arguments for the 'embeddings' method.
-            kwargs: Keyword arguments for the 'embeddings' method.
-
-        Returns:
-            The response from the original 'embeddings' method.
-        """
-
-        server_address, server_port = set_server_address_and_port(instance, 'api.mistral.ai', 443)
-        request_model = kwargs.get('model', 'mistral-embed')
-
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}'
-
-        with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
-            start_time = time.time()
-            response = wrapped(*args, **kwargs)
-            end_time = time.time()
-
-            response_dict = response_as_dict(response)
-            try:
-                input_tokens = response_dict.get('usage').get('prompt_tokens')
-
-                # Calculate cost of the operation
-                cost = get_embed_model_cost(request_model,
-                                    pricing_info, input_tokens)
-
-                # Set Span attributes (OTel Semconv)
-                span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_MISTRAL)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                    request_model)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_ENCODING_FORMATS,
-                                    [kwargs.get('encoding_format', 'float')])
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
-                                    response_dict.get('model'))
-                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
-                                    server_address)
-                span.set_attribute(SemanticConvetion.SERVER_PORT,
-                                    server_port)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
-                                    input_tokens)
-
-                # Set Span attributes (Extras)
-                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
-                                    environment)
-                span.set_attribute(SERVICE_NAME,
-                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                    input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                    cost)
-                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
-                                    version)
-
-                if capture_message_content:
-                    span.add_event(
-                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
-                        attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: str(kwargs.get('inputs', '')),
-                        },
-                    )
-
-                span.set_status(Status(StatusCode.OK))
-
-                if disable_metrics is False:
-                    attributes = create_metrics_attributes(
-                        service_name=application_name,
-                        deployment_environment=environment,
-                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
-                        system=SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
-                        request_model=request_model,
-                        server_address=server_address,
-                        server_port=server_port,
-                        response_model=response_dict.get('model'),
-                    )
-                    metrics['genai_client_usage_tokens'].record(
-                            input_tokens, attributes
-                        )
-                    metrics['genai_client_operation_duration'].record(
-                        end_time - start_time, attributes
-                    )
-                    metrics['genai_requests'].add(1, attributes)
-                    metrics['genai_prompt_tokens'].add(input_tokens, attributes)
-                    metrics['genai_cost'].record(cost, attributes)
-
-                # Return original response
-                return response
-
-            except Exception as e:
-                handle_exception(span, e)
-                logger.error('Error in trace creation: %s', e)
-
-                # Return original response
-                return response
+        return TracedAsyncStream(awaited_wrapped, span, kwargs, server_address, server_port)
 
     return wrapper

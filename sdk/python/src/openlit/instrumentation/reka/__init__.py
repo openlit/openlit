@@ -29,7 +29,7 @@ class RekaInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("reka-api")
 
@@ -37,16 +37,16 @@ class RekaInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "reka.chat.client",
             "ChatClient.create",
-            chat("reka.chat", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            chat(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # async chat
         wrap_function_wrapper(
             "reka.chat.client",
             "AsyncChatClient.create",
-            async_chat("reka.chat", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            async_chat(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

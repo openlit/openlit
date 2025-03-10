@@ -26,7 +26,7 @@ class PremAIInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("premai")
 
@@ -34,16 +34,16 @@ class PremAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "premai.api",
             "ChatCompletionsModule.create",
-            chat("premai.chat.completions", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            chat(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # sync embedding
         wrap_function_wrapper(
             "premai.api",
             "EmbeddingsModule.create",
-            embedding("premai.embeddings", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+            embedding(version, environment, application_name,
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

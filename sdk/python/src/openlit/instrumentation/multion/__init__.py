@@ -30,7 +30,7 @@ class MultiOnInstrumentor(BaseInstrumentor):
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
-        trace_content = kwargs.get("trace_content", False)
+        capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("multion")
 
@@ -39,19 +39,19 @@ class MultiOnInstrumentor(BaseInstrumentor):
             "multion.client",
             "MultiOn.browse",
             multion_wrap("multion.browse", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "multion.client",
             "MultiOn.retrieve",
             multion_wrap("multion.retrieve", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "multion.sessions.client",
             "SessionsClient.create",
             multion_wrap("multion.sessions.create", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Asynchronus
@@ -59,19 +59,19 @@ class MultiOnInstrumentor(BaseInstrumentor):
             "multion.client",
             "AsyncMultiOn.browse",
             async_multion_wrap("multion.browse", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "multion.client",
             "AsyncMultiOn.retrieve",
             async_multion_wrap("multion.retrieve", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
         wrap_function_wrapper(
             "multion.sessions.client",
             "AsyncSessionsClient.create",
             async_multion_wrap("multion.sessions.create", version, environment, application_name,
-                  tracer, pricing_info, trace_content, metrics, disable_metrics),
+                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
 
