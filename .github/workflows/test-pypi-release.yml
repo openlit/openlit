@@ -43,12 +43,12 @@ jobs:
         keywords = ["OpenTelemetry", "otel", "otlp","llm", "tracing", "openai", "anthropic", "claude", "cohere", "llm monitoring", "observability", "monitoring", "gpt", "Generative AI", "chatGPT"]
 
         [tool.poetry.dependencies]
-        python = "^3.7.1"
+        python = "^3.8.0"
         requests = "^2.26.0"
-        opentelemetry-api = "^1.24.0"
-        opentelemetry-sdk = "^1.24.0"
-        opentelemetry-exporter-otlp = "^1.24.0"
-        opentelemetry-instrumentation = "^0.45b0"
+        opentelemetry-api = "^1.27.0"
+        opentelemetry-sdk = "^1.27.0"
+        opentelemetry-exporter-otlp = "^1.27.0"
+        opentelemetry-instrumentation = ">=0.48b0,<1.0.0"
 
         [build-system]
         requires = ["poetry-core>=1.1.0"]
