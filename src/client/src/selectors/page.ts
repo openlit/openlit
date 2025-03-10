@@ -1,5 +1,5 @@
-import { RootStore } from "@/store";
-import { PAGE, REQUEST_VISIBILITY_COLUMNS } from "@/store/page";
+import { RootStore } from "@/types/store/root";
+import { PAGE, REQUEST_VISIBILITY_COLUMNS } from "@/types/store/page";
 
 export const getDashboardType = (state: RootStore) => state.page.dashboard.type;
 

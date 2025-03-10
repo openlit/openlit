@@ -5,10 +5,10 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { getTraceMappingKeyFullPath } from "@/helpers/client/trace";
 import { getUpdateFilter } from "@/selectors/filter";
 import { useRootStore } from "@/store";
-import { FilterSorting } from "@/store/filter";
+import { FilterSorting } from "@/types/store/filter";
 import { ArrowDownIcon, ArrowDownUpIcon, ArrowUpIcon } from "lucide-react";
 
 const SORTING_TYPES = [

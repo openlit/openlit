@@ -53,7 +53,7 @@ export default function PromptInput() {
 				});
 				setEvaluatedDataFunction(data);
 				posthog?.capture(CLIENT_EVENTS.OPENGROUND_EVALUATION_SUCCESS, {
-					providers: selectedProviders.map((i) => i.provider),
+					providers: selectedProviders.map(({ provider }) => provider),
 					prompt,
 				});
 			},

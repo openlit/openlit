@@ -1,4 +1,4 @@
-import { SecretInput } from "@/constants/vault";
+import { SecretInput } from "@/types/vault";
 import { upsertSecret } from "@/lib/platform/vault";
 import asaw from "@/utils/asaw";
 

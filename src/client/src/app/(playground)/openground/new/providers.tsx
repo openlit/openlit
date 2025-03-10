@@ -1,5 +1,5 @@
 import { PlusIcon } from "lucide-react";
-import { Providers } from "@/store/openground";
+import { Providers } from "@/types/store/openground";
 import { useRootStore } from "@/store";
 import {
 	addProvider,

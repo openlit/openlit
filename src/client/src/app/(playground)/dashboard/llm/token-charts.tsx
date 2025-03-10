@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { COLORS } from "../../../../../styles/colors";
 import IntermediateState from "@/components/(playground)/intermediate-state";
-import { getFilterParamsForDashboard } from "@/helpers/filter";
+import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 
 function TopModels() {
 	const filter = useRootStore(getFilterDetails);

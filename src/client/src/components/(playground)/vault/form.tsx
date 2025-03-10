@@ -1,7 +1,5 @@
-import FormBuilder, {
-	FormBuilderEvent,
-} from "@/components/common/form-builder";
-import { FieldProps } from "@/components/common/form-field";
+import FormBuilder from "@/components/common/form-builder";
+import { FieldProps, FormBuilderEvent } from "@/types/form";
 import {
 	Dialog,
 	DialogContent,

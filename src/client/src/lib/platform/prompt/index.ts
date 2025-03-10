@@ -5,7 +5,7 @@ import {
 	OPENLIT_PROMPT_VERSIONS_TABLE_NAME,
 	OPENLIT_PROMPT_VERSION_DOWNLOADS_TABLE_NAME,
 } from "./table-details";
-import { verifyPromptInput } from "@/helpers/prompt";
+import { verifyPromptInput } from "@/helpers/server/prompt";
 import { getCurrentUser } from "@/lib/session";
 import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";

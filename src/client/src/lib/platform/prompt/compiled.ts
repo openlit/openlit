@@ -1,6 +1,6 @@
 import { PromptCompiledInput } from "@/constants/prompts";
 import { getAPIKeyInfo } from "../api-keys";
-import { validatePromptCompiledInput } from "@/helpers/prompt";
+import { validatePromptCompiledInput } from "@/helpers/server/prompt";
 import { getSpecificPrompt } from ".";
 import { objectEntries } from "@/utils/object";
 import { updateDownloadDetails } from "./version";

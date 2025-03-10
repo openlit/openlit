@@ -1,4 +1,4 @@
-import { ProviderType } from "@/store/openground";
+import { ProviderType } from "@/types/store/openground";
 import { useRootStore } from "@/store";
 import {
 	getEvaluatedResponse,

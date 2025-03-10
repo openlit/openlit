@@ -1,7 +1,7 @@
 import { useRootStore } from "@/store";
 import { getDashboardType, setPageData } from "@/selectors/page";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DASHBOARD_TYPE_OBJECT } from "@/store/page";
+import { DASHBOARD_TYPE_OBJECT } from "@/types/store/page";
 import LLMDashboard from "./llm";
 import GPUDashboard from "./gpu";
 import VectorDashboard from "./vector";
