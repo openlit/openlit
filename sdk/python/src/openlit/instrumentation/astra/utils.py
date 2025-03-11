@@ -44,7 +44,7 @@ def process_db_operations(response, span, start_time, gen_ai_endpoint, version, 
         span.set_attribute(SemanticConvetion.DB_OPERATION_NAME, db_operation)
         span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME, collection_name)
         span.set_attribute(SemanticConvetion.DB_SDK_VERSION, version)
-        
+
         if db_operation == SemanticConvetion.DB_OPERATION_CREATE_COLLECTION:
             span.set_attribute(SemanticConvetion.DB_NAMESPACE, response.keyspace)
             span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME, response.name)
@@ -54,7 +54,7 @@ def process_db_operations(response, span, start_time, gen_ai_endpoint, version, 
         if db_operation == SemanticConvetion.DB_OPERATION_INSERT:
             span.set_attribute(SemanticConvetion.DB_DOCUMENTS_COUNT, object_count(args[0]))
             span.set_attribute(SemanticConvetion.DB_QUERY_TEXT, str(args[0] or kwargs.get('documents', {})))
-            
+
         elif db_operation == SemanticConvetion.DB_OPERATION_UPDATE:
             span.set_attribute(SemanticConvetion.DB_RESPONSE_RETURNED_ROWS, response.update_info.get('nModified', 0))
             span.set_attribute(SemanticConvetion.DB_QUERY_TEXT, str(args[1] or kwargs.get('update', {})))

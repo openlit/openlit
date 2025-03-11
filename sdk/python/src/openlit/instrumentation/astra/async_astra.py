@@ -34,8 +34,12 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
             server_address = getattr(getattr(instance, 'database', instance), 'api_endpoint', '')
             server_port = 443
             collection_name = instance.name
-            response = process_db_operations(response, span, start_time, gen_ai_endpoint, version, environment, application_name,
-                 capture_message_content, metrics, disable_metrics, server_address, server_port, collection_name, db_operation, kwargs, args)
+            response = process_db_operations(
+                response, span, start_time, gen_ai_endpoint,
+                version, environment, application_name, capture_message_content,
+                metrics, disable_metrics, server_address, server_port,
+                collection_name, db_operation, kwargs, args
+            )
 
             return response
 
