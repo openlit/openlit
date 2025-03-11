@@ -1,9 +1,13 @@
+"""
+Astra OpenTelemetry instrumentation utility functions
+"""
+
 import time
 import logging
-from openlit.semcov import SemanticConvetion
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import handle_exception
+from openlit.semcov import SemanticConvetion
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -24,8 +28,10 @@ DB_OPERATION_MAP = {
     'astra.find_one_and_delete': SemanticConvetion.DB_OPERATION_FIND_AND_DELETE
 }
 
-def process_db_operations(response, span, start_time, gen_ai_endpoint, version, environment, application_name,
-                capture_message_content, metrics, disable_metrics, server_address, server_port, collection_name, db_operation, kwargs, args):
+def process_db_operations(response, span, start_time, gen_ai_endpoint,
+        version, environment, application_name,
+        capture_message_content, metrics, disable_metrics, server_address,
+        server_port, collection_name, db_operation, kwargs, args):
     """
     Process DB operation and generate Telemetry
     """
@@ -63,7 +69,11 @@ def process_db_operations(response, span, start_time, gen_ai_endpoint, version, 
             span.set_attribute(SemanticConvetion.DB_RESPONSE_RETURNED_ROWS, response.deleted_count)
             span.set_attribute(SemanticConvetion.DB_QUERY_TEXT, str(args[0] or kwargs.get('filter', {})))
 
-        elif db_operation in [SemanticConvetion.DB_OPERATION_SELECT, SemanticConvetion.DB_OPERATION_FIND_AND_DELETE, SemanticConvetion.DB_OPERATION_REPLACE]:
+        elif db_operation in [
+            SemanticConvetion.DB_OPERATION_SELECT,
+            SemanticConvetion.DB_OPERATION_FIND_AND_DELETE,
+            SemanticConvetion.DB_OPERATION_REPLACE
+        ]:
             span.set_attribute(SemanticConvetion.DB_QUERY_TEXT, str(args or kwargs.get('filter', {})))
 
         span.set_status(Status(StatusCode.OK))

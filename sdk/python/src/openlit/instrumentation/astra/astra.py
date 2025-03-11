@@ -5,7 +5,6 @@ Module for monitoring AstraDB.
 import time
 from opentelemetry.trace import SpanKind
 from openlit.instrumentation.astra.utils import (
-    object_count,
     DB_OPERATION_MAP,
     process_db_operations
 )
