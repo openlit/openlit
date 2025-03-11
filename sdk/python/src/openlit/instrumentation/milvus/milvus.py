@@ -79,12 +79,12 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                    application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB)
-                span.set_attribute(SemanticConvetion.DB_SYSTEM,
+                span.set_attribute(SemanticConvetion.DB_SYSTEM_NAME,
                                    SemanticConvetion.DB_SYSTEM_MILVUS)
 
                 if gen_ai_endpoint == "milvus.create_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_CREATE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -93,14 +93,14 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "milvus.drop_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_DELETE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "milvus.insert":
                     db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -111,7 +111,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "milvus.search":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -120,7 +120,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint in ["milvus.query", "milvus.get"]:
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -129,7 +129,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "milvus.upsert":
                     db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -140,7 +140,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "milvus.delete":
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -155,13 +155,13 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                             "openlit",
                         SERVICE_NAME:
                             application_name,
-                        SemanticConvetion.DB_SYSTEM:
+                        SemanticConvetion.DB_SYSTEM_NAME:
                             SemanticConvetion.DB_SYSTEM_MILVUS,
                         DEPLOYMENT_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_OPERATION:
                             SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB,
-                        SemanticConvetion.DB_OPERATION:
+                        SemanticConvetion.DB_OPERATION_NAME:
                             db_operation
                     }
 

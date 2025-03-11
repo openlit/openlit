@@ -78,12 +78,12 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                    application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB)
-                span.set_attribute(SemanticConvetion.DB_SYSTEM,
+                span.set_attribute(SemanticConvetion.DB_SYSTEM_NAME,
                                    SemanticConvetion.DB_SYSTEM_PINECONE)
 
                 if gen_ai_endpoint == "pinecone.create_index":
                     db_operation = SemanticConvetion.DB_OPERATION_CREATE_INDEX
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_CREATE_INDEX)
                     span.set_attribute(SemanticConvetion.DB_INDEX_NAME,
                                        kwargs.get("name", ""))
@@ -96,7 +96,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "pinecone.query":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
                                        str(kwargs.get("vector")))
@@ -109,7 +109,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "pinecone.update":
                     db_operation = SemanticConvetion.DB_OPERATION_UPDATE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_UPDATE)
                     span.set_attribute(SemanticConvetion.DB_UPDATE_ID,
                                        kwargs.get("id",""))
@@ -122,14 +122,14 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "pinecone.upsert":
                     db_operation = SemanticConvetion.DB_OPERATION_UPSERT
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("vectors")))
 
                 elif gen_ai_endpoint == "pinecone.delete":
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
                                        object_count(kwargs.get("ids")))
@@ -148,13 +148,13 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                             "openlit",
                         SERVICE_NAME:
                             application_name,
-                        SemanticConvetion.DB_SYSTEM:
+                        SemanticConvetion.DB_SYSTEM_NAME:
                             SemanticConvetion.DB_SYSTEM_PINECONE,
                         DEPLOYMENT_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_OPERATION:
                             SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB,
-                        SemanticConvetion.DB_OPERATION:
+                        SemanticConvetion.DB_OPERATION_NAME:
                             db_operation
                     }
 

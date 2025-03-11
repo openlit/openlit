@@ -79,14 +79,14 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                    application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB)
-                span.set_attribute(SemanticConvetion.DB_SYSTEM,
+                span.set_attribute(SemanticConvetion.DB_SYSTEM_NAME,
                                    SemanticConvetion.DB_SYSTEM_CHROMA)
                 span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                    instance.name)
 
                 if gen_ai_endpoint == "chroma.add":
                     db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
@@ -99,7 +99,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "chroma.get":
                     db_operation = SemanticConvetion.DB_OPERATION_GET
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_GET)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
@@ -112,7 +112,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "chroma.query":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_STATEMENT,
                                        str(kwargs.get("query_texts", "")))
@@ -125,7 +125,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "chroma.update":
                     db_operation = SemanticConvetion.DB_OPERATION_UPDATE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_UPDATE)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("embeddings", [])))
@@ -138,7 +138,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "chroma.upsert":
                     db_operation = SemanticConvetion.DB_OPERATION_UPSERT
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("embeddings", [])))
@@ -151,7 +151,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "chroma.delete":
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
@@ -164,7 +164,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "chroma.peek":
                     db_operation = SemanticConvetion.DB_OPERATION_PEEK
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_PEEK)
 
                 span.set_status(Status(StatusCode.OK))
@@ -175,13 +175,13 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                             "openlit",
                         SERVICE_NAME:
                             application_name,
-                        SemanticConvetion.DB_SYSTEM:
+                        SemanticConvetion.DB_SYSTEM_NAME:
                             SemanticConvetion.DB_SYSTEM_CHROMA,
                         DEPLOYMENT_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_OPERATION:
                             SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB,
-                        SemanticConvetion.DB_OPERATION:
+                        SemanticConvetion.DB_OPERATION_NAME:
                             db_operation
                     }
 
