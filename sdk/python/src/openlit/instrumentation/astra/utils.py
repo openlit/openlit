@@ -89,7 +89,7 @@ def process_db_operations(response, span, start_time, gen_ai_endpoint,
             }
 
             metrics['db_requests'].add(1, attributes)
-            metrics["db_client_operation_duration"].record(end_time - start_time, attributes)
+            metrics['db_client_operation_duration'].record(end_time - start_time, attributes)
 
         # Return original response
         return response
