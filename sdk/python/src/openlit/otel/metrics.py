@@ -18,6 +18,18 @@ else:
 # Global flag to check if the meter provider initialization is complete.
 METER_SET = False
 
+_DB_CLIENT_OPERATION_DURATION_BUCKETS = [
+    0.001,
+    0.005,
+    0.01,
+    0.05,
+    0.1,
+    0.5,
+    1,
+    5,
+    10
+]
+
 _GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS = [
     0.01,
     0.02,
@@ -166,6 +178,12 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 description="Time to generate first token for successful responses",
                 unit="s",
                 explicit_bucket_boundaries_advisory=_GEN_AI_SERVER_TFTT,
+            ),
+            "db_client_operation_duration": meter.create_histogram(
+                name=SemanticConvetion.DB_CLIENT_OPERATION_DURATION,
+                description="DB operation duration",
+                unit="s",
+                explicit_bucket_boundaries_advisory=_DB_CLIENT_OPERATION_DURATION_BUCKETS,
             ),
 
             # Extra
