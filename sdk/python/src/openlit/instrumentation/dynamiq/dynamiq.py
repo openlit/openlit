@@ -84,13 +84,13 @@ def dynamiq_wrap(gen_ai_endpoint, version, environment, application_name,
                       getattr(getattr(instance.flow, 'nodes', [None])[0], 'model', 'default_model'))
 
                 elif gen_ai_endpoint == "dynamiq.memory_add":
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvetion.DB_METADATA, str(kwargs.get('metadata', '')))
 
                 elif gen_ai_endpoint == "dynamiq.memory_search":
                     query_value = kwargs.get('query', '') or (args[0] if args else '')
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_GET)
                     span.set_attribute(SemanticConvetion.DB_FILTER, str(kwargs.get('filters', '')))
                     span.set_attribute(SemanticConvetion.DB_STATEMENT, query_value)

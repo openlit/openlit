@@ -204,6 +204,9 @@ def set_server_address_and_port(client_instance: Any,
         # Attempt to get server_url from instance.sdk_configuration.server_url
         config = getattr(client_instance, 'sdk_configuration', None)
         base_url = getattr(config, 'server_url', None)
+    
+    if not base_url:
+        base_url = getattr(client_instance, 'api_endpoint', None)
 
     if base_url:
         if isinstance(base_url, str):

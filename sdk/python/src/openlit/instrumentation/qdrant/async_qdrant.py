@@ -79,40 +79,40 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                                    application_name)
                 span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB)
-                span.set_attribute(SemanticConvetion.DB_SYSTEM,
+                span.set_attribute(SemanticConvetion.DB_SYSTEM_NAME,
                                    SemanticConvetion.DB_SYSTEM_QDRANT)
 
                 if gen_ai_endpoint == "qdrant.create_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_CREATE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "qdrant.upload_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_CREATE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "qdrant.delete_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_DELETE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "qdrant.update_collection":
                     db_operation = SemanticConvetion.DB_OPERATION_UPDATE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_UPDATE_COLLECTION)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "qdrant.set_payload":
                     db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -125,7 +125,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "qdrant.retrieve":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -134,7 +134,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "qdrant.scroll":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -143,7 +143,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint in ["qdrant.search", "qdrant.search_groups"]:
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -152,7 +152,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "qdrant.recommend":
                     db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_QUERY)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -162,7 +162,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "qdrant.upload_points":
                     db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -171,7 +171,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "qdrant.update_vectors":
                     db_operation = SemanticConvetion.DB_OPERATION_UPDATE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_UPDATE)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -182,7 +182,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "qdrant.overwrite_payload":
                     db_operation = SemanticConvetion.DB_OPERATION_UPDATE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_UPDATE)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -197,7 +197,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                     db_operation = SemanticConvetion.DB_OPERATION_UPSERT
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
                                        response.status)
@@ -206,7 +206,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint in ["qdrant.delete_payload", "qdrant.delete_vectors"]:
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -217,7 +217,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint in ["qdrant.clear_payload", "qdrant.delete"]:
                     db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_DELETE)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -228,7 +228,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
                 elif gen_ai_endpoint == "qdrant.create_payload_index":
                     db_operation = SemanticConvetion.DB_OPERATION_CREATE_INDEX
-                    span.set_attribute(SemanticConvetion.DB_OPERATION,
+                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
                                        SemanticConvetion.DB_OPERATION_CREATE_INDEX)
                     span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
@@ -243,13 +243,13 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                             "openlit",
                         SERVICE_NAME:
                             application_name,
-                        SemanticConvetion.DB_SYSTEM:
+                        SemanticConvetion.DB_SYSTEM_NAME:
                             SemanticConvetion.DB_SYSTEM_QDRANT,
                         DEPLOYMENT_ENVIRONMENT:
                             environment,
                         SemanticConvetion.GEN_AI_OPERATION:
                             SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB,
-                        SemanticConvetion.DB_OPERATION:
+                        SemanticConvetion.DB_OPERATION_NAME:
                             db_operation
                     }
 
