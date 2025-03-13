@@ -1,18 +1,10 @@
 import { get } from "lodash";
 import { useCallback, useState } from "react";
 import { deleteData, getData } from "@/utils/api";
+import { FetchWrapperProps } from "@/types/fetch-wrapper";
 
-type useFetchWrapperProps = {
-	body?: string;
-	failureCb?: (s?: string) => void;
-	url: string;
-	requestType: "GET" | "POST" | "DELETE" | "PUT";
-	responseDataKey?: string;
-	successCb?: (res?: any) => void;
-};
-
-export default function useFetchWrapper() {
-	const [data, setData] = useState<unknown>(null);
+export default function useFetchWrapper<T>() {
+	const [data, setData] = useState<T | null>(null);
 	const [isLoading, setIsLoading] = useState<boolean>(false);
 	const [error, setError] = useState<unknown>(null);
 	const [isFetched, setIsFetched] = useState<boolean>(false);
@@ -25,7 +17,7 @@ export default function useFetchWrapper() {
 			requestType,
 			responseDataKey = "",
 			successCb,
-		}: useFetchWrapperProps) => {
+		}: FetchWrapperProps) => {
 			setIsLoading(true);
 			setError(null);
 			try {

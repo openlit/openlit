@@ -5,6 +5,10 @@ import * as SwitchPrimitives from "@radix-ui/react-switch";
 
 import { cn } from "@/lib/utils";
 
+export type SwitchProps = React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root> & {
+	thumbClassName?: string;
+};
+
 const Switch = React.forwardRef<
 	React.ElementRef<typeof SwitchPrimitives.Root>,
 	React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root> & {

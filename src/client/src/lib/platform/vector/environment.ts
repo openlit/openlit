@@ -1,6 +1,6 @@
-import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import { MetricParams, OTEL_TRACES_TABLE_NAME, dataCollector } from "../common";
-import { getFilterWhereCondition } from "@/helpers/platform";
+import { getFilterWhereCondition } from "@/helpers/server/platform";
 
 export async function getResultGenerationByEnvironment(params: MetricParams) {
 	const keyPathEnvironment = `SpanAttributes['${getTraceMappingKeyFullPath(

@@ -1,4 +1,4 @@
-import { runClickhouseMigrations } from "@/lib/platform/clickhouse";
+import { runClickhouseMigrations } from "@/lib/platform/clickhouse/helpers";
 import asaw from "@/utils/asaw";
 
 export async function POST() {

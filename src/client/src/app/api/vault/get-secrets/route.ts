@@ -1,6 +1,6 @@
 import { SERVER_EVENTS } from "@/constants/events";
 import getMessage from "@/constants/messages";
-import { SecretGetFiltersWithApiKey } from "@/constants/vault";
+import { SecretGetFiltersWithApiKey } from "@/types/vault";
 import { getSecretsFromDatabaseId } from "@/lib/platform/vault";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";

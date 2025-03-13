@@ -3,8 +3,8 @@ import {
 	SecretGetFilters,
 	SecretGetFiltersWithApiKey,
 	SecretInput,
-} from "@/constants/vault";
-import { normalizeSecretDataForSDK, verifySecretInput } from "@/helpers/vault";
+} from "@/types/vault";
+import { normalizeSecretDataForSDK, verifySecretInput } from "@/helpers/server/vault";
 import { getCurrentUser } from "@/lib/session";
 import { throwIfError } from "@/utils/error";
 import Sanitizer from "@/utils/sanitizer";
@@ -177,4 +177,16 @@ export async function getSecretsFromDatabaseId(
 	);
 
 	return normalizeSecretDataForSDK(secretData as any[]);
+}
+
+export async function getSecretById(
+	id: string,
+	databaseConfigId?: string,
+	excludeVaultValue: boolean = true
+) {
+	const query = `SELECT * ${
+		!!excludeVaultValue ? "EXCEPT value" : ""
+	} FROM ${OPENLIT_VAULT_TABLE_NAME} v WHERE v.id = '${id}';`;
+
+	return await dataCollector({ query }, "query", databaseConfigId);
 }

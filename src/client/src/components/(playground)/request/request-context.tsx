@@ -1,4 +1,4 @@
-import { TransformedTraceRow } from "@/constants/traces";
+import { TransformedTraceRow } from "@/types/trace";
 import { noop } from "@/utils/noop";
 import { ReactNode, createContext, useContext, useState } from "react";
 
