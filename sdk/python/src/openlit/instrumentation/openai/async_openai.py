@@ -127,10 +127,10 @@ def async_responses(version, environment, application_name,
                         self._tbt = calculate_tbt(self._timestamps)
 
                     try:
-                        formatted_messages = extract_and_format_input(kwargs.get('input', ''))
+                        formatted_messages = extract_and_format_input(self._kwargs.get('input', ''))
                         prompt = concatenate_all_contents(formatted_messages)
                     except:
-                        prompt = kwargs.get('input', '')
+                        prompt = self._kwargs.get('input', '')
 
                     request_model = self._kwargs.get("model", "gpt-4o")
 
