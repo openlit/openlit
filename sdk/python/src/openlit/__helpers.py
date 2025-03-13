@@ -237,28 +237,28 @@ def extract_and_format_input(messages):
     and categorize them into roles like 'user', 'assistant', 'system', 'tool'.
     Only return roles present in the input.
     """
-    
-    def response_as_dict(message):
+
+    def give_dict(message):
         """Convert message to a dictionary if it's not already one."""
         return message if isinstance(message, dict) else {'role': 'user', 'content': message}
 
-    def extract_text_from_item(item):
+    def extract_text(item):
         """Extract text from item, assuming item's structure."""
         return item.get('text') if isinstance(item, dict) else str(item)
-    
+
     fixed_roles = ['user', 'assistant', 'system', 'tool']
-    
+
     if isinstance(messages, str):
         # Return only user role dictionary if input is a string
         return {'user': {'role': 'user', 'content': messages}}
-    
+
     # Initialize the dictionary with fixed keys and empty structures
     formatted_messages = {role_key: {'role': '', 'content': ''} for role_key in fixed_roles}
-    
+
     for message in messages:
-        message = response_as_dict(message)
+        message = give_dict(message)
         role = message.get('role')
-        
+
         if role not in fixed_roles:
             continue
 
@@ -266,7 +266,7 @@ def extract_and_format_input(messages):
 
         if isinstance(content, list):
             content_str = ", ".join(
-                f'{item.get("type", "text")}: {extract_text_from_item(item)}'
+                f'{item.get("type", "text")}: {extract_text(item)}'
                 for item in content
             )
         else:

@@ -8,8 +8,6 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
     handle_exception,
-    get_chat_model_cost,
-    otel_event,
 )
 from openlit.semcov import SemanticConvetion
 
@@ -48,9 +46,7 @@ def create_agent(version, environment, application_name,
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             try:
-                start_time = time.time()
                 response = wrapped(*args, **kwargs)
-                end_time = time.time()
 
                 set_span_attributes(span, version, SemanticConvetion.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
                     environment, application_name, server_address, server_port, kwargs.get('model', 'gpt-4o'))
