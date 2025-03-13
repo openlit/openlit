@@ -20,7 +20,7 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get('application_name', 'defaul')
+        application_name = kwargs.get('application_name', 'default')
         environment = kwargs.get('environment', 'default')
         tracer = kwargs.get('tracer')
         event_provider = kwargs.get('event_provider')
