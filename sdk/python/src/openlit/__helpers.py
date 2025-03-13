@@ -233,45 +233,35 @@ def otel_event(name, attributes, body):
 
 def extract_and_format_input(messages):
     """
-    Process messages or a single text string to extract content
-    and categorize them into roles like 'user', 'assistant', 'system', 'tool'.
-    Only return roles present in the input.
+    Process a list of messages to extract content and categorize
+    them into fixed roles like 'user', 'assistant', 'system', 'tool'.
     """
 
-    def give_dict(message):
-        """Convert message to a dictionary if it's not already one."""
-        return message if isinstance(message, dict) else {'role': 'user', 'content': message}
-
-    def extract_text(item):
-        """Extract text from item, assuming item's structure."""
-        return item.get('text') if isinstance(item, dict) else str(item)
-
-    fixed_roles = ['user', 'assistant', 'system', 'tool']
-
-    if isinstance(messages, str):
-        # Return only user role dictionary if input is a string
-        return {'user': {'role': 'user', 'content': messages}}
-
+    fixed_roles = ['user', 'assistant', 'system', 'tool']  # Ensure these are your fixed keys
     # Initialize the dictionary with fixed keys and empty structures
     formatted_messages = {role_key: {'role': '', 'content': ''} for role_key in fixed_roles}
 
     for message in messages:
-        message = give_dict(message)
-        role = message.get('role')
+        # Normalize the message structure
+        message = response_as_dict(message)
 
+        # Extract role and content
+        role = message.get('role')
         if role not in fixed_roles:
-            continue
+            continue  # Skip any role not in our predefined roles
 
         content = message.get('content', '')
 
+        # Prepare content as a string
         if isinstance(content, list):
             content_str = ", ".join(
-                f'{item.get("type", "text")}: {extract_text(item)}'
+                f'{item.get("type", "text")}: {extract_text_from_item(item)}'
                 for item in content
             )
         else:
             content_str = content
 
+        # Set the role in the formatted message and concatenate content
         if not formatted_messages[role]['role']:
             formatted_messages[role]['role'] = role
 
@@ -280,8 +270,7 @@ def extract_and_format_input(messages):
         else:
             formatted_messages[role]['content'] = content_str
 
-    # Remove empty roles from the dictionary
-    return {role: data for role, data in formatted_messages.items() if data['content']}
+    return formatted_messages
 
 def extract_text_from_item(item):
     """

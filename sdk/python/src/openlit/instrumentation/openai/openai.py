@@ -126,7 +126,11 @@ def responses(version, environment, application_name,
                     if len(self._timestamps) > 1:
                         self._tbt = calculate_tbt(self._timestamps)
 
-                    formatted_messages = extract_and_format_input(self._kwargs.get('input', ''))
+                    try:
+                        formatted_messages = extract_and_format_input(kwargs.get('input', ''))
+                        prompt = concatenate_all_contents(formatted_messages)
+                    except:
+                        prompt = kwargs.get('input', '')
 
                     request_model = self._kwargs.get("model", "gpt-4o")
 
@@ -194,7 +198,6 @@ def responses(version, environment, application_name,
                     self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                         version)
 
-                    prompt = concatenate_all_contents(formatted_messages)
                     if capture_message_content:
                         self._span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -288,7 +291,11 @@ def responses(version, environment, application_name,
                 response_dict = response_as_dict(response)
 
                 try:
-                    formatted_messages = extract_and_format_input(kwargs.get('input', ''))
+                    try:
+                        formatted_messages = extract_and_format_input(kwargs.get('input', ''))
+                        prompt = concatenate_all_contents(formatted_messages)
+                    except:
+                        prompt = kwargs.get('input', '')
 
                     input_tokens = response_dict.get('usage').get('input_tokens')
                     output_tokens = response_dict.get('usage').get('output_tokens')
@@ -347,7 +354,6 @@ def responses(version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
                                         version)
 
-                    prompt = concatenate_all_contents(formatted_messages)
                     if capture_message_content:
                         span.add_event(
                             name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
