@@ -65,6 +65,7 @@ from openlit.instrumentation.controlflow import ControlFlowInstrumentor
 from openlit.instrumentation.crawl4ai import Crawl4AIInstrumentor
 from openlit.instrumentation.firecrawl import FireCrawlInstrumentor
 from openlit.instrumentation.letta import LettaInstrumentor
+from openlit.instrumentation.openai_agents import OpenAIAgentsInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -293,6 +294,7 @@ def init(
         "firecrawl": "firecrawl",
         "letta": "letta",
         "together": "together",
+        "openai-agents": "agents"
     }
 
     invalid_instrumentors = [
@@ -411,6 +413,7 @@ def init(
             "firecrawl": FireCrawlInstrumentor(),
             "letta": LettaInstrumentor(),
             "together": TogetherInstrumentor(),
+            "openai-agents": OpenAIAgentsInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors
