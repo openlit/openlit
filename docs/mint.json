@@ -129,6 +129,7 @@
           "version": "latest",
           "pages": [
             "latest/integrations/langchain",
+            "latest/integrations/openai-agents",
             "latest/integrations/litellm",
             "latest/integrations/crewai",
             "latest/integrations/llama-index",
