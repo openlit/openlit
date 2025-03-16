@@ -37,8 +37,7 @@ def process_chunk(self, chunk):
     if (len(chunked.get('choices')) > 0 and ('delta' in chunked.get('choices')[0] and
         'content' in chunked.get('choices')[0].get('delta'))):
 
-        content = chunked.get('choices')[0].get('delta').get('content')
-        if content:
+        if content := chunked.get('choices')[0].get('delta').get('content'):
             self._llmresponse += content
 
     if chunked.get('choices')[0].get('finish_reason') is not None:
