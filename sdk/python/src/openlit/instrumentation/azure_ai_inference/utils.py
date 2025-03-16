@@ -48,7 +48,7 @@ def process_chunk(self, chunk):
         self._input_tokens = chunked.get('usage').get('prompt_tokens')
         self._response_id = chunked.get('id')
         self._response_model = chunked.get('model')
-        self._outputput_tokens = chunked.get('usage').get('completion_tokens')
+        self._output_tokens = chunked.get('usage').get('completion_tokens')
 
 def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
                         event_provider, capture_message_content, disable_metrics, version, is_stream):
