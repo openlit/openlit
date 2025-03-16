@@ -75,8 +75,10 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, scope._kwargs.get('temperature', 1.0))
     scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K, scope._kwargs.get('top_k', 1.0))
     scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P, scope._kwargs.get('top_p', 1.0))
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, scope._kwargs.get("frequency_penalty", 0.0))
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY, scope._kwargs.get("presence_penalty", 0.0))
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+                                                          scope._kwargs.get("frequency_penalty", 0.0))
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
+                                                          scope._kwargs.get("presence_penalty", 0.0))
     scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason])
     scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, scope._response_id)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, scope._response_model)

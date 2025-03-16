@@ -4,18 +4,10 @@ Module for monitoring Azure AI Inference API calls.
 
 import logging
 import time
-from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
-    get_chat_model_cost,
-    get_embed_model_cost,
     handle_exception,
-    response_as_dict,
-    calculate_ttft,
-    calculate_tbt,
-    create_metrics_attributes,
     set_server_address_and_port,
-    general_tokens
 )
 from openlit.instrumentation.azure_ai_inference.utils import (
     process_chunk,
