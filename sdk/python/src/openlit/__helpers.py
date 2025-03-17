@@ -241,7 +241,8 @@ def extract_and_format_input(messages):
     formatted_messages = {role_key: {'role': '', 'content': ''} for role_key in fixed_roles}
 
     for message in messages:
-        # Extract role and content
+        message = response_as_dict(message)
+
         role = message.get('role')
         if role not in fixed_roles:
             continue

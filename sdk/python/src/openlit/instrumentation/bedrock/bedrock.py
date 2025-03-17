@@ -4,23 +4,13 @@ Module for monitoring Amazon Bedrock API calls.
 
 import logging
 import time
-from botocore.response import StreamingBody
-from botocore.exceptions import ReadTimeoutError, ResponseStreamingError
-from urllib3.exceptions import ProtocolError as URLLib3ProtocolError
-from urllib3.exceptions import ReadTimeoutError as URLLib3ReadTimeoutError
-from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
-    get_chat_model_cost,
     handle_exception,
-    response_as_dict,
-    create_metrics_attributes,
     set_server_address_and_port
 )
 from openlit.instrumentation.bedrock.utils import (
-    process_chunk,
     process_chat_response,
-    process_streaming_chat_response,
 )
 from openlit.semcov import SemanticConvetion
 

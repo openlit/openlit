@@ -205,7 +205,8 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         metrics['genai_cost'].record(cost, metrics_attributes)
 
 def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics,
-                                    event_provider, capture_message_content=False, disable_metrics=False, version=''):
+    event_provider, capture_message_content=False, disable_metrics=False, version='', llm_config=''):
+
     """
     Process chat request and generate Telemetry
     """
@@ -217,11 +218,12 @@ def process_streaming_chat_response(self, pricing_info, environment, application
         }
 
     common_chat_logic(self, pricing_info, environment, application_name, metrics,
-                        event_provider, capture_message_content, disable_metrics, version, is_stream=True)
+                        event_provider, capture_message_content, disable_metrics, version, llm_config, is_stream=True)
 
-def process_chat_response(response, request_model, pricing_info, server_port, server_address,
-                          environment, application_name, metrics, event_provider, start_time,
-                          span, capture_message_content=False, disable_metrics=False, version='1.0.0', llm_config={}, **kwargs):
+def process_chat_response(response, request_model, pricing_info, server_port, server_address, environment,
+    application_name, metrics, event_provider, start_time,  span, capture_message_content=False,
+    disable_metrics=False, version='1.0.0', llm_config='', **kwargs):
+
     """
     Process chat request and generate Telemetry
     """
