@@ -237,27 +237,21 @@ def extract_and_format_input(messages):
     them into fixed roles like 'user', 'assistant', 'system', 'tool'.
     """
 
-    fixed_roles = ['user', 'assistant', 'system', 'tool']  # Ensure these are your fixed keys
-    # Initialize the dictionary with fixed keys and empty structures
+    fixed_roles = ['user', 'assistant', 'system', 'tool', 'developer']
     formatted_messages = {role_key: {'role': '', 'content': ''} for role_key in fixed_roles}
 
     for message in messages:
-        # Normalize the message structure
         message = response_as_dict(message)
 
-        # Extract role and content
         role = message.get('role')
         if role not in fixed_roles:
-            continue  # Skip any role not in our predefined roles
+            continue
 
         content = message.get('content', '')
 
-        # Prepare content as a string
+        # Prepare content as a string, handling both list and str
         if isinstance(content, list):
-            content_str = ", ".join(
-                f'{item.get("type", "text")}: {extract_text_from_item(item)}'
-                for item in content
-            )
+            content_str = ", ".join(str(item) for item in content)
         else:
             content_str = content
 
@@ -271,30 +265,6 @@ def extract_and_format_input(messages):
             formatted_messages[role]['content'] = content_str
 
     return formatted_messages
-
-def extract_text_from_item(item):
-    """
-    Extract text from inpit message
-    """
-
-    #pylint: disable=no-else-return
-    if item.get('type') == 'text':
-        return item.get('text', '')
-    elif item.get('type') == 'image':
-        # Handle image content specifically checking for 'url' or 'base64'
-        source = item.get('source', {})
-        if isinstance(source, dict):
-            if source.get('type') == 'base64':
-                # Return the actual base64 data if present
-                return source.get('data', '[Missing base64 data]')
-            elif source.get('type') == 'url':
-                return source.get('url', '[Missing URL]')
-    elif item.get('type') == 'image_url':
-        # New format: Handle the 'image_url' type
-        image_url = item.get('image_url', {})
-        if isinstance(image_url, dict):
-            return image_url.get('url', '[Missing image URL]')
-    return ''
 
 # To be removed one the change to log events (from span events) is complete
 def concatenate_all_contents(formatted_messages):

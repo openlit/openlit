@@ -43,10 +43,10 @@ def async_complete(version, environment, application_name,
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
-            self._llmresponse = ""
-            self._response_id = ""
-            self._response_model = ""
-            self._finish_reason = ""
+            self._llmresponse = ''
+            self._response_id = ''
+            self._response_model = ''
+            self._finish_reason = ''
             self._input_tokens = 0
             self._output_tokens = 0
 
@@ -96,7 +96,7 @@ def async_complete(version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(self._span, e)
-                    logger.error("Error in trace creation: %s", e)
+                    logger.error('Error in trace creation: %s', e)
                 raise
 
     async def wrapper(wrapped, instance, args, kwargs):
@@ -104,11 +104,11 @@ def async_complete(version, environment, application_name,
         Wraps the GenAI function call.
         """
 
-        streaming = kwargs.get("stream", False)
-        server_address, server_port = set_server_address_and_port(instance, "models.github.ai", 443)
-        request_model = kwargs.get("model", "gpt-4o")
+        streaming = kwargs.get('stream', False)
+        server_address, server_port = set_server_address_and_port(instance, 'models.github.ai', 443)
+        request_model = kwargs.get('model', 'gpt-4o')
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
 
         # pylint: disable=no-else-return
         if streaming:
