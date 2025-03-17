@@ -118,7 +118,7 @@ export default function ManageKeys() {
 	);
 
 	return (
-		<div className="flex flex-col w-full gap-3">
+		<div className="flex flex-col grow w-full gap-3 overflow-hidden">
 			<Generate refresh={fetchData} />
 			<TableData
 				columns={columns}

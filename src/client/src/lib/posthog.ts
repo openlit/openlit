@@ -3,10 +3,7 @@ import {
 	NEXT_PUBLIC_POSTHOG_API_KEY,
 } from "@/constants/posthog";
 import { consoleLog } from "@/utils/log";
-import { isBoolean } from "lodash";
 import { PostHog } from "posthog-node";
-
-type EventMessage = Parameters<PostHog["capture"]>[0];
 
 export default class PostHogServer {
 	static client: PostHog;
@@ -18,7 +15,7 @@ export default class PostHogServer {
 		});
 	}
 
-	static capture(options: EventMessage) {
+	static capture(options: Parameters<PostHog["capture"]>[0]) {
 		const telemetryEnabled = process.env.TELEMETRY_ENABLED !== "false";
 
 		try {

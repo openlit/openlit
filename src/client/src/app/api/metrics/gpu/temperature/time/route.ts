@@ -2,7 +2,7 @@ import { GPUMetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import { getAverageTemperatureParamsPerTime } from "@/lib/platform/gpu/temperature";
 
 export async function POST(request: Request) {

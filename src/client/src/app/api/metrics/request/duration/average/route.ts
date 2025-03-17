@@ -1,9 +1,10 @@
-import { MetricParams, OPERATION_TYPE, TimeLimit } from "@/lib/platform/common";
+import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import { getAverageRequestDuration } from "@/lib/platform/request";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
+import { OPERATION_TYPE } from "@/types/platform";
 
 export async function POST(request: Request) {
 	const formData = await request.json();

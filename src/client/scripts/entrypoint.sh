@@ -26,6 +26,9 @@ prisma generate
 # Run the seed 
 prisma db seed
 
+# Run crond in the background
+crond &
+
 export PORT=${DOCKER_PORT:-3000} 
 # Start the Next.js application
 exec node --max_old_space_size=512 $(which npm) start

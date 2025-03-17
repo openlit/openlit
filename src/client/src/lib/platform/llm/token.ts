@@ -1,10 +1,10 @@
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
-import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import {
 	dateTruncGroupingLogic,
 	getFilterPreviousParams,
 	getFilterWhereCondition,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 
 export type TOKEN_TYPE = "total" | "prompt" | "completion";
 

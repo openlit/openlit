@@ -5,10 +5,11 @@ import { TangentIcon } from "lucide-react";
 import {
 	findSpanInHierarchyLodash,
 	getNormalizedTraceAttribute,
-} from "@/helpers/trace";
-import { TraceHeirarchySpan, TraceMapping } from "@/constants/traces";
+} from "@/helpers/client/trace";
+import { TraceHeirarchySpan } from "@/types/trace";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
+import { TraceMapping } from "@/constants/traces";
 
 interface TreeNodeProps {
 	span: TraceHeirarchySpan;
@@ -117,7 +118,7 @@ export default function HeirarchyDisplay() {
 
 	return (
 		<div className="absolute left-0 -translate-x-full w-2/3 bg-stone-100 dark:bg-stone-900 border border-stone-200 border-t-0 dark:border-stone-900 border-r-0 text-stone-800 dark:text-stone-300 flex flex-col max-h-1/2">
-			<p className="flex-row bg-stone-950 px-4 py-3 items-center space-y-0 text-lg font-bold leading-7 text-stone-200">
+			<p className="flex-row bg-stone-950 px-3 py-2 items-center space-y-0 text-sm font-bold leading-7 text-stone-200">
 				Span Heirarchy
 			</p>
 			<div className="flex flex-col p-2 overflow-y-auto">

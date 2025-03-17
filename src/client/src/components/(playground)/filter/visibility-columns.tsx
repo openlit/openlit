@@ -7,10 +7,11 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { TraceMapping, TraceMappingKeyType } from "@/constants/traces";
+import { TraceMapping } from "@/constants/traces";
 import { getVisibilityColumnsOfPage, setPageData } from "@/selectors/page";
 import { useRootStore } from "@/store";
-import { PAGE, REQUEST_VISIBILITY_COLUMNS } from "@/store/page";
+import { PAGE, REQUEST_VISIBILITY_COLUMNS } from "@/types/store/page";
+import { TraceMappingKeyType } from "@/types/trace";
 import { objectEntries } from "@/utils/object";
 import { EyeIcon } from "lucide-react";
 

@@ -1,10 +1,7 @@
 import { Columns } from "@/components/data-table/columns";
 import { Badge } from "@/components/ui/badge";
-import {
-	TraceMapping,
-	TraceMappingKeyType,
-	TransformedTraceRow,
-} from "@/constants/traces";
+import { TraceMapping } from "@/constants/traces";
+import { TraceMappingKeyType, TransformedTraceRow } from "@/types/trace";
 import { CalendarDays } from "lucide-react";
 
 export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
@@ -37,12 +34,15 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.spanName.label,
 		cell: ({ row }) => {
 			return (
-				<div className="block items-center overflow-hidden text-ellipsis" title={row.spanName}>
+				<div
+					className="block items-center overflow-hidden text-ellipsis"
+					title={row.spanName}
+				>
 					{row.spanName}
 				</div>
 			);
 		},
-    enableHiding: true,
+		enableHiding: true,
 	},
 	requestDuration: {
 		header: () => TraceMapping.requestDuration.label,
@@ -51,7 +51,10 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 				TraceMapping.requestDuration.valueSuffix
 			}`;
 			return (
-				<div className="block items-center overflow-hidden text-ellipsis" title={value}>
+				<div
+					className="block items-center overflow-hidden text-ellipsis"
+					title={value}
+				>
 					{value}
 				</div>
 			);
@@ -62,33 +65,42 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		header: () => TraceMapping.serviceName.label,
 		cell: ({ row }) => {
 			return (
-				<div className="block items-center overflow-hidden text-ellipsis" title={row.serviceName}>
+				<div
+					className="block items-center overflow-hidden text-ellipsis"
+					title={row.serviceName}
+				>
 					{row.serviceName}
 				</div>
 			);
 		},
-    enableHiding: true,
+		enableHiding: true,
 	},
 	deploymentType: {
 		header: () => TraceMapping.deploymentType.label,
 		cell: ({ row }) => {
 			return (
-				<div className="block items-center overflow-hidden text-ellipsis" title={row.deploymentType}>
+				<div
+					className="block items-center overflow-hidden text-ellipsis"
+					title={row.deploymentType}
+				>
 					{row.deploymentType}
 				</div>
 			);
 		},
-    enableHiding: true,
+		enableHiding: true,
 	},
 	exceptionType: {
 		header: () => TraceMapping.exceptionType.label,
 		cell: ({ row }) => {
 			return (
-				<div className="block items-center overflow-hidden text-ellipsis" title={row.exceptionType}>
+				<div
+					className="block items-center overflow-hidden text-ellipsis"
+					title={row.exceptionType}
+				>
 					{row.exceptionType}
 				</div>
 			);
 		},
-    enableHiding: true,
+		enableHiding: true,
 	},
 };

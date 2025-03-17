@@ -2,7 +2,7 @@ import { ModelMetricParams, getTopModels } from "@/lib/platform/llm/model";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import { TimeLimit } from "@/lib/platform/common";
 
 export async function POST(request: Request) {
