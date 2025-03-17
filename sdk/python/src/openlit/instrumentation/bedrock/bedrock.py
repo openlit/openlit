@@ -73,7 +73,7 @@ def converse(version, environment, application_name, tracer, event_provider,
                 )
 
                 return response
-            
+
         # Get the original client instance from the wrapper
         client = wrapped(*args, **kwargs)
 
