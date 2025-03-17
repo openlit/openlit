@@ -1,21 +1,19 @@
-"""Initializer of Auto Instrumentation of Azure AI Inference Functions"""
+"""Initializer of Auto Instrumentation of OpenAI Agents Functions"""
 
 from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
-from openlit.instrumentation.azure_ai_inference.azure_ai_inference import (
-    complete
-)
-from openlit.instrumentation.azure_ai_inference.async_azure_ai_inference import (
-    async_complete
+
+from openlit.instrumentation.openai_agents.openai_agents import (
+    create_agent
 )
 
-_instruments = ('azure-ai-inference >= 1.0.0b4',)
+_instruments = ('openai-agents >= 0.0.3',)
 
-class AzureAIInferenceInstrumentor(BaseInstrumentor):
+class OpenAIAgentsInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for azure-ai-inference's client library.
+    An instrumentor for openai-agents's client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
@@ -30,21 +28,12 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
         pricing_info = kwargs.get('pricing_info', {})
         capture_message_content = kwargs.get('capture_message_content', False)
         disable_metrics = kwargs.get('disable_metrics')
-        version = importlib.metadata.version('azure-ai-inference')
+        version = importlib.metadata.version('openai-agents')
 
-        # sync generate
         wrap_function_wrapper(
-            'azure.ai.inference',
-            'ChatCompletionsClient.complete',
-            complete(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        # async generate
-        wrap_function_wrapper(
-            'azure.ai.inference.aio',
-            'ChatCompletionsClient.complete',
-            async_complete(version, environment, application_name,
+            'agents.agent',
+            'Agent.__init__',
+            create_agent(version, environment, application_name,
                   tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 

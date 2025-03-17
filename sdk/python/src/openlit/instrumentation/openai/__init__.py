@@ -5,11 +5,11 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.openai.openai import chat_completions, embedding
+from openlit.instrumentation.openai.openai import chat_completions, embedding, responses
 from openlit.instrumentation.openai.openai import image_generate, image_variatons, audio_create
 from openlit.instrumentation.openai.async_openai import async_chat_completions, async_embedding
 from openlit.instrumentation.openai.async_openai import async_image_generate, async_image_variatons
-from openlit.instrumentation.openai.async_openai import async_audio_create
+from openlit.instrumentation.openai.async_openai import async_audio_create, async_responses
 
 _instruments = ("openai >= 1.1.1",)
 
@@ -43,6 +43,22 @@ class OpenAIInstrumentor(BaseInstrumentor):
             async_chat_completions(version, environment, application_name,
                                tracer, pricing_info, capture_message_content,
                                metrics, disable_metrics),
+        )
+
+        wrap_function_wrapper(
+            "openai.resources.responses.responses",  
+            "Responses.create",  
+            responses(version, environment, application_name,
+                         tracer, pricing_info, capture_message_content,
+                         metrics, disable_metrics),
+        )
+
+        wrap_function_wrapper(
+            "openai.resources.responses.responses",  
+            "AsyncResponses.create",  
+            async_responses(version, environment, application_name,
+                         tracer, pricing_info, capture_message_content,
+                         metrics, disable_metrics),
         )
 
         wrap_function_wrapper(

@@ -22,6 +22,7 @@ class BedrockInstrumentor(BaseInstrumentor):
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
         tracer = kwargs.get("tracer")
+        event_provider = kwargs.get('event_provider')
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
@@ -33,7 +34,7 @@ class BedrockInstrumentor(BaseInstrumentor):
             "botocore.client",  
             "ClientCreator.create_client",  
             converse(version, environment, application_name,
-                     tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                     tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

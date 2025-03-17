@@ -14,6 +14,7 @@ from openlit.__helpers import (
     calculate_ttft,
     calculate_tbt,
     create_metrics_attributes,
+    extract_and_format_input,
 )
 from openlit.semcov import SemanticConvetion
 
@@ -249,34 +250,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
             end_time = time.time()
 
             try:
-                # Format 'messages' into a single string
-                message_prompt = kwargs.get("messages", "") or args[0]
-                formatted_messages = []
-
-                for message in message_prompt:
-                    # Handle the case where message is a tuple
-                    if isinstance(message, tuple) and len(message) == 2:
-                        role, content = message
-                    # Handle the case where message is a dictionary
-                    elif isinstance(message, dict):
-                        role = message["role"]
-                        content = message["content"]
-                    else:
-                        continue
-
-                    # Check if the content is a list
-                    if isinstance(content, list):
-                        content_str = ", ".join(
-                            f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
-                            if "type" in item else f'text: {item["text"]}'
-                            for item in content
-                        )
-                        formatted_messages.append(f"{role}: {content_str}")
-                    else:
-                        formatted_messages.append(f"{role}: {content}")
-
-                # Join all formatted messages with newline
-                prompt = "\n".join(formatted_messages)
+                prompt = str(kwargs.get('messages', '') or args[0])
 
                 input_tokens = general_tokens(str(prompt))
                 output_tokens = general_tokens(str(response))
