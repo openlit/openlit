@@ -237,27 +237,20 @@ def extract_and_format_input(messages):
     them into fixed roles like 'user', 'assistant', 'system', 'tool'.
     """
 
-    fixed_roles = ['user', 'assistant', 'system', 'tool']  # Ensure these are your fixed keys
-    # Initialize the dictionary with fixed keys and empty structures
+    fixed_roles = ['user', 'assistant', 'system', 'tool', 'developer']
     formatted_messages = {role_key: {'role': '', 'content': ''} for role_key in fixed_roles}
 
     for message in messages:
-        # Normalize the message structure
-        message = response_as_dict(message)
-
         # Extract role and content
         role = message.get('role')
         if role not in fixed_roles:
-            continue  # Skip any role not in our predefined roles
+            continue
 
         content = message.get('content', '')
 
-        # Prepare content as a string
+        # Prepare content as a string, handling both list and str
         if isinstance(content, list):
-            content_str = ", ".join(
-                f'{item.get("type", "text")}: {extract_text_from_item(item)}'
-                for item in content
-            )
+            content_str = ", ".join(str(item) for item in content)
         else:
             content_str = content
 
@@ -274,7 +267,7 @@ def extract_and_format_input(messages):
 
 def extract_text_from_item(item):
     """
-    Extract text from inpit message
+    Extract text from input message
     """
 
     #pylint: disable=no-else-return

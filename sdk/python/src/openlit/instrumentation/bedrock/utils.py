@@ -1,5 +1,5 @@
 """
-Azure AI Inference OpenTelemetry instrumentation utility functions
+AWS Bedrock OpenTelemetry instrumentation utility functions
 """
 import time
 
@@ -33,24 +33,33 @@ def process_chunk(self, chunk):
 
     chunked = response_as_dict(chunk)
 
+    # Collect message IDs and input token from events
+    if chunked.get('type') == 'message_start':
+        self._response_id = chunked.get('message').get('id')
+        self._input_tokens = chunked.get('message').get('usage').get('input_tokens')
+        self._response_model = chunked.get('message').get('model')
+        self._response_role = chunked.get('message').get('role')
+
     # Collect message IDs and aggregated response from events
-    if (len(chunked.get('choices')) > 0 and ('delta' in chunked.get('choices')[0] and
-        'content' in chunked.get('choices')[0].get('delta'))):
+    if chunked.get('type') == 'content_block_delta':
+        if chunked.get('delta').get('text'):
+            self._llmresponse += chunked.get('delta').get('text')
+        elif chunked.get('delta').get('partial_json'):
+            self._tool_arguments += chunked.get('delta').get('partial_json')
 
-        if content := chunked.get('choices')[0].get('delta').get('content'):
-            self._llmresponse += content
+    if chunked.get('type') == 'content_block_start':
+        if chunked.get('content_block').get('id'):
+            self._tool_id = chunked.get('content_block').get('id')
+        if chunked.get('content_block').get('name'):
+            self._tool_name = chunked.get('content_block').get('name')
 
-    if chunked.get('choices')[0].get('finish_reason') is not None:
-        self._finish_reason = chunked.get('choices')[0].get('finish_reason')
-
-    if chunked.get('usage') is not None:
-        self._input_tokens = chunked.get('usage').get('prompt_tokens')
-        self._response_id = chunked.get('id')
-        self._response_model = chunked.get('model')
-        self._output_tokens = chunked.get('usage').get('completion_tokens')
+    # Collect output tokens and stop reason from events
+    if chunked.get('type') == 'message_delta':
+        self._output_tokens = chunked.get('usage').get('output_tokens')
+        self._finish_reason = chunked.get('delta').get('stop_reason')
 
 def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-                        event_provider, capture_message_content, disable_metrics, version, is_stream):
+                        event_provider, capture_message_content, disable_metrics, version, llm_config, is_stream):
     """
     Process chat request and generate Telemetry
     """
@@ -60,6 +69,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         scope._tbt = calculate_tbt(scope._timestamps)
 
     formatted_messages = extract_and_format_input(scope._kwargs.get('messages', ''))
+    print(formatted_messages)
     request_model = scope._kwargs.get('model', 'claude-3-opus-20240229')
 
     cost = get_chat_model_cost(request_model, pricing_info, scope._input_tokens, scope._output_tokens)
@@ -67,18 +77,27 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     # Set Span attributes (OTel Semconv)
     scope._span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
     scope._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION, SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE)
+    scope._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AWS_BEDROCK)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, request_model)
     scope._span.set_attribute(SemanticConvetion.SERVER_PORT, scope._server_port)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS, scope._kwargs.get('max_tokens', -1))
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES, scope._kwargs.get('stop', []))
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, scope._kwargs.get('temperature', 1.0))
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K, scope._kwargs.get('top_k', 1.0))
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P, scope._kwargs.get('top_p', 1.0))
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                                          scope._kwargs.get('frequency_penalty', 0.0))
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                                          scope._kwargs.get('presence_penalty', 0.0))
+
+    # List of attributes and their config keys
+    attributes = [
+        (SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'frequencyPenalty'),
+        (SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS, 'maxTokens'),
+        (SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY, 'presencePenalty'),
+        (SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES, 'stopSequences'),
+        (SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
+        (SemanticConvetion.GEN_AI_REQUEST_TOP_P, 'topP'),
+        (SemanticConvetion.GEN_AI_REQUEST_TOP_K, 'topK'),
+    ]
+
+    # Set each attribute if the corresponding value exists and is not None
+    for attribute, key in attributes:
+        value = llm_config.get(key)
+        if value is not None:
+            scope._span.set_attribute(attribute, value)
+
     scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason])
     scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, scope._response_id)
     scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, scope._response_model)
@@ -119,7 +138,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         'index': 0,
         'message': {
             **({'content': scope._llmresponse} if capture_message_content else {}),
-            'role': 'assistant'
+            'role': scope._response_role
         }
     }
 
@@ -129,7 +148,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             event = otel_event(
                 name=getattr(SemanticConvetion, f'GEN_AI_{role.upper()}_MESSAGE'),
                 attributes={
-                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE
+                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AWS_BEDROCK
                 },
                 body = {
                     # pylint: disable=line-too-long
@@ -156,7 +175,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     choice_event = otel_event(
         name=SemanticConvetion.GEN_AI_CHOICE,
         attributes={
-            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE
+            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AWS_BEDROCK
         },
         body=choice_event_body
     )
@@ -169,7 +188,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             service_name=application_name,
             deployment_environment=environment,
             operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-            system=SemanticConvetion.GEN_AI_SYSTEM_AZURE_AI_INFERENCE,
+            system=SemanticConvetion.GEN_AI_SYSTEM_AWS_BEDROCK,
             request_model=request_model,
             server_address=scope._server_address,
             server_port=scope._server_port,
@@ -190,13 +209,19 @@ def process_streaming_chat_response(self, pricing_info, environment, application
     """
     Process chat request and generate Telemetry
     """
+    if self._tool_id != '':
+        self._tool_calls = {
+            'id': self._tool_id,
+            'name': self._tool_name,
+            'input': self._tool_arguments
+        }
 
     common_chat_logic(self, pricing_info, environment, application_name, metrics,
                         event_provider, capture_message_content, disable_metrics, version, is_stream=True)
 
 def process_chat_response(response, request_model, pricing_info, server_port, server_address,
                           environment, application_name, metrics, event_provider, start_time,
-                          span, capture_message_content=False, disable_metrics=False, version='1.0.0', **kwargs):
+                          span, capture_message_content=False, disable_metrics=False, version='1.0.0', llm_config={}, **kwargs):
     """
     Process chat request and generate Telemetry
     """
@@ -208,18 +233,18 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     self._start_time = start_time
     self._end_time = time.time()
     self._span = span
-    self._llmresponse = response_dict.get('choices', {})[0].get('message', '').get('content', '')
-    self._input_tokens = response_dict.get('usage').get('prompt_tokens')
-    self._output_tokens = response_dict.get('usage').get('completion_tokens')
-    self._response_model = response_dict.get('model', '')
-    self._finish_reason = response_dict.get('choices', {})[0].get('finish_reason', '')
-    self._response_id = response_dict.get('id', '')
+    self._llmresponse = response_dict.get('output').get('message').get('content')[0].get('text')
+    self._response_role = 'assistant'
+    self._input_tokens = response_dict.get('usage').get('inputTokens')
+    self._output_tokens = response_dict.get('usage').get('outputTokens')
+    self._response_model = request_model
+    self._finish_reason = response_dict.get('stopReason', '')
+    self._response_id = response_dict.get('ResponseMetadata').get('RequestId')
     self._timestamps = []
     self._ttft, self._tbt = self._end_time - self._start_time, 0
     self._server_address, self._server_port = server_address, server_port
     self._kwargs = kwargs
-
     common_chat_logic(self, pricing_info, environment, application_name, metrics,
-                        event_provider, capture_message_content, disable_metrics, version, is_stream=False)
+                        event_provider, capture_message_content, disable_metrics, version, llm_config, is_stream=False)
 
     return response
