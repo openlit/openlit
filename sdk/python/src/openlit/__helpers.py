@@ -266,30 +266,6 @@ def extract_and_format_input(messages):
 
     return formatted_messages
 
-def extract_text_from_item(item):
-    """
-    Extract text from input message
-    """
-
-    #pylint: disable=no-else-return
-    if item.get('type') == 'text':
-        return item.get('text', '')
-    elif item.get('type') == 'image':
-        # Handle image content specifically checking for 'url' or 'base64'
-        source = item.get('source', {})
-        if isinstance(source, dict):
-            if source.get('type') == 'base64':
-                # Return the actual base64 data if present
-                return source.get('data', '[Missing base64 data]')
-            elif source.get('type') == 'url':
-                return source.get('url', '[Missing URL]')
-    elif item.get('type') == 'image_url':
-        # New format: Handle the 'image_url' type
-        image_url = item.get('image_url', {})
-        if isinstance(image_url, dict):
-            return image_url.get('url', '[Missing image URL]')
-    return ''
-
 # To be removed one the change to log events (from span events) is complete
 def concatenate_all_contents(formatted_messages):
     """

@@ -6,7 +6,6 @@ import logging
 import time
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
-    handle_exception,
     set_server_address_and_port
 )
 from openlit.instrumentation.bedrock.utils import (
