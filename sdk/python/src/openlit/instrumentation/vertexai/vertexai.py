@@ -13,7 +13,7 @@ from openlit.__helpers import (
     calculate_tbt,
     create_metrics_attributes,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -139,26 +139,26 @@ def send_message(version, environment, application_name, tracer,
 
                     # Set Span attributes (OTel Semconv)
                     self._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                        SemanticConvetion.GEN_AI_SYSTEM_VERTEXAI)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+                    self._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                        SemanticConvention.GEN_AI_SYSTEM_VERTEXAI)
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                         self._request_model)
-                    self._span.set_attribute(SemanticConvetion.SERVER_PORT,
+                    self._span.set_attribute(SemanticConvention.SERVER_PORT,
                                         self._server_port)
 
                     inference_config = self._kwargs.get('generation_config', {})
 
                     # List of attributes and their config keys
                     attributes = [
-                        (SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'frequency_penalty'),
-                        (SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS, 'max_output_tokens'),
-                        (SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY, 'presence_penalty'),
-                        (SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES, 'stop_sequences'),
-                        (SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
-                        (SemanticConvetion.GEN_AI_REQUEST_TOP_P, 'top_p'),
-                        (SemanticConvetion.GEN_AI_REQUEST_TOP_K, 'top_k'),
+                        (SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'frequency_penalty'),
+                        (SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 'max_output_tokens'),
+                        (SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, 'presence_penalty'),
+                        (SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, 'stop_sequences'),
+                        (SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
+                        (SemanticConvention.GEN_AI_REQUEST_TOP_P, 'top_p'),
+                        (SemanticConvention.GEN_AI_REQUEST_TOP_K, 'top_k'),
                     ]
 
                     # Set each attribute if the corresponding value exists and is not None
@@ -168,19 +168,19 @@ def send_message(version, environment, application_name, tracer,
                         if value is not None:
                             self._span.set_attribute(attribute, value)
 
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                         self._request_model)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                                         self._input_tokens)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         self._output_tokens)
-                    self._span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                    self._span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                         self._server_address)
                     if isinstance(self._llmresponse, str):
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                         "text")
                     else:
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                         "json")
 
                     # Set Span attributes (Extra)
@@ -188,29 +188,29 @@ def send_message(version, environment, application_name, tracer,
                                         environment)
                     self._span.set_attribute(SERVICE_NAME,
                                         application_name)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
                                         True)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                                         self._input_tokens + self._output_tokens)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                         cost)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TBT,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT,
                                         self._tbt)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT,
                                         self._ttft)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                         version)
                     if capture_message_content:
                         self._span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
                             },
                         )
                         self._span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: self._llmresponse,
+                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: self._llmresponse,
                             },
                         )
                     self._span.set_status(Status(StatusCode.OK))
@@ -219,8 +219,8 @@ def send_message(version, environment, application_name, tracer,
                         attributes = create_metrics_attributes(
                             service_name=application_name,
                             deployment_environment=environment,
-                            operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                            system=SemanticConvetion.GEN_AI_SYSTEM_VERTEXAI,
+                            operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            system=SemanticConvention.GEN_AI_SYSTEM_VERTEXAI,
                             request_model=self._request_model,
                             server_address=self._server_address,
                             server_port=self._server_port,
@@ -280,7 +280,7 @@ def send_message(version, environment, application_name, tracer,
 
         server_address, server_port = location + '-aiplatform.googleapis.com', 443
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         # pylint: disable=no-else-return
         if streaming:
@@ -342,26 +342,26 @@ def send_message(version, environment, application_name, tracer,
 
                     # Set base span attribues (OTel Semconv)
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                        SemanticConvetion.GEN_AI_SYSTEM_VERTEXAI)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                    span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+                    span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                        SemanticConvention.GEN_AI_SYSTEM_VERTEXAI)
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                         request_model)
-                    span.set_attribute(SemanticConvetion.SERVER_PORT,
+                    span.set_attribute(SemanticConvention.SERVER_PORT,
                                         server_port)
 
                     inference_config = kwargs.get('generation_config', {})
 
                     # List of attributes and their config keys
                     attributes = [
-                        (SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'frequency_penalty'),
-                        (SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS, 'max_output_tokens'),
-                        (SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY, 'presence_penalty'),
-                        (SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES, 'stop_sequences'),
-                        (SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
-                        (SemanticConvetion.GEN_AI_REQUEST_TOP_P, 'top_p'),
-                        (SemanticConvetion.GEN_AI_REQUEST_TOP_K, 'top_k'),
+                        (SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'frequency_penalty'),
+                        (SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 'max_output_tokens'),
+                        (SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, 'presence_penalty'),
+                        (SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, 'stop_sequences'),
+                        (SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
+                        (SemanticConvention.GEN_AI_REQUEST_TOP_P, 'top_p'),
+                        (SemanticConvention.GEN_AI_REQUEST_TOP_K, 'top_k'),
                     ]
 
                     # Set each attribute if the corresponding value exists and is not None
@@ -371,15 +371,15 @@ def send_message(version, environment, application_name, tracer,
                         if value is not None:
                             span.set_attribute(attribute, value)
 
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                         request_model)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                                         input_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         output_tokens)
-                    span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                    span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                         server_address)
-                    # span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                    # span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
                     #                     [str(response.candidates[0].finish_reason)])
 
                     # Set base span attribues (Extras)
@@ -387,35 +387,35 @@ def send_message(version, environment, application_name, tracer,
                                         environment)
                     span.set_attribute(SERVICE_NAME,
                                         application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
                                         False)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                                         input_tokens + output_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                         cost)
-                    span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
+                    span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT,
                                         end_time - start_time)
-                    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                    span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                         version)
                     if capture_message_content:
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
                             },
                         )
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.text,
+                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: response.text,
                             },
                         )
 
                         if isinstance(response.text, str):
-                            span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                            span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                             "text")
                         elif response.text is not None:
-                            span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                            span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                             "json")
 
                     span.set_status(Status(StatusCode.OK))
@@ -424,8 +424,8 @@ def send_message(version, environment, application_name, tracer,
                         attributes = create_metrics_attributes(
                             service_name=application_name,
                             deployment_environment=environment,
-                            operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                            system=SemanticConvetion.GEN_AI_SYSTEM_VERTEXAI,
+                            operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            system=SemanticConvention.GEN_AI_SYSTEM_VERTEXAI,
                             request_model=request_model,
                             server_address=server_address,
                             server_port=server_port,

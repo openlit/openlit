@@ -11,7 +11,7 @@ from openlit.__helpers import (
     get_chat_model_cost,
     otel_event,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -29,17 +29,17 @@ def set_span_attributes(span, version, operation_name, environment,
 
     # Set Span attributes (OTel Semconv)
     span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
-    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION, operation_name)
-    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AG2)
-    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_NAME, AGENT_NAME)
-    span.set_attribute(SemanticConvetion.SERVER_ADDRESS, server_address)
-    span.set_attribute(SemanticConvetion.SERVER_PORT, server_port)
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, request_model)
+    span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_name)
+    span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_AG2)
+    span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, AGENT_NAME)
+    span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+    span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
 
     # Set Span attributes (Extras)
     span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     span.set_attribute(SERVICE_NAME, application_name)
-    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION, version)
+    span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
 
 def calculate_tokens_and_cost(response, request_model, pricing_info):
     """
@@ -64,13 +64,13 @@ def emit_events(response, event_provider, capture_message_content):
     """
     for chat in response.chat_history:
         event_type = (
-            SemanticConvetion.GEN_AI_CHOICE if chat['role'] == 'user'
-            else SemanticConvetion.GEN_AI_USER_MESSAGE
+            SemanticConvention.GEN_AI_CHOICE if chat['role'] == 'user'
+            else SemanticConvention.GEN_AI_USER_MESSAGE
         )
         choice_event = otel_event(
             name=event_type,
             attributes={
-                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AG2
+                SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_AG2
             },
             body={
                 'index': response.chat_history.index(chat),
@@ -97,7 +97,7 @@ def conversable_agent(version, environment, application_name,
             SYSTEM_MESSAGE = kwargs.get('system_message', '')
             MODEL_AND_NAME_SET = True
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CREATE_AGENT} {AGENT_NAME}'
+        span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT} {AGENT_NAME}'
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             try:
@@ -105,11 +105,11 @@ def conversable_agent(version, environment, application_name,
                 response = wrapped(*args, **kwargs)
                 end_time = time.time()
 
-                set_span_attributes(span, version, SemanticConvetion.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
+                set_span_attributes(span, version, SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
                     environment, application_name, server_address, server_port, REQUEST_MODEL)
-                span.set_attribute(SemanticConvetion.GEN_AI_AGENT_DESCRIPTION, SYSTEM_MESSAGE)
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, REQUEST_MODEL)
-                span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT, end_time - start_time)
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, SYSTEM_MESSAGE)
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, REQUEST_MODEL)
+                span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, end_time - start_time)
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -130,7 +130,7 @@ def agent_run(version, environment, application_name,
     def wrapper(wrapped, instance, args, kwargs):
         server_address, server_port = '127.0.0.1', 80
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK} {AGENT_NAME}'
+        span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK} {AGENT_NAME}'
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             try:
@@ -141,14 +141,14 @@ def agent_run(version, environment, application_name,
                 input_tokens, output_tokens, cost = calculate_tokens_and_cost(response, REQUEST_MODEL, pricing_info)
                 response_model = list(response.cost.get('usage_including_cached_inference', {}).keys())[1]
 
-                set_span_attributes(span, version, SemanticConvetion.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
+                set_span_attributes(span, version, SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
                     environment, application_name, server_address, server_port, REQUEST_MODEL)
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, response_model)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
-                span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT, end_time - start_time)
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, response_model)
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
+                span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens)
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+                span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, end_time - start_time)
 
                 emit_events(response, event_provider, capture_message_content)
                 span.set_status(Status(StatusCode.OK))

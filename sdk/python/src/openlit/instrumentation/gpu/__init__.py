@@ -7,7 +7,7 @@ from functools import partial
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.metrics import get_meter, CallbackOptions, Observation
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class GPUInstrumentor(BaseInstrumentor):
 
         for semantic_name, internal_name in metric_names:
             meter.create_observable_gauge(
-                name=getattr(SemanticConvetion, semantic_name),
+                name=getattr(SemanticConvention, semantic_name),
                 callbacks=[partial(self._collect_metric,
                                    environment, application_name, internal_name)],
                 description=f"GPU {internal_name.replace('_', ' ').title()}",
@@ -141,9 +141,9 @@ class GPUInstrumentor(BaseInstrumentor):
                     TELEMETRY_SDK_NAME: "openlit",
                     SERVICE_NAME: application_name,
                     DEPLOYMENT_ENVIRONMENT: environment,
-                    SemanticConvetion.GPU_INDEX: str(gpu_index),
-                    SemanticConvetion.GPU_UUID: safe_decode(pynvml.nvmlDeviceGetUUID(handle)),
-                    SemanticConvetion.GPU_NAME: safe_decode(pynvml.nvmlDeviceGetName(handle))
+                    SemanticConvention.GPU_INDEX: str(gpu_index),
+                    SemanticConvention.GPU_UUID: safe_decode(pynvml.nvmlDeviceGetUUID(handle)),
+                    SemanticConvention.GPU_NAME: safe_decode(pynvml.nvmlDeviceGetName(handle))
                 }
                 yield Observation(get_metric_value(handle, metric_name), attributes)
 
@@ -202,10 +202,10 @@ class GPUInstrumentor(BaseInstrumentor):
                     SERVICE_NAME: application_name,
                     DEPLOYMENT_ENVIRONMENT: environment,
                     # pylint: disable=line-too-long
-                    SemanticConvetion.GPU_INDEX: amdsmi.amdsmi_get_xgmi_info(device_handle)['index'],
+                    SemanticConvention.GPU_INDEX: amdsmi.amdsmi_get_xgmi_info(device_handle)['index'],
                     # pylint: disable=line-too-long
-                    SemanticConvetion.GPU_UUID: amdsmi.amdsmi_get_gpu_asic_info(device_handle)['market_name'],
-                    SemanticConvetion.GPU_NAME: amdsmi.amdsmi_get_device_name(device_handle)
+                    SemanticConvention.GPU_UUID: amdsmi.amdsmi_get_gpu_asic_info(device_handle)['market_name'],
+                    SemanticConvention.GPU_NAME: amdsmi.amdsmi_get_device_name(device_handle)
                 }
                 yield Observation(get_metric_value(device_handle, metric_name), attributes)
 

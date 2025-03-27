@@ -7,7 +7,7 @@ import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import handle_exception
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -71,101 +71,101 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                    gen_ai_endpoint)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                    environment)
                 span.set_attribute(SERVICE_NAME,
                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                   SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB)
-                span.set_attribute(SemanticConvetion.DB_SYSTEM_NAME,
-                                   SemanticConvetion.DB_SYSTEM_CHROMA)
-                span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                   SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+                span.set_attribute(SemanticConvention.DB_SYSTEM_NAME,
+                                   SemanticConvention.DB_SYSTEM_CHROMA)
+                span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                    instance.name)
 
                 if gen_ai_endpoint == "chroma.add":
-                    db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_ADD)
-                    span.set_attribute(SemanticConvetion.DB_ID_COUNT,
+                    db_operation = SemanticConvention.DB_OPERATION_ADD
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_ADD)
+                    span.set_attribute(SemanticConvention.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("embeddings", [])))
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("metadatas", [])))
-                    span.set_attribute(SemanticConvetion.DB_DOCUMENTS_COUNT,
+                    span.set_attribute(SemanticConvention.DB_DOCUMENTS_COUNT,
                                        object_count(kwargs.get("documents", [])))
 
                 elif gen_ai_endpoint == "chroma.get":
-                    db_operation = SemanticConvetion.DB_OPERATION_GET
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_GET)
-                    span.set_attribute(SemanticConvetion.DB_ID_COUNT,
+                    db_operation = SemanticConvention.DB_OPERATION_GET
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_GET)
+                    span.set_attribute(SemanticConvention.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
-                    span.set_attribute(SemanticConvetion.DB_QUERY_LIMIT,
+                    span.set_attribute(SemanticConvention.DB_QUERY_LIMIT,
                                        kwargs.get("limit", ""))
-                    span.set_attribute(SemanticConvetion.DB_OFFSET,
+                    span.set_attribute(SemanticConvention.DB_OFFSET,
                                        kwargs.get("offset", ""))
-                    span.set_attribute(SemanticConvetion.DB_WHERE_DOCUMENT,
+                    span.set_attribute(SemanticConvention.DB_WHERE_DOCUMENT,
                                        str(kwargs.get("where_document", "")))
 
                 elif gen_ai_endpoint == "chroma.query":
-                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_QUERY)
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                    db_operation = SemanticConvention.DB_OPERATION_QUERY
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_QUERY)
+                    span.set_attribute(SemanticConvention.DB_STATEMENT,
                                        str(kwargs.get("query_texts", "")))
-                    span.set_attribute(SemanticConvetion.DB_N_RESULTS,
+                    span.set_attribute(SemanticConvention.DB_N_RESULTS,
                                        kwargs.get("n_results", ""))
-                    span.set_attribute(SemanticConvetion.DB_FILTER,
+                    span.set_attribute(SemanticConvention.DB_FILTER,
                                        str(kwargs.get("where", "")))
-                    span.set_attribute(SemanticConvetion.DB_WHERE_DOCUMENT,
+                    span.set_attribute(SemanticConvention.DB_WHERE_DOCUMENT,
                                        str(kwargs.get("where_document", "")))
 
                 elif gen_ai_endpoint == "chroma.update":
-                    db_operation = SemanticConvetion.DB_OPERATION_UPDATE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_UPDATE)
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    db_operation = SemanticConvention.DB_OPERATION_UPDATE
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_UPDATE)
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("embeddings", [])))
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("metadatas", [])))
-                    span.set_attribute(SemanticConvetion.DB_ID_COUNT,
+                    span.set_attribute(SemanticConvention.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
-                    span.set_attribute(SemanticConvetion.DB_DOCUMENTS_COUNT,
+                    span.set_attribute(SemanticConvention.DB_DOCUMENTS_COUNT,
                                        object_count(kwargs.get("documents", [])))
 
                 elif gen_ai_endpoint == "chroma.upsert":
-                    db_operation = SemanticConvetion.DB_OPERATION_UPSERT
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_UPSERT)
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    db_operation = SemanticConvention.DB_OPERATION_UPSERT
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_UPSERT)
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("embeddings", [])))
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("metadatas", [])))
-                    span.set_attribute(SemanticConvetion.DB_ID_COUNT,
+                    span.set_attribute(SemanticConvention.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
-                    span.set_attribute(SemanticConvetion.DB_DOCUMENTS_COUNT,
+                    span.set_attribute(SemanticConvention.DB_DOCUMENTS_COUNT,
                                        object_count(kwargs.get("documents", [])))
 
                 elif gen_ai_endpoint == "chroma.delete":
-                    db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_DELETE)
-                    span.set_attribute(SemanticConvetion.DB_ID_COUNT,
+                    db_operation = SemanticConvention.DB_OPERATION_DELETE
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_DELETE)
+                    span.set_attribute(SemanticConvention.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
-                    span.set_attribute(SemanticConvetion.DB_FILTER,
+                    span.set_attribute(SemanticConvention.DB_FILTER,
                                        str(kwargs.get("where", "")))
-                    span.set_attribute(SemanticConvetion.DB_DELETE_ALL,
+                    span.set_attribute(SemanticConvention.DB_DELETE_ALL,
                                        kwargs.get("delete_all", False))
-                    span.set_attribute(SemanticConvetion.DB_WHERE_DOCUMENT,
+                    span.set_attribute(SemanticConvention.DB_WHERE_DOCUMENT,
                                        str(kwargs.get("where_document", "")))
 
                 elif gen_ai_endpoint == "chroma.peek":
-                    db_operation = SemanticConvetion.DB_OPERATION_PEEK
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_PEEK)
+                    db_operation = SemanticConvention.DB_OPERATION_PEEK
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_PEEK)
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -175,13 +175,13 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                             "openlit",
                         SERVICE_NAME:
                             application_name,
-                        SemanticConvetion.DB_SYSTEM_NAME:
-                            SemanticConvetion.DB_SYSTEM_CHROMA,
+                        SemanticConvention.DB_SYSTEM_NAME:
+                            SemanticConvention.DB_SYSTEM_CHROMA,
                         DEPLOYMENT_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_OPERATION:
-                            SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB,
-                        SemanticConvetion.DB_OPERATION_NAME:
+                        SemanticConvention.GEN_AI_OPERATION:
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB,
+                        SemanticConvention.DB_OPERATION_NAME:
                             db_operation
                     }
 

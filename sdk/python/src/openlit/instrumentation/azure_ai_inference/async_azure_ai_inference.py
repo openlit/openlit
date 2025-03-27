@@ -14,7 +14,7 @@ from openlit.instrumentation.azure_ai_inference.utils import (
     process_chat_response,
     process_streaming_chat_response,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ def async_complete(version, environment, application_name,
         server_address, server_port = set_server_address_and_port(instance, 'models.github.ai', 443)
         request_model = kwargs.get('model', 'gpt-4o')
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
+        span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
 
         # pylint: disable=no-else-return
         if streaming:

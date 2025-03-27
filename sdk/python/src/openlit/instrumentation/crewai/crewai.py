@@ -10,7 +10,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     handle_exception,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -69,11 +69,11 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_CREWAI)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AGENT)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_CREWAI)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT)
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
@@ -95,17 +95,17 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
                         else:
                             task[key] = str(value)
 
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TASK_ID,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_TASK_ID,
                                         task.get('id', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TASK,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_TASK,
                                         task.get('description', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_EXPECTED_OUTPUT,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_EXPECTED_OUTPUT,
                                         task.get('expected_output', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ACTUAL_OUTPUT,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ACTUAL_OUTPUT,
                                         task.get('output', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_HUMAN_INPUT,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_HUMAN_INPUT,
                                         task.get('human_input', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TASK_ASSOCIATION,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_TASK_ASSOCIATION,
                                        str(task.get('processed_by_agents', '')))
 
                 elif instance_class == "Agent":
@@ -117,25 +117,25 @@ def crew_wrap(gen_ai_endpoint, version, environment, application_name,
                             continue
                         agent[key] = str(value)
 
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID,
                                         agent.get('id', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ROLE,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ROLE,
                                         agent.get('role', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_GOAL,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_GOAL,
                                         agent.get('goal', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_CONTEXT,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_CONTEXT,
                                         agent.get('backstory', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ENABLE_CACHE,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ENABLE_CACHE,
                                         agent.get('cache', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ALLOW_DELEGATION,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ALLOW_DELEGATION,
                                         agent.get('allow_delegation', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ALLOW_CODE_EXECUTION,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ALLOW_CODE_EXECUTION,
                                         agent.get('allow_code_execution', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_MAX_RETRY_LIMIT,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_MAX_RETRY_LIMIT,
                                         agent.get('max_retry_limit', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TOOLS,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_TOOLS,
                                         str(agent.get('tools', '')))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TOOL_RESULTS,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_TOOL_RESULTS,
                                         str(agent.get('tools_results', '')))
 
                 span.set_status(Status(StatusCode.OK))
