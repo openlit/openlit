@@ -10,7 +10,7 @@ from opentelemetry.metrics import get_meter
 from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from anthropic import Anthropic
 from openai import OpenAI
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -238,7 +238,7 @@ def eval_metrics():
     )
 
     guard_requests = meter.create_counter(
-        name=SemanticConvetion.EVAL_REQUESTS,
+        name=SemanticConvention.EVAL_REQUESTS,
         description="Counter for evaluation requests",
         unit="1"
     )
@@ -262,14 +262,14 @@ def eval_metric_attributes(verdict, score, validator, classification, explanatio
     return {
             TELEMETRY_SDK_NAME:
                 "openlit",
-            SemanticConvetion.EVAL_VERDICT:
+            SemanticConvention.EVAL_VERDICT:
                 verdict,
-            SemanticConvetion.EVAL_SCORE:
+            SemanticConvention.EVAL_SCORE:
                 score,
-            SemanticConvetion.EVAL_VALIDATOR:
+            SemanticConvention.EVAL_VALIDATOR:
                 validator,
-            SemanticConvetion.EVAL_CLASSIFICATION:
+            SemanticConvention.EVAL_CLASSIFICATION:
                 classification,
-            SemanticConvetion.EVAL_EXPLANATION:
+            SemanticConvention.EVAL_EXPLANATION:
                 explanation,
     }

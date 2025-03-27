@@ -7,7 +7,7 @@ import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import handle_exception
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -59,44 +59,44 @@ def mem0_wrap(gen_ai_endpoint, version, environment, application_name,
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_MEM0)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_MEM0)
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
 
                 if gen_ai_endpoint == "mem0.memory_add":
-                    span.set_attribute(SemanticConvetion.DB_METADATA,
+                    span.set_attribute(SemanticConvention.DB_METADATA,
                                         str(kwargs.get('metadata', '')))
                     if response:
-                        span.set_attribute(SemanticConvetion.GEN_AI_DATA_SOURCES,
+                        span.set_attribute(SemanticConvention.GEN_AI_DATA_SOURCES,
                                         len(response))
 
                 elif gen_ai_endpoint == "mem0.memory_get_all":
                     if response:
-                        span.set_attribute(SemanticConvetion.GEN_AI_DATA_SOURCES,
+                        span.set_attribute(SemanticConvention.GEN_AI_DATA_SOURCES,
                                         len(response))
 
                 elif gen_ai_endpoint == "mem0.memory_get":
                     if response:
-                        span.set_attribute(SemanticConvetion.GEN_AI_DATA_SOURCES,
+                        span.set_attribute(SemanticConvention.GEN_AI_DATA_SOURCES,
                                         len(response))
 
                 elif gen_ai_endpoint == "mem0.memory_search":
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                    span.set_attribute(SemanticConvention.DB_STATEMENT,
                                     kwargs.get("query", ""))
 
                 elif gen_ai_endpoint == "mem0.memory_update":
-                    span.set_attribute(SemanticConvetion.DB_UPDATE_ID,
+                    span.set_attribute(SemanticConvention.DB_UPDATE_ID,
                                     kwargs.get("memory_id", ""))
 
                 elif gen_ai_endpoint == "mem0.memory_delete":
-                    span.set_attribute(SemanticConvetion.DB_DELETE_ID,
+                    span.set_attribute(SemanticConvention.DB_DELETE_ID,
                                     kwargs.get("memory_id", ""))
 
 

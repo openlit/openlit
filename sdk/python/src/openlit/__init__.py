@@ -18,7 +18,7 @@ import requests
 from opentelemetry import trace as t
 from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from opentelemetry.sdk.resources import SERVICE_NAME, DEPLOYMENT_ENVIRONMENT
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
 from openlit.otel.events import setup_events
@@ -573,7 +573,7 @@ def trace(wrapped):
             try:
                 response = wrapped(*args, **kwargs)
                 span.set_attribute(
-                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION, response or ""
+                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, response or ""
                 )
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
@@ -632,7 +632,7 @@ class TracedSpan:
             result: The result to be set as an attribute on the span.
         """
 
-        self._span.set_attribute(SemanticConvetion.GEN_AI_CONTENT_COMPLETION, result)
+        self._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, result)
 
     def set_metadata(self, metadata: Dict):
         """

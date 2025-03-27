@@ -1,14 +1,14 @@
 # pylint: disable=too-few-public-methods
 """
-This module defines the `SemanticConvetion` class which encapsulates various constants used
+This module defines the `SemanticConvention` class which encapsulates various constants used
 for semantic tagging within a generalized AI application context. These constants are
 intended for use across different components of AI applications, including request handling,
 response processing, usage metrics, and interaction with vector databases and AI systems.
 The purpose is to standardize the semantics for easier integration, analytics, and maintenance.
 """
-class SemanticConvetion:
+class SemanticConvention:
     """
-    The SemanticConvetion class provides a centralized repository of constant values that
+    The SemanticConvention class provides a centralized repository of constant values that
     represent the keys for various semantic conventions within AI applications. These
     conventions cover a broad range of areas including general AI configurations, request
     parameters, usage metrics, response attributes, and integrations with external AI and

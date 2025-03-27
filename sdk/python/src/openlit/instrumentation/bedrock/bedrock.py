@@ -11,7 +11,7 @@ from openlit.__helpers import (
 from openlit.instrumentation.bedrock.utils import (
     process_chat_response,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def converse(version, environment, application_name, tracer, event_provider,
             server_address, server_port = set_server_address_and_port(instance, 'aws.amazon.com', 443)
             request_model = method_kwargs.get('modelId', 'amazon.titan-text-express-v1')
 
-            span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
+            span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
 
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
