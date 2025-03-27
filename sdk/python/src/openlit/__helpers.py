@@ -12,7 +12,7 @@ import requests
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry._events import Event
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -176,12 +176,12 @@ def create_metrics_attributes(
         TELEMETRY_SDK_NAME: 'openlit',
         SERVICE_NAME: service_name,
         DEPLOYMENT_ENVIRONMENT: deployment_environment,
-        SemanticConvetion.GEN_AI_OPERATION: operation,
-        SemanticConvetion.GEN_AI_SYSTEM: system,
-        SemanticConvetion.GEN_AI_REQUEST_MODEL: request_model,
-        SemanticConvetion.SERVER_ADDRESS: server_address,
-        SemanticConvetion.SERVER_PORT: server_port,
-        SemanticConvetion.GEN_AI_RESPONSE_MODEL: response_model
+        SemanticConvention.GEN_AI_OPERATION: operation,
+        SemanticConvention.GEN_AI_SYSTEM: system,
+        SemanticConvention.GEN_AI_REQUEST_MODEL: request_model,
+        SemanticConvention.SERVER_ADDRESS: server_address,
+        SemanticConvention.SERVER_PORT: server_port,
+        SemanticConvention.GEN_AI_RESPONSE_MODEL: response_model
     }
 
 def set_server_address_and_port(client_instance: Any,

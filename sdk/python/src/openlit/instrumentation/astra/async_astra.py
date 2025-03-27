@@ -8,7 +8,7 @@ from openlit.instrumentation.astra.utils import (
     DB_OPERATION_MAP,
     process_db_operations
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                  tracer, pricing_info, capture_message_content, metrics, disable_metrics):
@@ -22,8 +22,8 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
         """
 
         db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "UNKNOWN")
-        if db_operation == SemanticConvetion.DB_OPERATION_REPLACE and kwargs.get('upsert'):
-            db_operation = SemanticConvetion.DB_OPERATION_UPSERT
+        if db_operation == SemanticConvention.DB_OPERATION_REPLACE and kwargs.get('upsert'):
+            db_operation = SemanticConvention.DB_OPERATION_UPSERT
 
         span_name = f"{db_operation} {instance.name}"
 

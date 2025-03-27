@@ -14,7 +14,7 @@ from openlit.__helpers import (
     calculate_tbt,
     calculate_ttft
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -116,39 +116,39 @@ def generate(version, environment, application_name,
 
                     # Set Span attributes (OTel Semconv)
                     self._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                        SemanticConvetion.GEN_AI_SYSTEM_GPT4ALL)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+                    self._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                        SemanticConvention.GEN_AI_SYSTEM_GPT4ALL)
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                         self._request_model)
-                    self._span.set_attribute(SemanticConvetion.SERVER_PORT,
+                    self._span.set_attribute(SemanticConvention.SERVER_PORT,
                                         self._server_port)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
                                         self._kwargs.get("repeat_penalty", 1.18))
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
                                         self._kwargs.get("max_tokens", 200))
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
                                         self._kwargs.get("presence_penalty", 0.0))
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
                                         self._kwargs.get("temp", 0.7))
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P,
                                         self._kwargs.get("top_p", 0.4))
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K,
                                         self._kwargs.get("top_k", 40))
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                         self._request_model)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                                         input_tokens)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         output_tokens)
-                    self._span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                    self._span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                         self._server_address)
                     if isinstance(self._llmresponse, str):
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                         "text")
                     else:
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                         "json")
 
                     # Set Span attributes (Extra)
@@ -156,29 +156,29 @@ def generate(version, environment, application_name,
                                         environment)
                     self._span.set_attribute(SERVICE_NAME,
                                         application_name)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
                                         True)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                                         input_tokens + output_tokens)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TBT,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT,
                                         self._tbt)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT,
                                         self._ttft)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                         version)
-                    self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                    self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                         0)
                     if capture_message_content:
                         self._span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
                             },
                         )
                         self._span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: self._llmresponse,
+                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: self._llmresponse,
                             },
                         )
 
@@ -188,8 +188,8 @@ def generate(version, environment, application_name,
                         attributes = create_metrics_attributes(
                             service_name=application_name,
                             deployment_environment=environment,
-                            operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                            system=SemanticConvetion.GEN_AI_SYSTEM_GPT4ALL,
+                            operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            system=SemanticConvention.GEN_AI_SYSTEM_GPT4ALL,
                             request_model=self._request_model,
                             server_address=self._server_address,
                             server_port=self._server_port,
@@ -243,7 +243,7 @@ def generate(version, environment, application_name,
         server_address, server_port = set_server_address_and_port(instance, "localhost", 80)
         request_model = str(instance.model.model_path).rsplit('/', maxsplit=1)[-1] or "orca-mini-3b-gguf2-q4_0.gguf"
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         # pylint: disable=no-else-return
         if streaming:
@@ -269,39 +269,39 @@ def generate(version, environment, application_name,
 
                     # Set Span attributes (OTel Semconv)
                     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                        SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                        SemanticConvetion.GEN_AI_SYSTEM_GPT4ALL)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                    span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+                    span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                        SemanticConvention.GEN_AI_SYSTEM_GPT4ALL)
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                         request_model)
-                    span.set_attribute(SemanticConvetion.SERVER_PORT,
+                    span.set_attribute(SemanticConvention.SERVER_PORT,
                                         server_port)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
                                         kwargs.get("repeat_penalty", 1.18))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
                                         kwargs.get("max_tokens", 200))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
                                         kwargs.get("presence_penalty", 0.0))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
                                         kwargs.get("temp", 0.7))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P,
                                         kwargs.get("top_p", 0.4))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K,
                                         kwargs.get("top_k", 40))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                         request_model)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                                         input_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
                                         output_tokens)
-                    span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                    span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                         server_address)
                     if isinstance(response, str):
-                        span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                        span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                         "text")
                     else:
-                        span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                        span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                         "json")
 
                     # Set Span attributes (Extra)
@@ -309,27 +309,27 @@ def generate(version, environment, application_name,
                                         environment)
                     span.set_attribute(SERVICE_NAME,
                                         application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
                                         False)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                                         input_tokens + output_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
+                    span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT,
                                         end_time - start_time)
-                    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                    span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                         version)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                         0)
                     if capture_message_content:
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
                             },
                         )
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response,
+                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: response,
                             },
                         )
 
@@ -339,8 +339,8 @@ def generate(version, environment, application_name,
                         attributes = create_metrics_attributes(
                             service_name=application_name,
                             deployment_environment=environment,
-                            operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                            system=SemanticConvetion.GEN_AI_SYSTEM_GPT4ALL,
+                            operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            system=SemanticConvention.GEN_AI_SYSTEM_GPT4ALL,
                             request_model=request_model,
                             server_address=server_address,
                             server_port=server_port,
@@ -412,7 +412,7 @@ def embed(version, environment, application_name,
         # pylint: disable=line-too-long
         request_model = str(instance.gpt4all.model.model_path).rsplit('/', maxsplit=1)[-1] or "all-MiniLM-L6-v2.gguf2.f16.gguf"
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
 
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -425,19 +425,19 @@ def embed(version, environment, application_name,
 
                 # Set Span attributes (OTel Semconv)
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_GPT4ALL)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING)
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_GPT4ALL)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                     request_model)
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                     request_model)
-                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                     server_address)
-                span.set_attribute(SemanticConvetion.SERVER_PORT,
+                span.set_attribute(SemanticConvention.SERVER_PORT,
                                     server_port)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
 
                 # Set Span attributes (Extras)
@@ -445,18 +445,18 @@ def embed(version, environment, application_name,
                                     environment)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                                     input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                     version)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                     0)
 
                 if capture_message_content:
                     span.add_event(
-                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: str(kwargs.get("input", "")),
+                            SemanticConvention.GEN_AI_CONTENT_PROMPT: str(kwargs.get("input", "")),
                         },
                     )
 
@@ -466,8 +466,8 @@ def embed(version, environment, application_name,
                     attributes = create_metrics_attributes(
                         service_name=application_name,
                         deployment_environment=environment,
-                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
-                        system=SemanticConvetion.GEN_AI_SYSTEM_GPT4ALL,
+                        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        system=SemanticConvention.GEN_AI_SYSTEM_GPT4ALL,
                         request_model=request_model,
                         server_address=server_address,
                         server_port=server_port,

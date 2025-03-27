@@ -8,7 +8,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, ConsoleMetricExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.sdk.resources import Resource
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
     from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
@@ -156,31 +156,31 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
         metrics_dict = {
             # OTel Semconv
             "genai_client_usage_tokens": meter.create_histogram(
-                name=SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE,
+                name=SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
                 description="Measures number of input and output tokens used",
                 unit="{token}",
                 explicit_bucket_boundaries_advisory=_GEN_AI_CLIENT_TOKEN_USAGE_BUCKETS,
             ),
             "genai_client_operation_duration": meter.create_histogram(
-                name=SemanticConvetion.GEN_AI_CLIENT_OPERATION_DURATION,
+                name=SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
                 description="GenAI operation duration",
                 unit="s",
                 explicit_bucket_boundaries_advisory=_GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS,
             ),
             "genai_server_tbt": meter.create_histogram(
-                name=SemanticConvetion.GEN_AI_SERVER_TBT,
+                name=SemanticConvention.GEN_AI_SERVER_TBT,
                 description="Time per output token generated after the first token for successful responses",
                 unit="s",
                 explicit_bucket_boundaries_advisory=_GEN_AI_SERVER_TBT,
             ),
             "genai_server_ttft": meter.create_histogram(
-                name=SemanticConvetion.GEN_AI_SERVER_TTFT,
+                name=SemanticConvention.GEN_AI_SERVER_TTFT,
                 description="Time to generate first token for successful responses",
                 unit="s",
                 explicit_bucket_boundaries_advisory=_GEN_AI_SERVER_TFTT,
             ),
             "db_client_operation_duration": meter.create_histogram(
-                name=SemanticConvetion.DB_CLIENT_OPERATION_DURATION,
+                name=SemanticConvention.DB_CLIENT_OPERATION_DURATION,
                 description="DB operation duration",
                 unit="s",
                 explicit_bucket_boundaries_advisory=_DB_CLIENT_OPERATION_DURATION_BUCKETS,
@@ -188,27 +188,27 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
 
             # Extra
             "genai_requests": meter.create_counter(
-                name=SemanticConvetion.GEN_AI_REQUESTS,
+                name=SemanticConvention.GEN_AI_REQUESTS,
                 description="Number of requests to GenAI",
                 unit="1",
             ),
             "genai_prompt_tokens": meter.create_counter(
-                name=SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                name=SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                 description="Number of prompt tokens processed.",
                 unit="1",
             ),
             "genai_completion_tokens": meter.create_counter(
-                name=SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                name=SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
                 description="Number of completion tokens processed.",
                 unit="1",
             ),
             "genai_cost": meter.create_histogram(
-                name=SemanticConvetion.GEN_AI_USAGE_COST,
+                name=SemanticConvention.GEN_AI_USAGE_COST,
                 description="The distribution of GenAI request costs.",
                 unit="USD",
             ),
             "db_requests": meter.create_counter(
-                name=SemanticConvetion.DB_REQUESTS,
+                name=SemanticConvention.DB_REQUESTS,
                 description="Number of requests to VectorDBs",
                 unit="1",
             ),

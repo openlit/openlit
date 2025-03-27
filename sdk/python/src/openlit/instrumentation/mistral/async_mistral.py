@@ -16,7 +16,7 @@ from openlit.__helpers import (
     create_metrics_attributes,
     set_server_address_and_port
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ def async_chat(version, environment, application_name, tracer,
         server_address, server_port = set_server_address_and_port(instance, 'api.mistral.ai', 443)
         request_model = kwargs.get('model', 'mistral-small-latest')
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
+        span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -96,37 +96,37 @@ def async_chat(version, environment, application_name, tracer,
 
                 # Set base span attribues (OTel Semconv)
                 span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_MISTRAL)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_MISTRAL)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                     request_model)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED,
                                     kwargs.get('seed', ''))
-                span.set_attribute(SemanticConvetion.SERVER_PORT,
+                span.set_attribute(SemanticConvention.SERVER_PORT,
                                     server_port)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
                                     kwargs.get('frequency_penalty', 0.0))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
                                     kwargs.get('max_tokens', -1))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
                                     kwargs.get('presence_penalty', 0.0))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
                                     kwargs.get('stop', []))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
                                     kwargs.get('temperature', 1.0))
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P,
                                     kwargs.get('top_p', 1.0))
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID,
                                     response_dict.get('id'))
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                     response_dict.get('model'))
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
                                     output_tokens)
-                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                     server_address)
 
                 # Set base span attribues (Extras)
@@ -134,44 +134,44 @@ def async_chat(version, environment, application_name, tracer,
                                     environment)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
                                     False)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                                     input_tokens + output_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                     cost)
-                span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
+                span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT,
                                     end_time - start_time)
-                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                     version)
                 if capture_message_content:
                     span.add_event(
-                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                            SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
                         },
                     )
 
                 for i in range(kwargs.get('n',1)):
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
                                         [response_dict.get('choices')[i].get('finish_reason')])
                     if capture_message_content:
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
                                 # pylint: disable=line-too-long
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: str(response_dict.get('choices')[i].get('message').get('content')),
+                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: str(response_dict.get('choices')[i].get('message').get('content')),
                             },
                         )
                     if kwargs.get('tools'):
-                        span.set_attribute(SemanticConvetion.GEN_AI_TOOL_CALLS,
+                        span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALLS,
                                         str(response_dict.get('choices')[i].get('message').get('tool_calls')))
 
                     if isinstance(response_dict.get('choices')[i].get('message').get('content'), str):
-                        span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                        span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                         'text')
                     elif response_dict.get('choices')[i].get('message').get('content') is not None:
-                        span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                        span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                         'json')
 
                 span.set_status(Status(StatusCode.OK))
@@ -180,8 +180,8 @@ def async_chat(version, environment, application_name, tracer,
                     attributes = create_metrics_attributes(
                         service_name=application_name,
                         deployment_environment=environment,
-                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                        system=SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        system=SemanticConvention.GEN_AI_SYSTEM_MISTRAL,
                         request_model=request_model,
                         server_address=server_address,
                         server_port=server_port,
@@ -361,48 +361,48 @@ def async_chat_stream(version, environment, application_name,
 
                         # Set Span attributes (OTel Semconv)
                         self._span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                            SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                            SemanticConvetion.GEN_AI_SYSTEM_MISTRAL)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+                        self._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                            SemanticConvention.GEN_AI_SYSTEM_MISTRAL)
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                             request_model)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED,
                                             self._kwargs.get('seed', ''))
-                        self._span.set_attribute(SemanticConvetion.SERVER_PORT,
+                        self._span.set_attribute(SemanticConvention.SERVER_PORT,
                                             self._server_port)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
                                             self._kwargs.get('frequency_penalty', 0.0))
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
                                             self._kwargs.get('max_tokens', -1))
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
                                             self._kwargs.get('presence_penalty', 0.0))
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
                                             self._kwargs.get('stop_sequences', []))
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
                                             self._kwargs.get('temperature', 0.3))
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_K,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K,
                                             self._kwargs.get('k', 1.0))
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P,
                                             self._kwargs.get('p', 1.0))
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
                                             [self._finish_reason])
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID,
                                             self._response_id)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                             self._response_model)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                                             self._input_tokens)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
                                             self._output_tokens)
-                        self._span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                        self._span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                             self._server_address)
 
                         if isinstance(self._llmresponse, str):
-                            self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                            self._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                             'text')
                         else:
-                            self._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                            self._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                             'json')
 
                         # Set Span attributes (Extra)
@@ -410,29 +410,29 @@ def async_chat_stream(version, environment, application_name,
                                             environment)
                         self._span.set_attribute(SERVICE_NAME,
                                             application_name)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
                                             True)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                                             self._input_tokens + self._output_tokens)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                             cost)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TBT,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT,
                                             self._tbt)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT,
                                             self._ttft)
-                        self._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                        self._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                             version)
                         if capture_message_content:
                             self._span.add_event(
-                                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                                name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                                 attributes={
-                                    SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                                    SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
                                 },
                             )
                             self._span.add_event(
-                                name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                                name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                                 attributes={
-                                    SemanticConvetion.GEN_AI_CONTENT_COMPLETION: self._llmresponse,
+                                    SemanticConvention.GEN_AI_CONTENT_COMPLETION: self._llmresponse,
                                 },
                             )
                         self._span.set_status(Status(StatusCode.OK))
@@ -441,8 +441,8 @@ def async_chat_stream(version, environment, application_name,
                             attributes = create_metrics_attributes(
                                 service_name=application_name,
                                 deployment_environment=environment,
-                                operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                                system=SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                                operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                                system=SemanticConvention.GEN_AI_SYSTEM_MISTRAL,
                                 request_model=request_model,
                                 server_address=self._server_address,
                                 server_port=self._server_port,
@@ -476,7 +476,7 @@ def async_chat_stream(version, environment, application_name,
         server_address, server_port = set_server_address_and_port(instance, 'api.mistral.ai', 443)
         request_model = kwargs.get('model', 'mistral-small-latest')
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
+        span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
 
         awaited_wrapped = await wrapped(*args, **kwargs)
         span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
@@ -521,7 +521,7 @@ def async_embeddings(version, environment, application_name,
         server_address, server_port = set_server_address_and_port(instance, 'api.mistral.ai', 443)
         request_model = kwargs.get('model', 'mistral-embed')
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}'
+        span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}'
 
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -538,21 +538,21 @@ def async_embeddings(version, environment, application_name,
 
                 # Set Span attributes (OTel Semconv)
                 span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_MISTRAL)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING)
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_MISTRAL)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                     request_model)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_ENCODING_FORMATS,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS,
                                     [kwargs.get('encoding_format', 'float')])
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                     response_dict.get('model'))
-                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                     server_address)
-                span.set_attribute(SemanticConvetion.SERVER_PORT,
+                span.set_attribute(SemanticConvention.SERVER_PORT,
                                     server_port)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
 
                 # Set Span attributes (Extras)
@@ -560,18 +560,18 @@ def async_embeddings(version, environment, application_name,
                                     environment)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                                     input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                     cost)
-                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                     version)
 
                 if capture_message_content:
                     span.add_event(
-                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: str(kwargs.get('inputs', '')),
+                            SemanticConvention.GEN_AI_CONTENT_PROMPT: str(kwargs.get('inputs', '')),
                         },
                     )
 
@@ -581,8 +581,8 @@ def async_embeddings(version, environment, application_name,
                     attributes = create_metrics_attributes(
                         service_name=application_name,
                         deployment_environment=environment,
-                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
-                        system=SemanticConvetion.GEN_AI_SYSTEM_MISTRAL,
+                        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        system=SemanticConvention.GEN_AI_SYSTEM_MISTRAL,
                         request_model=request_model,
                         server_address=server_address,
                         server_port=server_port,

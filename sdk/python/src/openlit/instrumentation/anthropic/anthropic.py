@@ -14,7 +14,7 @@ from openlit.instrumentation.anthropic.utils import (
     process_chat_response,
     process_streaming_chat_response,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ def messages(version, environment, application_name, tracer, event_provider,
         server_address, server_port = set_server_address_and_port(instance, 'api.anthropic.com', 443)
         request_model = kwargs.get('model', 'claude-3-5-sonnet-latest')
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
+        span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}'
 
         # pylint: disable=no-else-return
         if streaming:

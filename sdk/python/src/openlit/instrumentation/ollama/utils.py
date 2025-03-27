@@ -19,7 +19,7 @@ from openlit.__helpers import (
     otel_event,
     concatenate_all_contents
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 def process_chunk(self, chunk):
     """
@@ -64,20 +64,20 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Set Span attributes (OTel Semconv)
     scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_OPERATION, SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_OLLAMA)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, request_model)
-    scope._span.set_attribute(SemanticConvetion.SERVER_PORT, scope._server_port)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_OLLAMA)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
+    scope._span.set_attribute(SemanticConvention.SERVER_PORT, scope._server_port)
 
     options = scope._kwargs.get('options', {})
     attributes = [
-        (SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'repeat_penalty'),
-        (SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS, 'max_tokens'),
-        (SemanticConvetion.GEN_AI_REQUEST_SEED, 'seed'),
-        (SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES, 'stop'),
-        (SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
-        (SemanticConvetion.GEN_AI_REQUEST_TOP_P, 'top_p'),
-        (SemanticConvetion.GEN_AI_REQUEST_TOP_K, 'top_k'),
+        (SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, 'repeat_penalty'),
+        (SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 'max_tokens'),
+        (SemanticConvention.GEN_AI_REQUEST_SEED, 'seed'),
+        (SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, 'stop'),
+        (SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
+        (SemanticConvention.GEN_AI_REQUEST_TOP_P, 'top_p'),
+        (SemanticConvention.GEN_AI_REQUEST_TOP_K, 'top_k'),
     ]
 
     for attribute, key in attributes:
@@ -85,37 +85,37 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         if value is not None:
             scope._span.set_attribute(attribute, value)
 
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason])
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, scope._response_model)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens)
-    scope._span.set_attribute(SemanticConvetion.SERVER_ADDRESS, scope._server_address)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason])
+    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, scope._response_model)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens)
+    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, scope._server_address)
 
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+    scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                               "text" if isinstance(scope._llmresponse, str) else "json")
 
     scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     scope._span.set_attribute(SERVICE_NAME, application_name)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM, is_stream)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens + scope._output_tokens)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TBT, scope._tbt)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT, scope._ttft)
-    scope._span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION, version)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, is_stream)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens + scope._output_tokens)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, scope._tbt)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, scope._ttft)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
 
     # To be removed one the change to log events (from span events) is complete
     prompt = concatenate_all_contents(formatted_messages)
     if capture_message_content:
         scope._span.add_event(
-            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
             attributes={
-                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
+                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
             },
         )
         scope._span.add_event(
-            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
             attributes={
-                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
+                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
             },
         )
 
@@ -145,9 +145,9 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     for role in ['user', 'system', 'assistant', 'tool']:
         if formatted_messages.get(role, {}).get('content', ''):
             event = otel_event(
-                name=getattr(SemanticConvetion, f'GEN_AI_{role.upper()}_MESSAGE'),
+                name=getattr(SemanticConvention, f'GEN_AI_{role.upper()}_MESSAGE'),
                 attributes={
-                    SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+                    SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_OLLAMA
                 },
                 body = {
                     # pylint: disable=line-too-long
@@ -172,9 +172,9 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             event_provider.emit(event)
 
     choice_event = otel_event(
-        name=SemanticConvetion.GEN_AI_CHOICE,
+        name=SemanticConvention.GEN_AI_CHOICE,
         attributes={
-            SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+            SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_OLLAMA
         },
         body=choice_event_body
     )
@@ -186,8 +186,8 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         metrics_attributes = create_metrics_attributes(
             service_name=application_name,
             deployment_environment=environment,
-            operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-            system=SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
+            operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            system=SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
             request_model=request_model,
             server_address=scope._server_address,
             server_port=scope._server_port,
@@ -260,19 +260,19 @@ def process_embedding_response(response, request_model, pricing_info, server_por
 
         # Set Span attributes (OTel Semconv)
         span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
-        span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                            SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING)
-        span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                            SemanticConvetion.GEN_AI_SYSTEM_OLLAMA)
-        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+        span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING)
+        span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                            SemanticConvention.GEN_AI_SYSTEM_OLLAMA)
+        span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                             request_model)
-        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+        span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                             request_model)
-        span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+        span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                             server_address)
-        span.set_attribute(SemanticConvetion.SERVER_PORT,
+        span.set_attribute(SemanticConvention.SERVER_PORT,
                             server_port)
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                             input_tokens)
 
         # Set Span attributes (Extras)
@@ -280,17 +280,17 @@ def process_embedding_response(response, request_model, pricing_info, server_por
                             environment)
         span.set_attribute(SERVICE_NAME,
                             application_name)
-        span.set_attribute(SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE,
+        span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
                             input_tokens)
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                             cost)
-        span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+        span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                             version)
 
         prompt_event = otel_event(
-            name=SemanticConvetion.GEN_AI_USER_MESSAGE,
+            name=SemanticConvention.GEN_AI_USER_MESSAGE,
             attributes={
-                SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_OLLAMA
+                SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_OLLAMA
             },
             body={
                 **({"content": kwargs.get('prompt', '')} if capture_message_content else {}),
@@ -305,8 +305,8 @@ def process_embedding_response(response, request_model, pricing_info, server_por
             attributes = create_metrics_attributes(
                 service_name=application_name,
                 deployment_environment=environment,
-                operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING,
-                system=SemanticConvetion.GEN_AI_SYSTEM_OLLAMA,
+                operation=SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                system=SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
                 request_model=request_model,
                 server_address=server_address,
                 server_port=server_port,
