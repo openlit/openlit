@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getChartColors } from "@/constants/chart-colors";
-import { getFilterParamsForDashboard } from "@/helpers/filter";
+import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import { getPingStatus } from "@/selectors/database-config";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";

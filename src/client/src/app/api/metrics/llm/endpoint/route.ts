@@ -1,9 +1,10 @@
-import { MetricParams, OPERATION_TYPE, TimeLimit } from "@/lib/platform/common";
+import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import { getResultGenerationByEndpoint } from "@/lib/platform/llm/endpoint";
+import { OPERATION_TYPE } from "@/types/platform";
 
 export async function POST(request: Request) {
 	const formData = await request.json();

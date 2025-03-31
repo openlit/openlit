@@ -1,6 +1,6 @@
 import { omit } from "lodash";
 import Anthropic from "@anthropic-ai/sdk";
-import OpenLitHelper from "@/helpers/openlit";
+import OpenLitHelper from "@/helpers/server/openlit";
 
 export interface AnthropicProviderEvaluation {
 	api_key?: string;

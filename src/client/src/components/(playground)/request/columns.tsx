@@ -1,10 +1,7 @@
 import { Columns } from "@/components/data-table/columns";
 import { Badge } from "@/components/ui/badge";
-import {
-	TraceMapping,
-	TraceMappingKeyType,
-	TransformedTraceRow,
-} from "@/constants/traces";
+import { TraceMapping } from "@/constants/traces";
+import { TraceMappingKeyType, TransformedTraceRow } from "@/types/trace";
 import { CalendarDays } from "lucide-react";
 
 export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {

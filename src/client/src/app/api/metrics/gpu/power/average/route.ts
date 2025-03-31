@@ -2,7 +2,7 @@ import { GPUMetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import { getAveragePowerDraw } from "@/lib/platform/gpu/power";
 
 export async function POST(request: Request) {

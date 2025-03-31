@@ -1,9 +1,10 @@
 import StatCard from "@/components/(playground)/stat-card";
 import { TraceMapping } from "@/constants/traces";
-import { integerParser } from "@/helpers/trace";
+import { integerParser } from "@/helpers/client/trace";
 import {
 	Banknote,
 	Braces,
+	CheckCircle,
 	CircleDollarSign,
 	RadioTower,
 	Timer,
@@ -11,7 +12,7 @@ import {
 
 function NumberStats() {
 	return (
-		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
 			<StatCard
 				dataKey="total_requests"
 				extraParams={{
@@ -56,6 +57,24 @@ function NumberStats() {
 				roundTo={7}
 				textPrefix="$"
 				url="/api/metrics/llm/cost/request/average"
+			/>
+			<StatCard
+				dataKey="total_evaluation_detected"
+				heading="Total hallucination detected"
+				icon={CheckCircle}
+				url="/api/evaluation/llm/Hallucination"
+			/>
+			<StatCard
+				dataKey="total_evaluation_detected"
+				heading="Total bias detected"
+				icon={CheckCircle}
+				url="/api/evaluation/llm/Bias"
+			/>
+			<StatCard
+				dataKey="total_evaluation_detected"
+				heading="Total toxicity detected"
+				icon={CheckCircle}
+				url="/api/evaluation/llm/Toxicity"
 			/>
 		</div>
 	);

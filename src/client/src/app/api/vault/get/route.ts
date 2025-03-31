@@ -1,4 +1,4 @@
-import { SecretGetFilters } from "@/constants/vault";
+import { SecretGetFilters } from "@/types/vault";
 import { getSecrets } from "@/lib/platform/vault";
 
 export async function POST(request: Request) {

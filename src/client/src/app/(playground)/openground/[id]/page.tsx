@@ -2,7 +2,7 @@
 import OpengroundHeader from "@/components/(playground)/openground/header";
 import ProviderTable from "@/components/(playground)/openground/provider-table";
 import { providersConfig } from "@/constants/openground";
-import { Providers } from "@/store/openground";
+import { Providers } from "@/types/store/openground";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";

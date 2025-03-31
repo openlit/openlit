@@ -3,7 +3,7 @@ import { getTokensPerTime } from "@/lib/platform/llm/token";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 
 export async function POST(request: Request) {
 	const formData = await request.json();

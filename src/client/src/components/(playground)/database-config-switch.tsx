@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import {
 	changeActiveDatabaseConfig,
 	fetchDatabaseConfigList,
-} from "@/helpers/database-config";
+} from "@/helpers/client/database-config";
 import {
 	Select,
 	SelectContent,

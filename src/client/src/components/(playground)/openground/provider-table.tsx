@@ -2,7 +2,7 @@ import {
 	EvalutatedResponseData,
 	ProviderType,
 	Providers,
-} from "@/store/openground";
+} from "@/types/store/openground";
 import {
 	Table,
 	TableBody,

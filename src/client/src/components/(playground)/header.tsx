@@ -72,7 +72,7 @@ export default function Header() {
 					<DropdownMenuItem disabled>{user?.email}</DropdownMenuItem>
 					<DropdownMenuSeparator />
 					<DropdownMenuItem asChild>
-						<Link href="/profile">Edit details</Link>
+						<Link href="/settings/profile">Edit details</Link>
 					</DropdownMenuItem>
 					<DropdownMenuItem onClick={onClickSignout}>Logout</DropdownMenuItem>
 				</DropdownMenuContent>

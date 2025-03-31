@@ -2,7 +2,7 @@ import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import { getResultGenerationByEnvironment } from "@/lib/platform/vector/environment";
 
 export async function POST(request: Request) {

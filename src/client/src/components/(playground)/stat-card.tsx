@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LucideIcon, TrendingDown, TrendingUp } from "lucide-react";
 import IntermediateState from "./intermediate-state";
-import { getFilterParamsForDashboard } from "@/helpers/filter";
+import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 
 type StatCardProps = {
 	heading?: string;

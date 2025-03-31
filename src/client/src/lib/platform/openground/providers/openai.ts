@@ -1,4 +1,4 @@
-import OpenLitHelper from "@/helpers/openlit";
+import OpenLitHelper from "@/helpers/server/openlit";
 import { omit } from "lodash";
 import OpenAI from "openai";
 

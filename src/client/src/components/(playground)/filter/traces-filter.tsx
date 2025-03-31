@@ -18,11 +18,11 @@ import { getPingStatus } from "@/selectors/database-config";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { FilterConfig, FilterType } from "@/store/filter";
+import { FilterConfig, FilterType } from "@/types/store/filter";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import VisibilityColumns from "./visibility-columns";
-import { PAGE } from "@/store/page";
+import { PAGE } from "@/types/store/page";
 import { Columns } from "@/components/data-table/columns";
 
 const DynamicFilters = ({

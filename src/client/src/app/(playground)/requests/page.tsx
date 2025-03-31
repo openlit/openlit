@@ -12,7 +12,7 @@ import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import DataTable from "@/components/data-table/table";
 import { columns } from "@/components/(playground)/request/columns";
-import { normalizeTrace } from "@/helpers/trace";
+import { normalizeTrace } from "@/helpers/client/trace";
 import { getVisibilityColumnsOfPage } from "@/selectors/page";
 import TracesFilter from "@/components/(playground)/filter/traces-filter";
 
