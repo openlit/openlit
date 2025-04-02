@@ -53,3 +53,7 @@ export const TRACE_FETCHING_ERROR = "Error fetching trace!";
 export const CRON_RECURRING_TIME_INVALID =
 	"Invalid cron schedule. Please check the format.";
 export const CRON_JOB_UPDATION_ERROR = "Error updating cron job.";
+
+// Dashlit
+export const BOARD_DATA_NOT_FOUND = "Board data not found!";
+export const DASHLIT_EXPLORER_EMPTY_STATE = "No dashboards or folders yet. Click 'Add' to create one.";

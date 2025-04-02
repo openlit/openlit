@@ -193,7 +193,7 @@ function FormRadioGroupField(props: FieldProps) {
 				defaultValue={fieldTypeProps.defaultValue as string}
 				name={fieldTypeProps.name}
 				ref={itemRef}
-				className="grid grid-cols-4 gap-8 pt-2 ph-no-capture"
+				className={`grid grid-cols-${fieldTypeProps.options.length} gap-8 pt-2 ph-no-capture`}
 			>
 				{fieldTypeProps.options.map((option) => {
 					return (
