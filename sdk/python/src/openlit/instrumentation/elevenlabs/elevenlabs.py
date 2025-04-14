@@ -51,8 +51,7 @@ def generate(gen_ai_endpoint, version, environment, application_name,
             The response from the original 'generate' method.
         """
 
-        url = urlparse(instance._client_wrapper._base_url)
-        server_address, server_port = url.hostname, url.port or 443
+        server_address, server_port = "api.elevenlabs.io", 443
         request_model = kwargs.get('model', kwargs.get('model_id', 'eleven_multilingual_v2'))
 
         span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}'
