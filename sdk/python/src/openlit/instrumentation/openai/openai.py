@@ -522,7 +522,7 @@ def chat_completions(version, environment, application_name,
                 self._response_id = chunked.get('id')
                 self._response_model = chunked.get('model')
                 self._finish_reason = chunked.get('choices')[0].get('finish_reason')
-                self._openai_response_service_tier = chunked.get('service_tier')
+                self._openai_response_service_tier = chunked.get('service_tier') or 'auto'
                 self._openai_system_fingerprint = chunked.get('system_fingerprint')
                 return chunk
             except StopIteration:
@@ -788,7 +788,7 @@ def chat_completions(version, environment, application_name,
                     span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SERVICE_TIER,
                                         kwargs.get("service_tier", "auto"))
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SERVICE_TIER,
-                                        response_dict.get('service_tier'))
+                                        response_dict.get('service_tier', 'auto'))
                     span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
                                         str(response_dict.get('system_fingerprint', '')))
 

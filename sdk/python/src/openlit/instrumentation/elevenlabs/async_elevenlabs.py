@@ -4,7 +4,6 @@ Module for monitoring Ollama API calls.
 
 import logging
 import time
-from urllib.parse import urlparse
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import (
