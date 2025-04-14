@@ -19,7 +19,7 @@ from openlit.__helpers import (
     otel_event,
     concatenate_all_contents
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 def setup_common_span_attributes(span, request_model, kwargs, tokens,
                                  server_port, server_address, environment,
@@ -30,32 +30,32 @@ def setup_common_span_attributes(span, request_model, kwargs, tokens,
 
     # Base attributes from SDK and operation settings.
     span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
-    span.set_attribute(SemanticConvetion.GEN_AI_OPERATION, SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM, SemanticConvetion.GEN_AI_SYSTEM_AI21)
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, request_model)
-    span.set_attribute(SemanticConvetion.SERVER_PORT, server_port)
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_SEED, kwargs.get('seed', ''))
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_FREQUENCY_PENALTY, kwargs.get('frequency_penalty', 0.0))
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MAX_TOKENS, kwargs.get('max_tokens', -1))
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_PRESENCE_PENALTY, kwargs.get('presence_penalty', 0.0))
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_STOP_SEQUENCES, kwargs.get('stop', []))
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TEMPERATURE, kwargs.get('temperature', 0.4))
-    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_TOP_P, kwargs.get('top_p', 1.0))
+    span.set_attribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+    span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_AI21)
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
+    span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED, kwargs.get('seed', ''))
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, kwargs.get('frequency_penalty', 0.0))
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, kwargs.get('max_tokens', -1))
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, kwargs.get('presence_penalty', 0.0))
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, kwargs.get('stop', []))
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, kwargs.get('temperature', 0.4))
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, kwargs.get('top_p', 1.0))
 
     # Add token-related attributes if available.
     if 'finish_reason' in tokens:
-        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_FINISH_REASON, [tokens['finish_reason']])
+        span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [tokens['finish_reason']])
     if 'response_id' in tokens:
-        span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_ID, tokens['response_id'])
+        span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, tokens['response_id'])
     if 'input_tokens' in tokens:
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS, tokens['input_tokens'])
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, tokens['input_tokens'])
     if 'output_tokens' in tokens:
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS, tokens['output_tokens'])
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, tokens['output_tokens'])
     if 'total_tokens' in tokens:
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS, tokens['total_tokens'])
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, tokens['total_tokens'])
 
-    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL, request_model)
-    span.set_attribute(SemanticConvetion.SERVER_ADDRESS, server_address)
+    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, request_model)
+    span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
     # Environment and service identifiers.
     span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     span.set_attribute(SERVICE_NAME, application_name)
@@ -73,8 +73,8 @@ def record_common_metrics(metrics, application_name, environment, request_model,
     attributes = create_metrics_attributes(
         service_name=application_name,
         deployment_environment=environment,
-        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-        system=SemanticConvetion.GEN_AI_SYSTEM_AI21,
+        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        system=SemanticConvention.GEN_AI_SYSTEM_AI21,
         request_model=request_model,
         server_address=server_address,
         server_port=server_port,
@@ -121,15 +121,15 @@ def emit_common_events(event_provider, choices, finish_reason, llmresponse, form
                         }
                     })
                     event = otel_event(
-                        name=SemanticConvetion.GEN_AI_CHOICE,
-                        attributes={SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AI21},
+                        name=SemanticConvention.GEN_AI_CHOICE,
+                        attributes={SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_AI21},
                         body=choice_event_body
                     )
                     event_provider.emit(event)
             else:
                 event = otel_event(
-                    name=SemanticConvetion.GEN_AI_CHOICE,
-                    attributes={SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AI21},
+                    name=SemanticConvention.GEN_AI_CHOICE,
+                    attributes={SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_AI21},
                     body=choice_event_body
                 )
                 event_provider.emit(event)
@@ -144,8 +144,8 @@ def emit_common_events(event_provider, choices, finish_reason, llmresponse, form
             }
         }
         event = otel_event(
-            name=SemanticConvetion.GEN_AI_CHOICE,
-            attributes={SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AI21},
+            name=SemanticConvention.GEN_AI_CHOICE,
+            attributes={SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_AI21},
             body=choice_event_body
         )
         event_provider.emit(event)
@@ -175,8 +175,8 @@ def emit_common_events(event_provider, choices, finish_reason, llmresponse, form
                 if tool_calls:
                     event_body['id'] = tool_calls[0].get('id', '')
             event = otel_event(
-                name=getattr(SemanticConvetion, f'GEN_AI_{role.upper()}_MESSAGE'),
-                attributes={SemanticConvetion.GEN_AI_SYSTEM: SemanticConvetion.GEN_AI_SYSTEM_AI21},
+                name=getattr(SemanticConvention, f'GEN_AI_{role.upper()}_MESSAGE'),
+                attributes={SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_AI21},
                 body=event_body
             )
             event_provider.emit(event)
@@ -233,13 +233,13 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         'total_tokens': scope._input_tokens + scope._output_tokens,
     }
     extra_attrs = {
-        SemanticConvetion.GEN_AI_REQUEST_IS_STREAM: is_stream,
-        SemanticConvetion.GEN_AI_CLIENT_TOKEN_USAGE: scope._input_tokens + scope._output_tokens,
-        SemanticConvetion.GEN_AI_USAGE_COST: cost,
-        SemanticConvetion.GEN_AI_SERVER_TBT: scope._tbt,
-        SemanticConvetion.GEN_AI_SERVER_TTFT: scope._ttft,
-        SemanticConvetion.GEN_AI_SDK_VERSION: version,
-        SemanticConvetion.GEN_AI_OUTPUT_TYPE: 'text' if isinstance(scope._llmresponse, str) else 'json'
+        SemanticConvention.GEN_AI_REQUEST_IS_STREAM: is_stream,
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE: scope._input_tokens + scope._output_tokens,
+        SemanticConvention.GEN_AI_USAGE_COST: cost,
+        SemanticConvention.GEN_AI_SERVER_TBT: scope._tbt,
+        SemanticConvention.GEN_AI_SERVER_TTFT: scope._ttft,
+        SemanticConvention.GEN_AI_SDK_VERSION: version,
+        SemanticConvention.GEN_AI_OUTPUT_TYPE: 'text' if isinstance(scope._llmresponse, str) else 'json'
     }
     # Set span attributes.
     setup_common_span_attributes(scope._span, request_model, scope._kwargs, tokens,
@@ -249,12 +249,12 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     # Optionally add events capturing the prompt and completion.
     if capture_message_content:
         scope._span.add_event(
-            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
-            attributes={SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt},
+            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
+            attributes={SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt},
         )
         scope._span.add_event(
-            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
-            attributes={SemanticConvetion.GEN_AI_CONTENT_COMPLETION: scope._llmresponse},
+            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
+            attributes={SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse},
         )
 
     # Emit events for each choice and message role.
@@ -336,15 +336,15 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
         # Create tokens dict and RAG-specific extra attributes.
         tokens = {'response_id': response_dict.get('id'), 'input_tokens': input_tokens}
         extra_attrs = {
-            SemanticConvetion.GEN_AI_REQUEST_IS_STREAM: False,
-            SemanticConvetion.GEN_AI_SERVER_TTFT: end_time - start_time,
-            SemanticConvetion.GEN_AI_SDK_VERSION: version,
-            SemanticConvetion.GEN_AI_RAG_MAX_SEGMENTS: kwargs.get('max_segments', -1),
-            SemanticConvetion.GEN_AI_RAG_STRATEGY: kwargs.get('retrieval_strategy', 'segments'),
-            SemanticConvetion.GEN_AI_RAG_SIMILARITY_THRESHOLD: kwargs.get('retrieval_similarity_threshold', -1),
-            SemanticConvetion.GEN_AI_RAG_MAX_NEIGHBORS: kwargs.get('max_neighbors', -1),
-            SemanticConvetion.GEN_AI_RAG_FILE_IDS: str(kwargs.get('file_ids', '')),
-            SemanticConvetion.GEN_AI_RAG_DOCUMENTS_PATH: kwargs.get('path', '')
+            SemanticConvention.GEN_AI_REQUEST_IS_STREAM: False,
+            SemanticConvention.GEN_AI_SERVER_TTFT: end_time - start_time,
+            SemanticConvention.GEN_AI_SDK_VERSION: version,
+            SemanticConvention.GEN_AI_RAG_MAX_SEGMENTS: kwargs.get('max_segments', -1),
+            SemanticConvention.GEN_AI_RAG_STRATEGY: kwargs.get('retrieval_strategy', 'segments'),
+            SemanticConvention.GEN_AI_RAG_SIMILARITY_THRESHOLD: kwargs.get('retrieval_similarity_threshold', -1),
+            SemanticConvention.GEN_AI_RAG_MAX_NEIGHBORS: kwargs.get('max_neighbors', -1),
+            SemanticConvention.GEN_AI_RAG_FILE_IDS: str(kwargs.get('file_ids', '')),
+            SemanticConvention.GEN_AI_RAG_DOCUMENTS_PATH: kwargs.get('path', '')
         }
         # Set common span attributes.
         setup_common_span_attributes(span, request_model, kwargs, tokens,
@@ -354,8 +354,8 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
         # Record the prompt event if requested.
         if capture_message_content:
             span.add_event(
-                name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
-                attributes={SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt},
+                name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
+                attributes={SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt},
             )
 
         output_tokens = 0
@@ -368,13 +368,13 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
             aggregated_completion.append(content)
             output_tokens += general_tokens(content)
             if kwargs.get('tools'):
-                span.set_attribute(SemanticConvetion.GEN_AI_TOOL_CALLS,
+                span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALLS,
                                    str(choices[i].get('message', {}).get('tool_calls')))
             # Set output type based on actual content type.
             if isinstance(content, str):
-                span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE, 'text')
+                span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, 'text')
             elif content is not None:
-                span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE, 'json')
+                span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, 'json')
 
         # Concatenate completion responses.
         llmresponse = ''.join(aggregated_completion)
@@ -382,16 +382,16 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
         tokens['total_tokens'] = input_tokens + output_tokens
 
         cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST, cost)
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
-        span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS, input_tokens + output_tokens)
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
+        span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, input_tokens + output_tokens)
 
         span.set_status(Status(StatusCode.OK))
         # Emit a single aggregated completion event.
         if capture_message_content:
             span.add_event(
-                name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
-                attributes={SemanticConvetion.GEN_AI_CONTENT_COMPLETION: llmresponse},
+                name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
+                attributes={SemanticConvention.GEN_AI_CONTENT_COMPLETION: llmresponse},
             )
         # Emit the rest of the events (choice and role-based events) as before.
         n = kwargs.get('n', 1)

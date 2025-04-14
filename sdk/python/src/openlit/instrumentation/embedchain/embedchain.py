@@ -7,7 +7,7 @@ import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import handle_exception
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -59,21 +59,21 @@ def evaluate(gen_ai_endpoint, version, environment, application_name,
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_EMBEDCHAIN)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_EMBEDCHAIN)
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_EVAL_CONTEXT_RELEVANCY,
+                span.set_attribute(SemanticConvention.GEN_AI_EVAL_CONTEXT_RELEVANCY,
                                     response["context_relevancy"])
-                span.set_attribute(SemanticConvetion.GEN_AI_EVAL_ANSWER_RELEVANCY,
+                span.set_attribute(SemanticConvention.GEN_AI_EVAL_ANSWER_RELEVANCY,
                                     response["answer_relevancy"])
-                span.set_attribute(SemanticConvetion.GEN_AI_EVAL_GROUNDEDNESS,
+                span.set_attribute(SemanticConvention.GEN_AI_EVAL_GROUNDEDNESS,
                                     response["groundedness"])
 
                 span.set_status(Status(StatusCode.OK))
@@ -137,17 +137,17 @@ def get_data_sources(gen_ai_endpoint, version, environment, application_name,
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_EMBEDCHAIN)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_EMBEDCHAIN)
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_FRAMEWORK)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_DATA_SOURCES,
+                span.set_attribute(SemanticConvention.GEN_AI_DATA_SOURCES,
                                     len(response))
 
                 span.set_status(Status(StatusCode.OK))

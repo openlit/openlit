@@ -7,7 +7,7 @@ import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import handle_exception
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -71,80 +71,80 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                    gen_ai_endpoint)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                    environment)
                 span.set_attribute(SERVICE_NAME,
                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                   SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB)
-                span.set_attribute(SemanticConvetion.DB_SYSTEM_NAME,
-                                   SemanticConvetion.DB_SYSTEM_MILVUS)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                   SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+                span.set_attribute(SemanticConvention.DB_SYSTEM_NAME,
+                                   SemanticConvention.DB_SYSTEM_MILVUS)
 
                 if gen_ai_endpoint == "milvus.create_collection":
-                    db_operation = SemanticConvetion.DB_OPERATION_CREATE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_CREATE_COLLECTION
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_CREATE_COLLECTION)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_DIMENSION,
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_DIMENSION,
                                        kwargs.get("dimension", ""))
 
                 elif gen_ai_endpoint == "milvus.drop_collection":
-                    db_operation = SemanticConvetion.DB_OPERATION_DELETE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_DELETE_COLLECTION)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_DELETE_COLLECTION
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_DELETE_COLLECTION)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "milvus.insert":
-                    db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_ADD)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_ADD
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_ADD)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("data")))
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_COST,
+                    span.set_attribute(SemanticConvention.DB_OPERATION_COST,
                                        response["cost"])
 
                 elif gen_ai_endpoint == "milvus.search":
-                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_QUERY)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_QUERY
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_QUERY)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                    span.set_attribute(SemanticConvention.DB_STATEMENT,
                                        str(kwargs.get("data")))
 
                 elif gen_ai_endpoint in ["milvus.query", "milvus.get"]:
-                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_QUERY)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_QUERY
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_QUERY)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                    span.set_attribute(SemanticConvention.DB_STATEMENT,
                                        str(kwargs.get("output_fields")))
 
                 elif gen_ai_endpoint == "milvus.upsert":
-                    db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_UPSERT)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_ADD
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_UPSERT)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("data")))
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_COST,
+                    span.set_attribute(SemanticConvention.DB_OPERATION_COST,
                                        response["cost"])
 
                 elif gen_ai_endpoint == "milvus.delete":
-                    db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_DELETE)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_DELETE
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_DELETE)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_FILTER,
+                    span.set_attribute(SemanticConvention.DB_FILTER,
                                        str(kwargs.get("filter", "")))
 
                 span.set_status(Status(StatusCode.OK))
@@ -155,13 +155,13 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                             "openlit",
                         SERVICE_NAME:
                             application_name,
-                        SemanticConvetion.DB_SYSTEM_NAME:
-                            SemanticConvetion.DB_SYSTEM_MILVUS,
+                        SemanticConvention.DB_SYSTEM_NAME:
+                            SemanticConvention.DB_SYSTEM_MILVUS,
                         DEPLOYMENT_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_OPERATION:
-                            SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB,
-                        SemanticConvetion.DB_OPERATION_NAME:
+                        SemanticConvention.GEN_AI_OPERATION:
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB,
+                        SemanticConvention.DB_OPERATION_NAME:
                             db_operation
                     }
 

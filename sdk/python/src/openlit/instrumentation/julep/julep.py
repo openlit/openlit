@@ -7,7 +7,7 @@ import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import handle_exception
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -60,39 +60,39 @@ def wrap_julep(gen_ai_endpoint, version, environment, application_name,
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                    gen_ai_endpoint)
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                   SemanticConvetion.GEN_AI_SYSTEM_JULEP)
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                   SemanticConvention.GEN_AI_SYSTEM_JULEP)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                    environment)
                 span.set_attribute(SERVICE_NAME,
                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                   SemanticConvetion.GEN_AI_OPERATION_TYPE_AGENT)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                   SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT)
 
                 if gen_ai_endpoint == "julep.agents_create":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID,
                                     response.id)
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ROLE,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ROLE,
                                     kwargs.get("name", ""))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                     kwargs.get("model", "gpt-4-turbo"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_CONTEXT,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_CONTEXT,
                                     kwargs.get("about", ""))
 
                 elif gen_ai_endpoint == "julep.task_create":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TOOLS,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_TOOLS,
                                     str(kwargs.get("tools", "")))
 
                 elif gen_ai_endpoint == "julep.execution_create":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TASK_ID,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_TASK_ID,
                                     kwargs.get("task_id", ""))
                     if capture_message_content:
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                             SemanticConvetion.GEN_AI_CONTENT_PROMPT:str(kwargs.get("input", "")),
+                             SemanticConvention.GEN_AI_CONTENT_PROMPT:str(kwargs.get("input", "")),
                             },
                         )
 

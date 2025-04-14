@@ -13,7 +13,7 @@ from openlit.__helpers import (
     create_metrics_attributes,
     set_server_address_and_port
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ def generate(version, environment, application_name,
         server_address, server_port = set_server_address_and_port(instance, "api.cohere.com", 443)
         request_model = instance.llm_engine.model_config.model or "facebook/opt-125m"
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         # pylint: disable=line-too-long
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
@@ -66,19 +66,19 @@ def generate(version, environment, application_name,
             try:
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_VLLM)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT)
-                span.set_attribute(SemanticConvetion.SERVER_PORT,
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_VLLM)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+                span.set_attribute(SemanticConvention.SERVER_PORT,
                                     server_port)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                     request_model)
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                     request_model)
-                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                     server_address)
-                span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                     "text")
 
                 # Set base span attribues (Extras)
@@ -86,11 +86,11 @@ def generate(version, environment, application_name,
                                      environment)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_IS_STREAM,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
                                     False)
-                span.set_attribute(SemanticConvetion.GEN_AI_SERVER_TTFT,
+                span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT,
                                     end_time - start_time)
-                span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                     version)
 
                 input_tokens = 0
@@ -102,34 +102,34 @@ def generate(version, environment, application_name,
                     completion_attributes = {}
 
                     for i, output in enumerate(response):
-                        prompt_attributes[f"{SemanticConvetion.GEN_AI_CONTENT_PROMPT}.{i}"] = output.prompt
-                        completion_attributes[f"{SemanticConvetion.GEN_AI_CONTENT_COMPLETION}.{i}"] = output.outputs[0].text
+                        prompt_attributes[f"{SemanticConvention.GEN_AI_CONTENT_PROMPT}.{i}"] = output.prompt
+                        completion_attributes[f"{SemanticConvention.GEN_AI_CONTENT_COMPLETION}.{i}"] = output.outputs[0].text
                         input_tokens += general_tokens(output.prompt)
                         output_tokens += general_tokens(output.outputs[0].text)
 
                     # Add a single event for all prompts
                     span.add_event(
-                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes=prompt_attributes,
                     )
 
                     # Add a single event for all completions
                     span.add_event(
-                        name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                        name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                         attributes=completion_attributes,
                     )
 
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_INPUT_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
                                     input_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_OUTPUT_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
                                     output_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
                                     input_tokens + output_tokens)
 
                 # Calculate cost of the operation
                 cost = get_chat_model_cost(request_model, pricing_info,
                                             input_tokens, output_tokens)
-                span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                     cost)
 
                 span.set_status(Status(StatusCode.OK))
@@ -138,8 +138,8 @@ def generate(version, environment, application_name,
                     attributes = create_metrics_attributes(
                         service_name=application_name,
                         deployment_environment=environment,
-                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT,
-                        system=SemanticConvetion.GEN_AI_SYSTEM_VLLM,
+                        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        system=SemanticConvention.GEN_AI_SYSTEM_VLLM,
                         request_model=request_model,
                         server_address=server_address,
                         server_port=server_port,

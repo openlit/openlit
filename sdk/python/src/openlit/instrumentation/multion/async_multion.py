@@ -9,7 +9,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     handle_exception,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -56,11 +56,11 @@ def async_multion_wrap(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_MULTION)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AGENT)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_MULTION)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT)
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
@@ -68,53 +68,53 @@ def async_multion_wrap(gen_ai_endpoint, version, environment, application_name,
                                     environment)
 
                 if gen_ai_endpoint == "multion.browse":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL,
                                     kwargs.get("url", ""))
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STEP_COUNT,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_STEP_COUNT,
                                     response.metadata.step_count)
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_RESPONSE_TIME,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_RESPONSE_TIME,
                                     response.metadata.processing_time)
 
                     if capture_message_content:
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("cmd", ""),
+                                SemanticConvention.GEN_AI_CONTENT_PROMPT: kwargs.get("cmd", ""),
                             },
                         )
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.message,
+                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: response.message,
                             },
                         )
                 elif gen_ai_endpoint == "multion.retrieve":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL,
                                     kwargs.get("url", ""))
 
                     if capture_message_content:
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: kwargs.get("cmd", ""),
+                                SemanticConvention.GEN_AI_CONTENT_PROMPT: kwargs.get("cmd", ""),
                             },
                         )
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.message,
+                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: response.message,
                             },
                         )
 
                 elif gen_ai_endpoint == "multion.sessions.create":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL,
                                     kwargs.get("url", ""))
 
                     if capture_message_content:
                         span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response.message,
+                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: response.message,
                             },
                         )
 

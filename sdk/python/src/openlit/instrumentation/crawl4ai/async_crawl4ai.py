@@ -9,7 +9,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     handle_exception,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -56,38 +56,38 @@ def async_wrap_crawl(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_CRAWL4AI)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AGENT)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_CRAWL4AI)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT)
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                     environment)
-                span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TYPE,
-                                    SemanticConvetion.GEN_AI_AGENT_TYPE_BROWSER)
-                span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ENABLE_CACHE, not kwargs.get("disable_cache", False))
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_TYPE,
+                                    SemanticConvention.GEN_AI_AGENT_TYPE_BROWSER)
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_ENABLE_CACHE, not kwargs.get("disable_cache", False))
 
                 url = kwargs.get("url") if "url" in kwargs else str(args[0]) if args else None
                 if url is not None:
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_BROWSE_URL, url)
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL, url)
 
                 extraction_strategy = kwargs.get("extraction_strategy", "NoExtractionStrategy")
                 extraction_name = extraction_strategy.name if hasattr(extraction_strategy, 'name') else extraction_strategy
 
-                span.set_attribute(SemanticConvetion.GEN_AI_AGENT_STRATEGY, extraction_name)
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_STRATEGY, extraction_name)
 
                 if extraction_name == "LLMExtractionStrategy" and hasattr(extraction_strategy, 'provider'):
                     _, llm_model = extraction_strategy.provider.split('/')
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, llm_model)
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, llm_model)
 
                 elif extraction_name == "CosineStrategy":
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL, "all-MiniLM-L6-v2")
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, "all-MiniLM-L6-v2")
 
                 elif extraction_name == "JsonCssExtractionStrategy" and hasattr(extraction_strategy, 'schema'):
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_SCHEMA, str(extraction_strategy.schema))
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_SCHEMA, str(extraction_strategy.schema))
 
                 span.set_status(Status(StatusCode.OK))
 

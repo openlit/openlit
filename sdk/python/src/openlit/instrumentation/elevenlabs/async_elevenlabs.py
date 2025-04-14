@@ -11,7 +11,7 @@ from openlit.__helpers import (
     handle_exception,
     create_metrics_attributes,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
         server_address, server_port = "api.elevenlabs.io", 443
         request_model = kwargs.get('model', kwargs.get('model_id', 'eleven_multilingual_v2'))
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}'
+        span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}'
 
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -67,48 +67,48 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
 
                 # Set Span attributes
                 span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO)
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_ASSEMBLYAI)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO)
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_ASSEMBLYAI)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                     request_model)
-                span.set_attribute(SemanticConvetion.SERVER_ADDRESS,
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                     server_address)
-                span.set_attribute(SemanticConvetion.SERVER_PORT,
+                span.set_attribute(SemanticConvention.SERVER_PORT,
                                     server_port)
-                span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
                                     request_model)
-                span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                     request_model)
-                span.set_attribute(SemanticConvetion.GEN_AI_OUTPUT_TYPE,
+                span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                                     'audio')
 
                 # Set Span attributes (Extras)
                 if gen_ai_endpoint == 'elevenlabs.generate':
                     if isinstance(kwargs.get('voice', 'Rachel'), str):
-                        span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_VOICE,
+                        span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE,
                                         kwargs.get('voice', 'Rachel'))
                 else:
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_VOICE,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE,
                                         kwargs.get('voice_id', ''))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT,
                                         kwargs.get('output_format', 'mp3'))
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_AUDIO_SETTINGS,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_SETTINGS,
                                         str(kwargs.get('voice_settings', '')))
                     span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                         environment)
                     span.set_attribute(SERVICE_NAME,
                                         application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
+                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
                                         cost)
-                    span.set_attribute(SemanticConvetion.GEN_AI_SDK_VERSION,
+                    span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
                                         version)
                 if capture_message_content:
                     span.add_event(
-                        name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
+                        name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                         attributes={
-                            SemanticConvetion.GEN_AI_CONTENT_PROMPT: str(kwargs.get('text', '')),
+                            SemanticConvention.GEN_AI_CONTENT_PROMPT: str(kwargs.get('text', '')),
                         },
                     )
 
@@ -118,8 +118,8 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
                     attributes = create_metrics_attributes(
                         service_name=application_name,
                         deployment_environment=environment,
-                        operation=SemanticConvetion.GEN_AI_OPERATION_TYPE_AUDIO,
-                        system=SemanticConvetion.GEN_AI_SYSTEM_ELEVENLABS,
+                        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
+                        system=SemanticConvention.GEN_AI_SYSTEM_ELEVENLABS,
                         request_model=request_model,
                         server_address=server_address,
                         server_port=server_port,
