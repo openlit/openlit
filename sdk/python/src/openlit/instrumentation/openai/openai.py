@@ -787,9 +787,9 @@ def chat_completions(version, environment, application_name,
                                         server_address)
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
                                         kwargs.get("service_tier", "auto"))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SERVICE_TIER,
+                    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER,
                                         response_dict.get('service_tier', 'auto'))
-                    span.set_attribute(SemanticConvetion.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
+                    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
                                         str(response_dict.get('system_fingerprint', '')))
 
                     # Set base span attribues (Extras)
