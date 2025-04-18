@@ -43,7 +43,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 - 🔑 **API Keys and Secrets Management**: Securely handle your API keys and secrets centrally, avoiding insecure practices.
 
-- 🎮 **Experiemnt with different LLMs**: Use OpenGround to explore, test and compare various LLMs side by side.
+- 🎮 **Experiment with different LLMs**: Use OpenGround to explore, test and compare various LLMs side by side.
 
 ## 🚀 Getting Started with LLM Observability
 
@@ -161,7 +161,7 @@ Configure the telemetry data destination as follows:
 
 With the Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your AI application's performance, behavior, and identify areas of improvement.
 
-Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
+Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials:
 
 - **Email**: `user@openlit.io`
 - **Password**: `openlituser`
