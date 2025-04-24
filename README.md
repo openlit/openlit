@@ -216,34 +216,11 @@ Connect with OpenLIT community and maintainers for support, discussions, and upd
 OpenLIT is available under the [Apache-2.0 license](LICENSE).
 
 
-## Getting started with taskfile
+## 🙇‍♂️ Acknowledgments
 
-### Installing Task
-
-#### Using package managers:
-
-```bash
-# macOS
-brew install go-task
-
-# Windows (Chocolatey)
-choco install go-task
-
-# Linux
-sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
-
-```
-
-### just Ask task
-
-```bash
-➜  openlit task
-task: [default] task --list
-task: Available tasks for this project:
-* build-and-run:       Build Docker images
-* default:             Display available tasks
-* destroy:             Stop and remove Docker containers, networks, and volumes
-* logs:                Logs Docker
-* start:               Run Docker containers
-* stop:                Stop Docker containers
-```
+<p>This project is proudly supported by:</p>
+<p>
+  <a href="https://www.digitalocean.com/">
+    <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" width="201px">
+  </a>
+</p>
