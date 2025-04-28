@@ -31,9 +31,7 @@ export default function RouteBreadcrumbs() {
 			<BreadcrumbList>
 				{paths.length > 1
 					? paths.map((path, index) => {
-							if (path === "") return null;
-							pathArray.push(path);
-							console.log(pathArray);
+							if (path !== "") pathArray.push(path);
 							const pathField = `/${pathArray.join("/")}`;
 							if (index === paths.length - 1) {
 								return (

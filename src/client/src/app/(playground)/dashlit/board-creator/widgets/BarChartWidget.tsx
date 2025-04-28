@@ -5,22 +5,24 @@ import { CHART_COLORS } from "../constants"
 
 interface BarChartProps {
   widget: BarChartWidget
+  data?: any[]
 }
 
-const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget }) => {
+const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
+  console.log("data", data)
   return (
     <div className="flex flex-col h-full">
       <div className="text-sm text-muted-foreground mb-2">{widget.description}</div>
       <div className="flex-grow">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={widget.data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <BarChart data={data || []} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey={widget.properties.xAxis} />
-            <YAxis />
+            <YAxis dataKey={widget.properties.yAxis} />
             <Tooltip formatter={(value) => [`${value}`, widget.properties.yAxis]} />
             <Bar
               dataKey={widget.properties.yAxis}
-              fill={CHART_COLORS[widget.properties.color as keyof typeof CHART_COLORS][0]}
+              fill={"red"}
             />
           </BarChart>
         </ResponsiveContainer>

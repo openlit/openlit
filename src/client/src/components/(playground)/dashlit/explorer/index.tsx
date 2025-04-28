@@ -542,8 +542,12 @@ export default function DashboardExplorer() {
 			) : (
 				<DragDropContext onDragEnd={handleDragEnd}>
 					<Droppable droppableId="root" type="explorer-item">
-						{(provided) => (
-							<div ref={provided.innerRef} {...provided.droppableProps}>
+						{(provided, snapshot) => (
+							<div 
+								ref={provided.innerRef} 
+								{...provided.droppableProps}
+								className={`transition-colors duration-200 ${snapshot.isDraggingOver ? 'bg-accent/50 border-2 border-dashed border-accent rounded-md' : ''}`}
+							>
 								{items.map((item, index) => (
 									<ExplorerItemRow
 										key={item.id}

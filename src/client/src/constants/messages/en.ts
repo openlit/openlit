@@ -57,3 +57,12 @@ export const CRON_JOB_UPDATION_ERROR = "Error updating cron job.";
 // Dashlit
 export const BOARD_DATA_NOT_FOUND = "Board data not found!";
 export const DASHLIT_EXPLORER_EMPTY_STATE = "No dashboards or folders yet. Click 'Add' to create one.";
+export const BOARD_UPDATE_FAILED = "Board update failed!";
+export const BOARD_UPDATED_SUCCESSFULLY = "Board updated successfully!";
+export const FOLDER_UPDATE_FAILED = "Folder update failed!";
+export const FOLDER_UPDATED_SUCCESSFULLY = "Folder updated successfully!";
+export const WIDGET_UPDATE_FAILED = "Widget update failed!";
+export const WIDGET_UPDATED_SUCCESSFULLY = "Widget updated successfully!";
+export const BOARD_LAYOUT_UPDATED_SUCCESSFULLY = "Board layout updated successfully!";
+export const WIDGET_FETCH_FAILED = "Widget fetch failed!";
+export const WIDGET_RUN_FAILED = "Widget run failed!";

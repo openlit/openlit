@@ -19,6 +19,7 @@ export type Board = {
 export type Folder = {
 	id: string;
 	title: string;
+	description: string;
 	createdAt: string;
 	updatedAt: string;
 	parentId: string | null;
@@ -34,20 +35,30 @@ export type BoardWidget = {
 	widget: Widget;
 };
 
-export type Widget = {
+export interface Widget {
 	id: string;
 	title: string;
 	description: string;
-	widgetType: string;
+	type: string;
 	properties: Record<string, any>;
-	query: string;
+	config: Record<string, any>;
 	createdAt: string;
 	updatedAt: string;
-};
+}
+
+export interface DatabaseWidget {
+	properties: string;
+	config: string;
+}
 
 export type FolderHeirarchy = Folder & {
 	boards: Board[];
 	children: DashlitHeirarchy[];
+	type: "folder";
+};
+
+export type BoardHeirarchy = Board & {
+	type: "board";
 };
 
 export type DashlitItemType = "folder" | "board";

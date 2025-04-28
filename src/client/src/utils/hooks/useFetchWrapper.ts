@@ -18,10 +18,11 @@ export default function useFetchWrapper<T>() {
 			responseDataKey = "",
 			successCb,
 		}: FetchWrapperProps) => {
+			let response;
+			let error;
 			setIsLoading(true);
 			setError(null);
 			try {
-				let response;
 				if (
 					requestType === "GET" ||
 					requestType === "POST" ||
@@ -48,6 +49,7 @@ export default function useFetchWrapper<T>() {
 					if (typeof successCb === "function") successCb(finalResponse);
 				}
 			} catch (error) {
+				error = error;
 				const updatedError = (error as any).toString().replaceAll("Error:", "");
 				setError(updatedError);
 				setData(null);
@@ -56,6 +58,8 @@ export default function useFetchWrapper<T>() {
 
 			setIsLoading(false);
 			setIsFetched(true);
+
+			return { response, error };
 		},
 		[setData, setError, setIsFetched, setIsLoading]
 	);

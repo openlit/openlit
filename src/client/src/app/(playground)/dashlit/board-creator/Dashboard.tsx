@@ -108,11 +108,16 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 
 // Main Dashboard component with provider
 const Dashboard: React.FC<DashboardProps> = ({ initialConfig, ...props }) => {
-  return (
-    <DashboardProvider initialConfig={initialConfig} onSave={props.onSave}>
-      <DashboardContent {...props} />
-    </DashboardProvider>
-  )
+	return (
+		<DashboardProvider
+			initialConfig={initialConfig}
+			onSave={props.onSave}
+			runQuery={props.runQuery}
+			handleWidgetCrud={props.handleWidgetCrud}
+		>
+			<DashboardContent {...props} />
+		</DashboardProvider>
+	);
 }
 
 export default Dashboard

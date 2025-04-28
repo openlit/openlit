@@ -1,6 +1,7 @@
 "use client";
 
-import type React from "react";
+import React from "react";
+import type { FC } from "react";
 import { WidgetType } from "../types";
 import { useEditWidget } from "../hooks/useEditWidget";
 import {
@@ -33,6 +34,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { useDashboard } from "../context/DashboardContext";
+import QueryDebugger from "./QueryDebugger";
 
 interface EditWidgetSheetProps {
 	editorLanguage?: string;
@@ -50,13 +53,48 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 		closeEditSheet,
 		updateWidget,
 		updateWidgetProperties,
+		runQuery,
 	} = useEditWidget();
+
+	const { handleWidgetCrud } = useDashboard();
+	const [queryResult, setQueryResult] = React.useState<any>(null);
+	const [queryError, setQueryError] = React.useState<string | null>(null);
+	const [isQueryLoading, setIsQueryLoading] = React.useState(false);
 
 	// if (!currentWidget) return null;
 
 	const handleEditorChange = (value: string | undefined) => {
 		if (value !== undefined) {
-			updateWidget(currentWidget!.id, { query: value });
+			updateWidget(currentWidget!.id, { config: { query: value } });
+		}
+	};
+
+	const handleRunQuery = async () => {
+		if (currentWidget?.config?.query) {
+			setIsQueryLoading(true);
+			setQueryError(null);
+			try {
+				const result = await runQuery(currentWidget.id, { userQuery: currentWidget.config.query });
+				setQueryResult(result.data);
+				setQueryError(result.err);
+			} catch (error) {
+				setQueryError(error instanceof Error ? error.message : 'An error occurred while running the query');
+			} finally {
+				setIsQueryLoading(false);
+			}
+		}
+	};
+
+	const handleSave = async () => {
+		if (currentWidget && handleWidgetCrud) {
+			try {
+				await handleWidgetCrud(currentWidget);
+				closeEditSheet();
+			} catch (error) {
+				console.error("Failed to save widget:", error);
+			}
+		} else {
+			closeEditSheet();
 		}
 	};
 
@@ -73,10 +111,10 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 				className={
 					isFullscreenEditor
 						? "w-full max-w-full h-full p-0"
-						: "sm:max-w-md md:max-w-lg"
+						: "sm:max-w-md md:max-w-lg flex flex-col h-full"
 				}
 			>
-				<>
+				<div className="flex flex-col h-full">
 					<SheetHeader>
 						<SheetTitle>Edit Widget</SheetTitle>
 						<SheetDescription>
@@ -85,7 +123,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 					</SheetHeader>
 
 					{currentWidget && (
-						<div className="py-4">
+						<div className="flex-1 overflow-y-auto py-4">
 							<Tabs value={currentTab} onValueChange={setCurrentTab}>
 								<TabsList className="grid w-full grid-cols-3">
 									<TabsTrigger value="general">General</TabsTrigger>
@@ -294,24 +332,27 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 										<div className="flex justify-between items-center">
 											<Label htmlFor="query">Query</Label>
 										</div>
-										<div className="border rounded-md h-60">
+										<div className="border rounded-md h-[calc(100vh-400px)]">
 											<CodeEditor
-												value={currentWidget.query || ""}
+												value={currentWidget.config?.query || ""}
 												onChange={handleEditorChange}
 												language={editorLanguage}
 											/>
 										</div>
-										<p className="text-xs text-muted-foreground mt-1">
-											Write your query here. The results will be used to
-											populate the widget.
-										</p>
 									</div>
 
-									<div className="flex justify-between">
-										<Button variant="outline" size="sm">
-											Validate Query
+									<div className="flex justify-end">
+										<Button size="sm" onClick={handleRunQuery}>
+											Run Query
 										</Button>
-										<Button size="sm">Run Query</Button>
+									</div>
+
+									<div className="">
+										<QueryDebugger
+											data={queryResult}
+											error={queryError || undefined}
+											isLoading={isQueryLoading}
+										/>
 									</div>
 								</TabsContent>
 
@@ -404,13 +445,17 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 						</div>
 					)}
 
-					<SheetFooter className="mt-4">
-						<Button variant="outline" onClick={closeEditSheet}>
-							Cancel
-						</Button>
-						<Button onClick={closeEditSheet}>Save Changes</Button>
+					<SheetFooter className="flex-shrink-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 px-6">
+						<div className="flex justify-between w-full">
+							<Button variant="outline" onClick={closeEditSheet} className="px-8">
+								Cancel
+							</Button>
+							<Button onClick={handleSave} className="px-8 bg-primary hover:bg-primary/90">
+								Save Changes
+							</Button>
+						</div>
 					</SheetFooter>
-				</>
+				</div>
 			</SheetContent>
 		</Sheet>
 	);

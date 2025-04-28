@@ -30,50 +30,58 @@ export default function ExplorerItemRow({
 
 	return (
 		<Draggable draggableId={item.id} index={index}>
-			{(provided) => (
+			{(provided, snapshot) => (
 				<div
 					ref={provided.innerRef}
 					{...provided.draggableProps}
 					className="my-2"
 				>
-					<div className="flex items-center justify-between group py-1 px-2 rounded-md hover:bg-accent">
-						<div className="flex items-center gap-2 flex-1">
-							<div
-								{...provided.dragHandleProps}
-								className="cursor-grab"
-								onClick={(e) => e.stopPropagation()}
-							>
-								<GripVertical className="h-4 w-4 text-muted-foreground" />
+					<div className={`${snapshot.isDragging ? 'opacity-50' : ''}`}>
+						<div className="flex items-center justify-between group py-1 px-2 rounded-md hover:bg-accent">
+							<div className="flex items-center gap-2 flex-1">
+								<div
+									{...provided.dragHandleProps}
+									className="cursor-grab"
+									onClick={(e) => e.stopPropagation()}
+								>
+									<GripVertical className="h-4 w-4 text-muted-foreground" />
+								</div>
+								<div
+									className="flex items-center gap-2 cursor-pointer flex-1"
+									onClick={handleItemClick}
+								>
+									<ItemIcon type={item.type} />
+									<span>{item.title}</span>
+								</div>
 							</div>
-							<div
-								className="flex items-center gap-2 cursor-pointer flex-1"
-								onClick={handleItemClick}
-							>
-								<ItemIcon type={item.type} />
-								<span>{item.title}</span>
-							</div>
+
+							<ItemActions
+								item={item}
+								path={path}
+								onAddClick={onAddClick}
+								onEditClick={onEditClick}
+								onDeleteClick={onDeleteClick}
+							/>
 						</div>
 
-						<ItemActions
-							item={item}
-							path={path}
-							onAddClick={onAddClick}
-							onEditClick={onEditClick}
-							onDeleteClick={onDeleteClick}
-						/>
-					</div>
-
-					{item.type === "folder" &&
-						item.children &&
-						item.children.length > 0 && (
+						{item.type === "folder" && (
 							<Droppable droppableId={`folder-${item.id}`} type="explorer-item">
-								{(droppableProvided) => (
+								{(droppableProvided, dropSnapshot) => (
 									<div
 										ref={droppableProvided.innerRef}
 										{...droppableProvided.droppableProps}
-										className="pl-4"
+										className={`
+											transition-colors duration-200 
+											${item.children?.length ? 'pl-4' : ''} 
+											${dropSnapshot.isDraggingOver 
+												? 'bg-accent/50 border-2 border-dashed border-accent rounded-md py-2 mx-2' 
+												: !item.children?.length 
+													? 'py-2 mx-2 border-2 border-dashed border-accent/10 rounded-md' 
+													: ''
+											}
+										`}
 									>
-										{(item.children || []).map((child, childIndex) => (
+										{item.children?.map((child, childIndex) => (
 											<ExplorerItemRow
 												key={child.id}
 												item={child}
@@ -86,10 +94,16 @@ export default function ExplorerItemRow({
 											/>
 										))}
 										{droppableProvided.placeholder}
+										{!item.children?.length && !dropSnapshot.isDraggingOver && (
+											<div className="text-sm text-muted-foreground text-center">
+												Drop items here
+											</div>
+										)}
 									</div>
 								)}
 							</Droppable>
 						)}
+					</div>
 				</div>
 			)}
 		</Draggable>

@@ -1,9 +1,18 @@
-import { runQuery } from "@/lib/platform/dashlit/query";
+import { runWidgetQuery } from "@/lib/platform/dashlit/widget";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
-	const { query, respectFilters = false, params } = await request.json();
+	const {
+		widgetId,
+		userQuery,
+		respectFilters = false,
+		params,
+	} = await request.json();
 
-	const res = await runQuery({ query, respectFilters, params });
+	const res = await runWidgetQuery(widgetId, {
+		userQuery,
+		respectFilters,
+		params,
+	});
 	return Response.json(res);
 }

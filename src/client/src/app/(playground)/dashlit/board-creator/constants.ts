@@ -36,7 +36,7 @@ export const DEFAULT_WIDGETS: WidgetsRecord = {
     id: "widget-1",
     title: "Total Users",
     type: WidgetType.STAT_CARD,
-    query: "SELECT count() FROM users",
+    config: { query: "SELECT count() FROM users" },
     description: "Shows the total number of users in the system",
     value: "1,234",
     properties: {
@@ -51,7 +51,7 @@ export const DEFAULT_WIDGETS: WidgetsRecord = {
     id: "widget-2",
     title: "Revenue by Month",
     type: WidgetType.BAR_CHART,
-    query: "SELECT toMonth(date) as month, sum(amount) as revenue\nFROM orders\nGROUP BY month\nORDER BY month",
+    config: { query: "SELECT toMonth(date) as month, sum(amount) as revenue\nFROM orders\nGROUP BY month\nORDER BY month" },
     description: "Monthly revenue breakdown",
     data: [
       { month: "Jan", revenue: 12000 },
@@ -71,7 +71,7 @@ export const DEFAULT_WIDGETS: WidgetsRecord = {
     id: "widget-3",
     title: "Active Users",
     type: WidgetType.LINE_CHART,
-    query: "SELECT date, count() as active_users\nFROM user_sessions\nGROUP BY date\nORDER BY date",
+    config: { query: "SELECT date, count() as active_users\nFROM user_sessions\nGROUP BY date\nORDER BY date" },
     description: "Daily active users over time",
     data: [
       { date: "2023-01-01", active_users: 500 },
@@ -92,7 +92,7 @@ export const DEFAULT_WIDGETS: WidgetsRecord = {
     id: "widget-4",
     title: "User Distribution",
     type: WidgetType.PIE_CHART,
-    query: "SELECT user_type, count() as count\nFROM users\nGROUP BY user_type",
+    config: { query: "SELECT user_type, count() as count\nFROM users\nGROUP BY user_type" },
     description: "Distribution of users by type",
     data: [
       { name: "Free", value: 800 },
@@ -108,7 +108,7 @@ export const DEFAULT_WIDGETS: WidgetsRecord = {
     id: "widget-5",
     title: "Recent Orders",
     type: WidgetType.TABLE,
-    query: "SELECT id, customer_name, amount, status, order_date\nFROM orders\nORDER BY order_date DESC\nLIMIT 5",
+    config: { query: "SELECT id, customer_name, amount, status, order_date\nFROM orders\nORDER BY order_date DESC\nLIMIT 5" },
     description: "Most recent customer orders",
     data: [
       { id: "ORD-001", customer_name: "John Doe", amount: 125.99, status: "Completed", order_date: "2023-01-07" },

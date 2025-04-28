@@ -10,6 +10,7 @@ export const useEditWidget = () => {
 		widgets,
 		updateWidget,
 		updateWidgetProperties,
+		runQuery,
 	} = useDashboard();
 	const [currentTab, setCurrentTab] = useState("general");
 	const [isFullscreenEditor, setIsFullscreenEditor] = useState(false);
@@ -44,5 +45,6 @@ export const useEditWidget = () => {
 		toggleFullscreenEditor,
 		updateWidget,
 		updateWidgetProperties,
+		runQuery,
 	};
 };
