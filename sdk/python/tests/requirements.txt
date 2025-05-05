@@ -10,11 +10,8 @@ cohere
 openai
 anthropic
 mistralai
-transformers
 boto3
 botocore
-google-cloud-aiplatform
-elevenlabs
 google-generativeai
 azure-ai-inference
 reka-api
