@@ -25,7 +25,7 @@ firecrawl-py
 together
 transformers
 groq
-#elevenlabs
+elevenlabs
 
 # Vector DBs
 chromadb
