@@ -7,14 +7,11 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
-    calculate_ttft,
     response_as_dict,
     calculate_tbt,
     general_tokens,
-    extract_and_format_input,
     get_chat_model_cost,
     create_metrics_attributes,
-    concatenate_all_contents,
     format_and_concatenate
 )
 from openlit.semcov import SemanticConvention
@@ -135,11 +132,12 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
     self._args = args
 
     if self._args and len(self._args) > 0:
-            self._prompt = args[0]
+        self._prompt = args[0]
     else:
         self._prompt = (
             kwargs.get("text_inputs") or
-            (kwargs.get("image") and kwargs.get("question") and ("image: " + kwargs.get("image") + " question:" + kwargs.get("question"))) or
+            (kwargs.get("image") and kwargs.get("question") and
+            ("image: " + kwargs.get("image") + " question:" + kwargs.get("question"))) or
             kwargs.get("fallback") or
             ""
         )

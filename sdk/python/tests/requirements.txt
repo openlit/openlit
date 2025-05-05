@@ -49,6 +49,8 @@ tensorflow
 tf_keras
 aiohttp
 pyyaml
+setuptools
+wheel
 
 # OpenTelemetry
 opentelemetry-api

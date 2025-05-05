@@ -36,6 +36,6 @@ class TransformersInstrumentor(BaseInstrumentor):
                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
-    @staticmethod
     def _uninstrument(self, **kwargs):
+        # Proper uninstrumentation logic to revert patched methods
         pass

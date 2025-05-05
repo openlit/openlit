@@ -4,12 +4,8 @@ Module for monitoring HF Transformers API calls.
 
 import logging
 import time
-from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
-    get_chat_model_cost,
-    handle_exception,
-    create_metrics_attributes,
     set_server_address_and_port
 )
 
@@ -40,7 +36,6 @@ def pipeline_wrapper(version, environment, application_name,
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
             response = wrapped(*args, **kwargs)
-            end_time = time.time()
 
             response = process_chat_response(
                     instance = instance,
