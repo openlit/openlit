@@ -23,6 +23,7 @@ controlflow
 assemblyai
 firecrawl-py
 together
+transformers
 
 # Vector DBs
 chromadb
@@ -41,8 +42,7 @@ xmltodict
 
 # Utilities
 bs4
-tensorflow
-tf_keras
+torch
 aiohttp
 pyyaml
 
