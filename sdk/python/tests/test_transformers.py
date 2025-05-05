@@ -20,8 +20,8 @@ def test_text_transformers():
     Test text generation capabilities from HuggingFace Transformers library.
     """
 
-    pipeline = pipeline(task="text-generation", model="Qwen/Qwen2.5-1.5B")
-    response = pipeline("LLM Observability")
+    pipe= pipeline(task="text-generation", model="Qwen/Qwen2.5-1.5B")
+    response = pipe("LLM Observability")
     assert isinstance(response[0]["generated_text"], str)
 
     chat = [
@@ -29,6 +29,6 @@ def test_text_transformers():
         {"role": "user", "content": "What is Agent Observability?"}
     ]
 
-    response = pipeline(chat, max_new_tokens=100)
+    response = pipe(chat, max_new_tokens=100)
 
     assert isinstance(response[0]["generated_text"][-1]["content"], str)

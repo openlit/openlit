@@ -24,6 +24,8 @@ assemblyai
 firecrawl-py
 together
 transformers
+groq
+#elevenlabs
 
 # Vector DBs
 chromadb
