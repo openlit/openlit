@@ -39,7 +39,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
 
     # Set Span attributes (OTel Semconv)
-    scope._span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
+    scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_HUGGING_FACE)
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
@@ -47,10 +47,10 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # List of attributes and their config keys
     attributes = [
-        (SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 'temperature'),
-        (SemanticConvention.GEN_AI_REQUEST_TOP_K, 'top_k'),
-        (SemanticConvention.GEN_AI_REQUEST_TOP_P, 'top_p'),
-        (SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 'max_length'),
+        (SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, "temperature"),
+        (SemanticConvention.GEN_AI_REQUEST_TOP_K, "top_k"),
+        (SemanticConvention.GEN_AI_REQUEST_TOP_P, "top_p"),
+        (SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, "max_length"),
     ]
 
     # Set each attribute if the corresponding value exists and is not None
@@ -104,23 +104,23 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             response_model=request_model,
         )
 
-        metrics['genai_client_usage_tokens'].record(input_tokens + output_tokens, metrics_attributes)
-        metrics['genai_client_operation_duration'].record(scope._end_time - scope._start_time, metrics_attributes)
-        metrics['genai_server_tbt'].record(scope._tbt, metrics_attributes)
-        metrics['genai_server_ttft'].record(scope._ttft, metrics_attributes)
-        metrics['genai_requests'].add(1, metrics_attributes)
-        metrics['genai_completion_tokens'].add(output_tokens, metrics_attributes)
-        metrics['genai_prompt_tokens'].add(input_tokens, metrics_attributes)
-        metrics['genai_cost'].record(cost, metrics_attributes)
+        metrics["genai_client_usage_tokens"].record(input_tokens + output_tokens, metrics_attributes)
+        metrics["genai_client_operation_duration"].record(scope._end_time - scope._start_time, metrics_attributes)
+        metrics["genai_server_tbt"].record(scope._tbt, metrics_attributes)
+        metrics["genai_server_ttft"].record(scope._ttft, metrics_attributes)
+        metrics["genai_requests"].add(1, metrics_attributes)
+        metrics["genai_completion_tokens"].add(output_tokens, metrics_attributes)
+        metrics["genai_prompt_tokens"].add(input_tokens, metrics_attributes)
+        metrics["genai_cost"].record(cost, metrics_attributes)
 
 def process_chat_response(instance, response, request_model, pricing_info, server_port, server_address,
                           environment, application_name, metrics, start_time,
-                          span, args, kwargs, capture_message_content=False, disable_metrics=False, version='1.0.0'):
+                          span, args, kwargs, capture_message_content=False, disable_metrics=False, version="1.0.0"):
     """
     Process chat request and generate Telemetry
     """
 
-    self = type('GenericScope', (), {})()
+    self = type("GenericScope", (), {})()
     response_dict = response_as_dict(response)
 
     # pylint: disable = no-member
@@ -149,15 +149,15 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
     if self._kwargs.get("task", "text-generation") == "text-generation":
         first_entry = response_dict[0]
 
-        if isinstance(first_entry, dict) and isinstance(first_entry.get('generated_text'), list):
-            last_element = first_entry.get('generated_text')[-1]
+        if isinstance(first_entry, dict) and isinstance(first_entry.get("generated_text"), list):
+            last_element = first_entry.get("generated_text")[-1]
             self._llmresponse = last_element.get("content", last_element)
         else:
             def extract_text(entry):
                 if isinstance(entry, dict):
-                    return entry.get('generated_text')
+                    return entry.get("generated_text")
                 if isinstance(entry, list):
-                    return ' '.join(
+                    return " ".join(
                         extract_text(sub_entry) for sub_entry in entry if isinstance(sub_entry, dict)
                     )
                 return ""
@@ -168,10 +168,10 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
             ]
 
             # Join all non-empty responses into a single string
-            self._llmresponse = ' '.join(filter(None, self._llmresponse))
+            self._llmresponse = " ".join(filter(None, self._llmresponse))
 
     elif self._kwargs.get("task", "text-generation") == "automatic-speech-recognitio":
-        self._llmresponse = response_dict.get('text', '')
+        self._llmresponse = response_dict.get("text", "")
 
     elif self._kwargs.get("task", "text-generation") == "image-classification":
         self._llmresponse = str(response_dict[0])
