@@ -126,14 +126,14 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 		applicationName: {
 			label: "App Name",
 			type: "string",
-			path: "application_name",
-			prefix: SpanAttributesGenAIPrefix,
+			path: "name",
+			prefix: "service",
 		},
 		environment: {
 			label: "Environment",
 			type: "string",
 			path: "environment",
-			prefix: SpanAttributesGenAIPrefix,
+			prefix: "deployment",
 			icon: Container,
 		},
 		type: {
