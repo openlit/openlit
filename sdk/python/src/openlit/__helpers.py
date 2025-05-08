@@ -240,6 +240,11 @@ def extract_and_format_input(messages):
     fixed_roles = ['user', 'assistant', 'system', 'tool', 'developer']
     formatted_messages = {role_key: {'role': '', 'content': ''} for role_key in fixed_roles}
 
+    # Check if input is a simple string
+    if isinstance(messages, str):
+        formatted_messages['user'] = {'role': 'user', 'content': messages}
+        return formatted_messages
+
     for message in messages:
         message = response_as_dict(message)
 
@@ -273,6 +278,58 @@ def concatenate_all_contents(formatted_messages):
     """
     return ' '.join(
         message_data['content']
+        for message_data in formatted_messages.values()
+        if message_data['content']
+    )
+
+def format_and_concatenate(messages):
+    """
+    Process a list of messages to extract content, categorize them by role,
+    and concatenate all 'content' fields into a single string with role: content format.
+    """
+
+    formatted_messages = {}
+
+    # Check if input is a simple string
+    if isinstance(messages, str):
+        formatted_messages['user'] = {'role': 'user', 'content': messages}
+    elif isinstance(messages, list) and all(isinstance(m, str) for m in messages):
+        # If it's a list of strings, each string is 'user' input
+        user_content = ' '.join(messages)
+        formatted_messages['user'] = {'role': 'user', 'content': user_content}
+    else:
+        for message in messages:
+            message = response_as_dict(message)
+            role = message.get('role', 'unknown')  # Default to 'unknown' if no role is specified
+            content = message.get('content', '')
+
+            # Initialize role in formatted messages if not present
+            if role not in formatted_messages:
+                formatted_messages[role] = {'role': role, 'content': ''}
+
+            # Handle list of dictionaries in content
+            if isinstance(content, list):
+                content_str = []
+                for item in content:
+                    if isinstance(item, dict):
+                        # Collect text or other attributes as needed
+                        text = item.get('text', '')
+                        image_url = item.get('image_url', '')
+                        content_str.append(text)
+                        content_str.append(image_url)
+                content_str = ", ".join(filter(None, content_str))
+            else:
+                content_str = content
+
+            # Concatenate content
+            if formatted_messages[role]['content']:
+                formatted_messages[role]['content'] += ' ' + content_str
+            else:
+                formatted_messages[role]['content'] = content_str
+
+    # Concatenate role and content for all messages
+    return ' '.join(
+        f"{message_data['role']}: {message_data['content']}"
         for message_data in formatted_messages.values()
         if message_data['content']
     )
