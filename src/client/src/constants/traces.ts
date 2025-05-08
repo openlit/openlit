@@ -74,6 +74,19 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			path: "StatusCode",
 			isRoot: true,
 		},
+		applicationName: {
+			label: "App Name",
+			type: "string",
+			path: "service.name",
+			isRoot: true,
+		},
+		environment: {
+			label: "Environment",
+			type: "string",
+			path: "deployment.environment",
+			icon: Container,
+			isRoot: true,
+		},
 
 		// Exception
 		serviceName: {
@@ -122,19 +135,6 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			path: "system",
 			prefix: SpanAttributesGenAIPrefix,
 			icon: PyramidIcon,
-		},
-		applicationName: {
-			label: "App Name",
-			type: "string",
-			path: "name",
-			prefix: "service",
-		},
-		environment: {
-			label: "Environment",
-			type: "string",
-			path: "environment",
-			prefix: "deployment",
-			icon: Container,
 		},
 		type: {
 			label: "Type",
