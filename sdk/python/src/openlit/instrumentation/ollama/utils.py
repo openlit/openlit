@@ -142,8 +142,10 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         })
 
     # Emit events
-    for role in ['user', 'system', 'assistant', 'tool']:
-        if formatted_messages.get(role, {}).get('content', ''):
+    for message in formatted_messages:
+        role = message['role']
+        if role in ['user', 'system', 'assistant', 'tool']:
+        # if formatted_messages.get(role, {}).get('content', ''):
             event = otel_event(
                 name=getattr(SemanticConvention, f'GEN_AI_{role.upper()}_MESSAGE'),
                 attributes={
@@ -151,8 +153,8 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
                 },
                 body = {
                     # pylint: disable=line-too-long
-                    **({"content": formatted_messages.get(role, {}).get('content', '')} if capture_message_content else {}),
-                    "role": formatted_messages.get(role, {}).get('role', []),
+                    **({"content": message.get('content', '')} if capture_message_content else {}),
+                    "role": message.get('role', []),
                     **({
                         "tool_calls": {
                             "function": {
