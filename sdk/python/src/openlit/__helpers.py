@@ -238,7 +238,7 @@ def extract_and_format_input(messages):
     """
 
     fixed_roles = ['user', 'assistant', 'system', 'tool', 'developer']
-    formatted_messages = {role_key: {'role': '', 'content': ''} for role_key in fixed_roles}
+    formatted_messages = []
 
     for message in messages:
         message = response_as_dict(message)
@@ -255,14 +255,15 @@ def extract_and_format_input(messages):
         else:
             content_str = content
 
-        # Set the role in the formatted message and concatenate content
-        if not formatted_messages[role]['role']:
-            formatted_messages[role]['role'] = role
+        # Append first message
+        if not formatted_messages:
+            formatted_messages.append(message)
 
-        if formatted_messages[role]['content']:
-            formatted_messages[role]['content'] += ' ' + content_str
+        # Concatenate content if last message has the same role, append otherwise
+        if role == formatted_messages[-1].get('role'):
+            formatted_messages[-1]['content'] += "\n" + content_str
         else:
-            formatted_messages[role]['content'] = content_str
+            formatted_messages.append(message)
 
     return formatted_messages
 
@@ -273,6 +274,6 @@ def concatenate_all_contents(formatted_messages):
     """
     return ' '.join(
         message_data['content']
-        for message_data in formatted_messages.values()
+        for message_data in formatted_messages
         if message_data['content']
     )
