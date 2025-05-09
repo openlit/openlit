@@ -15,7 +15,7 @@ from openlit.instrumentation.ollama.utils import (
     process_streaming_chat_response,
     process_embedding_response
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ def async_chat(version, environment, application_name,
         server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 11434)
         request_model = kwargs.get("model", "gpt-4o")
 
-        span_name = f"{SemanticConvetion.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         # pylint: disable=no-else-return
         if streaming:
@@ -156,7 +156,7 @@ def async_embeddings(version, environment, application_name,
         server_address, server_port = set_server_address_and_port(instance, '127.0.0.1', 11434)
         request_model = kwargs.get('model', 'all-minilm')
 
-        span_name = f'{SemanticConvetion.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}'
+        span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}'
 
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()

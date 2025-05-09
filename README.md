@@ -43,7 +43,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 - 🔑 **API Keys and Secrets Management**: Securely handle your API keys and secrets centrally, avoiding insecure practices.
 
-- 🎮 **Experiemnt with different LLMs**: Use OpenGround to explore, test and compare various LLMs side by side.
+- 🎮 **Experiment with different LLMs**: Use OpenGround to explore, test and compare various LLMs side by side.
 
 ## 🚀 Getting Started with LLM Observability
 
@@ -161,7 +161,7 @@ Configure the telemetry data destination as follows:
 
 With the Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your AI application's performance, behavior, and identify areas of improvement.
 
-Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
+Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials:
 
 - **Email**: `user@openlit.io`
 - **Password**: `openlituser`
@@ -206,7 +206,7 @@ Your input helps us grow and improve, and we're here to support you every step o
 
 Connect with OpenLIT community and maintainers for support, discussions, and updates:
 
-- 🌟 If you like it, Leave a star on our [GitHub](https://github.com/openlit/openlit/)
+- 🌟 If you like it, leave a star on our [GitHub](https://github.com/openlit/openlit/).
 - 🌍 Join our [Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ) or [Discord](https://discord.gg/CQnXwNT3) community for live interactions and questions.
 - 🐞 Report bugs on our [GitHub Issues](https://github.com/openlit/openlit/issues) to help us improve OpenLIT.
 - 𝕏 Follow us on [X](https://twitter.com/openlit_io) for the latest updates and news.
@@ -216,34 +216,11 @@ Connect with OpenLIT community and maintainers for support, discussions, and upd
 OpenLIT is available under the [Apache-2.0 license](LICENSE).
 
 
-## Getting started with taskfile
+## 🙇‍♂️ Acknowledgments
 
-### Installing Task
-
-#### Using package managers:
-
-```bash
-# macOS
-brew install go-task
-
-# Windows (Chocolatey)
-choco install go-task
-
-# Linux
-sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d
-
-```
-
-### just Ask task
-
-```bash
-➜  openlit task
-task: [default] task --list
-task: Available tasks for this project:
-* build-and-run:       Build Docker images
-* default:             Display available tasks
-* destroy:             Stop and remove Docker containers, networks, and volumes
-* logs:                Logs Docker
-* start:               Run Docker containers
-* stop:                Stop Docker containers
-```
+<p>This project is proudly supported by:</p>
+<p>
+  <a href="https://www.digitalocean.com/">
+    <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" width="201px">
+  </a>
+</p>

@@ -7,7 +7,7 @@ import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from openlit.__helpers import handle_exception
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -71,168 +71,168 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                    gen_ai_endpoint)
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT,
                                    environment)
                 span.set_attribute(SERVICE_NAME,
                                    application_name)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                   SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB)
-                span.set_attribute(SemanticConvetion.DB_SYSTEM_NAME,
-                                   SemanticConvetion.DB_SYSTEM_QDRANT)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                   SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+                span.set_attribute(SemanticConvention.DB_SYSTEM_NAME,
+                                   SemanticConvention.DB_SYSTEM_QDRANT)
 
                 if gen_ai_endpoint == "qdrant.create_collection":
-                    db_operation = SemanticConvetion.DB_OPERATION_CREATE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_CREATE_COLLECTION
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_CREATE_COLLECTION)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "qdrant.upload_collection":
-                    db_operation = SemanticConvetion.DB_OPERATION_CREATE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_CREATE_COLLECTION)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_CREATE_COLLECTION
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_CREATE_COLLECTION)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "qdrant.delete_collection":
-                    db_operation = SemanticConvetion.DB_OPERATION_DELETE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_DELETE_COLLECTION)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_DELETE_COLLECTION
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_DELETE_COLLECTION)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "qdrant.update_collection":
-                    db_operation = SemanticConvetion.DB_OPERATION_UPDATE_COLLECTION
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_UPDATE_COLLECTION)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_UPDATE_COLLECTION
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_UPDATE_COLLECTION)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
 
                 elif gen_ai_endpoint == "qdrant.set_payload":
-                    db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_ADD)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_ADD
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_ADD)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                    span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points", [])))
-                    span.set_attribute(SemanticConvetion.DB_PAYLOAD_COUNT,
+                    span.set_attribute(SemanticConvention.DB_PAYLOAD_COUNT,
                                        object_count(kwargs.get("payload", [])))
 
                 elif gen_ai_endpoint == "qdrant.retrieve":
-                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_QUERY)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_QUERY
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_QUERY)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                    span.set_attribute(SemanticConvention.DB_STATEMENT,
                                        str(kwargs.get("ids", "")))
 
                 elif gen_ai_endpoint == "qdrant.scroll":
-                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_QUERY)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_QUERY
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_QUERY)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                    span.set_attribute(SemanticConvention.DB_STATEMENT,
                                        str(kwargs.get("scroll_filter", "")))
 
                 elif gen_ai_endpoint in ["qdrant.search", "qdrant.search_groups"]:
-                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_QUERY)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_QUERY
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_QUERY)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                    span.set_attribute(SemanticConvention.DB_STATEMENT,
                                        str(kwargs.get("query_vector", "")))
 
                 elif gen_ai_endpoint == "qdrant.recommend":
-                    db_operation = SemanticConvetion.DB_OPERATION_QUERY
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_QUERY)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_QUERY
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_QUERY)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                    span.set_attribute(SemanticConvention.DB_STATEMENT,
                                        "positive:" + str(kwargs.get("positive", "")) + 
                                        " negative:" + str(kwargs.get("negative", "")))
 
                 elif gen_ai_endpoint == "qdrant.upload_points":
-                    db_operation = SemanticConvetion.DB_OPERATION_ADD
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_ADD)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_ADD
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_ADD)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
 
                 elif gen_ai_endpoint == "qdrant.update_vectors":
-                    db_operation = SemanticConvetion.DB_OPERATION_UPDATE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_UPDATE)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_UPDATE
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_UPDATE)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                    span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
 
                 elif gen_ai_endpoint == "qdrant.overwrite_payload":
-                    db_operation = SemanticConvetion.DB_OPERATION_UPDATE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_UPDATE)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_UPDATE
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_UPDATE)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                    span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
-                    span.set_attribute(SemanticConvetion.DB_PAYLOAD_COUNT,
+                    span.set_attribute(SemanticConvention.DB_PAYLOAD_COUNT,
                                        object_count(kwargs.get("payload")))
 
                 elif gen_ai_endpoint == "qdrant.upsert":
-                    db_operation = SemanticConvetion.DB_OPERATION_UPSERT
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_UPSERT
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_UPSERT)
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_UPSERT)
+                    span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
 
                 elif gen_ai_endpoint in ["qdrant.delete_payload", "qdrant.delete_vectors"]:
-                    db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_DELETE)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_DELETE
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_DELETE)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                    span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
 
                 elif gen_ai_endpoint in ["qdrant.clear_payload", "qdrant.delete"]:
-                    db_operation = SemanticConvetion.DB_OPERATION_DELETE
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_DELETE)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_DELETE
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_DELETE)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_STATUS,
+                    span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvetion.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points_selector")))
 
                 elif gen_ai_endpoint == "qdrant.create_payload_index":
-                    db_operation = SemanticConvetion.DB_OPERATION_CREATE_INDEX
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_CREATE_INDEX)
-                    span.set_attribute(SemanticConvetion.DB_COLLECTION_NAME,
+                    db_operation = SemanticConvention.DB_OPERATION_CREATE_INDEX
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_CREATE_INDEX)
+                    span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT,
+                    span.set_attribute(SemanticConvention.DB_STATEMENT,
                                        str(kwargs.get("query", "")))
 
                 span.set_status(Status(StatusCode.OK))
@@ -243,13 +243,13 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                             "openlit",
                         SERVICE_NAME:
                             application_name,
-                        SemanticConvetion.DB_SYSTEM_NAME:
-                            SemanticConvetion.DB_SYSTEM_QDRANT,
+                        SemanticConvention.DB_SYSTEM_NAME:
+                            SemanticConvention.DB_SYSTEM_QDRANT,
                         DEPLOYMENT_ENVIRONMENT:
                             environment,
-                        SemanticConvetion.GEN_AI_OPERATION:
-                            SemanticConvetion.GEN_AI_OPERATION_TYPE_VECTORDB,
-                        SemanticConvetion.DB_OPERATION_NAME:
+                        SemanticConvention.GEN_AI_OPERATION:
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB,
+                        SemanticConvention.DB_OPERATION_NAME:
                             db_operation
                     }
 

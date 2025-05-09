@@ -9,7 +9,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from openlit.__helpers import (
     handle_exception,
 )
-from openlit.semcov import SemanticConvetion
+from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -56,11 +56,11 @@ def dynamiq_wrap(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                    SemanticConvetion.GEN_AI_SYSTEM_DYNAMIQ)
-                span.set_attribute(SemanticConvetion.GEN_AI_OPERATION,
-                                    SemanticConvetion.GEN_AI_OPERATION_TYPE_AGENT)
-                span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
+                                    SemanticConvention.GEN_AI_SYSTEM_DYNAMIQ)
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
+                                    SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT)
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
                                     gen_ai_endpoint)
                 span.set_attribute(SERVICE_NAME,
                                     application_name)
@@ -68,32 +68,32 @@ def dynamiq_wrap(gen_ai_endpoint, version, environment, application_name,
                                     environment)
 
                 if gen_ai_endpoint == "dynamiq.agent_run":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID,
                                        getattr(instance, 'id', '') or '')
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ROLE,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ROLE,
                                        getattr(instance, 'name', '') or '')
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                        getattr(getattr(instance, 'llm', None), 'model', '') or '')
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_TYPE,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_TYPE,
                                         str(getattr(instance, 'type', '')) or '')
 
                 elif gen_ai_endpoint == "dynamiq.workflow_run":
-                    span.set_attribute(SemanticConvetion.GEN_AI_AGENT_ID,
+                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID,
                                        getattr(instance, 'id', '') or '')
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
+                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                       getattr(getattr(instance.flow, 'nodes', [None])[0], 'model', 'default_model'))
 
                 elif gen_ai_endpoint == "dynamiq.memory_add":
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_ADD)
-                    span.set_attribute(SemanticConvetion.DB_METADATA, str(kwargs.get('metadata', '')))
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_ADD)
+                    span.set_attribute(SemanticConvention.DB_METADATA, str(kwargs.get('metadata', '')))
 
                 elif gen_ai_endpoint == "dynamiq.memory_search":
                     query_value = kwargs.get('query', '') or (args[0] if args else '')
-                    span.set_attribute(SemanticConvetion.DB_OPERATION_NAME,
-                                       SemanticConvetion.DB_OPERATION_GET)
-                    span.set_attribute(SemanticConvetion.DB_FILTER, str(kwargs.get('filters', '')))
-                    span.set_attribute(SemanticConvetion.DB_STATEMENT, query_value)
+                    span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
+                                       SemanticConvention.DB_OPERATION_GET)
+                    span.set_attribute(SemanticConvention.DB_FILTER, str(kwargs.get('filters', '')))
+                    span.set_attribute(SemanticConvention.DB_STATEMENT, query_value)
 
                 span.set_status(Status(StatusCode.OK))
 
