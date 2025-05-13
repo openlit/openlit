@@ -7,7 +7,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, Trash2, Download } from "lucide-react";
 
 export default function ItemActions({
 	item,
@@ -15,12 +15,14 @@ export default function ItemActions({
 	onAddClick,
 	onEditClick,
 	onDeleteClick,
+	exportBoardLayout
 }: {
 	item: DashlitHeirarchy;
 	path: string[];
 	onAddClick: (path: string[]) => void;
 	onEditClick: (item: DashlitHeirarchy, path: string[]) => void;
 	onDeleteClick: (id: string, path: string[]) => void;
+	exportBoardLayout: (id: string) => void;
 }) {
 	const handleAddClick = useCallback(
 		(e: React.MouseEvent) => {
@@ -44,6 +46,14 @@ export default function ItemActions({
 			onDeleteClick(item.id, path);
 		},
 		[item.id, path, onDeleteClick]
+	);
+
+	const handleDownloadClick = useCallback(
+		(e: React.MouseEvent) => {
+			e.stopPropagation();
+			exportBoardLayout(item.id);
+		},
+		[item.id, exportBoardLayout]
 	);
 
 	return (
@@ -73,6 +83,12 @@ export default function ItemActions({
 						<Edit className="h-4 w-4 mr-2" />
 						Rename
 					</DropdownMenuItem>
+					{item.type === "board" && (
+						<DropdownMenuItem onClick={handleDownloadClick}>
+							<Download className="h-4 w-4 mr-2" />
+							Download Layout
+						</DropdownMenuItem>
+					)}
 					<DropdownMenuItem
 						className="text-destructive focus:text-destructive"
 						onClick={handleDeleteClick}

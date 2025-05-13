@@ -1,7 +1,9 @@
 import { DatabaseWidget, Widget } from "@/types/dashlit";
 import { jsonParse } from "@/utils/json";
+import Sanitizer from "@/utils/sanitizer";
 
 export function normalizeWidgetToClient(widget: DatabaseWidget) {
+	console.log(widget, "widget");
 	return {
 		...widget,
 		properties: jsonParse(widget.properties || "{}") || {},
@@ -15,4 +17,17 @@ export function normalizeWidgetToServer(widget: Widget) {
 		properties: widget.properties ? JSON.stringify(widget.properties) : null,
 		config: widget.config ? JSON.stringify(widget.config) : null,
 	};
+}
+
+export function sanitizeWidget(widget: Widget) {
+	const sanitizedWidget = Sanitizer.sanitizeObject(widget);
+
+	if (sanitizedWidget.config?.query) {
+		sanitizedWidget.config.query = sanitizedWidget.config.query.replace(
+			/\\'/g,
+			"''"
+		);
+	}
+
+	return sanitizedWidget;
 }

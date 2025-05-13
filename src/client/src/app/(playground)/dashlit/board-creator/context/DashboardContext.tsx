@@ -28,7 +28,7 @@ interface DashboardContextType {
 		widgetId: string,
 		properties: Record<string, any>
 	) => void;
-	addWidget: () => Promise<any>;
+	addWidget: (widget?: Widget) => Promise<any>;
 	removeWidget: (widgetId: string) => void;
 	getDashboardConfig: () => DashboardConfig;
 	runQuery: (
@@ -36,13 +36,14 @@ interface DashboardContextType {
 		params: {
 			userQuery: string;
 		}
-	) => Promise<{ data: any, err: string | null }>;
+	) => Promise<{ data: any; err: string | null }>;
 	handleWidgetCrud?: (updates: Partial<Widget>) => Promise<Widget>;
 	widgetData: Record<string, any>;
 	updateWidgetData: (widgetId: string, data: any) => void;
 	clearWidgetData: (widgetId: string) => void;
 	loadWidgetData: (widgetId: string) => Promise<void>;
 	configTransformationFunction?: (config: DashboardConfig) => T;
+	fetchExistingWidgets?: () => Promise<Widget[]>;
 }
 
 export const DashboardContext = createContext<DashboardContextType | undefined>(
@@ -59,7 +60,8 @@ interface DashboardProviderProps {
 		params: {
 			userQuery: string;
 		}
-	) => Promise<{ data: any, err: string | null }>;
+	) => Promise<{ data: any; err: string | null }>;
+	fetchExistingWidgets?: () => Promise<Widget[]>;
 }
 
 export const DashboardProvider: React.FC<DashboardProviderProps> = ({
@@ -68,6 +70,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 	onSave,
 	handleWidgetCrud,
 	runQuery,
+	fetchExistingWidgets,
 }) => {
 	const [title, setTitle] = useState(
 		initialConfig?.title || "Customizable Dashboard"
@@ -150,67 +153,69 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 	};
 
 	// Add a new widget
-	const addWidget = async () => {
+	const addWidget = async (existingWidget?: Widget) => {
 		const newWidgetId = `widget-${
 			Object.keys(widgets).length + 1
 		}-${Date.now()}`;
 
 		let newWidget: Partial<Widget>;
 
-		try {
-			newWidget = {
-				title: "New Widget",
-				description: "New Widget Description",
-				type: WidgetType.STAT_CARD,
-			};
-			if (handleWidgetCrud) {
-				newWidget = await handleWidgetCrud(newWidget);
-			} else {
-				newWidget.id = newWidgetId;
+		if (existingWidget) {
+			newWidget = existingWidget;
+		} else {
+			try {
+				newWidget = {
+					title: "New Widget",
+					description: "New Widget Description",
+					type: WidgetType.STAT_CARD,
+					properties: {},
+					config: {},
+				};
+				if (handleWidgetCrud) {
+					newWidget = await handleWidgetCrud(newWidget);
+				} else {
+					newWidget.id = newWidgetId;
+				}
+			} catch (error) {
+				console.log(error);
+				return;
 			}
-		} catch (error) {
-			console.log(error);
-			return;
 		}
 
-		// Add to layouts
-		setLayouts((prev: any) => {
-			return {
+		if (newWidget.id) {
+			// Add to layouts
+			setLayouts((prev: any) => {
+				return {
+					...prev,
+					lg: [
+						...prev.lg,
+						{ i: newWidget.id, x: 0, y: Number.POSITIVE_INFINITY, w: 2, h: 2 },
+					],
+				};
+			});
+
+			// Add widget data with defaults
+			setWidgets((prev) => ({
 				...prev,
-				lg: [
-					...prev.lg,
-					{ i: newWidget.id, x: 0, y: Number.POSITIVE_INFINITY, w: 2, h: 2 },
-				],
-			};
-		});
+				[newWidget.id!]: newWidget as Widget,
+			}));
 
-		// Add widget data with defaults
-		setWidgets((prev) => ({
-			...prev,
-			[newWidget.id!]: {
-				...(newWidget as Widget),
-				properties: {
-					// @ts-ignore to be fixed for the type
-					...(jsonParse(newWidget.properties) || {}),
-				},
-			},
-		}));
+			// Set this widget as the editing widget and enable editing mode
+			setEditingWidget(newWidgetId);
+			setIsEditing(true);
 
-		// Set this widget as the editing widget and enable editing mode
-		setEditingWidget(newWidgetId);
-		setIsEditing(true);
+			// Scroll the widget into view after a short delay to ensure the widget is rendered
+			setTimeout(() => {
+				const widgetElement = document.querySelector(
+					`[data-widget-id="${newWidgetId}"]`
+				);
+				if (widgetElement) {
+					widgetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+				}
+			}, 100);
 
-		// Scroll the widget into view after a short delay to ensure the widget is rendered
-		setTimeout(() => {
-			const widgetElement = document.querySelector(
-				`[data-widget-id="${newWidgetId}"]`
-			);
-			if (widgetElement) {
-				widgetElement.scrollIntoView({ behavior: "smooth", block: "center" });
-			}
-		}, 100);
-
-		return newWidgetId;
+			return newWidgetId;
+		}
 	};
 
 	// Remove a widget
@@ -248,6 +253,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 		if (runQuery) {
 			return runQuery(widgetId, params);
 		}
+
+		return Promise.resolve({ data: [], err: null });
 	};
 
 	const contextValue: DashboardContextType = {
@@ -272,6 +279,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 		updateWidgetData,
 		clearWidgetData,
 		loadWidgetData,
+		fetchExistingWidgets,
 	};
 
 	return (

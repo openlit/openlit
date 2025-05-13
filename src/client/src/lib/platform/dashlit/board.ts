@@ -140,7 +140,7 @@ export async function getBoardLayout(id: string) {
 	let widgetsResult: Array<Widget> = [];
 
 	if (widgetIds) {
-		const { data: widgetsData, err: widgetsErr } = await getWidgets(widgetIds);
+		const { data: widgetsData } = await getWidgets(widgetIds);
 		widgetsResult = (widgetsData || []) as typeof widgetsResult;
 	}
 

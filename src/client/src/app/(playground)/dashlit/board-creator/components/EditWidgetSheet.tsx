@@ -74,11 +74,17 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 			setIsQueryLoading(true);
 			setQueryError(null);
 			try {
-				const result = await runQuery(currentWidget.id, { userQuery: currentWidget.config.query });
+				const result = await runQuery(currentWidget.id, {
+					userQuery: currentWidget.config.query,
+				});
 				setQueryResult(result.data);
 				setQueryError(result.err);
 			} catch (error) {
-				setQueryError(error instanceof Error ? error.message : 'An error occurred while running the query');
+				setQueryError(
+					error instanceof Error
+						? error.message
+						: "An error occurred while running the query"
+				);
 			} finally {
 				setIsQueryLoading(false);
 			}
@@ -178,6 +184,12 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 														<span>Line Chart</span>
 													</div>
 												</SelectItem>
+												<SelectItem value={WidgetType.AREA_CHART}>
+													<div className="flex items-center gap-2">
+														<BarChart3 className="h-4 w-4" />
+														<span>Area Chart</span>
+													</div>
+												</SelectItem>
 												<SelectItem value={WidgetType.PIE_CHART}>
 													<div className="flex items-center gap-2">
 														<PieChart className="h-4 w-4" />
@@ -226,13 +238,16 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													/>
 												</div>
 												<div className="space-y-2">
-													<Label htmlFor="value">Value</Label>
+													<Label htmlFor="value">Value Path</Label>
 													<Input
 														id="value"
-														value={currentWidget.value}
+														value={currentWidget.properties.value}
 														onChange={(e) =>
 															updateWidget(currentWidget.id, {
-																value: e.target.value,
+																properties: {
+																	...currentWidget.properties,
+																	value: e.target.value,
+																},
 															})
 														}
 														placeholder="1,234"
@@ -294,7 +309,8 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 
 									{/* Chart specific fields */}
 									{(currentWidget.type === WidgetType.BAR_CHART ||
-										currentWidget.type === WidgetType.LINE_CHART) && (
+										currentWidget.type === WidgetType.LINE_CHART ||
+										currentWidget.type === WidgetType.AREA_CHART) && (
 										<div className="grid grid-cols-2 gap-4">
 											<div className="space-y-2">
 												<Label htmlFor="xAxis">X Axis</Label>
@@ -321,6 +337,42 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													}
 													placeholder="value, count, etc."
 												/>
+											</div>
+										</div>
+									)}
+
+									{currentWidget.type === WidgetType.PIE_CHART && (
+										<div className="space-y-4">
+											<div className="grid grid-cols-3 gap-4">
+												<div className="space-y-2">
+													<Label htmlFor="labelPath">Label Path</Label>
+													<Input
+														id="labelPath"
+														value={currentWidget.properties.labelPath}
+														onChange={(e) =>
+															updateWidgetProperties(currentWidget.id, {
+																labelPath: e.target.value,
+															})
+														}
+														placeholder="$"
+													/>
+												</div>
+												<div className="space-y-2">
+													<Label htmlFor="value">Value Path</Label>
+													<Input
+														id="value"
+														value={currentWidget.properties.valuePath}
+														onChange={(e) =>
+															updateWidget(currentWidget.id, {
+																properties: {
+																	...currentWidget.properties,
+																	valuePath: e.target.value,
+																},
+															})
+														}
+														placeholder="1,234"
+													/>
+												</div>
 											</div>
 										</div>
 									)}
@@ -407,7 +459,8 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 
 									{(currentWidget.type === WidgetType.BAR_CHART ||
 										currentWidget.type === WidgetType.LINE_CHART ||
-										currentWidget.type === WidgetType.PIE_CHART) && (
+										currentWidget.type === WidgetType.PIE_CHART ||
+										currentWidget.type === WidgetType.AREA_CHART) && (
 										<div className="space-y-2">
 											<Label htmlFor="showLegend">Legend</Label>
 											<Select
@@ -447,10 +500,17 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 
 					<SheetFooter className="flex-shrink-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-4 px-6">
 						<div className="flex justify-between w-full">
-							<Button variant="outline" onClick={closeEditSheet} className="px-8">
+							<Button
+								variant="outline"
+								onClick={closeEditSheet}
+								className="px-8"
+							>
 								Cancel
 							</Button>
-							<Button onClick={handleSave} className="px-8 bg-primary hover:bg-primary/90">
+							<Button
+								onClick={handleSave}
+								className="px-8 bg-primary hover:bg-primary/90"
+							>
 								Save Changes
 							</Button>
 						</div>

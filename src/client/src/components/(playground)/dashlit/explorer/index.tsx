@@ -5,7 +5,7 @@ import { DashlitHeirarchy } from "@/types/dashlit";
 import { DropResult } from "react-beautiful-dnd";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { Plus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { DragDropContext } from "react-beautiful-dnd";
 import { toast } from "sonner";
 import EmptyState from "./empty-state";
@@ -32,7 +32,8 @@ export default function DashboardExplorer() {
 	const { fireRequest: updateBoardRequest } = useFetchWrapper();
 	const { fireRequest: deleteFolderRequest } = useFetchWrapper();
 	const { fireRequest: deleteBoardRequest } = useFetchWrapper();
-	const { fireRequest: updateHierarchyRequest } = useFetchWrapper();
+
+	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
 	// Fetch hierarchy data on component mount
 	useEffect(() => {
@@ -217,7 +218,7 @@ export default function DashboardExplorer() {
 
 	// Delete an item
 	const deleteItem = useCallback(
-		(itemId: string, parentPath: string[] = []) => {
+		(itemId: string) => {
 			// Find the item to determine its type
 			const findItem = (
 				items: DashlitHeirarchy[],
@@ -288,6 +289,10 @@ export default function DashboardExplorer() {
 		},
 		[items, deleteFolderRequest, deleteBoardRequest, loadHierarchy]
 	);
+
+	const exportBoardLayout = useCallback((id: string) => {
+		window.location.href = `/api/dashlit/board/${id}/layout/export`;
+	}, []);
 
 	// Open dialog for adding a new item
 	const openAddDialog = useCallback((path: string[] = []) => {
@@ -518,19 +523,56 @@ export default function DashboardExplorer() {
 		[items, updateFolderRequest, updateBoardRequest, loadHierarchy]
 	);
 
+	// const handleImportClick = () => {
+	// 	if (fileInputRef.current) {
+	// 		fileInputRef.current.value = "";
+	// 		fileInputRef.current.click();
+	// 	}
+	// };
+
+	// const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+	// 	const file = e.target.files?.[0];
+	// 	if (!file) return;
+	// 	try {
+	// 		const text = await file.text();
+	// 		const json = JSON.parse(text);
+	// 		// Expecting json to have an id or boardId
+	// 		const boardId = json.id || json.boardId;
+	// 		if (!boardId) {
+	// 			toast.error("Invalid layout file: missing board id");
+	// 			return;
+	// 		}
+	// 		const res = await fetch(`/api/dashlit/board/${boardId}/layout`, {
+	// 			method: "PUT",
+	// 			headers: { "Content-Type": "application/json" },
+	// 			body: JSON.stringify(json),
+	// 		});
+	// 		if (res.ok) {
+	// 			toast.success("Board layout imported successfully");
+	// 			loadHierarchy();
+	// 		} else {
+	// 			toast.error("Failed to import board layout");
+	// 		}
+	// 	} catch (err) {
+	// 		toast.error("Invalid layout file");
+	// 	}
+	// };
+
 	return (
 		<div className="border rounded-md p-4">
 			<div className="flex justify-between items-center mb-4">
 				<h3 className="font-medium">Explorer</h3>
-				<Button
-					variant="outline"
-					size="sm"
-					className="h-8"
-					onClick={() => openAddDialog()}
-				>
-					<Plus className="h-4 w-4 mr-2" />
-					Add
-				</Button>
+				<div className="flex gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-8"
+						onClick={() => openAddDialog()}
+					>
+						<Plus className="h-4 w-4 mr-2" />
+						Add
+					</Button>
+				</div>
 			</div>
 
 			{isLoading ? (
@@ -543,10 +585,14 @@ export default function DashboardExplorer() {
 				<DragDropContext onDragEnd={handleDragEnd}>
 					<Droppable droppableId="root" type="explorer-item">
 						{(provided, snapshot) => (
-							<div 
-								ref={provided.innerRef} 
+							<div
+								ref={provided.innerRef}
 								{...provided.droppableProps}
-								className={`transition-colors duration-200 ${snapshot.isDraggingOver ? 'bg-accent/50 border-2 border-dashed border-accent rounded-md' : ''}`}
+								className={`transition-colors duration-200 ${
+									snapshot.isDraggingOver
+										? "bg-accent/50 border-2 border-dashed border-accent rounded-md"
+										: ""
+								}`}
 							>
 								{items.map((item, index) => (
 									<ExplorerItemRow
@@ -558,6 +604,7 @@ export default function DashboardExplorer() {
 										onAddClick={openAddDialog}
 										onEditClick={openEditDialog}
 										onDeleteClick={deleteItem}
+										exportBoardLayout={exportBoardLayout}
 									/>
 								))}
 								{provided.placeholder}

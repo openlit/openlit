@@ -1,17 +1,17 @@
 "use client";
 
-import type React from "react";
+import React, { useMemo } from "react";
 import { memo, useEffect } from "react";
 import { Edit, Trash } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { WidgetType } from "../types";
+import { WidgetType, type WidgetRendererProps } from "../types";
 import { WIDGET_TYPE_ICONS } from "../constants";
-import type { WidgetRendererProps } from "../types";
 import StatCardWidget from "./StatCardWidget";
 import BarChartWidget from "./BarChartWidget";
 import LineChartWidget from "./LineChartWidget";
 import PieChartWidget from "./PieChartWidget";
 import TableWidget from "./TableWidget";
+import AreaChartWidget from "./AreaChartWidget";
 import { useDashboard } from "../context/DashboardContext";
 
 const WidgetRenderer: React.FC<WidgetRendererProps> = ({
@@ -36,25 +36,27 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 		return <IconComponent className="h-4 w-4" />;
 	};
 
-	// Render widget content based on type
-	const renderWidgetContent = () => {
-		const data = widgetData[widget.id];
+	const widgetEvaluatedData = widgetData[widget.id];
+	console.log(widgetEvaluatedData, "widgetEvaluatedData");
 
+	const WidgetComponent = useMemo(() => {
 		switch (widget.type) {
 			case WidgetType.STAT_CARD:
-				return <StatCardWidget widget={widget} data={data} />;
+				return StatCardWidget;
 			case WidgetType.BAR_CHART:
-				return <BarChartWidget widget={widget} data={data} />;
+				return BarChartWidget;
 			case WidgetType.LINE_CHART:
-				return <LineChartWidget widget={widget} data={data} />;
+				return LineChartWidget;
 			case WidgetType.PIE_CHART:
-				return <PieChartWidget widget={widget} data={data} />;
+				return PieChartWidget;
 			case WidgetType.TABLE:
-				return <TableWidget widget={widget} data={data} />;
+				return TableWidget;
+			case WidgetType.AREA_CHART:
+				return AreaChartWidget;
 			default:
-				return <div>Unknown widget type</div>;
+				return null;
 		}
-	};
+	}, [widget]);
 
 	return (
 		<Card className="h-full flex flex-col" data-widget-id={widget.id}>
@@ -90,7 +92,9 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 				)}
 			</CardHeader>
 			<CardContent className="flex-grow overflow-auto">
-				{renderWidgetContent()}
+				{WidgetComponent && (
+					<WidgetComponent data={widgetEvaluatedData} widget={widget} />
+				)}
 			</CardContent>
 		</Card>
 	);

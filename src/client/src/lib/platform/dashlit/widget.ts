@@ -6,6 +6,7 @@ import getMessage from "@/constants/messages";
 import {
 	normalizeWidgetToClient,
 	normalizeWidgetToServer,
+	sanitizeWidget,
 } from "@/helpers/server/widget";
 import { jsonParse } from "@/utils/json";
 import { getFilterWhereCondition } from "@/helpers/server/platform";
@@ -49,7 +50,7 @@ export async function getWidgets(widgetIds?: string[]) {
 }
 
 export async function createWidget(widget: Widget) {
-	const sanitizedWidget = Sanitizer.sanitizeObject(widget);
+	const sanitizedWidget = sanitizeWidget(widget);
 
 	const { err, data } = await dataCollector(
 		{
@@ -77,7 +78,8 @@ export async function createWidget(widget: Widget) {
 	// Get the created widget to return its ID
 	if (queryId) {
 		const result = await dataCollector({
-			query: `SELECT id, title, description, widget_type AS type, created_at AS createdAt, updated_at AS updatedAt FROM ${OPENLIT_WIDGET_TABLE_NAME} ORDER BY created_at DESC LIMIT 1`,
+			query: `SELECT id, title, description, widget_type AS type, created_at AS createdAt, properties,
+			config, updated_at AS updatedAt FROM ${OPENLIT_WIDGET_TABLE_NAME} ORDER BY created_at DESC LIMIT 1`,
 		});
 
 		if (
@@ -88,7 +90,7 @@ export async function createWidget(widget: Widget) {
 		) {
 			return {
 				data: {
-					...result.data[0],
+					...normalizeWidgetToClient(result.data[0] as DatabaseWidget),
 				},
 			};
 		}
@@ -98,7 +100,7 @@ export async function createWidget(widget: Widget) {
 }
 
 export async function updateWidget(widget: Widget) {
-	const sanitizedWidget = Sanitizer.sanitizeObject(widget);
+	const sanitizedWidget = sanitizeWidget(widget);
 
 	const updateValues = [
 		sanitizedWidget.title && `title = '${sanitizedWidget.title}'`,
@@ -111,6 +113,8 @@ export async function updateWidget(widget: Widget) {
 			`config = '${JSON.stringify(sanitizedWidget.config)}'`,
 	];
 
+	console.log(updateValues, "updateValues");
+
 	const query = `
 		ALTER TABLE ${OPENLIT_WIDGET_TABLE_NAME}
 		UPDATE 
@@ -118,7 +122,11 @@ export async function updateWidget(widget: Widget) {
 		WHERE id = '${sanitizedWidget.id}'
 	`;
 
+	console.log(query, "query");
+
 	const { err, data } = await dataCollector({ query }, "exec");
+
+	console.log(err, data, "err, data");
 
 	if (err || !(data as { query_id: string }).query_id)
 		return { err: getMessage().WIDGET_UPDATE_FAILED };

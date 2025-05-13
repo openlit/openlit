@@ -8,6 +8,7 @@ export enum WidgetType {
 	LINE_CHART = "LINE_CHART",
 	PIE_CHART = "PIE_CHART",
 	TABLE = "TABLE",
+	AREA_CHART = "AREA_CHART",
 }
 
 // Color Themes
@@ -26,11 +27,11 @@ export interface BaseWidgetProps {
 // Specific Widget Interfaces
 export interface StatCardWidget extends BaseWidgetProps {
 	type: WidgetType.STAT_CARD;
-	value: string;
 	properties: {
 		prefix?: string;
 		suffix?: string;
-		color: ColorTheme;
+		value?: string;
+		color?: ColorTheme;
 		trend?: string;
 		trendDirection?: "up" | "down";
 		textSize?: "small" | "medium" | "large";
@@ -64,6 +65,10 @@ export interface LineChartWidget extends ChartWidget {
 
 export interface PieChartWidget extends ChartWidget {
 	type: WidgetType.PIE_CHART;
+	properties: ChartWidget["properties"] & {
+		labelPath: string;
+		valuePath: string;
+	};
 }
 
 export interface TableWidget extends BaseWidgetProps {
@@ -74,13 +79,22 @@ export interface TableWidget extends BaseWidgetProps {
 	};
 }
 
+export interface AreaChartWidget extends ChartWidget {
+	type: WidgetType.AREA_CHART;
+	properties: ChartWidget["properties"] & {
+		xAxis: string;
+		yAxis: string;
+	};
+}
+
 // Combined Widget Type
 export type Widget =
 	| StatCardWidget
 	| BarChartWidget
 	| LineChartWidget
 	| PieChartWidget
-	| TableWidget;
+	| TableWidget
+	| AreaChartWidget;
 
 // Widgets Record - maps widget IDs to widget objects
 export type WidgetsRecord = Record<string, Widget>;
@@ -100,14 +114,17 @@ export interface DashboardProps {
 	readonly?: boolean;
 	className?: string;
 	renderCustomWidget?: (widget: Widget) => ReactNode;
-	dataProviders?: Record<string, (query: string) => Promise<any>>;
 	editorLanguage?: string;
 	customTheme?: any;
 	breakpoints?: { [key: string]: number };
 	cols?: { [key: string]: number };
 	rowHeight?: number;
-	runQuery?: (query: string) => void;
+	runQuery?: (
+		widgetId: string,
+		params: { userQuery: string }
+	) => Promise<{ data: any; err: string | null }>;
 	handleWidgetCrud?: (updates: Partial<Widget>) => Promise<Widget>;
+	fetchExistingWidgets?: () => Promise<Widget[]>;
 }
 
 // Widget Renderer Props

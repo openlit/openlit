@@ -13,6 +13,7 @@ export default function ExplorerItemRow({
 	onAddClick,
 	onEditClick,
 	onDeleteClick,
+	exportBoardLayout,
 }: {
 	item: DashlitHeirarchy;
 	path: string[];
@@ -21,6 +22,7 @@ export default function ExplorerItemRow({
 	onAddClick: (path: string[]) => void;
 	onEditClick: (item: DashlitHeirarchy, path: string[]) => void;
 	onDeleteClick: (id: string, path: string[]) => void;
+	exportBoardLayout: (id: string) => void;
 }) {
 	const handleItemClick = useCallback(() => {
 		if (item.type === "board") {
@@ -61,6 +63,7 @@ export default function ExplorerItemRow({
 								onAddClick={onAddClick}
 								onEditClick={onEditClick}
 								onDeleteClick={onDeleteClick}
+								exportBoardLayout={exportBoardLayout}
 							/>
 						</div>
 
@@ -91,6 +94,7 @@ export default function ExplorerItemRow({
 												onAddClick={onAddClick}
 												onEditClick={onEditClick}
 												onDeleteClick={onDeleteClick}
+												exportBoardLayout={exportBoardLayout}
 											/>
 										))}
 										{droppableProvided.placeholder}

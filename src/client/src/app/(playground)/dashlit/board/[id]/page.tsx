@@ -108,6 +108,19 @@ export default function DashboardPage() {
 		}
 	};
 
+	const fetchExistingWidgets = async () => {
+		const { response, error } = await fireRequest({
+			requestType: "GET",
+			url: "/api/dashlit/widget",
+		});
+
+		if (error) {
+			throw new Error(error);
+		}
+
+		return response.data;
+	};
+
 	return (
 		<div className="flex flex-col items-center w-full justify-between h-full">
 			<h1>Custom Dashboard</h1>
@@ -157,6 +170,7 @@ export default function DashboardPage() {
 								runQuery={runQuery}
 								onSave={handleSave}
 								handleWidgetCrud={handleWidgetCrud}
+								fetchExistingWidgets={fetchExistingWidgets}
 							/>
 						)}
 					</div>
