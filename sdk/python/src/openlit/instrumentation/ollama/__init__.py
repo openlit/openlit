@@ -4,8 +4,9 @@ Initializer of Auto Instrumentation of Ollama Functions
 
 from typing import Collection
 import importlib.metadata
+import sys
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
-from wrapt import wrap_function_wrapper
+from wrapt import wrap_function_wrapper, when_imported
 
 from openlit.instrumentation.ollama.ollama import (
     chat, embeddings
@@ -15,6 +16,18 @@ from openlit.instrumentation.ollama.async_ollama import (
 )
 
 _instruments = ("ollama >= 0.2.0",)
+
+# Record modules imported before initialization to apply patches during init
+_pending_ollama = []
+
+def _record_module(module):
+    _pending_ollama.append(module)
+
+# Record the module whenever ollama is imported
+when_imported("ollama")(_record_module)
+_existing_mod = sys.modules.get("ollama")
+if _existing_mod:
+    _record_module(_existing_mod)
 
 class OllamaInstrumentor(BaseInstrumentor):
     """
@@ -35,49 +48,72 @@ class OllamaInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("ollama")
 
-        # sync chat
-        wrap_function_wrapper(
-            "ollama",
-            "chat",
-            chat(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-        wrap_function_wrapper(
-            "ollama",
-            "Client.chat",
-            chat(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
+        # Define a function to apply wrapt patches based on initialization configuration
+        def _apply_instrumentation(module):
+            wrap_function_wrapper(
+                module, "chat",
+                chat(version, environment, application_name,
+                     tracer, event_provider, pricing_info,
+                     capture_message_content, metrics, disable_metrics),
+            )
+            wrap_function_wrapper(
+                module, "Client.chat",
+                chat(version, environment, application_name,
+                     tracer, event_provider, pricing_info,
+                     capture_message_content, metrics, disable_metrics),
+            )
+            wrap_function_wrapper(
+                module, "embeddings",
+                embeddings(version, environment, application_name,
+                           tracer, event_provider, pricing_info,
+                           capture_message_content, metrics, disable_metrics),
+            )
+            wrap_function_wrapper(
+                module, "Client.embeddings",
+                embeddings(version, environment, application_name,
+                           tracer, event_provider, pricing_info,
+                           capture_message_content, metrics, disable_metrics),
+            )
+            wrap_function_wrapper(
+                module, "AsyncClient.chat",
+                async_chat(version, environment, application_name,
+                           tracer, event_provider, pricing_info,
+                           capture_message_content, metrics, disable_metrics),
+            )
+            wrap_function_wrapper(
+                module, "AsyncClient.embeddings",
+                async_embeddings(version, environment, application_name,
+                                 tracer, event_provider, pricing_info,
+                                 capture_message_content, metrics, disable_metrics),
+            )
 
-        # sync embeddings
-        wrap_function_wrapper(
-            "ollama",
-            "embeddings",
-            embeddings(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-        wrap_function_wrapper(
-            "ollama",
-            "Client.embeddings",
-            embeddings(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
+            # Patch any modules that did `from ollama import chat` before init
+            try:
+                wrapped_chat = getattr(module, 'chat')
+                original_chat = getattr(wrapped_chat, '__wrapped__', None)
+                if original_chat:
+                    for m in list(sys.modules.values()):
+                        if getattr(m, 'chat', None) is original_chat:
+                            setattr(m, 'chat', wrapped_chat)
+            except Exception:
+                pass
 
-        # async chat
-        wrap_function_wrapper(
-            "ollama",
-            "AsyncClient.chat",
-            async_chat(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
+            try:
+                wrapped_emb = getattr(module, 'embeddings')
+                original_emb = getattr(wrapped_emb, '__wrapped__', None)
+                if original_emb:
+                    for m in list(sys.modules.values()):
+                        if getattr(m, 'embeddings', None) is original_emb:
+                            setattr(m, 'embeddings', wrapped_emb)
+            except Exception:
+                pass
 
-        # async embeddings
-        wrap_function_wrapper(
-            "ollama",
-            "AsyncClient.embeddings",
-            async_embeddings(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
+        # Apply patches to modules loaded or recorded before initialization
+        for mod in _pending_ollama:
+            _apply_instrumentation(mod)
+        _pending_ollama.clear()
+        # Register import-hook for future ollama imports after initialization
+        when_imported("ollama")(_apply_instrumentation)
 
     def _uninstrument(self, **kwargs):
         # Proper uninstrumentation logic to revert patched methods
