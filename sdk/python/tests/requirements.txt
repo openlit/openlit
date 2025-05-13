@@ -14,7 +14,7 @@ transformers
 boto3
 botocore
 google-cloud-aiplatform
-groq>0.20.0
+groq
 elevenlabs
 google-generativeai
 azure-ai-inference

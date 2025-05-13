@@ -4,9 +4,8 @@ Initializer of Auto Instrumentation of Ollama Functions
 
 from typing import Collection
 import importlib.metadata
-import sys
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
-from wrapt import wrap_function_wrapper, when_imported
+from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.ollama.ollama import (
     chat, embeddings
@@ -17,17 +16,28 @@ from openlit.instrumentation.ollama.async_ollama import (
 
 _instruments = ("ollama >= 0.2.0",)
 
-# Record modules imported before initialization to apply patches during init
-_pending_ollama = []
+# Dispatch wrapper to route instrumentation to chat or embeddings based on path
+def _dispatch(sync_chat_wrap, sync_emb_wrap):
+    def wrapper(wrapped, instance, args, kwargs):
+        if len(args) > 2 and isinstance(args[2], str):
+            op = args[2].rstrip("/").split("/")[-1]
+            if op == "chat":
+                return sync_chat_wrap(wrapped, instance, args, kwargs)
+            if op == "embeddings":
+                return sync_emb_wrap(wrapped, instance, args, kwargs)
+        return wrapped(*args, **kwargs)
+    return wrapper
 
-def _record_module(module):
-    _pending_ollama.append(module)
-
-# Record the module whenever ollama is imported
-when_imported("ollama")(_record_module)
-_existing_mod = sys.modules.get("ollama")
-if _existing_mod:
-    _record_module(_existing_mod)
+def _dispatch_async(async_chat_wrap, async_emb_wrap):
+    async def wrapper(wrapped, instance, args, kwargs):
+        if len(args) > 2 and isinstance(args[2], str):
+            op = args[2].rstrip("/").split("/")[-1]
+            if op == "chat":
+                return await async_chat_wrap(wrapped, instance, args, kwargs)
+            if op == "embeddings":
+                return await async_emb_wrap(wrapped, instance, args, kwargs)
+        return await wrapped(*args, **kwargs)
+    return wrapper
 
 class OllamaInstrumentor(BaseInstrumentor):
     """
@@ -48,72 +58,39 @@ class OllamaInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("ollama")
 
-        # Define a function to apply wrapt patches based on initialization configuration
-        def _apply_instrumentation(module):
-            wrap_function_wrapper(
-                module, "chat",
-                chat(version, environment, application_name,
-                     tracer, event_provider, pricing_info,
-                     capture_message_content, metrics, disable_metrics),
-            )
-            wrap_function_wrapper(
-                module, "Client.chat",
-                chat(version, environment, application_name,
-                     tracer, event_provider, pricing_info,
-                     capture_message_content, metrics, disable_metrics),
-            )
-            wrap_function_wrapper(
-                module, "embeddings",
-                embeddings(version, environment, application_name,
-                           tracer, event_provider, pricing_info,
-                           capture_message_content, metrics, disable_metrics),
-            )
-            wrap_function_wrapper(
-                module, "Client.embeddings",
-                embeddings(version, environment, application_name,
-                           tracer, event_provider, pricing_info,
-                           capture_message_content, metrics, disable_metrics),
-            )
-            wrap_function_wrapper(
-                module, "AsyncClient.chat",
-                async_chat(version, environment, application_name,
-                           tracer, event_provider, pricing_info,
-                           capture_message_content, metrics, disable_metrics),
-            )
-            wrap_function_wrapper(
-                module, "AsyncClient.embeddings",
-                async_embeddings(version, environment, application_name,
-                                 tracer, event_provider, pricing_info,
-                                 capture_message_content, metrics, disable_metrics),
-            )
+        # Build wrapper factories for chat and embeddings
+        sync_chat_wrap = chat(
+            version, environment, application_name,
+            tracer, event_provider, pricing_info,
+            capture_message_content, metrics, disable_metrics
+        )
+        sync_emb_wrap = embeddings(
+            version, environment, application_name,
+            tracer, event_provider, pricing_info,
+            capture_message_content, metrics, disable_metrics
+        )
+        async_chat_wrap = async_chat(
+            version, environment, application_name,
+            tracer, event_provider, pricing_info,
+            capture_message_content, metrics, disable_metrics
+        )
+        async_emb_wrap = async_embeddings(
+            version, environment, application_name,
+            tracer, event_provider, pricing_info,
+            capture_message_content, metrics, disable_metrics
+        )
 
-            # Patch any modules that did `from ollama import chat` before init
-            try:
-                wrapped_chat = getattr(module, 'chat')
-                original_chat = getattr(wrapped_chat, '__wrapped__', None)
-                if original_chat:
-                    for m in list(sys.modules.values()):
-                        if getattr(m, 'chat', None) is original_chat:
-                            setattr(m, 'chat', wrapped_chat)
-            except Exception:
-                pass
-
-            try:
-                wrapped_emb = getattr(module, 'embeddings')
-                original_emb = getattr(wrapped_emb, '__wrapped__', None)
-                if original_emb:
-                    for m in list(sys.modules.values()):
-                        if getattr(m, 'embeddings', None) is original_emb:
-                            setattr(m, 'embeddings', wrapped_emb)
-            except Exception:
-                pass
-
-        # Apply patches to modules loaded or recorded before initialization
-        for mod in _pending_ollama:
-            _apply_instrumentation(mod)
-        _pending_ollama.clear()
-        # Register import-hook for future ollama imports after initialization
-        when_imported("ollama")(_apply_instrumentation)
+        # Patch underlying request methods to ensure instrumentation regardless of import order
+        wrap_function_wrapper(
+            "ollama._client",
+            "Client._request",
+            _dispatch(sync_chat_wrap, sync_emb_wrap),
+        )
+        wrap_function_wrapper(
+            "ollama._client",
+            "AsyncClient._request",
+            _dispatch_async(async_chat_wrap, async_emb_wrap),
+        )
 
     def _uninstrument(self, **kwargs):
         # Proper uninstrumentation logic to revert patched methods
