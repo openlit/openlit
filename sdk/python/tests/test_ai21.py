@@ -40,7 +40,7 @@ def test_sync_ai21_chat():
 
     response = sync_client.chat.completions.create(
         messages=MESSAGES,
-        model="jamba-1.5-mini",
+        model="jamba-mini",
         max_tokens=1,
     )
     assert isinstance(response.id, str)
@@ -55,7 +55,7 @@ def test_sync_ai21_chat_stream():
 
     responses = sync_client.chat.completions.create(
         messages=MESSAGES,
-        model="jamba-1.5-mini",
+        model="jamba-mini",
         stream=True,
         max_tokens=1,
     )
@@ -93,14 +93,14 @@ async def test_async_ai21_test():
 
     response = await async_client.chat.completions.create(
         messages=MESSAGES,
-        model="jamba-1.5-mini",
+        model="jamba-mini",
         max_tokens=1,
     )
     assert isinstance(response.id, str)
 
     responses = await async_client.chat.completions.create(
         messages=MESSAGES,
-        model="jamba-1.5-mini",
+        model="jamba-mini",
         stream=True,
         max_tokens=1,
     )
