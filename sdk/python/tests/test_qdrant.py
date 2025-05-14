@@ -154,7 +154,7 @@ def test_db_qdrant():
     )
     assert isinstance(retrieve, list)
 
-    create_index = client.create_payload_index(
+    client.create_payload_index(
       collection_name=COLLECTION_NAME,
       field_name="city",
       field_schema="keyword",
