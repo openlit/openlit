@@ -13,6 +13,8 @@ export type FilterWhereConditionType = {
 		maxCost: number;
 		models: string[];
 		traceTypes: string[];
+		applicationNames: string[];
+		environments: string[];
 	}>;
 	notOrEmpty?: { key: string }[];
 	notEmpty?: { key: string }[];

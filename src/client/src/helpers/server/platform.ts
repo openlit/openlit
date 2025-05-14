@@ -222,6 +222,26 @@ export const getFilterWhereCondition = (
 					)}']) BETWEEN 0 AND ${filter.selectedConfig.maxCost.toFixed(10)}`
 				);
 			}
+
+			if (filter.selectedConfig.applicationNames?.length) {
+				whereArray.push(
+					`ResourceAttributes['${getTraceMappingKeyFullPath(
+						"applicationName"
+					)}'] IN (${filter.selectedConfig.applicationNames
+						.map((applicationName) => `'${applicationName}'`)
+						.join(", ")})`
+				);
+			}
+
+			if (filter.selectedConfig.environments?.length) {
+				whereArray.push(
+					`ResourceAttributes['${getTraceMappingKeyFullPath(
+						"environment"
+					)}'] IN (${filter.selectedConfig.environments
+						.map((environment) => `'${environment}'`)
+						.join(", ")})`
+				);
+			}
 		}
 
 		if (filter.notOrEmpty && filter.notOrEmpty?.length > 0) {
@@ -239,7 +259,9 @@ export const getFilterWhereCondition = (
 			});
 		}
 
-		const { statusCode = ["STATUS_CODE_OK", "STATUS_CODE_UNSET", "Ok", "Unset"] } = filter;
+		const {
+			statusCode = ["STATUS_CODE_OK", "STATUS_CODE_UNSET", "Ok", "Unset"],
+		} = filter;
 		whereArray.push(
 			`StatusCode IN (${statusCode.map((type) => `'${type}'`).join(", ")})`
 		);
