@@ -58,6 +58,8 @@ const DynamicFilters = ({
 			case "models":
 			case "providers":
 			case "traceTypes":
+			case "applicationNames":
+			case "environments":
 				if (operationType === "add") {
 					setSelectedFilterValues((s) => {
 						const typeArray = s[type] || [];
@@ -168,6 +170,32 @@ const DynamicFilters = ({
 						maxValue={filterConfig.maxCost}
 						onChange={updateSelectedValues}
 						type="maxCost"
+					/>
+				) : null}
+				{filterConfig?.applicationNames?.length ? (
+					<ComboDropdown
+						options={filterConfig?.applicationNames.map((a) => ({
+							label: a,
+							value: a,
+						}))}
+						title="Application Names"
+						type="applicationNames"
+						updateSelectedValues={updateSelectedValues}
+						selectedValues={selectedFilterValues.applicationNames}
+						clearItem={clearFilter}
+					/>
+				) : null}
+				{filterConfig?.environments?.length ? (
+					<ComboDropdown
+						options={filterConfig?.environments.map((e) => ({
+							label: e,
+							value: e,
+						}))}
+						title="Environments"
+						type="environments"
+						updateSelectedValues={updateSelectedValues}
+						selectedValues={selectedFilterValues.environments}
+						clearItem={clearFilter}
 					/>
 				) : null}
 			</div>

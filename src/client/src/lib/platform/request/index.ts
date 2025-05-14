@@ -125,6 +125,18 @@ export async function getRequestsConfig(params: MetricParams) {
 
 	select.push(`CAST(COUNT(*) AS INTEGER) AS totalRows`);
 
+	select.push(
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['${getTraceMappingKeyFullPath(
+			"applicationName"
+		)}'])) AS applicationNames`
+	);
+
+	select.push(
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['${getTraceMappingKeyFullPath(
+			"environment"
+		)}'])) AS environments`
+	);
+
 	const query = `SELECT ${select.join(", ")} FROM ${OTEL_TRACES_TABLE_NAME} 
 			WHERE ${getFilterWhereCondition(params)}`;
 
