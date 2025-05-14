@@ -10,12 +10,8 @@ cohere
 openai
 anthropic
 mistralai
-transformers
 boto3
 botocore
-google-cloud-aiplatform
-groq
-elevenlabs
 google-generativeai
 azure-ai-inference
 reka-api
@@ -27,6 +23,9 @@ controlflow
 assemblyai
 firecrawl-py
 together
+transformers
+groq
+elevenlabs
 
 # Vector DBs
 chromadb
@@ -45,8 +44,7 @@ xmltodict
 
 # Utilities
 bs4
-tensorflow
-tf_keras
+torch
 aiohttp
 pyyaml
 
