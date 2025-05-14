@@ -86,7 +86,12 @@ const INITIAL_FILTER_DETAILS: FilterType = {
 export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 	details: INITIAL_FILTER_DETAILS,
 	updateFilter: (key: string, value: any, extraParams?: any) => {
-		let object = {};
+		let object: Partial<
+			FilterType & {
+				end: Date;
+				start: Date;
+			}
+		> = {};
 		let resetConfig = false;
 		switch (key) {
 			case "timeLimit.type":
@@ -123,6 +128,8 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 				selectedConfig:
 					resetConfig || extraParams?.clearFilter
 						? {}
+						: object.selectedConfig
+						? object.selectedConfig
 						: getStore().details.selectedConfig,
 			},
 			config: resetConfig ? undefined : getStore().config,

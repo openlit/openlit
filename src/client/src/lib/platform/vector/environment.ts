@@ -3,7 +3,7 @@ import { MetricParams, OTEL_TRACES_TABLE_NAME, dataCollector } from "../common";
 import { getFilterWhereCondition } from "@/helpers/server/platform";
 
 export async function getResultGenerationByEnvironment(params: MetricParams) {
-	const keyPathEnvironment = `SpanAttributes['${getTraceMappingKeyFullPath(
+	const keyPathEnvironment = `ResourceAttributes['${getTraceMappingKeyFullPath(
 		"environment"
 	)}']`;
 	const query = `SELECT 
