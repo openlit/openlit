@@ -168,13 +168,13 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
             # Join all non-empty responses into a single string
             self._llmresponse = " ".join(filter(None, self._llmresponse))
 
-    elif self._kwargs.get("task", "text-generation") == "automatic-speech-recognitio":
+    elif self._kwargs.get("task", "text-generation") == "automatic-speech-recognition":
         self._llmresponse = response_dict.get("text", "")
 
     elif self._kwargs.get("task", "text-generation") == "image-classification":
         self._llmresponse = str(response_dict[0])
 
-    elif self._kwargs.get("task", "text-generation") == "image-classification":
+    elif self._kwargs.get("task", "text-generation") == "visual-question-answering":
         self._llmresponse = str(response_dict[0]).get("answer")
 
     common_chat_logic(self, pricing_info, environment, application_name, metrics,
