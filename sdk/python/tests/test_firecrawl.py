@@ -35,4 +35,4 @@ def test_sync_scarpe_url():
         formats=['markdown', 'html'],
     )
 
-    assert isinstance(response, dict)
+    assert response.success is True
