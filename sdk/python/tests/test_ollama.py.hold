@@ -3,6 +3,7 @@ import openlit
 
 openlit.init()
 
+ollama.pull('gemma2:2b')
 
 stream = ollama.chat(
     model='gemma2:2b',
