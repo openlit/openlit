@@ -57,8 +57,10 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
 
-    formatted_messages = extract_and_format_input(scope._kwargs.get("messages", ""))
-    request_model = scope._kwargs.get("model", "gpt-4o")
+    json_body = scope._kwargs.get("json", {}) or {}
+    request_model = json_body.get("model") or scope._kwargs.get("model")
+    messages = json_body.get("messages", scope._kwargs.get("messages", ""))
+    formatted_messages = extract_and_format_input(messages)
 
     cost = get_chat_model_cost(request_model, pricing_info, scope._input_tokens, scope._output_tokens)
 
@@ -252,7 +254,9 @@ def process_embedding_response(response, request_model, pricing_info, server_por
     end_time = time.time()
 
     try:
-        input_tokens = general_tokens(str(kwargs.get('prompt')))
+        json_body = kwargs.get("json", {}) or {}
+        prompt_val = json_body.get('prompt', kwargs.get('prompt', ''))
+        input_tokens = general_tokens(str(prompt_val))
 
         # Calculate cost of the operation
         cost = get_embed_model_cost(request_model,
@@ -293,7 +297,7 @@ def process_embedding_response(response, request_model, pricing_info, server_por
                 SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_OLLAMA
             },
             body={
-                **({"content": kwargs.get('prompt', '')} if capture_message_content else {}),
+                **({"content": prompt_val} if capture_message_content else {}),
                 "role":  'user'
             }
         )

@@ -9,3 +9,5 @@ path/
 __pycache__/
 **bun.lockb
 logs/
+
+.vscode/

@@ -16,6 +16,29 @@ from openlit.instrumentation.ollama.async_ollama import (
 
 _instruments = ("ollama >= 0.2.0",)
 
+# Dispatch wrapper to route instrumentation to chat or embeddings based on path
+def _dispatch(sync_chat_wrap, sync_emb_wrap):
+    def wrapper(wrapped, instance, args, kwargs):
+        if len(args) > 2 and isinstance(args[2], str):
+            op = args[2].rstrip("/").split("/")[-1]
+            if op == "chat":
+                return sync_chat_wrap(wrapped, instance, args, kwargs)
+            if op == "embeddings":
+                return sync_emb_wrap(wrapped, instance, args, kwargs)
+        return wrapped(*args, **kwargs)
+    return wrapper
+
+def _dispatch_async(async_chat_wrap, async_emb_wrap):
+    async def wrapper(wrapped, instance, args, kwargs):
+        if len(args) > 2 and isinstance(args[2], str):
+            op = args[2].rstrip("/").split("/")[-1]
+            if op == "chat":
+                return await async_chat_wrap(wrapped, instance, args, kwargs)
+            if op == "embeddings":
+                return await async_emb_wrap(wrapped, instance, args, kwargs)
+        return await wrapped(*args, **kwargs)
+    return wrapper
+
 class OllamaInstrumentor(BaseInstrumentor):
     """
     An instrumentor for Ollama's client library.
@@ -35,48 +58,38 @@ class OllamaInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("ollama")
 
-        # sync chat
-        wrap_function_wrapper(
-            "ollama",
-            "chat",
-            chat(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
+        # Build wrapper factories for chat and embeddings
+        sync_chat_wrap = chat(
+            version, environment, application_name,
+            tracer, event_provider, pricing_info,
+            capture_message_content, metrics, disable_metrics
         )
-        wrap_function_wrapper(
-            "ollama",
-            "Client.chat",
-            chat(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
+        sync_emb_wrap = embeddings(
+            version, environment, application_name,
+            tracer, event_provider, pricing_info,
+            capture_message_content, metrics, disable_metrics
         )
-
-        # sync embeddings
-        wrap_function_wrapper(
-            "ollama",
-            "embeddings",
-            embeddings(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
+        async_chat_wrap = async_chat(
+            version, environment, application_name,
+            tracer, event_provider, pricing_info,
+            capture_message_content, metrics, disable_metrics
         )
-        wrap_function_wrapper(
-            "ollama",
-            "Client.embeddings",
-            embeddings(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
+        async_emb_wrap = async_embeddings(
+            version, environment, application_name,
+            tracer, event_provider, pricing_info,
+            capture_message_content, metrics, disable_metrics
         )
 
-        # async chat
+        # Patch underlying request methods to ensure instrumentation regardless of import order
         wrap_function_wrapper(
-            "ollama",
-            "AsyncClient.chat",
-            async_chat(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
+            "ollama._client",
+            "Client._request",
+            _dispatch(sync_chat_wrap, sync_emb_wrap),
         )
-
-        # async embeddings
         wrap_function_wrapper(
-            "ollama",
-            "AsyncClient.embeddings",
-            async_embeddings(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
+            "ollama._client",
+            "AsyncClient._request",
+            _dispatch_async(async_chat_wrap, async_emb_wrap),
         )
 
     def _uninstrument(self, **kwargs):
