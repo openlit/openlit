@@ -8,9 +8,7 @@ import {
 	type Widget,
 	WidgetType,
 } from "../types";
-import { DEFAULT_LAYOUTS, DEFAULT_WIDGETS } from "../constants";
-import { jsonParse } from "@/utils/json";
-import { MetricParams } from "@/lib/platform/common";
+// import { DEFAULT_LAYOUTS, DEFAULT_WIDGETS } from "../constants";
 
 interface DashboardContextType {
 	title: string;
@@ -42,7 +40,6 @@ interface DashboardContextType {
 	updateWidgetData: (widgetId: string, data: any) => void;
 	clearWidgetData: (widgetId: string) => void;
 	loadWidgetData: (widgetId: string) => Promise<void>;
-	configTransformationFunction?: (config: DashboardConfig) => T;
 	fetchExistingWidgets?: () => Promise<Widget[]>;
 }
 

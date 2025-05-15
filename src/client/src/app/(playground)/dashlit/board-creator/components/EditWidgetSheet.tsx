@@ -2,7 +2,12 @@
 
 import React from "react";
 import type { FC } from "react";
-import { WidgetType } from "../types";
+import {
+	BarChartWidget,
+	PieChartWidget,
+	StatCardWidget,
+	WidgetType,
+} from "../types";
 import { useEditWidget } from "../hooks/useEditWidget";
 import {
 	Activity,
@@ -228,7 +233,10 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													<Label htmlFor="prefix">Prefix</Label>
 													<Input
 														id="prefix"
-														value={currentWidget.properties.prefix}
+														value={
+															(currentWidget as StatCardWidget).properties
+																.prefix
+														}
 														onChange={(e) =>
 															updateWidgetProperties(currentWidget.id, {
 																prefix: e.target.value,
@@ -241,7 +249,9 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													<Label htmlFor="value">Value Path</Label>
 													<Input
 														id="value"
-														value={currentWidget.properties.value}
+														value={
+															(currentWidget as StatCardWidget).properties.value
+														}
 														onChange={(e) =>
 															updateWidget(currentWidget.id, {
 																properties: {
@@ -257,7 +267,10 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													<Label htmlFor="suffix">Suffix</Label>
 													<Input
 														id="suffix"
-														value={currentWidget.properties.suffix}
+														value={
+															(currentWidget as StatCardWidget).properties
+																.suffix
+														}
 														onChange={(e) =>
 															updateWidgetProperties(currentWidget.id, {
 																suffix: e.target.value,
@@ -273,7 +286,9 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													<Label htmlFor="trend">Trend</Label>
 													<Input
 														id="trend"
-														value={currentWidget.properties.trend || ""}
+														value={
+															(currentWidget as StatCardWidget).properties.trend
+														}
 														onChange={(e) =>
 															updateWidgetProperties(currentWidget.id, {
 																trend: e.target.value,
@@ -286,7 +301,8 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													<Label htmlFor="trendDirection">Direction</Label>
 													<Select
 														value={
-															currentWidget.properties.trendDirection || "up"
+															(currentWidget as StatCardWidget).properties
+																.trendDirection || "up"
 														}
 														onValueChange={(value) =>
 															updateWidgetProperties(currentWidget.id, {
@@ -316,7 +332,9 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												<Label htmlFor="xAxis">X Axis</Label>
 												<Input
 													id="xAxis"
-													value={currentWidget.properties.xAxis}
+													value={
+														(currentWidget as BarChartWidget).properties.xAxis
+													}
 													onChange={(e) =>
 														updateWidgetProperties(currentWidget.id, {
 															xAxis: e.target.value,
@@ -329,7 +347,9 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												<Label htmlFor="yAxis">Y Axis</Label>
 												<Input
 													id="yAxis"
-													value={currentWidget.properties.yAxis}
+													value={
+														(currentWidget as BarChartWidget).properties.yAxis
+													}
 													onChange={(e) =>
 														updateWidgetProperties(currentWidget.id, {
 															yAxis: e.target.value,
@@ -348,7 +368,10 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													<Label htmlFor="labelPath">Label Path</Label>
 													<Input
 														id="labelPath"
-														value={currentWidget.properties.labelPath}
+														value={
+															(currentWidget as PieChartWidget).properties
+																.labelPath
+														}
 														onChange={(e) =>
 															updateWidgetProperties(currentWidget.id, {
 																labelPath: e.target.value,
@@ -361,14 +384,21 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													<Label htmlFor="value">Value Path</Label>
 													<Input
 														id="value"
-														value={currentWidget.properties.valuePath}
+														value={
+															(currentWidget as PieChartWidget).properties
+																.valuePath
+														}
 														onChange={(e) =>
-															updateWidget(currentWidget.id, {
-																properties: {
-																	...currentWidget.properties,
-																	valuePath: e.target.value,
-																},
-															})
+															updateWidget(
+																(currentWidget as PieChartWidget).id,
+																{
+																	properties: {
+																		...(currentWidget as PieChartWidget)
+																			.properties,
+																		valuePath: e.target.value,
+																	},
+																}
+															)
 														}
 														placeholder="1,234"
 													/>

@@ -26,7 +26,6 @@ export interface BaseWidgetProps {
 
 // Specific Widget Interfaces
 export interface StatCardWidget extends BaseWidgetProps {
-	type: WidgetType.STAT_CARD;
 	properties: {
 		prefix?: string;
 		suffix?: string;
@@ -48,7 +47,6 @@ export interface ChartWidget extends BaseWidgetProps {
 }
 
 export interface BarChartWidget extends ChartWidget {
-	type: WidgetType.BAR_CHART;
 	properties: ChartWidget["properties"] & {
 		xAxis: string;
 		yAxis: string;
@@ -56,7 +54,6 @@ export interface BarChartWidget extends ChartWidget {
 }
 
 export interface LineChartWidget extends ChartWidget {
-	type: WidgetType.LINE_CHART;
 	properties: ChartWidget["properties"] & {
 		xAxis: string;
 		yAxis: string;
@@ -64,7 +61,6 @@ export interface LineChartWidget extends ChartWidget {
 }
 
 export interface PieChartWidget extends ChartWidget {
-	type: WidgetType.PIE_CHART;
 	properties: ChartWidget["properties"] & {
 		labelPath: string;
 		valuePath: string;
@@ -72,7 +68,6 @@ export interface PieChartWidget extends ChartWidget {
 }
 
 export interface TableWidget extends BaseWidgetProps {
-	type: WidgetType.TABLE;
 	properties: {
 		color: ColorTheme;
 		autoRefresh?: boolean;
@@ -80,7 +75,6 @@ export interface TableWidget extends BaseWidgetProps {
 }
 
 export interface AreaChartWidget extends ChartWidget {
-	type: WidgetType.AREA_CHART;
 	properties: ChartWidget["properties"] & {
 		xAxis: string;
 		yAxis: string;

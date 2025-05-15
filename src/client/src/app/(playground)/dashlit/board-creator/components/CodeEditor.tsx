@@ -40,7 +40,7 @@ const CodeEditor: React.FC<EditorProps> = ({
 					monaco.languages.register({ id: "clickhouse-sql" });
 					monaco.languages.setMonarchTokensProvider(
 						"clickhouse-sql",
-						CLICKHOUSE_LANGUAGE_CONFIG.loader().language
+						CLICKHOUSE_LANGUAGE_CONFIG.loader().language as any
 					);
 					monaco.editor.defineTheme("clickhouse-dark", {
 						base: "vs-dark",

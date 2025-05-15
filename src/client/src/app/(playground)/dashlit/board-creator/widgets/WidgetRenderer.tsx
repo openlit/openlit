@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import { memo, useEffect } from "react";
 import { Edit, Trash } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { WidgetType, type WidgetRendererProps } from "../types";
+import { Widget, WidgetType, type WidgetRendererProps } from "../types";
 import { WIDGET_TYPE_ICONS } from "../constants";
 import StatCardWidget from "./StatCardWidget";
 import BarChartWidget from "./BarChartWidget";
@@ -37,7 +37,6 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 	};
 
 	const widgetEvaluatedData = widgetData[widget.id];
-	console.log(widgetEvaluatedData, "widgetEvaluatedData");
 
 	const WidgetComponent = useMemo(() => {
 		switch (widget.type) {
@@ -93,7 +92,10 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 			</CardHeader>
 			<CardContent className="flex-grow overflow-auto">
 				{WidgetComponent && (
-					<WidgetComponent data={widgetEvaluatedData} widget={widget} />
+					<WidgetComponent
+						data={widgetEvaluatedData}
+						widget={widget as any}
+					/>
 				)}
 			</CardContent>
 		</Card>

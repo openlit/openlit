@@ -250,19 +250,14 @@ export async function updateBoardLayout(boardId: string, layoutConfig: any) {
 		existingWidgetMap.set(widget.widget_id, widget.id);
 	});
 
-	console.log("existingWidgets", existingWidgets);
-	console.log("existingWidgetMap", existingWidgetMap);
-
 	// Create a set of widget IDs from the new layout config
 	const newWidgetIds = new Set();
-	layoutConfig.layouts.lg.forEach((layout) => {
+	layoutConfig.layouts.lg.forEach((layout: { i: string }) => {
 		const widget = layoutConfig.widgets[layout.i];
 		if (widget && widget.id) {
 			newWidgetIds.add(widget.id);
 		}
 	});
-
-	console.log("newWidgetIds", newWidgetIds);
 
 	// Delete widgets that are no longer in the layout
 	for (const existingWidget of existingWidgets) {
