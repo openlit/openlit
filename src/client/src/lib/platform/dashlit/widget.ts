@@ -113,8 +113,6 @@ export async function updateWidget(widget: Widget) {
 			`config = '${JSON.stringify(sanitizedWidget.config)}'`,
 	];
 
-	console.log(updateValues, "updateValues");
-
 	const query = `
 		ALTER TABLE ${OPENLIT_WIDGET_TABLE_NAME}
 		UPDATE 
@@ -122,11 +120,7 @@ export async function updateWidget(widget: Widget) {
 		WHERE id = '${sanitizedWidget.id}'
 	`;
 
-	console.log(query, "query");
-
 	const { err, data } = await dataCollector({ query }, "exec");
-
-	console.log(err, data, "err, data");
 
 	if (err || !(data as { query_id: string }).query_id)
 		return { err: getMessage().WIDGET_UPDATE_FAILED };

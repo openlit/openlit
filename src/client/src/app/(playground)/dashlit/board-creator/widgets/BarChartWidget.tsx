@@ -9,7 +9,6 @@ interface BarChartProps {
 }
 
 const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
-  console.log("data", data)
   return (
     <div className="flex flex-col h-full">
       <div className="text-sm text-muted-foreground mb-2">{widget.description}</div>

@@ -66,3 +66,5 @@ export const WIDGET_UPDATED_SUCCESSFULLY = "Widget updated successfully!";
 export const BOARD_LAYOUT_UPDATED_SUCCESSFULLY = "Board layout updated successfully!";
 export const WIDGET_FETCH_FAILED = "Widget fetch failed!";
 export const WIDGET_RUN_FAILED = "Widget run failed!";
+export const BOARD_DELETE_FAILED = "Board delete failed!";
+export const BOARD_DELETED_SUCCESSFULLY = "Board deleted successfully!";

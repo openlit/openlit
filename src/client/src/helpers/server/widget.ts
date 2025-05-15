@@ -3,7 +3,6 @@ import { jsonParse } from "@/utils/json";
 import Sanitizer from "@/utils/sanitizer";
 
 export function normalizeWidgetToClient(widget: DatabaseWidget) {
-	console.log(widget, "widget");
 	return {
 		...widget,
 		properties: jsonParse(widget.properties || "{}") || {},

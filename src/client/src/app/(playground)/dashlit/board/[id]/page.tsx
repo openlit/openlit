@@ -48,7 +48,6 @@ export default function DashboardPage() {
 			userQuery: string;
 		}
 	) => {
-		console.log("Running query", widgetId, params);
 		const data = await fireRequest({
 			requestType: "POST",
 			url: "/api/dashlit/query/run",

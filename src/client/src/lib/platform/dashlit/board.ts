@@ -73,13 +73,29 @@ export async function updateBoard(board: Board) {
 	return { data: getMessage().BOARD_UPDATED_SUCCESSFULLY };
 }
 
-export function deleteBoard(id: string) {
+export async function deleteBoard(id: string) {
+	const query_board_widgets = `
+		DELETE FROM ${OPENLIT_BOARD_WIDGET_TABLE_NAME} 
+		WHERE board_id = '${Sanitizer.sanitizeValue(id)}'
+	`;
+
 	const query = `
 		DELETE FROM ${OPENLIT_BOARD_TABLE_NAME} 
 		WHERE id = '${Sanitizer.sanitizeValue(id)}'
 	`;
 
-	return dataCollector({ query }, "exec");
+	const { err: err_board_widgets } = await dataCollector(
+		{ query: query_board_widgets },
+		"exec"
+	);
+
+	if (err_board_widgets) return { err: getMessage().BOARD_DELETE_FAILED };
+
+	const { err: err_board } = await dataCollector({ query }, "exec");
+
+	if (err_board) return { err: getMessage().BOARD_DELETE_FAILED };
+
+	return { data: getMessage().BOARD_DELETED_SUCCESSFULLY };
 }
 
 export async function getBoardLayout(id: string) {

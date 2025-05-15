@@ -10,7 +10,6 @@ const StatCardWidget: React.FC<StatCardProps> = ({ widget, data }) => {
 	const value = (widget.properties.value || "")
 		.split(".")
 		.reduce((acc: any, curr: string) => acc?.[curr], data);
-	console.log(value, data, widget, "value");
 	return (
 		<div className="flex flex-col justify-center items-center h-full">
 			<div className="text-3xl font-bold">

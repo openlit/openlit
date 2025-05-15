@@ -33,7 +33,6 @@ function buildHierarchy(
 			boards: [],
 		});
 	});
-	console.log(rootNodes);
 
 	// Build folder hierarchy first
 	folders.forEach((folder) => {
@@ -43,7 +42,6 @@ function buildHierarchy(
 			processedFolders.add(folder.id);
 		}
 	});
-	console.log(rootNodes);
 
 	// Add only root-level folders to rootNodes
 	folders.forEach((folder) => {
@@ -56,8 +54,6 @@ function buildHierarchy(
 			}
 		}
 	});
-
-	console.log(rootNodes);
 
 	// Assign boards to their respective folders (or root level)
 	boards.forEach((board) => {
@@ -79,7 +75,6 @@ function buildHierarchy(
 			rootNodes.push(boardNode);
 		}
 	});
-	console.log(rootNodes);
 
 	return rootNodes;
 }
