@@ -68,3 +68,5 @@ export const WIDGET_FETCH_FAILED = "Widget fetch failed!";
 export const WIDGET_RUN_FAILED = "Widget run failed!";
 export const BOARD_DELETE_FAILED = "Board delete failed!";
 export const BOARD_DELETED_SUCCESSFULLY = "Board deleted successfully!";
+export const FOLDER_DELETE_FAILED = "Folder cannot be deleted! It has boards or folders inside it.";
+export const FOLDER_DELETED_SUCCESSFULLY = "Folder deleted successfully!";

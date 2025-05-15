@@ -1,6 +1,9 @@
 import { Folder } from "@/types/dashlit";
 import { dataCollector } from "../common";
-import { OPENLIT_FOLDER_TABLE_NAME } from "./table-details";
+import {
+	OPENLIT_BOARD_TABLE_NAME,
+	OPENLIT_FOLDER_TABLE_NAME,
+} from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
 import getMessage from "@/constants/messages";
 
@@ -66,11 +69,36 @@ export async function updateFolder(folder: Folder) {
 	return { data: getMessage().FOLDER_UPDATED_SUCCESSFULLY };
 }
 
-export function deleteFolder(id: string) {
+export async function deleteFolder(id: string) {
+	const doesFolderHasBoardsQuery = `SELECT CAST(COUNT(*) AS INTEGER) as count FROM ${OPENLIT_BOARD_TABLE_NAME} WHERE parent_id = '${Sanitizer.sanitizeValue(
+		id
+	)}'`;
+	const doesFolderHasFoldersQuery = `SELECT CAST(COUNT(*) AS INTEGER) as count FROM ${OPENLIT_FOLDER_TABLE_NAME} WHERE parent_id = '${Sanitizer.sanitizeValue(
+		id
+	)}'`;
+
+	const [{ data: doesFolderHasBoards }, { data: doesFolderHasFolders }] =
+		await Promise.all([
+			dataCollector({ query: doesFolderHasBoardsQuery }),
+			dataCollector({ query: doesFolderHasFoldersQuery }),
+		]);
+
+	if (
+		(doesFolderHasBoards as any)[0].count ||
+		(doesFolderHasFolders as any)[0].count
+	) {
+		return { err: getMessage().FOLDER_DELETE_FAILED };
+	}
+
 	const query = `
 		DELETE FROM ${OPENLIT_FOLDER_TABLE_NAME} 
 		WHERE id = '${Sanitizer.sanitizeValue(id)}'
 	`;
 
-	return dataCollector({ query }, "exec");
+	const { err, data } = await dataCollector({ query }, "exec");
+
+	if (err || !(data as { query_id: string }).query_id)
+		return { err: getMessage().FOLDER_DELETE_FAILED };
+
+	return { data: getMessage().FOLDER_DELETED_SUCCESSFULLY };
 }
