@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: gpu-collector
+  namespace: monitoring
+  labels:
+    app: gpu-collector
+spec:
+  selector:
+    matchLabels:
+      app: gpu-collector
+  template:
+    metadata:
+      labels:
+        app: gpu-collector
+    spec:
+      # Only schedule on nodes with GPUs
+      nodeSelector:
+        nvidia.com/gpu: "true"  # For NVIDIA nodes
+        # amd.com/gpu: "true"   # For AMD nodes
+      containers:
+      - name: gpu-collector
+        image: openlit/gpu-collector:latest
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true  # Required for GPU access
+        env:
+        # GPU Configuration
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
+        
+        # Collection Configuration
+        - name: COLLECTION_INTERVAL
+          value: "10s"
+        
+        # GPU Settings
+        - name: GPU_MAX_SAMPLES
+          value: "1000"
+        - name: GPU_ENABLE_PROFILING
+          value: "true"
+        
+        # OpenTelemetry Export Configuration
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "otel-collector.monitoring.svc.cluster.local:4317"
+        - name: OTEL_EXPORTER_OTLP_INSECURE
+          value: "true"
+        - name: OTEL_EXPORTER_OTLP_HEADERS
+          value: "x-api-key=your-api-key,authorization=Bearer your-token"
+        - name: OTEL_SERVICE_NAME
+          value: "gpu-collector"
+        - name: OTEL_SERVICE_VERSION
+          value: "1.0.0"
+        
+        # Kubernetes Configuration
+        - name: KUBERNETES_ENABLED
+          value: "true"
+        - name: KUBERNETES_ENABLE_POD_METRICS
+          value: "true"
+        - name: KUBERNETES_ENABLE_NODE_METRICS
+          value: "true"
+        - name: KUBERNETES_IN_CLUSTER
+          value: "true"
+        
+        # Logging Configuration
+        - name: LOG_LEVEL
+          value: "info"
+        - name: LOG_FORMAT
+          value: "json"
+        - name: LOG_SOURCE
+          value: "true"
+        
+        # Error Handling
+        - name: ERROR_REPORTING_ENABLED
+          value: "true"
+        - name: ERROR_RETRY_COUNT
+          value: "3"
+        - name: ERROR_RETRY_DELAY
+          value: "5s"
+        
+        volumeMounts:
+        - name: config
+          mountPath: /etc/gpu-collector
+        - name: nvidia-driver
+          mountPath: /usr/local/nvidia
+        - name: amd-driver
+          mountPath: /opt/amdgpu
+        resources:
+          limits:
+            nvidia.com/gpu: 1  # For NVIDIA nodes
+            # amd.com/gpu: 1   # For AMD nodes
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      volumes:
+      - name: config
+        configMap:
+          name: gpu-collector-config
+      - name: nvidia-driver
+        hostPath:
+          path: /usr/local/nvidia
+      - name: amd-driver
+        hostPath:
+          path: /opt/amdgpu
+      # Tolerations for nodes with taints
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      - key: amd.com/gpu
+        operator: Exists
+        effect: NoSchedule
+---
+# ConfigMap for collector configuration (as fallback/override)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gpu-collector-config
+  namespace: monitoring
+data:
+  config.yaml: |
+    collection:
+      interval: 10s
+
+    gpu:
+      max_samples: 1000
+      enable_profiling: true
+
+    export:
+      otlp_endpoint: "otel-collector.monitoring.svc.cluster.local:4317"
+      insecure: true
+      headers:
+        x-api-key: "your-api-key"
+        authorization: "Bearer your-token"
+
+    kubernetes:
+      enabled: true
+      node_name: ""  # Auto-detect
+      namespace: ""  # Monitor all namespaces
+      enable_pod_metrics: true
+      enable_node_metrics: true
+      in_cluster: true
+
+    logging:
+      level: info
+      format: json
+      source: true
+
+    error_handling:
+      reporting_enabled: true
+      retry_count: 3
+      retry_delay: 5s 

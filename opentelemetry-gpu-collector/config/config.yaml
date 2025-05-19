@@ -1,0 +1,25 @@
+# OpenTelemetry GPU Collector Configuration
+
+# Collection settings
+collection:
+  interval: 10s  # How often to collect metrics
+
+# GPU settings
+gpu:
+  max_samples: 1000  # Maximum number of samples to keep in memory
+  enable_profiling: true  # Enable detailed GPU profiling metrics
+
+# Export settings
+export:
+  otlp_endpoint: "localhost:4317"  # OTLP gRPC endpoint
+  insecure: true  # Whether to use insecure connection
+
+# Kubernetes settings
+kubernetes:
+  enabled: true  # Enable Kubernetes integration
+  node_name: ""  # Leave empty for auto-detection
+  namespace: ""  # Leave empty to monitor all namespaces
+  enable_pod_metrics: true  # Enable pod-level GPU metrics
+  enable_node_metrics: true  # Enable node-level GPU metrics
+  kubeconfig: ""  # Path to kubeconfig file (only needed for out-of-cluster)
+  in_cluster: true  # Whether to use in-cluster configuration 
