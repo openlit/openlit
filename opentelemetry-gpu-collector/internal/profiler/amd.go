@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ROCmSoftwarePlatform/amdsmi"
+	"github.com/ROCm/amdsmi"
 	"go.uber.org/zap"
 )
 

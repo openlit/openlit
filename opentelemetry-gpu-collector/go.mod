@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/NVIDIA/go-nvml v0.12.0-1
-	github.com/ROCmSoftwarePlatform/amdsmi v0.0.0-20240318073057-0c3a8355e77c
+	github.com/ROCm/amdsmi v0.0.0-20250516214131-51e99965b3d5
 	go.opentelemetry.io/otel v1.24.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.24.0
 	go.opentelemetry.io/otel/sdk v1.24.0

@@ -94,6 +94,24 @@ type HealthCheckConfig struct {
 
 // LoadConfig loads configuration from environment variables and defaults
 func LoadConfig() (*Config, error) {
+	// Validate required OTLP configuration
+	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if endpoint == "" {
+		return nil, fmt.Errorf("OTEL_EXPORTER_OTLP_ENDPOINT environment variable is required")
+	}
+
+	headers := make(map[string]string)
+	if headerStr := os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"); headerStr != "" {
+		for _, pair := range strings.Split(headerStr, ",") {
+			kv := strings.SplitN(pair, "=", 2)
+			if len(kv) == 2 {
+				headers[kv[0]] = kv[1]
+			}
+		}
+	} else {
+		return nil, fmt.Errorf("OTEL_EXPORTER_OTLP_HEADERS environment variable is required")
+	}
+
 	config := &Config{
 		GPU: GPUConfig{
 			Enabled:         getEnvOrDefaultBool("GPU_ENABLED", true),
@@ -118,8 +136,8 @@ func LoadConfig() (*Config, error) {
 			CacheDuration: getEnvOrDefaultDuration("COLLECTION_CACHE_DURATION", 5*time.Second),
 		},
 		Export: ExportConfig{
-			Endpoint:     getEnvOrDefaultString("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317"),
-			Headers:      getEnvOrDefaultStringMap("OTEL_EXPORTER_OTLP_HEADERS", map[string]string{}),
+			Endpoint:     endpoint,
+			Headers:      headers,
 			Timeout:      getEnvOrDefaultDuration("OTEL_EXPORTER_OTLP_TIMEOUT", 30*time.Second),
 			BatchSize:    getEnvOrDefaultInt("OTEL_EXPORTER_OTLP_BATCH_SIZE", 512),
 			MaxQueueSize: getEnvOrDefaultInt("OTEL_EXPORTER_OTLP_MAX_QUEUE_SIZE", 2048),
