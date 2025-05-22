@@ -1,4 +1,4 @@
-import { DatabaseWidget, Widget } from "@/types/dashlit";
+import { DatabaseWidget, Widget } from "@/types/manage-dashboard";
 import { jsonParse } from "@/utils/json";
 import Sanitizer from "@/utils/sanitizer";
 

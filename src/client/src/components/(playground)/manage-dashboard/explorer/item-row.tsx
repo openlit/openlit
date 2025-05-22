@@ -1,0 +1,146 @@
+import { DashboardHeirarchy } from "@/types/manage-dashboard";
+import { GripVertical, ChevronRight, ChevronDown } from "lucide-react";
+import { useCallback, useState } from "react";
+import { Draggable, Droppable } from "react-beautiful-dnd";
+import ItemIcon from "./item-icon";
+import ItemActions from "./item-actions";
+import { Badge } from "@/components/ui/badge";
+
+export default function ExplorerItemRow({
+	item,
+	path,
+	index,
+	onNavigate,
+	onAddClick,
+	onEditClick,
+	onDeleteClick,
+	exportBoardLayout,
+	setMainDashboard,
+}: {
+	item: DashboardHeirarchy;
+	path: string[];
+	index: number;
+	onNavigate: (id: string) => void;
+	onAddClick: (path: string[]) => void;
+	onEditClick: (item: DashboardHeirarchy, path: string[]) => void;
+	onDeleteClick: (id: string, path: string[]) => void;
+	exportBoardLayout: (id: string) => void;
+	setMainDashboard: (id: string) => void;
+}) {
+	const [open, setOpen] = useState(false);
+
+	const handleItemClick = useCallback(() => {
+		if (item.type === "board") {
+			onNavigate(item.id);
+		}
+	}, [item.id, item.type, onNavigate]);
+
+	const handleToggleFolder = useCallback((e: React.MouseEvent) => {
+		e.stopPropagation();
+		setOpen((prev) => !prev);
+	}, []);
+
+	return (
+		<Draggable draggableId={item.id} index={index}>
+			{(provided, snapshot) => (
+				<div
+					ref={provided.innerRef}
+					{...provided.draggableProps}
+					className="my-2"
+				>
+					<div className={`${snapshot.isDragging ? "opacity-50" : ""}`}>
+						<div className="flex items-center justify-between group py-1 px-2 rounded-md  hover:bg-stone-100 dark:hover:bg-stone-700 group-hover  bg-transparent dark:bg-transparent">
+							<div className="flex items-center gap-2 flex-1">
+								<div
+									{...provided.dragHandleProps}
+									className="cursor-grab group-hover:opacity-100 dark:group-hover:opacity-100 opacity-40"
+									onClick={(e) => e.stopPropagation()}
+								>
+									<GripVertical className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+								</div>
+								{item.type === "folder" && (
+									<button
+										onClick={handleToggleFolder}
+										className="flex items-center justify-center p-0.5 rounded hover:bg-stone-200 dark:hover:bg-stone-600 transition-colors"
+										aria-label={open ? "Collapse folder" : "Expand folder"}
+									>
+										{open ? (
+											<ChevronDown className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+										) : (
+											<ChevronRight className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+										)}
+									</button>
+								)}
+								<div
+									className="flex items-center gap-2 cursor-pointer flex-1 text-stone-500 dark:text-stone-400"
+									onClick={handleItemClick}
+								>
+									<ItemIcon
+										type={item.type}
+										open={item.type === "folder" ? open : undefined}
+									/>
+									<span>{item.title}</span>
+									{item.type === "board" && item.isMainDashboard && (
+										<Badge>Main</Badge>
+									)}
+								</div>
+							</div>
+
+							<ItemActions
+								item={item}
+								path={path}
+								onAddClick={onAddClick}
+								onEditClick={onEditClick}
+								onDeleteClick={onDeleteClick}
+								exportBoardLayout={exportBoardLayout}
+								setMainDashboard={setMainDashboard}
+							/>
+						</div>
+
+						{item.type === "folder" && open && (
+							<Droppable droppableId={`folder-${item.id}`} type="explorer-item">
+								{(droppableProvided, dropSnapshot) => (
+									<div
+										ref={droppableProvided.innerRef}
+										{...droppableProvided.droppableProps}
+										className={`
+												${item.children?.length ? "pl-4" : ""} 
+												${
+													dropSnapshot.isDraggingOver
+														? "bg-stone-100 dark:bg-stone-700 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-md py-2 mx-2"
+														: !item.children?.length
+														? "py-2 mx-2 border-2 border-dashed border-stone-300 dark:border-stone-600/50 rounded-md"
+														: ""
+												}
+											`}
+									>
+										{item.children?.map((child, childIndex) => (
+											<ExplorerItemRow
+												key={child.id}
+												item={child}
+												path={[...path, item.id]}
+												index={childIndex}
+												onNavigate={onNavigate}
+												onAddClick={onAddClick}
+												onEditClick={onEditClick}
+												onDeleteClick={onDeleteClick}
+												exportBoardLayout={exportBoardLayout}
+												setMainDashboard={setMainDashboard}
+											/>
+										))}
+										{droppableProvided.placeholder}
+										{!item.children?.length && !dropSnapshot.isDraggingOver && (
+											<div className="text-sm text-stone-500 dark:text-stone-400 text-center">
+												Drop items here
+											</div>
+										)}
+									</div>
+								)}
+							</Droppable>
+						)}
+					</div>
+				</div>
+			)}
+		</Draggable>
+	);
+}

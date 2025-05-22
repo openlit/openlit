@@ -13,7 +13,9 @@ import {
 	BookKey,
 	BookText,
 	Component,
+	FolderCogIcon,
 	FileJson2,
+	Home,
 	LayoutDashboard,
 	MonitorPlay,
 	SettingsIcon,
@@ -34,6 +36,16 @@ type SidebarItemProps = {
 const ICON_CLASSES = "flex-shrink-0 size-5";
 
 const SIDEBAR_ITEMS: SidebarItemProps[] = [
+	{
+		icon: <Home className={ICON_CLASSES} />,
+		text: "Home",
+		link: "/home",
+	},
+	{
+		icon: <FolderCogIcon className={ICON_CLASSES} />,
+		text: "Manage Dashboard",
+		link: "/manage-dashboard",
+	},
 	{
 		icon: <LayoutDashboard className={ICON_CLASSES} />,
 		text: "Dashboard",

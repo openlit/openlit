@@ -17,8 +17,10 @@ const PATH_TO_TITLE_MAP = {
 	"/vault": "Vault",
 	"/openground": "Openground",
 	"/settings": "Settings",
-	"/dashlit": "Dashlit",
-	"/dashlit/board": "Board",
+	"/manage-dashboard": "Manage Dashboard",
+	"/manage-dashboard/board": "Board",
+	"/manage-dashboard/explorer": "Explorer",
+	"/manage-dashboard/widget": "Widget",
 };
 
 export default function RouteBreadcrumbs() {

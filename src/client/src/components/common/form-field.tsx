@@ -13,7 +13,12 @@ import { PlusIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { CustomSelectProps, FieldProps, KeyValuePairProps, RadioGroupProps } from "@/types/form";
+import {
+	CustomSelectProps,
+	FieldProps,
+	KeyValuePairProps,
+	RadioGroupProps,
+} from "@/types/form";
 import { Switch, SwitchProps } from "@/components/ui/switch";
 
 function FormTagsInputField(props: FieldProps) {
@@ -107,7 +112,8 @@ function FormKeyValueField(props: FieldProps) {
 		}
 	};
 
-	const { name = "keyValue", placeholder = "" } = props.fieldTypeProps as KeyValuePairProps;
+	const { name = "keyValue", placeholder = "" } =
+		props.fieldTypeProps as KeyValuePairProps;
 
 	return (
 		<div className="grid grid-col-1 w-100 gap-4">
@@ -208,7 +214,7 @@ function FormRadioGroupField(props: FieldProps) {
 								value={option.value}
 								className="sr-only ph-no-capture"
 							/>
-							<div className="space-y-1 bg-stone-100 dark:bg-stone-800 p-4">
+							<div className="space-y-1 bg-stone-100 dark:bg-stone-800 p-4 h-full">
 								<h4 className="text-sm font-semibold">{option.title}</h4>
 								<p className="text-sm">{option.subText}</p>
 							</div>

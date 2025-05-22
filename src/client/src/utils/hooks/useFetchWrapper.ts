@@ -26,7 +26,8 @@ export default function useFetchWrapper<T>() {
 				if (
 					requestType === "GET" ||
 					requestType === "POST" ||
-					requestType === "PUT"
+					requestType === "PUT" ||
+					requestType === "PATCH"
 				) {
 					response = await getData({
 						body,
