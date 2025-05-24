@@ -58,8 +58,10 @@ class SemanticConvention:
     GEN_AI_RESPONSE_MODEL = "gen_ai.response.model"
     GEN_AI_USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
     GEN_AI_USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
+    GEN_AI_USAGE_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens"
     GEN_AI_TOOL_CALL_ID = "gen_ai.tool.call.id"
     GEN_AI_TOOL_NAME = "gen_ai.tool.name"
+    GEN_AI_TOOL_ARGS = "gen_ai.tool.args"
 
     # GenAI Operation Types (OTel Semconv)
     GEN_AI_OPERATION_TYPE_CHAT = "chat"

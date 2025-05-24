@@ -72,7 +72,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     # To be removed one the change to span_attributes (from span events) is complete
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, scope._prompt)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse,)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse)
 
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -111,8 +111,8 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         metrics["genai_cost"].record(cost, metrics_attributes)
 
 def process_chat_response(instance, response, request_model, pricing_info, server_port, server_address,
-                          environment, application_name, metrics, start_time,
-                          span, args, kwargs, capture_message_content=False, disable_metrics=False, version="1.0.0"):
+    environment, application_name, metrics, start_time,
+    span, args, kwargs, capture_message_content=False, disable_metrics=False, version="1.0.0"):
     """
     Process chat request and generate Telemetry
     """
