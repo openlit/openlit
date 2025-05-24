@@ -202,6 +202,11 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 description="Number of completion tokens processed.",
                 unit="1",
             ),
+            "genai_reasoning_tokens": meter.create_counter(
+                name=SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
+                description="Number of reasoning thought tokens processed.",
+                unit="1",
+            ),
             "genai_cost": meter.create_histogram(
                 name=SemanticConvention.GEN_AI_USAGE_COST,
                 description="The distribution of GenAI request costs.",

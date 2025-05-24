@@ -8,7 +8,6 @@ from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     set_server_address_and_port
 )
-
 from openlit.instrumentation.transformers.utils import (
     process_chat_response,
 )
@@ -18,7 +17,7 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 def pipeline_wrapper(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for GenAI function call
     """
