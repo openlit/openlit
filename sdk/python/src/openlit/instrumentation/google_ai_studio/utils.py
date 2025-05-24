@@ -10,44 +10,55 @@ from openlit.__helpers import (
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
-    extract_and_format_input,
     get_chat_model_cost,
     create_metrics_attributes,
 )
 from openlit.semcov import SemanticConvention
 
 def format_content(messages):
+    """
+    Process a list of messages to extract content, categorize them by role,
+    and concatenate all 'content' fields into a single string with role: content format.
+    """
+
     formatted_messages = []
+    prompt = ""
 
-    for content in messages:
-        role = content.role
-        parts = content.parts
-        content_str = []
+    if isinstance(messages, list):
+        for content in messages:
+            role = content.role
+            parts = content.parts
+            content_str = []
 
-        for part in parts:
-            # Collect relevant fields and handle each type of data that Part could contain
-            if part.text:
-                content_str.append(f"text: {part.text}")
-            if part.video_metadata:
-                content_str.append(f"video_metadata: {part.video_metadata}")
-            if part.thought:
-                content_str.append(f"thought: {part.thought}")
-            if part.code_execution_result:
-                content_str.append(f"code_execution_result: {part.code_execution_result}")
-            if part.executable_code:
-                content_str.append(f"executable_code: {part.executable_code}")
-            if part.file_data:
-                content_str.append(f"file_data: {part.file_data}")
-            if part.function_call:
-                content_str.append(f"function_call: {part.function_call}")
-            if part.function_response:
-                content_str.append(f"function_response: {part.function_response}")
-            if part.inline_data:
-                content_str.append(f"inline_data: {part.inline_data}")
+            for part in parts:
+                # Collect relevant fields and handle each type of data that Part could contain
+                if part.text:
+                    content_str.append(f"text: {part.text}")
+                if part.video_metadata:
+                    content_str.append(f"video_metadata: {part.video_metadata}")
+                if part.thought:
+                    content_str.append(f"thought: {part.thought}")
+                if part.code_execution_result:
+                    content_str.append(f"code_execution_result: {part.code_execution_result}")
+                if part.executable_code:
+                    content_str.append(f"executable_code: {part.executable_code}")
+                if part.file_data:
+                    content_str.append(f"file_data: {part.file_data}")
+                if part.function_call:
+                    content_str.append(f"function_call: {part.function_call}")
+                if part.function_response:
+                    content_str.append(f"function_response: {part.function_response}")
+                if part.inline_data:
+                    content_str.append(f"inline_data: {part.inline_data}")
 
-        formatted_messages.append(f"{role}: {', '.join(content_str)}")
+            formatted_messages.append(f"{role}: {', '.join(content_str)}")
 
-    return "\n".join(formatted_messages)
+        prompt = "\n".join(formatted_messages)
+
+    else:
+        prompt = messages
+    
+    return prompt    
 
 def process_chunk(self, chunk):
     """
@@ -135,11 +146,12 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     scope._span.set_attribute(SERVICE_NAME, application_name)
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, is_stream)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens + scope._output_tokens + scope._reasoning_tokens)
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, scope._tbt)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, scope._ttft)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
+        scope._input_tokens + scope._output_tokens + scope._reasoning_tokens)
 
     if scope._tools:
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get('name',''))
@@ -177,7 +189,6 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             response_model=scope._response_model,
         )
 
-        metrics['genai_client_usage_tokens'].record(scope._input_tokens + scope._output_tokens + scope._reasoning_tokens, metrics_attributes)
         metrics['genai_client_operation_duration'].record(scope._end_time - scope._start_time, metrics_attributes)
         metrics['genai_server_tbt'].record(scope._tbt, metrics_attributes)
         metrics['genai_server_ttft'].record(scope._ttft, metrics_attributes)
@@ -186,6 +197,9 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         metrics['genai_prompt_tokens'].add(scope._input_tokens, metrics_attributes)
         metrics['genai_reasoning_tokens'].add(scope._reasoning_tokens, metrics_attributes)
         metrics['genai_cost'].record(cost, metrics_attributes)
+        metrics['genai_client_usage_tokens'].record(
+            scope._input_tokens + scope._output_tokens + scope._reasoning_tokens, metrics_attributes)
+
 
 def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics,
     capture_message_content=False, disable_metrics=False, version=''):
@@ -219,7 +233,7 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
     self._server_address, self._server_port = server_address, server_port
     self._kwargs = kwargs
     self._finish_reason = str(response_dict.get('candidates')[0].get('finish_reason'))
-    
+
     try:
         self._tools = response_dict.get('candidates', [])[0].get('content', {}).get('parts', [])[0].get('function_call', '')
     except:
