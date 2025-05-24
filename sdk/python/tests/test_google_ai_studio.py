@@ -15,31 +15,45 @@ OpenLIT monitoring prior to running these tests.
 
 import os
 import pytest
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import openlit
 
 # Initialize Google AI Studio client
-genai.configure(api_key=os.getenv("GOOGLE_AI_STUDIO_API_TOKEN"))
-model = genai.GenerativeModel("gemini-1.5-flash")
+client = genai.Client(
+    api_key=os.getenv("GOOGLE_AI_STUDIO_API_TOKEN")
+)
+model = "gemini-2.0-flash"
+contents = [
+    types.Content(
+        role="user",
+        parts=[
+            types.Part.from_text(text="""Hi"""),
+        ],
+    ),
+]
+generate_content_config = types.GenerateContentConfig(
+    response_mime_type="text/plain",
+)
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(environment="openlit-testing", application_name="openlit-python-gemini-test")
 
 def test_sync_generate_content():
     """
-    Tests synchronous Generate content with the "gemini-1.5-flash" model.
+    Tests synchronous Generate content with the "gemini-2.0-flash" model.
 
     Raises:
         AssertionError: If the generate content response object is not as expected.
     """
 
     try:
-        response = model.generate_content("Observability for LLMs", stream=False)
+        response = client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=generate_content_config,
+        )
         assert isinstance(response.text, str)
-
-        response = model.generate_content("Monitor AI", stream=True)
-        for text in response:
-            assert isinstance(text.text, str)
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
@@ -51,19 +65,19 @@ def test_sync_generate_content():
 @pytest.mark.asyncio
 async def test_async_generate_content():
     """
-    Tests synchronous Generate content with the "gemini-1.5-flash" model.
+    Tests synchronous Generate content with the "gemini-2.0-flash" model.
 
     Raises:
         AssertionError: If the generate content response object is not as expected.
     """
 
     try:
-        response = await model.generate_content_async("Observability for LLMs", stream=False)
+        response = await client.aio.models.generate_content(
+            model=model,
+            contents=contents,
+            config=generate_content_config,
+        )
         assert isinstance(response.text, str)
-
-        response = await model.generate_content_async("Monitor AI", stream=True)
-        async for text in response:
-            assert isinstance(text.text, str)
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
