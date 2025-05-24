@@ -152,7 +152,7 @@ def generate_stream(version, environment, application_name,
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         awaited_wrapped = wrapped(*args, **kwargs)
-        span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+        span = tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT)
 
         return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
 

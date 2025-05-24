@@ -23,7 +23,6 @@ import openlit
 client = genai.Client(
     api_key=os.getenv("GOOGLE_AI_STUDIO_API_TOKEN")
 )
-model = "gemini-2.0-flash"
 contents = [
     types.Content(
         role="user",
@@ -49,7 +48,7 @@ def test_sync_generate_content():
 
     try:
         response = client.models.generate_content(
-            model=model,
+            model="gemini-2.0-flash",
             contents=contents,
             config=generate_content_config,
         )
@@ -73,7 +72,7 @@ async def test_async_generate_content():
 
     try:
         response = await client.aio.models.generate_content(
-            model=model,
+            model="gemini-2.0-flash",
             contents=contents,
             config=generate_content_config,
         )

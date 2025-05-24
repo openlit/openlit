@@ -57,8 +57,8 @@ def format_content(messages):
 
     else:
         prompt = messages
-    
-    return prompt    
+
+    return prompt
 
 def process_chunk(self, chunk):
     """
