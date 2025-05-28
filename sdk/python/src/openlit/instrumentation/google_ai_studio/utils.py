@@ -27,7 +27,7 @@ def format_content(messages):
     if isinstance(messages, list):
         try:
             for content in messages:
-                role = content.role or "user"
+                role = content.role if content.role is not None else "user"
                 parts = content.parts
                 content_str = []
 
