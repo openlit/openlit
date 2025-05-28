@@ -25,35 +25,39 @@ def format_content(messages):
     prompt = ""
 
     if isinstance(messages, list):
-        for content in messages:
-            role = content.role
-            parts = content.parts
-            content_str = []
+        try:
+            for content in messages:
+                role = content.role if content.role is not None else "user"
+                parts = content.parts
+                content_str = []
 
-            for part in parts:
-                # Collect relevant fields and handle each type of data that Part could contain
-                if part.text:
-                    content_str.append(f"text: {part.text}")
-                if part.video_metadata:
-                    content_str.append(f"video_metadata: {part.video_metadata}")
-                if part.thought:
-                    content_str.append(f"thought: {part.thought}")
-                if part.code_execution_result:
-                    content_str.append(f"code_execution_result: {part.code_execution_result}")
-                if part.executable_code:
-                    content_str.append(f"executable_code: {part.executable_code}")
-                if part.file_data:
-                    content_str.append(f"file_data: {part.file_data}")
-                if part.function_call:
-                    content_str.append(f"function_call: {part.function_call}")
-                if part.function_response:
-                    content_str.append(f"function_response: {part.function_response}")
-                if part.inline_data:
-                    content_str.append(f"inline_data: {part.inline_data}")
+                for part in parts:
+                    # Collect relevant fields and handle each type of data that Part could contain
+                    if part.text:
+                        content_str.append(f"text: {part.text}")
+                    if part.video_metadata:
+                        content_str.append(f"video_metadata: {part.video_metadata}")
+                    if part.thought:
+                        content_str.append(f"thought: {part.thought}")
+                    if part.code_execution_result:
+                        content_str.append(f"code_execution_result: {part.code_execution_result}")
+                    if part.executable_code:
+                        content_str.append(f"executable_code: {part.executable_code}")
+                    if part.file_data:
+                        content_str.append(f"file_data: {part.file_data}")
+                    if part.function_call:
+                        content_str.append(f"function_call: {part.function_call}")
+                    if part.function_response:
+                        content_str.append(f"function_response: {part.function_response}")
+                    if part.inline_data:
+                        content_str.append(f"inline_data: {part.inline_data}")
 
-            formatted_messages.append(f"{role}: {', '.join(content_str)}")
+                formatted_messages.append(f"{role}: {', '.join(content_str)}")
 
-        prompt = "\n".join(formatted_messages)
+            prompt = "\n".join(formatted_messages)
+
+        except:
+            prompt = str(messages)
 
     else:
         prompt = messages
