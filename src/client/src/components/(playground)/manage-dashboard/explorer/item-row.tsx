@@ -16,6 +16,7 @@ export default function ExplorerItemRow({
 	onDeleteClick,
 	exportBoardLayout,
 	setMainDashboard,
+	importBoardLayout,
 }: {
 	item: DashboardHeirarchy;
 	path: string[];
@@ -26,6 +27,7 @@ export default function ExplorerItemRow({
 	onDeleteClick: (id: string, path: string[]) => void;
 	exportBoardLayout: (id: string) => void;
 	setMainDashboard: (id: string) => void;
+	importBoardLayout: (data: any) => Promise<unknown>;
 }) {
 	const [open, setOpen] = useState(false);
 
@@ -39,6 +41,11 @@ export default function ExplorerItemRow({
 		e.stopPropagation();
 		setOpen((prev) => !prev);
 	}, []);
+
+	const handleImportBoardLayout = useCallback((data: any) => {
+		data.parentId = item.id;
+		return importBoardLayout(data);
+	}, [importBoardLayout]);
 
 	return (
 		<Draggable draggableId={item.id} index={index}>
@@ -94,6 +101,7 @@ export default function ExplorerItemRow({
 								onDeleteClick={onDeleteClick}
 								exportBoardLayout={exportBoardLayout}
 								setMainDashboard={setMainDashboard}
+								importBoardLayout={handleImportBoardLayout}
 							/>
 						</div>
 
@@ -105,13 +113,12 @@ export default function ExplorerItemRow({
 										{...droppableProvided.droppableProps}
 										className={`
 												${item.children?.length ? "pl-4" : ""} 
-												${
-													dropSnapshot.isDraggingOver
-														? "bg-stone-100 dark:bg-stone-700 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-md py-2 mx-2"
-														: !item.children?.length
-														? "py-2 mx-2 border-2 border-dashed border-stone-300 dark:border-stone-600/50 rounded-md"
-														: ""
-												}
+												${dropSnapshot.isDraggingOver
+												? "bg-stone-100 dark:bg-stone-700 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-md py-2 mx-2"
+												: !item.children?.length
+													? "py-2 mx-2 border-2 border-dashed border-stone-300 dark:border-stone-600/50 rounded-md"
+													: ""
+											}
 											`}
 									>
 										{item.children?.map((child, childIndex) => (

@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
-import type { FC } from "react";
 import {
 	BarChartWidget,
 	PieChartWidget,
 	StatCardWidget,
 	WidgetType,
+	MarkdownWidget,
+	ChartWidget,
+	TableWidget,
 } from "../types";
 import { useEditWidget } from "../hooks/useEditWidget";
 import {
@@ -15,6 +17,7 @@ import {
 	LineChart,
 	PieChart,
 	Database,
+	FileText,
 } from "lucide-react";
 import CodeEditor from "./CodeEditor";
 
@@ -138,7 +141,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 							<Tabs value={currentTab} onValueChange={setCurrentTab}>
 								<TabsList className="grid w-full grid-cols-3">
 									<TabsTrigger value="general">General</TabsTrigger>
-									<TabsTrigger value="query">Query</TabsTrigger>
+									<TabsTrigger value="query">Config</TabsTrigger>
 									<TabsTrigger value="appearance">Appearance</TabsTrigger>
 								</TabsList>
 
@@ -205,6 +208,12 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													<div className="flex items-center gap-2">
 														<Database className="h-4 w-4" />
 														<span>Table</span>
+													</div>
+												</SelectItem>
+												<SelectItem value={WidgetType.MARKDOWN}>
+													<div className="flex items-center gap-2">
+														<FileText className="h-4 w-4" />
+														<span>Markdown</span>
 													</div>
 												</SelectItem>
 											</SelectContent>
@@ -408,121 +417,163 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 									)}
 								</TabsContent>
 
-								{/* Query Tab */}
+								{/* Config Tab */}
 								<TabsContent value="query" className="space-y-4 mt-4">
-									<div className="space-y-2">
-										<div className="flex justify-between items-center">
-											<Label htmlFor="query">Query</Label>
+									{currentWidget.type === WidgetType.MARKDOWN ? (
+										<div className="space-y-4">
+											<div className="space-y-2">
+												<Label htmlFor="content">Markdown Content</Label>
+												<Textarea
+													id="content"
+													value={
+														(currentWidget as MarkdownWidget).config?.content
+													}
+													onChange={(e) =>
+														updateWidget(currentWidget.id, {
+															config: {
+																...(currentWidget as MarkdownWidget).config,
+																content: e.target.value,
+															},
+														})
+													}
+													placeholder="Write your markdown content here..."
+													className="min-h-[400px] font-mono"
+												/>
+											</div>
 										</div>
-										<div className="border rounded-md h-[calc(100vh-400px)]">
-											<CodeEditor
-												value={currentWidget.config?.query || ""}
-												onChange={handleEditorChange}
-												language={editorLanguage}
-											/>
-										</div>
-									</div>
+									) : (
+										<>
+											<div className="space-y-2">
+												<div className="flex justify-between items-center">
+													<Label htmlFor="query">Query</Label>
+												</div>
+												<div className="border rounded-md h-[calc(100vh-400px)]">
+													<CodeEditor
+														value={currentWidget.config?.query || ""}
+														onChange={handleEditorChange}
+														language={editorLanguage}
+													/>
+												</div>
+											</div>
 
-									<div className="flex justify-end">
-										<Button size="sm" onClick={handleRunQuery}>
-											Run Query
-										</Button>
-									</div>
+											<div className="flex justify-end">
+												<Button size="sm" onClick={handleRunQuery}>
+													Run Query
+												</Button>
+											</div>
 
-									<div className="">
-										<QueryDebugger
-											data={queryResult}
-											error={queryError || undefined}
-											isLoading={isQueryLoading}
-										/>
-									</div>
+											<div className="">
+												<QueryDebugger
+													data={queryResult}
+													error={queryError || undefined}
+													isLoading={isQueryLoading}
+												/>
+											</div>
+										</>
+									)}
 								</TabsContent>
 
 								{/* Appearance Tab */}
 								<TabsContent value="appearance" className="space-y-4 mt-4">
-									<div className="space-y-2">
-										<Label htmlFor="color">Color Theme</Label>
-										<Select
-											value={currentWidget.properties.color}
-											onValueChange={(value) =>
-												updateWidgetProperties(currentWidget.id, {
-													color: value,
-												})
-											}
-										>
-											<SelectTrigger>
-												<SelectValue placeholder="Select color theme" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="blue">Blue</SelectItem>
-												<SelectItem value="green">Green</SelectItem>
-												<SelectItem value="red">Red</SelectItem>
-												<SelectItem value="purple">Purple</SelectItem>
-												<SelectItem value="orange">Orange</SelectItem>
-											</SelectContent>
-										</Select>
-									</div>
+									{currentWidget.type !== WidgetType.MARKDOWN && (
+										<>
+											{(currentWidget.type === WidgetType.STAT_CARD ||
+												currentWidget.type === WidgetType.BAR_CHART ||
+												currentWidget.type === WidgetType.LINE_CHART ||
+												currentWidget.type === WidgetType.PIE_CHART ||
+												currentWidget.type === WidgetType.AREA_CHART ||
+												currentWidget.type === WidgetType.TABLE) && (
+												<div className="space-y-2">
+													<Label htmlFor="color">Color Theme</Label>
+													<Select
+														value={(currentWidget as ChartWidget | StatCardWidget | TableWidget).properties.color}
+														onValueChange={(value) =>
+															updateWidgetProperties(currentWidget.id, {
+																color: value,
+															})
+														}
+													>
+														<SelectTrigger>
+															<SelectValue placeholder="Select color theme" />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="blue">Blue</SelectItem>
+															<SelectItem value="green">Green</SelectItem>
+															<SelectItem value="red">Red</SelectItem>
+															<SelectItem value="purple">Purple</SelectItem>
+															<SelectItem value="orange">Orange</SelectItem>
+														</SelectContent>
+													</Select>
+												</div>
+											)}
 
-									{/* Additional appearance options based on widget type */}
-									{currentWidget.type === WidgetType.STAT_CARD && (
-										<div className="space-y-2">
-											<Label htmlFor="textSize">Text Size</Label>
-											<Select
-												defaultValue="medium"
-												onValueChange={(value) =>
-													updateWidgetProperties(currentWidget.id, {
-														textSize: value,
-													})
-												}
-											>
-												<SelectTrigger>
-													<SelectValue placeholder="Select text size" />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="small">Small</SelectItem>
-													<SelectItem value="medium">Medium</SelectItem>
-													<SelectItem value="large">Large</SelectItem>
-												</SelectContent>
-											</Select>
+											{/* Additional appearance options based on widget type */}
+											{currentWidget.type === WidgetType.STAT_CARD && (
+												<div className="space-y-2">
+													<Label htmlFor="textSize">Text Size</Label>
+													<Select
+														defaultValue="medium"
+														onValueChange={(value) =>
+															updateWidgetProperties(currentWidget.id, {
+																textSize: value,
+															})
+														}
+													>
+														<SelectTrigger>
+															<SelectValue placeholder="Select text size" />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="small">Small</SelectItem>
+															<SelectItem value="medium">Medium</SelectItem>
+															<SelectItem value="large">Large</SelectItem>
+														</SelectContent>
+													</Select>
+												</div>
+											)}
+
+											{(currentWidget.type === WidgetType.BAR_CHART ||
+												currentWidget.type === WidgetType.LINE_CHART ||
+												currentWidget.type === WidgetType.PIE_CHART ||
+												currentWidget.type === WidgetType.AREA_CHART) && (
+												<div className="space-y-2">
+													<Label htmlFor="showLegend">Legend</Label>
+													<Select
+														defaultValue="true"
+														onValueChange={(value) =>
+															updateWidgetProperties(currentWidget.id, {
+																showLegend: value === "true",
+															})
+														}
+													>
+														<SelectTrigger>
+															<SelectValue placeholder="Show legend" />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="true">Show</SelectItem>
+															<SelectItem value="false">Hide</SelectItem>
+														</SelectContent>
+													</Select>
+												</div>
+											)}
+
+											<div className="flex items-center space-x-2 pt-2">
+												<Switch
+													id="auto-refresh"
+													onCheckedChange={(checked) =>
+														updateWidgetProperties(currentWidget.id, {
+															autoRefresh: checked,
+														})
+													}
+												/>
+												<Label htmlFor="auto-refresh">Auto-refresh data</Label>
+											</div>
+										</>
+									)}
+									{currentWidget.type === WidgetType.MARKDOWN && (
+										<div className="flex items-center justify-center h-[200px] text-muted-foreground">
+											Appearance configuration is not available for Markdown widgets
 										</div>
 									)}
-
-									{(currentWidget.type === WidgetType.BAR_CHART ||
-										currentWidget.type === WidgetType.LINE_CHART ||
-										currentWidget.type === WidgetType.PIE_CHART ||
-										currentWidget.type === WidgetType.AREA_CHART) && (
-										<div className="space-y-2">
-											<Label htmlFor="showLegend">Legend</Label>
-											<Select
-												defaultValue="true"
-												onValueChange={(value) =>
-													updateWidgetProperties(currentWidget.id, {
-														showLegend: value === "true",
-													})
-												}
-											>
-												<SelectTrigger>
-													<SelectValue placeholder="Show legend" />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="true">Show</SelectItem>
-													<SelectItem value="false">Hide</SelectItem>
-												</SelectContent>
-											</Select>
-										</div>
-									)}
-
-									<div className="flex items-center space-x-2 pt-2">
-										<Switch
-											id="auto-refresh"
-											onCheckedChange={(checked) =>
-												updateWidgetProperties(currentWidget.id, {
-													autoRefresh: checked,
-												})
-											}
-										/>
-										<Label htmlFor="auto-refresh">Auto-refresh data</Label>
-									</div>
 								</TabsContent>
 							</Tabs>
 						</div>

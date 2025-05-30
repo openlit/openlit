@@ -63,6 +63,7 @@
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
     "react-grid-layout": "^1.5.1",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.0.19",
     "react-syntax-highlighter": "^15.5.0",
     "recharts": "^2.12.7",

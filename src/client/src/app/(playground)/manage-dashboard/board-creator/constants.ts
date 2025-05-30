@@ -1,5 +1,5 @@
 import { WidgetsRecord, WidgetType, type ColorTheme } from "./types"
-import { Activity, BarChart3, LineChart, PieChart, Database, AreaChart } from "lucide-react"
+import { Activity, BarChart3, LineChart, PieChart, Database, AreaChart, FileText } from "lucide-react"
 
 // Widget type icons mapping
 export const WIDGET_TYPE_ICONS = {
@@ -9,6 +9,7 @@ export const WIDGET_TYPE_ICONS = {
   [WidgetType.PIE_CHART]: PieChart,
   [WidgetType.TABLE]: Database,
   [WidgetType.AREA_CHART]: AreaChart,
+  [WidgetType.MARKDOWN]: FileText,
 }
 
 // Color palette for charts

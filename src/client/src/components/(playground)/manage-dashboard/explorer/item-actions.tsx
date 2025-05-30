@@ -1,5 +1,5 @@
 import { DashboardHeirarchy } from "@/types/manage-dashboard";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -7,7 +7,8 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Edit, Trash2, Download } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, Trash2, Download, Upload } from "lucide-react";
+import ImportLayoutModal from "./import-layout-modal";
 
 export default function ItemActions({
 	item,
@@ -17,6 +18,7 @@ export default function ItemActions({
 	onDeleteClick,
 	exportBoardLayout,
 	setMainDashboard,
+	importBoardLayout,
 }: {
 	item: DashboardHeirarchy;
 	path: string[];
@@ -25,7 +27,10 @@ export default function ItemActions({
 	onDeleteClick: (id: string, path: string[]) => void;
 	exportBoardLayout: (id: string) => void;
 	setMainDashboard: (id: string) => void;
+	importBoardLayout: (data: any) => Promise<unknown>;
 }) {
+	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
 	const handleAddClick = useCallback(
 		(e: React.MouseEvent) => {
 			e.stopPropagation(); // Prevent event from bubbling up
@@ -85,16 +90,21 @@ export default function ItemActions({
 						<Edit className="h-4 w-4 mr-2" />
 						Rename
 					</DropdownMenuItem>
-					{item.type === "board" && (
-						<DropdownMenuItem onClick={handleDownloadClick}>
-							<Download className="h-4 w-4 mr-2" />
-							Download Layout
-						</DropdownMenuItem>
-					)}
-					{item.type === "board" && (
-						<DropdownMenuItem onClick={() => setMainDashboard(item.id)}>
-							<Download className="h-4 w-4 mr-2" />
-							Set as Main Dashboard
+					{item.type === "board" ? (
+						<>
+							<DropdownMenuItem onClick={handleDownloadClick}>
+								<Download className="h-4 w-4 mr-2" />
+								Export Layout
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => setMainDashboard(item.id)}>
+								<Download className="h-4 w-4 mr-2" />
+								Set as Main Dashboard
+							</DropdownMenuItem>
+						</>
+					) : (
+						<DropdownMenuItem onClick={() => setIsImportModalOpen(true)}>
+							<Upload className="h-4 w-4 mr-2" />
+							Import Layout
 						</DropdownMenuItem>
 					)}
 					<DropdownMenuItem
@@ -106,6 +116,12 @@ export default function ItemActions({
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+
+			<ImportLayoutModal
+				open={isImportModalOpen}
+				onClose={() => setIsImportModalOpen(false)}
+				onImport={importBoardLayout as any}
+			/>
 		</div>
 	);
 }

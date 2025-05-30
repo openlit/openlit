@@ -33,6 +33,7 @@ export default function DashboardExplorer() {
 	const { fireRequest: deleteFolderRequest } = useFetchWrapper();
 	const { fireRequest: deleteBoardRequest } = useFetchWrapper();
 	const { fireRequest: setMainDashboardRequest } = useFetchWrapper();
+	const { fireRequest: importBoardLayoutRequest } = useFetchWrapper();
 
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -315,6 +316,20 @@ export default function DashboardExplorer() {
 	const exportBoardLayout = useCallback((id: string) => {
 		window.location.href = `/api/manage-dashboard/board/${id}/layout/export`;
 	}, []);
+
+	const importBoardLayout = useCallback((data: any) => {
+		importBoardLayoutRequest({
+			requestType: "POST",
+			url: `/api/manage-dashboard/board/layout/import`,
+			body: JSON.stringify(data),
+			successCb: () => {
+				loadHierarchy();
+			},
+			failureCb: (error) => {
+				console.error("Failed to import board layout:", error);
+			},
+		});
+	}, [importBoardLayoutRequest, loadHierarchy]);
 
 	// Open dialog for adding a new item
 	const openAddDialog = useCallback((path: string[] = []) => {
@@ -624,6 +639,7 @@ export default function DashboardExplorer() {
 											onDeleteClick={deleteItem}
 											exportBoardLayout={exportBoardLayout}
 											setMainDashboard={handleSetMainDashboard}
+											importBoardLayout={importBoardLayout}
 										/>
 									))}
 									{provided.placeholder}

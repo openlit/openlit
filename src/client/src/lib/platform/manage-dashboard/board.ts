@@ -3,11 +3,10 @@ import { dataCollector } from "../common";
 import {
 	OPENLIT_BOARD_TABLE_NAME,
 	OPENLIT_BOARD_WIDGET_TABLE_NAME,
-	OPENLIT_WIDGET_TABLE_NAME,
 } from "./table-details";
 import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
-import { getWidgets } from "./widget";
+import { createWidget, getWidgets } from "./widget";
 import { pluck } from "lodash/fp";
 
 export function getBoardById(id: string) {
@@ -59,8 +58,8 @@ export async function createBoard(board: Board) {
 	if (err || !(data as { query_id: string }).query_id)
 		return { err: getMessage().BOARD_CREATE_FAILED };
 
-	const { data: data_board } = await dataCollector({
-		query: `Select * from ${OPENLIT_BOARD_WIDGET_TABLE_NAME} limit 1 order by created_at desc`,
+	const { data: data_board, err: err_board } = await dataCollector({
+		query: `Select * from ${OPENLIT_BOARD_TABLE_NAME} order by created_at desc limit 1`,
 	});
 
 	return { data: (data_board as any[])[0] };
@@ -72,7 +71,7 @@ export async function updateBoard(board: Board) {
 	const updateValues = [
 		sanitizedBoard.title && `title = '${sanitizedBoard.title}'`,
 		sanitizedBoard.description &&
-			`description = '${sanitizedBoard.description}'`,
+		`description = '${sanitizedBoard.description}'`,
 		`parent_id = '${sanitizedBoard.parentId}'`,
 	];
 
@@ -385,4 +384,67 @@ export async function getMainDashboard() {
 		return { err: getMessage().MAIN_DASHBOARD_NOT_FOUND };
 
 	return getBoardLayout((mainDashboardData as any[])[0].id);
+}
+
+export async function importBoardLayout(data: any) {
+	const boardData: Partial<Board> = {
+		title: data.title,
+		description: data.description,
+		parentId: data.parentId,
+	};
+
+	// Create the board first
+	const boardResult = await createBoard(boardData as Board);
+	if ('err' in boardResult) {
+		return { err: boardResult.err };
+	}
+
+	const newBoardId = boardResult.data.id;
+
+	// Update the board layout with widgets and their positions
+	const layoutConfig = {
+		layouts: data.layouts,
+		widgets: data.widgets
+	};
+
+	const widgetIdMap = new Map();
+
+	const updatedWidgets = Object.values(layoutConfig.widgets).map((widget: any) => {
+		const newWidgetId = crypto.randomUUID();
+		widgetIdMap.set(widget.id, newWidgetId);
+		return {
+			...widget,
+			id: newWidgetId,
+		}
+	});
+
+	const updatedLayouts = layoutConfig.layouts.lg.map((layout: any) => {
+		return {
+			...layout,
+			i: widgetIdMap.get(layout.i)
+		}
+	});
+
+	const widgetCreateResult = await Promise.all(updatedWidgets.map((widget: any) => {
+		return createWidget(widget);
+	}));
+
+	const layoutConfigData = {
+		layouts: {
+			lg: updatedLayouts
+		},
+		widgets: updatedWidgets.reduce((acc: any, widget: any) => {
+			acc[widget.id] = widget;
+			return acc;
+		}, {}),
+	}
+
+
+	const { data: layoutData } = await updateBoardLayout(newBoardId, layoutConfigData);
+
+	if (layoutData) {
+		return { data: getMessage().BOARD_IMPORT_SUCCESSFULLY };
+	}
+
+	return { err: getMessage().BOARD_IMPORT_FAILED };
 }

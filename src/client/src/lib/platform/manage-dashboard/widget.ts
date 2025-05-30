@@ -32,12 +32,11 @@ export async function getWidgets(widgetIds?: string[]) {
 		SELECT id, title, description, widget_type AS type, properties,
 			config, created_at AS createdAt, updated_at AS updatedAt
 		FROM ${OPENLIT_WIDGET_TABLE_NAME}
-		${
-			widgetIds
-				? `WHERE id IN (${widgetIds
-						.map((id) => `'${Sanitizer.sanitizeValue(id)}'`)
-						.join(",")})`
-				: ""
+		${widgetIds
+			? `WHERE id IN (${widgetIds
+				.map((id) => `'${Sanitizer.sanitizeValue(id)}'`)
+				.join(",")})`
+			: ""
 		}
 	`;
 
@@ -58,6 +57,7 @@ export async function createWidget(widget: Widget) {
 			table: OPENLIT_WIDGET_TABLE_NAME,
 			values: [
 				{
+					id: sanitizedWidget.id,
 					title: sanitizedWidget.title,
 					description: sanitizedWidget.description,
 					widget_type: sanitizedWidget.type,
@@ -97,7 +97,7 @@ export async function createWidget(widget: Widget) {
 		}
 	}
 
-	return { err: getMessage().WIDGET_UPDATE_FAILED };
+	return { err: getMessage().WIDGET_CREATE_FAILED };
 }
 
 export async function updateWidget(widget: Widget) {
@@ -106,12 +106,12 @@ export async function updateWidget(widget: Widget) {
 	const updateValues = [
 		sanitizedWidget.title && `title = '${sanitizedWidget.title}'`,
 		sanitizedWidget.description &&
-			`description = '${sanitizedWidget.description}'`,
+		`description = '${sanitizedWidget.description}'`,
 		sanitizedWidget.type && `widget_type = '${sanitizedWidget.type}'`,
 		sanitizedWidget.properties &&
-			`properties = '${JSON.stringify(sanitizedWidget.properties)}'`,
+		`properties = '${JSON.stringify(sanitizedWidget.properties)}'`,
 		sanitizedWidget.config &&
-			`config = '${JSON.stringify(sanitizedWidget.config)}'`,
+		`config = '${JSON.stringify(sanitizedWidget.config)}'`,
 	];
 
 	const query = `
@@ -167,8 +167,8 @@ export async function runWidgetQuery(
 			*
 		FROM ${OTEL_TRACES_TABLE_NAME}
 		WHERE ${getFilterWhereCondition({
-			...filter,
-		})}
+		...filter,
+	})}
 	`;
 
 	// TODO: Check for the select query only

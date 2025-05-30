@@ -9,6 +9,7 @@ import LineChartWidget from "./LineChartWidget";
 import PieChartWidget from "./PieChartWidget";
 import TableWidget from "./TableWidget";
 import AreaChartWidget from "./AreaChartWidget";
+import MarkdownWidget from "./MarkdownWidget";
 import { useDashboard } from "../context/DashboardContext";
 import {
 	Tooltip,
@@ -55,6 +56,8 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 				return TableWidget;
 			case WidgetType.AREA_CHART:
 				return AreaChartWidget;
+			case WidgetType.MARKDOWN:
+				return MarkdownWidget;
 			default:
 				return null;
 		}

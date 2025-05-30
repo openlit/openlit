@@ -9,6 +9,7 @@ export enum WidgetType {
 	PIE_CHART = "PIE_CHART",
 	TABLE = "TABLE",
 	AREA_CHART = "AREA_CHART",
+	MARKDOWN = "MARKDOWN",
 }
 
 // Color Themes
@@ -81,6 +82,13 @@ export interface AreaChartWidget extends ChartWidget {
 	};
 }
 
+export interface MarkdownWidget extends BaseWidgetProps {
+	config: {
+		content: string;
+		showPreview?: boolean;
+	};
+}
+
 // Combined Widget Type
 export type Widget =
 	| StatCardWidget
@@ -88,7 +96,8 @@ export type Widget =
 	| LineChartWidget
 	| PieChartWidget
 	| TableWidget
-	| AreaChartWidget;
+	| AreaChartWidget
+	| MarkdownWidget;
 
 // Widgets Record - maps widget IDs to widget objects
 export type WidgetsRecord = Record<string, Widget>;

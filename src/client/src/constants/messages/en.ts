@@ -63,6 +63,7 @@ export const BOARD_UPDATED_SUCCESSFULLY = "Board updated successfully!";
 export const FOLDER_UPDATE_FAILED = "Folder update failed!";
 export const FOLDER_UPDATED_SUCCESSFULLY = "Folder updated successfully!";
 export const WIDGET_UPDATE_FAILED = "Widget update failed!";
+export const WIDGET_CREATE_FAILED = "Widget create failed!";
 export const WIDGET_UPDATED_SUCCESSFULLY = "Widget updated successfully!";
 export const BOARD_LAYOUT_UPDATED_SUCCESSFULLY =
 	"Board layout updated successfully!";
@@ -75,3 +76,5 @@ export const FOLDER_DELETE_FAILED =
 export const FOLDER_DELETED_SUCCESSFULLY = "Folder deleted successfully!";
 export const MAIN_DASHBOARD_NOT_FOUND = "Main dashboard not found!";
 export const BOARD_CREATE_FAILED = "Board create failed!";
+export const BOARD_IMPORT_FAILED = "Board import failed!";
+export const BOARD_IMPORT_SUCCESSFULLY = "Board import successfully!";
