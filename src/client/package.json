@@ -36,6 +36,7 @@
     "@radix-ui/react-tooltip": "^1.0.7",
     "@tanstack/react-table": "^8.17.3",
     "@textea/json-viewer": "^3.4.1",
+    "bcrypt": "^6.0.0",
     "bcrypt-ts": "^5.0.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
