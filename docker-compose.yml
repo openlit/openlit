@@ -3,12 +3,12 @@ services:
     image: clickhouse/clickhouse-server:24.4.1
     container_name: clickhouse
     environment:
-      CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
-      CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}
+      CLICKHOUSE_PASSWORD: OPENLIT
+      CLICKHOUSE_USER: default
     volumes:
       - clickhouse-data:/var/lib/clickhouse
     ports:
-      - "9000:9000"
+      - "9002:9000"
       - "8123:8123"
     restart: always
 
@@ -19,14 +19,14 @@ services:
       TELEMETRY_ENABLED: "true"
       INIT_DB_HOST: clickhouse
       INIT_DB_PORT: 8123
-      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
-      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
-      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+      INIT_DB_DATABASE: openlit
+      INIT_DB_USERNAME: default
+      INIT_DB_PASSWORD: OPENLIT
       SQLITE_DATABASE_URL: file:/app/client/data/data.db
-      PORT: ${PORT:-3000}
-      DOCKER_PORT: ${PORT:-3000}
+      PORT: ${PORT:-3002}
+      DOCKER_PORT: ${PORT:-3002}
     ports:
-      - "${PORT:-3000}:${DOCKER_PORT:-3000}"
+      - "${PORT:-3002}:${DOCKER_PORT:-3002}"
     depends_on:
       - clickhouse
     volumes:
@@ -37,11 +37,12 @@ services:
     image: otel/opentelemetry-collector-contrib:0.94.0
     container_name: otel-collector
     environment:
+      TELEMETRY_ENABLED: false
       INIT_DB_HOST: clickhouse
       INIT_DB_PORT: 9000
-      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
-      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
-      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+      INIT_DB_DATABASE: openlit
+      INIT_DB_USERNAME: default
+      INIT_DB_PASSWORD: OPENLIT
     ports:
       - "4317:4317"
       - "4318:4318"

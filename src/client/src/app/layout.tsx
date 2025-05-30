@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import Providers from "@/components/providers/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,8 +24,10 @@ export default function RootLayout({
 	return (
 		<html lang="en" className={`scroll-smooth ${theme?.value || ""}`}>
 			<body className={`${inter.className} bg-white dark:bg-black`}>
-				{children}
-				<Toaster position="bottom-right" />
+				<Providers>
+					{children}
+					<Toaster position="bottom-right" />
+				</Providers>
 			</body>
 		</html>
 	);
