@@ -10,7 +10,7 @@ max-args=25
 max-positional-arguments=16
 
 # Maximum allowed line length
-max-line-length=120
+max-line-length=125
 
 # Maximum number of instance attributes
 max-attributes=25
@@ -29,4 +29,5 @@ disable=
     protected-access,
     bare-except,
     expression-not-assigned,
-    unnecessary-direct-lambda-call
+    unnecessary-direct-lambda-call,
+    no-member

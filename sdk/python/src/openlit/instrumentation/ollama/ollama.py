@@ -106,7 +106,8 @@ def chat(version, environment, application_name,
         streaming = kwargs.get("stream", False)
 
         server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 11434)
-        request_model = kwargs.get("model", "gpt-4o")
+        json_body = kwargs.get("json", {}) or {}
+        request_model = json_body.get("model") or kwargs.get("model")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
@@ -154,7 +155,8 @@ def embeddings(version, environment, application_name,
         """
 
         server_address, server_port = set_server_address_and_port(instance, '127.0.0.1', 11434)
-        request_model = kwargs.get('model', 'all-minilm')
+        json_body = kwargs.get('json', {}) or {}
+        request_model = json_body.get('model') or kwargs.get('model')
 
         span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}'
 

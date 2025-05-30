@@ -25,6 +25,8 @@ export interface FilterConfig {
 	models: string[];
 	totalRows: number;
 	traceTypes: string[];
+	applicationNames: string[];
+	environments: string[];
 }
 
 export type FilterStore = {

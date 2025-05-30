@@ -32,7 +32,7 @@ def test_sync_scarpe_url():
 
     response = sync_client.scrape_url(
         'https://openlit.io', 
-        params={'formats': ['markdown', 'html'],}
+        formats=['markdown', 'html'],
     )
 
-    assert isinstance(response, dict)
+    assert response.success is True
