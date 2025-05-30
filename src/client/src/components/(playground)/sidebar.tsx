@@ -21,6 +21,7 @@ import {
 	SquarePlay,
 } from "lucide-react";
 import VersionInfo from "./version-Info";
+import { useDemoAccount } from "@/contexts/demo-account-context";
 
 type SidebarItemProps = {
 	className?: string;
@@ -125,6 +126,15 @@ const SidebarItem = (props: SidebarItemProps) => {
 
 export default function Sidebar() {
 	const pathname = usePathname();
+	const { isDemoAccount } = useDemoAccount();
+
+	console.log("[Sidebar Debug] isDemoAccount:", isDemoAccount);
+
+	const filteredSidebarItems = SIDEBAR_ITEMS.filter(item => 
+		!isDemoAccount || item.text !== "Settings"
+	);
+
+	console.log("[Sidebar Debug] filteredSidebarItems:", filteredSidebarItems.map(i => i.text));
 
 	return (
 		<aside
@@ -144,7 +154,7 @@ export default function Sidebar() {
 				</Button>
 			</div>
 			<nav className="grid gap-1 p-2 pt-4">
-				{SIDEBAR_ITEMS.map((item, index) => (
+				{filteredSidebarItems.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-top-${index}`}
 						className={`${
