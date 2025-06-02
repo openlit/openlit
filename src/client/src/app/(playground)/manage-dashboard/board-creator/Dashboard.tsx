@@ -11,6 +11,26 @@ import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import WidgetRenderer from "./widgets/WidgetRenderer";
 import dynamic from "next/dynamic";
 
+// Empty state component
+const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
+	<div className="flex flex-col items-center justify-center h-[70vh] text-center px-4">
+		<div className="w-full max-w-md space-y-6">
+			<div className="p-6 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+				<div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+					<Plus className="h-6 w-6 text-primary" />
+				</div>
+				<h3 className="text-lg font-semibold mb-2">No widgets yet</h3>
+				<p className="text-sm text-muted-foreground mb-4">
+					Create your first widget to start building your custom dashboard. Add charts, stats, and more to visualize your data.
+				</p>
+				<Button onClick={onAddWidget} className="gap-2">
+					<Plus className="h-4 w-4" /> Add Your First Widget
+				</Button>
+			</div>
+		</div>
+	</div>
+);
+
 const EditWidgetSheet = dynamic(() => import("./components/EditWidgetSheet"));
 const WidgetSelectionModal = dynamic(
 	() => import("./components/WidgetSelectionModal")
@@ -148,26 +168,35 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 				margin={[16, 16]}
 				containerPadding={[0, 0]}
 			>
-				{layouts.lg.map((item: any) => {
-					const widget = widgets[item.i];
-					if (!widget) return null;
+				{
+					layouts.lg.map((item: any) => {
+						const widget = widgets[item.i];
+						if (!widget) return null;
 
-					return (
-						<div key={item.i} className="bg-background">
-							<WidgetRenderer
-								widget={widget}
-								isEditing={isEditing && !readonly}
-								onEdit={openEditSheet}
-								onRemove={(widgetId) => {
-									// Implementation of removeWidget is in the DashboardContext
-									removeWidget(widgetId);
-								}}
-								runFilters={runFilters}
-							/>
-						</div>
-					);
-				})}
+						return (
+							<div key={item.i} className="bg-background">
+								<WidgetRenderer
+									widget={widget}
+									isEditing={isEditing && !readonly}
+									onEdit={openEditSheet}
+									onRemove={(widgetId) => {
+										// Implementation of removeWidget is in the DashboardContext
+										removeWidget(widgetId);
+									}}
+									runFilters={runFilters}
+								/>
+							</div>
+						);
+					})
+				}
 			</ResponsiveGridLayout>
+			{
+				layouts.lg.length === 0 && (
+					<div style={{ width: '100%' }}>
+						<EmptyState onAddWidget={() => { setIsEditing(true); handleAddWidget() }} />
+					</div>
+				)
+			}
 
 			<EditWidgetSheet editorLanguage={editorLanguage} />
 

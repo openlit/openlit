@@ -6,6 +6,7 @@ import { DashboardItemType } from "@/types/manage-dashboard";
 import { useCallback } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import FormBuilder from "@/components/common/form-builder";
+import { toast } from "sonner";
 
 export default function AddEditDialog({
 	isOpen,
@@ -28,8 +29,15 @@ export default function AddEditDialog({
 	const handleSubmit: FormBuilderEvent = useCallback(
 		(event, formdata) => {
 			event.preventDefault();
+			
+			// Validate that title is not empty
+			if (!formdata.title || formdata.title.trim() === '') {
+				toast.error('Please enter a title. Title cannot be empty.');
+				return;
+			}
+			
 			onSave(
-				formdata.title,
+				formdata.title.trim(),
 				formdata.description,
 				formdata.type as DashboardItemType
 			);
@@ -78,15 +86,15 @@ export default function AddEditDialog({
 				options: [
 					{
 						title: "Folder",
-						subText: "Container for boards and other folders",
+						subText: "Container for dashboards and other folders",
 						value: "folder",
-						description: "Create a new folder to organize your boards",
+						description: "Create a new folder to organize your dashboards",
 					},
 					{
-						title: "Board",
+						title: "Dashboard",
 						subText: "Dashboard with widgets",
 						value: "board",
-						description: "Create a new dashboard board",
+						description: "Create a new dashboard",
 					},
 				],
 			},
@@ -98,7 +106,7 @@ export default function AddEditDialog({
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>
-						{mode === "add" ? "Add New Item" : "Edit Item"}
+						{mode === "add" ? "Create New Dashboard/Folder" : "Edit Dashboard/Folder"}
 					</DialogTitle>
 				</DialogHeader>
 				<div className="flex items-center overflow-y-auto">
