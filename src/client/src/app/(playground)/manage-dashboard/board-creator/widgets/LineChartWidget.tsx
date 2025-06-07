@@ -9,7 +9,6 @@ import {
 	ResponsiveContainer,
 } from "recharts";
 import type { LineChartWidget } from "../types";
-import { CHART_COLORS } from "../constants";
 
 interface LineChartProps {
 	widget: LineChartWidget;
@@ -36,11 +35,7 @@ const LineChartWidgetComponent: React.FC<LineChartProps> = ({
 					<Line
 						type="monotone"
 						dataKey={widget.properties.yAxis}
-						stroke={
-							CHART_COLORS[
-								widget.properties.color as keyof typeof CHART_COLORS
-							]?.[0]
-						}
+						stroke={widget.properties.color}
 						activeDot={{ r: 8 }}
 					/>
 				</LineChart>

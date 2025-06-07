@@ -20,7 +20,7 @@ const StatCardWidget: React.FC<StatCardProps> = ({ widget, data }) => {
 
 	return (
 		<div className="flex flex-col justify-center items-center h-full">
-			<div className="text-3xl font-bold">
+			<div className={`text-3xl font-bold`} style={{ color: widget.properties.color }}>
 				{widget.properties.prefix}
 				{value}
 				{widget.properties.suffix}
@@ -32,6 +32,7 @@ const StatCardWidget: React.FC<StatCardProps> = ({ widget, data }) => {
 							? "text-green-500"
 							: "text-red-500"
 					}`}
+					style={{ color: widget.properties.trendColor }}
 				>
 					{widget.properties.trendDirection === "up" ? "↑" : "↓"}{" "}
 					{widget.properties.trend}

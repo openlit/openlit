@@ -7,9 +7,9 @@ import {
 	CartesianGrid,
 	Tooltip,
 	ResponsiveContainer,
+	Legend,
 } from "recharts";
 import type { AreaChartWidget } from "../types";
-import { CHART_COLORS } from "../constants";
 
 interface AreaChartProps {
 	widget: AreaChartWidget;
@@ -30,23 +30,24 @@ const AreaChartWidgetComponent: React.FC<AreaChartProps> = ({
 					<CartesianGrid strokeDasharray="3 3" />
 					<XAxis dataKey={widget.properties.xAxis} />
 					<YAxis />
-					<Tooltip
-						formatter={(value) => [`${value}`, widget.properties.yAxis]}
+					<Tooltip 
+						formatter={(value, name) => [`${value}`, name]}
 					/>
-					<Area
-						type="monotone"
-						dataKey={widget.properties.yAxis}
-						stroke={
-							CHART_COLORS[
-								widget.properties.color as keyof typeof CHART_COLORS
-							]?.[0]
-						}
-						fill={
-							CHART_COLORS[
-								widget.properties.color as keyof typeof CHART_COLORS
-							]?.[0]
-						}
-					/>
+					{widget.properties.showLegend && <Legend />}
+					{widget.properties.yAxes?.map((yAxis, index) => (
+						<Area
+							key={yAxis.key}
+							type="monotone"
+							dataKey={yAxis.key}
+							name={yAxis.key}
+							stackId={widget.properties.stackId}
+							stroke={yAxis.color}
+							fill={
+								yAxis.color
+							}
+							fillOpacity={0.6}
+						/>
+					))}
 				</AreaChart>
 			</ResponsiveContainer>
 		</div>

@@ -9,7 +9,6 @@ import {
 	ResponsiveContainer,
 } from "recharts";
 import type { BarChartWidget } from "../types";
-import { CHART_COLORS } from "../constants";
 
 interface BarChartProps {
 	widget: BarChartWidget;
@@ -31,7 +30,7 @@ const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
 					<Tooltip
 						formatter={(value) => [`${value}`, widget.properties.yAxis]}
 					/>
-					<Bar dataKey={widget.properties.yAxis} fill={"red"} />
+					<Bar dataKey={widget.properties.yAxis} fill={widget.properties.color} />
 				</BarChart>
 			</ResponsiveContainer>
 		</div>

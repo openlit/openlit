@@ -26,20 +26,18 @@ const TableWidgetComponent: React.FC<TableWidgetProps> = ({ widget, data }) => {
 	const columns = Object.keys(data[0]).map((key) => ({
 		header: key.charAt(0).toUpperCase() + key.slice(1),
 		cell: (row: any) => row[key],
-		className: "border-r last:border-r-0 bg-muted/50 font-medium",
+		className: "border-r last:border-r-0",
 	}));
 
 	return (
-		<div className="flex flex-col h-full">
+		<div className="flex flex-col h-full overflow-auto border rounded-lg">
 			<Table>
 				<TableHeader className="sticky top-0 z-10 bg-background">
-					<TableRow className="border-b">
+					<TableRow className="border-b hover:bg-transparent">
 						{columns.map((column, index) => (
 							<TableHead
 								key={index}
-								className={`border-r last:border-r-0 bg-muted/50 font-medium ${
-									column.className || ""
-								}`}
+								className="bg-slate-100 dark:bg-slate-800 py-4 font-semibold text-slate-900 dark:text-slate-100 border-r last:border-r-0"
 							>
 								{column.header}
 							</TableHead>
@@ -55,14 +53,15 @@ const TableWidgetComponent: React.FC<TableWidgetProps> = ({ widget, data }) => {
 						</TableRow>
 					) : (
 						data.map((row, rowIndex) => (
-							<TableRow key={rowIndex} className="border-b last:border-b-0">
+							<TableRow 
+								key={rowIndex} 
+								className="border-b last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
+							>
 								{columns.map((column, colIndex) => {
 									return (
 										<TableCell
 											key={`${rowIndex}-${colIndex}`}
-											className={`border-r last:border-r-0 ${
-												column.className || ""
-											}`}
+											className="border-r last:border-r-0"
 										>
 											{column.cell(row)}
 										</TableCell>

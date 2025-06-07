@@ -9,6 +9,9 @@ import {
 	MarkdownWidget,
 	ChartWidget,
 	TableWidget,
+	LineChartWidget,
+	AreaChartWidget,
+	ColorTheme,
 } from "../types";
 import { useEditWidget } from "../hooks/useEditWidget";
 import {
@@ -18,6 +21,7 @@ import {
 	PieChart,
 	Database,
 	FileText,
+	Trash2,
 } from "lucide-react";
 import CodeEditor from "./CodeEditor";
 
@@ -44,6 +48,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useDashboard } from "../context/DashboardContext";
 import QueryDebugger from "./QueryDebugger";
+import { ColorSelector } from "./ColorSelector";
+
+interface WidgetConfig {
+	query?: string;
+	content?: string;
+	showPreview?: boolean;
+	colorTheme?: ColorTheme;
+}
+
+interface NonMarkdownConfig extends WidgetConfig {
+	query: string;
+}
 
 interface EditWidgetSheetProps {
 	editorLanguage?: string;
@@ -72,9 +88,33 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 	// if (!currentWidget) return null;
 
 	const handleEditorChange = (value: string | undefined) => {
-		if (value !== undefined) {
-			updateWidget(currentWidget!.id, { config: { query: value } });
+		if (!currentWidget) return;
+		
+		if (currentWidget.type === WidgetType.MARKDOWN) {
+			updateWidget(currentWidget.id, {
+				config: {
+					...(currentWidget as MarkdownWidget).config,
+					content: value || '',
+				},
+			});
+		} else {
+			const config: NonMarkdownConfig = {
+				...currentWidget.config,
+				query: value || '',
+			};
+			updateWidget(currentWidget.id, { config });
 		}
+	};
+
+	const handleMarkdownChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+		if (!currentWidget) return;
+		
+		updateWidget(currentWidget.id, {
+			config: {
+				...(currentWidget as MarkdownWidget).config,
+				content: e.target.value,
+			},
+		});
 	};
 
 	const handleRunQuery = async () => {
@@ -336,39 +376,150 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 									{(currentWidget.type === WidgetType.BAR_CHART ||
 										currentWidget.type === WidgetType.LINE_CHART ||
 										currentWidget.type === WidgetType.AREA_CHART) && (
-										<div className="grid grid-cols-2 gap-4">
-											<div className="space-y-2">
-												<Label htmlFor="xAxis">X Axis</Label>
-												<Input
-													id="xAxis"
-													value={
-														(currentWidget as BarChartWidget).properties.xAxis
-													}
-													onChange={(e) =>
-														updateWidgetProperties(currentWidget.id, {
-															xAxis: e.target.value,
-														})
-													}
-													placeholder="date, category, etc."
-												/>
+											<div className="space-y-4">
+												<div className="space-y-2">
+													<Label htmlFor="xAxis">X Axis</Label>
+													<Input
+														id="xAxis"
+														value={
+															(currentWidget as BarChartWidget | LineChartWidget | AreaChartWidget).properties.xAxis
+														}
+														onChange={(e) =>
+															updateWidgetProperties(currentWidget.id, {
+																xAxis: e.target.value,
+															})
+														}
+														placeholder="date, category, etc."
+													/>
+												</div>
+												{currentWidget.type !== WidgetType.AREA_CHART && (
+													<div className="space-y-2">
+														<Label htmlFor="yAxis">Y Axis</Label>
+														<Input
+															id="yAxis"
+															value={
+																(currentWidget as BarChartWidget | LineChartWidget).properties.yAxis
+															}
+															onChange={(e) =>
+																updateWidgetProperties(currentWidget.id, {
+																	yAxis: e.target.value,
+																})
+															}
+															placeholder="value, count, etc."
+														/>
+													</div>
+												)}
+												{currentWidget.type === WidgetType.AREA_CHART && (
+													<div className="space-y-2">
+														<div className="flex items-center justify-between">
+															<Label>Y Axes</Label>
+															<Button
+																variant="outline"
+																size="sm"
+																onClick={() =>
+																	updateWidgetProperties(currentWidget.id, {
+																		yAxes: [
+																			...(currentWidget as AreaChartWidget).properties.yAxes || [],
+																			{
+																				key: "",
+																				color: "blue",
+																			},
+																		],
+																	})
+																}
+															>
+																Add Y Axis
+															</Button>
+														</div>
+														<div className="space-y-4">
+															{(currentWidget as AreaChartWidget).properties.yAxes?.map(
+																(yAxis, index) => (
+																	<div key={index} className="flex items-end gap-2">
+																		<div className="flex-1">
+																			<Label htmlFor={`yAxis-${index}`}>
+																				Y Axis {index + 1}
+																			</Label>
+																			<Input
+																				id={`yAxis-${index}`}
+																				value={yAxis.key}
+																				onChange={(e) => {
+																					const newYAxes = [
+																						...(currentWidget as AreaChartWidget).properties.yAxes,
+																					];
+																					newYAxes[index] = {
+																						...newYAxes[index],
+																						key: e.target.value,
+																					};
+																					updateWidgetProperties(currentWidget.id, {
+																						yAxes: newYAxes,
+																					});
+																				}}
+																				placeholder="value, count, etc."
+																			/>
+																		</div>
+																		<div className="w-32">
+																			<Label htmlFor={`yAxis-${index}-color`}>
+																				Color
+																			</Label>
+																			<ColorSelector
+																				value={yAxis.color}
+																				onChange={(value) => {
+																					const newYAxes = [
+																						...(currentWidget as AreaChartWidget).properties.yAxes,
+																					];
+																					newYAxes[index] = {
+																						...newYAxes[index],
+																						color: value,
+																					};
+																					updateWidgetProperties(currentWidget.id, {
+																						yAxes: newYAxes,
+																					});
+																				}}
+																			/>
+																		</div>
+																		<Button
+																			variant="ghost"
+																			size="icon"
+																			className="h-10 w-10"
+																			onClick={() => {
+																				const newYAxes = [
+																					...(currentWidget as AreaChartWidget).properties.yAxes,
+																				];
+																				newYAxes.splice(index, 1);
+																				updateWidgetProperties(currentWidget.id, {
+																					yAxes: newYAxes,
+																				});
+																			}}
+																		>
+																			<Trash2 className="h-4 w-4" />
+																		</Button>
+																	</div>
+																)
+															)}
+														</div>
+														<div className="space-y-2">
+															<Label htmlFor="stackId">Stack Mode</Label>
+															<Select
+																value={(currentWidget as AreaChartWidget).properties.stackId || "none"}
+																onValueChange={(value) =>
+																	updateWidgetProperties(currentWidget.id, {
+																		stackId: value === "none" ? undefined : "1",
+																	})
+																}
+															>
+																<SelectTrigger>
+																	<SelectValue placeholder="Select stack mode" />
+																</SelectTrigger>
+																<SelectContent>
+																	<SelectItem value="none">None</SelectItem>
+																	<SelectItem value="1">Stacked</SelectItem>
+																</SelectContent>
+															</Select>
+														</div>
+													</div>
+												)}
 											</div>
-											<div className="space-y-2">
-												<Label htmlFor="yAxis">Y Axis</Label>
-												<Input
-													id="yAxis"
-													value={
-														(currentWidget as BarChartWidget).properties.yAxis
-													}
-													onChange={(e) =>
-														updateWidgetProperties(currentWidget.id, {
-															yAxis: e.target.value,
-														})
-													}
-													placeholder="value, count, etc."
-												/>
-											</div>
-										</div>
-									)}
+										)}
 
 									{currentWidget.type === WidgetType.PIE_CHART && (
 										<div className="space-y-4">
@@ -425,17 +576,8 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												<Label htmlFor="content">Markdown Content</Label>
 												<Textarea
 													id="content"
-													value={
-														(currentWidget as MarkdownWidget).config?.content
-													}
-													onChange={(e) =>
-														updateWidget(currentWidget.id, {
-															config: {
-																...(currentWidget as MarkdownWidget).config,
-																content: e.target.value,
-															},
-														})
-													}
+													value={(currentWidget as MarkdownWidget).config?.content}
+													onChange={handleMarkdownChange}
 													placeholder="Write your markdown content here..."
 													className="min-h-[400px] font-mono"
 												/>
@@ -481,29 +623,31 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												currentWidget.type === WidgetType.BAR_CHART ||
 												currentWidget.type === WidgetType.LINE_CHART ||
 												currentWidget.type === WidgetType.PIE_CHART ||
-												currentWidget.type === WidgetType.AREA_CHART ||
-												currentWidget.type === WidgetType.TABLE) && (
+												currentWidget.type === WidgetType.AREA_CHART) && (
+													<div className="space-y-2">
+														<Label htmlFor="color">Color Theme</Label>
+														<ColorSelector
+															value={(currentWidget as ChartWidget | StatCardWidget).properties.color}
+															onChange={(value) =>
+																updateWidgetProperties(currentWidget.id, {
+																	color: value,
+																})
+															}
+														/>
+													</div>
+												)}
+
+											{(currentWidget.type === WidgetType.STAT_CARD) && (
 												<div className="space-y-2">
-													<Label htmlFor="color">Color Theme</Label>
-													<Select
-														value={(currentWidget as ChartWidget | StatCardWidget | TableWidget).properties.color}
-														onValueChange={(value) =>
+													<Label htmlFor="color">Trend Color</Label>
+													<ColorSelector
+														value={(currentWidget as StatCardWidget).properties.trendColor}
+														onChange={(value) =>
 															updateWidgetProperties(currentWidget.id, {
-																color: value,
+																trendColor: value,
 															})
 														}
-													>
-														<SelectTrigger>
-															<SelectValue placeholder="Select color theme" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="blue">Blue</SelectItem>
-															<SelectItem value="green">Green</SelectItem>
-															<SelectItem value="red">Red</SelectItem>
-															<SelectItem value="purple">Purple</SelectItem>
-															<SelectItem value="orange">Orange</SelectItem>
-														</SelectContent>
-													</Select>
+													/>
 												</div>
 											)}
 
@@ -535,26 +679,26 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												currentWidget.type === WidgetType.LINE_CHART ||
 												currentWidget.type === WidgetType.PIE_CHART ||
 												currentWidget.type === WidgetType.AREA_CHART) && (
-												<div className="space-y-2">
-													<Label htmlFor="showLegend">Legend</Label>
-													<Select
-														defaultValue="true"
-														onValueChange={(value) =>
-															updateWidgetProperties(currentWidget.id, {
-																showLegend: value === "true",
-															})
-														}
-													>
-														<SelectTrigger>
-															<SelectValue placeholder="Show legend" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectItem value="true">Show</SelectItem>
-															<SelectItem value="false">Hide</SelectItem>
-														</SelectContent>
-													</Select>
-												</div>
-											)}
+													<div className="space-y-2">
+														<Label htmlFor="showLegend">Legend</Label>
+														<Select
+															defaultValue="true"
+															onValueChange={(value) =>
+																updateWidgetProperties(currentWidget.id, {
+																	showLegend: value === "true",
+																})
+															}
+														>
+															<SelectTrigger>
+																<SelectValue placeholder="Show legend" />
+															</SelectTrigger>
+															<SelectContent>
+																<SelectItem value="true">Show</SelectItem>
+																<SelectItem value="false">Hide</SelectItem>
+															</SelectContent>
+														</Select>
+													</div>
+												)}
 
 											<div className="flex items-center space-x-2 pt-2">
 												<Switch
@@ -570,8 +714,19 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 										</>
 									)}
 									{currentWidget.type === WidgetType.MARKDOWN && (
-										<div className="flex items-center justify-center h-[200px] text-muted-foreground">
-											Appearance configuration is not available for Markdown widgets
+										<div className="space-y-2">
+											<Label htmlFor="color">Color Theme</Label>
+											<ColorSelector
+												value={(currentWidget as MarkdownWidget).config?.colorTheme}
+												onChange={(value) =>
+													updateWidget(currentWidget.id, {
+														config: {
+															...(currentWidget as MarkdownWidget).config,
+															colorTheme: value as ColorTheme,
+														},
+													})
+												}
+											/>
 										</div>
 									)}
 								</TabsContent>

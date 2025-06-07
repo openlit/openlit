@@ -12,8 +12,12 @@ export enum WidgetType {
 	MARKDOWN = "MARKDOWN",
 }
 
+type RGB = `rgb(${number}, ${number}, ${number})`;
+type RGBA = `rgba(${number}, ${number}, ${number}, ${number})`;
+type HEX = `#${string}`;
+
 // Color Themes
-export type ColorTheme = "blue" | "green" | "red" | "purple" | "orange";
+export type ColorTheme = RGB | RGBA | HEX;
 
 // Base Widget Interface
 export interface BaseWidgetProps {
@@ -33,6 +37,7 @@ export interface StatCardWidget extends BaseWidgetProps {
 		value?: string;
 		color?: ColorTheme;
 		trend?: string;
+		trendColor?: ColorTheme;
 		trendDirection?: "up" | "down";
 		textSize?: "small" | "medium" | "large";
 		autoRefresh?: boolean;
@@ -78,7 +83,11 @@ export interface TableWidget extends BaseWidgetProps {
 export interface AreaChartWidget extends ChartWidget {
 	properties: ChartWidget["properties"] & {
 		xAxis: string;
-		yAxis: string;
+		yAxes: {
+			key: string;
+			color: ColorTheme;
+		}[];
+		stackId?: string;
 	};
 }
 
@@ -86,6 +95,7 @@ export interface MarkdownWidget extends BaseWidgetProps {
 	config: {
 		content: string;
 		showPreview?: boolean;
+		colorTheme?: ColorTheme;
 	};
 }
 

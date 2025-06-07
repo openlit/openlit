@@ -1,7 +1,6 @@
 import type React from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import type { PieChartWidget } from "../types";
-import { CHART_COLORS } from "../constants";
 
 interface PieChartProps {
 	widget: PieChartWidget;
@@ -26,11 +25,7 @@ const PieChartWidgetComponent: React.FC<PieChartProps> = ({ widget, data }) => {
 						{(data || []).map((entry: any, index: number) => (
 							<Cell
 								key={`cell-${index}`}
-								fill={
-									CHART_COLORS[widget.properties.color]?.[
-										index % CHART_COLORS[widget.properties.color]?.length
-									] ?? "blue"
-								}
+								fill={widget.properties.color}
 							/>
 						))}
 					</Pie>
