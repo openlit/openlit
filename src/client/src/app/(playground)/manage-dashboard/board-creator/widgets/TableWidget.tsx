@@ -7,7 +7,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import type { TableWidget } from "../types";
+import type { ColorTheme, TableWidget } from "../types";
 
 interface TableWidgetProps {
 	widget: TableWidget;
@@ -29,15 +29,33 @@ const TableWidgetComponent: React.FC<TableWidgetProps> = ({ widget, data }) => {
 		className: "border-r last:border-r-0",
 	}));
 
+	const backgroundColor = `${widget.properties.color}20`;
+	const borderColor = `${widget.properties.color}50`;
+
 	return (
-		<div className="flex flex-col h-full overflow-auto border rounded-lg">
+		<div className="flex flex-col h-full overflow-auto border rounded-lg"
+			style={{
+				borderColor,
+			}}>
 			<Table>
-				<TableHeader className="sticky top-0 z-10 bg-background">
-					<TableRow className="border-b hover:bg-transparent">
+				<TableHeader className="sticky top-0 z-10"
+					style={{
+						backgroundColor,
+					}}>
+					<TableRow
+						className="border-b"
+						style={{
+							borderColor,
+						}}
+					>
 						{columns.map((column, index) => (
 							<TableHead
 								key={index}
-								className="bg-slate-100 dark:bg-slate-800 py-4 font-semibold text-slate-900 dark:text-slate-100 border-r last:border-r-0"
+								className="px-4 py-2 font-semibold border-r last:border-r-0 h-auto"
+								style={{
+									color: widget.properties.color as ColorTheme,
+									borderColor,
+								}}
 							>
 								{column.header}
 							</TableHead>
@@ -47,21 +65,24 @@ const TableWidgetComponent: React.FC<TableWidgetProps> = ({ widget, data }) => {
 				<TableBody>
 					{data.length === 0 ? (
 						<TableRow>
-							<TableCell colSpan={columns.length} className="h-24 text-center">
+							<TableCell colSpan={columns.length} className="text-center text-stone-500 dark:text-stone-400">
 								No results.
 							</TableCell>
 						</TableRow>
 					) : (
 						data.map((row, rowIndex) => (
-							<TableRow 
-								key={rowIndex} 
-								className="border-b last:border-b-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
+							<TableRow
+								key={rowIndex}
+								className="border-b last:border-b-0 hover:bg-stone-50/50 dark:hover:bg-stone-800/50"
 							>
 								{columns.map((column, colIndex) => {
 									return (
 										<TableCell
 											key={`${rowIndex}-${colIndex}`}
-											className="border-r last:border-r-0"
+											className="border-r last:border-r-0 px-4 py-2 text-stone-600 dark:text-stone-300"
+											style={{
+												borderColor,
+											}}
 										>
 											{column.cell(row)}
 										</TableCell>

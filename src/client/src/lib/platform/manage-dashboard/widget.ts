@@ -122,6 +122,7 @@ export async function updateWidget(widget: Widget) {
 	`;
 
 	const { err, data } = await dataCollector({ query }, "exec");
+	console.log(widget.properties , sanitizedWidget.properties, query, err, data);
 
 	if (err || !(data as { query_id: string }).query_id)
 		return { err: getMessage().WIDGET_UPDATE_FAILED };

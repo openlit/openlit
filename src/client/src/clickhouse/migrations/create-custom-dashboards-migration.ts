@@ -1,17 +1,17 @@
 import migrationHelper from "./migration-helper";
 
-const MIGRATION_ID = "create-dashcraft-table";
+const MIGRATION_ID = "create-custom-dashboards-table";
 
 // Table names can be moved to a constants file if needed
-const DASHCRAFT_BOARDS_TABLE = "openlit_board";
-const DASHCRAFT_FOLDERS_TABLE = "openlit_folder";
-const DASHCRAFT_WIDGETS_TABLE = "openlit_widget";
-const DASHCRAFT_BOARD_WIDGETS_TABLE = "openlit_board_widget";
+const CUSTOM_DASHBOARDS_BOARDS_TABLE = "openlit_board";
+const CUSTOM_DASHBOARDS_FOLDERS_TABLE = "openlit_folder";
+const CUSTOM_DASHBOARDS_WIDGETS_TABLE = "openlit_widget";
+const CUSTOM_DASHBOARDS_BOARD_WIDGETS_TABLE = "openlit_board_widget";
 
-export default async function CreateDashcraftMigration(databaseConfigId?: string) {
+export default async function CreateCustomDashboardsMigration(databaseConfigId?: string) {
   const queries = [
     `
-    CREATE TABLE IF NOT EXISTS ${DASHCRAFT_FOLDERS_TABLE} (
+    CREATE TABLE IF NOT EXISTS ${CUSTOM_DASHBOARDS_FOLDERS_TABLE} (
       id UUID DEFAULT generateUUIDv4(),      -- Unique ID for each folder
       title String,                          -- Folder title
       description String,                     -- Folder description
@@ -23,7 +23,7 @@ export default async function CreateDashcraftMigration(databaseConfigId?: string
     ORDER BY id;
     `,
     `
-    CREATE TABLE IF NOT EXISTS ${DASHCRAFT_BOARDS_TABLE} (
+    CREATE TABLE IF NOT EXISTS ${CUSTOM_DASHBOARDS_BOARDS_TABLE} (
       id UUID DEFAULT generateUUIDv4(),      -- Unique ID for each board
       title String,                          -- Board title
       description String,                     -- Board description
@@ -36,7 +36,7 @@ export default async function CreateDashcraftMigration(databaseConfigId?: string
     ORDER BY id;
     `,
     `
-    CREATE TABLE IF NOT EXISTS ${DASHCRAFT_WIDGETS_TABLE} (
+    CREATE TABLE IF NOT EXISTS ${CUSTOM_DASHBOARDS_WIDGETS_TABLE} (
       id UUID DEFAULT generateUUIDv4(),      -- Unique ID for each widget
       title String,                          -- Widget title
       description String,                     -- Widget description
@@ -50,7 +50,7 @@ export default async function CreateDashcraftMigration(databaseConfigId?: string
     ORDER BY id;
     `,
     `
-    CREATE TABLE IF NOT EXISTS ${DASHCRAFT_BOARD_WIDGETS_TABLE} (
+    CREATE TABLE IF NOT EXISTS ${CUSTOM_DASHBOARDS_BOARD_WIDGETS_TABLE} (
       id UUID DEFAULT generateUUIDv4(),      -- Unique ID for board widget mapping
       board_id UUID,                         -- Reference to board
       widget_id UUID,                        -- Reference to widget
