@@ -133,6 +133,7 @@ export default function ExplorerItemRow({
 												onDeleteClick={onDeleteClick}
 												exportBoardLayout={exportBoardLayout}
 												setMainDashboard={setMainDashboard}
+												importBoardLayout={importBoardLayout}
 											/>
 										))}
 										{droppableProvided.placeholder}

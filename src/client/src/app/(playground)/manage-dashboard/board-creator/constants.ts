@@ -12,15 +12,6 @@ export const WIDGET_TYPE_ICONS = {
   [WidgetType.MARKDOWN]: FileText,
 }
 
-// Color palette for charts
-export const CHART_COLORS: Record<ColorTheme, string[]> = {
-  blue: ["#0ea5e9", "#38bdf8", "#7dd3fc", "#bae6fd"],
-  green: ["#10b981", "#34d399", "#6ee7b7", "#a7f3d0"],
-  red: ["#ef4444", "#f87171", "#fca5a5", "#fecaca"],
-  purple: ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"],
-  orange: ["#f97316", "#fb923c", "#fdba74", "#fed7aa"],
-}
-
 // Default initial layouts
 // export const DEFAULT_LAYOUTS = {
 //   lg: [

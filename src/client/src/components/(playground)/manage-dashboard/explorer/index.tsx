@@ -318,7 +318,7 @@ export default function DashboardExplorer() {
 	}, []);
 
 	const importBoardLayout = useCallback((data: any) => {
-		importBoardLayoutRequest({
+		return importBoardLayoutRequest({
 			requestType: "POST",
 			url: `/api/manage-dashboard/board/layout/import`,
 			body: JSON.stringify(data),
@@ -621,11 +621,10 @@ export default function DashboardExplorer() {
 								<div
 									ref={provided.innerRef}
 									{...provided.droppableProps}
-									className={`${
-										snapshot.isDraggingOver
+									className={`${snapshot.isDraggingOver
 											? "bg-stone-200 dark:bg-stone-800 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-md"
 											: ""
-									}`}
+										}`}
 								>
 									{items.map((item, index) => (
 										<ExplorerItemRow

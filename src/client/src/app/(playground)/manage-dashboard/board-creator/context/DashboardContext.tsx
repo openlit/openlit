@@ -7,6 +7,12 @@ import {
 	type DashboardConfig,
 	type Widget,
 	WidgetType,
+	MarkdownWidget,
+	StatCardWidget,
+	TableWidget,
+	PieChartWidget,
+	LineChartWidget,
+	BarChartWidget,
 } from "../types";
 // import { DEFAULT_LAYOUTS, DEFAULT_WIDGETS } from "../constants";
 
@@ -88,8 +94,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 
 	// Load widget data
 	const loadWidgetData = async (widgetId: string) => {
-		const widget = widgets[widgetId];
-		if (!widget?.config?.query) return;
+		const widget = widgets[widgetId] as StatCardWidget | BarChartWidget | LineChartWidget | PieChartWidget | TableWidget;
+		if (widget.type === WidgetType.MARKDOWN || !widget?.config?.query) return;
 
 		try {
 			if (runQuery) {
@@ -157,9 +163,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 
 	// Add a new widget
 	const addWidget = async (existingWidget?: Widget) => {
-		const newWidgetId = `widget-${
-			Object.keys(widgets).length + 1
-		}-${Date.now()}`;
+		const newWidgetId = `widget-${Object.keys(widgets).length + 1
+			}-${Date.now()}`;
 
 		let newWidget: Partial<Widget>;
 

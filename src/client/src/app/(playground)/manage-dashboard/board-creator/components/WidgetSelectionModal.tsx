@@ -8,6 +8,7 @@ import {
 	DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Widget } from "../types";
 
 export default function WidgetSelectionModal({
 	open,

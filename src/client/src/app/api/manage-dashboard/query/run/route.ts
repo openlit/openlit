@@ -6,14 +6,12 @@ export async function POST(request: NextRequest) {
 		widgetId,
 		userQuery,
 		respectFilters = false,
-		params,
 		filter,
 	} = await request.json();
 
 	const res = await runWidgetQuery(widgetId, {
 		userQuery,
 		respectFilters,
-		params,
 		filter,
 	});
 	return Response.json(res);

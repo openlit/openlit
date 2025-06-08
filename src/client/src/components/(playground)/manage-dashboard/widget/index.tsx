@@ -126,7 +126,7 @@ const WidgetListPage = () => {
 				<DialogTitle id="delete-widget-dialog-title">Delete Widget</DialogTitle>
 				<DialogContent>
 					<DialogContentText>
-						Are you sure you want to delete widget "{deleteDialog?.title}"? This
+						Are you sure you want to delete widget &quot;{deleteDialog?.title}&quot;? This
 						action cannot be undone.
 					</DialogContentText>
 				</DialogContent>
