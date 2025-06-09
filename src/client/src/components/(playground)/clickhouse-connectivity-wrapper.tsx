@@ -1,5 +1,4 @@
 "use client";
-
 import { useDemoAccount } from "@/contexts/demo-account-context";
 import { pingActiveDatabaseConfig } from "@/helpers/client/database-config";
 import { getPingDetails } from "@/selectors/database-config";
@@ -16,15 +15,13 @@ const ALLOWED_CONNECTIVITY_ALERT = [
 	"/prompt-hub",
 	"/vault",
 ];
- 
-function ClickhouseConnectivityAlert() {
+
+export default function ClickhouseConnectivityWrapper() {
 	const pingDetails = useRootStore(getPingDetails);
 	const pathname = usePathname();
 
 	useEffect(() => {
-		if (pingDetails.status === "pending") {
-			pingActiveDatabaseConfig();
-		}
+		if (pingDetails.status === "pending") pingActiveDatabaseConfig();
 	}, []);
 
 	if (pingDetails.error && ALLOWED_CONNECTIVITY_ALERT.includes(pathname)) {
@@ -36,8 +33,8 @@ function ClickhouseConnectivityAlert() {
 							Looks like you&apos;ve found the doorway to the great nothing
 						</h3>
 						<div className="mb-2 text-sm">
-							Sorry about that! Please visit the settings page to configure your
-							active ClickHouse database.
+							Sorry about that! Please visit settings page to configure your
+							active clickhouse database.
 						</div>
 						<Link
 							href="/settings/database-config"
@@ -59,13 +56,4 @@ function ClickhouseConnectivityAlert() {
 	}
 
 	return null;
-}
-
-
-export default function ClickhouseConnectivityWrapper() {
-	const { isDemoAccount } = useDemoAccount();
-
-	if (isDemoAccount) return null;
-
-	return <ClickhouseConnectivityAlert />;
 }

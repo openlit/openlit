@@ -104,12 +104,11 @@ const SidebarItem = (props: SidebarItemProps) => {
 				) : (
 					<a
 						href={props.link}
-						className={`flex items-center p-2 ${
-							props.className || ""
-						} ${buttonVariants({
-							variant: "ghost",
-							size: "icon",
-						})}`}
+						className={`flex items-center p-2 ${props.className || ""
+							} ${buttonVariants({
+								variant: "ghost",
+								size: "icon",
+							})}`}
 						onClick={props.onClick}
 						target={props.target}
 					>
@@ -130,7 +129,7 @@ export default function Sidebar() {
 
 	console.log("[Sidebar Debug] isDemoAccount:", isDemoAccount);
 
-	const filteredSidebarItems = SIDEBAR_ITEMS.filter(item => 
+	const filteredSidebarItems = SIDEBAR_ITEMS.filter(item =>
 		!isDemoAccount || item.text !== "Settings"
 	);
 
@@ -157,11 +156,10 @@ export default function Sidebar() {
 				{filteredSidebarItems.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-top-${index}`}
-						className={`${
-							pathname.startsWith(item.link || "")
+						className={`${pathname.startsWith(item.link || "")
 								? "text-white bg-primary dark:bg-primary dark:text-white"
 								: "text-stone-600 dark:text-white"
-						}`}
+							}`}
 						{...item}
 					/>
 				))}
@@ -170,11 +168,10 @@ export default function Sidebar() {
 				{SIDEBAR_BOTTOM_ITEMS.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-bottom-${index}`}
-						className={`${
-							pathname.startsWith(item.link || "")
+						className={`${pathname.startsWith(item.link || "")
 								? "text-white bg-primary dark:bg-primary dark:text-white"
 								: "text-stone-600 dark:text-white"
-						}`}
+							}`}
 						{...item}
 					/>
 				))}
