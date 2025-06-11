@@ -1,16 +1,17 @@
 import { Droppable } from "react-beautiful-dnd";
-import { Button } from "@/components/ui/button";
 import { DashboardItemType } from "@/types/manage-dashboard";
 import { DashboardHeirarchy } from "@/types/manage-dashboard";
 import { DropResult } from "react-beautiful-dnd";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { Plus } from "lucide-react";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DragDropContext } from "react-beautiful-dnd";
 import { toast } from "sonner";
 import EmptyState from "./empty-state";
 import ExplorerItemRow from "./item-row";
 import AddEditDialog from "./add-edit-dialog";
+import { jsonParse, jsonStringify } from "@/utils/json";
+import { useRouter } from "next/navigation";
+import RootActions from "./root-actions";
 
 export default function DashboardExplorer() {
 	const [items, setItems] = useState<DashboardHeirarchy[]>([]);
@@ -20,6 +21,7 @@ export default function DashboardExplorer() {
 		mode: "add" as "add" | "edit",
 		itemTitle: "",
 		itemDescription: "",
+		itemTags: [],
 		itemType: "board" as DashboardItemType,
 		currentPath: [] as string[],
 		editingItemId: null as string | null,
@@ -35,8 +37,7 @@ export default function DashboardExplorer() {
 	const { fireRequest: setMainDashboardRequest } = useFetchWrapper();
 	const { fireRequest: importBoardLayoutRequest } = useFetchWrapper();
 
-	const fileInputRef = useRef<HTMLInputElement | null>(null);
-
+	const router = useRouter();
 	// Fetch hierarchy data on component mount
 	useEffect(() => {
 		loadHierarchy();
@@ -64,21 +65,28 @@ export default function DashboardExplorer() {
 
 	// Add a new item
 	const addItem = useCallback(
-		(
-			title: string,
-			description: string,
-			type: DashboardItemType,
-			parentPath: string[] = []
+		({
+			title,
+			description,
+			type,
+			tags = [],
+			parentPath = [],
+		}:
+			{
+				title: string;
+				description: string;
+				type: DashboardItemType;
+				tags: string[];
+				parentPath: string[];
+			}
 		) => {
-			// Determine parent ID from path
-			const parentId =
-				parentPath.length > 0 ? parentPath[parentPath.length - 1] : null;
 
 			// Create payload
 			const payload = {
 				title,
 				description,
-				parentId,
+				parentId: parentPath?.length > 0 ? parentPath[parentPath.length - 1] : null,
+				tags: tags,
 			};
 
 			// Toast loading state
@@ -88,7 +96,7 @@ export default function DashboardExplorer() {
 				createFolderRequest({
 					url: "/api/manage-dashboard/folder",
 					requestType: "POST",
-					body: JSON.stringify(payload),
+					body: jsonStringify(payload),
 					successCb: (response) => {
 						toast.success("Folder created successfully", {
 							id: "manage-dashboard-explorer",
@@ -106,12 +114,12 @@ export default function DashboardExplorer() {
 				createBoardRequest({
 					url: "/api/manage-dashboard/board",
 					requestType: "POST",
-					body: JSON.stringify(payload),
+					body: jsonStringify(payload),
 					successCb: (response) => {
 						toast.success("Board created successfully", {
 							id: "manage-dashboard-explorer",
 						});
-						loadHierarchy(); // Reload hierarchy after successful creation
+						router.push(`/d/${response.data.id}`);
 					},
 					failureCb: (error) => {
 						toast.error(`Failed to create board: ${error || "Unknown error"}`, {
@@ -132,11 +140,19 @@ export default function DashboardExplorer() {
 
 	// Edit an item
 	const editItem = useCallback(
-		(
+		({
+			itemId,
+			newTitle,
+			newDescription,
+			newTags = [],
+			parentPath = [],
+		}: {
 			itemId: string,
 			newTitle: string,
 			newDescription: string,
-			parentPath: string[] = []
+			newTags: string[];
+			parentPath: string[];
+		}
 		) => {
 			// Find the item to determine its type
 			const findItem = (
@@ -169,15 +185,15 @@ export default function DashboardExplorer() {
 				id: itemId,
 				title: newTitle,
 				description: newDescription,
-				parentId:
-					parentPath.length > 0 ? parentPath[parentPath.length - 1] : null,
+				parentId: parentPath?.length > 0 ? parentPath[parentPath.length - 1] : null,
+				tags: newTags,
 			};
 
 			if (item.type === "folder") {
 				updateFolderRequest({
 					url: "/api/manage-dashboard/folder",
 					requestType: "PUT",
-					body: JSON.stringify(payload),
+					body: jsonStringify(payload),
 					successCb: (response) => {
 						toast.success("Folder updated successfully", {
 							id: "manage-dashboard-explorer",
@@ -195,7 +211,7 @@ export default function DashboardExplorer() {
 				updateBoardRequest({
 					url: "/api/manage-dashboard/board",
 					requestType: "PUT",
-					body: JSON.stringify(payload),
+					body: jsonStringify(payload),
 					successCb: (response) => {
 						toast.success("Board updated successfully", {
 							id: "manage-dashboard-explorer",
@@ -301,7 +317,7 @@ export default function DashboardExplorer() {
 			setMainDashboardRequest({
 				requestType: "PATCH",
 				url: `/api/manage-dashboard/board/${boardId}`,
-				body: JSON.stringify({ setMain: true }),
+				body: jsonStringify({ setMain: true }),
 				successCb: () => {
 					loadHierarchy();
 				},
@@ -321,9 +337,9 @@ export default function DashboardExplorer() {
 		return importBoardLayoutRequest({
 			requestType: "POST",
 			url: `/api/manage-dashboard/board/layout/import`,
-			body: JSON.stringify(data),
-			successCb: () => {
-				loadHierarchy();
+			body: jsonStringify(data),
+			successCb: (response) => {
+				router.push(`/d/${response.data.id}`);
 			},
 			failureCb: (error) => {
 				console.error("Failed to import board layout:", error);
@@ -338,6 +354,7 @@ export default function DashboardExplorer() {
 			mode: "add",
 			itemTitle: "",
 			itemDescription: "",
+			itemTags: [],
 			itemType: "board",
 			currentPath: path,
 			editingItemId: null,
@@ -352,6 +369,7 @@ export default function DashboardExplorer() {
 				mode: "edit",
 				itemTitle: item.title,
 				itemDescription: item.description,
+				itemTags: item.tags ? jsonParse(item.tags) : [],
 				itemType: item.type,
 				currentPath: path,
 				editingItemId: item.id,
@@ -362,18 +380,30 @@ export default function DashboardExplorer() {
 
 	// Navigate to a board
 	const navigateToBoard = useCallback((boardId: string) => {
-		window.location.href = `/manage-dashboard/board/${boardId}`;
+		router.push(`/d/${boardId}`);
 	}, []);
 
 	// Handle dialog save
 	const handleDialogSave = useCallback(
-		(title: string, description: string, type: DashboardItemType) => {
+		(title: string, description: string, type: DashboardItemType, tags: string[]) => {
 			const { mode, currentPath, editingItemId } = dialogState;
 
 			if (mode === "add") {
-				addItem(title, description, type, currentPath);
+				addItem({
+					title,
+					description,
+					type,
+					tags,
+					parentPath: currentPath,
+				});
 			} else if (editingItemId) {
-				editItem(editingItemId, title, description, currentPath);
+				editItem({
+					itemId: editingItemId,
+					newTitle: title,
+					newDescription: description,
+					newTags: tags,
+					parentPath: currentPath,
+				});
 			}
 		},
 		[addItem, dialogState, editItem]
@@ -405,7 +435,7 @@ export default function DashboardExplorer() {
 
 			// Update UI immediately for better UX
 			setItems((prevItems) => {
-				const clonedItems = JSON.parse(JSON.stringify(prevItems));
+				const clonedItems = JSON.parse(jsonStringify(prevItems));
 
 				// Helper function to find an item and its parent array by ID
 				const findItemAndParent = (
@@ -525,7 +555,7 @@ export default function DashboardExplorer() {
 				updateFolderRequest({
 					url: "/api/manage-dashboard/folder",
 					requestType: "PUT",
-					body: JSON.stringify(payload),
+					body: jsonStringify(payload),
 					successCb: (response) => {
 						toast.success("Folder moved successfully", {
 							id: "manage-dashboard-explorer",
@@ -543,7 +573,7 @@ export default function DashboardExplorer() {
 				updateBoardRequest({
 					url: "/api/manage-dashboard/board",
 					requestType: "PUT",
-					body: JSON.stringify(payload),
+					body: jsonStringify(payload),
 					successCb: (response) => {
 						toast.success("Board moved successfully", {
 							id: "manage-dashboard-explorer",
@@ -562,49 +592,12 @@ export default function DashboardExplorer() {
 		[items, updateFolderRequest, updateBoardRequest, loadHierarchy]
 	);
 
-	// const handleImportClick = () => {
-	// 	if (fileInputRef.current) {
-	// 		fileInputRef.current.value = "";
-	// 		fileInputRef.current.click();
-	// 	}
-	// };
-
-	// const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-	// 	const file = e.target.files?.[0];
-	// 	if (!file) return;
-	// 	try {
-	// 		const text = await file.text();
-	// 		const json = JSON.parse(text);
-	// 		// Expecting json to have an id or boardId
-	// 		const boardId = json.id || json.boardId;
-	// 		if (!boardId) {
-	// 			toast.error("Invalid layout file: missing board id");
-	// 			return;
-	// 		}
-	// 		const res = await fetch(`/api/manage-dashboard/board/${boardId}/layout`, {
-	// 			method: "PUT",
-	// 			headers: { "Content-Type": "application/json" },
-	// 			body: JSON.stringify(json),
-	// 		});
-	// 		if (res.ok) {
-	// 			toast.success("Board layout imported successfully");
-	// 			loadHierarchy();
-	// 		} else {
-	// 			toast.error("Failed to import board layout");
-	// 		}
-	// 	} catch (err) {
-	// 		toast.error("Invalid layout file");
-	// 	}
-	// };
 
 	return (
 		<div className="flex flex-col gap-2 grow overflow-y-hidden">
 			<div className="flex justify-between items-center text-stone-700 dark:text-stone-300">
 				<h3 className="font-medium">Explorer</h3>
-				<Button variant="outline" onClick={() => openAddDialog()}>
-					<Plus className="h-4 w-4 mr-2" />
-					Add
-				</Button>
+				<RootActions openAddDialog={openAddDialog} importBoardLayout={importBoardLayout} />
 			</div>
 
 			<div className="grow bg-stone-100 dark:bg-stone-900 rounded-sm p-2 overflow-y-auto">
@@ -613,7 +606,7 @@ export default function DashboardExplorer() {
 						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 					</div>
 				) : items.length === 0 ? (
-					<EmptyState />
+					<EmptyState openAddDialog={openAddDialog} />
 				) : (
 					<DragDropContext onDragEnd={handleDragEnd}>
 						<Droppable droppableId="root" type="explorer-item">
@@ -622,8 +615,8 @@ export default function DashboardExplorer() {
 									ref={provided.innerRef}
 									{...provided.droppableProps}
 									className={`${snapshot.isDraggingOver
-											? "bg-stone-200 dark:bg-stone-800 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-md"
-											: ""
+										? "bg-stone-200 dark:bg-stone-800 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-md"
+										: ""
 										}`}
 								>
 									{items.map((item, index) => (
@@ -658,6 +651,7 @@ export default function DashboardExplorer() {
 				initialItemTitle={dialogState.itemTitle}
 				initialItemDescription={dialogState.itemDescription}
 				initialItemType={dialogState.itemType}
+				initialItemTags={dialogState.itemTags}
 				onSave={handleDialogSave}
 				onCancel={handleDialogCancel}
 			/>

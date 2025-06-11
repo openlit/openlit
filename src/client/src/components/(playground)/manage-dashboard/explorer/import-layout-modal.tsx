@@ -105,8 +105,8 @@ export default function ImportLayoutModal({
             onChange={handleFileChange}
             className="hidden"
           />
-          <Upload className="w-8 h-8 mx-auto mb-4 text-muted-foreground" />
-          <div className="space-y-2">
+          <Upload className="w-8 h-8 mx-auto mb-4 text-stone-700 dark:text-stone-300" />
+          <div className="space-y-2 text-stone-700 dark:text-stone-300">
             <p>Drag & drop a layout file here, or click to select</p>
             <p className="text-sm text-muted-foreground">
               Only .json files are supported

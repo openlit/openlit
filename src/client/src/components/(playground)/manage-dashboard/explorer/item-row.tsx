@@ -5,6 +5,7 @@ import { Draggable, Droppable } from "react-beautiful-dnd";
 import ItemIcon from "./item-icon";
 import ItemActions from "./item-actions";
 import { Badge } from "@/components/ui/badge";
+import { jsonParse } from "@/utils/json";
 
 export default function ExplorerItemRow({
 	item,
@@ -47,6 +48,8 @@ export default function ExplorerItemRow({
 		return importBoardLayout(data);
 	}, [importBoardLayout]);
 
+	const tags = item.tags ? jsonParse(item.tags) : [];
+
 	return (
 		<Draggable draggableId={item.id} index={index}>
 			{(provided, snapshot) => (
@@ -56,7 +59,7 @@ export default function ExplorerItemRow({
 					className="my-2"
 				>
 					<div className={`${snapshot.isDragging ? "opacity-50" : ""}`}>
-						<div className="flex items-center justify-between group py-1 px-2 rounded-md  hover:bg-stone-100 dark:hover:bg-stone-700 group-hover  bg-transparent dark:bg-transparent">
+						<div className="flex items-center justify-between group py-1 px-2 rounded-sm  hover:bg-stone-100 dark:hover:bg-stone-700 group-hover  bg-transparent dark:bg-transparent">
 							<div className="flex items-center gap-2 flex-1">
 								<div
 									{...provided.dragHandleProps}
@@ -89,6 +92,13 @@ export default function ExplorerItemRow({
 									<span>{item.title}</span>
 									{item.type === "board" && item.isMainDashboard && (
 										<Badge>Main</Badge>
+									)}
+									{tags && tags.length > 0 && (
+										<div className="flex items-center gap-2 ml-4">
+											{tags.map((tag: string) => (
+												<Badge key={tag}>{tag}</Badge>
+											))}
+										</div>
 									)}
 								</div>
 							</div>

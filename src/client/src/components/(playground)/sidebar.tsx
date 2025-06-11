@@ -43,8 +43,8 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	},
 	{
 		icon: <FolderCogIcon className={ICON_CLASSES} />,
-		text: "Manage Dashboard",
-		link: "/manage-dashboard",
+		text: "Dashboards",
+		link: "/dashboards",
 	},
 	{
 		icon: <LayoutDashboard className={ICON_CLASSES} />,

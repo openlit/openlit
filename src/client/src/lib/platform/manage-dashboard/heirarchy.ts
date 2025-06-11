@@ -64,7 +64,8 @@ function buildHierarchy(
 			isMainDashboard: board.isMainDashboard,
 			type: "board",
 			children: [],
-			parentId: board.parentId
+			parentId: board.parentId,
+			tags: board.tags,
 		};
 		
 		if (board.parentId && folderMap.has(board.parentId)) {

@@ -3,7 +3,7 @@ import Filter from "@/components/(playground)/filter";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useSearchParams } from "next/navigation";
-import Dashboard, { DashboardConfig } from "../manage-dashboard/board-creator";
+import Dashboard, { DashboardConfig } from "../../../components/(playground)/manage-dashboard/board-creator";
 import { Board } from "@/types/manage-dashboard";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";

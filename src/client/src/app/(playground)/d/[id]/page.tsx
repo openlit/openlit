@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Dashboard from "../../board-creator";
+import Dashboard from "../../../../components/(playground)/manage-dashboard/board-creator";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useParams } from "next/navigation";
-import { DashboardConfig, Widget } from "../../board-creator/types";
+import { DashboardConfig, Widget } from "../../../../components/(playground)/manage-dashboard/board-creator/types";
 
 // import Layout from "./layout";
 // import DashboardOrganism from "./dashboard-organism";

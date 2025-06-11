@@ -18,6 +18,7 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
       parent_id Nullable(UUID),              -- Parent folder ID, null for root folders
       created_at DateTime DEFAULT now(),      -- Creation timestamp
       updated_at DateTime DEFAULT now(),      -- Last update timestamp
+      tags String DEFAULT '[]',               -- Tags for the folder
       PRIMARY KEY id
     ) ENGINE = MergeTree()
     ORDER BY id;
@@ -31,6 +32,8 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
       is_main_dashboard Boolean,             -- Flag for main dashboard
       created_at DateTime DEFAULT now(),      -- Creation timestamp
       updated_at DateTime DEFAULT now(),      -- Last update timestamp
+      is_pinned Boolean DEFAULT false,         -- Flag for pinned boards
+      tags String DEFAULT '[]',               -- Tags for the board
       PRIMARY KEY id
     ) ENGINE = MergeTree()
     ORDER BY id;

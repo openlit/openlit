@@ -49,13 +49,6 @@ import QueryDebugger from "./QueryDebugger";
 import { ColorSelector } from "./ColorSelector";
 import MarkdownWidgetComponent from "../widgets/MarkdownWidget";
 
-interface WidgetConfig {
-	query?: string;
-	content?: string;
-	showPreview?: boolean;
-	colorTheme?: ColorTheme;
-}
-
 interface NonMarkdownConfig {
 	query: string;
 }
@@ -65,8 +58,6 @@ interface MarkdownConfig {
 	showPreview?: boolean;
 	colorTheme?: ColorTheme;
 }
-
-type WidgetConfigType = NonMarkdownConfig | MarkdownConfig;
 
 interface EditWidgetSheetProps {
 	editorLanguage?: string;
@@ -79,7 +70,6 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 		currentTab,
 		setCurrentTab,
 		isFullscreenEditor,
-		toggleFullscreenEditor,
 		currentWidget,
 		closeEditSheet,
 		updateWidget,
@@ -170,8 +160,8 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 		>
 			<SheetContent
 				className={`${isFullscreenEditor
-						? "w-full max-w-full h-full p-0"
-						: "sm:max-w-md md:max-w-lg flex flex-col h-full"
+					? "w-full max-w-full h-full p-0"
+					: "sm:max-w-md md:max-w-lg flex flex-col h-full"
 					} bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-800`}
 			>
 				<div className="flex flex-col h-full">
@@ -185,22 +175,22 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 					{currentWidget && (
 						<div className="flex-1 overflow-y-auto py-4">
 							<Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-								<TabsList className="grid w-full grid-cols-3 bg-stone-100 dark:bg-stone-900">
+								<TabsList className="grid w-full grid-cols-3 bg-stone-200 dark:bg-stone-900">
 									<TabsTrigger
 										value="general"
-										className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-white"
+										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-900 dark:text-white"
 									>
 										General
 									</TabsTrigger>
 									<TabsTrigger
 										value="query"
-										className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-white"
+										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-900 dark:text-white"
 									>
 										Config
 									</TabsTrigger>
 									<TabsTrigger
 										value="appearance"
-										className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-white"
+										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-900 dark:text-white"
 									>
 										Appearance
 									</TabsTrigger>
@@ -614,14 +604,6 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													Run Query
 												</Button>
 											</div>
-
-											<div className="">
-												<QueryDebugger
-													data={queryResult}
-													error={queryError || undefined}
-													isLoading={isQueryLoading}
-												/>
-											</div>
 										</>
 									) : (
 										<div className="space-y-4">
@@ -629,14 +611,14 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												<Label htmlFor="content" className="text-stone-900 dark:text-white">Markdown Content</Label>
 												<Tabs defaultValue="write" className="w-full">
 													<TabsList className="grid w-full grid-cols-2 bg-stone-100 dark:bg-stone-900">
-														<TabsTrigger 
-															value="write" 
+														<TabsTrigger
+															value="write"
 															className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-white"
 														>
 															Write
 														</TabsTrigger>
-														<TabsTrigger 
-															value="preview" 
+														<TabsTrigger
+															value="preview"
 															className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:text-white"
 														>
 															Preview
@@ -764,6 +746,15 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 						</div>
 					</SheetFooter>
 				</div>
+				{
+					currentTab === "query" && currentWidget?.type !== WidgetType.MARKDOWN && (
+						<QueryDebugger
+							data={queryResult}
+							error={queryError || undefined}
+							isLoading={isQueryLoading}
+						/>
+					)
+				}
 			</SheetContent>
 		</Sheet>
 	);

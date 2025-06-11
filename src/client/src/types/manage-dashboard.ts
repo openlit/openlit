@@ -15,6 +15,7 @@ export type Board = {
 	updatedAt: string;
 	widgets: BoardWidget[];
 	totalWidgets?: number;
+	tags: string;
 };
 
 export type Folder = {
@@ -24,6 +25,7 @@ export type Folder = {
 	createdAt: string;
 	updatedAt: string;
 	parentId: string | null;
+	tags: string;
 };
 
 export type BoardWidget = {
@@ -69,6 +71,7 @@ export interface DashboardHeirarchy {
 	title: string;
 	description: string;
 	isMainDashboard?: boolean;
+	tags: string;
 	type: DashboardItemType;
 	children?: DashboardHeirarchy[];
 	parentId?: string | null;

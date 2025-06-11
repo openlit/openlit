@@ -15,6 +15,7 @@ export default function AddEditDialog({
 	initialItemTitle = "",
 	initialItemDescription = "",
 	initialItemType = "board",
+	initialItemTags = [],
 	onSave,
 }: {
 	isOpen: boolean;
@@ -23,7 +24,8 @@ export default function AddEditDialog({
 	initialItemTitle?: string;
 	initialItemDescription?: string;
 	initialItemType?: DashboardItemType;
-	onSave: (title: string, description: string, type: DashboardItemType) => void;
+	initialItemTags?: string[];
+	onSave: (title: string, description: string, type: DashboardItemType, tags: string[]) => void;
 	onCancel: () => void;
 }) {
 	const handleSubmit: FormBuilderEvent = useCallback(
@@ -39,7 +41,8 @@ export default function AddEditDialog({
 			onSave(
 				formdata.title.trim(),
 				formdata.description,
-				formdata.type as DashboardItemType
+				formdata.type as DashboardItemType,
+				formdata.tags
 			);
 		},
 		[onSave]
@@ -69,6 +72,16 @@ export default function AddEditDialog({
 				name: "description",
 				placeholder: "Enter description",
 				defaultValue: initialItemDescription,
+			},
+		},
+		{
+			label: "Tags",
+			inputKey: `item-tags`,
+			fieldType: "TAGSINPUT",
+			fieldTypeProps: {
+				name: "tags",
+				placeholder: "Add tags",
+				defaultValue: initialItemTags,
 			},
 		},
 	];
@@ -103,13 +116,13 @@ export default function AddEditDialog({
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>
-			<DialogContent>
+			<DialogContent className="max-h-[90%] overflow-hidden">
 				<DialogHeader>
 					<DialogTitle>
 						{mode === "add" ? "Create New Dashboard/Folder" : "Edit Dashboard/Folder"}
 					</DialogTitle>
 				</DialogHeader>
-				<div className="flex items-center overflow-y-auto">
+				<div className="flex items-center overflow-y-auto mt-4">
 					<FormBuilder
 						alignment="vertical"
 						fields={formFields}

@@ -34,6 +34,10 @@ const ThemeToggleSwitch = () => {
 	);
 };
 
+const DashboardTitleMap = {
+	"d": "Dashboard",
+};
+
 export default function Header() {
 	const posthog = usePostHog();
 	const pathname = usePathname();
@@ -51,10 +55,12 @@ export default function Header() {
 		}
 	}, [user]);
 
+	const titleKey = pathname.substring(1).replaceAll("-", " ").split("/")[0];
+
 	return (
 		<header className="flex h-[57px] items-center gap-1 border-b dark:border-stone-800 px-4 sm:px-6">
 			<h1 className="flex flex-1 text-xl font-semibold capitalize dark:text-white">
-				{pathname.substring(1).replaceAll("-", " ").split("/")[0]}
+				{DashboardTitleMap[titleKey as keyof typeof DashboardTitleMap] || titleKey}
 			</h1>
 			<DatabaseConfigSwitch />
 			<RefreshRate />

@@ -3,13 +3,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-	CircularProgress,
 	Dialog,
-	DialogTitle,
 	DialogContent,
-	DialogContentText,
-	DialogActions,
-} from "@mui/material";
+	DialogHeader,
+	DialogFooter,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
 
 // Icon mapping for widget types
 import {
@@ -19,9 +19,12 @@ import {
 	Table,
 	AreaChart,
 	Gauge,
+	Clock,
 } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
+import { Widget } from "@/types/manage-dashboard";
+
 const widgetTypeToIcon = {
 	STAT_CARD: Gauge,
 	BAR_CHART: BarChart,
@@ -31,8 +34,17 @@ const widgetTypeToIcon = {
 	AREA_CHART: AreaChart,
 };
 
+function formatDate(dateString: string) {
+	const date = new Date(dateString);
+	return date.toLocaleDateString(undefined, {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	});
+}
+
 const WidgetListPage = () => {
-	const [widgets, setWidgets] = useState<any[]>([]);
+	const [widgets, setWidgets] = useState<Widget[]>([]);
 	const [deleteDialog, setDeleteDialog] = useState<null | {
 		id: string;
 		title: string;
@@ -71,7 +83,7 @@ const WidgetListPage = () => {
 	return (
 		<div className="flex flex-col gap-3 grow overflow-y-hidden">
 			<div className="flex justify-between items-center text-stone-700 dark:text-stone-300">
-				<h3 className="font-medium">Wigets</h3>
+				<h3 className="font-medium">Widgets</h3>
 			</div>
 
 			{isLoading ? (
@@ -79,7 +91,7 @@ const WidgetListPage = () => {
 					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 				</div>
 			) : (
-				<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 h-full overflow-y-auto">
+				<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 h-full overflow-y-auto">
 					{widgets.map((widget) => {
 						const IconComponent =
 							widgetTypeToIcon[
@@ -88,60 +100,61 @@ const WidgetListPage = () => {
 						return (
 							<Card
 								key={widget.id}
-								className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-stone-200 hover:border-stone-300 relative"
+								className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700"
 							>
-								{widget.isPopular && (
-									<div className="absolute -top-2 -right-2 z-10">
-										<Badge className="bg-orange-500 text-white text-xs">
-											Popular
-										</Badge>
-									</div>
-								)}
 								<CardHeader className="pb-3">
-									<div className="flex items-center justify-between">
-										<div className="p-2 bg-stone-50 rounded-lg group-hover:bg-stone-100 transition-colors">
-											<IconComponent className="h-5 w-5 text-stone-600" />
+									<CardTitle className="flex gap-2 items-center text-lg font-semibold text-stone-900 dark:text-stone-300 group-hover:text-stone-600 dark:group-hover:text-stone-200 transition-colors">
+										<div className="flex items-start justify-between">
+											<IconComponent className="h-5 w-5 text-stone-500 dark:text-stone-400 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors" />
+											<Badge className="text-xs ml-2" variant="secondary">
+												{widget.type}
+											</Badge>
 										</div>
-										<Badge className={`text-xs`}>{widget.type}</Badge>
-									</div>
-									<CardTitle className="text-base font-semibold text-stone-900 group-hover:text-stone-600 dark:text-stone-300 group-hover:dark:text-stone-200 transition-colors">
 										{widget.title}
 									</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									<p className="text-sm text-gray-600 line-clamp-3">
+									<p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 shrink-0 h-[40px]">
 										{widget.description}
 									</p>
+									<div className="flex items-center justify-between text-sm text-gray-500">
+										<div className="flex items-center gap-1 text-xs text-gray-400">
+											<Clock className="h-3 w-3" />
+											<span>Updated {formatDate(widget.updatedAt)}</span>
+										</div>
+									</div>
 								</CardContent>
 							</Card>
 						);
 					})}
 				</div>
 			)}
-			<Dialog
-				open={!!deleteDialog}
-				onClose={() => setDeleteDialog(null)}
-				aria-labelledby="delete-widget-dialog-title"
-			>
-				<DialogTitle id="delete-widget-dialog-title">Delete Widget</DialogTitle>
+			<Dialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>
 				<DialogContent>
-					<DialogContentText>
-						Are you sure you want to delete widget &quot;{deleteDialog?.title}&quot;? This
-						action cannot be undone.
-					</DialogContentText>
+					<DialogHeader>
+						<DialogTitle>Delete Widget</DialogTitle>
+						<DialogDescription>
+							Are you sure you want to delete widget &quot;{deleteDialog?.title}&quot;? This
+							action cannot be undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button variant="secondary" onClick={() => setDeleteDialog(null)} disabled={deleting}>
+							Cancel
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={() => handleDelete(deleteDialog!.id)}
+							disabled={deleting}
+						>
+							{deleting ? (
+								<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+							) : (
+								"Delete"
+							)}
+						</Button>
+					</DialogFooter>
 				</DialogContent>
-				<DialogActions>
-					<Button onClick={() => setDeleteDialog(null)} disabled={deleting}>
-						Cancel
-					</Button>
-					<Button
-						onClick={() => handleDelete(deleteDialog!.id)}
-						color="error"
-						disabled={deleting}
-					>
-						{deleting ? <CircularProgress size={20} /> : "Delete"}
-					</Button>
-				</DialogActions>
 			</Dialog>
 		</div>
 	);

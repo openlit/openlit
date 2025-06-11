@@ -8,6 +8,7 @@ import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
 import { createWidget, getWidgets } from "./widget";
 import { pluck } from "lodash/fp";
+import { jsonStringify } from "@/utils/json";
 
 export function getBoardById(id: string) {
 	const query = `
@@ -23,7 +24,7 @@ export function getBoards() {
 	const query = `
 		SELECT b.id, b.title, b.description, b.parent_id AS parentId, 
 		       b.is_main_dashboard AS isMainDashboard, b.created_at AS createdAt, 
-		       b.updated_at AS updatedAt, COALESCE(bwc.total_widgets, 0) AS totalWidgets 
+		       b.updated_at AS updatedAt, COALESCE(bwc.total_widgets, 0) AS totalWidgets, b.tags
 		FROM ${OPENLIT_BOARD_TABLE_NAME} b
 		LEFT JOIN (
 			SELECT board_id, COUNT(*) AS total_widgets
@@ -49,6 +50,7 @@ export async function createBoard(board: Board) {
 					description: sanitizedBoard.description,
 					parent_id: sanitizedBoard.parentId,
 					is_main_dashboard: sanitizedBoard.isMainDashboard,
+					tags: jsonStringify(sanitizedBoard.tags),
 				},
 			],
 		},
@@ -73,6 +75,7 @@ export async function updateBoard(board: Board) {
 		sanitizedBoard.description &&
 		`description = '${sanitizedBoard.description}'`,
 		`parent_id = '${sanitizedBoard.parentId}'`,
+		sanitizedBoard.tags && `tags = '${jsonStringify(sanitizedBoard.tags)}'`,
 	];
 
 	const query = `
@@ -124,7 +127,8 @@ export async function getBoardLayout(id: string) {
 			description AS boardDescription,
 			is_main_dashboard AS isMainDashboard,
 			created_at AS boardCreatedAt,
-			updated_at AS boardUpdatedAt
+			updated_at AS boardUpdatedAt,
+			tags AS tags
 		FROM ${OPENLIT_BOARD_TABLE_NAME}
 		WHERE id = '${Sanitizer.sanitizeValue(id)}'
 	`;
@@ -139,6 +143,7 @@ export async function getBoardLayout(id: string) {
 		isMainDashboard: boolean;
 		boardCreatedAt: string;
 		boardUpdatedAt: string;
+		tags: string;
 	};
 
 	if (!boardResult || boardErr)
@@ -165,6 +170,7 @@ export async function getBoardLayout(id: string) {
 		position: string;
 		boardWidgetCreatedAt: string;
 		boardWidgetUpdatedAt: string;
+		tags: string;
 	}>;
 
 	// Finally get the widget details
@@ -190,6 +196,7 @@ export async function getBoardLayout(id: string) {
 		createdAt: boardResult.boardCreatedAt,
 		updatedAt: boardResult.boardUpdatedAt,
 		widgets: [],
+		tags: boardResult.tags,
 	};
 
 	// Construct the layout config format
@@ -395,6 +402,7 @@ export async function importBoardLayout(data: any) {
 
 	// Create the board first
 	const boardResult = await createBoard(boardData as Board);
+
 	if ('err' in boardResult) {
 		return { err: boardResult.err };
 	}
@@ -425,7 +433,7 @@ export async function importBoardLayout(data: any) {
 		}
 	});
 
-	const widgetCreateResult = await Promise.all(updatedWidgets.map((widget: any) => {
+	await Promise.all(updatedWidgets.map((widget: any) => {
 		return createWidget(widget);
 	}));
 
@@ -443,7 +451,7 @@ export async function importBoardLayout(data: any) {
 	const { data: layoutData } = await updateBoardLayout(newBoardId, layoutConfigData);
 
 	if (layoutData) {
-		return { data: getMessage().BOARD_IMPORT_SUCCESSFULLY };
+		return { data: boardResult.data };
 	}
 
 	return { err: getMessage().BOARD_IMPORT_FAILED };

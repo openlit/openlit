@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { Board } from "@/types/manage-dashboard";
+import { jsonParse } from "@/utils/json";
+import EmptyState from "./empty-state";
+import { useRouter } from "next/navigation";
 
 function formatDate(dateString: string) {
 	const date = new Date(dateString);
@@ -18,7 +21,7 @@ function formatDate(dateString: string) {
 export default function BoardList() {
 	const [boards, setBoards] = useState<Board[]>([]);
 	const { fireRequest, isLoading } = useFetchWrapper();
-
+	const router = useRouter();
 	const fetchBoards = useCallback(() => {
 		fireRequest({
 			url: "/api/manage-dashboard/board",
@@ -40,7 +43,7 @@ export default function BoardList() {
 	}, [fetchBoards]);
 
 	const navigateToBoard = useCallback((boardId: string) => {
-		window.location.href = `/manage-dashboard/board/${boardId}`;
+		router.push(`/d/${boardId}`);
 	}, []);
 
 	return (
@@ -55,12 +58,7 @@ export default function BoardList() {
 						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 					</div>
 				) : boards.length === 0 ? (
-					<div className="text-center py-8 text-muted-foreground">
-						<p>No boards available</p>
-						<p className="text-sm mt-2">
-							Create a board in the Explorer to get started
-						</p>
-					</div>
+					<EmptyState />
 				) : (
 					<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
 						{boards.map((board) => (
@@ -70,15 +68,15 @@ export default function BoardList() {
 								onClick={() => navigateToBoard(board.id)}
 							>
 								<CardHeader className="pb-3">
-									<div className="flex items-start justify-between">
-										<LayoutDashboardIcon className="h-5 w-5 text-stone-500 dark:text-stone-400 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors" />
-										{board.isMainDashboard && (
-											<Badge className="text-xs" variant="secondary">
-												Main Dashboard
-											</Badge>
-										)}
-									</div>
-									<CardTitle className="text-lg font-semibold text-stone-900 dark:text-stone-300 group-hover:text-stone-600 dark:group-hover:text-stone-200 transition-colors">
+									<CardTitle className="flex gap-2 items-center text-lg font-semibold text-stone-900 dark:text-stone-300 group-hover:text-stone-600 dark:group-hover:text-stone-200 transition-colors">
+										<div className="flex items-start justify-between">
+											<LayoutDashboardIcon className="h-5 w-5 text-stone-500 dark:text-stone-400 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors" />
+											{board.isMainDashboard && (
+												<Badge className="text-xs" variant="secondary">
+													Main Dashboard
+												</Badge>
+											)}
+										</div>
 										{board.title}
 									</CardTitle>
 								</CardHeader>
@@ -86,6 +84,11 @@ export default function BoardList() {
 									<p className="text-sm text-gray-600 line-clamp-2 shrink-0 h-[40px]">
 										{board.description}
 									</p>
+									<div className="flex items-center gap-2">
+										{jsonParse(board.tags).map((tag: string) => (
+											<Badge key={tag}>{tag}</Badge>
+										))}
+									</div>
 									<div className="flex items-center justify-between text-sm text-gray-500">
 										<div className="flex items-center gap-1 text-xs text-gray-400">
 											<Clock className="h-3 w-3" />

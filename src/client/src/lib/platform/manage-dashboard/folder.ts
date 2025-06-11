@@ -6,10 +6,11 @@ import {
 } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
 import getMessage from "@/constants/messages";
+import { jsonStringify } from "@/utils/json";
 
 export function getFolderById(id: string) {
 	const query = `
-		SELECT id, title, description, parent_id AS parentId, created_at AS createdAt, updated_at AS updatedAt
+		SELECT id, title, description, parent_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, tags
 		FROM ${OPENLIT_FOLDER_TABLE_NAME} 
 		WHERE id = '${Sanitizer.sanitizeValue(id)}'
 	`;
@@ -19,7 +20,7 @@ export function getFolderById(id: string) {
 
 export function getFolders() {
 	const query = `
-		SELECT id, title, description, parent_id AS parentId, created_at AS createdAt, updated_at AS updatedAt
+		SELECT id, title, description, parent_id AS parentId, created_at AS createdAt, updated_at AS updatedAt, tags
 		FROM ${OPENLIT_FOLDER_TABLE_NAME} 
 	`;
 
@@ -37,6 +38,7 @@ export function createFolder(folder: Folder) {
 					title: sanitizedFolder.title,
 					description: sanitizedFolder.description,
 					parent_id: sanitizedFolder.parentId,
+					tags: jsonStringify(sanitizedFolder.tags),
 				},
 			],
 		},
@@ -52,6 +54,7 @@ export async function updateFolder(folder: Folder) {
 		sanitizedFolder.description &&
 			`description = '${sanitizedFolder.description}'`,
 		`parent_id = '${sanitizedFolder.parentId}'`,
+		sanitizedFolder.tags && `tags = '${jsonStringify(sanitizedFolder.tags)}'`,
 	];
 
 	const query = `

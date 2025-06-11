@@ -10,6 +10,7 @@ import type { DashboardProps, Widget } from "./types";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import WidgetRenderer from "./widgets/WidgetRenderer";
 import dynamic from "next/dynamic";
+import createMessage from "@/constants/messages";
 
 // Empty state component
 const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
@@ -19,12 +20,12 @@ const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
 				<div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
 					<Plus className="h-6 w-6 text-primary" />
 				</div>
-				<h3 className="text-lg font-semibold mb-2">No widgets yet</h3>
-				<p className="text-sm text-muted-foreground mb-4">
-					Create your first widget to start building your custom dashboard. Add charts, stats, and more to visualize your data.
+				<h3 className="text-lg font-semibold mb-2 text-stone-900 dark:text-stone-300">{createMessage().NO_WIDGETS_YET}</h3>
+				<p className="text-sm text-stone-500 dark:text-stone-400 mb-4">
+					{createMessage().NO_WIDGETS_YET_DESCRIPTION}
 				</p>
 				<Button onClick={onAddWidget} className="gap-2">
-					<Plus className="h-4 w-4" /> Add Your First Widget
+					<Plus className="h-4 w-4" /> {createMessage().NO_WIDGETS_YET_ACTION_BUTTON}
 				</Button>
 			</div>
 		</div>
