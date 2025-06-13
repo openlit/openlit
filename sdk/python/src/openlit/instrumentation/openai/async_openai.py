@@ -521,7 +521,8 @@ def async_chat_completions(version, environment, application_name,
                         self._llmresponse += content
                 self._response_id = chunked.get('id')
                 self._response_model = chunked.get('model')
-                self._finish_reason = chunked.get('choices')[0].get('finish_reason')
+                if len(chunked.get('choices')) > 0:
+                    self._finish_reason = chunked.get('choices')[0].get('finish_reason')
                 self._openai_response_service_tier = chunked.get('service_tier') or 'auto'
                 self._openai_system_fingerprint = chunked.get('system_fingerprint')
                 return chunk
