@@ -21,7 +21,7 @@ export function getBoardById(id: string) {
 	return dataCollector({ query });
 }
 
-export function getBoards(home: boolean) {
+export function getBoards(home?: boolean) {
 	let query: string = '';
 	if (home) {
 		query = `
