@@ -11,6 +11,7 @@ export type Board = {
 	description: string;
 	parentId: string | null;
 	isMainDashboard: boolean;
+	isPinned: boolean;
 	createdAt: string;
 	updatedAt: string;
 	widgets: BoardWidget[];
@@ -71,6 +72,7 @@ export interface DashboardHeirarchy {
 	title: string;
 	description: string;
 	isMainDashboard?: boolean;
+	isPinned?: boolean;
 	tags: string;
 	type: DashboardItemType;
 	children?: DashboardHeirarchy[];

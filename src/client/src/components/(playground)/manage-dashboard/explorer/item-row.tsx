@@ -1,5 +1,5 @@
 import { DashboardHeirarchy } from "@/types/manage-dashboard";
-import { GripVertical, ChevronRight, ChevronDown } from "lucide-react";
+import { GripVertical, ChevronRight, ChevronDown, PinIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Draggable, Droppable } from "react-beautiful-dnd";
 import ItemIcon from "./item-icon";
@@ -17,6 +17,7 @@ export default function ExplorerItemRow({
 	onDeleteClick,
 	exportBoardLayout,
 	setMainDashboard,
+	updatePinnedBoard,
 	importBoardLayout,
 }: {
 	item: DashboardHeirarchy;
@@ -28,6 +29,7 @@ export default function ExplorerItemRow({
 	onDeleteClick: (id: string, path: string[]) => void;
 	exportBoardLayout: (id: string) => void;
 	setMainDashboard: (id: string) => void;
+	updatePinnedBoard: (id: string) => void;
 	importBoardLayout: (data: any) => Promise<unknown>;
 }) {
 	const [open, setOpen] = useState(false);
@@ -93,6 +95,11 @@ export default function ExplorerItemRow({
 									{item.type === "board" && item.isMainDashboard && (
 										<Badge>Main</Badge>
 									)}
+									{item.type === "board" && item.isPinned && (
+										<Badge className="text-xs" variant="secondary">
+											<PinIcon className="h-3 w-3" />
+										</Badge>
+									)}
 									{tags && tags.length > 0 && (
 										<div className="flex items-center gap-2 ml-4">
 											{tags.map((tag: string) => (
@@ -111,6 +118,7 @@ export default function ExplorerItemRow({
 								onDeleteClick={onDeleteClick}
 								exportBoardLayout={exportBoardLayout}
 								setMainDashboard={setMainDashboard}
+								updatePinnedBoard={updatePinnedBoard}
 								importBoardLayout={handleImportBoardLayout}
 							/>
 						</div>
@@ -143,6 +151,7 @@ export default function ExplorerItemRow({
 												onDeleteClick={onDeleteClick}
 												exportBoardLayout={exportBoardLayout}
 												setMainDashboard={setMainDashboard}
+												updatePinnedBoard={updatePinnedBoard}
 												importBoardLayout={importBoardLayout}
 											/>
 										))}

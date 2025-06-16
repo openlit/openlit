@@ -7,7 +7,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Edit, Trash2, Download, Upload } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, Trash2, Download, Upload, PinIcon } from "lucide-react";
 import ImportLayoutModal from "./import-layout-modal";
 
 export default function ItemActions({
@@ -18,6 +18,7 @@ export default function ItemActions({
 	onDeleteClick,
 	exportBoardLayout,
 	setMainDashboard,
+	updatePinnedBoard,
 	importBoardLayout,
 }: {
 	item: DashboardHeirarchy;
@@ -27,6 +28,7 @@ export default function ItemActions({
 	onDeleteClick: (id: string, path: string[]) => void;
 	exportBoardLayout: (id: string) => void;
 	setMainDashboard: (id: string) => void;
+	updatePinnedBoard: (id: string) => void;
 	importBoardLayout: (data: any) => Promise<unknown>;
 }) {
 	const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -99,6 +101,10 @@ export default function ItemActions({
 							<DropdownMenuItem onClick={() => setMainDashboard(item.id)}>
 								<Download className="h-4 w-4 mr-2" />
 								Set as Main Dashboard
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => updatePinnedBoard(item.id)}>
+								<PinIcon className="h-4 w-4 mr-2" />
+								{item.isPinned ? "Unpin" : "Pin"}
 							</DropdownMenuItem>
 						</>
 					) : (

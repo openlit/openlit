@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { LayoutDashboardIcon, Clock, ComponentIcon } from "lucide-react";
+import { LayoutDashboardIcon, Clock, ComponentIcon, PinIcon } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -69,15 +69,20 @@ export default function BoardList() {
 							>
 								<CardHeader className="pb-3">
 									<CardTitle className="flex gap-2 items-center text-lg font-semibold text-stone-900 dark:text-stone-300 group-hover:text-stone-600 dark:group-hover:text-stone-200 transition-colors">
-										<div className="flex items-start justify-between">
-											<LayoutDashboardIcon className="h-5 w-5 text-stone-500 dark:text-stone-400 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors" />
+										<LayoutDashboardIcon className="h-5 w-5 text-stone-500 dark:text-stone-400 group-hover:text-stone-600 dark:group-hover:text-stone-300 transition-colors" />
+										<span className="grow shrink-0">{board.title}</span>
+										<div className="flex items-end justify-between">
 											{board.isMainDashboard && (
 												<Badge className="text-xs" variant="secondary">
 													Main Dashboard
 												</Badge>
 											)}
+											{board.isPinned && (
+												<Badge className="text-xs" variant="secondary">
+													<PinIcon className="h-3 w-3" />
+												</Badge>
+											)}
 										</div>
-										{board.title}
 									</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-4">

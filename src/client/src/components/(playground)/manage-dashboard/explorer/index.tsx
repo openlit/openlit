@@ -329,6 +329,23 @@ export default function DashboardExplorer() {
 		[loadHierarchy, setMainDashboardRequest]
 	);
 
+	const handleUpdatePinnedBoard = useCallback(
+		(boardId: string) => {
+			setMainDashboardRequest({
+				requestType: "PATCH",
+				url: `/api/manage-dashboard/board/${boardId}`,
+				body: jsonStringify({ updatePinned: true }),
+				successCb: () => {
+					loadHierarchy();
+				},
+				failureCb: (error) => {
+					console.error("Failed to update pinned board:", error);
+				},
+			});
+		},
+		[loadHierarchy, setMainDashboardRequest]
+	);
+
 	const exportBoardLayout = useCallback((id: string) => {
 		window.location.href = `/api/manage-dashboard/board/${id}/layout/export`;
 	}, []);
@@ -631,6 +648,7 @@ export default function DashboardExplorer() {
 											onDeleteClick={deleteItem}
 											exportBoardLayout={exportBoardLayout}
 											setMainDashboard={handleSetMainDashboard}
+											updatePinnedBoard={handleUpdatePinnedBoard}
 											importBoardLayout={importBoardLayout}
 										/>
 									))}

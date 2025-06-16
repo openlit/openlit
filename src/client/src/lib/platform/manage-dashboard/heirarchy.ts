@@ -62,6 +62,7 @@ function buildHierarchy(
 			title: board.title, 
 			description: board.description,
 			isMainDashboard: board.isMainDashboard,
+			isPinned: board.isPinned,
 			type: "board",
 			children: [],
 			parentId: board.parentId,

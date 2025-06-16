@@ -1,4 +1,4 @@
-import { deleteBoard, getBoardById, setMainDashboard } from "@/lib/platform/manage-dashboard/board";
+import { deleteBoard, getBoardById, setMainDashboard, updatePinnedBoard } from "@/lib/platform/manage-dashboard/board";
 import { NextRequest } from "next/server";
 
 export async function DELETE(
@@ -24,6 +24,11 @@ export async function PATCH(
 	const body = await request.json();
 	if (body.setMain) {
 		const res = await setMainDashboard(id);
+		return Response.json(res);
+	}
+
+	if (body.updatePinned) {
+		const res = await updatePinnedBoard(id);
 		return Response.json(res);
 	}
 	return Response.json({ err: "Invalid PATCH request" }, { status: 400 });

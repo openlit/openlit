@@ -20,7 +20,8 @@ export async function PUT(request: NextRequest) {
 	return Response.json(res);
 }
 
-export async function GET() {
-	const res = await getBoards();
+export async function GET(request: NextRequest) {
+	const home = request.nextUrl.searchParams.get("home") === "true";
+	const res = await getBoards(home);
 	return Response.json(res);
 }

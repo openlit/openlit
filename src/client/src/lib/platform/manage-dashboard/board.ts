@@ -21,20 +21,36 @@ export function getBoardById(id: string) {
 	return dataCollector({ query });
 }
 
-export function getBoards() {
-	const query = `
-		SELECT b.id, b.title, b.description, b.parent_id AS parentId, 
-		       b.is_main_dashboard AS isMainDashboard, b.created_at AS createdAt, 
-		       b.updated_at AS updatedAt, COALESCE(bwc.total_widgets, 0) AS totalWidgets, b.tags
-		FROM ${OPENLIT_BOARD_TABLE_NAME} b
-		LEFT JOIN (
-			SELECT board_id, COUNT(*) AS total_widgets
-			FROM ${OPENLIT_BOARD_WIDGET_TABLE_NAME}
-			WHERE board_id IS NOT NULL
-			GROUP BY board_id
-		) AS bwc ON b.id = bwc.board_id
-		ORDER BY b.updated_at DESC;
-	`;
+export function getBoards(home: boolean) {
+	let query: string = '';
+	if (home) {
+		query = `
+			SELECT b.id, b.title, b.description, b.parent_id AS parentId, 
+						 b.is_main_dashboard AS isMainDashboard, 
+						 b.is_pinned AS isPinned,
+						 b.created_at AS createdAt, 
+						 b.updated_at AS updatedAt, b.tags
+			FROM ${OPENLIT_BOARD_TABLE_NAME} b
+			WHERE b.is_main_dashboard = true OR b.is_pinned = true
+			ORDER BY b.updated_at DESC;
+		`;
+	} else {
+		query = `
+			SELECT b.id, b.title, b.description, b.parent_id AS parentId, 
+						 b.is_main_dashboard AS isMainDashboard, 
+						 b.is_pinned AS isPinned,
+						 b.created_at AS createdAt, 
+						 b.updated_at AS updatedAt, COALESCE(bwc.total_widgets, 0) AS totalWidgets, b.tags
+			FROM ${OPENLIT_BOARD_TABLE_NAME} b
+			LEFT JOIN (
+				SELECT board_id, COUNT(*) AS total_widgets
+				FROM ${OPENLIT_BOARD_WIDGET_TABLE_NAME}
+				WHERE board_id IS NOT NULL
+				GROUP BY board_id
+			) AS bwc ON b.id = bwc.board_id
+			ORDER BY b.updated_at DESC;
+		`;
+	}
 
 	return dataCollector({ query });
 }
@@ -51,6 +67,7 @@ export async function createBoard(board: Board) {
 					description: sanitizedBoard.description,
 					parent_id: sanitizedBoard.parentId,
 					is_main_dashboard: sanitizedBoard.isMainDashboard,
+					is_pinned: sanitizedBoard.isPinned,
 					tags: jsonStringify(sanitizedBoard.tags),
 				},
 			],
@@ -127,6 +144,7 @@ export async function getBoardLayout(id: string) {
 			title AS boardTitle,
 			description AS boardDescription,
 			is_main_dashboard AS isMainDashboard,
+			is_pinned AS isPinned,
 			created_at AS boardCreatedAt,
 			updated_at AS boardUpdatedAt,
 			tags AS tags
@@ -142,6 +160,7 @@ export async function getBoardLayout(id: string) {
 		boardTitle: string;
 		boardDescription: string;
 		isMainDashboard: boolean;
+		isPinned: boolean;
 		boardCreatedAt: string;
 		boardUpdatedAt: string;
 		tags: string;
@@ -194,6 +213,7 @@ export async function getBoardLayout(id: string) {
 		description: boardResult.boardDescription,
 		parentId: null,
 		isMainDashboard: boardResult.isMainDashboard,
+		isPinned: boardResult.isPinned,
 		createdAt: boardResult.boardCreatedAt,
 		updatedAt: boardResult.boardUpdatedAt,
 		widgets: [],
@@ -457,4 +477,19 @@ export async function importBoardLayout(data: any) {
 	}
 
 	return { err: getMessage().BOARD_IMPORT_FAILED };
+}
+
+export async function updatePinnedBoard(boardId: string) {
+	// Set the selected board to is_pinned = true
+	const setQuery = `
+		ALTER TABLE ${OPENLIT_BOARD_TABLE_NAME}
+		UPDATE is_pinned = NOT is_pinned
+		WHERE id = '${Sanitizer.sanitizeValue(boardId)}'
+	`;
+	const { err, data } = await dataCollector({ query: setQuery }, "exec");
+
+	if (err || !(data as { query_id: string }).query_id)
+		return { err: getMessage().BOARD_UPDATE_FAILED };
+
+	return { data: getMessage().BOARD_UPDATED_SUCCESSFULLY };
 }

@@ -18,7 +18,7 @@ const BoardList = ({ boardId }: { boardId: string | null }) => {
 
 	const fetchBoards = useCallback(() => {
 		fireRequest({
-			url: "/api/manage-dashboard/board",
+			url: "/api/manage-dashboard/board?home=true",
 			requestType: "GET",
 			successCb: (response) => {
 				if (response?.data) {
@@ -65,6 +65,7 @@ export default function DashboardPage() {
 	useEffect(() => {
 		const fetchBoardLayout = async () => {
 			try {
+				setInitialConfig(undefined);
 				const { response, error } = await fireRequest({
 					requestType: "GET",
 					url: `/api/manage-dashboard/board/${boardId ? boardId : "main"}/layout`,
