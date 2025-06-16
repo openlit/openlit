@@ -116,7 +116,7 @@ export default function AddEditDialog({
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[90%] overflow-hidden">
+			<DialogContent className="max-h-[85%] overflow-hidden">
 				<DialogHeader>
 					<DialogTitle>
 						{mode === "add" ? "Create New Dashboard/Folder" : "Edit Dashboard/Folder"}

@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Upload } from "lucide-react";
+import { toast } from "sonner";
 
 export default function ImportLayoutModal({
   open,
@@ -28,6 +29,7 @@ export default function ImportLayoutModal({
     try {
       setIsLoading(true);
       setError(null);
+      toast.loading("Reading layout file...", { id: "import-layout" });
 
       // Validate file type
       if (!file.name.endsWith('.json')) {
@@ -35,12 +37,22 @@ export default function ImportLayoutModal({
       }
 
       const text = await file.text();
+      toast.loading("Parsing JSON data...", { id: "import-layout" });
       const data = JSON.parse(text);
 
-      await onImport(data);
+      toast.loading("Importing layout...", { id: "import-layout" });
+      const result = await onImport(data);
+      
+      if (result.err) {
+        throw new Error(result.err);
+      }
+      
+      toast.success("Layout imported successfully!", { id: "import-layout" });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to import layout");
+      const errorMessage = err instanceof Error ? err.message : "Failed to import layout";
+      setError(errorMessage);
+      toast.error(errorMessage, { id: "import-layout" });
     } finally {
       setIsLoading(false);
       if (fileInputRef.current) {
@@ -64,6 +76,7 @@ export default function ImportLayoutModal({
     try {
       setIsLoading(true);
       setError(null);
+      toast.loading("Reading layout file...", { id: "import-layout" });
 
       // Validate file type
       if (!file.name.endsWith('.json')) {
@@ -71,12 +84,22 @@ export default function ImportLayoutModal({
       }
 
       const text = await file.text();
+      toast.loading("Parsing JSON data...", { id: "import-layout" });
       const data = JSON.parse(text);
 
-      await onImport(data);
+      toast.loading("Importing layout...", { id: "import-layout" });
+      const result = await onImport(data);
+      
+      if (result.err) {
+        throw new Error(result.err);
+      }
+      
+      toast.success("Layout imported successfully!", { id: "import-layout" });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to import layout");
+      const errorMessage = err instanceof Error ? err.message : "Failed to import layout";
+      setError(errorMessage);
+      toast.error(errorMessage, { id: "import-layout" });
     } finally {
       setIsLoading(false);
     }

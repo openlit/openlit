@@ -5,15 +5,18 @@ import Sanitizer from "@/utils/sanitizer";
 import getMessage from "@/constants/messages";
 import {
 	normalizeWidgetToClient,
-	normalizeWidgetToServer,
 	sanitizeWidget,
+	escapeSingleQuotes,
 } from "@/helpers/server/widget";
 import mustache from "mustache";
 
 import { getFilterWhereCondition } from "@/helpers/server/platform";
+import { jsonStringify } from "@/utils/json";
+
 export async function getWidgetById(id: string) {
 	const query = `
-		SELECT id, title, description, widget_type AS type, created_at AS createdAt, updated_at AS updatedAt
+		SELECT id, title, description, widget_type AS type, created_at AS createdAt, updated_at AS updatedAt, properties,
+			config
 		FROM ${OPENLIT_WIDGET_TABLE_NAME} 
 		WHERE id = '${Sanitizer.sanitizeValue(id)}'
 	`;
@@ -24,7 +27,7 @@ export async function getWidgetById(id: string) {
 		return { err: getMessage().WIDGET_FETCH_FAILED };
 	}
 
-	return { data: normalizeWidgetToClient(data as DatabaseWidget) };
+	return { data: normalizeWidgetToClient((data as DatabaseWidget[])[0]) };
 }
 
 export async function getWidgets(widgetIds?: string[]) {
@@ -109,9 +112,9 @@ export async function updateWidget(widget: Widget) {
 		`description = '${sanitizedWidget.description}'`,
 		sanitizedWidget.type && `widget_type = '${sanitizedWidget.type}'`,
 		sanitizedWidget.properties &&
-		`properties = '${JSON.stringify(sanitizedWidget.properties)}'`,
+		`properties = '${jsonStringify(sanitizedWidget.properties)}'`,
 		sanitizedWidget.config &&
-		`config = '${JSON.stringify(sanitizedWidget.config)}'`,
+		`config = '${escapeSingleQuotes(jsonStringify(sanitizedWidget.config))}'`,
 	];
 
 	const query = `
@@ -122,7 +125,6 @@ export async function updateWidget(widget: Widget) {
 	`;
 
 	const { err, data } = await dataCollector({ query }, "exec");
-	console.log(widget.properties , sanitizedWidget.properties, query, err, data);
 
 	if (err || !(data as { query_id: string }).query_id)
 		return { err: getMessage().WIDGET_UPDATE_FAILED };

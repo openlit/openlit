@@ -9,6 +9,7 @@ import Sanitizer from "@/utils/sanitizer";
 import { createWidget, getWidgets } from "./widget";
 import { pluck } from "lodash/fp";
 import { jsonStringify } from "@/utils/json";
+import { sanitizeWidget } from "@/helpers/server/widget";
 
 export function getBoardById(id: string) {
 	const query = `
@@ -420,10 +421,11 @@ export async function importBoardLayout(data: any) {
 	const updatedWidgets = Object.values(layoutConfig.widgets).map((widget: any) => {
 		const newWidgetId = crypto.randomUUID();
 		widgetIdMap.set(widget.id, newWidgetId);
+
 		return {
 			...widget,
 			id: newWidgetId,
-		}
+		};
 	});
 
 	const updatedLayouts = layoutConfig.layouts.lg.map((layout: any) => {

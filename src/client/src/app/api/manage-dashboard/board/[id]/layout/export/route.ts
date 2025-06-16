@@ -17,7 +17,7 @@ export async function GET(
 		status: 200,
 		headers: {
 			"Content-Type": "application/json",
-			"Content-Disposition": `attachment; filename=board-${res.data!.title || res.data!.id}-layout.json`,
+			"Content-Disposition": `attachment; filename=openlit-dashboard-${res.data!.title || res.data!.id}-layout.json`,
 		},
 	});
 }
