@@ -18,6 +18,7 @@ import Link from "next/link";
 import RefreshRate from "./filter/refresh-rate";
 import { usePostHog } from "posthog-js/react";
 import { useEffect } from "react";
+import { useDemoAccount } from "@/contexts/demo-account-context";
 
 const ThemeToggleSwitch = () => {
 	const { toggleTheme } = useTheme();
@@ -39,6 +40,7 @@ export default function Header() {
 	const pathname = usePathname();
 	const user = useRootStore(getUserDetails);
 	const resetUserFn = useRootStore(resetUser);
+	const { isDemoAccount } = useDemoAccount();
 	const onClickSignout = () => {
 		posthog?.reset();
 		signOut();
@@ -58,25 +60,27 @@ export default function Header() {
 			</h1>
 			<DatabaseConfigSwitch />
 			<RefreshRate />
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="p-0.5 size-8 overflow-hidden rounded-full"
-					>
-						<User className="overflow-hidden rounded-full dark:text-white" />
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end">
-					<DropdownMenuItem disabled>{user?.email}</DropdownMenuItem>
-					<DropdownMenuSeparator />
-					<DropdownMenuItem asChild>
-						<Link href="/settings/profile">Edit details</Link>
-					</DropdownMenuItem>
-					<DropdownMenuItem onClick={onClickSignout}>Logout</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
+			{!isDemoAccount && (
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="p-0.5 size-8 overflow-hidden rounded-full"
+						>
+							<User className="overflow-hidden rounded-full dark:text-white" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem disabled>{user?.email}</DropdownMenuItem>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem asChild>
+							<Link href="/settings/profile">Edit details</Link>
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={onClickSignout}>Logout</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			)}
 			<ThemeToggleSwitch />
 		</header>
 	);

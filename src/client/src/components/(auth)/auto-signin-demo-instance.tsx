@@ -36,12 +36,8 @@ export default function AutoSignInDemoInstance({ children, demoCreds }: { childr
   }, []);
 
   if (demoCreds.email && demoCreds.password && !err) return (
-    <div className="flex flex-col items-center justify-center space-y-4 text-center">
+    <div className="flex flex-col items-center justify-center h-screen space-y-4 text-center">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <h2 className="text-2xl font-semibold">Setting Up Demo Account</h2>
-      <p className="text-muted-foreground">
-        Please wait while we prepare a demo account for you. This may take a few moments.
-      </p>
     </div>
   )
 

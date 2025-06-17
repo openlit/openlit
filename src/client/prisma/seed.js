@@ -1,17 +1,21 @@
 const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcrypt");
 const prisma = new PrismaClient();
 async function main() {
 	console.log("Seeding Start.....");
-	// const defaultPassword = "openlituser"; ⤵
-	const hashedPassword =
-		"$2a$10$gh6Odw7fhLRrE1A1OxaHfeWOWKiZEEQpkOAhhCQ.RHx8VWOngwlHO";
+
+	const demoEmail = process.env.DEMO_ACCOUNT_EMAIL || "demo@openlit.io";
+	const demoPassword = process.env.DEMO_ACCOUNT_PASSWORD || "demouser";
+	const hashedPassword = await bcrypt.hash(demoPassword, 10);
+	const username = process.env.DEMO_ACCOUNT_NAME || "Demo User";
+
 	const user = await prisma.user.upsert({
-		where: { email: "user@openlit.io" },
+		where: { email: demoEmail },
 		update: {},
 		create: {
-			email: "user@openlit.io",
+			email: demoEmail,
 			password: hashedPassword,
-			name: "User",
+			name: username,
 		},
 	});
 
@@ -24,12 +28,13 @@ async function main() {
 	};
 
 	if (environmentDBConfig.host && environmentDBConfig.port) {
+		const dbConfigName = `${username} DB`;
 		const dbConfig = await prisma.databaseConfig.upsert({
-			where: { name: "Default DB", AND: { createdByUserId: user.id } },
+			where: { name: dbConfigName },
 			update: {},
 			create: {
 				environment: "production",
-				name: "Default DB",
+				name: dbConfigName,
 				...environmentDBConfig,
 				createdByUserId: user.id,
 			},
