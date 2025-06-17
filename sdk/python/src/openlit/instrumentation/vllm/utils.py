@@ -119,7 +119,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_status(Status(StatusCode.OK))
 
     if disable_metrics is False:
-        attributes = create_metrics_attributes(
+        metrics_attributes = create_metrics_attributes(
             service_name=application_name,
             deployment_environment=environment,
             operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -129,20 +129,15 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             server_port=scope._server_port,
             response_model=scope._request_model,
         )
-
-        metrics["genai_client_usage_tokens"].record(
-            input_tokens + output_tokens, attributes
-        )
-        metrics["genai_client_operation_duration"].record(
-            scope._end_time - scope._start_time, attributes
-        )
-        metrics["genai_server_ttft"].record(
-            scope._end_time - scope._start_time, attributes
-        )
-        metrics["genai_requests"].add(1, attributes)
-        metrics["genai_completion_tokens"].add(output_tokens, attributes)
-        metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-        metrics["genai_cost"].record(cost, attributes)
+        metrics['genai_client_operation_duration'].record(scope._end_time - scope._start_time, metrics_attributes)
+        metrics['genai_server_tbt'].record(scope._tbt, metrics_attributes)
+        metrics['genai_server_ttft'].record(scope._ttft, metrics_attributes)
+        metrics['genai_requests'].add(1, metrics_attributes)
+        metrics['genai_completion_tokens'].add(scope._output_tokens, metrics_attributes)
+        metrics['genai_prompt_tokens'].add(scope._input_tokens, metrics_attributes)
+        metrics['genai_cost'].record(cost, metrics_attributes)
+        metrics['genai_client_usage_tokens'].record(
+            scope._input_tokens + scope._output_tokens, metrics_attributes)
 
 def process_chat_response(instance, response, request_model, pricing_info, server_port, server_address,
     environment, application_name, metrics, start_time, span, args, kwargs, 
