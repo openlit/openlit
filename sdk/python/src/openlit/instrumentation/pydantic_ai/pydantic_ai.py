@@ -2,7 +2,6 @@
 Module for monitoring Pydantic AI API calls.
 """
 
-import logging
 from openlit.instrumentation.pydantic_ai.utils import (
     common_agent_run,
     common_agent_create

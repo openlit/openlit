@@ -2,7 +2,6 @@
 Pydantic AI OpenTelemetry instrumentation utility functions
 """
 import logging
-import time
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode, SpanKind
 from openlit.__helpers import (
