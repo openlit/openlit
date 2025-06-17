@@ -117,6 +117,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_GEMINI)
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
     scope._span.set_attribute(SemanticConvention.SERVER_PORT, scope._server_port)
+    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, scope._server_address)
 
     inference_config = scope._kwargs.get('config', {})
 
@@ -142,7 +143,6 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens)
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, scope._reasoning_tokens)
-    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, scope._server_address)
 
     scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
                               'text' if isinstance(scope._llmresponse, str) else 'json')
