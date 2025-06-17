@@ -130,6 +130,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_FIRECRAWL = "firecrawl"
     GEN_AI_SYSTEM_LETTA = "letta"
     GEN_AI_SYSTEM_TOGETHER = "together"
+    GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
 
     # GenAI Request Attributes (Extra)
     GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.is_stream"

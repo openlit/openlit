@@ -148,17 +148,17 @@ def responses(version, environment, application_name,
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                         request_model)
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED,
-                                        self._kwargs.get("seed", ""))
+                                        str(self._kwargs.get("seed", "")))
                     self._span.set_attribute(SemanticConvention.SERVER_PORT,
                                         self._server_port)
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
-                                        self._kwargs.get("max_output_tokens", -1))
+                                        str(self._kwargs.get("max_output_tokens", -1)))
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
-                                        self._kwargs.get("stop", []))
+                                        str(self._kwargs.get("stop", [])))
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
-                                        self._kwargs.get("temperature", 1.0))
+                                        str(self._kwargs.get("temperature", 1.0)))
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P,
-                                        self._kwargs.get("top_p", 1.0))
+                                        str(self._kwargs.get("top_p", 1.0)))
                     self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
                                         [self._finish_reason])
                     self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID,
@@ -521,7 +521,10 @@ def chat_completions(version, environment, application_name,
                         self._llmresponse += content
                 self._response_id = chunked.get('id')
                 self._response_model = chunked.get('model')
-                self._finish_reason = chunked.get('choices')[0].get('finish_reason')
+                try:
+                    self._finish_reason = chunked.get('choices', [])[0].get('finish_reason')
+                except (IndexError, AttributeError, TypeError):
+                    self._finish_reason = "stop"
                 self._openai_response_service_tier = chunked.get('service_tier') or 'auto'
                 self._openai_system_fingerprint = chunked.get('system_fingerprint')
                 return chunk
@@ -573,21 +576,21 @@ def chat_completions(version, environment, application_name,
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                         request_model)
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED,
-                                        self._kwargs.get("seed", ""))
+                                        str(self._kwargs.get("seed", "")))
                     self._span.set_attribute(SemanticConvention.SERVER_PORT,
                                         self._server_port)
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                        self._kwargs.get("frequency_penalty", 0.0))
+                                        str(self._kwargs.get("frequency_penalty", 0.0)))
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
                                         self._kwargs.get("max_tokens", -1))
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                        self._kwargs.get("presence_penalty", 0.0))
+                                        str(self._kwargs.get("presence_penalty", 0.0)))
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
-                                        self._kwargs.get("stop", []))
+                                        str(self._kwargs.get("stop", [])))
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
-                                        self._kwargs.get("temperature", 1.0))
+                                        str(self._kwargs.get("temperature", 1.0)))
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P,
-                                        self._kwargs.get("top_p", 1.0))
+                                        str(self._kwargs.get("top_p", 1.0)))
                     self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
                                         [self._finish_reason])
                     self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID,
@@ -601,7 +604,7 @@ def chat_completions(version, environment, application_name,
                     self._span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                         self._server_address)
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
-                                        self._kwargs.get("service_tier", "auto"))
+                                        str(self._kwargs.get("service_tier", "auto")))
                     self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER,
                                         self._openai_response_service_tier)
                     self._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
@@ -619,7 +622,7 @@ def chat_completions(version, environment, application_name,
                     self._span.set_attribute(SERVICE_NAME,
                                         application_name)
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER,
-                                        self._kwargs.get("user", ""))
+                                        str(self._kwargs.get("user", "")))
                     self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
                                         True)
                     self._span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
@@ -760,21 +763,21 @@ def chat_completions(version, environment, application_name,
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
                                         request_model)
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED,
-                                        kwargs.get("seed", ""))
+                                        str(kwargs.get("seed", "")))
                     span.set_attribute(SemanticConvention.SERVER_PORT,
                                         server_port)
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-                                        kwargs.get("frequency_penalty", 0.0))
+                                        str(kwargs.get("frequency_penalty", 0.0)))
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
-                                        kwargs.get("max_tokens", -1))
+                                        str(kwargs.get("max_tokens", -1)))
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
-                                        kwargs.get("presence_penalty", 0.0))
+                                        str(kwargs.get("presence_penalty", 0.0)))
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
-                                        kwargs.get("stop", []))
+                                        str(kwargs.get("stop", [])))
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
-                                        kwargs.get("temperature", 1.0))
+                                        str(kwargs.get("temperature", 1.0)))
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P,
-                                        kwargs.get("top_p", 1.0))
+                                        str(kwargs.get("top_p", 1.0)))
                     span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID,
                                         response_dict.get("id"))
                     span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
@@ -786,7 +789,7 @@ def chat_completions(version, environment, application_name,
                     span.set_attribute(SemanticConvention.SERVER_ADDRESS,
                                         server_address)
                     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
-                                        kwargs.get("service_tier", "auto"))
+                                        str(kwargs.get("service_tier", "auto")))
                     span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER,
                                         response_dict.get('service_tier', 'auto'))
                     span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
