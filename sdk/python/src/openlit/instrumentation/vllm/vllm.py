@@ -32,7 +32,7 @@ def generate(version, environment, application_name,
         request_model = instance.llm_engine.model_config.model or "facebook/opt-125m"
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
-        print("hellloooooo")
+
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
             response = wrapped(*args, **kwargs)

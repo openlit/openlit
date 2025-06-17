@@ -32,7 +32,7 @@ class VLLMInstrumentor(BaseInstrumentor):
 
         # sync chat
         wrap_function_wrapper(
-            "vllmm.entrypoints.llm",
+            "vllm.entrypoints.llm",
             "LLM.generate",
             generate(version, environment, application_name,
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
