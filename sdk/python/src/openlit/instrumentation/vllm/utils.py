@@ -153,6 +153,7 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
     self = type('GenericScope', (), {})()
     self._response = response
     self._start_time = start_time
+    self._end_time = time.time()
     self._span = span
     self._ttft, self._tbt = self._end_time - self._start_time, 0
     self._server_address = server_address
