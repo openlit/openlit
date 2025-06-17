@@ -522,8 +522,8 @@ def chat_completions(version, environment, application_name,
                 self._response_id = chunked.get('id')
                 self._response_model = chunked.get('model')
                 try:
-                    self._finish_reason = chunked.get('choices',[])[0].get('finish_reason')
-                except:
+                    self._finish_reason = chunked.get('choices', [])[0].get('finish_reason')
+                except (IndexError, AttributeError, TypeError):
                     self._finish_reason = "stop"
                 self._openai_response_service_tier = chunked.get('service_tier') or 'auto'
                 self._openai_system_fingerprint = chunked.get('system_fingerprint')
