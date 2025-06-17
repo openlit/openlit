@@ -3,21 +3,10 @@ Module for monitoring Pydantic AI API calls.
 """
 
 import logging
-import time
-from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
-from openlit.__helpers import (
-    handle_exception,
-    get_chat_model_cost,
-)
 from openlit.instrumentation.pydantic_ai.utils import (
     common_agent_run,
     common_agent_create
 )
-from openlit.semcov import SemanticConvention
-
-# Initialize logger for logging potential issues and operations
-logger = logging.getLogger(__name__)
 
 def agent_create(version, environment, application_name,
     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
@@ -28,8 +17,8 @@ def agent_create(version, environment, application_name,
 
     def wrapper(wrapped, instance, args, kwargs):
         response = wrapped(*args, **kwargs)
-        return common_agent_create(wrapped, instance, args, kwargs, tracer, 
-                                 version, environment, application_name, 
+        return common_agent_create(wrapped, instance, args, kwargs, tracer,
+                                 version, environment, application_name,
                                  capture_message_content, response=response)
 
     return wrapper
@@ -42,8 +31,8 @@ def agent_run(version, environment, application_name,
 
     def wrapper(wrapped, instance, args, kwargs):
         response = wrapped(*args, **kwargs)
-        return common_agent_run(wrapped, instance, args, kwargs, tracer, 
-                                    version, environment, application_name, 
+        return common_agent_run(wrapped, instance, args, kwargs, tracer,
+                                    version, environment, application_name,
                                     capture_message_content, response=response)
 
     return wrapper
@@ -56,8 +45,8 @@ def async_agent_run(version, environment, application_name,
 
     async def wrapper(wrapped, instance, args, kwargs):
         response = await wrapped(*args, **kwargs)
-        return common_agent_run(wrapped, instance, args, kwargs, tracer, 
-                                          version, environment, application_name, 
+        return common_agent_run(wrapped, instance, args, kwargs, tracer,
+                                          version, environment, application_name,
                                           capture_message_content, response=response)
 
     return wrapper

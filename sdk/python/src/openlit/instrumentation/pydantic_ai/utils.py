@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def set_span_attributes(span, version, operation_name, environment,
         application_name, server_address, server_port, request_model, agent_name):
     """
-    Set common attributes for the span.
+    Set common OpenTelemetry span attributes for Pydantic AI operations.
     """
 
     # Set Span attributes (OTel Semconv)
@@ -35,15 +35,17 @@ def set_span_attributes(span, version, operation_name, environment,
 
 def common_agent_run(wrapped, instance, args, kwargs, tracer, version, environment, application_name,
                          capture_message_content, response):
+    """
+    Handle telemetry for Pydantic AI agent run operations.
+    """
+
     server_address, server_port = instance.model.base_url, 443
     agent_name = instance.name or "pydantic_agent"
     request_model = str(instance.model.model_name)
     span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK} {agent_name}'
-    
+
     with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
         try:
-            start_time = time.time()
-            end_time = time.time()
             set_span_attributes(span, version, SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
                                 environment, application_name, server_address, server_port, request_model, agent_name)
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, str(instance._system_prompts))
@@ -68,14 +70,16 @@ def common_agent_run(wrapped, instance, args, kwargs, tracer, version, environme
 
 def common_agent_create(wrapped, instance, args, kwargs, tracer, version, environment, application_name,
                        capture_message_content, response):
+    """
+    Handle telemetry for Pydantic AI agent creation operations.
+    """
+
     server_address, server_port = '127.0.0.1', 80
     agent_name = kwargs.get("name", "pydantic_agent")
     span_name = f'{SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT} {agent_name}'
-    
+
     with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
         try:
-            start_time = time.time()
-            end_time = time.time()
             request_model = args[0] or kwargs.get("model", "google-gla:gemini-1.5-flash")
             set_span_attributes(span, version, SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT,
                 environment, application_name, server_address, server_port, request_model, agent_name)
