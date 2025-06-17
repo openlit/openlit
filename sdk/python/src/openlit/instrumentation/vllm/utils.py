@@ -60,25 +60,30 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     cost = 0
 
     if capture_message_content:
-        prompt_attributes = {}
-        completion_attributes = {}
+        prompt = ""
+        completion = ""
 
-        for i, output in enumerate(scope._response):
-            prompt_attributes[f"{SemanticConvention.GEN_AI_CONTENT_PROMPT}.{i}"] = output.prompt
-            completion_attributes[f"{SemanticConvention.GEN_AI_CONTENT_COMPLETION}.{i}"] = output.outputs[0].text
+        for output in scope._response:
+            prompt += output.prompt + "\n"
+            if output.outputs and len(output.outputs) > 0:
+                completion += output.outputs[0].text + "\n"
             input_tokens += general_tokens(output.prompt)
             output_tokens += general_tokens(output.outputs[0].text)
 
-        # Add a single event for all prompts
+        # Add a single event for prompt
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
-            attributes=prompt_attributes,
+            attributes={
+                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
+            },
         )
 
-        # Add a single event for all completions
+        # Add a single event for completion
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
-            attributes=completion_attributes,
+            attributes={
+                SemanticConvention.GEN_AI_CONTENT_COMPLETION: completion,
+            },
         )
 
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
