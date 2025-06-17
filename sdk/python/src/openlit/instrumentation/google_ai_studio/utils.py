@@ -2,10 +2,8 @@
 Google AI Studio OpenTelemetry instrumentation utility functions
 """
 import time
-
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
-
 from openlit.__helpers import (
     calculate_ttft,
     response_as_dict,

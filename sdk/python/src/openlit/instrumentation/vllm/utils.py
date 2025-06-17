@@ -2,26 +2,22 @@
 Utility functions for vLLM instrumentation.
 """
 
-import logging
 import time
-from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.trace import Status, StatusCode
 from openlit.__helpers import (
+    calculate_tbt,
     get_chat_model_cost,
     general_tokens,
     create_metrics_attributes,
-    set_server_address_and_port
 )
 from openlit.semcov import SemanticConvention
-
-# Initialize logger for logging potential issues and operations
-logger = logging.getLogger(__name__)
 
 def get_inference_config(args, kwargs):
     """
     Safely extract inference configuration from args or kwargs.
-    Returns None if not found.
     """
+
     if 'sampling_params' in kwargs:
         return kwargs['sampling_params']
     if len(args) > 1:
@@ -33,6 +29,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     """
     Process chat request and generate Telemetry
     """
+
     scope._end_time = time.time()
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
@@ -62,7 +59,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             value = getattr(inference_config, key, None)
             if value is not None:
                 scope._span.set_attribute(attribute, value)
-    
+
     scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, scope._request_model)
     scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text")
 
@@ -140,7 +137,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             input_tokens + output_tokens, metrics_attributes)
 
 def process_chat_response(instance, response, request_model, pricing_info, server_port, server_address,
-    environment, application_name, metrics, start_time, span, args, kwargs, 
+    environment, application_name, metrics, start_time, span, args, kwargs,
     capture_message_content=False, disable_metrics=False, version="1.0.0"):
     """
     Process chat request and generate Telemetry
@@ -161,4 +158,4 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
     common_chat_logic(self, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version, is_stream=False)
 
-    return response 
+    return response
