@@ -59,14 +59,12 @@ def async_generate(version, environment, application_name,
                         version=version,
                 )
 
-                return response
-
             except Exception as e:
                 handle_exception(span, e)
                 logger.error("Error in trace creation: %s", e)
 
-                # Return original response
-                return response
+            # Return original response
+            return response
 
     return wrapper
 
