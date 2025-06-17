@@ -39,26 +39,34 @@ def async_generate(version, environment, application_name,
             start_time = time.time()
             response = await wrapped(*args, **kwargs)
 
-            response = process_chat_response(
-                    instance = instance,
-                    response=response,
-                    request_model=request_model,
-                    pricing_info=pricing_info,
-                    server_port=server_port,
-                    server_address=server_address,
-                    environment=environment,
-                    application_name=application_name,
-                    metrics=metrics,
-                    start_time=start_time,
-                    span=span,
-                    args=args,
-                    kwargs=kwargs,
-                    capture_message_content=capture_message_content,
-                    disable_metrics=disable_metrics,
-                    version=version,
-            )
+            try:
+                response = process_chat_response(
+                        instance = instance,
+                        response=response,
+                        request_model=request_model,
+                        pricing_info=pricing_info,
+                        server_port=server_port,
+                        server_address=server_address,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        start_time=start_time,
+                        span=span,
+                        args=args,
+                        kwargs=kwargs,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                )
 
-        return response
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in trace creation: %s", e)
+
+                # Return original response
+                return response
 
     return wrapper
 
