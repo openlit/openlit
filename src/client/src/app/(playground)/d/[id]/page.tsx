@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Dashboard from "../../../../components/(playground)/manage-dashboard/board-creator";
+import Dashboard from "@/components/(playground)/manage-dashboard/board-creator";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useParams } from "next/navigation";
-import { DashboardConfig, Widget } from "../../../../components/(playground)/manage-dashboard/board-creator/types";
-
-// import Layout from "./layout";
-// import DashboardOrganism from "./dashboard-organism";
-// import Dashboard from "./dashboard-organism/dashboard";
+import { DashboardConfig, Widget } from "@/components/(playground)/manage-dashboard/board-creator/types";
 
 export default function DashboardPage() {
 	const { fireRequest } = useFetchWrapper();
@@ -122,46 +118,9 @@ export default function DashboardPage() {
 
 	return (
 		<div className="flex flex-col items-center w-full justify-between h-full">
-			{/* <Layout /> */}
 			<div className="flex flex-col items-center w-full justify-between h-full">
-				<div
-					// ref={this.onMeasureRef}
-					className="flex flex-col items-center w-full justify-between h-full"
-				>
+				<div className="flex flex-col items-center w-full justify-between h-full">
 					<div className="w-full h-full overflow-y-auto">
-						{/* <DashboardOrganism
-							layout={[
-								{
-									x: 0,
-									y: 0,
-									w: 2,
-									h: 4,
-									i: "0",
-								},
-								{
-									x: 2,
-									y: 0,
-									w: 2,
-									h: 3,
-									i: "1",
-								},
-								{
-									x: 4,
-									y: 0,
-									w: 2,
-									h: 3,
-									i: "2",
-								},
-								{
-									x: 6,
-									y: 0,
-									w: 2,
-									h: 5,
-									i: "3",
-								},
-							]}
-							isEditable={true}
-						/> */}
 						{initialConfig && (
 							<Dashboard
 								initialConfig={initialConfig}

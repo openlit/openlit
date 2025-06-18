@@ -47,7 +47,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useDashboard } from "../context/DashboardContext";
 import QueryDebugger from "./QueryDebugger";
 import { ColorSelector } from "./ColorSelector";
-import MarkdownWidgetComponent from "../widgets/MarkdownWidget";
+import MarkdownWidgetComponent from "../widgets/markdown-widget";
 
 interface NonMarkdownConfig {
 	query: string;
@@ -599,7 +599,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												<Button
 													size="sm"
 													onClick={handleRunQuery}
-													className="bg-primary hover:bg-primary/90 text-primary-foreground"
+													className="bg-primary hover:bg-primary/90 text-white"
 												>
 													Run Query
 												</Button>

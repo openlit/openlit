@@ -8,7 +8,7 @@ import { Edit, Save, Plus, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DashboardProps, Widget } from "./types";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
-import WidgetRenderer from "./widgets/WidgetRenderer";
+import WidgetRenderer from "./widgets/widget-renderer";
 import dynamic from "next/dynamic";
 import createMessage from "@/constants/messages";
 

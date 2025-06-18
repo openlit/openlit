@@ -34,7 +34,7 @@ export default async function migrationHelper({
 		})
 	);
 
-	if (migrationExist === 1) {
+	if (migrationExist?.id) {
 		return;
 	}
 

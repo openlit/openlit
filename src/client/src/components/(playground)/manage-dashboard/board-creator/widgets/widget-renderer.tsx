@@ -3,17 +3,18 @@ import { Edit, Info, Trash } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetType, type WidgetRendererProps } from "../types";
 import { WIDGET_TYPE_ICONS } from "../constants";
-import StatCardWidget from "./StatCardWidget";
-import BarChartWidget from "./BarChartWidget";
-import LineChartWidget from "./LineChartWidget";
-import PieChartWidget from "./PieChartWidget";
-import TableWidget from "./TableWidget";
-import AreaChartWidget from "./AreaChartWidget";
-import MarkdownWidget from "./MarkdownWidget";
+import StatCardWidget from "./stat-card-widget";
+import BarChartWidget from "./bar-chart-widget";
+import LineChartWidget from "./line-chart-widget";
+import PieChartWidget from "./pie-chart-widget";
+import TableWidget from "./table-widget";
+import AreaChartWidget from "./area-chart-widget";
+import MarkdownWidget from "./markdown-widget";
 import { useDashboard } from "../context/DashboardContext";
 import {
 	Tooltip,
 	TooltipContent,
+	TooltipPortal,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -71,11 +72,14 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 					<WidgetTypeIcon />
 					<CardTitle className="tracking-tight text-sm font-medium text-stone-950 dark:text-white">{widget.title}</CardTitle>
 					{widget.description && (
-						<Tooltip>
+						<Tooltip delayDuration={0}>
 							<TooltipTrigger asChild>
 								<Info className="h-3 w-3" />
 							</TooltipTrigger>
+							<TooltipPortal>
+
 							<TooltipContent>{widget.description}</TooltipContent>
+							</TooltipPortal>
 						</Tooltip>
 					)}
 				</div>

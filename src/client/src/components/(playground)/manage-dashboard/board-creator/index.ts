@@ -8,4 +8,4 @@ export * from "./context";
 export * from "./widgets";
 
 // Export the main Dashboard component as default
-export { default } from "./Dashboard";
+export { default } from "./dashboard-view";

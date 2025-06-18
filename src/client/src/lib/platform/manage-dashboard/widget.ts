@@ -182,7 +182,7 @@ export async function runWidgetQuery(
 
 	exactQuery = mustache.render(exactQuery, { filter });
 
-	const { data, err } = await dataCollector({ query: exactQuery });
+	const { data, err } = await dataCollector({ query: exactQuery, enable_readonly: true });
 
 	if (err) {
 		return { err: err || getMessage().WIDGET_RUN_FAILED };

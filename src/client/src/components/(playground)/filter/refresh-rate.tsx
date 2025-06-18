@@ -22,6 +22,7 @@ import { CLIENT_EVENTS } from "@/constants/events";
 const REFRESH_RATE_EVENT = "refresh-rate";
 
 const PAGES_ENABLED_FOR_REFRESH_RATE = [
+	"/home",
 	"/dashboard",
 	"/requests",
 	"/exceptions",
