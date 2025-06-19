@@ -982,7 +982,6 @@ def chat_completions_parse(version, environment, application_name, tracer, prici
                 span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, input_tokens + output_tokens)
                 span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
                 span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, end_time - start_time)
-                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
 
                 if capture_message_content:
                     span.add_event(
