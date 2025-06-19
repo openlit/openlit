@@ -16,6 +16,7 @@ prior to running these tests.
 import pytest
 from openai import OpenAI, AsyncOpenAI
 import openlit
+from pydantic import BaseModel
 
 # Initialize synchronous OpenAI client
 sync_client = OpenAI()
@@ -38,6 +39,30 @@ def test_sync_openai_chat_completions():
         model="gpt-3.5-turbo",
         max_tokens=1,
         messages=[{"role": "user", "content": "What is LLM Observability?"}]
+    )
+    assert chat_completions_resp.object == 'chat.completion'
+
+def test_sync_openai_chat_completions_parse():
+    """
+    Tests synchronous chat completions with the 'gpt-3.5-turbo' model.
+
+    Raises:
+        AssertionError: If the chat completion response object is not as expected.
+    """
+
+    class User(BaseModel):
+        """A model to represent a user's details."""
+        name: str
+        age: int
+
+
+    chat_completions_resp = sync_client.beta.chat.completions.parse(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Extract the user's name and age from the following text."},
+            {"role": "user", "content": "The user's name is John Doe and he is 30 years old."},
+        ],
+        response_format=User,  # Pass the Pydantic model as the response format
     )
     assert chat_completions_resp.object == 'chat.completion'
 
@@ -136,6 +161,30 @@ async def test_async_openai_chat_completions():
         model="gpt-3.5-turbo",
         max_tokens=1,
         messages=[{"role": "user", "content": "What is LLM Observability?"}]
+    )
+    assert chat_completions_resp.object == 'chat.completion'
+
+@pytest.mark.asyncio
+async def test_async_openai_chat_completions_parse():
+    """
+    Tests asynchronous chat completions parse with the 'gpt-3.5-turbo' model.
+
+    Raises:
+        AssertionError: If the chat completion parse response object is not as expected.
+    """
+
+    class User(BaseModel):
+        """A model to represent a user's details."""
+        name: str
+        age: int
+
+    chat_completions_resp = await async_client.beta.chat.completions.parse(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Extract the user's name and age from the following text."},
+            {"role": "user", "content": "The user's name is John Doe and he is 30 years old."},
+        ],
+        response_format=User,  # Pass the Pydantic model as the response format
     )
     assert chat_completions_resp.object == 'chat.completion'
 
