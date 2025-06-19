@@ -882,6 +882,168 @@ def chat_completions(version, environment, application_name,
 
     return wrapper
 
+def chat_completions_parse(version, environment, application_name, tracer, pricing_info, capture_message_content,
+                           metrics, disable_metrics):
+    """
+    Generates a telemetry wrapper for chat completions parse to collect metrics.
+
+    Args:
+        version: Version of the monitoring package.
+        environment: Deployment environment (e.g., production, staging).
+        application_name: Name of the application using the OpenAI API.
+        tracer: OpenTelemetry tracer for creating spans.
+        pricing_info: Information used for calculating the cost of OpenAI usage.
+        capture_message_content: Flag indicating whether to trace the actual content.
+
+    Returns:
+        A function that wraps the chat completions parse method to add telemetry.
+    """
+
+    def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the 'chat.completions.parse' API call to add telemetry.
+
+        This collects metrics such as execution time, cost, and token usage, and handles errors
+        gracefully, adding details to the trace for observability.
+
+        Args:
+            wrapped: The original 'chat.completions' method to be wrapped.
+            instance: The instance of the class where the original method is defined.
+            args: Positional arguments for the 'chat.completions' method.
+            kwargs: Keyword arguments for the 'chat.completions' method.
+
+        Returns:
+            The response from the original 'chat.completions.parse' method.
+        """
+        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
+        request_model = kwargs.get("model", "gpt-4o")
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+            try:
+                # Execute the original 'parse' method
+                response = wrapped(*args, **kwargs)
+                end_time = time.time()
+
+                response_dict = response_as_dict(response)
+
+                # Format 'messages' from kwargs to calculate input tokens
+                message_prompt = kwargs.get("messages", "")
+                formatted_messages = []
+                for message in message_prompt:
+                    role = message.get("role")
+                    content = message.get("content")
+                    if content:
+                        formatted_messages.append(f"{role}: {content}")
+                prompt = "\n".join(formatted_messages)
+
+                input_tokens = response_dict.get('usage').get('prompt_tokens')
+                output_tokens = response_dict.get('usage').get('completion_tokens')
+
+                # Calculate cost
+                cost = get_chat_model_cost(request_model,
+                                           pricing_info, input_tokens,
+                                           output_tokens)
+
+                # Set base span attribues (OTel Semconv)
+                span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+                span.set_attribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_OPENAI)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED, str(kwargs.get("seed", "")))
+                span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+                                   str(kwargs.get("frequency_penalty", 0.0)))
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, str(kwargs.get("max_tokens", -1)))
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
+                                   str(kwargs.get("presence_penalty", 0.0)))
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, str(kwargs.get("stop", [])))
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, str(kwargs.get("temperature", 1.0)))
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, str(kwargs.get("top_p", 1.0)))
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, response_dict.get("id"))
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, response_dict.get('model'))
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
+                span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
+                                   str(kwargs.get("service_tier", "auto")))
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER,
+                                   response_dict.get('service_tier', 'auto'))
+                span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
+                                   str(response_dict.get('system_fingerprint', '')))
+
+                # Set base span attribues (Extras)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
+                span.set_attribute(SERVICE_NAME, application_name)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, kwargs.get("user", ""))
+                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+                span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, False)
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, input_tokens + output_tokens)
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+                span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, end_time - start_time)
+                span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+
+                if capture_message_content:
+                    span.add_event(
+                        name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
+                        attributes={SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt},
+                    )
+
+                for i in range(kwargs.get('n', 1)):
+                    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+                                       [response_dict.get('choices')[i].get('finish_reason')])
+                    if capture_message_content:
+                        span.add_event(
+                            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
+                            attributes={
+                                # pylint: disable=line-too-long
+                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: str(
+                                    response_dict.get('choices')[i].get('message').get('content')),
+                            },
+                        )
+                    if kwargs.get('tools'):
+                        span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALLS,
+                                           str(response_dict.get('choices')[i].get('message').get('tool_calls')))
+
+                    if isinstance(response_dict.get('choices')[i].get('message').get('content'), str):
+                        span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
+                                           "text")
+                    elif response_dict.get('choices')[i].get('message').get('content') is not None:
+                        span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
+                                           "json")
+
+                span.set_status(Status(StatusCode.OK))
+
+                if not disable_metrics:
+                    attributes = create_metrics_attributes(
+                        service_name=application_name,
+                        deployment_environment=environment,
+                        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        system=SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        request_model=request_model,
+                        server_address=server_address,
+                        server_port=server_port,
+                        response_model=response_dict.get('model'),
+                    )
+                    metrics["genai_client_usage_tokens"].record(input_tokens + output_tokens, attributes)
+                    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
+                    metrics["genai_server_ttft"].record( end_time - start_time, attributes)
+                    metrics["genai_requests"].add(1, attributes)
+                    metrics["genai_completion_tokens"].add(output_tokens, attributes)
+                    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
+                    metrics["genai_cost"].record(cost, attributes)
+
+                return response
+
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in 'parse' trace creation: %s", e)
+                # Re-raise the exception to not interfere with the application flow
+                raise
+
+    return wrapper
+
 def embedding(version, environment, application_name,
               tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
