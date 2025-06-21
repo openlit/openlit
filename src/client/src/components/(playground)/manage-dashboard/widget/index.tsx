@@ -24,6 +24,10 @@ import {
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { Widget } from "@/types/manage-dashboard";
+import Header from "../common/header";
+import { useDashboardPageSearch } from "@/selectors/dashboards";
+import EmptyState from "../common/empty-state";
+import getMessage from "@/constants/messages";
 
 const widgetTypeToIcon = {
 	STAT_CARD: Gauge,
@@ -51,7 +55,7 @@ const WidgetListPage = () => {
 	}>(null);
 	const [deleting, setDeleting] = useState(false);
 	const { fireRequest, isLoading } = useFetchWrapper();
-
+	const pageSearch = useDashboardPageSearch();
 	const fetchWidgets = useCallback(() => {
 		fireRequest({
 			url: "/api/manage-dashboard/widget",
@@ -80,22 +84,29 @@ const WidgetListPage = () => {
 		setDeleteDialog(null);
 	};
 
+	const filteredWidgets = widgets.filter((widget) => {
+		return widget.title.toLowerCase().includes(pageSearch.toLowerCase());
+	});
+
 	return (
 		<div className="flex flex-col gap-3 grow overflow-y-hidden">
-			<div className="flex justify-between items-center text-stone-700 dark:text-stone-300">
-				<h3 className="font-medium">Widgets</h3>
-			</div>
+			<Header title="Widgets" />
 
 			{isLoading ? (
 				<div className="flex justify-center items-center grow">
 					<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 				</div>
+			) : filteredWidgets.length === 0 ? (
+				<EmptyState
+					title={pageSearch ? getMessage().NO_WIDGETS_YET_SEARCH_TITLE : getMessage().NO_WIDGETS_YET}
+					description={pageSearch ? getMessage().NO_WIDGETS_YET_SEARCH_DESCRIPTION : getMessage().NO_WIDGETS_YET_DESCRIPTION}
+				/>
 			) : (
 				<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 h-full overflow-y-auto">
-					{widgets.map((widget) => {
+					{filteredWidgets.map((widget) => {
 						const IconComponent =
 							widgetTypeToIcon[
-								String(widget.type) as keyof typeof widgetTypeToIcon
+							String(widget.type) as keyof typeof widgetTypeToIcon
 							] || Gauge;
 						return (
 							<Card

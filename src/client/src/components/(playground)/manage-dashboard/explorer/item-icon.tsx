@@ -10,10 +10,10 @@ export default function ItemIcon({
 }) {
 	if (type === "folder") {
 		return open ? (
-			<FolderOpen className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+			<FolderOpen className="h-4 w-4" />
 		) : (
-			<Folder className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+			<Folder className="h-4 w-4" />
 		);
 	}
-	return <LayoutDashboardIcon className="h-4 w-4 text-stone-500 dark:text-stone-400" />;
+	return <LayoutDashboardIcon className="h-4 w-4" />;
 }

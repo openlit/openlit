@@ -1,11 +1,12 @@
 import { DashboardHeirarchy } from "@/types/manage-dashboard";
-import { GripVertical, ChevronRight, ChevronDown, PinIcon } from "lucide-react";
+import { GripVertical, ChevronRight, ChevronDown, PinIcon, HomeIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Draggable, Droppable } from "react-beautiful-dnd";
 import ItemIcon from "./item-icon";
 import ItemActions from "./item-actions";
 import { Badge } from "@/components/ui/badge";
 import { jsonParse } from "@/utils/json";
+import { useDashboardPageSearch } from "@/selectors/dashboards";
 
 export default function ExplorerItemRow({
 	item,
@@ -33,6 +34,7 @@ export default function ExplorerItemRow({
 	importBoardLayout: (data: any) => Promise<unknown>;
 }) {
 	const [open, setOpen] = useState(false);
+	const pageSearch = useDashboardPageSearch();
 
 	const handleItemClick = useCallback(() => {
 		if (item.type === "board") {
@@ -52,6 +54,14 @@ export default function ExplorerItemRow({
 
 	const tags = item.tags ? jsonParse(item.tags) : [];
 
+	const isSearchMatchTitle = item.title.toLowerCase().includes(pageSearch.toLowerCase());
+	const isSearchMatchTags = tags.some((tag: string) => tag.toLowerCase().includes(pageSearch.toLowerCase()));
+	const isSearchMatch = isSearchMatchTitle || isSearchMatchTags;
+
+	if (!isSearchMatch && item.type !== "folder") {
+		return null;
+	}
+
 	return (
 		<Draggable draggableId={item.id} index={index}>
 			{(provided, snapshot) => (
@@ -65,7 +75,7 @@ export default function ExplorerItemRow({
 							<div className="flex items-center gap-2 flex-1">
 								<div
 									{...provided.dragHandleProps}
-									className="cursor-grab group-hover:opacity-100 dark:group-hover:opacity-100 opacity-40"
+									className="cursor-grab group-hover:opacity-100 dark:group-hover:opacity-100 opacity-20"
 									onClick={(e) => e.stopPropagation()}
 								>
 									<GripVertical className="h-4 w-4 text-stone-500 dark:text-stone-400" />
@@ -84,7 +94,7 @@ export default function ExplorerItemRow({
 									</button>
 								)}
 								<div
-									className="flex items-center gap-2 cursor-pointer flex-1 text-stone-500 dark:text-stone-400"
+									className="flex items-center gap-2 cursor-pointer flex-1 text-stone-800 dark:text-stone-200"
 									onClick={handleItemClick}
 								>
 									<ItemIcon
@@ -93,7 +103,9 @@ export default function ExplorerItemRow({
 									/>
 									<span>{item.title}</span>
 									{item.type === "board" && item.isMainDashboard && (
-										<Badge>Main</Badge>
+										<Badge className="text-xs" variant="secondary" title="Main Dashboard">
+											<HomeIcon className="h-3 w-3" />
+										</Badge>
 									)}
 									{item.type === "board" && item.isPinned && (
 										<Badge className="text-xs" variant="secondary">

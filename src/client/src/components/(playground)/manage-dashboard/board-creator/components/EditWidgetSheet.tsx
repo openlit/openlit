@@ -186,7 +186,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 										value="query"
 										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-900 dark:text-white"
 									>
-										Config
+										{currentWidget.type === WidgetType.MARKDOWN ? "Markdown" : "Query"}
 									</TabsTrigger>
 									<TabsTrigger
 										value="appearance"

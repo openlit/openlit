@@ -6,12 +6,15 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect, useState } from "react";
 import { DragDropContext } from "react-beautiful-dnd";
 import { toast } from "sonner";
-import EmptyState from "./empty-state";
+import EmptyState from "../common/empty-state";
 import ExplorerItemRow from "./item-row";
 import AddEditDialog from "./add-edit-dialog";
 import { jsonParse, jsonStringify } from "@/utils/json";
 import { useRouter } from "next/navigation";
 import RootActions from "./root-actions";
+import Header from "../common/header";
+import getMessage from "@/constants/messages";
+import { Button } from "@/components/ui/button";
 
 export default function DashboardExplorer() {
 	const [items, setItems] = useState<DashboardHeirarchy[]>([]);
@@ -612,18 +615,21 @@ export default function DashboardExplorer() {
 
 	return (
 		<div className="flex flex-col gap-2 grow overflow-y-hidden">
-			<div className="flex justify-between items-center text-stone-700 dark:text-stone-300">
-				<h3 className="font-medium">Explorer</h3>
+			<Header title="Explorer">
 				<RootActions openAddDialog={openAddDialog} importBoardLayout={importBoardLayout} />
-			</div>
-
+			</Header>
 			<div className="grow bg-stone-100 dark:bg-stone-900 rounded-sm p-2 overflow-y-auto">
 				{isLoading ? (
 					<div className="flex justify-center items-center py-8 h-full">
 						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 					</div>
 				) : items.length === 0 ? (
-					<EmptyState openAddDialog={openAddDialog} />
+					<EmptyState
+						title={getMessage().NO_DASHBOARDS_YET}
+						description={getMessage().NO_DASHBOARDS_YET_DESCRIPTION}
+					>
+						<Button onClick={() => openAddDialog()}>{getMessage().NO_DASHBOARDS_YET_ACTION_BUTTON}</Button>
+					</EmptyState>
 				) : (
 					<DragDropContext onDragEnd={handleDragEnd}>
 						<Droppable droppableId="root" type="explorer-item">

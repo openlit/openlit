@@ -7,6 +7,7 @@ import { useCallback } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import FormBuilder from "@/components/common/form-builder";
 import { toast } from "sonner";
+import getMessage from "@/constants/messages";
 
 export default function AddEditDialog({
 	isOpen,
@@ -51,20 +52,20 @@ export default function AddEditDialog({
 	// Define form fields
 	const formFields: FieldProps[] = [
 		{
-			label: "Title",
-			description: "Enter a title for your item",
+			label: "Name",
+			description: "Enter a name for your resource",
 			inputKey: "item-title",
 			fieldType: "INPUT",
 			fieldTypeProps: {
 				type: "text",
 				name: "title",
-				placeholder: "Enter title",
+				placeholder: "Enter name",
 				defaultValue: initialItemTitle,
 			},
 		},
 		{
 			label: "Description",
-			description: "Enter a description for your item",
+			description: "Enter a description for your resource",
 			inputKey: "item-description",
 			fieldType: "TEXTAREA",
 			fieldTypeProps: {
@@ -116,13 +117,13 @@ export default function AddEditDialog({
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[85%] overflow-hidden">
+			<DialogContent className="max-h-[85%] overflow-hidden flex flex-col gap-8">
 				<DialogHeader>
 					<DialogTitle>
-						{mode === "add" ? "Create New Dashboard/Folder" : "Edit Dashboard/Folder"}
+						{mode === "add" ? getMessage().ADD_DASHBOARD_OR_FOLDER : getMessage().EDIT_DASHBOARD_OR_FOLDER}
 					</DialogTitle>
 				</DialogHeader>
-				<div className="flex items-center overflow-y-auto mt-4">
+				<div className="flex items-start overflow-y-auto flex-1">
 					<FormBuilder
 						alignment="vertical"
 						fields={formFields}

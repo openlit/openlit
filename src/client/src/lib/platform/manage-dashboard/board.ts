@@ -92,7 +92,7 @@ export async function updateBoard(board: Board) {
 		sanitizedBoard.title && `title = '${sanitizedBoard.title}'`,
 		sanitizedBoard.description &&
 		`description = '${sanitizedBoard.description}'`,
-		`parent_id = '${sanitizedBoard.parentId}'`,
+		`parent_id = ${sanitizedBoard.parentId ? `''${sanitizedBoard.parentId}''` : 'NULL'}`,
 		sanitizedBoard.tags && `tags = '${jsonStringify(sanitizedBoard.tags)}'`,
 	];
 
