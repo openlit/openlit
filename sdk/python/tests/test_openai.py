@@ -17,6 +17,7 @@ import pytest
 from openai import OpenAI, AsyncOpenAI
 import openlit
 from pydantic import BaseModel
+import openlit
 
 # Initialize synchronous OpenAI client
 sync_client = OpenAI()
