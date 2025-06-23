@@ -15,7 +15,6 @@ prior to running these tests.
 
 import pytest
 from openai import OpenAI, AsyncOpenAI
-import openlit
 from pydantic import BaseModel
 import openlit
 
