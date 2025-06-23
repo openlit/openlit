@@ -11,3 +11,4 @@ __pycache__/
 logs/
 
 .vscode/
+.idea/
