@@ -152,17 +152,15 @@ export async function runWidgetQuery(
 		filter: MetricParams;
 	}
 ) {
-	const { data: widgetData, err: widgetErr } = await getWidgetById(widgetId);
+	const { data: widget, err: widgetErr } = await getWidgetById(widgetId);
 
-	if (widgetErr) {
+	if (widgetErr || !widget) {
 		return { err: getMessage().WIDGET_FETCH_FAILED };
 	}
 
-	const widget = ((widgetData || []) as DatabaseWidget[])[0];
-
 	const query = userQuery
 		? userQuery
-		: normalizeWidgetToClient(widget).config?.query || "";
+		: widget.config?.query || "";
 
 	const exactQuery = mustache.render(query, { filter });
 

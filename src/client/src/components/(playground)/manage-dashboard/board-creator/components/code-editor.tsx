@@ -20,6 +20,22 @@ const CodeEditor: React.FC<EditorProps> = ({
 		editorRef.current = editor;
 	};
 
+	// Mustache binding suggestions for autocomplete
+	const mustacheCompletionItems = [
+		{
+			label: "filter.timeLimit.start",
+			kind: "Property",
+			insertText: "filter.timeLimit.start",
+			documentation: "Start date of the time filter"
+		},
+		{
+			label: "filter.timeLimit.end",
+			kind: "Property",
+			insertText: "filter.timeLimit.end",
+			documentation: "End date of the time filter"
+		},
+	];
+
 	return (
 		<Editor
 			height={height}
@@ -59,6 +75,77 @@ const CodeEditor: React.FC<EditorProps> = ({
 					});
 					monaco.editor.setTheme("clickhouse-dark");
 				}
+
+				// Register mustache binding completion provider for all languages
+				monaco.languages.registerCompletionItemProvider(language, {
+					provideCompletionItems: (model, position) => {
+						const textUntilPosition = model.getValueInRange({
+							startLineNumber: position.lineNumber,
+							startColumn: 1,
+							endLineNumber: position.lineNumber,
+							endColumn: position.column,
+						});
+
+						const textAfterPosition = model.getValueInRange({
+							startLineNumber: position.lineNumber,
+							startColumn: position.column,
+							endLineNumber: position.lineNumber,
+							endColumn: model.getLineMaxColumn(position.lineNumber),
+						});
+
+						// Check if we're inside mustache braces {{}}
+						const mustacheMatch = textUntilPosition.match(/\{\{([^}]*)$/);
+						if (!mustacheMatch) {
+							return { suggestions: [] };
+						}
+
+						// Get the existing text inside mustache braces
+						const existingText = mustacheMatch[1];
+
+						// Check if closing braces already exist after cursor
+						const hasClosingBraces = textAfterPosition.startsWith('}}');
+
+						const word = model.getWordUntilPosition(position);
+						const range = {
+							startLineNumber: position.lineNumber,
+							endLineNumber: position.lineNumber,
+							startColumn: word.startColumn,
+							endColumn: word.endColumn,
+						};
+
+						return {
+							suggestions: mustacheCompletionItems.map(item => {
+								// Calculate what part of the suggestion is already typed
+								let insertText = item.insertText;
+
+								// If there's existing text, check if the suggestion starts with it
+								if (existingText.trim()) {
+									const existingTrimmed = existingText.trim();
+									if (item.insertText.startsWith(existingTrimmed)) {
+										// Only insert the remaining part
+										insertText = item.insertText.substring(existingTrimmed.length);
+									}
+								}
+
+								// Add closing braces if needed
+								if (!hasClosingBraces) {
+									insertText += '}}';
+								}
+
+								return {
+									label: item.label,
+									kind: monaco.languages.CompletionItemKind[item.kind as keyof typeof monaco.languages.CompletionItemKind],
+									insertText: insertText,
+									documentation: item.documentation,
+									range: range,
+									// Add snippet formatting to handle cursor positioning
+									insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+								};
+							})
+						};
+					},
+					triggerCharacters: ['{', '.'],
+				});
 			}}
 		/>
 	);

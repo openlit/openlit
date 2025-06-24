@@ -95,9 +95,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 
 		try {
 			if (runQuery) {
-				const { data } = await runQuery(widgetId, {
-					userQuery: widget.config.query,
-				});
+				const { data } = await runQuery(widgetId, {});
 				updateWidgetData(widgetId, data);
 			}
 		} catch (error) {
