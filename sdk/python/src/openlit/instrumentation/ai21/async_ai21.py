@@ -171,7 +171,7 @@ def async_chat_rag(version, environment, application_name,
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
             response = await wrapped(*args, **kwargs)
-            
+
             try:
                 response = process_chat_rag_response(
                     response=response,

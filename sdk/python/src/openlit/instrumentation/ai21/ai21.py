@@ -171,23 +171,28 @@ def chat_rag(version, environment, application_name,
         with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
             start_time = time.time()
             response = wrapped(*args, **kwargs)
-            response = process_chat_rag_response(
-                response=response,
-                request_model=request_model,
-                pricing_info=pricing_info,
-                server_port=server_port,
-                server_address=server_address,
-                environment=environment,
-                application_name=application_name,
-                metrics=metrics,
-                start_time=start_time,
-                span=span,
-                capture_message_content=capture_message_content,
-                disable_metrics=disable_metrics,
-                version=version,
-                **kwargs
-            )
+            
+            try:
+                response = process_chat_rag_response(
+                    response=response,
+                    request_model=request_model,
+                    pricing_info=pricing_info,
+                    server_port=server_port,
+                    server_address=server_address,
+                    environment=environment,
+                    application_name=application_name,
+                    metrics=metrics,
+                    start_time=start_time,
+                    span=span,
+                    capture_message_content=capture_message_content,
+                    disable_metrics=disable_metrics,
+                    version=version,
+                    **kwargs
+                )
 
-        return response
+            except Exception as e:
+                handle_exception(span, e)
+
+            return response
 
     return wrapper

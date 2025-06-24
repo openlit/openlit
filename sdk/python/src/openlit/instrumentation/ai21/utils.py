@@ -14,7 +14,6 @@ from openlit.__helpers import (
     general_tokens,
     extract_and_format_input,
     get_chat_model_cost,
-    handle_exception,
     create_metrics_attributes,
     concatenate_all_contents
 )
@@ -55,11 +54,11 @@ def setup_common_span_attributes(span, request_model, kwargs, tokens,
 
     span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, request_model)
     span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
-    
+
     # Environment and service identifiers.
     span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     span.set_attribute(SERVICE_NAME, application_name)
-    
+
     # Set any extra attributes passed in.
     for key, value in extra_attrs.items():
         span.set_attribute(key, value)
