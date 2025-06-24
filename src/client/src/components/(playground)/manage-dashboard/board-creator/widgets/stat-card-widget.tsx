@@ -1,5 +1,7 @@
 import React from "react";
 import type { StatCardWidget } from "../types";
+import { TrendingDown } from "lucide-react";
+import { TrendingUp } from "lucide-react";
 
 interface StatCardProps {
 	widget: StatCardWidget;
@@ -8,12 +10,17 @@ interface StatCardProps {
 
 const StatCardWidget: React.FC<StatCardProps> = ({ widget, data }) => {
 	let value = "";
+	let trend: number = 0;
 
 	try {
 		value = (widget.properties.value || "")
 			.split(".")
 			.reduce((acc: any, curr: string) => acc?.[curr], data);
 		value = (value || 0).toString();
+		trend = (widget.properties.trend || "")
+			.split(".")
+			.reduce((acc: any, curr: string) => acc?.[curr], data);
+		trend = parseFloat((trend || 0).toString());
 	} catch (error) {
 		console.error(error);
 	}
@@ -27,15 +34,15 @@ const StatCardWidget: React.FC<StatCardProps> = ({ widget, data }) => {
 			</div>
 			{widget.properties.trend && (
 				<div
-					className={`text-sm mt-2 ${
-						widget.properties.trendDirection === "up"
-							? "text-green-500"
-							: "text-red-500"
-					}`}
-					style={{ color: widget.properties.trendColor }}
+					className={`flex items-center gap-1 text-sm mt-2 ${trend > 0
+						? "text-green-500"
+						: "text-red-500"
+						}`}
 				>
-					{widget.properties.trendDirection === "up" ? "↑" : "↓"}{" "}
-					{widget.properties.trend}
+					{widget.properties.trendPrefix}
+					{Math.abs(trend)}
+					{widget.properties.trendSuffix}
+					{trend > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
 				</div>
 			)}
 		</div>

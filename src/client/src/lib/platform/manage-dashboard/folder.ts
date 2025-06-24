@@ -55,6 +55,7 @@ export async function updateFolder(folder: Folder) {
 			`description = '${sanitizedFolder.description}'`,
 		`parent_id = '${sanitizedFolder.parentId}'`,
 		sanitizedFolder.tags && `tags = '${jsonStringify(sanitizedFolder.tags)}'`,
+		`updated_at = NOW()`,
 	];
 
 	const query = `

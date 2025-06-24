@@ -71,7 +71,7 @@ export default function ExplorerItemRow({
 					className="my-2"
 				>
 					<div className={`${snapshot.isDragging ? "opacity-50" : ""}`}>
-						<div className="flex items-center justify-between group py-1 px-2 rounded-sm  hover:bg-stone-100 dark:hover:bg-stone-700 group-hover  bg-transparent dark:bg-transparent">
+						<div className="flex items-center justify-between group py-1 px-2 rounded-sm  hover:bg-stone-200/50 dark:hover:bg-stone-700/50 group-hover  bg-transparent dark:bg-transparent">
 							<div className="flex items-center gap-2 flex-1">
 								<div
 									{...provided.dragHandleProps}
@@ -135,13 +135,15 @@ export default function ExplorerItemRow({
 							/>
 						</div>
 
-						{item.type === "folder" && open && (
+						{item.type === "folder" && (
 							<Droppable droppableId={`folder-${item.id}`} type="explorer-item">
-								{(droppableProvided, dropSnapshot) => (
+								{(droppableProvided, dropSnapshot) => {
+									return (
 									<div
 										ref={droppableProvided.innerRef}
 										{...droppableProvided.droppableProps}
 										className={`
+											  min-h-1
 												${item.children?.length ? "pl-4" : ""} 
 												${dropSnapshot.isDraggingOver
 												? "bg-stone-100 dark:bg-stone-700 border-2 border-dashed border-stone-300 dark:border-stone-600 rounded-md py-2 mx-2"
@@ -151,7 +153,7 @@ export default function ExplorerItemRow({
 											}
 											`}
 									>
-										{item.children?.map((child, childIndex) => (
+										{open && item.children?.map((child, childIndex) => (
 											<ExplorerItemRow
 												key={child.id}
 												item={child}
@@ -168,13 +170,14 @@ export default function ExplorerItemRow({
 											/>
 										))}
 										{droppableProvided.placeholder}
-										{!item.children?.length && !dropSnapshot.isDraggingOver && (
+										{dropSnapshot.isDraggingOver && (
 											<div className="text-sm text-stone-500 dark:text-stone-400 text-center">
 												Drop items here
 											</div>
 										)}
 									</div>
 								)}
+							}
 							</Droppable>
 						)}
 					</div>

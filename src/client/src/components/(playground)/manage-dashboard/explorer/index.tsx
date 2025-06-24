@@ -1,4 +1,4 @@
-import { Droppable } from "react-beautiful-dnd";
+import { Droppable, DroppableProps } from "react-beautiful-dnd";
 import { DashboardItemType } from "@/types/manage-dashboard";
 import { DashboardHeirarchy } from "@/types/manage-dashboard";
 import { DropResult } from "react-beautiful-dnd";
@@ -15,6 +15,25 @@ import RootActions from "./root-actions";
 import Header from "../common/header";
 import getMessage from "@/constants/messages";
 import { Button } from "@/components/ui/button";
+
+// React 18 StrictMode compatibility fix for react-beautiful-dnd
+const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
+	const [enabled, setEnabled] = useState(false);
+	
+	useEffect(() => {
+		const animation = requestAnimationFrame(() => setEnabled(true));
+		return () => {
+			cancelAnimationFrame(animation);
+			setEnabled(false);
+		};
+	}, []);
+	
+	if (!enabled) {
+		return null;
+	}
+	
+	return <Droppable {...props}>{children}</Droppable>;
+};
 
 export default function DashboardExplorer() {
 	const [items, setItems] = useState<DashboardHeirarchy[]>([]);
@@ -632,7 +651,7 @@ export default function DashboardExplorer() {
 					</EmptyState>
 				) : (
 					<DragDropContext onDragEnd={handleDragEnd}>
-						<Droppable droppableId="root" type="explorer-item">
+						<StrictModeDroppable droppableId="root" type="explorer-item">
 							{(provided, snapshot) => (
 								<div
 									ref={provided.innerRef}
@@ -661,7 +680,7 @@ export default function DashboardExplorer() {
 									{provided.placeholder}
 								</div>
 							)}
-						</Droppable>
+						</StrictModeDroppable>
 					</DragDropContext>
 				)}
 			</div>

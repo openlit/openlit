@@ -39,9 +39,7 @@ interface DashboardContextType {
 	getDashboardConfig: () => DashboardConfig;
 	runQuery: (
 		widgetId: string,
-		params: {
-			userQuery: string;
-		}
+		params: Record<string, unknown>
 	) => Promise<{ data: any; err: string | null }>;
 	handleWidgetCrud?: (updates: Partial<Widget>) => Promise<Widget>;
 	widgetData: Record<string, any>;
@@ -62,9 +60,7 @@ interface DashboardProviderProps {
 	handleWidgetCrud?: (updates: Partial<Widget>) => Promise<Widget>;
 	runQuery?: (
 		widgetId: string,
-		params: {
-			userQuery: string;
-		}
+		params: Record<string, unknown>
 	) => Promise<{ data: any; err: string | null }>;
 	fetchExistingWidgets?: () => Promise<Widget[]>;
 }
@@ -258,7 +254,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 		};
 	};
 
-	const handleRunQuery = (widgetId: string, params: { userQuery: string }) => {
+	const handleRunQuery = (widgetId: string, params: Record<string, unknown>) => {
 		if (runQuery) {
 			return runQuery(widgetId, params);
 		}

@@ -1,5 +1,5 @@
 import { DatabaseWidget, Widget } from "@/types/manage-dashboard";
-import { dataCollector, MetricParams, OTEL_TRACES_TABLE_NAME } from "../common";
+import { dataCollector, MetricParams } from "../common";
 import { OPENLIT_WIDGET_TABLE_NAME } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
 import getMessage from "@/constants/messages";
@@ -10,7 +10,6 @@ import {
 } from "@/helpers/server/widget";
 import mustache from "mustache";
 
-import { getFilterWhereCondition } from "@/helpers/server/platform";
 import { jsonStringify } from "@/utils/json";
 
 export async function getWidgetById(id: string) {
@@ -41,6 +40,7 @@ export async function getWidgets(widgetIds?: string[]) {
 				.join(",")})`
 			: ""
 		}
+		ORDER BY updated_at DESC
 	`;
 
 	const { data, err } = await dataCollector({ query });
@@ -115,6 +115,7 @@ export async function updateWidget(widget: Widget) {
 		`properties = '${jsonStringify(sanitizedWidget.properties)}'`,
 		sanitizedWidget.config &&
 		`config = '${escapeSingleQuotes(jsonStringify(sanitizedWidget.config))}'`,
+		`updated_at = NOW()`,
 	];
 
 	const query = `
@@ -145,11 +146,9 @@ export async function runWidgetQuery(
 	widgetId: string,
 	{
 		userQuery,
-		respectFilters,
 		filter,
 	}: {
 		userQuery?: string;
-		respectFilters: boolean;
 		filter: MetricParams;
 	}
 ) {
@@ -165,22 +164,7 @@ export async function runWidgetQuery(
 		? userQuery
 		: normalizeWidgetToClient(widget).config?.query || "";
 
-	const filteredQuery = `
-		SELECT 
-			*
-		FROM ${OTEL_TRACES_TABLE_NAME}
-		WHERE ${getFilterWhereCondition({
-		...filter,
-	})}
-	`;
-
-	// TODO: Check for the select query only
-	let exactQuery = `${query.replace(
-		respectFilters ? /FROM\s+otel_traces/i : "",
-		respectFilters ? `FROM ( ${filteredQuery} )` : ""
-	)}`;
-
-	exactQuery = mustache.render(exactQuery, { filter });
+	const exactQuery = mustache.render(query, { filter });
 
 	const { data, err } = await dataCollector({ query: exactQuery, enable_readonly: true });
 

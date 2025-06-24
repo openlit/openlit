@@ -10,13 +10,8 @@ import PieChartWidget from "./pie-chart-widget";
 import TableWidget from "./table-widget";
 import AreaChartWidget from "./area-chart-widget";
 import MarkdownWidget from "./markdown-widget";
-import { useDashboard } from "../context/DashboardContext";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipPortal,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { useDashboard } from "../context/dashboard-context";
+import DescriptionTooltip from "../components/description-tooltip";
 
 const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 	widget,
@@ -30,10 +25,10 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 	// Load data when not in edit mode
 	useEffect(() => {
 		// @ts-ignore TODO: fix this
-		if (!isEditing && widget?.config?.query) {
+		if (widget?.config?.query) {
 			loadWidgetData(widget.id);
 		}
-	}, [isEditing, runFilters]);
+	}, [runFilters]);
 
 	// Get widget type icon
 	const WidgetTypeIcon = () => {
@@ -72,15 +67,7 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 					<WidgetTypeIcon />
 					<CardTitle className="tracking-tight text-sm font-medium text-stone-950 dark:text-white">{widget.title}</CardTitle>
 					{widget.description && (
-						<Tooltip delayDuration={0}>
-							<TooltipTrigger asChild>
-								<Info className="h-3 w-3" />
-							</TooltipTrigger>
-							<TooltipPortal>
-
-							<TooltipContent>{widget.description}</TooltipContent>
-							</TooltipPortal>
-						</Tooltip>
+						<DescriptionTooltip description={widget.description} />
 					)}
 				</div>
 				{isEditing && (

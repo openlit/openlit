@@ -37,8 +37,8 @@ export interface StatCardWidget extends BaseWidgetProps {
 		value?: string;
 		color?: ColorTheme;
 		trend?: string;
-		trendColor?: ColorTheme;
-		trendDirection?: "up" | "down";
+		trendSuffix?: string;
+		trendPrefix?: string;
 		textSize?: "small" | "medium" | "large";
 		autoRefresh?: boolean;
 	};
@@ -135,12 +135,13 @@ export interface DashboardProps {
 	rowHeight?: number;
 	runQuery?: (
 		widgetId: string,
-		params: { userQuery: string }
+		params: Record<string, unknown>
 	) => Promise<{ data: any; err: string | null }>;
 	handleWidgetCrud?: (updates: Partial<Widget>) => Promise<Widget>;
 	fetchExistingWidgets?: () => Promise<Widget[]>;
 	renderTitle?: boolean;
 	runFilters?: unknown;
+	headerComponent?: ReactNode;
 }
 
 // Widget Renderer Props

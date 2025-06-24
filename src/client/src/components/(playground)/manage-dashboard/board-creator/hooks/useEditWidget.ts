@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useDashboard } from "../context/DashboardContext";
+import { useDashboard } from "../context/dashboard-context";
 
 export const useEditWidget = () => {
 	const {

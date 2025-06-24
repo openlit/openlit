@@ -90,3 +90,5 @@ export const NO_WIDGETS_YET_SEARCH_TITLE = "No Widgets Found";
 export const NO_WIDGETS_YET_SEARCH_DESCRIPTION = "No widgets found matching your search.";
 export const ADD_DASHBOARD_OR_FOLDER = "Create a new dashboard or folder";
 export const EDIT_DASHBOARD_OR_FOLDER = "Edit dashboard or folder";
+export const ERROR_OCCURED = "Broken Dashboard";
+export const ERROR_OCCURED_DESCRIPTION = "An error occurred while fetching the dashboard or the dashboard does not exist. Please try again later.";

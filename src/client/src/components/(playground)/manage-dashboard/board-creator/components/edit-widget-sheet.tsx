@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import {
 	BarChartWidget,
 	PieChartWidget,
@@ -21,8 +21,9 @@ import {
 	Database,
 	FileText,
 	Trash2,
+	Info,
 } from "lucide-react";
-import CodeEditor from "./CodeEditor";
+import CodeEditor from "./code-editor";
 
 import {
 	Sheet,
@@ -44,10 +45,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useDashboard } from "../context/DashboardContext";
-import QueryDebugger from "./QueryDebugger";
-import { ColorSelector } from "./ColorSelector";
+import { useDashboard } from "../context/dashboard-context";
+import QueryDebugger from "./query-debugger";
+import { ColorSelector } from "./color-selector";
 import MarkdownWidgetComponent from "../widgets/markdown-widget";
+import { Tooltip, TooltipTrigger, TooltipPortal, TooltipContent } from "@/components/ui/tooltip";
 
 interface NonMarkdownConfig {
 	query: string;
@@ -149,6 +151,15 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 		}
 	};
 
+	useEffect(() => {
+		if (currentWidget?.id) {
+			setCurrentTab("general");
+			setQueryResult(null);
+			setQueryError(null);
+			setIsQueryLoading(false);
+		}
+	}, [currentWidget?.id]);
+
 	return (
 		<Sheet
 			open={!!currentWidget}
@@ -166,16 +177,29 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 			>
 				<div className="flex flex-col h-full">
 					<SheetHeader>
-						<SheetTitle className="text-stone-900 dark:text-white">Edit Widget</SheetTitle>
+						<SheetTitle className="text-stone-900 dark:text-white flex items-center gap-2">
+							<h3>{currentWidget?.title}</h3>
+							{currentWidget?.description && (
+								<Tooltip delayDuration={0}>
+									<TooltipTrigger asChild>
+										<Info className="h-3 w-3" />
+									</TooltipTrigger>
+									<TooltipPortal>
+
+										<TooltipContent>{currentWidget.description}</TooltipContent>
+									</TooltipPortal>
+								</Tooltip>
+							)}
+						</SheetTitle>
 						<SheetDescription className="text-stone-600 dark:text-stone-300">
-							Configure your widget properties and query
+							Configure your widget
 						</SheetDescription>
 					</SheetHeader>
 
 					{currentWidget && (
-						<div className="flex-1 overflow-y-auto py-4">
-							<Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-								<TabsList className="grid w-full grid-cols-3 bg-stone-200 dark:bg-stone-900">
+						<div className="flex-1 py-4 relative overflow-hidden">
+							<Tabs value={currentTab} onValueChange={setCurrentTab} className="flex flex-col h-full w-full">
+								<TabsList className="grid w-full grid-cols-3 bg-stone-200 dark:bg-stone-900 sticky top-0 z-10">
 									<TabsTrigger
 										value="general"
 										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-900 dark:text-white"
@@ -197,7 +221,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 								</TabsList>
 
 								{/* General Tab */}
-								<TabsContent value="general" className="space-y-4 mt-4">
+								<TabsContent value="general" className="space-y-4 mt-4 overflow-y-auto flex flex-col overflow-y-auto">
 									<div className="space-y-2">
 										<Label htmlFor="title" className="text-stone-900 dark:text-white">Widget Title</Label>
 										<Input
@@ -338,9 +362,23 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												</div>
 											</div>
 
-											<div className="grid grid-cols-2 gap-4">
+											<div className="grid grid-cols-3 gap-4">
 												<div className="space-y-2">
-													<Label htmlFor="trend" className="text-stone-900 dark:text-white">Trend</Label>
+													<Label htmlFor="trendPrefix" className="text-stone-900 dark:text-white">Trend Prefix</Label>
+													<Input
+														id="trendPrefix"
+														value={(currentWidget as StatCardWidget).properties.trendPrefix}
+														onChange={(e) =>
+															updateWidgetProperties(currentWidget.id, {
+																trendPrefix: e.target.value,
+															})
+														}
+														placeholder="$"
+														className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 dark:text-white"
+													/>
+												</div>
+												<div className="space-y-2">
+													<Label htmlFor="trend" className="text-stone-900 dark:text-white">Trend Path</Label>
 													<Input
 														id="trend"
 														value={(currentWidget as StatCardWidget).properties.trend}
@@ -354,23 +392,18 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 													/>
 												</div>
 												<div className="space-y-2">
-													<Label htmlFor="trendDirection" className="text-stone-900 dark:text-white">Direction</Label>
-													<Select
-														value={(currentWidget as StatCardWidget).properties.trendDirection || "up"}
-														onValueChange={(value) =>
+													<Label htmlFor="trendSuffix" className="text-stone-900 dark:text-white">Trend Suffix</Label>
+													<Input
+														id="trendSuffix"
+														value={(currentWidget as StatCardWidget).properties.trendSuffix}
+														onChange={(e) =>
 															updateWidgetProperties(currentWidget.id, {
-																trendDirection: value,
+																trendSuffix: e.target.value,
 															})
 														}
-													>
-														<SelectTrigger className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 dark:text-white">
-															<SelectValue placeholder="Select direction" />
-														</SelectTrigger>
-														<SelectContent className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
-															<SelectItem value="up" className="dark:text-white">Up</SelectItem>
-															<SelectItem value="down" className="dark:text-white">Down</SelectItem>
-														</SelectContent>
-													</Select>
+														placeholder="%"
+														className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 dark:text-white"
+													/>
 												</div>
 											</div>
 										</div>
@@ -579,7 +612,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 								</TabsContent>
 
 								{/* Config Tab */}
-								<TabsContent value="query" className="space-y-4 mt-4">
+								<TabsContent value="query" className="space-y-4 mt-4 overflow-y-auto flex-col overflow-y-auto">
 									{currentWidget.type !== WidgetType.MARKDOWN ? (
 										<>
 											<div className="space-y-2">
@@ -645,7 +678,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 								</TabsContent>
 
 								{/* Appearance Tab */}
-								<TabsContent value="appearance" className="space-y-4 mt-4">
+								<TabsContent value="appearance" className="space-y-4 mt-4 overflow-y-auto flex-col overflow-y-auto">
 									{currentWidget.type !== WidgetType.MARKDOWN && (
 										<>
 											{(currentWidget.type === WidgetType.STAT_CARD ||
@@ -666,20 +699,6 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 														/>
 													</div>
 												)}
-
-											{(currentWidget.type === WidgetType.STAT_CARD) && (
-												<div className="space-y-2">
-													<Label htmlFor="trendColor" className="text-stone-900 dark:text-white">Trend Color</Label>
-													<ColorSelector
-														value={(currentWidget as StatCardWidget).properties.trendColor}
-														onChange={(value) =>
-															updateWidgetProperties(currentWidget.id, {
-																trendColor: value,
-															})
-														}
-													/>
-												</div>
-											)}
 
 											{(currentWidget.type === WidgetType.BAR_CHART ||
 												currentWidget.type === WidgetType.LINE_CHART ||

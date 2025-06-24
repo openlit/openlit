@@ -92,7 +92,7 @@ export async function updateBoard(board: Board) {
 		sanitizedBoard.title && `title = '${sanitizedBoard.title}'`,
 		sanitizedBoard.description &&
 		`description = '${sanitizedBoard.description}'`,
-		`parent_id = ${sanitizedBoard.parentId ? `''${sanitizedBoard.parentId}''` : 'NULL'}`,
+		`parent_id = ${sanitizedBoard.parentId ? `'${sanitizedBoard.parentId}'` : 'NULL'}`,
 		sanitizedBoard.tags && `tags = '${jsonStringify(sanitizedBoard.tags)}'`,
 	];
 
@@ -108,7 +108,9 @@ export async function updateBoard(board: Board) {
 	if (err || !(data as { query_id: string }).query_id)
 		return { err: getMessage().BOARD_UPDATE_FAILED };
 
-	return { data: getMessage().BOARD_UPDATED_SUCCESSFULLY };
+	const { data: boardData } = await getBoardById(sanitizedBoard.id);
+
+	return { data: boardData };
 }
 
 export async function deleteBoard(id: string) {
@@ -349,7 +351,7 @@ export async function updateBoardLayout(boardId: string, layoutConfig: any) {
 						ALTER TABLE ${OPENLIT_BOARD_WIDGET_TABLE_NAME}
 						UPDATE 
 							position = '${JSON.stringify(position)}',
-							updated_at = now()
+							updated_at = NOW()
 						WHERE id = '${Sanitizer.sanitizeValue(existingWidgetMap.get(widget.id))}'
 					`;
 

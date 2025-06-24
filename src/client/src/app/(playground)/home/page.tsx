@@ -7,12 +7,12 @@ import Dashboard, { DashboardConfig } from "../../../components/(playground)/man
 import { Board } from "@/types/manage-dashboard";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
 import { useRootStore } from "@/store";
 import { getFilterDetails } from "@/selectors/filter";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
+import Loader from "@/components/common/loader";
 
-const BoardList = ({ boardId }: { boardId: string | null }) => {
+const BoardList = ({ dashboardId }: { dashboardId: string | null }) => {
 	const [boards, setBoards] = useState<Board[]>([]);
 	const { fireRequest } = useFetchWrapper();
 
@@ -40,11 +40,11 @@ const BoardList = ({ boardId }: { boardId: string | null }) => {
 	return (
 		<div className="flex gap-2">
 			{boards.map((board) => {
-				if (boardId === board.id || (!boardId && board.isMainDashboard)) {
+				if (dashboardId === board.id || (!dashboardId && board.isMainDashboard)) {
 					return null;
 				}
 				return (
-					<Link key={board.id} href={`?boardId=${board.id}`}>
+					<Link key={board.id} href={`?dashboardId=${board.id}`}>
 						<Badge>{board.title}</Badge>
 					</Link>
 				);
@@ -56,11 +56,12 @@ const BoardList = ({ boardId }: { boardId: string | null }) => {
 export default function DashboardPage() {
 	const filter = useRootStore(getFilterDetails);
 	const { fireRequest, isLoading } = useFetchWrapper();
+	const { fireRequest: fireRunQuery } = useFetchWrapper();
 	const [initialConfig, setInitialConfig] = useState<
 		DashboardConfig | undefined
 	>();
 	const searchParams = useSearchParams();
-	const boardId = searchParams.get("boardId");
+	const dashboardId = searchParams.get("dashboardId");
 
 	useEffect(() => {
 		const fetchBoardLayout = async () => {
@@ -68,7 +69,7 @@ export default function DashboardPage() {
 				setInitialConfig(undefined);
 				const { response, error } = await fireRequest({
 					requestType: "GET",
-					url: `/api/manage-dashboard/board/${boardId ? boardId : "main"}/layout`,
+					url: `/api/manage-dashboard/board/${dashboardId ? dashboardId : "main"}/layout`,
 				});
 
 				if (error) {
@@ -84,7 +85,7 @@ export default function DashboardPage() {
 		};
 
 		fetchBoardLayout();
-	}, [boardId, fireRequest]);
+	}, [dashboardId, fireRequest]);
 
 	const runFilters = useMemo(() => {
 		return getFilterParamsForDashboard({
@@ -94,11 +95,9 @@ export default function DashboardPage() {
 
 	const runQuery = async (
 		widgetId: string,
-		params: {
-			userQuery: string;
-		}
+		params: Record<string, unknown>
 	) => {
-		const data = await fireRequest({
+		const data = await fireRunQuery({
 			requestType: "POST",
 			url: "/api/manage-dashboard/query/run",
 			// Add params of the dashboard & add a check for edit mode to send query or not through body
@@ -106,7 +105,6 @@ export default function DashboardPage() {
 				widgetId,
 				filter: runFilters,
 				...params,
-				respectFilters: true,
 			}),
 		});
 
@@ -117,13 +115,16 @@ export default function DashboardPage() {
 		<>
 			<div className="flex items-center w-full justify-between mb-4">
 				<Filter />
-				<BoardList boardId={boardId} />
+				<BoardList dashboardId={dashboardId} />
 			</div>
-			{!initialConfig ? (
-				<div className="flex items-center justify-center h-full">
-					<Loader2 className="w-4 h-4 animate-spin" />
-				</div>
-			) : (
+			{
+				isLoading && (
+					<div className="flex items-center justify-center h-full w-full">
+						<Loader />
+					</div>
+				)
+			}
+			{initialConfig && (
 				<Dashboard
 					className="h-100 overflow-y-auto"
 					initialConfig={initialConfig}

@@ -4,13 +4,21 @@ import React from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { Edit, Save, Plus, Info } from "lucide-react";
+import { Edit, Save, Plus, Info, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DashboardProps, Widget } from "./types";
-import { DashboardProvider, useDashboard } from "./context/DashboardContext";
+import { DashboardProvider, useDashboard } from "./context/dashboard-context";
 import WidgetRenderer from "./widgets/widget-renderer";
 import dynamic from "next/dynamic";
 import createMessage from "@/constants/messages";
+const EditWidgetSheet = dynamic(() => import("./components/edit-widget-sheet"));
+const WidgetSelectionModal = dynamic(
+	() => import("./components/widget-selection-modal")
+);
+
+import { useEditWidget } from "./hooks/useEditWidget";
+
+import DescriptionTooltip from "./components/description-tooltip";
 
 // Empty state component
 const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
@@ -32,18 +40,15 @@ const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
 	</div>
 );
 
-const EditWidgetSheet = dynamic(() => import("./components/EditWidgetSheet"));
-const WidgetSelectionModal = dynamic(
-	() => import("./components/WidgetSelectionModal")
-);
-
-import { useEditWidget } from "./hooks/useEditWidget";
-
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
+const ActionButtons = ({ onClick, label, icon }: { onClick: () => void, label: string, icon: LucideIcon }) => {
+	const Icon = icon;
+	return (
+		<Button variant="secondary" onClick={onClick} className="flex gap-2 h-auto border-none py-1.5 bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300">
+			<Icon className="h-3 w-3" />
+			<span className="text-sm">{label}</span>
+		</Button>
+	);
+};
 
 // Responsive grid layout with automatic width calculation
 const ResponsiveGridLayout = WidthProvider(Responsive);
@@ -58,6 +63,7 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 	rowHeight = 150,
 	renderTitle = true,
 	runFilters,
+	headerComponent,
 }) => {
 	const {
 		title,
@@ -115,42 +121,31 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 
 	return (
 		<div className={`w-full ${className ?? ""}`}>
-			{(renderTitle || !readonly) && (
-				<div className="flex justify-between items-center mb-6">
+			{(renderTitle || !readonly || headerComponent) && (
+				<div className="flex items-center mb-6">
 					{renderTitle && (
-						<div className="flex items-center gap-2">
+						<div className="flex items-center gap-2 text-stone-900 dark:text-stone-300">
 							<h1 className="text-2xl font-bold">{title}</h1>
 							{description && (
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Info className="h-3 w-3" />
-									</TooltipTrigger>
-									<TooltipContent>{description}</TooltipContent>
-								</Tooltip>
+								<DescriptionTooltip description={description} className="ml-2 h-4 w-4" />
 							)}
 						</div>
 					)}
-
+					{headerComponent}
+					<div className="flex-1" />
 					{!readonly && (
 						<div className="flex gap-2">
-							<Button
-								variant={isEditing ? "default" : "outline"}
+							<ActionButtons
 								onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-							>
-								{isEditing ? (
-									<>
-										<Save className="h-4 w-4 mr-2" /> Save Layout
-									</>
-								) : (
-									<>
-										<Edit className="h-4 w-4 mr-2" /> Edit Layout
-									</>
-								)}
-							</Button>
+								icon={isEditing ? Save : Edit}
+								label={isEditing ? "Save Layout" : "Edit Layout"}
+							/>
 							{isEditing && (
-								<Button onClick={handleAddWidget}>
-									<Plus className="h-4 w-4 mr-2" /> Add Widget
-								</Button>
+								<ActionButtons
+									onClick={handleAddWidget}
+									icon={Plus}
+									label={"Add Widget"}
+								/>
 							)}
 						</div>
 					)}
