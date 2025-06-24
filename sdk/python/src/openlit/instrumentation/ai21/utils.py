@@ -230,78 +230,73 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
     """
     end_time = time.time()
     response_dict = response_as_dict(response)
-    try:
-        # Format input messages into a single prompt string.
-        messages_input = kwargs.get("messages", "")
-        formatted_messages = extract_and_format_input(messages_input)
-        prompt = concatenate_all_contents(formatted_messages)
-        input_tokens = general_tokens(prompt)
+    # Format input messages into a single prompt string.
+    messages_input = kwargs.get("messages", "")
+    formatted_messages = extract_and_format_input(messages_input)
+    prompt = concatenate_all_contents(formatted_messages)
+    input_tokens = general_tokens(prompt)
 
-        # Create tokens dict and RAG-specific extra attributes.
-        tokens = {"response_id": response_dict.get("id"), "input_tokens": input_tokens}
-        extra_attrs = {
-            SemanticConvention.GEN_AI_REQUEST_IS_STREAM: False,
-            SemanticConvention.GEN_AI_SERVER_TTFT: end_time - start_time,
-            SemanticConvention.GEN_AI_SDK_VERSION: version,
-            SemanticConvention.GEN_AI_RAG_MAX_SEGMENTS: kwargs.get("max_segments", -1),
-            SemanticConvention.GEN_AI_RAG_STRATEGY: kwargs.get("retrieval_strategy", "segments"),
-            SemanticConvention.GEN_AI_RAG_SIMILARITY_THRESHOLD: kwargs.get("retrieval_similarity_threshold", -1),
-            SemanticConvention.GEN_AI_RAG_MAX_NEIGHBORS: kwargs.get("max_neighbors", -1),
-            SemanticConvention.GEN_AI_RAG_FILE_IDS: str(kwargs.get("file_ids", "")),
-            SemanticConvention.GEN_AI_RAG_DOCUMENTS_PATH: kwargs.get("path", "")
-        }
-        # Set common span attributes.
-        setup_common_span_attributes(span, request_model, kwargs, tokens,
-                                     server_port, server_address, environment, application_name,
-                                     extra_attrs)
+    # Create tokens dict and RAG-specific extra attributes.
+    tokens = {"response_id": response_dict.get("id"), "input_tokens": input_tokens}
+    extra_attrs = {
+        SemanticConvention.GEN_AI_REQUEST_IS_STREAM: False,
+        SemanticConvention.GEN_AI_SERVER_TTFT: end_time - start_time,
+        SemanticConvention.GEN_AI_SDK_VERSION: version,
+        SemanticConvention.GEN_AI_RAG_MAX_SEGMENTS: kwargs.get("max_segments", -1),
+        SemanticConvention.GEN_AI_RAG_STRATEGY: kwargs.get("retrieval_strategy", "segments"),
+        SemanticConvention.GEN_AI_RAG_SIMILARITY_THRESHOLD: kwargs.get("retrieval_similarity_threshold", -1),
+        SemanticConvention.GEN_AI_RAG_MAX_NEIGHBORS: kwargs.get("max_neighbors", -1),
+        SemanticConvention.GEN_AI_RAG_FILE_IDS: str(kwargs.get("file_ids", "")),
+        SemanticConvention.GEN_AI_RAG_DOCUMENTS_PATH: kwargs.get("path", "")
+    }
+    # Set common span attributes.
+    setup_common_span_attributes(span, request_model, kwargs, tokens,
+                                    server_port, server_address, environment, application_name,
+                                    extra_attrs)
 
-        if capture_message_content:
-            span.add_event(
-                name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
-                attributes={SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt},
-            )
+    if capture_message_content:
+        span.add_event(
+            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
+            attributes={SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt},
+        )
 
-        output_tokens = 0
-        choices = response_dict.get("choices", [])
-        aggregated_completion = []
-        for i in range(kwargs.get("n", 1)):
-            # Get the response content from each choice and count tokens.
-            content = choices[i].get("content", "")
-            aggregated_completion.append(content)
-            output_tokens += general_tokens(content)
-            if kwargs.get("tools"):
-                span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALLS,
-                                   str(choices[i].get("message", {}).get("tool_calls")))
-            # Set output type based on actual content type.
-            if isinstance(content, str):
-                span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text")
-            elif content is not None:
-                span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "json")
+    output_tokens = 0
+    choices = response_dict.get("choices", [])
+    aggregated_completion = []
+    for i in range(kwargs.get("n", 1)):
+        # Get the response content from each choice and count tokens.
+        content = choices[i].get("content", "")
+        aggregated_completion.append(content)
+        output_tokens += general_tokens(content)
+        if kwargs.get("tools"):
+            span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALLS,
+                                str(choices[i].get("message", {}).get("tool_calls")))
+        # Set output type based on actual content type.
+        if isinstance(content, str):
+            span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text")
+        elif content is not None:
+            span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "json")
 
-        # Concatenate completion responses.
-        llmresponse = "".join(aggregated_completion)
-        tokens["output_tokens"] = output_tokens
-        tokens["total_tokens"] = input_tokens + output_tokens
+    # Concatenate completion responses.
+    llmresponse = "".join(aggregated_completion)
+    tokens["output_tokens"] = output_tokens
+    tokens["total_tokens"] = input_tokens + output_tokens
 
-        cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
-        span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-        span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
-        span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens)
+    cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
+    span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+    span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
+    span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens)
 
-        span.set_status(Status(StatusCode.OK))
+    span.set_status(Status(StatusCode.OK))
 
-        if capture_message_content:
-            span.add_event(
-                name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
-                attributes={SemanticConvention.GEN_AI_CONTENT_COMPLETION: llmresponse},
-            )
+    if capture_message_content:
+        span.add_event(
+            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
+            attributes={SemanticConvention.GEN_AI_CONTENT_COMPLETION: llmresponse},
+        )
 
-        if not disable_metrics:
-            record_common_metrics(metrics, application_name, environment, request_model,
-                                  server_address, server_port, start_time, end_time,
-                                  input_tokens, output_tokens, cost, include_tbt=False)
-        return response
-
-    except Exception as e:
-        handle_exception(span, e)
-        return response
+    if not disable_metrics:
+        record_common_metrics(metrics, application_name, environment, request_model,
+                                server_address, server_port, start_time, end_time,
+                                input_tokens, output_tokens, cost, include_tbt=False)
+    return response
