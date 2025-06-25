@@ -1,4 +1,3 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of Together AI Functions"""
 
 from typing import Collection
@@ -17,15 +16,15 @@ _instruments = ("together >= 1.3.5",)
 
 class TogetherInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for Together's client library.
+    An instrumentor for Together client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name", "default_application")
-        environment = kwargs.get("environment", "default_environment")
+        application_name = kwargs.get("application_name", "default")
+        environment = kwargs.get("environment", "default")
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
@@ -66,5 +65,4 @@ class TogetherInstrumentor(BaseInstrumentor):
         )
 
     def _uninstrument(self, **kwargs):
-        # Proper uninstrumentation logic to revert patched methods
         pass

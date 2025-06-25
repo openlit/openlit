@@ -16,9 +16,6 @@ from openlit.instrumentation.google_ai_studio.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-# Initialize logger for logging potential issues and operations
-logger = logging.getLogger(__name__)
-
 def generate(version, environment, application_name,
     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
@@ -144,7 +141,6 @@ def generate_stream(version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(self._span, e)
-                    logger.error("Error in trace creation: %s", e)
                 raise
 
     def wrapper(wrapped, instance, args, kwargs):
