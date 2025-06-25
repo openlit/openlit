@@ -13,16 +13,7 @@ import {
 	ColorTheme,
 } from "../types";
 import { useEditWidget } from "../hooks/useEditWidget";
-import {
-	Activity,
-	BarChart3,
-	LineChart,
-	PieChart,
-	Database,
-	FileText,
-	Trash2,
-	Info,
-} from "lucide-react";
+import { Trash2, Info } from "lucide-react";
 import CodeEditor from "./code-editor";
 
 import {
@@ -50,6 +41,7 @@ import QueryDebugger from "./query-debugger";
 import { ColorSelector } from "./color-selector";
 import MarkdownWidgetComponent from "../widgets/markdown-widget";
 import { Tooltip, TooltipTrigger, TooltipPortal, TooltipContent } from "@/components/ui/tooltip";
+import { DEFAULT_PRIMARY_COLOR, SUPPORTED_WIDGETS } from "../constants";
 
 interface NonMarkdownConfig {
 	query: string;
@@ -179,7 +171,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 				<div className="flex flex-col h-full">
 					<SheetHeader>
 						<SheetTitle className="text-stone-900 dark:text-white flex items-center gap-2">
-							<h3>{currentWidget?.title}</h3>
+							<p className="text-lg font-semibold">{currentWidget?.title}</p>
 							{currentWidget?.description && (
 								<Tooltip delayDuration={0}>
 									<TooltipTrigger asChild>
@@ -251,48 +243,16 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 												<SelectValue placeholder="Select widget type" />
 											</SelectTrigger>
 											<SelectContent className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
-												<SelectItem value={WidgetType.STAT_CARD} className="dark:text-white">
-													<div className="flex items-center gap-2">
-														<Activity className="h-4 w-4" />
-														<span>Stat Card</span>
-													</div>
-												</SelectItem>
-												<SelectItem value={WidgetType.BAR_CHART} className="dark:text-white">
-													<div className="flex items-center gap-2">
-														<BarChart3 className="h-4 w-4" />
-														<span>Bar Chart</span>
-													</div>
-												</SelectItem>
-												<SelectItem value={WidgetType.LINE_CHART} className="dark:text-white">
-													<div className="flex items-center gap-2">
-														<LineChart className="h-4 w-4" />
-														<span>Line Chart</span>
-													</div>
-												</SelectItem>
-												<SelectItem value={WidgetType.AREA_CHART} className="dark:text-white">
-													<div className="flex items-center gap-2">
-														<BarChart3 className="h-4 w-4" />
-														<span>Area Chart</span>
-													</div>
-												</SelectItem>
-												<SelectItem value={WidgetType.PIE_CHART} className="dark:text-white">
-													<div className="flex items-center gap-2">
-														<PieChart className="h-4 w-4" />
-														<span>Pie Chart</span>
-													</div>
-												</SelectItem>
-												<SelectItem value={WidgetType.TABLE} className="dark:text-white">
-													<div className="flex items-center gap-2">
-														<Database className="h-4 w-4" />
-														<span>Table</span>
-													</div>
-												</SelectItem>
-												<SelectItem value={WidgetType.MARKDOWN} className="dark:text-white">
-													<div className="flex items-center gap-2">
-														<FileText className="h-4 w-4" />
-														<span>Markdown</span>
-													</div>
-												</SelectItem>
+												{
+													Object.entries(SUPPORTED_WIDGETS).map(([type, widget]) => (
+														<SelectItem key={type} value={type} className="dark:text-white">
+															<div className="flex items-center gap-2">
+																<widget.icon className="h-4 w-4" />
+																<span>{widget.name}</span>
+															</div>
+														</SelectItem>
+													))
+												}
 											</SelectContent>
 										</Select>
 									</div>
@@ -462,7 +422,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 																			...(currentWidget as AreaChartWidget).properties.yAxes || [],
 																			{
 																				key: "",
-																				color: "blue",
+																				color: DEFAULT_PRIMARY_COLOR,
 																			},
 																		],
 																	})
@@ -538,25 +498,6 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 																	</div>
 																)
 															)}
-														</div>
-														<div className="space-y-2">
-															<Label htmlFor="stackId" className="text-stone-900 dark:text-white">Stack Mode</Label>
-															<Select
-																value={(currentWidget as AreaChartWidget).properties.stackId || "none"}
-																onValueChange={(value) =>
-																	updateWidgetProperties(currentWidget.id, {
-																		stackId: value === "none" ? undefined : "1",
-																	})
-																}
-															>
-																<SelectTrigger className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 dark:text-white">
-																	<SelectValue placeholder="Select stack mode" />
-																</SelectTrigger>
-																<SelectContent className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
-																	<SelectItem value="none">None</SelectItem>
-																	<SelectItem value="1">Stacked</SelectItem>
-																</SelectContent>
-															</Select>
 														</div>
 													</div>
 												)}
@@ -680,53 +621,30 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 
 								{/* Appearance Tab */}
 								<TabsContent value="appearance" className="space-y-4 mt-4 overflow-y-auto flex-col overflow-y-auto">
-									{currentWidget.type !== WidgetType.MARKDOWN && (
-										<>
-											{(currentWidget.type === WidgetType.STAT_CARD ||
-												currentWidget.type === WidgetType.BAR_CHART ||
-												currentWidget.type === WidgetType.LINE_CHART ||
-												currentWidget.type === WidgetType.PIE_CHART ||
-												currentWidget.type === WidgetType.AREA_CHART ||
-												currentWidget.type === WidgetType.TABLE) && (
-													<div className="space-y-2">
-														<Label htmlFor="color" className="text-stone-900 dark:text-white">Color Theme</Label>
-														<ColorSelector
-															value={(currentWidget as ChartWidget | StatCardWidget).properties.color}
-															onChange={(value) =>
-																updateWidgetProperties(currentWidget.id, {
-																	color: value,
-																})
-															}
-														/>
-													</div>
-												)}
-
-											{(currentWidget.type === WidgetType.BAR_CHART ||
-												currentWidget.type === WidgetType.LINE_CHART ||
-												currentWidget.type === WidgetType.PIE_CHART ||
-												currentWidget.type === WidgetType.AREA_CHART) && (
-													<div className="space-y-2">
-														<Label htmlFor="showLegend" className="text-stone-900 dark:text-white">Legend</Label>
-														<Select
-															defaultValue="true"
-															onValueChange={(value) =>
-																updateWidgetProperties(currentWidget.id, {
-																	showLegend: value === "true",
-																})
-															}
-														>
-															<SelectTrigger className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 dark:text-white">
-																<SelectValue placeholder="Show legend" />
-															</SelectTrigger>
-															<SelectContent className="bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700">
-																<SelectItem value="true" className="dark:text-white">Show</SelectItem>
-																<SelectItem value="false" className="dark:text-white">Hide</SelectItem>
-															</SelectContent>
-														</Select>
-													</div>
-												)}
-										</>
-									)}
+									{(currentWidget.type === WidgetType.STAT_CARD ||
+										currentWidget.type === WidgetType.BAR_CHART ||
+										currentWidget.type === WidgetType.LINE_CHART ||
+										currentWidget.type === WidgetType.PIE_CHART ||
+										currentWidget.type === WidgetType.TABLE) && (
+											<div className="space-y-2">
+												<Label htmlFor="color" className="text-stone-900 dark:text-white">Color Theme</Label>
+												<ColorSelector
+													value={(currentWidget as ChartWidget | StatCardWidget).properties.color}
+													onChange={(value) =>
+														updateWidgetProperties(currentWidget.id, {
+															color: value,
+														})
+													}
+												/>
+											</div>
+										)}
+									{
+										currentWidget.type === WidgetType.AREA_CHART && (
+											<div className="space-y-2 text-stone-500 dark:text-stone-400">
+												No appearance options for area chart
+											</div>
+										)
+									}
 									{currentWidget.type === WidgetType.MARKDOWN && (
 										<div className="space-y-2">
 											<Label htmlFor="colorTheme" className="text-stone-900 dark:text-white">Color Theme</Label>

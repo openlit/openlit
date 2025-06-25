@@ -1,8 +1,8 @@
 import React, { useMemo, memo, useEffect } from "react";
-import { Edit, Info, Trash } from "lucide-react";
+import { Edit, Trash } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetType, type WidgetRendererProps } from "../types";
-import { WIDGET_TYPE_ICONS } from "../constants";
+import { SUPPORTED_WIDGETS } from "../constants";
 import StatCardWidget from "./stat-card-widget";
 import BarChartWidget from "./bar-chart-widget";
 import LineChartWidget from "./line-chart-widget";
@@ -33,7 +33,7 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 	// Get widget type icon
 	const WidgetTypeIcon = () => {
 		const IconComponent =
-			WIDGET_TYPE_ICONS[widget.type as keyof typeof WIDGET_TYPE_ICONS];
+			SUPPORTED_WIDGETS[widget.type as keyof typeof SUPPORTED_WIDGETS].icon;
 		return <IconComponent className="h-4 w-4" />;
 	};
 

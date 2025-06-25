@@ -9,23 +9,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { SELECTOR_COLORS } from "../constants";
 
 interface ColorSelectorProps {
   value?: ColorTheme;
   onChange?: (color: ColorTheme) => void;
   className?: string;
 }
-
-const SELECTOR_COLORS = [
-  { name: "Primary", value: "#F36C06" as ColorTheme },
-  { name: "Blue", value: "#0ea5e9" as ColorTheme },
-  { name: "Green", value: "#10b981" as ColorTheme },
-  { name: "Purple", value: "#8b5cf6" as ColorTheme },
-  { name: "Red", value: "#ef4444" as ColorTheme },
-  { name: "Yellow", value: "#f59e0b" as ColorTheme },
-  { name: "Pink", value: "#ec4899" as ColorTheme },
-  { name: "Gray", value: "#6b7280" as ColorTheme },
-] as const;
 
 export const ColorSelector: React.FC<ColorSelectorProps> = ({
   value,

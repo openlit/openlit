@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import type { EditorProps } from "../types";
 import { CLICKHOUSE_LANGUAGE_CONFIG } from "../constants";
@@ -14,11 +14,22 @@ const CodeEditor: React.FC<EditorProps> = ({
 	fullScreen = false,
 }) => {
 	const editorRef = useRef<any>(null);
+	const completionProviderRef = useRef<any>(null);
 
 	// Handle Monaco Editor mount
 	const handleEditorDidMount = (editor: any) => {
 		editorRef.current = editor;
 	};
+
+	// Cleanup completion provider on unmount
+	useEffect(() => {
+		return () => {
+			if (completionProviderRef.current) {
+				completionProviderRef.current.dispose();
+				completionProviderRef.current = null;
+			}
+		};
+	}, []);
 
 	// Mustache binding suggestions for autocomplete
 	const mustacheCompletionItems = [
@@ -76,8 +87,13 @@ const CodeEditor: React.FC<EditorProps> = ({
 					monaco.editor.setTheme("clickhouse-dark");
 				}
 
+				// Dispose previous completion provider if it exists
+				if (completionProviderRef.current) {
+					completionProviderRef.current.dispose();
+				}
+
 				// Register mustache binding completion provider for all languages
-				monaco.languages.registerCompletionItemProvider(language, {
+				completionProviderRef.current = monaco.languages.registerCompletionItemProvider(language, {
 					provideCompletionItems: (model, position) => {
 						const textUntilPosition = model.getValueInRange({
 							startLineNumber: position.lineNumber,

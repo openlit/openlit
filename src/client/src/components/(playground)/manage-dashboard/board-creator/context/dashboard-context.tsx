@@ -7,14 +7,13 @@ import {
 	type DashboardConfig,
 	type Widget,
 	WidgetType,
-	MarkdownWidget,
 	StatCardWidget,
 	TableWidget,
 	PieChartWidget,
 	LineChartWidget,
 	BarChartWidget,
 } from "../types";
-// import { DEFAULT_LAYOUTS, DEFAULT_WIDGETS } from "../constants";
+import { SUPPORTED_WIDGETS } from "../constants";
 
 interface DashboardContextType {
 	title: string;
@@ -34,7 +33,7 @@ interface DashboardContextType {
 		widgetId: string,
 		properties: Record<string, any>
 	) => void;
-	addWidget: (widget?: Widget) => Promise<any>;
+	addWidget: (widget?: Partial<Widget>) => Promise<any>;
 	removeWidget: (widgetId: string) => void;
 	getDashboardConfig: () => DashboardConfig;
 	runQuery: (
@@ -156,23 +155,20 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 	};
 
 	// Add a new widget
-	const addWidget = async (existingWidget?: Widget) => {
+	const addWidget = async (existingWidget?: Partial<Widget>) => {
 		const newWidgetId = `widget-${Object.keys(widgets).length + 1
 			}-${Date.now()}`;
 
 		let newWidget: Partial<Widget>;
 
-		if (existingWidget) {
+		if (existingWidget?.id) {
 			newWidget = existingWidget;
 		} else {
 			try {
-				newWidget = {
-					title: "New Widget",
-					description: "New Widget Description",
-					type: WidgetType.STAT_CARD,
-					properties: {},
-					config: {},
-				};
+				newWidget =
+					existingWidget?.type ?
+						SUPPORTED_WIDGETS[existingWidget.type as WidgetType].initialProperties :
+						SUPPORTED_WIDGETS[WidgetType.STAT_CARD].initialProperties;
 				if (handleWidgetCrud) {
 					newWidget = await handleWidgetCrud(newWidget);
 				} else {
@@ -214,6 +210,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 				if (widgetElement) {
 					widgetElement.scrollIntoView({ behavior: "smooth", block: "center" });
 				}
+				setEditingWidget(newWidget.id!);
 			}, 100);
 
 			return newWidgetId;

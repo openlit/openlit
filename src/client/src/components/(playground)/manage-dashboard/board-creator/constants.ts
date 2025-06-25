@@ -1,126 +1,18 @@
-import { WidgetsRecord, WidgetType, type ColorTheme } from "./types"
-import { Activity, BarChart3, LineChart, PieChart, Database, AreaChart, FileText } from "lucide-react"
+import { ColorTheme, Widget, WidgetType } from "./types"
+import { Activity, BarChart3, LineChart, PieChart, Database, AreaChart, FileText, LucideIcon } from "lucide-react"
 
-// Widget type icons mapping
-export const WIDGET_TYPE_ICONS = {
-  [WidgetType.STAT_CARD]: Activity,
-  [WidgetType.BAR_CHART]: BarChart3,
-  [WidgetType.LINE_CHART]: LineChart,
-  [WidgetType.PIE_CHART]: PieChart,
-  [WidgetType.TABLE]: Database,
-  [WidgetType.AREA_CHART]: AreaChart,
-  [WidgetType.MARKDOWN]: FileText,
-}
+export const DEFAULT_PRIMARY_COLOR = "#F36C06" as ColorTheme;
 
-// Default initial layouts
-// export const DEFAULT_LAYOUTS = {
-//   lg: [
-//     { i: "widget-1", x: 0, y: 0, w: 2, h: 2 },
-//     { i: "widget-2", x: 2, y: 0, w: 2, h: 2 },
-//     { i: "widget-3", x: 0, y: 2, w: 4, h: 2 },
-//     { i: "widget-4", x: 0, y: 4, w: 2, h: 2 },
-//     { i: "widget-5", x: 2, y: 4, w: 2, h: 2 },
-//   ],
-// }
-
-// Default initial widgets
-// export const DEFAULT_WIDGETS: WidgetsRecord = {
-//   "widget-1": {
-//     id: "widget-1",
-//     title: "Total Users",
-//     type: WidgetType.STAT_CARD,
-//     config: { query: "SELECT count() FROM users" },
-//     description: "Shows the total number of users in the system",
-//     value: "1,234",
-//     properties: {
-//       prefix: "",
-//       suffix: "",
-//       color: "blue",
-//       trend: "+12%",
-//       trendDirection: "up",
-//     },
-//   },
-//   "widget-2": {
-//     id: "widget-2",
-//     title: "Revenue by Month",
-//     type: WidgetType.BAR_CHART,
-//     config: { query: "SELECT toMonth(date) as month, sum(amount) as revenue\nFROM orders\nGROUP BY month\nORDER BY month" },
-//     description: "Monthly revenue breakdown",
-//     data: [
-//       { month: "Jan", revenue: 12000 },
-//       { month: "Feb", revenue: 15000 },
-//       { month: "Mar", revenue: 18000 },
-//       { month: "Apr", revenue: 16000 },
-//       { month: "May", revenue: 21000 },
-//       { month: "Jun", revenue: 19000 },
-//     ],
-//     properties: {
-//       xAxis: "month",
-//       yAxis: "revenue",
-//       color: "green",
-//     },
-//   },
-//   "widget-3": {
-//     id: "widget-3",
-//     title: "Active Users",
-//     type: WidgetType.LINE_CHART,
-//     config: { query: "SELECT date, count() as active_users\nFROM user_sessions\nGROUP BY date\nORDER BY date" },
-//     description: "Daily active users over time",
-//     data: [
-//       { date: "2023-01-01", active_users: 500 },
-//       { date: "2023-01-02", active_users: 520 },
-//       { date: "2023-01-03", active_users: 580 },
-//       { date: "2023-01-04", active_users: 620 },
-//       { date: "2023-01-05", active_users: 670 },
-//       { date: "2023-01-06", active_users: 650 },
-//       { date: "2023-01-07", active_users: 700 },
-//     ],
-//     properties: {
-//       xAxis: "date",
-//       yAxis: "active_users",
-//       color: "purple",
-//     },
-//   },
-//   "widget-4": {
-//     id: "widget-4",
-//     title: "User Distribution",
-//     type: WidgetType.PIE_CHART,
-//     config: { query: "SELECT user_type, count() as count\nFROM users\nGROUP BY user_type" },
-//     description: "Distribution of users by type",
-//     data: [
-//       { name: "Free", value: 800 },
-//       { name: "Basic", value: 300 },
-//       { name: "Premium", value: 100 },
-//       { name: "Enterprise", value: 50 },
-//     ],
-//     properties: {
-//       color: "blue",
-//     },
-//   },
-//   "widget-5": {
-//     id: "widget-5",
-//     title: "Recent Orders",
-//     type: WidgetType.TABLE,
-//     config: { query: "SELECT id, customer_name, amount, status, order_date\nFROM orders\nORDER BY order_date DESC\nLIMIT 5" },
-//     description: "Most recent customer orders",
-//     data: [
-//       { id: "ORD-001", customer_name: "John Doe", amount: 125.99, status: "Completed", order_date: "2023-01-07" },
-//       { id: "ORD-002", customer_name: "Jane Smith", amount: 89.5, status: "Processing", order_date: "2023-01-06" },
-//       { id: "ORD-003", customer_name: "Bob Johnson", amount: 245.0, status: "Completed", order_date: "2023-01-05" },
-//       { id: "ORD-004", customer_name: "Alice Brown", amount: 32.75, status: "Shipped", order_date: "2023-01-04" },
-//       {
-//         id: "ORD-005",
-//         customer_name: "Charlie Wilson",
-//         amount: 178.25,
-//         status: "Processing",
-//         order_date: "2023-01-03",
-//       },
-//     ],
-//     properties: {
-//       color: "orange",
-//     },
-//   },
-// }
+export const SELECTOR_COLORS = [
+  { name: "Primary", value: DEFAULT_PRIMARY_COLOR },
+  { name: "Blue", value: "#0ea5e9" as ColorTheme },
+  { name: "Green", value: "#10b981" as ColorTheme },
+  { name: "Purple", value: "#8b5cf6" as ColorTheme },
+  { name: "Red", value: "#ef4444" as ColorTheme },
+  { name: "Yellow", value: "#f59e0b" as ColorTheme },
+  { name: "Pink", value: "#ec4899" as ColorTheme },
+  { name: "Gray", value: "#6b7280" as ColorTheme },
+] as const;
 
 // ClickHouse SQL language configuration for Monaco Editor
 export const CLICKHOUSE_LANGUAGE_CONFIG = {
@@ -258,3 +150,106 @@ export const CLICKHOUSE_LANGUAGE_CONFIG = {
   }),
 }
 
+export const SUPPORTED_WIDGETS: Record<WidgetType, {
+  name: string;
+  description: string;
+  icon: LucideIcon;
+  initialProperties: Partial<Widget>;
+}> = {
+  [WidgetType.STAT_CARD]: {
+    name: "Stat Card",
+    description: "A stat card widget",
+    icon: Activity,
+    initialProperties: {
+      title: "New Stat Card Widget",
+      description: "New Widget Description",
+      type: WidgetType.STAT_CARD,
+      properties: {
+        color: DEFAULT_PRIMARY_COLOR,
+      },
+      config: {},
+    }
+  },
+  [WidgetType.BAR_CHART]: {
+    name: "Bar Chart",
+    description: "A bar chart widget",
+    icon: BarChart3,
+    initialProperties: {
+      title: "New Bar Chart Widget",
+      description: "New Widget Description",
+      type: WidgetType.BAR_CHART,
+      properties: {
+        color: DEFAULT_PRIMARY_COLOR,
+      },
+      config: {},
+    }
+  },
+  [WidgetType.LINE_CHART]: {
+    name: "Line Chart",
+    description: "A line chart widget",
+    icon: LineChart,
+    initialProperties: {
+      title: "New Line ChartWidget",
+      description: "New Widget Description",
+      type: WidgetType.LINE_CHART,
+      properties: {
+        color: DEFAULT_PRIMARY_COLOR,
+      },
+      config: {},
+    }
+  },
+  [WidgetType.PIE_CHART]: {
+    name: "Pie Chart",
+    description: "A pie chart widget",
+    icon: PieChart,
+    initialProperties: {
+      title: "New Pie Chart Widget",
+      description: "New Widget Description",
+      type: WidgetType.PIE_CHART,
+      properties: {
+        color: DEFAULT_PRIMARY_COLOR,
+      },
+      config: {},
+    }
+  },
+  [WidgetType.TABLE]: {
+    name: "Table",
+    description: "A table widget",
+    icon: Database,
+    initialProperties: {
+      title: "New Table Widget",
+      description: "New Widget Description",
+      type: WidgetType.TABLE,
+      properties: {
+        color: DEFAULT_PRIMARY_COLOR,
+      },
+      config: {},
+    }
+  },
+  [WidgetType.AREA_CHART]: {
+    name: "Area Chart",
+    description: "An area chart widget",
+    icon: AreaChart,
+    initialProperties: {
+      title: "New Area Chart Widget",
+      description: "New Widget Description",
+      type: WidgetType.AREA_CHART,
+      properties: {},
+      config: {},
+    }
+  },
+  [WidgetType.MARKDOWN]: {
+    name: "Markdown",
+    description: "A markdown widget",
+    icon: FileText,
+    initialProperties: {
+      title: "New Markdown Widget",
+      description: "New Widget Description",
+      type: WidgetType.MARKDOWN,
+      properties: {
+        color: DEFAULT_PRIMARY_COLOR,
+      },
+      config: {},
+    }
+  }
+}

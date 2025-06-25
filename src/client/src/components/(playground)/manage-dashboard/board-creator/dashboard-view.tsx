@@ -4,9 +4,9 @@ import React from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { Edit, Save, Plus, Info, LucideIcon } from "lucide-react";
+import { Edit, Save, Plus, LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { DashboardProps, Widget } from "./types";
+import type { DashboardProps, Widget, WidgetType } from "./types";
 import { DashboardProvider, useDashboard } from "./context/dashboard-context";
 import WidgetRenderer from "./widgets/widget-renderer";
 import dynamic from "next/dynamic";
@@ -101,9 +101,11 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 		addWidget(widget);
 	};
 
-	const handleCreateNew = () => {
+	const handleCreateNew = (widgetType: WidgetType) => {
 		setShowWidgetModal(false);
-		addWidget();
+		addWidget({
+			type: widgetType,
+		});
 	};
 
 	// Handle layout changes
