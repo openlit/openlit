@@ -2,6 +2,7 @@ import React from "react";
 import type { StatCardWidget } from "../types";
 import { TrendingDown } from "lucide-react";
 import { TrendingUp } from "lucide-react";
+import { isNil } from "lodash";
 
 interface StatCardProps {
 	widget: StatCardWidget;
@@ -20,7 +21,7 @@ const StatCardWidget: React.FC<StatCardProps> = ({ widget, data }) => {
 		trend = (widget.properties.trend || "")
 			.split(".")
 			.reduce((acc: any, curr: string) => acc?.[curr], data);
-		trend = parseFloat((trend || 0).toString());
+		trend = isNil(trend) ? trend : parseFloat(trend?.toString() || "0");
 	} catch (error) {
 		console.error(error);
 	}
@@ -32,7 +33,7 @@ const StatCardWidget: React.FC<StatCardProps> = ({ widget, data }) => {
 				{value}
 				{widget.properties.suffix}
 			</div>
-			{widget.properties.trend && (
+			{!isNil(trend) && (
 				<div
 					className={`flex items-center gap-1 text-sm mt-2 ${trend > 0
 						? "text-green-500"

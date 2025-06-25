@@ -79,7 +79,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 		runQuery,
 	} = useEditWidget();
 
-	const { handleWidgetCrud } = useDashboard();
+	const { handleWidgetCrud, loadWidgetData } = useDashboard();
 	const [queryResult, setQueryResult] = React.useState<any>(null);
 	const [queryError, setQueryError] = React.useState<string | null>(null);
 	const [isQueryLoading, setIsQueryLoading] = React.useState(false);
@@ -142,6 +142,7 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 		if (currentWidget && handleWidgetCrud) {
 			try {
 				await handleWidgetCrud(currentWidget);
+				loadWidgetData(currentWidget.id);
 				closeEditSheet();
 			} catch (error) {
 				console.error("Failed to save widget:", error);

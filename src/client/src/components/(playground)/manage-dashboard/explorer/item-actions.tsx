@@ -83,14 +83,14 @@ export default function ItemActions({
 
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
-					<Button variant="ghost" size="icon" className="h-8 w-8">
+					<Button variant="ghost" size="icon" className="h-8 w-8 self-center">
 						<MoreHorizontal className="h-4 w-4" />
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end">
 					<DropdownMenuItem onClick={handleEditClick}>
 						<Edit className="h-4 w-4 mr-2" />
-						Rename
+						Edit details
 					</DropdownMenuItem>
 					{item.type === "board" ? (
 						<>
@@ -98,10 +98,14 @@ export default function ItemActions({
 								<Download className="h-4 w-4 mr-2" />
 								Export Layout
 							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => setMainDashboard(item.id)}>
-								<Download className="h-4 w-4 mr-2" />
-								Set as Main Dashboard
-							</DropdownMenuItem>
+							{
+								!item.isMainDashboard && (
+									<DropdownMenuItem onClick={() => setMainDashboard(item.id)}>
+										<Download className="h-4 w-4 mr-2" />
+										Set as Main Dashboard
+									</DropdownMenuItem>
+								)
+							}
 							<DropdownMenuItem onClick={() => updatePinnedBoard(item.id)}>
 								<PinIcon className="h-4 w-4 mr-2" />
 								{item.isPinned ? "Unpin" : "Pin"}

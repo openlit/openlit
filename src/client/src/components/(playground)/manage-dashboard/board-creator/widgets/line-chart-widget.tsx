@@ -32,7 +32,7 @@ const LineChartWidgetComponent: React.FC<LineChartProps> = ({
 						bottom: 5,
 					}}
 				>
-					<CartesianGrid strokeDasharray="3 3" />
+					<CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.15} />
 					<XAxis
 						dataKey={widget.properties.xAxis}
 						className="text-xs stroke-stone-300"

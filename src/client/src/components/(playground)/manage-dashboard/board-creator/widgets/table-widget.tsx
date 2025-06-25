@@ -25,7 +25,7 @@ const TableWidgetComponent: React.FC<TableWidgetProps> = ({ widget, data }) => {
 
 	const columns = Object.keys(data[0]).map((key) => ({
 		header: key.charAt(0).toUpperCase() + key.slice(1),
-		cell: (row: any) => row[key],
+		cell: (row: any) => typeof row[key] === "object" ? JSON.stringify(row[key]) : row[key],
 		className: "border-r last:border-r-0",
 	}));
 

@@ -27,7 +27,7 @@ const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
 						bottom: 5,
 					}}
 				>
-					<CartesianGrid strokeDasharray="3 3" />
+					<CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.15} />
 					<XAxis
 						dataKey={widget.properties.xAxis}
 						className="text-xs stroke-stone-300"
@@ -43,7 +43,7 @@ const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
 						dataKey={widget.properties.yAxis}
 						fill={widget.properties.color}
 						name={widget.properties.yAxis}
-						label={{ position: "top" }}
+						label={{ position: "top", offset: 10, className: "text-xl font-bold", fill: widget.properties.color }}
 					/>
 				</BarChart>
 			</ResponsiveContainer>

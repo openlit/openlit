@@ -209,7 +209,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 			// Scroll the widget into view after a short delay to ensure the widget is rendered
 			setTimeout(() => {
 				const widgetElement = document.querySelector(
-					`[data-widget-id="${newWidgetId}"]`
+					`[data-widget-id="${newWidget.id}"]`
 				);
 				if (widgetElement) {
 					widgetElement.scrollIntoView({ behavior: "smooth", block: "center" });

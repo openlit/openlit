@@ -57,7 +57,7 @@ export default function WidgetSelectionModal({
 						+ Create New Widget
 					</Button>
 					<DialogClose asChild>
-						<Button variant="ghost">Cancel</Button>
+						<Button variant="ghost" className="bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:hover:bg-stone-700 dark:text-white">Cancel</Button>
 					</DialogClose>
 				</DialogFooter>
 			</DialogContent>

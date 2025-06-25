@@ -8,7 +8,7 @@ export default function DescriptionTooltip({ description, className }: { descrip
 				<Info className={`h-3 w-3 cursor-pointer ${className}`} />
 			</TooltipTrigger>
 			<TooltipPortal>
-				<TooltipContent>{description}</TooltipContent>
+				<TooltipContent className="max-w-xs whitespace-pre-wrap">{description}</TooltipContent>
 			</TooltipPortal>
 		</Tooltip>
 	);
