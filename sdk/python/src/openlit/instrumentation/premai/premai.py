@@ -90,8 +90,6 @@ def chat(version, environment, application_name,
                 except Exception as e:
                     handle_exception(self._span, e)
 
-                raise
-
     def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the GenAI function call.
