@@ -57,7 +57,7 @@ def process_chunk(self, chunk):
     self._llmresponse += chunked.get("message", {}).get("content", "")
 
     if chunked.get("message", {}).get("tool_calls"):
-        self._tool_calls = chunked["message"]["tool_calls"]
+        self._tools = chunked["message"]["tool_calls"]
 
     if chunked.get("eval_count"):
         self._response_role = chunked.get("message", {}).get("role", "")
@@ -138,10 +138,10 @@ def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, applica
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Tools
-    if hasattr(scope, "_tool_calls") and scope._tool_calls:
-        tool_call = scope._tool_calls[0]
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, tool_call.get("function", {}).get("name", ""))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(tool_call.get("function", {}).get("arguments", "")))
+    if scope._tools:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function","")).get("name","")
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id","")))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("function","").get("arguments","")))
 
     # Span Attributes for Content
     if capture_message_content:
@@ -244,7 +244,11 @@ def process_chat_response(response, gen_ai_endpoint, pricing_info, server_port, 
     scope._tbt = 0
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
-    scope._tool_calls = response_dict.get("message", {}).get("tool_calls", [])
+
+    if scope._kwargs.get("tools"):
+        scope._tools = response_dict.get("choices")[0].get("message").get("tool_calls")
+    else:
+        scope._tools = None
 
     common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version)
