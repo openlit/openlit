@@ -1,4 +1,3 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of GPT4All Functions"""
 
 from typing import Collection
@@ -14,15 +13,15 @@ _instruments = ("gpt4all >= 2.6.0",)
 
 class GPT4AllInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for GPT4All's client library.
+    An instrumentor for GPT4All client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name", "default_application")
-        environment = kwargs.get("environment", "default_environment")
+        application_name = kwargs.get("application_name", "default")
+        environment = kwargs.get("environment", "default")
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
@@ -46,7 +45,5 @@ class GPT4AllInstrumentor(BaseInstrumentor):
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
-
     def _uninstrument(self, **kwargs):
-        # Proper uninstrumentation logic to revert patched methods
         pass

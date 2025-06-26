@@ -48,12 +48,12 @@ def common_span_attributes(scope, gen_ai_operation, gen_ai_system, server_addres
     scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
     scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, scope._response_model)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, response_model)
     scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     scope._span.set_attribute(SERVICE_NAME, application_name)
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, is_stream)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, scope._tbt)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, scope._ttft)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
 
 def record_common_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
