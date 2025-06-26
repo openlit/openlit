@@ -49,7 +49,7 @@ def chat(version, environment, application_name,
             self._span_name = span_name
             self._args = args
             self._kwargs = kwargs
-            self._start_time = time.time()
+            self._start_time = time.monotonic()
             self._end_time = None
             self._timestamps = []
             self._ttft = 0
@@ -113,7 +113,7 @@ def chat(version, environment, application_name,
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-                start_time = time.time()
+                start_time = time.monotonic()
 
                 try:
                     response = wrapped(*args, **kwargs)
@@ -159,7 +159,7 @@ def embeddings(version, environment, application_name,
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-            start_time = time.time()
+            start_time = time.monotonic()
 
             try:
                 response = wrapped(*args, **kwargs)

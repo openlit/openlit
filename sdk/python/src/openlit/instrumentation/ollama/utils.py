@@ -49,7 +49,7 @@ def process_chunk(self, chunk):
     Process a chunk of response data and update state.
     """
 
-    end_time = time.time()
+    end_time = time.monotonic()
     # Record the timestamp for the current chunk
     self._timestamps.append(end_time)
 
@@ -98,12 +98,11 @@ def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, applica
     Process chat request and generate Telemetry
     """
 
-    scope._end_time = time.time()
+    scope._end_time = time.monotonic()
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
     json_body = scope._kwargs.get("json", {}) or {}
     messages = json_body.get("messages", scope._kwargs.get("messages", ""))
-    print("Messages:", messages)
     prompt = format_content(messages)
     request_model = json_body.get("model") or scope._kwargs.get("model", "llama3.2")
     is_stream = scope._kwargs.get("stream", False)
@@ -236,7 +235,7 @@ def process_chat_response(response, gen_ai_endpoint, pricing_info, server_port, 
     response_dict = response_as_dict(response)
 
     scope._start_time = start_time
-    scope._end_time = time.time()
+    scope._end_time = time.monotonic()
     scope._span = span
     scope._llmresponse = response_dict.get("message", {}).get("content", "")
     scope._response_role = response_dict.get("message", {}).get("role", "assistant")
@@ -266,7 +265,7 @@ def process_embedding_response(response, gen_ai_endpoint, pricing_info, server_p
     scope = type("GenericScope", (), {})()
 
     scope._start_time = start_time
-    scope._end_time = time.time()
+    scope._end_time = time.monotonic()
     scope._span = span
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
