@@ -69,11 +69,9 @@ def chat(version, environment, application_name,
 
         def __iter__(self):
             try:
-                for chunk in self.__wrapped__:
-                    process_chunk(self, chunk)
-                    if not chunk:
-                        raise StopIteration
-                    yield chunk
+                chunk = self.__wrapped__.__next__()
+                process_chunk(self, chunk)
+                return chunk
 
             finally:
                 try:
@@ -91,8 +89,8 @@ def chat(version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(self._span, e)
-                finally:
-                    self._span.end()
+
+                raise
 
     def wrapper(wrapped, instance, args, kwargs):
         """

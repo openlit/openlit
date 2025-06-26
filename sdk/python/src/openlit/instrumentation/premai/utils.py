@@ -288,7 +288,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
     scope._finish_reason = str(response_dict.get("choices")[0].get("finish_reason"))
-    
+
     if scope._kwargs.get("tools"):
         scope._tools = response_dict.get("choices")[0].get("message").get("tool_calls")
     else:
@@ -322,4 +322,4 @@ def process_embedding_response(response, request_model, pricing_info, server_por
     common_embedding_logic(scope, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version)
 
-    return response 
+    return response
