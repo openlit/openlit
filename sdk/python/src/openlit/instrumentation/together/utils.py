@@ -111,9 +111,9 @@ def record_common_metrics(metrics, gen_ai_operation, gen_ai_system, server_addre
     metrics["genai_completion_tokens"].add(output_tokens, attributes)
     metrics["genai_client_usage_tokens"].record(input_tokens + output_tokens, attributes)
     metrics["genai_cost"].record(cost, attributes)
-    if tbt:
+    if tbt is not None:
         metrics["genai_server_tbt"].record(tbt, attributes)
-    if ttft:
+    if ttft is not None:
         metrics["genai_server_ttft"].record(ttft, attributes)
 
 def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
