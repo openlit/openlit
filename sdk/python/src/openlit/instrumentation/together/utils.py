@@ -101,7 +101,7 @@ def record_common_metrics(metrics, gen_ai_operation, gen_ai_system, server_addre
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
-        response_model=request_model,
+        response_model=response_model,
         service_name=application_name,
         deployment_environment=environment,
     )
@@ -158,7 +158,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     if scope._tools:
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function","")).get("name","")
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id","")))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("function","")).get("arguments",""))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("function","").get("arguments","")))
 
     # Span Attributes for Content
     if capture_message_content:
@@ -209,7 +209,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
-    scope._llmresponse = scope._llmresponse = " ".join(
+    scope._llmresponse = " ".join(
         (choice.get("message", {}).get("content") or "")
         for choice in response_dict.get("choices", [])
     )
