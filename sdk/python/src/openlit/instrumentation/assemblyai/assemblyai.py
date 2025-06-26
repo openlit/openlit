@@ -54,6 +54,6 @@ def transcribe(version, environment, application_name,
             except Exception as e:
                 handle_exception(span, e)
 
-        return response
+            return response
 
     return wrapper
