@@ -58,7 +58,7 @@ def record_audio_metrics(metrics, gen_ai_operation, gen_ai_system, server_addres
     metrics["genai_requests"].add(1, attributes)
     metrics["genai_cost"].record(cost, attributes)
 
-def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, 
+def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
     metrics, capture_message_content, disable_metrics, version):
     """
     Process audio transcription request and generate Telemetry
@@ -67,7 +67,7 @@ def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, applic
     prompt = scope._response.audio_url
     request_model = scope._kwargs.get("speech_model", "best")
     is_stream = False
-    
+
     # Calculate cost based on audio duration
     cost = get_audio_model_cost(request_model, pricing_info, prompt, scope._response.audio_duration)
 
@@ -109,9 +109,9 @@ def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, applic
 
     # Metrics
     if not disable_metrics:
-        record_audio_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, 
-            SemanticConvention.GEN_AI_SYSTEM_ASSEMBLYAI, scope._server_address, scope._server_port, 
-            request_model, request_model, environment, application_name, scope._start_time, 
+        record_audio_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
+            SemanticConvention.GEN_AI_SYSTEM_ASSEMBLYAI, scope._server_address, scope._server_port,
+            request_model, request_model, environment, application_name, scope._start_time,
             scope._end_time, cost)
 
 def process_audio_response(response, gen_ai_endpoint, pricing_info, server_port, server_address,
@@ -129,13 +129,13 @@ def process_audio_response(response, gen_ai_endpoint, pricing_info, server_port,
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
     scope._response = response
-    
+
     # Initialize streaming and timing values for AssemblyAI transcription
     scope._response_model = kwargs.get("speech_model", "best")
     scope._tbt = 0.0
     scope._ttft = scope._end_time - scope._start_time
 
-    common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, 
+    common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
         metrics, capture_message_content, disable_metrics, version)
 
-    return response 
+    return response
