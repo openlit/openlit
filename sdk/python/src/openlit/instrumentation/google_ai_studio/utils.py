@@ -15,8 +15,7 @@ from openlit.semcov import SemanticConvention
 
 def format_content(messages):
     """
-    Process a list of messages to extract content, categorize them by role,
-    and concatenate all 'content' fields into a single string with role: content format.
+    Process a list of messages to extract content.
     """
 
     formatted_messages = []
