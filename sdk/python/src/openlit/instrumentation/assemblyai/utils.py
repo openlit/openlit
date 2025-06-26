@@ -1,5 +1,5 @@
 """
-ElevenLabs OpenTelemetry instrumentation utility functions
+AssemblyAI OpenTelemetry instrumentation utility functions
 """
 import time
 
@@ -12,11 +12,11 @@ from openlit.__helpers import (
 )
 from openlit.semcov import SemanticConvention
 
-def format_content(text):
+def format_audio_url(audio_url):
     """
-    Process text input to extract content.
+    Process audio URL input to extract content.
     """
-    return str(text) if text else ""
+    return str(audio_url) if audio_url else ""
 
 def common_span_attributes(scope, gen_ai_operation, gen_ai_system, server_address, server_port,
     request_model, response_model, environment, application_name, is_stream, tbt, ttft, version):
@@ -41,7 +41,7 @@ def common_span_attributes(scope, gen_ai_operation, gen_ai_system, server_addres
 def record_audio_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
     request_model, response_model, environment, application_name, start_time, end_time, cost):
     """
-    Record audio generation metrics for the operation.
+    Record audio metrics for the operation.
     """
 
     attributes = create_metrics_attributes(
@@ -58,44 +58,50 @@ def record_audio_metrics(metrics, gen_ai_operation, gen_ai_system, server_addres
     metrics["genai_requests"].add(1, attributes)
     metrics["genai_cost"].record(cost, attributes)
 
-def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
+def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, 
     metrics, capture_message_content, disable_metrics, version):
     """
-    Process audio generation request and generate Telemetry
+    Process audio transcription request and generate Telemetry
     """
 
-    text = format_content(scope._kwargs.get("text", ""))
-    request_model = scope._kwargs.get("model", scope._kwargs.get("model_id", "eleven_multilingual_v2"))
-    is_stream = False  # ElevenLabs audio generation is not streaming
-
-    cost = get_audio_model_cost(request_model, pricing_info, text)
+    prompt = format_audio_url(scope._kwargs.get("audio_url", ""))
+    request_model = scope._kwargs.get("speech_model", "best")
+    is_stream = False
+    
+    # Calculate cost based on audio duration
+    cost = get_audio_model_cost(request_model, pricing_info, prompt, scope._response.audio_duration)
 
     # Common Span Attributes
     common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, SemanticConvention.GEN_AI_SYSTEM_ELEVENLABS,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, SemanticConvention.GEN_AI_SYSTEM_ASSEMBLYAI,
         scope._server_address, scope._server_port, request_model, request_model,
         environment, application_name, is_stream, scope._tbt, scope._ttft, version)
 
-    # Span Attributes for Cost and Tokens
+    # Span Attributes for Response parameters
+    scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text")
+
+    # Span Attributes for Cost
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
-    # Span Attributes for Response parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, scope._kwargs.get("output_format", "mp3_44100_128"))
-
     # Audio-specific span attributes
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE, scope._kwargs.get("voice_id", ""))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT, scope._kwargs.get("output_format", "mp3"))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_SETTINGS, str(scope._kwargs.get("voice_settings", "")))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_DURATION, scope._response.audio_duration)
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, text)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._response.text)
 
         # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: text,
+                SemanticConvention.GEN_AI_CONTENT_PROMPT: scope._response.audio_url,
+            },
+        )
+        scope._span.add_event(
+            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
+            attributes={
+                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._response.text,
             },
         )
 
@@ -103,15 +109,16 @@ def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, applic
 
     # Metrics
     if not disable_metrics:
-        record_audio_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, SemanticConvention.GEN_AI_SYSTEM_ELEVENLABS,
-            scope._server_address, scope._server_port, request_model, request_model, environment,
-            application_name, scope._start_time, scope._end_time, cost)
+        record_audio_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, 
+            SemanticConvention.GEN_AI_SYSTEM_ASSEMBLYAI, scope._server_address, scope._server_port, 
+            request_model, request_model, environment, application_name, scope._start_time, 
+            scope._end_time, cost)
 
 def process_audio_response(response, gen_ai_endpoint, pricing_info, server_port, server_address,
-    environment, application_name, metrics, start_time, span, args, kwargs, capture_message_content=False,
-    disable_metrics=False, version="1.0.0"):
+    environment, application_name, metrics, start_time, span, capture_message_content=False,
+    disable_metrics=False, version="1.0.0", **kwargs):
     """
-    Process audio generation request and generate Telemetry
+    Process audio transcription request and generate Telemetry
     """
 
     scope = type("GenericScope", (), {})()
@@ -121,14 +128,14 @@ def process_audio_response(response, gen_ai_endpoint, pricing_info, server_port,
     scope._span = span
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
-    scope._args = args
-
-    # Initialize streaming and timing values for ElevenLabs audio generation
-    scope._response_model = kwargs.get("model", kwargs.get("model_id", "eleven_multilingual_v2"))
+    scope._response = response
+    
+    # Initialize streaming and timing values for AssemblyAI transcription
+    scope._response_model = kwargs.get("speech_model", "best")
     scope._tbt = 0.0
     scope._ttft = scope._end_time - scope._start_time
 
-    common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
+    common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, 
         metrics, capture_message_content, disable_metrics, version)
 
-    return response
+    return response 
