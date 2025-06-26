@@ -51,10 +51,9 @@ def async_chat(version, environment, application_name,
                     **kwargs
                 )
 
-                return response
-
             except Exception as e:
                 handle_exception(span, e)
-                return response
+
+            return response
 
     return wrapper
