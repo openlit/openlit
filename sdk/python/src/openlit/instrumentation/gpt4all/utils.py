@@ -278,4 +278,4 @@ def process_embedding_response(response, request_model, pricing_info, server_por
     common_embedding_logic(scope, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version)
 
-    return response 
+    return response
