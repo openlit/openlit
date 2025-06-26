@@ -64,7 +64,7 @@ def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, applic
     Process audio transcription request and generate Telemetry
     """
 
-    prompt = format_audio_url(scope._kwargs.get("audio_url", ""))
+    prompt = scope._response.audio_url
     request_model = scope._kwargs.get("speech_model", "best")
     is_stream = False
     
@@ -95,7 +95,7 @@ def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, applic
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: scope._response.audio_url,
+                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
             },
         )
         scope._span.add_event(
