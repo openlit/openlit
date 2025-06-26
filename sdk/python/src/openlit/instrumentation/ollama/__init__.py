@@ -51,7 +51,6 @@ class OllamaInstrumentor(BaseInstrumentor):
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
         tracer = kwargs.get("tracer")
-        event_provider = kwargs.get("event_provider")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
@@ -61,22 +60,22 @@ class OllamaInstrumentor(BaseInstrumentor):
         # Build wrapper factories for chat and embeddings
         sync_chat_wrap = chat(
             version, environment, application_name,
-            tracer, event_provider, pricing_info,
+            tracer, pricing_info,
             capture_message_content, metrics, disable_metrics
         )
         sync_emb_wrap = embeddings(
             version, environment, application_name,
-            tracer, event_provider, pricing_info,
+            tracer, pricing_info,
             capture_message_content, metrics, disable_metrics
         )
         async_chat_wrap = async_chat(
             version, environment, application_name,
-            tracer, event_provider, pricing_info,
+            tracer, pricing_info,
             capture_message_content, metrics, disable_metrics
         )
         async_emb_wrap = async_embeddings(
             version, environment, application_name,
-            tracer, event_provider, pricing_info,
+            tracer, pricing_info,
             capture_message_content, metrics, disable_metrics
         )
 
