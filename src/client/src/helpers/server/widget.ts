@@ -32,10 +32,14 @@ export function sanitizeWidget(widget: Widget) {
 	const sanitizedWidget = Sanitizer.sanitizeObject(widget);
 
 	if (sanitizedWidget.config?.query) {
-		sanitizedWidget.config.query = sanitizedWidget.config.query
-			.replace(/''/g, "'")
-			.replace(/\\'/g, "'")
-			.replace(/\\n/g, '\n')
+		sanitizedWidget.config.query = sanitizedWidget.config.query.replace(/''/g, "'")
+			.replace(/\\'/g, "'").replace(/\\n/g, '\n')
+			.replace(/\\t/g, '\t');
+	}
+
+	if (sanitizedWidget.config?.content) {
+		sanitizedWidget.config.content = sanitizedWidget.config.content.replace(/''/g, "'")
+			.replace(/\\'/g, "'").replace(/\\n/g, '\n')
 			.replace(/\\t/g, '\t');
 	}
 

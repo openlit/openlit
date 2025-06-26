@@ -625,11 +625,12 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 										currentWidget.type === WidgetType.BAR_CHART ||
 										currentWidget.type === WidgetType.LINE_CHART ||
 										currentWidget.type === WidgetType.PIE_CHART ||
-										currentWidget.type === WidgetType.TABLE) && (
+										currentWidget.type === WidgetType.TABLE ||
+										currentWidget.type === WidgetType.MARKDOWN) && (
 											<div className="space-y-2">
 												<Label htmlFor="color" className="text-stone-900 dark:text-white">Color Theme</Label>
 												<ColorSelector
-													value={(currentWidget as ChartWidget | StatCardWidget).properties.color}
+													value={currentWidget.properties.color}
 													onChange={(value) =>
 														updateWidgetProperties(currentWidget.id, {
 															color: value,
@@ -645,22 +646,6 @@ export const EditWidgetSheet: React.FC<EditWidgetSheetProps> = ({
 											</div>
 										)
 									}
-									{currentWidget.type === WidgetType.MARKDOWN && (
-										<div className="space-y-2">
-											<Label htmlFor="colorTheme" className="text-stone-900 dark:text-white">Color Theme</Label>
-											<ColorSelector
-												value={(currentWidget as MarkdownWidget).config?.colorTheme}
-												onChange={(value) =>
-													updateWidget(currentWidget.id, {
-														config: {
-															...(currentWidget as MarkdownWidget).config,
-															colorTheme: value as ColorTheme,
-														},
-													})
-												}
-											/>
-										</div>
-									)}
 								</TabsContent>
 							</Tabs>
 						</div>

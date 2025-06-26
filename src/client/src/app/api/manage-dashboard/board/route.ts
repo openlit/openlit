@@ -14,8 +14,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-	const board: Board = await request.json();
-
+	const board: Board & { updateParent?: boolean } = await request.json();
 	const res = await updateBoard(board);
 	return Response.json(res);
 }

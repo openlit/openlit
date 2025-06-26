@@ -4,9 +4,11 @@ import CreatePromptMigration from "./create-prompt-migration";
 import CreateVaultMigration from "./create-vault-migration";
 import CreateCustomDashboardsMigration from "./create-custom-dashboards-migration";
 export default async function migrations(databaseConfigId?: string) {
-	await CreatePromptMigration(databaseConfigId);	
-	await CreateVaultMigration(databaseConfigId);
-	await CreateEvaluationMigration(databaseConfigId);
-	await CreateCronLogMigration(databaseConfigId);
-	await CreateCustomDashboardsMigration(databaseConfigId);
+	return Promise.all([
+		CreatePromptMigration(databaseConfigId),
+		CreateVaultMigration(databaseConfigId),
+		CreateEvaluationMigration(databaseConfigId),
+		CreateCronLogMigration(databaseConfigId),
+		CreateCustomDashboardsMigration(databaseConfigId),
+	]);
 }

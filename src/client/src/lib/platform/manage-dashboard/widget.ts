@@ -55,6 +55,8 @@ export async function getWidgets(widgetIds?: string[]) {
 export async function createWidget(widget: Widget) {
 	const sanitizedWidget = sanitizeWidget(widget);
 
+	console.log(sanitizedWidget);
+
 	const { err, data } = await dataCollector(
 		{
 			table: OPENLIT_WIDGET_TABLE_NAME,
@@ -69,7 +71,7 @@ export async function createWidget(widget: Widget) {
 				},
 			],
 		},
-		"insert"
+		"insert",
 	);
 
 	if (err) {

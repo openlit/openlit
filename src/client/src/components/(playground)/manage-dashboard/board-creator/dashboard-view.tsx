@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useCallback } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -18,7 +18,13 @@ const WidgetSelectionModal = dynamic(
 
 import { useEditWidget } from "./hooks/useEditWidget";
 
-import DescriptionTooltip from "./components/description-tooltip";
+import DescriptionTooltip from "../../../common/description-tooltip";
+import UpsertResourceDialog from "../common/upsert-resource-dialog";
+import { EditResource, useUpsertResource } from "./hooks/useUpsertResource";
+import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { toast } from "sonner";
+import { jsonParse, jsonStringify } from "@/utils/json";
+import { Board } from "@/types/manage-dashboard";
 
 // Empty state component
 const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
@@ -61,13 +67,14 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 	breakpoints = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 },
 	cols = { lg: 4, md: 4, sm: 2, xs: 1, xxs: 1 },
 	rowHeight = 150,
-	renderTitle = true,
+	renderTitle = false,
 	runFilters,
 	headerComponent,
+	handleBoardUpdates,
 }) => {
 	const {
-		title,
-		description,
+		details,
+		setDetails,
 		layouts,
 		setLayouts,
 		widgets,
@@ -84,6 +91,64 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 	// Modal state
 	const [showWidgetModal, setShowWidgetModal] = React.useState(false);
 	const [existingWidgets, setExistingWidgets] = React.useState<Widget[]>([]);
+	const { fireRequest: updateBoardRequest } = useFetchWrapper();
+
+	const editItem = useCallback(
+		({
+			itemId,
+			newTitle,
+			newDescription,
+			newTags = [],
+		}: EditResource) => {
+
+			// Toast loading state
+			toast.loading(`Updating ...`, {
+				id: "manage-dashboard-explorer",
+			});
+
+			// Create payload
+			const payload = {
+				id: itemId,
+				title: newTitle,
+				description: newDescription,
+				tags: newTags,
+				updatedParent: false,
+			};
+
+			updateBoardRequest({
+				url: "/api/manage-dashboard/board",
+				requestType: "PUT",
+				body: jsonStringify(payload),
+				successCb: (response) => {
+					toast.success("Board updated successfully", {
+						id: "manage-dashboard-explorer",
+					});
+					if (response.data?.[0] satisfies Partial<Board>) {
+						setDetails(response.data[0]);
+						handleBoardUpdates?.(response.data[0]);
+					}
+				},
+				failureCb: (error) => {
+					toast.error(`Failed to update board: ${error || "Unknown error"}`, {
+						id: "manage-dashboard-explorer",
+					});
+				},
+			});
+
+			// Close dialog
+			setDialogState((prev) => ({
+				...prev,
+				isOpen: false,
+				editingItemId: null,
+			}));
+		},
+		[updateBoardRequest]
+	);
+
+
+	const { dialogState, setDialogState, handleDialogCancel, handleDialogSave } = useUpsertResource({
+		editItem,
+	});
 
 	// Wrap addWidget to handle modal logic
 	const handleAddWidget = async () => {
@@ -121,15 +186,31 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 		setIsEditing(false);
 	};
 
+	const openEditDialog = useCallback(
+		(item: Partial<Board>) => {
+			setDialogState({
+				isOpen: true,
+				mode: "edit",
+				itemTitle: item.title || "",
+				itemDescription: item.description || "",
+				itemTags: item.tags ? jsonParse(item.tags) : [],
+				itemType: "board",
+				currentPath: null,
+				editingItemId: item.id!,
+			});
+		},
+		[]
+	);
+
 	return (
 		<div className={`w-full ${className ?? ""}`}>
 			{(renderTitle || !readonly || headerComponent) && (
 				<div className="flex items-center mb-6">
 					{renderTitle && (
 						<div className="flex items-center gap-2 text-stone-900 dark:text-stone-300">
-							<h1 className="text-2xl font-bold">{title}</h1>
-							{description && (
-								<DescriptionTooltip description={description} className="ml-2 h-4 w-4" />
+							<h1 className="text-2xl font-bold">{details.title}</h1>
+							{details.description && (
+								<DescriptionTooltip description={details.description} className="ml-2 h-4 w-4" />
 							)}
 						</div>
 					)}
@@ -137,6 +218,16 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 					<div className="flex-1" />
 					{!readonly && (
 						<div className="flex gap-2">
+							<ActionButtons
+								onClick={() => openEditDialog({
+									id: details.id!,
+									title: details.title!,
+									description: details.description!,
+									tags: details.tags!,
+								})}
+								icon={Plus}
+								label={"Update Board details"}
+							/>
 							<ActionButtons
 								onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
 								icon={isEditing ? Save : Edit}
@@ -189,22 +280,37 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 				}
 			</ResponsiveGridLayout>
 			{
-				layouts.lg.length === 0 && (
-					<div style={{ width: '100%' }}>
-						<EmptyState onAddWidget={() => { setIsEditing(true); handleAddWidget() }} />
-					</div>
+				!readonly && (
+					<>
+						{layouts.lg.length === 0 && (
+							<div style={{ width: '100%' }}>
+								<EmptyState onAddWidget={() => { setIsEditing(true); handleAddWidget() }} />
+							</div>
+						)}
+						<EditWidgetSheet editorLanguage={editorLanguage} />
+						<WidgetSelectionModal
+							open={showWidgetModal}
+							onClose={() => setShowWidgetModal(false)}
+							widgets={existingWidgets}
+							onSelect={handleSelectWidget}
+							onCreateNew={handleCreateNew}
+						/>
+						<UpsertResourceDialog
+							isOpen={dialogState.isOpen}
+							onOpenChange={(open) =>
+								setDialogState((prev) => ({ ...prev, isOpen: open }))
+							}
+							mode={dialogState.mode}
+							initialItemTitle={dialogState.itemTitle}
+							initialItemDescription={dialogState.itemDescription}
+							initialItemType={dialogState.itemType}
+							initialItemTags={dialogState.itemTags}
+							onSave={handleDialogSave}
+							onCancel={handleDialogCancel}
+						/>
+					</>
 				)
 			}
-
-			<EditWidgetSheet editorLanguage={editorLanguage} />
-
-			<WidgetSelectionModal
-				open={showWidgetModal}
-				onClose={() => setShowWidgetModal(false)}
-				widgets={existingWidgets}
-				onSelect={handleSelectWidget}
-				onCreateNew={handleCreateNew}
-			/>
 		</div>
 	);
 };

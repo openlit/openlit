@@ -6,16 +6,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import Loader from "../common/loader";
 
-const ALLOWED_CONNECTIVITY_ALERT = [
-	"/dashboard",
-	"/requests",
-	"/exceptions",
-	"/prompt-hub",
-	"/vault",
-];
+const ALLOWED_CONNECTIVITY_ALERT = /^\/home$|^\/dashboard$|^\/requests$|^\/exceptions$|^\/d\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$|^\/prompt-hub$|^\/vault$|^\/dashboards/;
 
-export default function ClickhouseConnectivityWrapper() {
+export default function ClickhouseConnectivityWrapper({ children }: { children: React.ReactNode }) {
 	const pingDetails = useRootStore(getPingDetails);
 	const pathname = usePathname();
 
@@ -23,7 +18,11 @@ export default function ClickhouseConnectivityWrapper() {
 		if (pingDetails.status === "pending") pingActiveDatabaseConfig();
 	}, []);
 
-	if (pingDetails.error && ALLOWED_CONNECTIVITY_ALERT.includes(pathname)) {
+	if (!ALLOWED_CONNECTIVITY_ALERT.test(pathname)) {
+		return children;
+	}
+
+	if (pingDetails.error) {
 		return (
 			<div className="p-4 mb-4 text-red-800 border border-red-300 rounded-md bg-red-50 dark:bg-red-950 dark:text-red-400 dark:border-red-800 w-full">
 				<div className="flex">
@@ -34,6 +33,9 @@ export default function ClickhouseConnectivityWrapper() {
 						<div className="mb-2 text-sm">
 							Sorry about that! Please visit settings page to configure your
 							active clickhouse database.
+						</div>
+						<div className="mb-2 text-sm text-red-500">
+							{pingDetails.error}
 						</div>
 						<Link
 							href="/settings/database-config"
@@ -52,6 +54,18 @@ export default function ClickhouseConnectivityWrapper() {
 				</div>
 			</div>
 		);
+	}
+
+	if (pingDetails.status === "pending") {
+		return (
+			<div className="flex items-center justify-center h-full w-full bg-white dark:bg-black">
+				<Loader />
+			</div>
+		);
+	}
+
+	if (pingDetails.status === "success") {
+		return children;
 	}
 
 	return null;

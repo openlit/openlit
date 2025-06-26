@@ -388,7 +388,5 @@ export async function getEvaluationDetectedByType(
 			current_data.start_date = previous_day.start_date;
 	`;
 
-	console.log(query);
-
 	return dataCollector({ query });
 }

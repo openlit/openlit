@@ -72,7 +72,7 @@ export async function createBoard(board: Board) {
 				},
 			],
 		},
-		"insert"
+		"insert",
 	);
 
 	if (err || !(data as { query_id: string }).query_id)
@@ -82,17 +82,21 @@ export async function createBoard(board: Board) {
 		query: `Select * from ${OPENLIT_BOARD_TABLE_NAME} order by created_at desc limit 1`,
 	});
 
+	if (err_board) {
+		return { err: getMessage().BOARD_CREATE_FAILED };
+	}
+
 	return { data: (data_board as any[])[0] };
 }
 
-export async function updateBoard(board: Board) {
+export async function updateBoard(board: Board & { updateParent?: boolean }) {
 	const sanitizedBoard = Sanitizer.sanitizeObject(board);
 
 	const updateValues = [
 		sanitizedBoard.title && `title = '${sanitizedBoard.title}'`,
 		sanitizedBoard.description &&
 		`description = '${sanitizedBoard.description}'`,
-		`parent_id = ${sanitizedBoard.parentId ? `'${sanitizedBoard.parentId}'` : 'NULL'}`,
+		board.updateParent && `parent_id = ${sanitizedBoard.parentId ? `'${sanitizedBoard.parentId}'` : 'NULL'}`,
 		sanitizedBoard.tags && `tags = '${jsonStringify(sanitizedBoard.tags)}'`,
 	];
 
@@ -369,7 +373,7 @@ export async function updateBoardLayout(boardId: string, layoutConfig: any) {
 							},
 						],
 					},
-					"insert"
+					"insert",
 				);
 			}
 		}
@@ -416,6 +420,7 @@ export async function getMainDashboard() {
 	return getBoardLayout((mainDashboardData as any[])[0].id);
 }
 
+// TODO: fix the type of data
 export async function importBoardLayout(data: any) {
 	const boardData: Partial<Board> = {
 		title: data.title,

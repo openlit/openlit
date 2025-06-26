@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Layouts } from "react-grid-layout";
+import { Board } from "@/types/manage-dashboard";
 
 // Widget Types
 export enum WidgetType {
@@ -95,7 +96,9 @@ export interface MarkdownWidget extends BaseWidgetProps {
 	config: {
 		content: string;
 		showPreview?: boolean;
-		colorTheme?: ColorTheme;
+	};
+	properties: {
+		color: ColorTheme;
 	};
 }
 
@@ -117,6 +120,7 @@ export interface DashboardConfig {
 	id: string;
 	title: string;
 	description: string;
+	tags?: string;
 	layouts: Layouts;
 	widgets: WidgetsRecord;
 }
@@ -142,6 +146,7 @@ export interface DashboardProps {
 	renderTitle?: boolean;
 	runFilters?: unknown;
 	headerComponent?: ReactNode;
+	handleBoardUpdates?: (details: Partial<Board>) => void;
 }
 
 // Widget Renderer Props

@@ -26,4 +26,20 @@ export type PageStore = {
 		visibilityColumns: Partial<REQUEST_VISIBILITY_COLUMNS>;
 	};
 	setData: (p: PAGE, keyPath: string, value: unknown) => void;
+	header: {
+		title: string;
+		description?: string;
+		breadcrumbs: {
+			title: string;
+			href: string;
+		}[];
+	},
+	setHeader: (header: {
+		title: string;
+		description?: string;
+		breadcrumbs: {
+			title: string;
+			href: string;
+		}[];
+	}) => void;
 };

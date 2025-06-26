@@ -18,6 +18,8 @@ import Link from "next/link";
 import RefreshRate from "./filter/refresh-rate";
 import { usePostHog } from "posthog-js/react";
 import { useEffect } from "react";
+import { usePageHeader } from "@/selectors/page";
+import DescriptionTooltip from "../common/description-tooltip";
 
 const ThemeToggleSwitch = () => {
 	const { toggleTheme } = useTheme();
@@ -55,13 +57,25 @@ export default function Header() {
 		}
 	}, [user]);
 
-	const titleKey = pathname.substring(1).replaceAll("-", " ").split("/")[0];
+	const { header, setHeader } = usePageHeader();
+
+	
+	useEffect(() => {
+		const titleKey = pathname.substring(1).replaceAll("-", " ").split("/")[0];
+		setHeader({
+			title: DashboardTitleMap[titleKey as keyof typeof DashboardTitleMap] || titleKey,
+			breadcrumbs: [],
+		});
+	}, [pathname, setHeader]);
 
 	return (
 		<header className="flex h-[57px] items-center gap-1 border-b dark:border-stone-800 px-4 sm:px-6">
-			<h1 className="flex flex-1 text-xl font-semibold capitalize dark:text-white">
-				{DashboardTitleMap[titleKey as keyof typeof DashboardTitleMap] || titleKey}
-			</h1>
+			<div className="flex items-center gap-2 grow">
+				<h1 className="text-xl font-semibold capitalize dark:text-white">{header.title}</h1>
+				{header.description && (
+					<DescriptionTooltip description={header.description} className="ml-2 h-4 w-4 text-stone-900 dark:text-stone-300" />
+				)}
+			</div>
 			<DatabaseConfigSwitch />
 			<RefreshRate />
 			<DropdownMenu>

@@ -56,7 +56,7 @@ export default function BoardList() {
 
 	return (
 		<div className="flex flex-col gap-3 grow overflow-y-hidden">
-			<Header title="Boards" />
+			<Header title="Dashboard" />
 			<div className="grow rounded-sm overflow-y-auto">
 				{isLoading ? (
 					<div className="flex justify-center items-center py-8">

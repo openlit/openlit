@@ -126,7 +126,9 @@ export async function dataCollector(
 				return { data: result };
 			}
 		} else if (clientQueryType === "ping") {
-			[respErr, result] = await asaw(client.ping());
+			[respErr, result] = await asaw(client.query({
+				query: "SELECT 1",
+			}));
 
 			return { err: respErr, data: !!result };
 		} else if (clientQueryType === "command") {

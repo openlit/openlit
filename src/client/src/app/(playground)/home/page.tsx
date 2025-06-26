@@ -11,6 +11,7 @@ import { useRootStore } from "@/store";
 import { getFilterDetails } from "@/selectors/filter";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import Loader from "@/components/common/loader";
+import { usePageHeader } from "@/selectors/page";
 
 const BoardList = ({ dashboardId }: { dashboardId: string | null }) => {
 	const [boards, setBoards] = useState<Board[]>([]);
@@ -62,6 +63,7 @@ export default function DashboardPage() {
 	>();
 	const searchParams = useSearchParams();
 	const dashboardId = searchParams.get("dashboardId");
+	const { setHeader } = usePageHeader();
 
 	useEffect(() => {
 		const fetchBoardLayout = async () => {
@@ -78,6 +80,11 @@ export default function DashboardPage() {
 
 				if (response?.data) {
 					setInitialConfig(response.data);
+					setHeader({
+						title: response.data.title,
+						description: response.data.description,
+						breadcrumbs: [],
+					});
 				}
 			} catch (error) {
 				console.error("Failed to fetch board layout:", error);
@@ -129,7 +136,6 @@ export default function DashboardPage() {
 					className="h-100 overflow-y-auto"
 					initialConfig={initialConfig}
 					readonly
-					renderTitle={false}
 					runQuery={runQuery}
 					runFilters={runFilters}
 				/>

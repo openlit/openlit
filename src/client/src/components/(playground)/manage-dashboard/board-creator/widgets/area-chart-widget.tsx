@@ -45,7 +45,15 @@ const AreaChartWidgetComponent: React.FC<AreaChartProps> = ({
 						stroke="currentColor"
 						domain={[0, "dataMax + 15"]}
 					/>
-					<Tooltip labelClassName="dark:text-stone-700" />
+					<Tooltip
+						cursor={{ fill: 'transparent' }}
+						labelClassName="text-xs text-stone-900 dark:text-stone-300"
+						wrapperClassName="bg-stone-200 dark:bg-stone-800 rounded-md"
+						contentStyle={{
+							backgroundColor: '', border: 'none', boxShadow: 'none',
+							fontWeight: 'bold'
+						}}
+					/>
 					<defs>
 						{widget.properties.yAxes?.map((yAxis, index) => (
 							<linearGradient

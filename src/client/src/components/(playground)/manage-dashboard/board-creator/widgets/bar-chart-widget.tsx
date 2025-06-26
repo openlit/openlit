@@ -6,6 +6,7 @@ import {
 	YAxis,
 	CartesianGrid,
 	ResponsiveContainer,
+	Tooltip,
 } from "recharts";
 import type { BarChartWidget } from "../types";
 
@@ -15,11 +16,18 @@ interface BarChartProps {
 }
 
 const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
+	const updatedData = data?.map((item) => ({
+		...item,
+		[widget.properties.xAxis]: item[widget.properties.xAxis],
+		[widget.properties.yAxis]: parseFloat(item[widget.properties.yAxis]),
+	})) || [];
+
+	// return null;
 	return (
-		<div className="flex flex-col h-full">
+		<div className="flex flex-col h-full relative">
 			<ResponsiveContainer width="100%" height="100%">
 				<BarChart
-					data={data || []}
+					data={updatedData || []}
 					margin={{
 						top: 20,
 						right: 10,
@@ -39,12 +47,16 @@ const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
 						className="text-xs stroke-stone-300"
 						stroke="currentColor"
 					/>
-					<Bar
-						dataKey={widget.properties.yAxis}
-						fill={widget.properties.color}
-						name={widget.properties.yAxis}
-						label={{ position: "top", offset: 10, className: "text-xl font-bold", fill: widget.properties.color }}
+					<Tooltip
+						cursor={{ fill: 'transparent' }}
+						labelClassName="text-xs text-stone-900 dark:text-stone-300"
+						wrapperClassName="bg-stone-200 dark:bg-stone-800 rounded-md"
+						contentStyle={{
+							backgroundColor: '', border: 'none', boxShadow: 'none',
+							fontWeight: 'bold'
+						}}
 					/>
+					<Bar dataKey={widget.properties.yAxis} fill={widget.properties.color} />
 				</BarChart>
 			</ResponsiveContainer>
 		</div>

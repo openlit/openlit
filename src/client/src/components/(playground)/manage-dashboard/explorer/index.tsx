@@ -8,13 +8,15 @@ import { DragDropContext } from "react-beautiful-dnd";
 import { toast } from "sonner";
 import EmptyState from "../common/empty-state";
 import ExplorerItemRow from "./item-row";
-import AddEditDialog from "./add-edit-dialog";
+import UpsertResourceDialog from "../common/upsert-resource-dialog";
 import { jsonParse, jsonStringify } from "@/utils/json";
 import { useRouter } from "next/navigation";
 import RootActions from "./root-actions";
 import Header from "../common/header";
 import getMessage from "@/constants/messages";
 import { Button } from "@/components/ui/button";
+import { usePageHeader } from "@/selectors/page";
+import { AddResource, EditResource, useUpsertResource } from "../board-creator/hooks/useUpsertResource";
 
 // React 18 StrictMode compatibility fix for react-beautiful-dnd
 const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
@@ -38,16 +40,6 @@ const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
 export default function DashboardExplorer() {
 	const [items, setItems] = useState<DashboardHeirarchy[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
-	const [dialogState, setDialogState] = useState({
-		isOpen: false,
-		mode: "add" as "add" | "edit",
-		itemTitle: "",
-		itemDescription: "",
-		itemTags: [],
-		itemType: "board" as DashboardItemType,
-		currentPath: [] as string[],
-		editingItemId: null as string | null,
-	});
 
 	const { fireRequest: fetchHierarchy } = useFetchWrapper();
 	const { fireRequest: createFolderRequest } = useFetchWrapper();
@@ -58,6 +50,7 @@ export default function DashboardExplorer() {
 	const { fireRequest: deleteBoardRequest } = useFetchWrapper();
 	const { fireRequest: setMainDashboardRequest } = useFetchWrapper();
 	const { fireRequest: importBoardLayoutRequest } = useFetchWrapper();
+	const { setHeader } = usePageHeader();
 
 	const router = useRouter();
 	// Fetch hierarchy data on component mount
@@ -74,6 +67,10 @@ export default function DashboardExplorer() {
 			successCb: (response) => {
 				if (response?.data) {
 					setItems(response.data);
+					setHeader({
+						title: "Dashboards",
+						breadcrumbs: [],
+					});
 				}
 				setIsLoading(false);
 			},
@@ -93,21 +90,13 @@ export default function DashboardExplorer() {
 			type,
 			tags = [],
 			parentPath = [],
-		}:
-			{
-				title: string;
-				description: string;
-				type: DashboardItemType;
-				tags: string[];
-				parentPath: string[];
-			}
-		) => {
+		}: AddResource) => {
 
 			// Create payload
 			const payload = {
 				title,
 				description,
-				parentId: parentPath?.length > 0 ? parentPath[parentPath.length - 1] : null,
+				parentId: parentPath && parentPath.length > 0 ? parentPath[parentPath.length - 1] : null,
 				tags: tags,
 			};
 
@@ -168,14 +157,7 @@ export default function DashboardExplorer() {
 			newDescription,
 			newTags = [],
 			parentPath = [],
-		}: {
-			itemId: string,
-			newTitle: string,
-			newDescription: string,
-			newTags: string[];
-			parentPath: string[];
-		}
-		) => {
+		}: EditResource) => {
 			// Find the item to determine its type
 			const findItem = (
 				items: DashboardHeirarchy[],
@@ -207,8 +189,9 @@ export default function DashboardExplorer() {
 				id: itemId,
 				title: newTitle,
 				description: newDescription,
-				parentId: parentPath?.length > 0 ? parentPath[parentPath.length - 1] : null,
+				parentId: parentPath && parentPath.length > 0 ? parentPath[parentPath.length - 1] : null,
 				tags: newTags,
+				updatedParent: false,
 			};
 
 			if (item.type === "folder") {
@@ -257,6 +240,11 @@ export default function DashboardExplorer() {
 		},
 		[items, updateFolderRequest, updateBoardRequest, loadHierarchy]
 	);
+
+	const { dialogState, setDialogState, handleDialogSave, handleDialogCancel } = useUpsertResource({
+		addItem,
+		editItem,
+	});
 
 	// Delete an item
 	const deleteItem = useCallback(
@@ -422,40 +410,6 @@ export default function DashboardExplorer() {
 		router.push(`/d/${boardId}`);
 	}, []);
 
-	// Handle dialog save
-	const handleDialogSave = useCallback(
-		(title: string, description: string, type: DashboardItemType, tags: string[]) => {
-			const { mode, currentPath, editingItemId } = dialogState;
-
-			if (mode === "add") {
-				addItem({
-					title,
-					description,
-					type,
-					tags,
-					parentPath: currentPath,
-				});
-			} else if (editingItemId) {
-				editItem({
-					itemId: editingItemId,
-					newTitle: title,
-					newDescription: description,
-					newTags: tags,
-					parentPath: currentPath,
-				});
-			}
-		},
-		[addItem, dialogState, editItem]
-	);
-
-	// Handle dialog cancel
-	const handleDialogCancel = useCallback(() => {
-		setDialogState((prev) => ({
-			...prev,
-			isOpen: false,
-		}));
-	}, []);
-
 	// Handle drag end
 	const handleDragEnd = useCallback(
 		(result: DropResult) => {
@@ -583,6 +537,7 @@ export default function DashboardExplorer() {
 				title: item.title,
 				description: item.description,
 				parentId: newParentId,
+				updateParent: true,
 			};
 
 			// Toast loading state
@@ -685,7 +640,7 @@ export default function DashboardExplorer() {
 				)}
 			</div>
 
-			<AddEditDialog
+			<UpsertResourceDialog
 				isOpen={dialogState.isOpen}
 				onOpenChange={(open) =>
 					setDialogState((prev) => ({ ...prev, isOpen: open }))

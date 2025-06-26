@@ -9,7 +9,7 @@ import FormBuilder from "@/components/common/form-builder";
 import { toast } from "sonner";
 import getMessage from "@/constants/messages";
 
-export default function AddEditDialog({
+export default function UpsertResourceDialog({
 	isOpen,
 	onOpenChange,
 	mode,

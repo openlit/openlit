@@ -10,6 +10,8 @@ import Loader from "@/components/common/loader";
 import Filter from "@/components/(playground)/filter";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import { useFilters } from "@/selectors/filter";
+import { usePageHeader } from "@/selectors/page";
+import { Board } from "@/types/manage-dashboard";
 
 export default function DashboardPage() {
 	const { details: filter } = useFilters();
@@ -22,27 +24,37 @@ export default function DashboardPage() {
 	const [initialConfig, setInitialConfig] = useState<
 		DashboardConfig | undefined
 	>();
+	const { setHeader } = usePageHeader();
+
+	const handleHeaderUpdates = (details: Partial<Board>) => {
+		setHeader({
+			title: details.title || "",
+			description: details.description || "",
+			breadcrumbs: [],
+		});
+	};
+
+	const fetchBoardLayout = async () => {
+		try {
+			const { response, error } = await fireRequest({
+				requestType: "GET",
+				url: `/api/manage-dashboard/board/${boardId}/layout`,
+			});
+
+			if (error) {
+				throw new Error(error);
+			}
+
+			if (response?.data) {
+				setInitialConfig(response.data);
+				handleHeaderUpdates(response.data);
+			}
+		} catch (error) {
+			console.error("Failed to fetch board layout:", error);
+		}
+	};
 
 	useEffect(() => {
-		const fetchBoardLayout = async () => {
-			try {
-				const { response, error } = await fireRequest({
-					requestType: "GET",
-					url: `/api/manage-dashboard/board/${boardId}/layout`,
-				});
-
-				if (error) {
-					throw new Error(error);
-				}
-
-				if (response?.data) {
-					setInitialConfig(response.data);
-				}
-			} catch (error) {
-				console.error("Failed to fetch board layout:", error);
-			}
-		};
-
 		fetchBoardLayout();
 	}, [boardId, fireRequest]);
 
@@ -158,12 +170,12 @@ export default function DashboardPage() {
 						handleWidgetCrud={handleWidgetCrud}
 						fetchExistingWidgets={fetchExistingWidgets}
 						runFilters={runFilters}
-						renderTitle
 						headerComponent={(
-							<div className="flex ml-4 shrink-0">
+							<div className="flex shrink-0">
 								<Filter className="items-end" />
 							</div>
 						)}
+						handleBoardUpdates={handleHeaderUpdates}
 					/>
 				)}
 			</div>

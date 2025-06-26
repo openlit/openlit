@@ -14,12 +14,11 @@ import {
 	BarChartWidget,
 } from "../types";
 import { SUPPORTED_WIDGETS } from "../constants";
+import { Board } from "@/types/manage-dashboard";
 
 interface DashboardContextType {
-	title: string;
-	setTitle: (title: string) => void;
-	description: string;
-	setDescription: (description: string) => void;
+	details: Partial<Board>;
+	setDetails: (details: Partial<Board>) => void;
 	layouts: any;
 	setLayouts: (layouts: any) => void;
 	widgets: WidgetsRecord;
@@ -72,13 +71,12 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 	runQuery,
 	fetchExistingWidgets,
 }) => {
-	const [title, setTitle] = useState(
-		initialConfig?.title || "Customizable Dashboard"
-	);
-
-	const [description, setDescription] = useState(
-		initialConfig?.description || ""
-	);
+	const [details, setDetails] = useState<Partial<Board>>({
+		id: initialConfig?.id || "",
+		title: initialConfig?.title || "",
+		description: initialConfig?.description || "",
+		tags: initialConfig?.tags || "",
+	});
 	const [layouts, setLayouts] = useState(initialConfig?.layouts || { lg: [] });
 	const [widgets, setWidgets] = useState<WidgetsRecord>(
 		initialConfig?.widgets || {}
@@ -242,8 +240,9 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 	const getDashboardConfig = (): DashboardConfig => {
 		return {
 			id: initialConfig?.id || "",
-			title,
-			description,
+			title: initialConfig?.title || "",
+			description: initialConfig?.description || "",
+			tags: initialConfig?.tags || "",
 			layouts,
 			widgets,
 		};
@@ -258,10 +257,8 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 	};
 
 	const contextValue: DashboardContextType = {
-		title,
-		setTitle,
-		description,
-		setDescription,
+		details,
+		setDetails,
 		layouts,
 		setLayouts,
 		widgets,

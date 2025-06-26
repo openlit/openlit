@@ -10,7 +10,7 @@ interface MarkdownWidgetProps {
 }
 
 const MarkdownWidget: React.FC<MarkdownWidgetProps> = ({ widget }) => {
-  const colorTheme = widget.config?.colorTheme || '#0ea5e9' as ColorTheme; // Default to blue if no theme selected
+  const colorTheme = widget.properties.color || '#0ea5e9' as ColorTheme; // Default to blue if no theme selected
 
   return (
     <div 

@@ -11,7 +11,7 @@ import TableWidget from "./table-widget";
 import AreaChartWidget from "./area-chart-widget";
 import MarkdownWidget from "./markdown-widget";
 import { useDashboard } from "../context/dashboard-context";
-import DescriptionTooltip from "../components/description-tooltip";
+import DescriptionTooltip from "../../../../common/description-tooltip";
 
 const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 	widget,
