@@ -733,7 +733,7 @@ def async_chat_completions(version, environment, application_name,
                     formatted_messages = []
                     for message in message_prompt:
                         role = message["role"]
-                        content = message["content"]
+                        content = message.get("content", "")
 
                         if isinstance(content, list):
                             content_str = ", ".join(
