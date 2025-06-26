@@ -12,7 +12,8 @@ from openlit.__helpers import (
 from openlit.instrumentation.together.utils import (
     process_chat_response,
     process_chunk,
-    process_streaming_chat_response
+    process_streaming_chat_response,
+    process_image_response
 )
 from openlit.semcov import SemanticConvention
 
@@ -189,98 +190,29 @@ def image_generate(version, environment, application_name,
             response = wrapped(*args, **kwargs)
             end_time = time.time()
 
-            images_count = 0
-
             try:
-                # Find Image format
-                if "response_format" in kwargs and kwargs["response_format"] == "b64_json":
-                    image = "b64_json"
-                else:
-                    image = "url"
+                response = process_image_response(
+                    response=response,
+                    request_model=request_model,
+                    pricing_info=pricing_info,
+                    server_address=server_address,
+                    server_port=server_port,
+                    environment=environment,
+                    application_name=application_name,
+                    metrics=metrics,
+                    start_time=start_time,
+                    end_time=end_time,
+                    span=span,
+                    capture_message_content=capture_message_content,
+                    disable_metrics=disable_metrics,
+                    version=version,
+                    **kwargs
+                )
 
-                image_size = str(kwargs.get('width')) + 'x' + str(kwargs.get('height'))
-
-                # Calculate cost of the operation
-                cost = get_image_model_cost(request_model,
-                                            pricing_info, image_size,
-                                            kwargs.get("quality", "standard"))
-
-                for items in response.data:
-                    # Set Span attributes (OTel Semconv)
-                    span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                    span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
-                                        SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE)
-                    span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
-                                        SemanticConvention.GEN_AI_SYSTEM_TOGETHER)
-                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
-                                        request_model)
-                    span.set_attribute(SemanticConvention.SERVER_ADDRESS,
-                                        server_address)
-                    span.set_attribute(SemanticConvention.SERVER_PORT,
-                                        server_port)
-                    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID,
-                                        response.id)
-                    span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL,
-                                        response.model)
-                    span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,
-                                        "image")
-
-                    # Set Span attributes (Extras)
-                    span.set_attribute(DEPLOYMENT_ENVIRONMENT,
-                                        environment)
-                    span.set_attribute(SERVICE_NAME,
-                                        application_name)
-                    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE,
-                                        image_size)
-                    span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION,
-                                        version)
-
-                    if capture_message_content:
-                        span.add_event(
-                            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
-                            attributes={
-                                SemanticConvention.GEN_AI_CONTENT_PROMPT: kwargs.get("prompt", ""),
-                            },
-                        )
-                        attribute_name = f"{SemanticConvention.GEN_AI_RESPONSE_IMAGE}.{images_count}"
-                        span.add_event(
-                            name=attribute_name,
-                            attributes={
-                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: getattr(items, image),
-                            },
-                        )
-
-                    images_count+=1
-
-                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST,
-                                    len(response.data) * cost)
-                span.set_status(Status(StatusCode.OK))
-
-                if disable_metrics is False:
-                    attributes = create_metrics_attributes(
-                        service_name=application_name,
-                        deployment_environment=environment,
-                        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE,
-                        system=SemanticConvention.GEN_AI_SYSTEM_TOGETHER,
-                        request_model=request_model,
-                        server_address=server_address,
-                        server_port=server_port,
-                        response_model=response.model,
-                    )
-
-                    metrics["genai_client_operation_duration"].record(
-                        end_time - start_time, attributes
-                    )
-                    metrics["genai_requests"].add(1, attributes)
-                    metrics["genai_cost"].record(cost, attributes)
-
-                # Return original response
                 return response
 
             except Exception as e:
                 handle_exception(span, e)
-
-                # Return original response
                 return response
 
     return wrapper
