@@ -8,12 +8,12 @@ from openlit.__helpers import (
     handle_exception,
     set_server_address_and_port
 )
-from openlit.semcov import SemanticConvention
 from openlit.instrumentation.groq.utils import (
     process_chunk,
     process_streaming_chat_response,
     process_chat_response
 )
+from openlit.semcov import SemanticConvention
 
 def async_chat(version, environment, application_name, tracer, pricing_info, 
                capture_message_content, metrics, disable_metrics):
@@ -25,13 +25,25 @@ def async_chat(version, environment, application_name, tracer, pricing_info,
         """
         Wrapper for async streaming responses to collect telemetry.
         """
-        def __init__(self, wrapped, span, kwargs, server_address, server_port, args):
+
+        def __init__(
+                self,
+                wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                **args,
+            ):
             self.__wrapped__ = wrapped
             self._span = span
+            self._span_name = span_name
             self._llmresponse = ""
             self._response_id = ""
             self._response_model = ""
             self._finish_reason = ""
+            self._tools = None
             self._system_fingerprint = ""
             self._input_tokens = 0
             self._output_tokens = 0
@@ -65,11 +77,22 @@ def async_chat(version, environment, application_name, tracer, pricing_info,
                 process_chunk(self, chunk)
                 return chunk
             except StopAsyncIteration:
-                # Process completion when streaming ends
-                process_streaming_chat_response(
-                    self, pricing_info, environment, application_name,
-                    metrics, capture_message_content, disable_metrics, version
-                )
+                try:
+                    with tracer.start_as_current_span(self._span_name, kind= SpanKind.CLIENT) as self._span:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version
+                        )
+
+                except Exception as e:
+                    handle_exception(self._span, e)
+
                 raise
 
     async def wrapper(wrapped, instance, args, kwargs):
@@ -87,17 +110,34 @@ def async_chat(version, environment, application_name, tracer, pricing_info,
             # Special handling for streaming response
             awaited_wrapped = await wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-            return TracedAsyncStream(awaited_wrapped, span, kwargs, server_address, server_port, args)
+            return TracedAsyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
         else:
             # Handling for non-streaming responses
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = await wrapped(*args, **kwargs)
                 
-                return process_chat_response(
-                    response, request_model, pricing_info, server_port, server_address,
-                    environment, application_name, metrics, start_time, span,
-                    capture_message_content, disable_metrics, version, **kwargs
-                )
+                try:
+                    response = process_chat_response(
+                        response=response,
+                        request_model=request_model,
+                        pricing_info=pricing_info,
+                        server_port=server_port,
+                        server_address=server_address,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        start_time=start_time,
+                        span=span,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        **kwargs
+                    )
+
+                except Exception as e:
+                    handle_exception(span, e)
+
+                return response
 
     return wrapper

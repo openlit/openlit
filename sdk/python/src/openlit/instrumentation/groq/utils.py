@@ -118,9 +118,9 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Span Attributes for Tools
     if scope._tools:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, tool_call.get("function", {}).get("name", ""))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(tool_call.get("id", "")))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(tool_call.get("function", {}).get("arguments", "")))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function", {}).get("name", ""))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", "")))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("function", {}).get("arguments", "")))
 
     # Span Attributes for Content
     if capture_message_content:
@@ -195,8 +195,8 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
         scope._finish_reason = ""
 
     # Handle tool calls  
-    if scope._kwargs.get("tools") and choices:
-        scope._tools = choices[0].get("message", {}).get("tool_calls")
+    if scope._kwargs.get("tools"):
+        scope._tools = response_dict.get("choices", [{}])[0].get("message", {}).get("tool_calls")
     else:
         scope._tools = None
 
