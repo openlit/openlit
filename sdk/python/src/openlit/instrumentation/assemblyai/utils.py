@@ -79,6 +79,7 @@ def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, applic
 
     # Span Attributes for Response parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text")
+    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response.id)
 
     # Span Attributes for Cost
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
