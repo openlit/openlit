@@ -15,7 +15,7 @@ from openlit.instrumentation.groq.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def async_chat(version, environment, application_name, tracer, pricing_info, 
+def async_chat(version, environment, application_name, tracer, pricing_info,
                capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for GenAI function call
@@ -103,7 +103,7 @@ def async_chat(version, environment, application_name, tracer, pricing_info,
         streaming = kwargs.get("stream", False)
         server_address, server_port = set_server_address_and_port(instance, "api.groq.com", 443)
         request_model = kwargs.get("model", "mixtral-8x7b-32768")
-        
+
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         if streaming:
@@ -116,7 +116,7 @@ def async_chat(version, environment, application_name, tracer, pricing_info,
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                
+
                 try:
                     response = process_chat_response(
                         response=response,

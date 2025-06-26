@@ -3,7 +3,6 @@ PremAI OpenTelemetry instrumentation utility functions
 """
 import time
 
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
@@ -13,7 +12,6 @@ from openlit.__helpers import (
     get_chat_model_cost,
     get_embed_model_cost,
     general_tokens,
-    create_metrics_attributes,
     common_span_attributes,
     record_completion_metrics,
     record_embedding_metrics,

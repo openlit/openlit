@@ -10,7 +10,6 @@ from openlit.__helpers import (
     response_as_dict,
     calculate_tbt,
     get_chat_model_cost,
-    create_metrics_attributes,
     common_span_attributes,
     record_completion_metrics,
 )
@@ -52,12 +51,12 @@ def process_chunk(scope, chunk):
         scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
     chunked = response_as_dict(chunk)
-    
+
     # Collect message IDs and aggregated response from events
-    if (len(chunked.get("choices", [])) > 0 and 
+    if (len(chunked.get("choices", [])) > 0 and
         "delta" in chunked.get("choices")[0] and
         "content" in chunked.get("choices")[0].get("delta", {})):
-        
+
         content = chunked.get("choices")[0].get("delta").get("content")
         if content:
             scope._llmresponse += content
@@ -186,15 +185,9 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
     scope._system_fingerprint = response_dict.get("system_fingerprint")
-    
-    # Safely get finish reason from first choice
-    choices = response_dict.get("choices", [])
-    if choices:
-        scope._finish_reason = str(choices[0].get("finish_reason", ""))
-    else:
-        scope._finish_reason = ""
+    scope._finish_reason = str(response_dict.get("choices", [])[0].get("finish_reason", ""))
 
-    # Handle tool calls  
+    # Handle tool calls
     if scope._kwargs.get("tools"):
         scope._tools = response_dict.get("choices", [{}])[0].get("message", {}).get("tool_calls")
     else:
