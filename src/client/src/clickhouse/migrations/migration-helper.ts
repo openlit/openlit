@@ -35,7 +35,7 @@ export default async function migrationHelper({
 	);
 
 	if (migrationExist?.id) {
-		return;
+		return { migrationExist: true, queriesRun: false };
 	}
 
 	const queriesRun = await Promise.all(
@@ -56,7 +56,7 @@ export default async function migrationHelper({
 	);
 
 	if (queriesRun.filter(({ err }) => !err).length === queries.length) {
-		return await asaw(
+		await asaw(
 			prisma.clickhouseMigrations.create({
 				data: {
 					databaseConfigId: dbConfig.id,
@@ -64,5 +64,9 @@ export default async function migrationHelper({
 				},
 			})
 		);
+
+		return { migrationExist: false, queriesRun: true };
 	}
+
+	return { migrationExist: false, queriesRun: false };
 }

@@ -3,8 +3,6 @@ import llmDashboard from "../seed-data/openlit-dashboard-LLM dashboard-layout.js
 import vectorDbDashboard from "../seed-data/openlit-dashboard-Vector DB-layout.json";
 
 export default async function CreateCustomDashboardsSeed() {
-	return Promise.all([
-		importBoardLayout(llmDashboard),
-		importBoardLayout(vectorDbDashboard),
-	]);
+	await importBoardLayout(llmDashboard);
+	await importBoardLayout(vectorDbDashboard);
 }

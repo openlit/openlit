@@ -1,4 +1,5 @@
 import migrationHelper from "./migration-helper";
+import CreateCustomDashboardsSeed from "../seed/dashboards";
 
 const MIGRATION_ID = "create-custom-dashboards-table";
 
@@ -67,9 +68,15 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
     `
   ];
 
-  return migrationHelper({
+  const { migrationExist, queriesRun } = await migrationHelper({
     clickhouseMigrationId: MIGRATION_ID,
     databaseConfigId,
     queries,
   });
+
+  if (!migrationExist) {
+    await CreateCustomDashboardsSeed();
+  }
+
+  return { migrationExist, queriesRun };
 }
