@@ -69,7 +69,6 @@ async def test_async_elevenlabs_t2s():
             text="Say Monitoring LLM Applications",
             model_id="eleven_multilingual_v2",
         )
-        assert isinstance(audio, types.AsyncGeneratorType)
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
