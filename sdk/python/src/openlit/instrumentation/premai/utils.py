@@ -52,17 +52,18 @@ def process_chunk(scope, chunk):
         # Calculate time to first chunk
         scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
-    # Assuming `chunk` has similar structure as 'ChatCompletionResponseStream'
-    if chunk.choices:
-        first_choice = chunk.choices[0]
+    chunked = response_as_dict(chunk)
+    # Collect message IDs and aggregated response from events
+    if chunked.choices:
+        first_choice = chunked.get("choices")[0]
 
-        if first_choice.delta.get('content'):
-            scope._llmresponse += first_choice.delta.get('content')
+        if first_choice.get("delta").get("content"):
+            scope._llmresponse += first_choice.get("delta").get("content")
 
-    if chunk.choices[0].finish_reason:
-        scope._finish_reason = chunk.choices[0].finish_reason
-        scope._response_id = chunk.id
-        scope._response_model = chunk.model
+    if chunked.get("choices")[0].get("finish_reason"):
+        scope._finish_reason = chunked.get("choices")[0].get("finish_reason")
+        scope._response_id = chunked.get("id")
+        scope._response_model = chunked.get("model")
 
 def common_span_attributes(scope, gen_ai_operation, gen_ai_system, server_address, server_port,
     request_model, response_model, environment, application_name, is_stream, tbt, ttft, version):
@@ -233,7 +234,7 @@ def common_embedding_logic(scope, pricing_info, environment, application_name, m
         environment, application_name, False, scope._tbt, scope._ttft, version)
 
     # Embedding-specific span attributes
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [scope._kwargs.get('encoding_format', 'float')])
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [scope._kwargs.get("encoding_format", "float")])
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, scope._kwargs.get("user", ""))
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
     scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens)
@@ -278,7 +279,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     scope._end_time = time.time()
     scope._span = span
     scope._llmresponse = str(response_dict.get("choices")[0].get("message").get("content"))
-    scope._response_id = response_dict.get("additional_properties", {}).get('id')
+    scope._response_id = response_dict.get("additional_properties", {}).get("id")
     scope._response_model = response_dict.get("model")
     scope._input_tokens = response_dict.get("usage").get("prompt_tokens")
     scope._output_tokens = response_dict.get("usage").get("completion_tokens")
@@ -288,7 +289,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     scope._kwargs = kwargs
     scope._finish_reason = str(response_dict.get("choices")[0].get("finish_reason"))
     
-    if scope._kwargs.get('tools'):
+    if scope._kwargs.get("tools"):
         scope._tools = response_dict.get("choices")[0].get("message").get("tool_calls")
     else:
         scope._tools = None
