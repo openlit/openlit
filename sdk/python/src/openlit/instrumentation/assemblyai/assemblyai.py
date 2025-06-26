@@ -53,10 +53,6 @@ def transcribe(version, environment, application_name,
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in trace creation: %s", e)
-
-                # Call the original method
-                response = wrapped(*args, **kwargs)
 
         return response
 
