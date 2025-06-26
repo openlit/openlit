@@ -2,7 +2,6 @@
 Module for monitoring Together API calls.
 """
 
-import logging
 import time
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
@@ -149,35 +148,12 @@ def async_completion(version, environment, application_name,
 def async_image_generate(version, environment, application_name,
                    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for image generation to collect metrics.
-    
-    Args:
-        version: Version of the monitoring package.
-        environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using the Together AI API.
-        tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of Together AI image generation.
-        capture_message_content: Flag indicating whether to trace the input prompt and generated images.
-    
-    Returns:
-        A function that wraps the image generation method to add telemetry.
+    Generates a telemetry wrapper for GenAI function call
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the 'images.generate' API call to add telemetry.
-
-        This collects metrics such as execution time, cost, and handles errors
-        gracefully, adding details to the trace for observability.
-
-        Args:
-            wrapped: The original 'images.generate' method to be wrapped.
-            instance: The instance of the class where the original method is defined.
-            args: Positional arguments for the 'images.generate' method.
-            kwargs: Keyword arguments for the 'images.generate' method.
-
-        Returns:
-            The response from the original 'images.generate' method.
+        Wraps the GenAI function call.
         """
 
         server_address, server_port = set_server_address_and_port(instance, "api.together.xyz", 443)

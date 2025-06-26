@@ -2,7 +2,6 @@
 Module for monitoring Google AI Studio API calls.
 """
 
-import logging
 import time
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
@@ -58,7 +57,6 @@ def async_generate(version, environment, application_name,
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in trace creation: %s", e)
 
             # Return original response
             return response

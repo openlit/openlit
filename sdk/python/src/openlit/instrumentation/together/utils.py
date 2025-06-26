@@ -53,28 +53,28 @@ def process_chunk(scope, chunk):
 
     chunked = response_as_dict(chunk)
     # Collect message IDs and aggregated response from events
-    if (len(chunked.get('choices')) > 0 and ('delta' in chunked.get('choices')[0] and
-        'content' in chunked.get('choices')[0].get('delta'))):
+    if (len(chunked.get("choices")) > 0 and ("delta" in chunked.get("choices")[0] and
+        "content" in chunked.get("choices")[0].get("delta"))):
 
-        content = chunked.get('choices')[0].get('delta').get('content')
+        content = chunked.get("choices")[0].get("delta").get("content")
         if content:
             scope._llmresponse += content
 
-    if chunked.get('usage'):
-        scope._response_id = chunked.get('id')
-        scope._response_model = chunked.get('model')
-        scope._input_tokens = chunked.get('usage').get('prompt_tokens')
-        scope._output_tokens = chunked.get('usage').get('completion_tokens')
-        scope._finish_reason = str(chunked.get('finish_reason'))
+    if chunked.get("usage"):
+        scope._response_id = chunked.get("id")
+        scope._response_model = chunked.get("model")
+        scope._input_tokens = chunked.get("usage").get("prompt_tokens")
+        scope._output_tokens = chunked.get("usage").get("completion_tokens")
+        scope._finish_reason = str(chunked.get("finish_reason"))
         scope._end_time = time.time()
 
-def common_span_attributes(scope, gen_ai_operation, gen_ai_system, server_address, server_port, 
+def common_span_attributes(scope, gen_ai_operation, gen_ai_system, server_address, server_port,
     request_model, response_model, environment, application_name, is_stream, tbt, ttft, version):
     """
     Set common span attributes for both chat and RAG operations.
     """
 
-    scope._span.set_attribute(TELEMETRY_SDK_NAME, 'openlit')
+    scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, gen_ai_operation)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, gen_ai_system)
     scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
@@ -88,7 +88,7 @@ def common_span_attributes(scope, gen_ai_operation, gen_ai_system, server_addres
     scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, scope._ttft)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
 
-def record_common_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port, 
+def record_common_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
     request_model, response_model, environment, application_name, start_time, end_time,
     input_tokens, output_tokens, cost, tbt=None, ttft=None):
     """
@@ -130,7 +130,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     cost = get_chat_model_cost(request_model, pricing_info, scope._input_tokens, scope._output_tokens)
 
-    # Common Span Attributes 
+    # Common Span Attributes
     common_span_attributes(scope,
         SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,SemanticConvention.GEN_AI_SYSTEM_TOGETHER,
         scope._server_address, scope._server_port, request_model, scope._response_model,
@@ -146,7 +146,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, scope._kwargs.get("temperature", 1.0))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, scope._kwargs.get("top_p", 1.0))
     scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, 'text' if isinstance(scope._llmresponse, str) else 'json')
+    scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text" if isinstance(scope._llmresponse, str) else "json")
 
     # Span Attributes for Cost and Tokens
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
@@ -156,15 +156,15 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Span Attributes for Tools
     if scope._tools:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get('function','')).get('name','')
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get('id','')))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get('function','')).get('arguments',''))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function","")).get("name","")
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id","")))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("function","")).get("arguments",""))
 
     # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse)
-        
+
         # To be removed one the change to span_attributes (from span events) is complete
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
@@ -189,7 +189,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             cost, scope._tbt, scope._ttft)
 
 def process_streaming_chat_response(scope, pricing_info, environment, application_name, metrics,
-    capture_message_content=False, disable_metrics=False, version=''):
+    capture_message_content=False, disable_metrics=False, version=""):
     """
     Process chat request and generate Telemetry
     """
@@ -203,7 +203,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     Process chat request and generate Telemetry
     """
 
-    scope = type('GenericScope', (), {})()
+    scope = type("GenericScope", (), {})()
     response_dict = response_as_dict(response)
 
     scope._start_time = start_time
@@ -214,17 +214,17 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
         for choice in response_dict.get("choices", [])
     )
     scope._response_id = response_dict.get("id")
-    scope._response_model = response_dict.get('model')
-    scope._input_tokens = response_dict.get('usage').get('prompt_tokens')
-    scope._output_tokens = response_dict.get('usage').get('completion_tokens')
+    scope._response_model = response_dict.get("model")
+    scope._input_tokens = response_dict.get("usage").get("prompt_tokens")
+    scope._output_tokens = response_dict.get("usage").get("completion_tokens")
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
-    scope._finish_reason = str(response_dict.get('choices')[0].get('finish_reason'))
+    scope._finish_reason = str(response_dict.get("choices")[0].get("finish_reason"))
 
-    if scope._kwargs.get('tools'):
-        scope._tools = response_dict.get('choices')[i].get('message').get('tool_calls')
+    if scope._kwargs.get("tools"):
+        scope._tools = response_dict.get("choices")[0].get("message").get("tool_calls")
     else:
         scope._tools = None
 
@@ -238,19 +238,19 @@ def common_image_logic(scope, pricing_info, environment, application_name, metri
     """
     Process image generation request and generate Telemetry
     """
-    
+
     # Find Image format
     if "response_format" in scope._kwargs and scope._kwargs["response_format"] == "b64_json":
         image_format = "b64_json"
     else:
         image_format = "url"
 
-    image_size = str(scope._kwargs.get('width', '1024')) + 'x' + str(scope._kwargs.get('height', '1024'))
+    image_size = str(scope._kwargs.get("width", "1024")) + "x" + str(scope._kwargs.get("height", "1024"))
     request_model = scope._kwargs.get("model", "dall-e-2")
 
     # Calculate cost of the operation
-    cost = get_image_model_cost(request_model, pricing_info, image_size, 
-                                scope._kwargs.get("quality", "standard"))
+    cost = get_image_model_cost(request_model, pricing_info, image_size,
+        scope._kwargs.get("quality", "standard"))
 
     # Common Span Attributes
     common_span_attributes(scope,
@@ -272,7 +272,7 @@ def common_image_logic(scope, pricing_info, environment, application_name, metri
                 SemanticConvention.GEN_AI_CONTENT_PROMPT: scope._kwargs.get("prompt", ""),
             },
         )
-        
+
         for images_count, item in enumerate(scope._response_data):
             attribute_name = f"{SemanticConvention.GEN_AI_RESPONSE_IMAGE}.{images_count}"
             scope._span.add_event(
@@ -294,14 +294,14 @@ def common_image_logic(scope, pricing_info, environment, application_name, metri
         )
 
 def process_image_response(response, request_model, pricing_info, server_address, server_port,
-    environment, application_name, metrics, start_time, end_time, span, 
+    environment, application_name, metrics, start_time, end_time, span,
     capture_message_content, disable_metrics, version, **kwargs):
     """
     Process image generation request and generate Telemetry
     """
 
-    scope = type('GenericScope', (), {})()
-    
+    scope = type("GenericScope", (), {})()
+
     scope._start_time = start_time
     scope._end_time = end_time
     scope._span = span
