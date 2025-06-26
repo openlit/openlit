@@ -188,7 +188,7 @@ def common_embedding_logic(scope, pricing_info, environment, application_name, m
     Process embedding request and generate Telemetry
     """
 
-    prompt = format_content(scope._kwargs.get("prompt") or "")
+    prompt = format_content(scope._kwargs.get("text") or "")
     request_model = scope._request_model
 
     input_tokens = general_tokens(prompt)
