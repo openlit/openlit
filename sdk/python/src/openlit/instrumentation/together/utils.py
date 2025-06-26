@@ -7,6 +7,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOY
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
+    calculate_ttft,
     response_as_dict,
     calculate_tbt,
     get_chat_model_cost,
