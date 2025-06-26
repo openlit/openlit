@@ -42,7 +42,7 @@ def async_chat(version, environment, application_name,
             self._llmresponse = ""
             self._response_model = ""
             self._finish_reason = ""
-            self._tool_calls = []
+            self._tools = []
             self._input_tokens = 0
             self._output_tokens = 0
             self._response_role = ""
@@ -102,7 +102,8 @@ def async_chat(version, environment, application_name,
         streaming = kwargs.get("stream", False)
 
         server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 11434)
-        request_model = kwargs.get("model")
+        json_body = kwargs.get("json", {}) or {}
+        request_model = json_body.get("model") or kwargs.get("model")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
