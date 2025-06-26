@@ -58,7 +58,7 @@ def record_audio_metrics(metrics, gen_ai_operation, gen_ai_system, server_addres
     metrics["genai_requests"].add(1, attributes)
     metrics["genai_cost"].record(cost, attributes)
 
-def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, 
+def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
     metrics, capture_message_content, disable_metrics, version):
     """
     Process audio generation request and generate Telemetry
@@ -122,13 +122,13 @@ def process_audio_response(response, gen_ai_endpoint, pricing_info, server_port,
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
     scope._args = args
-    
+
     # Initialize streaming and timing values for ElevenLabs audio generation
     scope._response_model = kwargs.get("model", kwargs.get("model_id", "eleven_multilingual_v2"))
     scope._tbt = 0.0  # Time between tokens (not applicable for audio generation)
     scope._ttft = 0.0  # Time to first token (not applicable for audio generation)
 
-    common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, 
+    common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
         metrics, capture_message_content, disable_metrics, version)
 
     return response
