@@ -41,7 +41,7 @@ def _dispatch_async(async_chat_wrap, async_emb_wrap):
 
 class OllamaInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for Ollama's client library.
+    An instrumentor for Ollama client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:

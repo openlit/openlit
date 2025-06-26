@@ -143,7 +143,7 @@ def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, applica
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Tools
-    if hasattr(scope, '_tool_calls') and scope._tool_calls:
+    if hasattr(scope, "_tool_calls") and scope._tool_calls:
         tool_call = scope._tool_calls[0]
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, tool_call.get("function", {}).get("name", ""))
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(tool_call.get("function", {}).get("arguments", "")))
