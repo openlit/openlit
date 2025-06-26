@@ -1,4 +1,3 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of Reka Functions"""
 
 from typing import Collection
@@ -17,15 +16,15 @@ _instruments = ("reka-api >= 3.2.0",)
 
 class RekaInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for Reka's client library.
+    An instrumentor for Reka client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name", "default_application")
-        environment = kwargs.get("environment", "default_environment")
+        application_name = kwargs.get("application_name", "default")
+        environment = kwargs.get("environment", "default")
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
@@ -33,7 +32,7 @@ class RekaInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("reka-api")
 
-        # sync chat
+        # Chat completions
         wrap_function_wrapper(
             "reka.chat.client",
             "ChatClient.create",
@@ -41,7 +40,7 @@ class RekaInstrumentor(BaseInstrumentor):
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
-        # async chat
+        # Chat completions
         wrap_function_wrapper(
             "reka.chat.client",
             "AsyncChatClient.create",
@@ -50,5 +49,4 @@ class RekaInstrumentor(BaseInstrumentor):
         )
 
     def _uninstrument(self, **kwargs):
-        # Proper uninstrumentation logic to revert patched methods
         pass
