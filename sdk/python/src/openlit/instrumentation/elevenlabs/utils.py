@@ -84,7 +84,6 @@ def common_audio_logic(scope, gen_ai_endpoint, pricing_info, environment, applic
 
     # Audio-specific span attributes
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE, scope._kwargs.get("voice_id", ""))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT, scope._kwargs.get("output_format", "mp3"))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_SETTINGS, str(scope._kwargs.get("voice_settings", "")))
 
     # Span Attributes for Content
