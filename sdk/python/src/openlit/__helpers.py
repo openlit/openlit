@@ -355,7 +355,7 @@ def common_span_attributes(scope, gen_ai_operation, gen_ai_system, server_addres
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
 
 def record_completion_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
-    request_model, response_model, environment, application_name, start_time, end_time, cost, 
+    request_model, response_model, environment, application_name, start_time, end_time, cost,
     input_tokens, output_tokens, tbt, ttft):
     """
     Record completion metrics for the operation.

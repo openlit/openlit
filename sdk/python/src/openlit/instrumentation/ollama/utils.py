@@ -3,7 +3,6 @@ Ollama OpenTelemetry instrumentation utility functions
 """
 import time
 
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
@@ -11,12 +10,9 @@ from openlit.__helpers import (
     response_as_dict,
     calculate_tbt,
     general_tokens,
-    extract_and_format_input,
     get_chat_model_cost,
     get_embed_model_cost,
-    handle_exception,
     create_metrics_attributes,
-    concatenate_all_contents,
     common_span_attributes,
     record_completion_metrics,
 )
@@ -92,7 +88,7 @@ def record_embedding_metrics(metrics, gen_ai_operation, gen_ai_system, server_ad
     metrics["genai_prompt_tokens"].add(input_tokens, attributes)
     metrics["genai_cost"].record(cost, attributes)
 
-def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, 
+def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
     metrics, capture_message_content, disable_metrics, version):
     """
     Process chat request and generate Telemetry
@@ -170,12 +166,12 @@ def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, applica
 
     # Metrics
     if not disable_metrics:
-        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, 
-            SemanticConvention.GEN_AI_SYSTEM_OLLAMA, scope._server_address, scope._server_port, 
-            request_model, scope._response_model, environment, application_name, scope._start_time, 
+        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_OLLAMA, scope._server_address, scope._server_port,
+            request_model, scope._response_model, environment, application_name, scope._start_time,
             scope._end_time, cost, scope._input_tokens, scope._output_tokens, scope._tbt, scope._ttft)
 
-def common_embedding_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, 
+def common_embedding_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
     metrics, capture_message_content, disable_metrics, version):
     """
     Process embedding request and generate Telemetry
@@ -210,9 +206,9 @@ def common_embedding_logic(scope, gen_ai_endpoint, pricing_info, environment, ap
 
     # Metrics
     if not disable_metrics:
-        record_embedding_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, 
-            SemanticConvention.GEN_AI_SYSTEM_OLLAMA, scope._server_address, scope._server_port, 
-            request_model, request_model, environment, application_name, scope._start_time, 
+        record_embedding_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+            SemanticConvention.GEN_AI_SYSTEM_OLLAMA, scope._server_address, scope._server_port,
+            request_model, request_model, environment, application_name, scope._start_time,
             scope._end_time, cost, input_tokens)
 
 def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics,
@@ -269,13 +265,13 @@ def process_embedding_response(response, gen_ai_endpoint, pricing_info, server_p
     scope._span = span
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
-    
+
     # Initialize streaming and timing values for Ollama embeddings
     scope._response_model = kwargs.get("model", "llama3.2")
     scope._tbt = 0.0
     scope._ttft = scope._end_time - scope._start_time
 
-    common_embedding_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, 
+    common_embedding_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
         metrics, capture_message_content, disable_metrics, version)
 
     return response
