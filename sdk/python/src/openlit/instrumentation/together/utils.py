@@ -197,8 +197,8 @@ def process_streaming_chat_response(scope, pricing_info, environment, applicatio
         capture_message_content, disable_metrics, version, is_stream=True)
 
 def process_chat_response(response, request_model, pricing_info, server_port, server_address,
-    environment, application_name, metrics, start_time,
-    span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+    environment, application_name, metrics, start_time, span, capture_message_content=False,
+    disable_metrics=False, version="1.0.0", **kwargs):
     """
     Process chat request and generate Telemetry
     """
@@ -294,8 +294,8 @@ def common_image_logic(scope, pricing_info, environment, application_name, metri
         )
 
 def process_image_response(response, request_model, pricing_info, server_address, server_port,
-    environment, application_name, metrics, start_time, end_time, span,
-    capture_message_content, disable_metrics, version, **kwargs):
+    environment, application_name, metrics, start_time, end_time, span, capture_message_content,
+    disable_metrics, version, **kwargs):
     """
     Process image generation request and generate Telemetry
     """

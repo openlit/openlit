@@ -146,7 +146,7 @@ def async_completion(version, environment, application_name,
     return wrapper
 
 def async_image_generate(version, environment, application_name,
-                   tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for GenAI function call
     """
