@@ -109,7 +109,7 @@ def record_embedding_metrics(metrics, gen_ai_operation, gen_ai_system, server_ad
     metrics["genai_prompt_tokens"].add(input_tokens, attributes)
     metrics["genai_cost"].record(cost, attributes)
 
-def common_generate_logic(scope, pricing_info, environment, application_name, metrics,
+def common_t2s_logic(scope, pricing_info, environment, application_name, metrics,
     capture_message_content, disable_metrics, version, is_stream):
     """
     Process generate request and generate Telemetry
@@ -228,7 +228,7 @@ def process_streaming_generate_response(scope, pricing_info, environment, applic
     """
     Process generate request and generate Telemetry
     """
-    common_generate_logic(scope, pricing_info, environment, application_name, metrics,
+    common_t2s_logic(scope, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version, is_stream=True)
 
 def process_generate_response(response, request_model, pricing_info, server_port, server_address,
@@ -252,7 +252,7 @@ def process_generate_response(response, request_model, pricing_info, server_port
     scope._args = args
     scope._tools = None
 
-    common_generate_logic(scope, pricing_info, environment, application_name, metrics,
+    common_t2s_logic(scope, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version, is_stream=False)
 
     return response
