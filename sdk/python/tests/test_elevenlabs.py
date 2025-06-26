@@ -63,7 +63,7 @@ async def test_async_elevenlabs_t2s():
     """
 
     try:
-        audio = async_client.text_to_speech.convert(
+        async_client.text_to_speech.convert(
             voice_id="21m00Tcm4TlvDq8ikWAM",
             output_format="mp3_22050_32",
             text="Say Monitoring LLM Applications",
