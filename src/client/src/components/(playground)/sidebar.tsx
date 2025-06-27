@@ -15,7 +15,6 @@ import {
 	Component,
 	FolderCogIcon,
 	FileJson2,
-	Home,
 	LayoutDashboard,
 	MonitorPlay,
 	SettingsIcon,
@@ -37,7 +36,7 @@ const ICON_CLASSES = "flex-shrink-0 size-5";
 
 const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
-		icon: <Home className={ICON_CLASSES} />,
+		icon: <LayoutDashboard className={ICON_CLASSES} />,
 		text: "Home",
 		link: "/home",
 	},
@@ -46,11 +45,11 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		text: "Dashboards",
 		link: "/dashboards",
 	},
-	{
-		icon: <LayoutDashboard className={ICON_CLASSES} />,
-		text: "Dashboard",
-		link: "/dashboard",
-	},
+	// {
+	// 	icon: <LayoutDashboard className={ICON_CLASSES} />,
+	// 	text: "Dashboard",
+	// 	link: "/dashboard",
+	// },
 	{
 		icon: <FileJson2 className={ICON_CLASSES} />,
 		text: "Requests",

@@ -17,6 +17,7 @@ import getMessage from "@/constants/messages";
 import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/selectors/page";
 import { AddResource, EditResource, useUpsertResource } from "../board-creator/hooks/useUpsertResource";
+import { exportBoardLayout } from "../board-creator/utils/api";
 
 // React 18 StrictMode compatibility fix for react-beautiful-dnd
 const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
@@ -355,10 +356,6 @@ export default function DashboardExplorer() {
 		},
 		[loadHierarchy, setMainDashboardRequest]
 	);
-
-	const exportBoardLayout = useCallback((id: string) => {
-		window.location.href = `/api/manage-dashboard/board/${id}/layout/export`;
-	}, []);
 
 	const importBoardLayout = useCallback((data: any) => {
 		return importBoardLayoutRequest({

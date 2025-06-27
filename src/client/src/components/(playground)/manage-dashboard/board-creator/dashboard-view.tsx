@@ -4,7 +4,7 @@ import React, { useCallback } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { Edit, Save, Plus, LucideIcon } from "lucide-react";
+import { Edit, Save, Plus, LucideIcon, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DashboardProps, Widget, WidgetType } from "./types";
 import { DashboardProvider, useDashboard } from "./context/dashboard-context";
@@ -25,6 +25,7 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { jsonParse, jsonStringify } from "@/utils/json";
 import { Board } from "@/types/manage-dashboard";
+import { exportBoardLayout } from "./utils/api";
 
 // Empty state component
 const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
@@ -240,6 +241,15 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 									label={"Add Widget"}
 								/>
 							)}
+							{
+								!isEditing && (
+									<ActionButtons
+										onClick={() => exportBoardLayout(details.id!)}
+										icon={Download}
+										label={"Export Layout"}
+									/>
+								)
+							}
 						</div>
 					)}
 				</div>

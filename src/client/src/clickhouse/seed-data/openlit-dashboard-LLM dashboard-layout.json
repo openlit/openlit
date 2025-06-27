@@ -1,7 +1,7 @@
 {
   "id": "f36c60be-5133-4727-b6f8-8999f0692943",
   "title": "LLM dashboard",
-  "description": "This is home page llm dashboard",
+  "description": "The LLM dashboard helps monitor usage patterns, detect anomalies, and optimize performance and cost across large language model workloads.",
   "parentId": null,
   "isMainDashboard": true,
   "isPinned": false,
@@ -94,7 +94,7 @@
         ]
       },
       "config": {
-        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\n\tSELECT\n\t\tCAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS total_tokens,\n\t\tCAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.input_tokens'])) AS INTEGER) AS prompt_tokens,\n\t\tCAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.output_tokens'])) AS INTEGER) AS completion_tokens,\n\t\tformatDateTime(DATE_TRUNC('day', Timestamp), '%Y/%m/%d %R') AS request_time\n\t\tFROM otel_traces \n\t\tWHERE \n\t\tSpanAttributes['gen_ai.operation.name'] != 'vectordb'\n\t\tAND StatusCode IN ('STATUS_CODE_OK', 'STATUS_CODE_UNSET', 'Ok', 'Unset')\n\t\tAND Timestamp >= start_time\n    AND Timestamp <= end_time\n\t\tGROUP BY request_time\n\t\tORDER BY request_time;"
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    dateDiff('day', start_time, end_time) AS days_diff,\n    dateDiff('year', start_time, end_time) AS years_diff,\n    multiIf(\n        years_diff >= 1, 'month',\n        days_diff <= 1, 'hour',\n        'day'\n    ) AS date_granularity\n\n\tSELECT\n\t\tCAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.total_tokens'])) AS INTEGER) AS total_tokens,\n\t\tCAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.input_tokens'])) AS INTEGER) AS prompt_tokens,\n\t\tCAST(SUM(toInt64OrZero(SpanAttributes['gen_ai.usage.output_tokens'])) AS INTEGER) AS completion_tokens,\n\t\tformatDateTime(DATE_TRUNC(date_granularity, Timestamp), '%Y/%m/%d %R') AS request_time\n\t\tFROM otel_traces \n\t\tWHERE \n\t\tSpanAttributes['gen_ai.operation.name'] != 'vectordb'\n\t\tAND StatusCode IN ('STATUS_CODE_OK', 'STATUS_CODE_UNSET', 'Ok', 'Unset')\n\t\tAND Timestamp >= start_time\n    AND Timestamp <= end_time\n\t\tGROUP BY request_time\n\t\tORDER BY request_time;"
       },
       "createdAt": "2025-06-16 07:39:17",
       "updatedAt": "2025-06-16 07:39:17"
@@ -110,7 +110,7 @@
         "color": "#F36C06"
       },
       "config": {
-        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT\n    CAST(COUNT(*) AS INTEGER) AS total,\n    formatDateTime(DATE_TRUNC('day', Timestamp), '%Y/%m/%d %R') AS request_time\nFROM otel_traces\nWHERE\n    SpanAttributes['gen_ai.operation.name'] != 'vectordb'\n    AND StatusCode IN ('STATUS_CODE_OK', 'STATUS_CODE_UNSET', 'Ok', 'Unset')\n    AND Timestamp >= start_time\n    AND Timestamp <= end_time\nGROUP BY\n    request_time\nORDER BY\n    request_time\n"
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    dateDiff('day', start_time, end_time) AS days_diff,\n    dateDiff('year', start_time, end_time) AS years_diff,\n    multiIf(\n        years_diff >= 1, 'month',\n        days_diff <= 1, 'hour',\n        'day'\n    ) AS date_granularity\n\nSELECT\n    CAST(COUNT(*) AS INTEGER) AS total,\n    formatDateTime(DATE_TRUNC(date_granularity, Timestamp), '%Y/%m/%d %R') AS request_time\nFROM otel_traces\nWHERE\n    SpanAttributes['gen_ai.operation.name'] != 'vectordb'\n\t\tAND StatusCode IN ('STATUS_CODE_OK', 'STATUS_CODE_UNSET', 'Ok', 'Unset')\n    AND Timestamp >= start_time AND Timestamp <= end_time\nGROUP BY request_time\nORDER BY request_time"
       },
       "createdAt": "2025-06-16 07:39:17",
       "updatedAt": "2025-06-16 07:39:17"
@@ -142,7 +142,7 @@
         "color": "#F36C06"
       },
       "config": {
-        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time\n\nSELECT \n    ARRAY_AGG(model) AS models,\n    ARRAY_AGG(model_count) AS model_counts,\n    CAST(SUM(model_count) AS INTEGER) AS total_model_count,\n    request_time\nFROM (\n    SELECT\n        SpanAttributes['gen_ai.request.model'] AS model,\n        COUNT(*) AS model_count,\n        formatDateTime(DATE_TRUNC('day', Timestamp), '%Y/%m/%d %R') AS request_time\n    FROM otel_traces\n    WHERE\n        Timestamp >= start_time AND Timestamp <= end_time\n        AND SpanAttributes['gen_ai.operation.name'] != 'vectordb'\n        AND notEmpty(SpanAttributes['gen_ai.request.model'])\n        AND StatusCode IN ('STATUS_CODE_OK', 'STATUS_CODE_UNSET', 'Ok', 'Unset')\n    GROUP BY\n        model, request_time\n) AS sub\nGROUP BY\n    request_time\nORDER BY\n    request_time\n"
+        "query": "WITH\n    parseDateTimeBestEffort('{{filter.timeLimit.start}}') AS start_time,\n    parseDateTimeBestEffort('{{filter.timeLimit.end}}') AS end_time,\n    dateDiff('day', start_time, end_time) AS days_diff,\n    dateDiff('year', start_time, end_time) AS years_diff,\n    multiIf(\n        years_diff >= 1, 'month',\n        days_diff <= 1, 'hour',\n        'day'\n    ) AS date_granularity\n\nSELECT \n    ARRAY_AGG(model) AS models,\n    ARRAY_AGG(model_count) AS model_counts,\n    CAST(SUM(model_count) AS INTEGER) AS total_model_count,\n    request_time\nFROM (\n    SELECT\n        SpanAttributes['gen_ai.request.model'] AS model,\n        COUNT(*) AS model_count,\n        formatDateTime(DATE_TRUNC(date_granularity, Timestamp), '%Y/%m/%d %R') AS request_time\n    FROM otel_traces\n    WHERE\n        Timestamp >= start_time AND Timestamp <= end_time\n        AND SpanAttributes['gen_ai.operation.name'] != 'vectordb'\n        AND notEmpty(SpanAttributes['gen_ai.request.model'])\n        AND StatusCode IN ('STATUS_CODE_OK', 'STATUS_CODE_UNSET', 'Ok', 'Unset')\n    GROUP BY\n        model, request_time\n) AS sub\nGROUP BY\n    request_time\nORDER BY\n    request_time\n"
       },
       "createdAt": "2025-06-16 07:39:17",
       "updatedAt": "2025-06-16 07:39:17"
@@ -320,7 +320,7 @@
       "updatedAt": "2025-06-16 07:39:17"
     }
   },
-  "tags": "[]",
+  "tags": "[\"llm\"]",
   "layouts": {
     "lg": [
       {

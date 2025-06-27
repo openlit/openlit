@@ -425,7 +425,9 @@ export async function importBoardLayout(data: any) {
 	const boardData: Partial<Board> = {
 		title: data.title,
 		description: data.description,
-		parentId: data.parentId,
+		isPinned: data.isPinned,
+		isMainDashboard: data.isMainDashboard,
+		tags: data.tags,
 	};
 
 	// Create the board first

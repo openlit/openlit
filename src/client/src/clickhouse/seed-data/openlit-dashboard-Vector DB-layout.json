@@ -1,7 +1,7 @@
 {
   "id": "4b153228-45fb-46d9-88c9-5a2aa3674251",
   "title": "Vector DB",
-  "description": "",
+  "description": "The vector DB dashboard helps track query performance, memory usage, and index efficiency to optimize similarity search and ensure reliable vector database operations.",
   "parentId": null,
   "isMainDashboard": false,
   "isPinned": true,
@@ -108,7 +108,7 @@
       "updatedAt": "2025-06-25 09:26:39"
     }
   },
-  "tags": "[]",
+  "tags": "[\"vector-db\"]",
   "layouts": {
     "lg": [
       {
