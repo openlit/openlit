@@ -308,9 +308,9 @@ def common_embedding_logic(scope, pricing_info, environment, application_name, m
     # Metrics
     if not disable_metrics:
         record_embedding_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
-            SemanticConvention.GEN_AI_SYSTEM_AZURE_AI_INFERENCE, scope._server_address, scope._server_address,
-            scope._server_port, request_model, scope._response_model, environment, application_name, scope._start_time,
-            scope._end_time, scope._input_tokens, cost)
+            SemanticConvention.GEN_AI_SYSTEM_AZURE_AI_INFERENCE, scope._server_address, scope._server_port,
+            request_model, scope._response_model, environment, application_name, scope._start_time, scope._end_time,
+            scope._input_tokens, cost)
 
 def process_embedding_response(response, request_model, pricing_info, server_port, server_address,
     environment, application_name, metrics, start_time, span, capture_message_content=False,
