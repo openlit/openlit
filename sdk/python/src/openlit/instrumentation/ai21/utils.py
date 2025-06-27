@@ -222,7 +222,6 @@ def common_chat_rag_logic(scope, pricing_info, environment, application_name, me
     # RAG-specific span attributes
     scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_MAX_SEGMENTS, scope._kwargs.get("max_segments", -1))
     scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_STRATEGY, scope._kwargs.get("retrieval_strategy", "segments"))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_SIMILARITY_THRESHOLD, scope._kwargs.get("retrieval_similarity_threshold", -1))
     scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_MAX_NEIGHBORS, scope._kwargs.get("max_neighbors", -1))
     scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_FILE_IDS, str(scope._kwargs.get("file_ids", "")))
     scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_DOCUMENTS_PATH, scope._kwargs.get("path", ""))
