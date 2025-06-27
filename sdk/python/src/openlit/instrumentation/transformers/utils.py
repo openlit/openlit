@@ -3,18 +3,60 @@ HF Transformers OpenTelemetry instrumentation utility functions
 """
 import time
 
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
-    response_as_dict,
-    calculate_tbt,
     general_tokens,
     get_chat_model_cost,
-    create_metrics_attributes,
-    format_and_concatenate
+    common_span_attributes,
+    record_completion_metrics,
 )
 from openlit.semcov import SemanticConvention
+
+def format_content(content):
+    """
+    Format content to a consistent structure.
+    """
+    if isinstance(content, str):
+        return content
+    elif isinstance(content, list):
+        # Check if it's a list of chat messages (like in the test case)
+        if (len(content) > 0 and isinstance(content[0], dict) and 
+            "role" in content[0] and "content" in content[0]):
+            # Handle chat message format like Groq
+            formatted_messages = []
+            for message in content:
+                role = message["role"]
+                msg_content = message["content"]
+                
+                if isinstance(msg_content, list):
+                    content_str = ", ".join(
+                        f'{item["type"]}: {item["text"] if "text" in item else item.get("image_url", str(item))}'
+                        if isinstance(item, dict) and "type" in item 
+                        else str(item)
+                        for item in msg_content
+                    )
+                    formatted_messages.append(f"{role}: {content_str}")
+                else:
+                    formatted_messages.append(f"{role}: {msg_content}")
+            return "\n".join(formatted_messages)
+        else:
+            # Handle other list formats (transformers responses)
+            formatted_content = []
+            for item in content:
+                if isinstance(item, str):
+                    formatted_content.append(item)
+                elif isinstance(item, dict):
+                    # Handle dict format for transformers
+                    if "generated_text" in item:
+                        formatted_content.append(str(item["generated_text"]))
+                    else:
+                        formatted_content.append(str(item))
+                else:
+                    formatted_content.append(str(item))
+            return " ".join(formatted_content)
+    else:
+        return str(content)
 
 def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
     capture_message_content, disable_metrics, version, args, kwargs, is_stream):
@@ -24,56 +66,42 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     """
 
     scope._end_time = time.time()
-    if len(scope._timestamps) > 1:
-        scope._tbt = calculate_tbt(scope._timestamps)
-
     forward_params = scope._instance._forward_params
     request_model = scope._instance.model.config.name_or_path
 
     input_tokens = general_tokens(scope._prompt)
-    output_tokens = general_tokens(scope._llmresponse)
+    output_tokens = general_tokens(scope._completion)
 
     cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
 
-    # Set Span attributes (OTel Semconv)
-    scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-    scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_HUGGING_FACE)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
-    scope._span.set_attribute(SemanticConvention.SERVER_PORT, scope._server_port)
+    # Common Span Attributes
+    common_span_attributes(scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_HUGGING_FACE,
+        scope._server_address, scope._server_port, request_model, request_model,
+        environment, application_name, is_stream, scope._tbt, scope._ttft, version)
 
-    # List of attributes and their config keys
-    attributes = [
-        (SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, "temperature"),
-        (SemanticConvention.GEN_AI_REQUEST_TOP_K, "top_k"),
-        (SemanticConvention.GEN_AI_REQUEST_TOP_P, "top_p"),
-        (SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, "max_length"),
-    ]
+    # Set request parameters from forward_params
+    if forward_params.get("temperature") is not None:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, forward_params["temperature"])
+    if forward_params.get("top_k") is not None:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, forward_params["top_k"])
+    if forward_params.get("top_p") is not None:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, forward_params["top_p"])
+    if forward_params.get("max_length") is not None:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, forward_params["max_length"])
 
-    # Set each attribute if the corresponding value exists and is not None
-    for attribute, key in attributes:
-        value = forward_params.get(key)
-        if value is not None:
-            scope._span.set_attribute(attribute, value)
-
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, request_model)
+    # Set token usage and cost attributes
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
-    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, scope._server_address)
-    scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
-    scope._span.set_attribute(SERVICE_NAME, application_name)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, is_stream)
     scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens)
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, scope._tbt)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, scope._ttft)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
 
-    # To be removed one the change to span_attributes (from span events) is complete
+    # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, scope._prompt)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._completion)
 
+        # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
             attributes={
@@ -83,32 +111,18 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
+                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._completion,
             },
         )
 
     scope._span.set_status(Status(StatusCode.OK))
 
+    # Record metrics using the standardized helper function
     if not disable_metrics:
-        metrics_attributes = create_metrics_attributes(
-            service_name=application_name,
-            deployment_environment=environment,
-            operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-            system=SemanticConvention.GEN_AI_SYSTEM_HUGGING_FACE,
-            request_model=request_model,
-            server_address=scope._server_address,
-            server_port=scope._server_port,
-            response_model=request_model,
-        )
-
-        metrics["genai_client_usage_tokens"].record(input_tokens + output_tokens, metrics_attributes)
-        metrics["genai_client_operation_duration"].record(scope._end_time - scope._start_time, metrics_attributes)
-        metrics["genai_server_tbt"].record(scope._tbt, metrics_attributes)
-        metrics["genai_server_ttft"].record(scope._ttft, metrics_attributes)
-        metrics["genai_requests"].add(1, metrics_attributes)
-        metrics["genai_completion_tokens"].add(output_tokens, metrics_attributes)
-        metrics["genai_prompt_tokens"].add(input_tokens, metrics_attributes)
-        metrics["genai_cost"].record(cost, metrics_attributes)
+        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_HUGGING_FACE,
+            scope._server_address, scope._server_port, request_model, request_model, environment,
+            application_name, scope._start_time, scope._end_time, cost, input_tokens, output_tokens,
+            scope._tbt, scope._ttft)
 
 def process_chat_response(instance, response, request_model, pricing_info, server_port, server_address,
     environment, application_name, metrics, start_time,
@@ -117,67 +131,69 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
     Process chat request and generate Telemetry
     """
 
-    self = type("GenericScope", (), {})()
-    response_dict = response_as_dict(response)
+    scope = type("GenericScope", (), {})()
+    scope._instance = instance
+    scope._start_time = start_time
+    scope._end_time = time.time()
+    scope._span = span
+    scope._server_address = server_address
+    scope._server_port = server_port
+    scope._kwargs = kwargs
+    scope._args = args
 
-    # pylint: disable = no-member
-    self._instance = instance
-    self._start_time = start_time
-    self._end_time = time.time()
-    self._span = span
-    self._timestamps = []
-    self._ttft, self._tbt = self._end_time - self._start_time, 0
-    self._server_address, self._server_port = server_address, server_port
-    self._kwargs = kwargs
-    self._args = args
-
-    if self._args and len(self._args) > 0:
-        self._prompt = args[0]
+    # Extract prompt from args or kwargs
+    if args and len(args) > 0:
+        scope._prompt = args[0]
     else:
-        self._prompt = (
+        scope._prompt = (
             kwargs.get("text_inputs") or
             (kwargs.get("image") and kwargs.get("question") and
-            ("image: " + kwargs.get("image") + " question:" + kwargs.get("question"))) or
+             ("image: " + kwargs.get("image") + " question:" + kwargs.get("question"))) or
             kwargs.get("fallback") or
             ""
         )
-    self._prompt = format_and_concatenate(self._prompt)
+    scope._prompt = format_content(scope._prompt)
 
-    self._llmresponse = []
-    if self._kwargs.get("task", "text-generation") == "text-generation":
-        first_entry = response_dict[0]
-
-        if isinstance(first_entry, dict) and isinstance(first_entry.get("generated_text"), list):
-            last_element = first_entry.get("generated_text")[-1]
-            self._llmresponse = last_element.get("content", last_element)
+    # Process response based on task type
+    task = kwargs.get("task", "text-generation")
+    
+    if task == "text-generation":
+        # Handle text generation responses
+        if isinstance(response, list) and len(response) > 0:
+            first_entry = response[0]
+            if isinstance(first_entry, dict):
+                if isinstance(first_entry.get("generated_text"), list):
+                    # Handle nested list format
+                    last_element = first_entry.get("generated_text")[-1]
+                    scope._completion = last_element.get("content", str(last_element))
+                else:
+                    # Handle standard format
+                    scope._completion = first_entry.get("generated_text", "")
+            else:
+                scope._completion = str(first_entry)
         else:
-            def extract_text(entry):
-                if isinstance(entry, dict):
-                    return entry.get("generated_text")
-                if isinstance(entry, list):
-                    return " ".join(
-                        extract_text(sub_entry) for sub_entry in entry if isinstance(sub_entry, dict)
-                    )
-                return ""
+            scope._completion = ""
+            
+    elif task == "automatic-speech-recognition":
+        scope._completion = response.get("text", "") if isinstance(response, dict) else ""
+        
+    elif task == "image-classification":
+        scope._completion = str(response[0]) if isinstance(response, list) and len(response) > 0 else ""
+        
+    elif task == "visual-question-answering":
+        if isinstance(response, list) and len(response) > 0 and isinstance(response[0], dict):
+            scope._completion = response[0].get("answer", "")
+        else:
+            scope._completion = ""
+    else:
+        # Default handling for other tasks
+        scope._completion = format_content(response)
 
-            # Process and collect all generated texts
-            self._llmresponse = [
-                extract_text(entry) for entry in response_dict
-            ]
+    # Initialize timing attributes
+    scope._tbt = 0
+    scope._ttft = scope._end_time - scope._start_time
 
-            # Join all non-empty responses into a single string
-            self._llmresponse = " ".join(filter(None, self._llmresponse))
-
-    elif self._kwargs.get("task", "text-generation") == "automatic-speech-recognition":
-        self._llmresponse = response_dict.get("text", "")
-
-    elif self._kwargs.get("task", "text-generation") == "image-classification":
-        self._llmresponse = str(response_dict[0])
-
-    elif self._kwargs.get("task", "text-generation") == "visual-question-answering":
-        self._llmresponse = str(response_dict[0]).get("answer")
-
-    common_chat_logic(self, pricing_info, environment, application_name, metrics,
-            capture_message_content, disable_metrics, version, args, kwargs, is_stream=False)
+    common_chat_logic(scope, pricing_info, environment, application_name, metrics,
+                     capture_message_content, disable_metrics, version, args, kwargs, is_stream=False)
 
     return response
