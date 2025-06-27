@@ -11,7 +11,6 @@ from openlit.__helpers import (
     calculate_tbt,
     get_chat_model_cost,
     get_embed_model_cost,
-    general_tokens,
     common_span_attributes,
     record_completion_metrics,
     record_embedding_metrics,
@@ -62,18 +61,18 @@ def process_chunk(scope, chunk):
         content = chunked.get('choices')[0].get('delta').get('content')
         if content:
             scope._llmresponse += content
-    
+
         # Handle tool calls in streaming - optimized
         delta_tools = chunked.get('choices', [{}])[0].get('delta', {}).get('tool_calls')
         if delta_tools:
             scope._tools = scope._tools or []
-            
+
             for tool in delta_tools:
                 idx = tool.get('index', 0)
-                
+
                 # Extend list if needed
                 scope._tools.extend([{}] * (idx + 1 - len(scope._tools)))
-                
+
                 if tool.get('id'):  # New tool (id exists)
                     func = tool.get('function', {})
                     scope._tools[idx] = {
@@ -140,14 +139,14 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     # Span Attributes for Tools - optimized
     if scope._tools:
         tools = scope._tools if isinstance(scope._tools, list) else [scope._tools]
-        
+
         names, ids, args = zip(*[
-            (t.get("function", {}).get("name", ""), 
-             str(t.get("id", "")), 
+            (t.get("function", {}).get("name", ""),
+             str(t.get("id", "")),
              str(t.get("function", {}).get("arguments", "")))
             for t in tools if isinstance(t, dict) and t
         ]) if tools else ([], [], [])
-        
+
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, ", ".join(filter(None, names)))
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, ", ".join(filter(None, ids)))
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, ", ".join(filter(None, args)))
@@ -223,8 +222,6 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
         scope._tools = response_dict.get("choices", [{}])[0].get("message", {}).get("tool_calls")
     else:
         scope._tools = None
-    
-    
 
     common_chat_logic(scope, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version, is_stream=False)
@@ -288,4 +285,4 @@ def process_embedding_response(response, request_model, pricing_info, server_por
             scope._server_address, scope._server_port, request_model, scope._response_model, environment,
             application_name, scope._start_time, scope._end_time, scope._input_tokens, cost)
 
-    return response 
+    return response
