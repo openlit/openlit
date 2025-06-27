@@ -102,11 +102,15 @@ def async_stream(version, environment, application_name,
             await self.__wrapped__.__aenter__()
             return self
 
-        async def __aexit__(self, exc_type, exc_val, exc_tb):
-            await self.__wrapped__.__aexit__(exc_type, exc_val, exc_tb)
+        async def __aexit__(self, exc_type, exc_value, traceback):
+            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
 
         def __aiter__(self):
             return self
+
+        async def __getattr__(self, name):
+            """Delegate attribute access to the wrapped object."""
+            return getattr(await self.__wrapped__, name)
 
         async def __anext__(self):
             try:
@@ -115,7 +119,7 @@ def async_stream(version, environment, application_name,
                 return chunk
             except StopAsyncIteration:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind=SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(self._span_name, kind= SpanKind.CLIENT) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,

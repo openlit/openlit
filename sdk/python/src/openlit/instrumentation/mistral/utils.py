@@ -58,7 +58,7 @@ def process_chunk(scope, chunk):
     if chunked.get("data"):
         data = chunked.get("data")
         choices = data.get("choices", [])
-        
+
         if choices and "delta" in choices[0]:
             delta = choices[0]["delta"]
             content = delta.get("content")
@@ -122,7 +122,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, scope._kwargs.get("presence_penalty", 0.0))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, scope._kwargs.get("stop_sequences", []))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, scope._kwargs.get("temperature", 0.3))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, scope._kwargs.get("k", 1.0))  
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, scope._kwargs.get("k", 1.0))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, scope._kwargs.get("p", 1.0))
 
     # Span Attributes for Response parameters
@@ -295,4 +295,4 @@ def process_embedding_response(response, request_model, pricing_info, server_por
     common_embedding_logic(scope, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version)
 
-    return response 
+    return response

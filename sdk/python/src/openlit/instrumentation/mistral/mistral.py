@@ -102,20 +102,24 @@ def stream(version, environment, application_name,
             self.__wrapped__.__enter__()
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            self.__wrapped__.__exit__(exc_type, exc_val, exc_tb)
+        def __exit__(self, exc_type, exc_value, traceback):
+            self.__wrapped__.__exit__(exc_type, exc_value, traceback)
 
         def __iter__(self):
             return self
 
+        def __getattr__(self, name):
+            """Delegate attribute access to the wrapped object."""
+            return getattr(self.__wrapped__, name)
+
         def __next__(self):
             try:
-                chunk = next(self.__wrapped__)
+                chunk = self.__wrapped__.__next__()
                 process_chunk(self, chunk)
                 return chunk
             except StopIteration:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind=SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(self._span_name, kind= SpanKind.CLIENT) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
