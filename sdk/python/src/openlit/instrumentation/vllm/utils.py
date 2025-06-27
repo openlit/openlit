@@ -73,9 +73,9 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, getattr(inference_config, 'temperature', 1.0))
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, getattr(inference_config, 'top_p', 1.0))
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, getattr(inference_config, 'top_k', -1))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, 
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
             getattr(inference_config, 'presence_penalty', 0.0))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, 
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
             getattr(inference_config, 'frequency_penalty', 0.0))
 
     # Span Attributes for Response parameters
