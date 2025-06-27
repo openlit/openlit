@@ -88,20 +88,20 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt.strip())
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion.strip())
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion)
 
         # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt.strip(),
+                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
             },
         )
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: completion.strip(),
+                SemanticConvention.GEN_AI_CONTENT_COMPLETION: completion,
             },
         )
 
