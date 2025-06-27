@@ -32,14 +32,16 @@ class AnthropicInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "anthropic.resources.messages",
             "Messages.create",
-            messages(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            messages(version, environment, application_name, tracer, pricing_info,
+                capture_message_content, metrics, disable_metrics),
         )
 
         # async
         wrap_function_wrapper(
             "anthropic.resources.messages",
             "AsyncMessages.create",
-            async_messages(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_messages(version, environment, application_name, tracer, pricing_info,
+                capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

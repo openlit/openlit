@@ -115,7 +115,7 @@ def messages(version, environment, application_name, tracer, pricing_info, captu
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = wrapped(*args, **kwargs)
-                
+
                 try:
                     response = process_chat_response(
                         response=response,

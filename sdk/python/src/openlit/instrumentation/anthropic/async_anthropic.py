@@ -67,9 +67,9 @@ def async_messages(version, environment, application_name, tracer, pricing_info,
         def __aiter__(self):
             return self
 
-        def __getattr__(self, name):
+        async def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
-            return getattr(self.__wrapped__, name)
+            return getattr(await self.__wrapped__, name)
 
         async def __anext__(self):
             try:
@@ -115,7 +115,7 @@ def async_messages(version, environment, application_name, tracer, pricing_info,
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                
+
                 try:
                     response = process_chat_response(
                         response=response,

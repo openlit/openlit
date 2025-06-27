@@ -19,10 +19,10 @@ def format_content(messages):
     """
     Format the messages into a string for span events.
     """
-    
+
     if not messages:
         return ""
-    
+
     formatted_messages = []
     for message in messages:
         if isinstance(message, dict):
@@ -32,7 +32,7 @@ def format_content(messages):
             # Handle Anthropic object format
             role = getattr(message, "role", "user")
             content = getattr(message, "content", "")
-        
+
         if isinstance(content, list):
             # Handle structured content (e.g., text + images)
             text_parts = []
@@ -42,9 +42,9 @@ def format_content(messages):
             content = " ".join(text_parts)
         elif not isinstance(content, str):
             content = str(content)
-            
+
         formatted_messages.append(f"{role}: {content}")
-    
+
     return "\n".join(formatted_messages)
 
 def process_chunk(scope, chunk):
@@ -132,7 +132,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         tool_name = scope._tool_calls.get("name", "")
         tool_id = scope._tool_calls.get("id", "")
         tool_args = scope._tool_calls.get("input", "")
-        
+
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, tool_name)
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, tool_id)
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(tool_args))
@@ -170,7 +170,7 @@ def process_streaming_chat_response(scope, pricing_info, environment, applicatio
     """
     Process streaming chat response and generate telemetry.
     """
-    
+
     if scope._tool_id != "":
         scope._tool_calls = {
             "id": scope._tool_id,
@@ -187,7 +187,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     """
     Process non-streaming chat response and generate telemetry.
     """
-    
+
     scope = type("GenericScope", (), {})()
     response_dict = response_as_dict(response)
 
@@ -206,7 +206,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
-    
+
     # Handle tool calls if present
     content_blocks = response_dict.get("content", [])
     scope._tool_calls = None
