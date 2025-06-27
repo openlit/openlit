@@ -43,5 +43,4 @@ class AnthropicInstrumentor(BaseInstrumentor):
         )
 
     def _uninstrument(self, **kwargs):
-        # Proper uninstrumentation logic to revert patched methods
         pass

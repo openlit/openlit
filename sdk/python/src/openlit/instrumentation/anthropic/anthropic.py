@@ -81,13 +81,13 @@ def messages(version, environment, application_name, tracer, pricing_info, captu
                     with self._span:
                         process_streaming_chat_response(
                             self,
-                            pricing_info=self._kwargs.get("pricing_info", {}),
-                            environment=self._kwargs.get("environment", "default"),
-                            application_name=self._kwargs.get("application_name", "default"),
-                            metrics=self._kwargs.get("metrics"),
-                            capture_message_content=self._kwargs.get("capture_message_content", False),
-                            disable_metrics=self._kwargs.get("disable_metrics", False),
-                            version=self._kwargs.get("version", "")
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -109,19 +109,7 @@ def messages(version, environment, application_name, tracer, pricing_info, captu
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            # Store additional context in kwargs for the stream
-            stream_kwargs = {
-                **kwargs,
-                "pricing_info": pricing_info,
-                "environment": environment,
-                "application_name": application_name,
-                "metrics": metrics,
-                "capture_message_content": capture_message_content,
-                "disable_metrics": disable_metrics,
-                "version": version
-            }
-
-            return TracedSyncStream(awaited_wrapped, span, span_name, stream_kwargs, server_address, server_port)
+            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
