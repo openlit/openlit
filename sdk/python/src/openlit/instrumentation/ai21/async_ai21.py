@@ -1,8 +1,7 @@
 """
-Module for monitoring AI21 calls.
+Module for monitoring AI21 API calls (async version).
 """
 
-import logging
 import time
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
@@ -15,21 +14,17 @@ from openlit.instrumentation.ai21.utils import (
     process_streaming_chat_response,
     process_chat_rag_response
 )
-
 from openlit.semcov import SemanticConvention
 
-# Initialize logger for logging potential issues and operations
-logger = logging.getLogger(__name__)
-
-def async_chat(version, environment, application_name,
-                     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_chat(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for GenAI function call
     """
 
     class TracedAsyncStream:
         """
-        Wrapper for streaming responses to collect telemetry.
+        Wrapper for async streaming responses to collect telemetry.
         """
 
         def __init__(
@@ -45,14 +40,12 @@ def async_chat(version, environment, application_name,
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
-            # Placeholder for aggregating streaming response
             self._llmresponse = ""
             self._response_id = ""
             self._finish_reason = ""
+            self._tools = None
             self._input_tokens = 0
             self._output_tokens = 0
-            self._choices = []
-
             self._args = args
             self._kwargs = kwargs
             self._start_time = time.time()
@@ -83,9 +76,8 @@ def async_chat(version, environment, application_name,
                 process_chunk(self, chunk)
                 return chunk
             except StopAsyncIteration:
-                # Handling exception ensure observability without disrupting operation
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind= SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(self._span_name, kind=SpanKind.CLIENT) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -96,6 +88,7 @@ def async_chat(version, environment, application_name,
                             disable_metrics=disable_metrics,
                             version=version
                         )
+
                 except Exception as e:
                     handle_exception(self._span, e)
 
@@ -105,25 +98,21 @@ def async_chat(version, environment, application_name,
         """
         Wraps the GenAI function call.
         """
-
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
-
         server_address, server_port = set_server_address_and_port(instance, "api.ai21.com", 443)
         request_model = kwargs.get("model", "jamba-1.5-mini")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
-        # pylint: disable=no-else-return
         if streaming:
-            # Special handling for streaming response to accommodate the nature of data flow
+            # Special handling for streaming response
             awaited_wrapped = await wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
             return TracedAsyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
-
-        # Handling for non-streaming responses
         else:
-            with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
+            # Handling for non-streaming responses
+            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = await wrapped(*args, **kwargs)
 
@@ -152,23 +141,22 @@ def async_chat(version, environment, application_name,
 
     return wrapper
 
-def async_chat_rag(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_chat_rag(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for GenAI function call
+    Generates a telemetry wrapper for GenAI RAG function call
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the GenAI function call.
+        Wraps the GenAI RAG function call.
         """
-
         server_address, server_port = set_server_address_and_port(instance, "api.ai21.com", 443)
         request_model = kwargs.get("model", "jamba-1.5-mini")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
-        with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
             response = await wrapped(*args, **kwargs)
 
