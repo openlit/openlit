@@ -59,7 +59,7 @@ def test_sync_chat_completions():
 
 def test_sync_embeddings():
     """
-    Tests synchronous embedding creation with the "cohere-embed-v3-english" model.
+    Tests synchronous embedding creation with the "openai/text-embedding-3-small" model.
 
     Raises:
         AssertionError: If the embedding response object is not as expected.
@@ -67,7 +67,7 @@ def test_sync_embeddings():
 
     response = sync_embed_client.embed(
         input=["LLM Observability", "Monitor GPUs"],
-        model="cohere-embed-v3-english"
+        model="openai/text-embedding-3-small"
     )
     assert response.data[0]["object"] == 'embedding'
 
@@ -106,7 +106,7 @@ async def test_async_chat_completions():
 @pytest.mark.asyncio
 async def test_async_embeddings():
     """
-    Tests synchronous embedding creation with the "cohere-embed-v3-english" model.
+    Tests synchronous embedding creation with the "openai/text-embedding-3-small" model.
 
     Raises:
         AssertionError: If the embedding response object is not as expected.
@@ -114,6 +114,6 @@ async def test_async_embeddings():
 
     response = await async_embed_client.embed(
         input=["LLM Observability", "Monitor GPUs"],
-        model="cohere-embed-v3-english"
+        model="openai/text-embedding-3-small"
     )
     assert response.data[0]["object"] == 'embedding'
