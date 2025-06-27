@@ -6,7 +6,6 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
-    response_as_dict,
     general_tokens,
     get_chat_model_cost,
     common_span_attributes,
@@ -69,13 +68,15 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     # Span Attributes for Request parameters
     inference_config = get_inference_config(scope._args, scope._kwargs)
     if inference_config:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, getattr(inference_config, 'frequency_penalty', 0.0))
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, getattr(inference_config, 'max_tokens', -1))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, getattr(inference_config, 'presence_penalty', 0.0))
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, getattr(inference_config, 'stop_sequences', []))
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, getattr(inference_config, 'temperature', 1.0))
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, getattr(inference_config, 'top_p', 1.0))
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, getattr(inference_config, 'top_k', -1))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, 
+            getattr(inference_config, 'presence_penalty', 0.0))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, 
+            getattr(inference_config, 'frequency_penalty', 0.0))
 
     # Span Attributes for Response parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text")
