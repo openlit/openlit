@@ -2,7 +2,6 @@
 Module for monitoring vLLM API calls.
 """
 
-import logging
 import time
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
@@ -14,11 +13,8 @@ from openlit.instrumentation.vllm.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-# Initialize logger for logging potential issues and operations
-logger = logging.getLogger(__name__)
-
-def generate(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def generate(version, environment, application_name, tracer, pricing_info,
+             capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -27,7 +23,6 @@ def generate(version, environment, application_name,
         """
         Wraps the GenAI function call.
         """
-
         server_address, server_port = set_server_address_and_port(instance, "http://127.0.0.1", 443)
         request_model = instance.llm_engine.model_config.model or "facebook/opt-125m"
 
@@ -56,9 +51,9 @@ def generate(version, environment, application_name,
                     disable_metrics=disable_metrics,
                     version=version,
                 )
+
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in trace creation: %s", e)
 
             return response
 
