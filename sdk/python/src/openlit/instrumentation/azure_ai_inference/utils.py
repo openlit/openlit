@@ -58,7 +58,7 @@ def process_chunk(scope, chunk):
     choices = chunked.get("choices", [])
     if choices and "delta" in choices[0]:
         delta = choices[0]["delta"]
-        
+
         # Handle content
         content = delta.get("content")
         if content:
@@ -154,7 +154,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens > 0:
         scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, scope._reasoning_tokens)
         # Update total token usage to include reasoning tokens
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, 
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
                                 scope._input_tokens + scope._output_tokens + scope._reasoning_tokens)
 
     # Span Attributes for Tools - optimized
@@ -199,10 +199,10 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Metrics
     if not disable_metrics:
-        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_AZURE_AI_INFERENCE,
-            scope._server_address, scope._server_port, request_model, scope._response_model, environment,
-            application_name, scope._start_time, scope._end_time, scope._input_tokens, scope._output_tokens,
-            cost, scope._tbt, scope._ttft)
+        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_AZURE_AI_INFERENCE, scope._server_address, scope._server_port,
+            request_model, scope._response_model, environment,  application_name, scope._start_time, scope._end_time,
+            scope._input_tokens, scope._output_tokens, cost, scope._tbt, scope._ttft)
 
 def process_streaming_chat_response(scope, pricing_info, environment, application_name, metrics,
     capture_message_content=False, disable_metrics=False, version=""):
@@ -235,7 +235,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     reasoning_content = response_dict.get("choices", [{}])[0].get("message", {}).get("reasoning_content")
     if reasoning_content:
         scope._reasoning_content = reasoning_content
-    
+
     scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
     scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
     # Handle reasoning tokens if present (optional) - check nested structure
@@ -307,9 +307,10 @@ def common_embedding_logic(scope, pricing_info, environment, application_name, m
 
     # Metrics
     if not disable_metrics:
-        record_embedding_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, SemanticConvention.GEN_AI_SYSTEM_AZURE_AI_INFERENCE,
-            scope._server_address, scope._server_port, request_model, scope._response_model, environment,
-            application_name, scope._start_time, scope._end_time, scope._input_tokens, cost)
+        record_embedding_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+            SemanticConvention.GEN_AI_SYSTEM_AZURE_AI_INFERENCE, scope._server_address, scope._server_address,
+            scope._server_port, request_model, scope._response_model, environment, application_name, scope._start_time,
+            scope._end_time, scope._input_tokens, cost)
 
 def process_embedding_response(response, request_model, pricing_info, server_port, server_address,
     environment, application_name, metrics, start_time, span, capture_message_content=False,
