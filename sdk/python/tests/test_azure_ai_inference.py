@@ -39,7 +39,7 @@ openlit.init(environment="openlit-testing", application_name="openlit-python-tes
 
 def test_sync_chat_completions():
     """
-    Tests synchronous chat completions with the "xai/grok-3-mini" model.
+    Tests synchronous chat completions with the "microsoft/Phi-4-mini-reasoning" model.
 
     Raises:
         AssertionError: If the chat completion response object is not as expected.
@@ -50,7 +50,7 @@ def test_sync_chat_completions():
             SystemMessage(content="You are a helpful assistant."),
             UserMessage(content="sync non-streaming"),
         ],
-        model="xai/grok-3-mini",
+        model="microsoft/Phi-4-mini-reasoning",
         temperature=1.0,
         max_tokens=1000,
         top_p=1.0
@@ -85,7 +85,7 @@ async_embed_client = EmbeddingsClient(
 @pytest.mark.asyncio
 async def test_async_chat_completions():
     """
-    Tests synchronous chat completions with the "xai/grok-3-mini" model.
+    Tests synchronous chat completions with the "microsoft/Phi-4-mini-reasoning" model.
 
     Raises:
         AssertionError: If the chat completion response object is not as expected.
@@ -96,7 +96,7 @@ async def test_async_chat_completions():
             SystemMessage(content="You are a helpful assistant."),
             UserMessage(content="sync non-streaming"),
         ],
-        model="xai/grok-3-mini",
+        model="microsoft/Phi-4-mini-reasoning",
         temperature=1.0,
         max_tokens=1000,
         top_p=1.0
