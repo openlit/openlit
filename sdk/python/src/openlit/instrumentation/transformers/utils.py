@@ -21,18 +21,18 @@ def format_content(content):
         return content
     elif isinstance(content, list):
         # Check if it's a list of chat messages (like in the test case)
-        if (len(content) > 0 and isinstance(content[0], dict) and 
+        if (len(content) > 0 and isinstance(content[0], dict) and
             "role" in content[0] and "content" in content[0]):
             # Handle chat message format like Groq
             formatted_messages = []
             for message in content:
                 role = message["role"]
                 msg_content = message["content"]
-                
+
                 if isinstance(msg_content, list):
                     content_str = ", ".join(
                         f'{item["type"]}: {item["text"] if "text" in item else item.get("image_url", str(item))}'
-                        if isinstance(item, dict) and "type" in item 
+                        if isinstance(item, dict) and "type" in item
                         else str(item)
                         for item in msg_content
                     )
@@ -119,10 +119,10 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Record metrics using the standardized helper function
     if not disable_metrics:
-        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_HUGGING_FACE,
-            scope._server_address, scope._server_port, request_model, request_model, environment,
-            application_name, scope._start_time, scope._end_time, cost, input_tokens, output_tokens,
-            scope._tbt, scope._ttft)
+        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_HUGGING_FACE, scope._server_address, scope._server_port,
+            request_model, request_model, environment, application_name, scope._start_time, scope._end_time,
+            cost, input_tokens, output_tokens, scope._tbt, scope._ttft)
 
 def process_chat_response(instance, response, request_model, pricing_info, server_port, server_address,
     environment, application_name, metrics, start_time,
@@ -156,7 +156,7 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
 
     # Process response based on task type
     task = kwargs.get("task", "text-generation")
-    
+
     if task == "text-generation":
         # Handle text generation responses
         if isinstance(response, list) and len(response) > 0:
@@ -173,13 +173,13 @@ def process_chat_response(instance, response, request_model, pricing_info, serve
                 scope._completion = str(first_entry)
         else:
             scope._completion = ""
-            
+
     elif task == "automatic-speech-recognition":
         scope._completion = response.get("text", "") if isinstance(response, dict) else ""
-        
+
     elif task == "image-classification":
         scope._completion = str(response[0]) if isinstance(response, list) and len(response) > 0 else ""
-        
+
     elif task == "visual-question-answering":
         if isinstance(response, list) and len(response) > 0 and isinstance(response[0], dict):
             scope._completion = response[0].get("answer", "")
