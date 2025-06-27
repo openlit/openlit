@@ -136,9 +136,6 @@ def stream(version, environment, application_name,
 
                 raise
 
-        def __getattr__(self, name):
-            return getattr(self.__wrapped__, name)
-
     def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the GenAI stream function call.
