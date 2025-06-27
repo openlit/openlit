@@ -12,7 +12,7 @@ from openlit.instrumentation.openai.async_openai import (async_chat_completions,
 from openlit.instrumentation.openai.async_openai import async_image_generate, async_image_variatons
 from openlit.instrumentation.openai.async_openai import async_audio_create, async_responses
 
-_instruments = ("openai >= 1.1.1",)
+_instruments = ("openai >= 1.92.0",)
 
 class OpenAIInstrumentor(BaseInstrumentor):
     """An instrumentor for OpenAI's client library."""
@@ -129,14 +129,14 @@ class OpenAIInstrumentor(BaseInstrumentor):
         )
 
         wrap_function_wrapper(
-            "openai.resources.beta.chat.completions",
+            "openai.resources.chat.completions",
             "Completions.parse",
             chat_completions_parse(version, environment, application_name, tracer, pricing_info,
                                    capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
-            "openai.resources.beta.chat.completions",
+            "openai.resources.chat.completions",
             "AsyncCompletions.parse",
             async_chat_completions_parse(version, environment, application_name, tracer, pricing_info,
                                          capture_message_content, metrics, disable_metrics),
