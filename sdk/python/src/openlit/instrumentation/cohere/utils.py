@@ -81,13 +81,13 @@ def process_chunk(scope, chunk):
     if chunked.get("type") == "tool-call-start":
         if not hasattr(scope, "_tools") or scope._tools is None:
             scope._tools = []
-        
+
         index = chunked.get("index", 0)
         tool_call = chunked.get("delta", {}).get("message", {}).get("tool_calls", {})
-        
+
         # Extend list if needed
         scope._tools.extend([{}] * (index + 1 - len(scope._tools)))
-        
+
         # Initialize tool call
         scope._tools[index] = {
             "id": tool_call.get("id", ""),
@@ -327,4 +327,4 @@ def process_embedding_response(response, request_model, pricing_info, server_por
     common_embedding_logic(scope, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version)
 
-    return response 
+    return response
