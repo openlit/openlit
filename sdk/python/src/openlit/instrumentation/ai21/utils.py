@@ -226,6 +226,8 @@ def common_chat_rag_logic(scope, pricing_info, environment, application_name, me
     scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_MAX_NEIGHBORS, scope._kwargs.get("max_neighbors", -1))
     scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_FILE_IDS, str(scope._kwargs.get("file_ids", "")))
     scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_DOCUMENTS_PATH, scope._kwargs.get("path", ""))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_RAG_SIMILARITY_THRESHOLD,
+                                scope._kwargs.get("retrieval_similarity_threshold", -1))
 
     # Standard span attributes
     scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
@@ -237,7 +239,8 @@ def common_chat_rag_logic(scope, pricing_info, environment, application_name, me
 
     # Handle tool calls
     if scope._kwargs.get("tools"):
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALLS, str(scope._choices[0].get("message", {}).get("tool_calls", "")))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALLS,
+            str(scope._choices[0].get("message", {}).get("tool_calls", "")))
 
     # Content attributes
     if capture_message_content:
@@ -281,21 +284,21 @@ def process_chat_rag_response(response, request_model, pricing_info, server_port
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
-    
+
     # Format input messages and calculate input tokens
     prompt = format_content(kwargs.get("messages", []))
     input_tokens = general_tokens(prompt)
-    
+
     # Process response choices
     choices = response_dict.get("choices", [])
     aggregated_completion = []
     output_tokens = 0
-    
+
     for i in range(kwargs.get("n", 1)):
         content = choices[i].get("content", "")
         aggregated_completion.append(content)
         output_tokens += general_tokens(content)
-    
+
     scope._llmresponse = "".join(aggregated_completion)
     scope._response_id = response_dict.get("id", "")
     scope._response_model = request_model
