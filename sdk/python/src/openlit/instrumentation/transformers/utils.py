@@ -20,7 +20,7 @@ def format_content(content):
     if isinstance(content, str):
         return content
     elif isinstance(content, list):
-        # Check if it's a list of chat messages (like in the test case)
+        # Check if its a list of chat messages (like in the test case)
         if (len(content) > 0 and isinstance(content[0], dict) and
             "role" in content[0] and "content" in content[0]):
             # Handle chat message format like Groq
