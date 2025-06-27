@@ -1,4 +1,3 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of AI21 Functions"""
 
 from typing import Collection
@@ -33,34 +32,37 @@ class AI21Instrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("ai21")
 
-        #sync
+        # Chat completions
         wrap_function_wrapper(
             "ai21.clients.studio.resources.chat.chat_completions",
             "ChatCompletions.create",
             chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
+
+        # RAG completions
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
             "StudioConversationalRag.create",
             chat_rag(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                     tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
-        #Async
+        # Async chat completions
         wrap_function_wrapper(
             "ai21.clients.studio.resources.chat.async_chat_completions",
             "AsyncChatCompletions.create",
             async_chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                       tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
+
+        # Async RAG completions
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
             "AsyncStudioConversationalRag.create",
             async_chat_rag(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                           tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):
-        # Proper uninstrumentation logic to revert patched methods
         pass
