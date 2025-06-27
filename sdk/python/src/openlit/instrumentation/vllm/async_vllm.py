@@ -1,5 +1,5 @@
 """
-Module for monitoring vLLM API calls.
+Module for monitoring vLLM API calls (async version).
 """
 
 import time
@@ -13,15 +13,15 @@ from openlit.instrumentation.vllm.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def generate(version, environment, application_name, tracer, pricing_info,
-             capture_message_content, metrics, disable_metrics):
+def async_generate(version, environment, application_name, tracer, pricing_info,
+                   capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for GenAI function call
+    Generates a telemetry wrapper for GenAI async function call
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the GenAI function call.
+        Wraps the GenAI async function call.
         """
         server_address, server_port = set_server_address_and_port(instance, "http://127.0.0.1", 443)
         request_model = instance.llm_engine.model_config.model or "facebook/opt-125m"
@@ -30,7 +30,7 @@ def generate(version, environment, application_name, tracer, pricing_info,
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 response = process_chat_response(
@@ -57,4 +57,4 @@ def generate(version, environment, application_name, tracer, pricing_info,
 
             return response
 
-    return wrapper
+    return wrapper 
