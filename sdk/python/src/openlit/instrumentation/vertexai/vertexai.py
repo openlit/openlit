@@ -118,10 +118,10 @@ def send_message(version, environment, application_name, tracer,
                 try:
                     response = process_chat_response(
                         response=response,
-                        request_model=request_model,
+                            request_model=request_model,
                         pricing_info=pricing_info,
                         server_port=server_port,
-                        server_address=server_address,
+                            server_address=server_address,
                         environment=environment,
                         application_name=application_name,
                         metrics=metrics,
@@ -136,6 +136,6 @@ def send_message(version, environment, application_name, tracer,
                 except Exception as e:
                     handle_exception(span, e)
 
-            return response
+                    return response
 
     return wrapper
