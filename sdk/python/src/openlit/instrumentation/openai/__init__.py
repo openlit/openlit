@@ -10,7 +10,7 @@ from openlit.instrumentation.openai.openai import (
 )
 from openlit.instrumentation.openai.async_openai import (
     async_chat_completions, async_embedding, async_chat_completions_parse,
-    async_image_generate, async_image_variatons, async_audio_create, async_responses
+    async_image_generate, async_image_variations, async_audio_create, async_responses
 )
 
 _instruments = ("openai >= 1.92.0",)
@@ -119,7 +119,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "openai.resources.images",  
             "AsyncImages.create_variation",  
-            async_image_variatons(version, environment, application_name,
+            async_image_variations(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 

@@ -406,7 +406,7 @@ def async_image_generate(version, environment, application_name, tracer, pricing
 
     return wrapper
 
-def async_image_variatons(version, environment, application_name, tracer, pricing_info,
+def async_image_variations(version, environment, application_name, tracer, pricing_info,
     capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI async image variations.
