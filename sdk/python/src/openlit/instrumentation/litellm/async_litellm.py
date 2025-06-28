@@ -68,9 +68,9 @@ def acompletion(version, environment, application_name, tracer, pricing_info,
         def __aiter__(self):
             return self
 
-        def __getattr__(self, name):
+        async def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
-            return getattr(self.__wrapped__, name)
+            return getattr(await self.__wrapped__, name)
 
         async def __anext__(self):
             try:
