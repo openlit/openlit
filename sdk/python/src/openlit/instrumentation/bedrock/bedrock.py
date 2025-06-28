@@ -39,7 +39,7 @@ def converse(version, environment, application_name, tracer, pricing_info, captu
                 start_time = time.time()
                 response = original_method(*method_args, **method_kwargs)
                 llm_config = method_kwargs.get("inferenceConfig", {})
-                
+
                 try:
                     response = process_chat_response(
                         response=response,
@@ -102,7 +102,7 @@ def converse_stream(version, environment, application_name, tracer, pricing_info
                 self.__wrapped_stream = iter(wrapped_response["stream"])
             else:
                 self.__wrapped_stream = iter(wrapped_response)
-                
+
             self._span = span
             self._span_name = span_name
             self._llmresponse = ""
@@ -195,7 +195,7 @@ def converse_stream(version, environment, application_name, tracer, pricing_info
             # Get the streaming response
             stream_response = original_method(*method_args, **method_kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-            
+
             return TracedSyncStream(stream_response, span, span_name, method_kwargs, server_address, server_port)
 
         # Get the original client instance from the wrapper

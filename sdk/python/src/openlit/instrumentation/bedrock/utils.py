@@ -20,10 +20,10 @@ def format_content(messages):
     """
     Format the messages into a string for span events.
     """
-    
+
     if not messages:
         return ""
-    
+
     formatted_messages = []
     for message in messages:
         if isinstance(message, dict):
@@ -33,7 +33,7 @@ def format_content(messages):
             # Handle Bedrock object format
             role = getattr(message, "role", "user")
             content = getattr(message, "content", "")
-        
+
         if isinstance(content, list):
             # Handle structured content (e.g., text + images)
             text_parts = []
@@ -47,9 +47,9 @@ def format_content(messages):
             content = " ".join(text_parts)
         elif not isinstance(content, str):
             content = str(content)
-            
+
         formatted_messages.append(f"{role}: {content}")
-    
+
     return "\n".join(formatted_messages)
 
 def process_chunk(self, chunk):
@@ -174,7 +174,7 @@ def process_streaming_chat_response(scope, pricing_info, environment, applicatio
     """
     Process streaming chat response and generate telemetry.
     """
-    
+
     try:
         if llm_config is None:
             llm_config = {}
@@ -191,7 +191,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     """
     Process non-streaming chat response and generate telemetry.
     """
-    
+
     try:
         if llm_config is None:
             llm_config = {}
