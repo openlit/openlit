@@ -49,7 +49,7 @@ def format_content(contents):
             if part.inline_data:
                 content_str.append(f"inline_data: {part.inline_data}")
 
-        formatted_messages.append(f"{role}: {', '.join(content_str)}")
+        formatted_messages.append(f"{role}: {", ".join(content_str)}")
 
     return "\n".join(formatted_messages)
 
@@ -96,7 +96,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Span Attributes for Request parameters (VertexAI-specific)
     inference_config = scope._kwargs.get("generation_config", {})
-    
+
     # List of attributes and their config keys
     attributes = [
         (SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, "frequency_penalty"),
@@ -169,7 +169,6 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
 
     scope = type("GenericScope", (), {})()
 
-    # pylint: disable = no-member
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
@@ -198,8 +197,8 @@ def extract_vertexai_details(instance):
     except:
         location = instance._location
         request_model = "/".join(instance._model_name.split("/")[3:])
-    
+
     server_address = location + "-aiplatform.googleapis.com"
     server_port = 443
-    
-    return server_address, server_port, request_model 
+
+    return server_address, server_port, request_model
