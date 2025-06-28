@@ -21,7 +21,8 @@ from openlit.instrumentation.openai.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def async_chat_completions(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_chat_completions(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI async chat completions.
     """
@@ -142,7 +143,8 @@ def async_chat_completions(version, environment, application_name, tracer, prici
 
     return wrapper
 
-def async_responses(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_responses(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI async responses API.
     """
@@ -267,7 +269,8 @@ def async_responses(version, environment, application_name, tracer, pricing_info
 
     return wrapper
 
-def async_chat_completions_parse(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_chat_completions_parse(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI async chat completions parse.
     """
@@ -311,7 +314,8 @@ def async_chat_completions_parse(version, environment, application_name, tracer,
 
     return wrapper
 
-def async_embedding(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_embedding(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI async embeddings.
     """
@@ -355,7 +359,8 @@ def async_embedding(version, environment, application_name, tracer, pricing_info
 
     return wrapper
 
-def async_image_generate(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_image_generate(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI async image generation.
     """
@@ -401,7 +406,8 @@ def async_image_generate(version, environment, application_name, tracer, pricing
 
     return wrapper
 
-def async_image_variatons(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_image_variatons(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI async image variations.
     """
@@ -447,7 +453,8 @@ def async_image_variatons(version, environment, application_name, tracer, pricin
 
     return wrapper
 
-def async_audio_create(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_audio_create(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI async audio creation.
     """

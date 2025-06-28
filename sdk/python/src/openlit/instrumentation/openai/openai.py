@@ -21,7 +21,8 @@ from openlit.instrumentation.openai.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def chat_completions(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def chat_completions(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI chat completions.
     """
@@ -142,7 +143,8 @@ def chat_completions(version, environment, application_name, tracer, pricing_inf
 
     return wrapper
 
-def responses(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def responses(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics, **kwargs):
     """
     Generates a telemetry wrapper for OpenAI responses API.
     """
@@ -267,7 +269,8 @@ def responses(version, environment, application_name, tracer, pricing_info, capt
 
     return wrapper
 
-def chat_completions_parse(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def chat_completions_parse(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI chat completions parse.
     """
@@ -311,7 +314,8 @@ def chat_completions_parse(version, environment, application_name, tracer, prici
 
     return wrapper
 
-def embedding(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def embedding(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics, **kwargs):
     """
     Generates a telemetry wrapper for OpenAI embeddings.
     """
@@ -355,7 +359,8 @@ def embedding(version, environment, application_name, tracer, pricing_info, capt
 
     return wrapper
 
-def image_generate(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def image_generate(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics, **kwargs):
     """
     Generates a telemetry wrapper for OpenAI image generation.
     """
@@ -401,7 +406,8 @@ def image_generate(version, environment, application_name, tracer, pricing_info,
 
     return wrapper
 
-def image_variatons(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def image_variatons(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI image variations.
     """
@@ -447,7 +453,8 @@ def image_variatons(version, environment, application_name, tracer, pricing_info
 
     return wrapper
 
-def audio_create(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def audio_create(version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
     Generates a telemetry wrapper for OpenAI audio creation.
     """
