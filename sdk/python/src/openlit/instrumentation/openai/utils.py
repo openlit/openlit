@@ -549,6 +549,202 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
 
     return response
 
+def common_embedding_logic(scope, request_model, pricing_info, environment, application_name, 
+                          metrics, capture_message_content, disable_metrics, version):
+    """
+    Common logic for processing embedding operations.
+    """
+    
+    # Calculate cost
+    cost = get_embed_model_cost(request_model, pricing_info, scope._input_tokens)
+    
+    # Common Span Attributes
+    common_span_attributes(scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+        scope._server_address, scope._server_port, request_model, request_model,
+        environment, application_name, False, scope._tbt, scope._ttft, version)
+
+    # Span Attributes for Request parameters
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [scope._kwargs.get("encoding_format", "float")])
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, scope._kwargs.get("user", ""))
+
+    # Span Attributes for Cost and Tokens
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+
+    # Span Attributes for Content
+    if capture_message_content:
+        input_data = scope._kwargs.get("input", "")
+        formatted_content = format_content(input_data) if isinstance(input_data, (list, dict)) else str(input_data)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, formatted_content)
+
+    scope._span.set_status(Status(StatusCode.OK))
+
+    # Record metrics
+    if not disable_metrics:
+        record_embedding_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+            scope._server_address, scope._server_port, request_model, request_model, environment,
+            application_name, scope._start_time, scope._end_time, scope._input_tokens, cost)
+
+def common_image_logic(scope, request_model, pricing_info, environment, application_name,
+                      metrics, capture_message_content, disable_metrics, version):
+    """
+    Common logic for processing image operations.
+    """
+    
+    # Calculate cost
+    cost = get_image_model_cost(request_model, pricing_info, 
+                                scope._kwargs.get("size", "1024x1024"),
+                                scope._kwargs.get("quality", "standard"))
+    
+    # Common Span Attributes
+    common_span_attributes(scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+        scope._server_address, scope._server_port, request_model, request_model,
+        environment, application_name, False, scope._tbt, scope._ttft, version)
+
+    # Span Attributes for Request parameters
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE, scope._kwargs.get("size", "1024x1024"))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY, scope._kwargs.get("quality", "standard"))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, scope._kwargs.get("user", ""))
+
+    # Extract response data
+    response_dict = scope._response_dict
+    images_data = response_dict.get("data", [])
+    response_created = response_dict.get("created")
+    response_size = response_dict.get("size")
+    response_quality = response_dict.get("quality")
+    response_output_format = response_dict.get("output_format")
+
+    # Span Attributes for Response
+    if response_created:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, str(response_created))
+    
+    # Process image data and collect URLs/base64 content
+    if images_data:
+        # Collect image URLs or base64 content
+        image_contents = []
+        
+        for image in images_data:
+            # Collect image content (URL or base64)
+            if image.get("url"):
+                image_contents.append(image["url"])
+            elif image.get("b64_json"):
+                # For base64, we typically don't want to store the full content in spans
+                # Just indicate it's base64 format
+                image_contents.append("[base64_image_data]")
+        
+        # Set image response data using semantic conventions
+        if image_contents:
+            scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_IMAGE, image_contents)
+
+    # Response-level attributes if different from request
+    if response_size:
+        scope._span.set_attribute("gen_ai.response.image_size", response_size)
+    if response_quality:
+        scope._span.set_attribute("gen_ai.response.image_quality", response_quality)
+    if response_output_format:
+        scope._span.set_attribute("gen_ai.response.output_format", response_output_format)
+
+    # Span Attributes for Cost
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+
+    # Span Attributes for Content
+    if capture_message_content:
+        # Always collect the original prompt
+        prompt = scope._kwargs.get("prompt", "")
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+
+        # Collect and set revised prompts if available
+        if images_data:
+            revised_prompts = []
+            for image in images_data:
+                if image.get("revised_prompt"):
+                    revised_prompts.append(image["revised_prompt"])
+            
+            # Set revised prompts as span attribute if any were found
+            if revised_prompts:
+                scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT, revised_prompts)
+
+            # Add revised prompt events for detailed tracking
+            for i, image in enumerate(images_data):
+                if image.get("revised_prompt"):
+                    scope._span.add_event(
+                        name=SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT,
+                        attributes={
+                            SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT: image["revised_prompt"],
+                            "image_index": i,
+                        },
+                    )
+
+    scope._span.set_status(Status(StatusCode.OK))
+
+    # Record metrics
+    if not disable_metrics:
+        record_image_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+            scope._server_address, scope._server_port, request_model, request_model, environment,
+            application_name, scope._start_time, scope._end_time, cost)
+
+def common_audio_logic(scope, request_model, pricing_info, environment, application_name,
+                      metrics, capture_message_content, disable_metrics, version):
+    """
+    Common logic for processing audio operations.
+    """
+    
+    # Calculate cost
+    input_text = scope._kwargs.get("input", "")
+    cost = get_audio_model_cost(request_model, pricing_info, input_text)
+    
+    # Common Span Attributes
+    common_span_attributes(scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+        scope._server_address, scope._server_port, request_model, request_model,
+        environment, application_name, False, scope._tbt, scope._ttft, version)
+
+    # Span Attributes for Request parameters
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE, scope._kwargs.get("voice", "alloy"))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT, scope._kwargs.get("response_format", "mp3"))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_SPEED, scope._kwargs.get("speed", 1.0))
+
+    # Span Attributes for Cost
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+
+    # Span Attributes for Content
+    if capture_message_content:
+        input_text = scope._kwargs.get("input", "")
+        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, input_text)
+
+    scope._span.set_status(Status(StatusCode.OK))
+
+    # Record metrics
+    if not disable_metrics:
+        record_audio_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+            scope._server_address, scope._server_port, request_model, request_model, environment,
+            application_name, scope._start_time, scope._end_time, cost)
+
+def process_audio_response(response, request_model, pricing_info, server_port, server_address,
+                          environment, application_name, metrics, start_time, end_time,
+                          span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+    """
+    Process audio generation response and generate telemetry.
+    """
+
+    scope = type("GenericScope", (), {})()
+
+    scope._start_time = start_time
+    scope._end_time = end_time
+    scope._span = span
+    scope._timestamps = []
+    scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
+    scope._server_address, scope._server_port = server_address, server_port
+    scope._kwargs = kwargs
+
+    common_audio_logic(scope, request_model, pricing_info, environment, application_name,
+                      metrics, capture_message_content, disable_metrics, version)
+
+    return response
+
 def process_embedding_response(response, request_model, pricing_info, server_port, server_address,
                           environment, application_name, metrics, start_time,
                           span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
@@ -568,36 +764,8 @@ def process_embedding_response(response, request_model, pricing_info, server_por
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
 
-    cost = get_embed_model_cost(request_model, pricing_info, scope._input_tokens)
-
-    # Common Span Attributes
-    common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
-        scope._server_address, scope._server_port, request_model, request_model,
-        environment, application_name, False, scope._tbt, scope._ttft, version)
-
-    # Span Attributes for Request parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [kwargs.get("encoding_format", "float")])
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, kwargs.get("user", ""))
-
-    # Span Attributes for Cost and Tokens
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-
-    # Span Attributes for Content
-    if capture_message_content:
-        input_data = kwargs.get("input", "")
-        formatted_prompt = format_content(input_data)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, formatted_prompt)
-
-    scope._span.set_status(Status(StatusCode.OK))
-
-    # Record metrics
-    if not disable_metrics:
-        record_embedding_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
-            scope._server_address, scope._server_port, request_model, request_model, environment,
-            application_name, scope._start_time, scope._end_time, scope._input_tokens, cost)
+    common_embedding_logic(scope, request_model, pricing_info, environment, application_name,
+                          metrics, capture_message_content, disable_metrics, version)
 
     return response
 
@@ -618,144 +786,9 @@ def process_image_response(response, request_model, pricing_info, server_port, s
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
     scope._kwargs = kwargs
+    scope._response_dict = response_dict
 
-    # Extract response data
-    images_data = response_dict.get("data", [])
-    response_created = response_dict.get("created")
-    response_size = response_dict.get("size")
-    response_quality = response_dict.get("quality")
-    response_output_format = response_dict.get("output_format")
-
-    # Calculate cost
-    cost = get_image_model_cost(request_model, pricing_info, 
-                                kwargs.get("size", "1024x1024"),
-                                kwargs.get("quality", "standard"))
-
-    # Common Span Attributes
-    common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
-        scope._server_address, scope._server_port, request_model, request_model,
-        environment, application_name, False, scope._tbt, scope._ttft, version)
-
-    # Span Attributes for Request parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE, kwargs.get("size", "1024x1024"))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY, kwargs.get("quality", "standard"))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, kwargs.get("user", ""))
-
-    # Span Attributes for Response
-    if response_created:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, str(response_created))
-    
-    # Process image data and collect URLs/base64 content
-    if images_data:
-        # Collect image URLs or base64 content
-        image_contents = []
-        revised_prompts = []
-        
-        for image in images_data:
-            # Collect image content (URL or base64)
-            if image.get("url"):
-                image_contents.append(image["url"])
-            elif image.get("b64_json"):
-                # For base64, we typically don't want to store the full content in spans
-                # Just indicate it's base64 format
-                image_contents.append("[base64_image_data]")
-            
-            # Collect revised prompts
-            if image.get("revised_prompt"):
-                revised_prompts.append(image["revised_prompt"])
-        
-        # Set image response data using semantic conventions
-        if image_contents:
-            scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_IMAGE, image_contents)
-        
-        # Set revised prompts using semantic conventions
-        if revised_prompts:
-            scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT, revised_prompts)
-
-    # Response-level attributes if different from request
-    if response_size:
-        scope._span.set_attribute("gen_ai.response.image_size", response_size)
-    if response_quality:
-        scope._span.set_attribute("gen_ai.response.image_quality", response_quality)
-    if response_output_format:
-        scope._span.set_attribute("gen_ai.response.output_format", response_output_format)
-
-    # Span Attributes for Cost
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-
-    # Span Attributes for Content
-    if capture_message_content:
-        prompt = kwargs.get("prompt", "")
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
-
-        # Add revised prompt events if available
-        if images_data:
-            for i, image in enumerate(images_data):
-                if image.get("revised_prompt"):
-                    scope._span.add_event(
-                        name=SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT,
-                        attributes={
-                            SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT: image["revised_prompt"],
-                            "image_index": i,
-                        },
-                    )
-
-    scope._span.set_status(Status(StatusCode.OK))
-
-    # Record metrics
-    if not disable_metrics:
-        record_image_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
-            scope._server_address, scope._server_port, request_model, request_model, environment,
-            application_name, scope._start_time, scope._end_time, cost)
+    common_image_logic(scope, request_model, pricing_info, environment, application_name,
+                       metrics, capture_message_content, disable_metrics, version)
 
     return response
-
-def process_audio_response(response, request_model, pricing_info, server_port, server_address,
-                          environment, application_name, metrics, start_time, end_time,
-                          span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
-    """
-    Process audio generation response and generate telemetry.
-    """
-
-    scope = type("GenericScope", (), {})()
-
-    scope._start_time = start_time
-    scope._end_time = end_time
-    scope._span = span
-    scope._timestamps = []
-    scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
-    scope._server_address, scope._server_port = server_address, server_port
-    scope._kwargs = kwargs
-
-    # Calculate cost
-    input_text = kwargs.get("input", "")
-    cost = get_audio_model_cost(request_model, pricing_info, input_text)
-
-    # Common Span Attributes
-    common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
-        scope._server_address, scope._server_port, request_model, request_model,
-        environment, application_name, False, scope._tbt, scope._ttft, version)
-
-    # Span Attributes for Request parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE, kwargs.get("voice", "alloy"))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT, kwargs.get("response_format", "mp3"))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_SPEED, kwargs.get("speed", 1.0))
-
-    # Span Attributes for Cost
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-
-    # Span Attributes for Content
-    if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, input_text)
-
-    scope._span.set_status(Status(StatusCode.OK))
-
-    # Record metrics
-    if not disable_metrics:
-        record_audio_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
-            scope._server_address, scope._server_port, request_model, request_model, environment,
-            application_name, scope._start_time, scope._end_time, cost)
-
-    return response 
