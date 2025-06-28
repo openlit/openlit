@@ -136,6 +136,6 @@ def async_send_message(version, environment, application_name, tracer,
                 except Exception as e:
                     handle_exception(span, e)
 
-            return response
+                return response
 
     return wrapper

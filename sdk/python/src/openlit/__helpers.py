@@ -402,3 +402,43 @@ def record_embedding_metrics(metrics, gen_ai_operation, gen_ai_system, server_ad
     metrics["genai_requests"].add(1, attributes)
     metrics["genai_prompt_tokens"].add(input_tokens, attributes)
     metrics["genai_cost"].record(cost, attributes)
+
+def record_audio_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
+    request_model, response_model, environment, application_name, start_time, end_time, cost):
+    """
+    Record audio-specific metrics for the operation.
+    """
+
+    attributes = create_metrics_attributes(
+        operation=gen_ai_operation,
+        system=gen_ai_system,
+        server_address=server_address,
+        server_port=server_port,
+        request_model=request_model,
+        response_model=response_model,
+        service_name=application_name,
+        deployment_environment=environment,
+    )
+    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
+    metrics["genai_requests"].add(1, attributes)
+    metrics["genai_cost"].record(cost, attributes)
+
+def record_image_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
+    request_model, response_model, environment, application_name, start_time, end_time, cost):
+    """
+    Record image-specific metrics for the operation.
+    """
+
+    attributes = create_metrics_attributes(
+        operation=gen_ai_operation,
+        system=gen_ai_system,
+        server_address=server_address,
+        server_port=server_port,
+        request_model=request_model,
+        response_model=response_model,
+        service_name=application_name,
+        deployment_environment=environment,
+    )
+    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
+    metrics["genai_requests"].add(1, attributes)
+    metrics["genai_cost"].record(cost, attributes)
