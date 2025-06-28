@@ -49,7 +49,7 @@ def format_content(contents):
             if part.inline_data:
                 content_str.append(f"inline_data: {part.inline_data}")
 
-        formatted_messages.append(f"{role}: {", ".join(content_str)}")
+        formatted_messages.append(f"{role}: {', '.join(content_str)}")
 
     return "\n".join(formatted_messages)
 
