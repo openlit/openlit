@@ -1,4 +1,3 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of LangChain Functions"""
 from typing import Collection
 import importlib.metadata
@@ -6,41 +5,17 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.langchain.langchain import (
-    general_wrap,
     hub,
     chat
 )
 from openlit.instrumentation.langchain.async_langchain import (
+    async_hub,
     async_chat
 )
 
 _instruments = ("langchain >= 0.1.20",)
 
 WRAPPED_METHODS = [
-    {
-        "package": "langchain_community.document_loaders.base",
-        "object": "BaseLoader.load",
-        "endpoint": "langchain.retrieve.load",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "langchain_community.document_loaders.base",
-        "object": "BaseLoader.aload",
-        "endpoint": "langchain.retrieve.load",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "langchain_text_splitters.base",
-        "object": "TextSplitter.split_documents",
-        "endpoint": "langchain.retrieve.split_documents",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "langchain_text_splitters.base",
-        "object": "TextSplitter.create_documents",
-        "endpoint": "langchain.retrieve.create_documents",
-        "wrapper": general_wrap,
-    },
     {
         "package": "langchain.hub",
         "object": "pull",
@@ -79,27 +54,29 @@ WRAPPED_METHODS = [
     },
     {
         "package": "langchain.chains.base",
-        "object": "Chain.invoke",
+        "object": "Chain.ainvoke",
         "endpoint": "langchain.chain.invoke",
         "wrapper": async_chat,
     }
 ]
 
 class LangChainInstrumentor(BaseInstrumentor):
-    """An instrumentor for Cohere's client library."""
+    """
+    An instrumentor for LangChain client library.
+    """
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name")
-        environment = kwargs.get("environment")
+        version = importlib.metadata.version("langchain")
+        environment = kwargs.get("environment", "default")
+        application_name = kwargs.get("application_name", "default")
         tracer = kwargs.get("tracer")
-        pricing_info = kwargs.get("pricing_info")
-        capture_message_content = kwargs.get("capture_message_content")
+        pricing_info = kwargs.get("pricing_info", {})
+        capture_message_content = kwargs.get("capture_message_content", False)
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics")
-        version = importlib.metadata.version("langchain")
 
         for wrapped_method in WRAPPED_METHODS:
             wrap_package = wrapped_method.get("package")
@@ -110,9 +87,8 @@ class LangChainInstrumentor(BaseInstrumentor):
                 wrap_package,
                 wrap_object,
                 wrapper(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                       tracer, pricing_info, capture_message_content, metrics, disable_metrics),
             )
 
-    @staticmethod
     def _uninstrument(self, **kwargs):
         pass
