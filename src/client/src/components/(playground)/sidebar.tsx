@@ -13,13 +13,13 @@ import {
 	BookKey,
 	BookText,
 	Component,
-	FolderCogIcon,
-	FileJson2,
+	Home,
 	LayoutDashboard,
 	MonitorPlay,
 	SettingsIcon,
 	ShieldAlert,
 	SquarePlay,
+	TextQuote
 } from "lucide-react";
 import VersionInfo from "./version-Info";
 
@@ -36,12 +36,12 @@ const ICON_CLASSES = "flex-shrink-0 size-5";
 
 const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
-		icon: <LayoutDashboard className={ICON_CLASSES} />,
+		icon: <Home className={ICON_CLASSES} />,
 		text: "Home",
 		link: "/home",
 	},
 	{
-		icon: <FolderCogIcon className={ICON_CLASSES} />,
+		icon: <LayoutDashboard className={ICON_CLASSES} />,
 		text: "Dashboards",
 		link: "/dashboards",
 	},
@@ -51,7 +51,7 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	// 	link: "/dashboard",
 	// },
 	{
-		icon: <FileJson2 className={ICON_CLASSES} />,
+		icon: <TextQuote className={ICON_CLASSES} />,
 		text: "Requests",
 		link: "/requests",
 	},
@@ -142,9 +142,8 @@ const SidebarItem = (props: SidebarItemProps) => {
 						className={`flex items-center p-2 ${buttonVariants({
 							variant: "ghost",
 							size: "icon",
-						})} ${
-							props.className || ""
-						}`}
+						})} ${props.className || ""
+							}`}
 						onClick={props.onClick}
 						target={props.target}
 					>
@@ -183,11 +182,10 @@ export default function Sidebar() {
 				{SIDEBAR_ITEMS.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-top-${index}`}
-						className={`${
-							getIfSidebarItemActive(pathname, item)
-								? "text-white bg-primary dark:bg-primary dark:text-white hover:bg-primary/80 dark:hover:bg-primary/80 hover:text-white"
-								: "text-stone-600 dark:text-white hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white"
-						}`}
+						className={`${getIfSidebarItemActive(pathname, item)
+							? "text-white bg-primary dark:bg-primary dark:text-white hover:bg-primary/80 dark:hover:bg-primary/80 hover:text-white"
+							: "text-stone-600 dark:text-white hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white"
+							}`}
 						{...item}
 					/>
 				))}
@@ -196,11 +194,10 @@ export default function Sidebar() {
 				{SIDEBAR_BOTTOM_ITEMS.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-bottom-${index}`}
-						className={`${
-							getIfSidebarItemActive(pathname, item)
-								? "text-white bg-primary dark:bg-primary dark:text-white hover:bg-primary/80 dark:hover:bg-primary/80 hover:text-white"
-								: "text-stone-600 dark:text-white hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white"
-						}`}
+						className={`${getIfSidebarItemActive(pathname, item)
+							? "text-white bg-primary dark:bg-primary dark:text-white hover:bg-primary/80 dark:hover:bg-primary/80 hover:text-white"
+							: "text-stone-600 dark:text-white hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white"
+							}`}
 						{...item}
 					/>
 				))}

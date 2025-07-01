@@ -400,7 +400,7 @@ export async function setMainDashboard(boardId: string) {
 	const { err, data } = await dataCollector({ query: setQuery }, "exec");
 
 	if (err || !(data as { query_id: string }).query_id)
-		return { err: getMessage().BOARD_UPDATE_FAILED };
+		return { err: err?.toString() || getMessage().BOARD_UPDATE_FAILED };
 
 	return { data: getMessage().BOARD_UPDATED_SUCCESSFULLY };
 }
@@ -415,7 +415,7 @@ export async function getMainDashboard() {
 		await dataCollector({ query });
 
 	if (mainDashboardErr || !(mainDashboardData as any[])[0])
-		return { err: getMessage().MAIN_DASHBOARD_NOT_FOUND };
+		return { err: mainDashboardErr?.toString() || getMessage().MAIN_DASHBOARD_NOT_FOUND };
 
 	return getBoardLayout((mainDashboardData as any[])[0].id);
 }
@@ -499,7 +499,7 @@ export async function updatePinnedBoard(boardId: string) {
 	const { err, data } = await dataCollector({ query: setQuery }, "exec");
 
 	if (err || !(data as { query_id: string }).query_id)
-		return { err: getMessage().BOARD_UPDATE_FAILED };
+		return { err: err?.toString() || getMessage().BOARD_UPDATE_FAILED };
 
 	return { data: getMessage().BOARD_UPDATED_SUCCESSFULLY };
 }
