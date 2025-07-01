@@ -114,7 +114,7 @@ export default function ExplorerItemRow({
 									)}
 									{tags && tags.length > 0 && (
 										<div className="flex items-center gap-2 ml-4">
-											{tags.map((tag: string) => (
+											{tags?.map?.((tag: string) => (
 												<Badge key={tag}>{tag}</Badge>
 											))}
 										</div>
