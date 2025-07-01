@@ -4,13 +4,15 @@ import { EvalsResult, EvalsInput } from './types';
 export function parseLlmResponse(response: string): EvalsResult {
   try {
     return JSON.parse(response);
-  } catch {
+  } catch (err) {
+    // Log the error and the original response for debugging
+    console.error('Failed to parse model response:', err, 'Original response:', response);
     return {
       verdict: 'no',
       evaluation: 'hallucination',
       score: 0,
       classification: 'none',
-      explanation: 'Failed to parse model response.'
+      explanation: `Failed to parse model response: ${(err instanceof Error) ? err.message : String(err)}`
     };
   }
 }
