@@ -18,7 +18,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name, 
     Generates a telemetry wrapper for GenAI operations.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the GenAI operation call.
         """
@@ -43,7 +43,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name, 
 
             except Exception as e:
                 handle_exception(span, e)
-            
+
             return response
 
     return wrapper

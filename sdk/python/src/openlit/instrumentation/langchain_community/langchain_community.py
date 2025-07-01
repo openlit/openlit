@@ -43,7 +43,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer
 
             except Exception as e:
                 handle_exception(span, e)
-            
+
             return response
 
     return wrapper
