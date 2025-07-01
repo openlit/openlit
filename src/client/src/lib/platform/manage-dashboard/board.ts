@@ -434,6 +434,7 @@ export async function importBoardLayout(data: any) {
 	const boardResult = await createBoard(boardData as Board);
 
 	if ('err' in boardResult) {
+		console.log("Board Import Error", boardResult.err);
 		return { err: boardResult.err };
 	}
 
@@ -464,8 +465,11 @@ export async function importBoardLayout(data: any) {
 		}
 	});
 
-	await Promise.all(updatedWidgets.map((widget: any) => {
-		return createWidget(widget);
+	await Promise.all(updatedWidgets.map(async (widget: any) => {
+		const { err } = await createWidget(widget);
+		if (err) {
+			console.log("Widget Import Error", err);
+		}
 	}));
 
 	const layoutConfigData = {
@@ -479,7 +483,12 @@ export async function importBoardLayout(data: any) {
 	}
 
 
-	const { data: layoutData } = await updateBoardLayout(newBoardId, layoutConfigData);
+	const { data: layoutData, err: layoutErr } = await updateBoardLayout(newBoardId, layoutConfigData);
+
+	if (layoutErr) {
+		console.log("Layout Import Error", layoutErr);
+	}
+
 
 	if (layoutData) {
 		return { data: boardResult.data };
