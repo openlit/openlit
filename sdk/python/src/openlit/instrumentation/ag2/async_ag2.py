@@ -1,5 +1,5 @@
 """
-Module for monitoring AG2 API calls.
+Module for monitoring AG2 API calls (async version).
 """
 
 import time
@@ -14,15 +14,15 @@ from openlit.instrumentation.ag2.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def conversable_agent(version, environment, application_name, tracer, pricing_info,
+def async_conversable_agent(version, environment, application_name, tracer, pricing_info,
     capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for AG2 conversable agent creation.
+    Generates a telemetry wrapper for AG2 async conversable agent creation.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the AG2 conversable agent creation call.
+        Wraps the AG2 async conversable agent creation call.
         """
 
         server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 80)
@@ -34,7 +34,7 @@ def conversable_agent(version, environment, application_name, tracer, pricing_in
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 process_agent_creation(
@@ -61,15 +61,15 @@ def conversable_agent(version, environment, application_name, tracer, pricing_in
 
     return wrapper
 
-def agent_run(version, environment, application_name, tracer, pricing_info,
+def async_agent_run(version, environment, application_name, tracer, pricing_info,
     capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for AG2 agent run execution.
+    Generates a telemetry wrapper for AG2 async agent run execution.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the AG2 agent run execution call.
+        Wraps the AG2 async agent run execution call.
         """
 
         server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 80)
@@ -86,7 +86,7 @@ def agent_run(version, environment, application_name, tracer, pricing_info,
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 response = process_agent_run(
@@ -111,4 +111,4 @@ def agent_run(version, environment, application_name, tracer, pricing_info,
 
             return response
 
-    return wrapper
+    return wrapper 
