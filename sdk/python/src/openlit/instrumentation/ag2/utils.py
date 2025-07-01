@@ -19,22 +19,38 @@ def calculate_tokens_and_cost(response, request_model, pricing_info):
     input_tokens = 0
     output_tokens = 0
 
-    # Check if response has cost attribute and its not None
-    if hasattr(response, "cost") and response.cost is not None:
-        try:
-            for usage_data in response.cost.values():
-                if isinstance(usage_data, dict):
-                    for model_data in usage_data.values():
-                        if isinstance(model_data, dict):
-                            input_tokens += model_data.get("prompt_tokens", 0)
-                            output_tokens += model_data.get("completion_tokens", 0)
-        except (AttributeError, TypeError):
-            # If theres any issue accessing cost data, default to 0 tokens
-            input_tokens = 0
-            output_tokens = 0
+    # Early return if response doesn't have cost data
+    if not hasattr(response, "cost") or response.cost is None:
+        cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
+        return input_tokens, output_tokens, cost
+
+    try:
+        input_tokens, output_tokens = _extract_tokens_from_cost(response.cost)
+    except (AttributeError, TypeError):
+        # If theres any issue accessing cost data, default to 0 tokens
+        input_tokens = 0
+        output_tokens = 0
 
     cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
     return input_tokens, output_tokens, cost
+
+def _extract_tokens_from_cost(cost_data):
+    """
+    Extract input and output tokens from AG2 cost data structure.
+    """
+    input_tokens = 0
+    output_tokens = 0
+    
+    for usage_data in cost_data.values():
+        if not isinstance(usage_data, dict):
+            continue
+            
+        for model_data in usage_data.values():
+            if isinstance(model_data, dict):
+                input_tokens += model_data.get("prompt_tokens", 0)
+                output_tokens += model_data.get("completion_tokens", 0)
+    
+    return input_tokens, output_tokens
 
 def format_content(chat_history):
     """
@@ -65,7 +81,7 @@ def common_agent_logic(scope, pricing_info, environment, application_name, metri
 
     # Span Attributes for Agent-specific parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, scope._agent_name)
-    
+
     # Span Attributes for Response parameters
     if hasattr(scope, "_input_tokens"):
         scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
@@ -108,7 +124,7 @@ def process_agent_creation(agent_name, llm_config, system_message, pricing_info,
 
     # Create scope object
     scope = type("GenericScope", (), {})()
-    
+
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
@@ -130,7 +146,7 @@ def process_agent_run(response, agent_name, request_model, pricing_info, server_
 
     # Create scope object
     scope = type("GenericScope", (), {})()
-    
+
     scope._start_time = start_time
     scope._end_time = time.time()
     scope._span = span
@@ -156,4 +172,4 @@ def process_agent_run(response, agent_name, request_model, pricing_info, server_
     common_agent_logic(scope, pricing_info, environment, application_name, metrics,
         capture_message_content, disable_metrics, version, SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK)
 
-    return response 
+    return response

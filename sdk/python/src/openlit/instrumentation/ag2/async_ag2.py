@@ -73,10 +73,10 @@ def async_agent_run(version, environment, application_name, tracer, pricing_info
         """
 
         server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 80)
-        
+
         # Extract agent name from instance
         agent_name = getattr(instance, "name", "NOT_FOUND")
-        
+
         # Extract model from instance llm_config
         request_model = "gpt-4o"
         if hasattr(instance, "llm_config") and isinstance(instance.llm_config, dict):
@@ -111,4 +111,4 @@ def async_agent_run(version, environment, application_name, tracer, pricing_info
 
             return response
 
-    return wrapper 
+    return wrapper
