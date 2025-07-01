@@ -10,11 +10,21 @@ import Tracing from './tracing';
 import { DEFAULT_APPLICATION_NAME, DEFAULT_ENVIRONMENT, SDK_NAME } from './constant';
 import { SpanExporter } from '@opentelemetry/sdk-trace-base';
 import BaseOpenlit from './features/base';
+import { Hallucination, BiasDetector, ToxicityDetector, All } from './evals';
 
-export default class Openlit extends BaseOpenlit {
+// Factory functions for evals
+const evals = {
+  Hallucination: (options: ConstructorParameters<typeof Hallucination>[0]) => new Hallucination(options),
+  BiasDetector: (options: ConstructorParameters<typeof BiasDetector>[0]) => new BiasDetector(options),
+  ToxicityDetector: (options: ConstructorParameters<typeof ToxicityDetector>[0]) => new ToxicityDetector(options),
+  All: (options: ConstructorParameters<typeof All>[0]) => new All(options),
+};
+
+class Openlit extends BaseOpenlit {
   static resource: Resource;
   static options: OpenlitOptions;
   static _sdk: NodeSDK;
+  static evals = evals;
   static init(options?: OpenlitOptions) {
     try {
       const { environment = DEFAULT_ENVIRONMENT, applicationName = DEFAULT_APPLICATION_NAME } =
@@ -26,12 +36,12 @@ export default class Openlit extends BaseOpenlit {
       if (!otlpHeaders) {
         if (process.env.OTEL_EXPORTER_OTLP_HEADERS) {
           otlpHeaders = process.env.OTEL_EXPORTER_OTLP_HEADERS.split(',').reduce(
-            (acc: Record<string, any>, items: string) => {
+            (acc: Record<string, string>, items: string) => {
               const keyVal: string[] = items.split('=');
               acc[keyVal[0]] = keyVal[1];
               return acc;
             },
-            {}
+            {} as Record<string, string>
           );
         } else {
           otlpHeaders = {};
@@ -71,3 +81,11 @@ export default class Openlit extends BaseOpenlit {
     }
   }
 }
+
+const openlit = Openlit as typeof Openlit & {
+  evals: typeof evals;
+};
+
+export default openlit;
+export { Openlit };
+export type { OpenlitOptions } from './types';
