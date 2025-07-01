@@ -98,7 +98,7 @@ export default function BoardList() {
 										{board.description}
 									</p>
 									<div className="flex items-center gap-2">
-										{jsonParse(board.tags).map((tag: string) => (
+										{jsonParse(board.tags)?.map?.((tag: string) => (
 											<Badge key={tag}>{tag}</Badge>
 										))}
 									</div>

@@ -8,8 +8,7 @@ import getMessage from "@/constants/messages";
 import Sanitizer from "@/utils/sanitizer";
 import { createWidget, getWidgets } from "./widget";
 import { pluck } from "lodash/fp";
-import { jsonStringify } from "@/utils/json";
-import { sanitizeWidget } from "@/helpers/server/widget";
+import { jsonParse, jsonStringify } from "@/utils/json";
 
 export function getBoardById(id: string) {
 	const query = `
@@ -428,7 +427,7 @@ export async function importBoardLayout(data: any) {
 		description: data.description,
 		isPinned: data.isPinned,
 		isMainDashboard: data.isMainDashboard,
-		tags: data.tags,
+		tags: data.tags ? jsonParse(data.tags) : [],
 	};
 
 	// Create the board first

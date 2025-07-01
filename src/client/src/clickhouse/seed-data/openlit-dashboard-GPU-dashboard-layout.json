@@ -4,7 +4,7 @@
   "description": "The dashboard helps detect GPU performance bottlenecks, thermal or power inefficiencies, and optimize resource utilization across your infrastructure.",
   "parentId": null,
   "isMainDashboard": false,
-  "isPinned": false,
+  "isPinned": true,
   "createdAt": "2025-06-27 05:46:43",
   "updatedAt": "2025-06-27 05:46:43",
   "widgets": {

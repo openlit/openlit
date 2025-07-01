@@ -23,27 +23,36 @@ export async function getWidgetById(id: string) {
 	const { data, err } = await dataCollector({ query });
 
 	if (err) {
-		return { err: getMessage().WIDGET_FETCH_FAILED };
+		return { err: err.toString() || getMessage().WIDGET_FETCH_FAILED };
 	}
 
 	return { data: normalizeWidgetToClient((data as DatabaseWidget[])[0]) };
 }
 
 export async function getWidgets(widgetIds?: string[]) {
-	const query = `
-		SELECT w.id, w.title, w.description, w.widget_type AS type, w.properties,
+	let query = "";
+	if (!widgetIds || widgetIds.length === 0) {
+		query = `
+			SELECT w.id, w.title, w.description, w.widget_type AS type, w.properties,
 			w.config, w.created_at AS createdAt, w.updated_at AS updatedAt, COUNT(DISTINCT bw.board_id) as totalBoards
 		FROM ${OPENLIT_WIDGET_TABLE_NAME} w
 		LEFT JOIN ${OPENLIT_BOARD_WIDGET_TABLE_NAME} bw ON w.id = bw.widget_id
 		GROUP BY w.id, w.title, w.description, w.widget_type, w.properties, w.config, w.created_at, w.updated_at
-		${widgetIds
-			? `WHERE id IN (${widgetIds
-				.map((id) => `'${Sanitizer.sanitizeValue(id)}'`)
-				.join(",")})`
-			: ""
-		}
 		ORDER BY w.updated_at DESC
-	`;
+		`;
+	} else {
+		query = `
+			SELECT w.id, w.title, w.description, w.widget_type AS type, w.properties,
+			w.config, w.created_at AS createdAt, w.updated_at AS updatedAt
+		FROM ${OPENLIT_WIDGET_TABLE_NAME} w
+		${widgetIds
+				? `WHERE id IN (${widgetIds
+					.map((id) => `'${Sanitizer.sanitizeValue(id)}'`)
+					.join(",")})`
+				: ""
+			}
+		`;
+	}
 
 	const { data, err } = await dataCollector({ query });
 
