@@ -40,16 +40,16 @@ def _extract_tokens_from_cost(cost_data):
     """
     input_tokens = 0
     output_tokens = 0
-    
+
     for usage_data in cost_data.values():
         if not isinstance(usage_data, dict):
             continue
-            
+
         for model_data in usage_data.values():
             if isinstance(model_data, dict):
                 input_tokens += model_data.get("prompt_tokens", 0)
                 output_tokens += model_data.get("completion_tokens", 0)
-    
+
     return input_tokens, output_tokens
 
 def format_content(chat_history):
