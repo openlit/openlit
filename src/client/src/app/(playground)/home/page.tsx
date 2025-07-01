@@ -81,8 +81,8 @@ export default function DashboardPage() {
 				if (response?.data) {
 					setInitialConfig(response.data);
 					setHeader({
-						title: response.data.title,
-						description: response.data.description,
+						title: response.data?.title,
+						description: response.data?.description,
 						breadcrumbs: [],
 					});
 				}

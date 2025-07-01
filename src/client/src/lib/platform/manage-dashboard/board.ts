@@ -58,8 +58,6 @@ export function getBoards(isHome?: boolean) {
 export async function createBoard(board: Board) {
 	const sanitizedBoard = Sanitizer.sanitizeObject(board);
 
-	console.log("Sanitized Board in createBoard", sanitizedBoard);
-
 	const { err, data } = await dataCollector(
 		{
 			table: OPENLIT_BOARD_TABLE_NAME,
@@ -77,16 +75,12 @@ export async function createBoard(board: Board) {
 		"insert",
 	);
 
-	console.log("Board Create Error in createBoard", err);
-
 	if (err || !(data as { query_id: string }).query_id)
 		return { err: getMessage().BOARD_CREATE_FAILED };
 
 	const { data: data_board, err: err_board } = await dataCollector({
 		query: `Select * from ${OPENLIT_BOARD_TABLE_NAME} order by created_at desc limit 1`,
 	});
-
-	console.log("Board Create Error in createBoard :   err_board select", err_board);
 
 
 	if (err_board) {
@@ -441,7 +435,6 @@ export async function importBoardLayout(data: any) {
 	const boardResult = await createBoard(boardData as Board);
 
 	if ('err' in boardResult) {
-		console.log("Board Import Error", boardResult.err);
 		return { err: boardResult.err };
 	}
 
@@ -473,10 +466,7 @@ export async function importBoardLayout(data: any) {
 	});
 
 	await Promise.all(updatedWidgets.map(async (widget: any) => {
-		const { err } = await createWidget(widget);
-		if (err) {
-			console.log("Widget Import Error", err);
-		}
+		return await createWidget(widget);
 	}));
 
 	const layoutConfigData = {
@@ -492,16 +482,12 @@ export async function importBoardLayout(data: any) {
 
 	const { data: layoutData, err: layoutErr } = await updateBoardLayout(newBoardId, layoutConfigData);
 
-	if (layoutErr) {
-		console.log("Layout Import Error", layoutErr);
-	}
-
 
 	if (layoutData) {
 		return { data: boardResult.data };
 	}
 
-	return { err: getMessage().BOARD_IMPORT_FAILED };
+	return { err: layoutErr || getMessage().BOARD_IMPORT_FAILED };
 }
 
 export async function updatePinnedBoard(boardId: string) {

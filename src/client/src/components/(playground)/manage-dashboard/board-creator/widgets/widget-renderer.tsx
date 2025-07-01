@@ -33,7 +33,7 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 	// Get widget type icon
 	const WidgetTypeIcon = () => {
 		const IconComponent =
-			SUPPORTED_WIDGETS[widget.type as keyof typeof SUPPORTED_WIDGETS].icon;
+			SUPPORTED_WIDGETS[widget.type as keyof typeof SUPPORTED_WIDGETS]?.icon;
 		return <IconComponent className="h-4 w-4" />;
 	};
 
