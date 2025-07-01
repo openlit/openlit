@@ -1,6 +1,6 @@
 import { DatabaseWidget, Widget } from "@/types/manage-dashboard";
 import { dataCollector, MetricParams } from "../common";
-import { OPENLIT_WIDGET_TABLE_NAME } from "./table-details";
+import { OPENLIT_BOARD_WIDGET_TABLE_NAME, OPENLIT_WIDGET_TABLE_NAME } from "./table-details";
 import Sanitizer from "@/utils/sanitizer";
 import getMessage from "@/constants/messages";
 import {
@@ -31,22 +31,24 @@ export async function getWidgetById(id: string) {
 
 export async function getWidgets(widgetIds?: string[]) {
 	const query = `
-		SELECT id, title, description, widget_type AS type, properties,
-			config, created_at AS createdAt, updated_at AS updatedAt
-		FROM ${OPENLIT_WIDGET_TABLE_NAME}
+		SELECT w.id, w.title, w.description, w.widget_type AS type, w.properties,
+			w.config, w.created_at AS createdAt, w.updated_at AS updatedAt, COUNT(DISTINCT bw.board_id) as totalBoards
+		FROM ${OPENLIT_WIDGET_TABLE_NAME} w
+		LEFT JOIN ${OPENLIT_BOARD_WIDGET_TABLE_NAME} bw ON w.id = bw.widget_id
+		GROUP BY w.id, w.title, w.description, w.widget_type, w.properties, w.config, w.created_at, w.updated_at
 		${widgetIds
 			? `WHERE id IN (${widgetIds
 				.map((id) => `'${Sanitizer.sanitizeValue(id)}'`)
 				.join(",")})`
 			: ""
 		}
-		ORDER BY updated_at DESC
+		ORDER BY w.updated_at DESC
 	`;
 
 	const { data, err } = await dataCollector({ query });
 
 	if (err) {
-		return { err: getMessage().WIDGET_FETCH_FAILED };
+		return { err: err.toString() || getMessage().WIDGET_FETCH_FAILED };
 	}
 
 	return { data: (data as Array<DatabaseWidget>).map(normalizeWidgetToClient) };

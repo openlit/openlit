@@ -20,9 +20,16 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
       created_at DateTime DEFAULT now(),      -- Creation timestamp
       updated_at DateTime DEFAULT now(),      -- Last update timestamp
       tags String DEFAULT '[]',               -- Tags for the folder
+
+      INDEX id_index (id) TYPE bloom_filter GRANULARITY 1,
+      INDEX parent_id_index (parent_id) TYPE bloom_filter GRANULARITY 1,
+      INDEX title_index (title) TYPE tokenbf_v1(32768, 3, 0) GRANULARITY 1,
+      INDEX created_at_index (created_at) TYPE minmax GRANULARITY 1,
+      INDEX updated_at_index (updated_at) TYPE minmax GRANULARITY 1,
+
       PRIMARY KEY id
     ) ENGINE = MergeTree()
-    ORDER BY id;
+    ORDER BY (id, parent_id, title, created_at)
     `,
     `
     CREATE TABLE IF NOT EXISTS ${CUSTOM_DASHBOARDS_BOARDS_TABLE} (
@@ -35,9 +42,18 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
       updated_at DateTime DEFAULT now(),      -- Last update timestamp
       is_pinned Boolean DEFAULT false,         -- Flag for pinned boards
       tags String DEFAULT '[]',               -- Tags for the board
+
+      INDEX id_index (id) TYPE bloom_filter GRANULARITY 1,
+      INDEX parent_id_index (parent_id) TYPE bloom_filter GRANULARITY 1,
+      INDEX title_index (title) TYPE tokenbf_v1(32768, 3, 0) GRANULARITY 1,
+      INDEX main_dashboard_index (is_main_dashboard) TYPE set(2) GRANULARITY 1,
+      INDEX pinned_index (is_pinned) TYPE set(2) GRANULARITY 1,
+      INDEX created_at_index (created_at) TYPE minmax GRANULARITY 1,
+      INDEX updated_at_index (updated_at) TYPE minmax GRANULARITY 1,
+
       PRIMARY KEY id
     ) ENGINE = MergeTree()
-    ORDER BY id;
+    ORDER BY (id, is_main_dashboard, is_pinned, created_at);
     `,
     `
     CREATE TABLE IF NOT EXISTS ${CUSTOM_DASHBOARDS_WIDGETS_TABLE} (
@@ -49,9 +65,17 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
       config String,                          -- JSON string of config (query string, respect the filters flag etc)
       created_at DateTime DEFAULT now(),      -- Creation timestamp
       updated_at DateTime DEFAULT now(),      -- Last update timestamp
+
+      INDEX id_index (id) TYPE bloom_filter GRANULARITY 1,
+      INDEX board_widget_index (board_id, widget_id) TYPE bloom_filter GRANULARITY 1,
+      INDEX board_id_index (board_id) TYPE bloom_filter GRANULARITY 1,
+      INDEX widget_id_index (widget_id) TYPE bloom_filter GRANULARITY 1,
+      INDEX created_at_index (created_at) TYPE minmax GRANULARITY 1,
+      INDEX updated_at_index (updated_at) TYPE minmax GRANULARITY 1,
+      
       PRIMARY KEY id
     ) ENGINE = MergeTree()
-    ORDER BY id;
+    ORDER BY (id, cityHash64(board_id), cityHash64(widget_id), created_at)
     `,
     `
     CREATE TABLE IF NOT EXISTS ${CUSTOM_DASHBOARDS_BOARD_WIDGETS_TABLE} (
@@ -61,10 +85,15 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
       position String DEFAULT '{}',          -- JSON string of position (x, y, w, h)
       created_at DateTime DEFAULT now(),      -- Creation timestamp
       updated_at DateTime DEFAULT now(),      -- Last update timestamp
-      INDEX board_widget_index (board_id, widget_id) TYPE minmax GRANULARITY 1,
+
+      INDEX board_widget_index (board_id, widget_id) TYPE bloom_filter GRANULARITY 1,
+      INDEX board_id_index (board_id) TYPE bloom_filter GRANULARITY 1,
+      INDEX widget_id_index (widget_id) TYPE bloom_filter GRANULARITY 1,
+      INDEX id_index (id) TYPE bloom_filter GRANULARITY 1,
+
       PRIMARY KEY id
     ) ENGINE = MergeTree()
-    ORDER BY id;
+    ORDER BY (cityHash64(board_id), cityHash64(widget_id), created_at);
     `
   ];
 

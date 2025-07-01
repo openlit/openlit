@@ -4,9 +4,9 @@ import { SecretGetFiltersWithApiKey } from "@/types/vault";
 import { getSecretsFromDatabaseId } from "@/lib/platform/vault";
 import PostHogServer from "@/lib/posthog";
 import asaw from "@/utils/asaw";
-import { randomUUID } from "crypto";
 
 export async function POST(request: Request) {
+	const startTimestamp = Date.now();
 	const authorizationHeader = request.headers.get("Authorization") || "";
 	let apiKey: string = "";
 	if (authorizationHeader.startsWith("Bearer ")) {
@@ -18,8 +18,6 @@ export async function POST(request: Request) {
 		});
 	}
 
-	const start = Date.now();
-
 	const formData = await request.json();
 
 	const filters: SecretGetFiltersWithApiKey = {
@@ -29,16 +27,14 @@ export async function POST(request: Request) {
 	};
 
 	const [err, data]: any = await asaw(getSecretsFromDatabaseId(filters));
-	const end = Date.now();
-	PostHogServer.capture({
+	PostHogServer.fireEvent({
 		event: err
 			? SERVER_EVENTS.VAULT_SECRET_SDK_FETCH_FAILURE
 			: SERVER_EVENTS.VAULT_SECRET_SDK_FETCH_SUCCESS,
-		distinctId: randomUUID(),
 		properties: {
 			downloadSource: formData.source,
-			responseTime: end - start,
 		},
+		startTimestamp,
 	});
 
 	return Response.json({

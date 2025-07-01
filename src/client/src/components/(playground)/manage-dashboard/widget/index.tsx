@@ -20,6 +20,7 @@ import {
 	AreaChart,
 	Gauge,
 	Clock,
+	LayoutDashboardIcon,
 } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
@@ -132,6 +133,10 @@ const WidgetListPage = () => {
 										<div className="flex items-center gap-1 text-xs text-gray-400">
 											<Clock className="h-3 w-3" />
 											<span>Updated {formatDate(widget.updatedAt)}</span>
+										</div>
+										<div className="flex items-center gap-1">
+											<LayoutDashboardIcon className="h-3 w-3" />
+											<span>{widget.totalBoards ?? 0} Dashboard(s)</span>
 										</div>
 									</div>
 								</CardContent>

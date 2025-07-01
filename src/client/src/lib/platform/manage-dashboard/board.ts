@@ -21,9 +21,9 @@ export function getBoardById(id: string) {
 	return dataCollector({ query });
 }
 
-export function getBoards(home?: boolean) {
+export function getBoards(isHome?: boolean) {
 	let query: string = '';
-	if (home) {
+	if (isHome) {
 		query = `
 			SELECT b.id, b.title, b.description, b.parent_id AS parentId, 
 						 b.is_main_dashboard AS isMainDashboard, 
@@ -379,7 +379,7 @@ export async function updateBoardLayout(boardId: string, layoutConfig: any) {
 		}
 	}
 
-	return { data: getMessage().BOARD_LAYOUT_UPDATED_SUCCESSFULLY };
+	return { data: getMessage().BOARD_LAYOUT_UPDATED_SUCCESSFULLY, err: null };
 }
 
 export async function setMainDashboard(boardId: string) {

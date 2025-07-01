@@ -48,6 +48,7 @@ export interface Widget {
 	config: Record<string, any>;
 	createdAt: string;
 	updatedAt: string;
+	totalBoards?: number;
 }
 
 export interface DatabaseWidget {
