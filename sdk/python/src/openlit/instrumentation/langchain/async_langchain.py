@@ -15,8 +15,6 @@ from openlit.instrumentation.langchain.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-
-
 def async_hub(gen_ai_endpoint, version, environment, application_name, tracer,
               pricing_info, capture_message_content, metrics, disable_metrics):
     """
@@ -76,7 +74,7 @@ def async_chat(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Add instance to kwargs for processing
                 kwargs["instance"] = instance
-                
+
                 response = process_chat_response(
                     response=response,
                     request_model=request_model,

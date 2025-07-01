@@ -105,15 +105,12 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         messages = scope._args[0]  # llm.invoke([("system", "..."), ("human", "...")])
     else:
         messages = scope._kwargs.get("messages", "") or scope._kwargs.get("input", "")  # llm.invoke(messages=[...])
-    
+
     formatted_messages = format_content(messages)
     request_model = scope._request_model
 
     # Use actual token counts from response if available, otherwise calculate them using general_tokens
-    if (scope._input_tokens is None or scope._output_tokens is None or 
-        (scope._input_tokens == 0 and formatted_messages) or 
-        (scope._output_tokens == 0 and scope._llmresponse)):
-        # Fallback to calculation if not provided in response or if counts seem incorrect
+    if (scope._input_tokens in [None, 0] or scope._output_tokens in [None, 0]):
         scope._input_tokens = general_tokens(str(formatted_messages))
         scope._output_tokens = general_tokens(str(scope._llmresponse))
 
@@ -128,7 +125,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     # Span Attributes for Request parameters
     instance = scope._kwargs.get("instance")
     if instance:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, 
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
                                  get_attribute_from_instance(instance, "temperature", 1.0))
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K,
                                  get_attribute_from_instance(instance, "top_k", 1.0))
@@ -176,7 +173,7 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
 def process_chat_response(response, request_model, pricing_info, server_port, server_address,
                           environment, application_name, metrics, start_time, end_time,
-                          span, capture_message_content=False, disable_metrics=False, 
+                          span, capture_message_content=False, disable_metrics=False,
                           version="1.0.0", args=None, **kwargs):
     """
     Process chat response and generate telemetry.
@@ -184,7 +181,7 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
 
     # Create scope object
     scope = type("GenericScope", (), {})()
-    
+
     scope._start_time = start_time
     scope._end_time = end_time
     scope._span = span
@@ -252,4 +249,4 @@ def process_hub_response(response, gen_ai_endpoint, server_port, server_address,
 
     span.set_status(Status(StatusCode.OK))
 
-    return response 
+    return response

@@ -42,6 +42,7 @@ from openlit.instrumentation.premai import PremAIInstrumentor
 from openlit.instrumentation.assemblyai import AssemblyAIInstrumentor
 from openlit.instrumentation.azure_ai_inference import AzureAIInferenceInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
+from openlit.instrumentation.langchain_community import LangChainCommunityInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
 from openlit.instrumentation.embedchain import EmbedChainInstrumentor
@@ -267,6 +268,7 @@ def init(
         "google-ai-studio": "google.genai",
         "azure-ai-inference": "azure.ai.inference",
         "langchain": "langchain",
+        "langchain_community": "langchain_community",
         "llama_index": "llama_index",
         "haystack": "haystack",
         "embedchain": "embedchain",
@@ -387,6 +389,7 @@ def init(
             "google-ai-studio": GoogleAIStudioInstrumentor(),
             "azure-ai-inference": AzureAIInferenceInstrumentor(),
             "langchain": LangChainInstrumentor(),
+            "langchain_community": LangChainCommunityInstrumentor(),
             "llama_index": LlamaIndexInstrumentor(),
             "haystack": HaystackInstrumentor(),
             "embedchain": EmbedChainInstrumentor(),

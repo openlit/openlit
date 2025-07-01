@@ -12,49 +12,27 @@ from openlit.instrumentation.langchain_community.utils import process_general_re
 # Initialize logger for LangChain Community instrumentation
 logger = logging.getLogger(__name__)
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info,
+    capture_message_content, metrics, disable_metrics):
     """
-    Creates a wrapper to monitor general LangChain Community operations.
-    
-    Args:
-        gen_ai_endpoint: The endpoint identifier for the operation
-        version: The version of the LangChain Community package
-        environment: The environment name
-        application_name: The application name
-        tracer: The OpenTelemetry tracer
-        pricing_info: Pricing information for cost calculation
-        capture_message_content: Whether to capture message content
-        metrics: Metrics dictionary
-        disable_metrics: Whether to disable metrics collection
-    
-    Returns:
-        A wrapper function for LangChain Community operations
+    Generates a telemetry wrapper for GenAI operations.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        Wrapper function for LangChain Community operations.
-        
-        Args:
-            wrapped: The wrapped function
-            instance: The instance being wrapped
-            args: Positional arguments
-            kwargs: Keyword arguments
-        
-        Returns:
-            The result of the wrapped function
+        Wraps the GenAI operation call.
         """
 
         # Prepare server address and port
-        server_address = ""
-        server_port = ""
+        server_address = "127.0.0.1"
+        server_port = "80"
 
         # Get the parent span from the tracer
         with tracer.start_as_current_span(gen_ai_endpoint, kind=trace.SpanKind.CLIENT) as span:
             try:
                 # Call the original function
                 response = wrapped(*args, **kwargs)
-                
+
                 # Process the response using the utility function
                 response = process_general_response(
                     response, gen_ai_endpoint, server_port, server_address,
@@ -62,14 +40,10 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer
                 )
 
                 span.set_status(Status(StatusCode.OK))
-                return response
 
             except Exception as e:
-                # Handle any exception that might occur during the function call
                 handle_exception(span, e)
-                logger.error("Error in LangChain Community operation: %s", e)
-                
-                # Reraise the exception to maintain the original behavior
-                raise
+            
+            return response
 
-    return wrapper 
+    return wrapper

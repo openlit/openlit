@@ -15,8 +15,6 @@ from openlit.instrumentation.langchain.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-
-
 def hub(gen_ai_endpoint, version, environment, application_name, tracer,
         pricing_info, capture_message_content, metrics, disable_metrics):
     """
@@ -55,12 +53,12 @@ def hub(gen_ai_endpoint, version, environment, application_name, tracer,
 def chat(gen_ai_endpoint, version, environment, application_name,
          tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for LangChain chat operations.
+    Generates a telemetry wrapper for GenAI operations.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the LangChain chat operation call.
+        Wraps the GenAI operation call.
         """
 
         server_address, server_port = set_server_address_and_port(instance, "langchain.com", 443)
@@ -76,7 +74,7 @@ def chat(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Add instance to kwargs for processing
                 kwargs["instance"] = instance
-                
+
                 response = process_chat_response(
                     response=response,
                     request_model=request_model,
