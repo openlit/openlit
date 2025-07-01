@@ -75,12 +75,17 @@ export async function createBoard(board: Board) {
 		"insert",
 	);
 
+	console.log("Board Create Error in createBoard", err);
+
 	if (err || !(data as { query_id: string }).query_id)
 		return { err: getMessage().BOARD_CREATE_FAILED };
 
 	const { data: data_board, err: err_board } = await dataCollector({
 		query: `Select * from ${OPENLIT_BOARD_TABLE_NAME} order by created_at desc limit 1`,
 	});
+
+	console.log("Board Create Error in createBoard :   err_board select", err_board);
+
 
 	if (err_board) {
 		return { err: getMessage().BOARD_CREATE_FAILED };
