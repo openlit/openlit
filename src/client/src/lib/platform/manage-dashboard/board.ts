@@ -414,7 +414,7 @@ export async function getMainDashboard() {
 	const { data: mainDashboardData, err: mainDashboardErr } =
 		await dataCollector({ query });
 
-	if (mainDashboardErr || !mainDashboardData)
+	if (mainDashboardErr || !(mainDashboardData as any[])[0])
 		return { err: getMessage().MAIN_DASHBOARD_NOT_FOUND };
 
 	return getBoardLayout((mainDashboardData as any[])[0].id);
