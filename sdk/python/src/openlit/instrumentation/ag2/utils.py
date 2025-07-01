@@ -19,17 +19,24 @@ def calculate_tokens_and_cost(response, request_model, pricing_info):
     input_tokens = 0
     output_tokens = 0
 
-    for usage_data in response.cost.values():
-        if isinstance(usage_data, dict):
-            for model_data in usage_data.values():
-                if isinstance(model_data, dict):
-                    input_tokens += model_data.get("prompt_tokens", 0)
-                    output_tokens += model_data.get("completion_tokens", 0)
+    # Check if response has cost attribute and its not None
+    if hasattr(response, "cost") and response.cost is not None:
+        try:
+            for usage_data in response.cost.values():
+                if isinstance(usage_data, dict):
+                    for model_data in usage_data.values():
+                        if isinstance(model_data, dict):
+                            input_tokens += model_data.get("prompt_tokens", 0)
+                            output_tokens += model_data.get("completion_tokens", 0)
+        except (AttributeError, TypeError):
+            # If theres any issue accessing cost data, default to 0 tokens
+            input_tokens = 0
+            output_tokens = 0
 
     cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
     return input_tokens, output_tokens, cost
 
-def format_chat_history(chat_history):
+def format_content(chat_history):
     """
     Format the chat history into a string for span events.
     """
@@ -68,7 +75,7 @@ def common_agent_logic(scope, pricing_info, environment, application_name, metri
 
     # Span Attributes for Content
     if capture_message_content and hasattr(scope, "_chat_history"):
-        chat_content = format_chat_history(scope._chat_history)
+        chat_content = format_content(scope._chat_history)
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, chat_content)
 
         # To be removed once the change to span_attributes (from span events) is complete
@@ -138,9 +145,12 @@ def process_agent_run(response, agent_name, request_model, pricing_info, server_
 
     # Extract response model from cost data
     try:
-        cost_data = response.cost.get("usage_including_cached_inference", {})
-        scope._response_model = list(cost_data.keys())[1] if len(cost_data) > 1 else request_model
-    except (AttributeError, IndexError, KeyError):
+        if hasattr(response, "cost") and response.cost is not None:
+            cost_data = response.cost.get("usage_including_cached_inference", {})
+            scope._response_model = list(cost_data.keys())[1] if len(cost_data) > 1 else request_model
+        else:
+            scope._response_model = request_model
+    except (AttributeError, IndexError, KeyError, TypeError):
         scope._response_model = request_model
 
     common_agent_logic(scope, pricing_info, environment, application_name, metrics,
