@@ -36,4 +36,25 @@ describe('metrics', () => {
       evaluation: 'bias_detection',
     }));
   });
+
+  it('recordEvalMetrics handles missing or undefined result fields', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { recordEvalMetrics, EVAL_METRIC_ATTRIBUTES } = require('../metrics');
+    const result = {
+      verdict: 'no',
+      evaluation: 'toxicity',
+      score: 0.2,
+      // classification and explanation are missing
+    };
+    const validator = 'anthropic';
+    recordEvalMetrics(result, validator);
+    expect(spy).toHaveBeenCalledWith(1, expect.objectContaining({
+      [EVAL_METRIC_ATTRIBUTES.verdict]: 'no',
+      [EVAL_METRIC_ATTRIBUTES.score]: 0.2,
+      [EVAL_METRIC_ATTRIBUTES.validator]: 'anthropic',
+      [EVAL_METRIC_ATTRIBUTES.classification]: undefined,
+      [EVAL_METRIC_ATTRIBUTES.explanation]: undefined,
+      evaluation: 'toxicity',
+    }));
+  });
 });
