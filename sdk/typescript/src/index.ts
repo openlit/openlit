@@ -10,12 +10,12 @@ import Tracing from './tracing';
 import { DEFAULT_APPLICATION_NAME, DEFAULT_ENVIRONMENT, SDK_NAME } from './constant';
 import { SpanExporter } from '@opentelemetry/sdk-trace-base';
 import BaseOpenlit from './features/base';
-import { Hallucination, BiasDetector, ToxicityDetector, All } from './evals';
+import { Hallucination, Bias, ToxicityDetector, All } from './evals';
 
 // Factory functions for evals
 const evals = {
   Hallucination: (options: ConstructorParameters<typeof Hallucination>[0]) => new Hallucination(options),
-  BiasDetector: (options: ConstructorParameters<typeof BiasDetector>[0]) => new BiasDetector(options),
+  Bias: (options: ConstructorParameters<typeof Bias>[0]) => new Bias(options),
   ToxicityDetector: (options: ConstructorParameters<typeof ToxicityDetector>[0]) => new ToxicityDetector(options),
   All: (options: ConstructorParameters<typeof All>[0]) => new All(options),
 };

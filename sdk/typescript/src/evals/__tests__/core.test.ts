@@ -1,5 +1,5 @@
 import { Hallucination } from '../hallucination';
-import { BiasDetector } from '../bias_detection';
+import { Bias } from '../bias_detection';
 import { ToxicityDetector } from '../toxicity';
 import { All } from '../all';
 
@@ -12,7 +12,7 @@ describe('evals core logic', () => {
   });
 
   it('BiasDetector system prompt includes custom categories', () => {
-    const evaler = new BiasDetector({ customCategories: { bar: 'desc2' } });
+    const evaler = new Bias({ customCategories: { bar: 'desc2' } });
     const prompt = evaler.getSystemPrompt();
     expect(prompt).toContain('Additional Bias Categories:');
     expect(prompt).toContain('- bar: desc2');
