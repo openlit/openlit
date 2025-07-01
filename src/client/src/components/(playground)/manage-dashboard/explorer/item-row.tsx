@@ -55,7 +55,7 @@ export default function ExplorerItemRow({
 	const tags = item.tags ? jsonParse(item.tags) : [];
 
 	const isSearchMatchTitle = item.title.toLowerCase().includes(pageSearch.toLowerCase());
-	const isSearchMatchTags = tags?.some((tag: string) => tag.toLowerCase().includes(pageSearch.toLowerCase()));
+	const isSearchMatchTags = typeof tags === "string" ? tags.toLowerCase().includes(pageSearch.toLowerCase()) : tags?.some?.((tag: string) => tag.toLowerCase().includes(pageSearch.toLowerCase()));
 	const isSearchMatch = isSearchMatchTitle || isSearchMatchTags;
 
 	if (!isSearchMatch && item.type !== "folder") {

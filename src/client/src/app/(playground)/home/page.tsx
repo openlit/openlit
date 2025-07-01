@@ -36,7 +36,9 @@ const BoardList = ({ dashboardId }: { dashboardId: string | null }) => {
 		fetchBoards();
 	}, [fetchBoards]);
 
-	if (boards.length === 0) return null;
+	if (boards.length === 0) {
+		return null;
+	}
 
 	return (
 		<div className="flex gap-2">
@@ -125,13 +127,13 @@ export default function DashboardPage() {
 				<BoardList dashboardId={dashboardId} />
 			</div>
 			{
-				isLoading && (
+				isLoading ? (
 					<div className="flex items-center justify-center h-full w-full">
 						<Loader />
 					</div>
-				)
+				) : null
 			}
-			{initialConfig && (
+			{initialConfig ? (
 				<Dashboard
 					className="h-100 overflow-y-auto"
 					initialConfig={initialConfig}
@@ -139,7 +141,7 @@ export default function DashboardPage() {
 					runQuery={runQuery}
 					runFilters={runFilters}
 				/>
-			)}
+			) : null}
 		</>
 	);
 }
