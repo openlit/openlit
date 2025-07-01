@@ -58,6 +58,8 @@ export function getBoards(isHome?: boolean) {
 export async function createBoard(board: Board) {
 	const sanitizedBoard = Sanitizer.sanitizeObject(board);
 
+	console.log("Sanitized Board in createBoard", sanitizedBoard);
+
 	const { err, data } = await dataCollector(
 		{
 			table: OPENLIT_BOARD_TABLE_NAME,

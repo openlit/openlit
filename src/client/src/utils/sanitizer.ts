@@ -27,6 +27,9 @@ export default class Sanitizer {
 	}
 	static sanitizeValue<T>(value: T): T {
 		if (!isNil(value)) {
+			if (typeof value === "boolean") {
+				return value as T;
+			}
 			if (typeof value === "string") {
 				return sqlString.escape(value).slice(1, -1) as T; // Remove outer quotes and escape the string
 			} else {
