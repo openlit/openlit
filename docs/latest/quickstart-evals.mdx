@@ -44,24 +44,69 @@ We'll demonstrate how to use the `All` evaluator, which checks for all three asp
             verdict='yes' evaluation='hallucination' score=0.9 classification='factual_inaccuracy' explanation='The text incorrectly states that Einstein won the Nobel Prize in 1969, while the context specifies that he won it in 1921 for his discovery of the photoelectric effect, leading to a significant factual inconsistency.'
             ```
         </Tab>
+        <Tab title="Typescript">
+            ```typescript
+            import openlit from "openlit"
+
+            // The 'All' evaluator runs checks for Hallucination, Bias, and Toxicity
+            const evals = new openlit.evals.All()
+            const result = await evals.measure()
+            ```
+
+            Full Example:
+
+            ```typescript
+            import openlit from "openlit"
+
+            // The 'All' evaluator runs checks for Hallucination, Bias, and Toxicity
+            const evals = new openlit.evals.All({
+                provider: "openai",
+                apiKey: process.env.OPENAI_API_KEY,
+            })
+
+            const contexts = ["Einstein won the Nobel Prize for his discovery of the photoelectric effect in 1921"];
+            const prompt = "When and why did Einstein win the Nobel Prize?";
+            const text = "Einstein won the Nobel Prize in 1969 for his discovery of the photoelectric effect";
+
+            const result = await evals.measure({ prompt, contexts, text });
+            console.log(result)
+            ```
+        </Tab>
     </Tabs>
     The "All" evaluator is great for checking text for Hallucination, Bias, and Toxicity simultaneously. For more efficient, targeted evaluations, you can use specific evaluators like `openlit.evals.Hallucination()`, `openlit.evals.Bias()`, or `openlit.evals.Toxicity()`.
 
     For details on how it works, and to see the supported providers, models and parameters to pass, check our [Evaluations Guide](/latest/features/evaluations).
     </Step>
     <Step title="Collecting Evaluation metrics">
-        The `openlit.evals` module integrates with OpenTelemetry to track evaluation metrics as a counter, including score details and evaluation metadata. To enable metric collection, initialize OpenLIT with metrics tracking:
-        
-        ```python
-        import openlit
+        The `openlit.evals` module integrates with OpenTelemetry to track evaluation metrics as a counter, including score details and evaluation metadata. To enable metric collection, initialize OpenLIT for metrics tracking:
+        <Tabs>
+          <Tab title="Python">
+            ```python
+            import openlit
 
-        # Initialize OpenLIT for metrics collection
-        openlit.init()
+            # Initialize OpenLIT for metrics collection
+            openlit.init()
 
-        # Then, initialize the evaluator with metric tracking enabled
-        evals = openlit.evals.All(collect_metrics=True)
-        ```
+            # Then, initialize the evaluator with metric tracking enabled
+            evals = openlit.evals.All(collect_metrics=True)
+            ```
+          </Tab>
+          <Tab title="Typescript">
+            ```typescript
+            import openlit from "openlit"
 
+            // The 'All' evaluator will automatically record metrics for each evaluation
+            const evals = new openlit.evals.All({ collectMetrics: true });
+
+            const result = await evals.measure({
+              prompt: "When and why did Einstein win the Nobel Prize?",
+              contexts: ["Einstein won the Nobel Prize for his discovery of the photoelectric effect in 1921"],
+              text: "Einstein won the Nobel Prize in 1969 for his discovery of the photoelectric effect"
+            });
+            console.log(result)
+            ```
+          </Tab>
+        </Tabs>
         These metrics can be sent to any OpenTelemetry-compatible backend. For configuration details, check out our [Connections Guide](./connections/intro) to choose your preferred destination for these metrics.
     </Step>
 
