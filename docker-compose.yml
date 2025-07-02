@@ -7,6 +7,7 @@ services:
       CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}
     volumes:
       - clickhouse-data:/var/lib/clickhouse
+      - ./assets/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom-config.xml:ro
     ports:
       - "9000:9000"
       - "8123:8123"
