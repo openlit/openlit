@@ -1,5 +1,5 @@
 """
-Module for monitoring OpenAI Agents API calls.
+Module for monitoring OpenAI Agents API calls (async version).
 """
 
 import time
@@ -13,15 +13,15 @@ from openlit.instrumentation.openai_agents.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def create_agent(version, environment, application_name, tracer, pricing_info,
+def async_create_agent(version, environment, application_name, tracer, pricing_info,
     capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for OpenAI Agents agent creation.
+    Generates a telemetry wrapper for OpenAI Agents async agent creation.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the OpenAI Agents agent creation call.
+        Wraps the OpenAI Agents async agent creation call.
         """
 
         server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 80)
@@ -33,7 +33,7 @@ def create_agent(version, environment, application_name, tracer, pricing_info,
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 process_agent_creation(
@@ -58,4 +58,4 @@ def create_agent(version, environment, application_name, tracer, pricing_info,
 
             return response
 
-    return wrapper
+    return wrapper 
