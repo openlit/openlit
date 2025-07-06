@@ -15,6 +15,8 @@ import {
 } from "../types";
 import { SUPPORTED_WIDGETS } from "../constants";
 import { Board } from "@/types/manage-dashboard";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 interface DashboardContextType {
 	details: Partial<Board>;
@@ -84,6 +86,7 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 	const [widgetData, setWidgetData] = useState<Record<string, any>>({});
 	const [editingWidget, setEditingWidget] = useState<string | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
+	const posthog = usePostHog();
 
 	// Load widget data
 	const loadWidgetData = async (widgetId: string) => {
@@ -172,8 +175,18 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 				} else {
 					newWidget.id = newWidgetId;
 				}
+
+				posthog?.capture(CLIENT_EVENTS.DASHBOARD_WIDGET_ADDED, {
+					id: newWidget.id,
+					type: newWidget.type,
+					title: newWidget.title,
+				});
 			} catch (error) {
-				console.log(error);
+				posthog?.capture(CLIENT_EVENTS.DASHBOARD_WIDGET_ADD_FAILURE, {
+					type: existingWidget?.type,
+					title: existingWidget?.title,
+					error: error?.toString(),
+				});
 				return;
 			}
 		}
@@ -250,6 +263,11 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 
 	const handleRunQuery = (widgetId: string, params: Record<string, unknown>) => {
 		if (runQuery) {
+			posthog?.capture(CLIENT_EVENTS.DASHBOARD_WIDGET_RUN_QUERY, {
+				id: widgetId,
+				type: widgets[widgetId]?.type,
+				title: widgets[widgetId]?.title,
+			});
 			return runQuery(widgetId, params);
 		}
 

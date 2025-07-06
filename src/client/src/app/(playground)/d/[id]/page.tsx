@@ -11,7 +11,9 @@ import Filter from "@/components/(playground)/filter";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import { useFilters } from "@/selectors/filter";
 import { usePageHeader } from "@/selectors/page";
+import { usePostHog } from "posthog-js/react";
 import { Board } from "@/types/manage-dashboard";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 export default function DashboardPage() {
 	const { details: filter } = useFilters();
@@ -25,6 +27,7 @@ export default function DashboardPage() {
 		DashboardConfig | undefined
 	>();
 	const { setHeader } = usePageHeader();
+	const posthog = usePostHog();
 
 	const handleHeaderUpdates = (details: Partial<Board>) => {
 		setHeader({
@@ -57,6 +60,15 @@ export default function DashboardPage() {
 	useEffect(() => {
 		fetchBoardLayout();
 	}, [boardId, fireRequest]);
+
+	useEffect(() => {
+		if (initialConfig) {
+			posthog?.capture(CLIENT_EVENTS.DASHBOARD_VIEWED, {
+				title: initialConfig?.title,
+				widgets: initialConfig?.widgets?.length || 0,
+			});
+		}
+	}, [initialConfig, posthog]);
 
 	const runFilters = useMemo(() => {
 		return getFilterParamsForDashboard({

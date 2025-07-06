@@ -105,7 +105,7 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
   });
 
   if (!migrationExist) {
-    await CreateCustomDashboardsSeed();
+    await CreateCustomDashboardsSeed(databaseConfigId);
   }
 
   return { migrationExist, queriesRun };

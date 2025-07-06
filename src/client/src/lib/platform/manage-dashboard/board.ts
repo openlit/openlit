@@ -54,7 +54,7 @@ export function getBoards(isHome?: boolean) {
 	return dataCollector({ query });
 }
 
-export async function createBoard(board: Board) {
+export async function createBoard(board: Board, databaseConfigId?: string) {
 	const sanitizedBoard = Sanitizer.sanitizeObject(board);
 
 	const { err, data } = await dataCollector(
@@ -72,6 +72,7 @@ export async function createBoard(board: Board) {
 			],
 		},
 		"insert",
+		databaseConfigId
 	);
 
 	if (err || !(data as { query_id: string }).query_id)
@@ -142,7 +143,7 @@ export async function deleteBoard(id: string) {
 	return { data: getMessage().BOARD_DELETED_SUCCESSFULLY };
 }
 
-export async function getBoardLayout(id: string) {
+export async function getBoardLayout(id: string, databaseConfigId?: string) {
 	// First get the board details
 	const boardQuery = `
 		SELECT 
@@ -160,7 +161,7 @@ export async function getBoardLayout(id: string) {
 
 	const { data: boardData, err: boardErr } = await dataCollector({
 		query: boardQuery,
-	});
+	}, "query", databaseConfigId);
 	const boardResult = (boardData as any[])?.[0] as {
 		boardId: string;
 		boardTitle: string;
@@ -189,7 +190,7 @@ export async function getBoardLayout(id: string) {
 
 	const { data: mappingsData, err: mappingsErr } = await dataCollector({
 		query: widgetMappingsQuery,
-	});
+	}, "query", databaseConfigId);
 	const mappingsResult = (mappingsData || []) as Array<{
 		boardWidgetId: string;
 		widgetId: string;
@@ -297,7 +298,7 @@ export async function getBoardLayout(id: string) {
 	};
 }
 
-export async function updateBoardLayout(boardId: string, layoutConfig: any) {
+export async function updateBoardLayout(boardId: string, layoutConfig: any, databaseConfigId?: string) {
 	// First, get all existing widget mappings for this board
 	const getExistingWidgetsQuery = `
 			SELECT widget_id, id
@@ -307,7 +308,7 @@ export async function updateBoardLayout(boardId: string, layoutConfig: any) {
 
 	const { data: existingWidgetsData } = await dataCollector({
 		query: getExistingWidgetsQuery,
-	});
+	}, "query", databaseConfigId);
 	const existingWidgets =
 		(existingWidgetsData as { widget_id: string; id: string }[]) || [];
 
@@ -334,7 +335,7 @@ export async function updateBoardLayout(boardId: string, layoutConfig: any) {
 					WHERE id = '${Sanitizer.sanitizeValue(existingWidget.id)}'
 					AND board_id = '${Sanitizer.sanitizeValue(boardId)}'
 				`;
-			await dataCollector({ query: deleteQuery }, "exec");
+			await dataCollector({ query: deleteQuery }, "exec", databaseConfigId);
 		}
 	}
 
@@ -359,7 +360,7 @@ export async function updateBoardLayout(boardId: string, layoutConfig: any) {
 						WHERE id = '${Sanitizer.sanitizeValue(existingWidgetMap.get(widget.id))}'
 					`;
 
-				await dataCollector({ query: updateQuery }, "exec");
+				await dataCollector({ query: updateQuery }, "exec", databaseConfigId);
 			} else {
 				// Insert new widget mapping
 				await dataCollector(
@@ -374,6 +375,7 @@ export async function updateBoardLayout(boardId: string, layoutConfig: any) {
 						],
 					},
 					"insert",
+					databaseConfigId
 				);
 			}
 		}
@@ -405,33 +407,39 @@ export async function setMainDashboard(boardId: string) {
 	return { data: getMessage().BOARD_UPDATED_SUCCESSFULLY };
 }
 
-export async function getMainDashboard() {
+export async function getMainDashboard(layout?: boolean, databaseConfigId?: string) {
 	const query = `
 		SELECT id, is_main_dashboard AS isMainDashboard FROM ${OPENLIT_BOARD_TABLE_NAME}
 		WHERE is_main_dashboard = true
 	`;
 
 	const { data: mainDashboardData, err: mainDashboardErr } =
-		await dataCollector({ query });
+		await dataCollector({ query }, "query", databaseConfigId);
 
 	if (mainDashboardErr || !(mainDashboardData as any[])[0])
 		return { err: mainDashboardErr?.toString() || getMessage().MAIN_DASHBOARD_NOT_FOUND };
 
-	return getBoardLayout((mainDashboardData as any[])[0].id);
+	if (layout) {
+		return getBoardLayout((mainDashboardData as any[])[0].id, databaseConfigId);
+	}
+
+	return { data: (mainDashboardData as any[])[0], err: null };
 }
 
 // TODO: fix the type of data
-export async function importBoardLayout(data: any) {
+export async function importBoardLayout(data: any, databaseConfigId?: string) {
+	const mainDashboard = await getMainDashboard(false, databaseConfigId);
+
 	const boardData: Partial<Board> = {
 		title: data.title,
 		description: data.description,
 		isPinned: data.isPinned,
-		isMainDashboard: data.isMainDashboard,
+		isMainDashboard: mainDashboard.data?.isMainDashboard ? false : data.isMainDashboard,
 		tags: data.tags ? jsonParse(data.tags) : [],
 	};
 
 	// Create the board first
-	const boardResult = await createBoard(boardData as Board);
+	const boardResult = await createBoard(boardData as Board, databaseConfigId);
 
 	if ('err' in boardResult) {
 		return { err: boardResult.err };
@@ -465,7 +473,7 @@ export async function importBoardLayout(data: any) {
 	});
 
 	await Promise.all(updatedWidgets.map(async (widget: any) => {
-		return await createWidget(widget);
+		return await createWidget(widget, databaseConfigId);
 	}));
 
 	const layoutConfigData = {
@@ -479,7 +487,7 @@ export async function importBoardLayout(data: any) {
 	}
 
 
-	const { data: layoutData, err: layoutErr } = await updateBoardLayout(newBoardId, layoutConfigData);
+	const { data: layoutData, err: layoutErr } = await updateBoardLayout(newBoardId, layoutConfigData, databaseConfigId);
 
 
 	if (layoutData) {
@@ -502,4 +510,19 @@ export async function updatePinnedBoard(boardId: string) {
 		return { err: err?.toString() || getMessage().BOARD_UPDATE_FAILED };
 
 	return { data: getMessage().BOARD_UPDATED_SUCCESSFULLY };
+}
+
+export async function isBoardTableEmpty(databaseConfigId?: string) {
+	const query = `
+		SELECT COUNT(*) FROM ${OPENLIT_BOARD_TABLE_NAME}
+	`;
+
+	const { data: boardCount, err: boardCountErr } =
+		await dataCollector({ query }, "query", databaseConfigId);
+
+	if (boardCountErr) {
+		return { err: boardCountErr, data: false };
+	}
+
+	return { data: (boardCount as any[])[0].count === 0, err: null };
 }

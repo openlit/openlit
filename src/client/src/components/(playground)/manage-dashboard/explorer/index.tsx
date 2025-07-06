@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/selectors/page";
 import { AddResource, EditResource, useUpsertResource } from "../board-creator/hooks/useUpsertResource";
 import { exportBoardLayout } from "../board-creator/utils/api";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 // React 18 StrictMode compatibility fix for react-beautiful-dnd
 const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
@@ -52,6 +54,7 @@ export default function DashboardExplorer() {
 	const { fireRequest: setMainDashboardRequest } = useFetchWrapper();
 	const { fireRequest: importBoardLayoutRequest } = useFetchWrapper();
 	const { setHeader } = usePageHeader();
+	const posthog = usePostHog();
 
 	const router = useRouter();
 	// Fetch hierarchy data on component mount
@@ -74,10 +77,15 @@ export default function DashboardExplorer() {
 					});
 				}
 				setIsLoading(false);
+				posthog?.capture(CLIENT_EVENTS.DASHBOARD_EXPLORER_LOADED, {
+					count: response?.data?.length || 0,
+				});
 			},
 			failureCb: (error) => {
 				toast.error("Failed to load dashboard hierarchy");
-				console.error("Error loading hierarchy:", error);
+				posthog?.capture(CLIENT_EVENTS.DASHBOARD_EXPLORER_LOAD_FAILURE, {
+					error: error?.toString(),
+				});
 				setIsLoading(false);
 			},
 		});
@@ -113,6 +121,10 @@ export default function DashboardExplorer() {
 						toast.success("Folder created successfully", {
 							id: "manage-dashboard-explorer",
 						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_FOLDER_CREATED, {
+							id: response.data.id,
+							title: response.data.title,
+						});
 						loadHierarchy(); // Reload hierarchy after successful creation
 					},
 					failureCb: (error) => {
@@ -120,6 +132,9 @@ export default function DashboardExplorer() {
 							`Failed to create folder: ${error || "Unknown error"}`,
 							{ id: "manage-dashboard-explorer" }
 						);
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_FOLDER_CREATE_FAILURE, {
+							error: error?.toString(),
+						});
 					},
 				});
 			} else {
@@ -131,11 +146,18 @@ export default function DashboardExplorer() {
 						toast.success("Board created successfully", {
 							id: "manage-dashboard-explorer",
 						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_CREATED, {
+							id: response.data.id,
+							title: response.data.title,
+						});
 						router.push(`/d/${response.data.id}`);
 					},
 					failureCb: (error) => {
 						toast.error(`Failed to create board: ${error || "Unknown error"}`, {
 							id: "manage-dashboard-explorer",
+						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_CREATE_FAILURE, {
+							error: error?.toString(),
 						});
 					},
 				});
@@ -204,6 +226,10 @@ export default function DashboardExplorer() {
 						toast.success("Folder updated successfully", {
 							id: "manage-dashboard-explorer",
 						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_FOLDER_UPDATED, {
+							id: response.data.id,
+							title: response.data.title,
+						});
 						loadHierarchy(); // Reload hierarchy after successful update
 					},
 					failureCb: (error) => {
@@ -211,6 +237,9 @@ export default function DashboardExplorer() {
 							`Failed to update folder: ${error || "Unknown error"}`,
 							{ id: "manage-dashboard-explorer" }
 						);
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_FOLDER_UPDATE_FAILURE, {
+							error: error?.toString(),
+						});
 					},
 				});
 			} else {
@@ -222,11 +251,18 @@ export default function DashboardExplorer() {
 						toast.success("Board updated successfully", {
 							id: "manage-dashboard-explorer",
 						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_UPDATED, {
+							id: response.data.id,
+							title: response.data.title,
+						});
 						loadHierarchy(); // Reload hierarchy after successful update
 					},
 					failureCb: (error) => {
 						toast.error(`Failed to update board: ${error || "Unknown error"}`, {
 							id: "manage-dashboard-explorer",
+						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_UPDATE_FAILURE, {
+							error: error?.toString(),
 						});
 					},
 				});
@@ -293,6 +329,10 @@ export default function DashboardExplorer() {
 						toast.success("Folder deleted successfully", {
 							id: "manage-dashboard-explorer",
 						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_FOLDER_DELETED, {
+							id: response.data.id,
+							title: response.data.title,
+						});
 						loadHierarchy(); // Reload hierarchy after successful deletion
 					},
 					failureCb: (error) => {
@@ -300,6 +340,9 @@ export default function DashboardExplorer() {
 							`Failed to delete folder: ${error || "Unknown error"}`,
 							{ id: "manage-dashboard-explorer" }
 						);
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_FOLDER_DELETE_FAILURE, {
+							error: error?.toString(),
+						});
 					},
 				});
 			} else {
@@ -310,11 +353,18 @@ export default function DashboardExplorer() {
 						toast.success("Board deleted successfully", {
 							id: "manage-dashboard-explorer",
 						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_DELETED, {
+							id: response.data.id,
+							title: response.data.title,
+						});
 						loadHierarchy(); // Reload hierarchy after successful deletion
 					},
 					failureCb: (error) => {
 						toast.error(`Failed to delete board: ${error || "Unknown error"}`, {
 							id: "manage-dashboard-explorer",
+						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_DELETE_FAILURE, {
+							error: error?.toString(),
 						});
 					},
 				});
@@ -330,10 +380,18 @@ export default function DashboardExplorer() {
 				url: `/api/manage-dashboard/board/${boardId}`,
 				body: jsonStringify({ setMain: true }),
 				successCb: () => {
+					posthog?.capture(CLIENT_EVENTS.DASHBOARD_SET_MAIN_DASHBOARD, {
+						id: boardId,
+					});
 					loadHierarchy();
 				},
 				failureCb: (error) => {
-					console.error("Failed to set as main dashboard:", error);
+					toast.error("Failed to set as main dashboard", {
+						id: "manage-dashboard-explorer",
+					});
+					posthog?.capture(CLIENT_EVENTS.DASHBOARD_SET_MAIN_DASHBOARD_FAILURE, {
+						error: error?.toString(),
+					});
 				},
 			});
 		},
@@ -347,10 +405,18 @@ export default function DashboardExplorer() {
 				url: `/api/manage-dashboard/board/${boardId}`,
 				body: jsonStringify({ updatePinned: true }),
 				successCb: () => {
+					posthog?.capture(CLIENT_EVENTS.DASHBOARD_TOGGLE_PINNED, {
+						id: boardId,
+					});
 					loadHierarchy();
 				},
 				failureCb: (error) => {
-					console.error("Failed to update pinned board:", error);
+					toast.error("Failed to update pinned board", {
+						id: "manage-dashboard-explorer",
+					});
+					posthog?.capture(CLIENT_EVENTS.DASHBOARD_TOGGLE_PINNED_FAILURE, {
+						error: error?.toString(),
+					});
 				},
 			});
 		},
@@ -363,10 +429,18 @@ export default function DashboardExplorer() {
 			url: `/api/manage-dashboard/board/layout/import`,
 			body: jsonStringify(data),
 			successCb: (response) => {
+				posthog?.capture(CLIENT_EVENTS.DASHBOARD_IMPORT_SUCCESS, {
+					id: response.data.id,
+				});
 				router.push(`/d/${response.data.id}`);
 			},
 			failureCb: (error) => {
-				console.error("Failed to import board layout:", error);
+				toast.error("Failed to import board layout", {
+					id: "manage-dashboard-explorer",
+				});
+				posthog?.capture(CLIENT_EVENTS.DASHBOARD_IMPORT_FAILURE, {
+					error: error?.toString(),
+				});
 			},
 		});
 	}, [importBoardLayoutRequest, loadHierarchy]);
@@ -551,11 +625,20 @@ export default function DashboardExplorer() {
 						toast.success("Folder moved successfully", {
 							id: "manage-dashboard-explorer",
 						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_FOLDER_UPDATED, {
+							id: response.data.id,
+							title: response.data.title,
+							reorder: true,
+						});
 						loadHierarchy(); // Reload hierarchy to ensure consistency
 					},
 					failureCb: (error) => {
 						toast.error(`Failed to move folder: ${error || "Unknown error"}`, {
 							id: "manage-dashboard-explorer",
+						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_FOLDER_UPDATE_FAILURE, {
+							error: error?.toString(),
+							reorder: true,
 						});
 						loadHierarchy(); // Reload hierarchy to reset UI
 					},
@@ -569,11 +652,20 @@ export default function DashboardExplorer() {
 						toast.success("Board moved successfully", {
 							id: "manage-dashboard-explorer",
 						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_UPDATED, {
+							id: response.data.id,
+							title: response.data.title,
+							reorder: true,
+						});
 						loadHierarchy(); // Reload hierarchy to ensure consistency
 					},
 					failureCb: (error) => {
 						toast.error(`Failed to move board: ${error || "Unknown error"}`, {
 							id: "manage-dashboard-explorer",
+						});
+						posthog?.capture(CLIENT_EVENTS.DASHBOARD_UPDATE_FAILURE, {
+							error: error?.toString(),
+							reorder: true,
 						});
 						loadHierarchy(); // Reload hierarchy to reset UI
 					},

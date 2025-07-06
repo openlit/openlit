@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 
 export async function GET(_: NextRequest) {
 	const startTimestamp = Date.now();
-	const res = await getMainDashboard();
+	const res = await getMainDashboard(true);
 	PostHogServer.fireEvent({
 		event: res.err ? SERVER_EVENTS.DASHBOARD_GET_MAIN_FAILURE : SERVER_EVENTS.DASHBOARD_GET_MAIN_SUCCESS,
 		startTimestamp,

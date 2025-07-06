@@ -12,6 +12,9 @@ import { getFilterDetails } from "@/selectors/filter";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import Loader from "@/components/common/loader";
 import { usePageHeader } from "@/selectors/page";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
+import { toast } from "sonner";
 
 const BoardList = ({ dashboardId }: { dashboardId: string | null }) => {
 	const [boards, setBoards] = useState<Board[]>([]);
@@ -66,6 +69,7 @@ export default function DashboardPage() {
 	const searchParams = useSearchParams();
 	const dashboardId = searchParams.get("dashboardId");
 	const { setHeader } = usePageHeader();
+	const posthog = usePostHog();
 
 	useEffect(() => {
 		const fetchBoardLayout = async () => {
@@ -87,9 +91,21 @@ export default function DashboardPage() {
 						description: response.data?.description,
 						breadcrumbs: [],
 					});
+					posthog?.capture(CLIENT_EVENTS.DASHBOARD_VIEWED, {
+						id: response.data.id,
+						home: true,
+						mainDashboard: response.data.isMainDashboard,
+					});
 				}
 			} catch (error) {
-				console.error("Failed to fetch board layout:", error);
+				toast.error("Failed to fetch board layout", {
+					id: "dashboard-page",
+				});
+				posthog?.capture(CLIENT_EVENTS.DASHBOARD_VIEW_FAILURE, {
+					error: error?.toString(),
+					home: true,
+					mainDashboard: !dashboardId,
+				});
 			}
 		};
 

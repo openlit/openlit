@@ -63,7 +63,7 @@ export async function getWidgets(widgetIds?: string[]) {
 	return { data: (data as Array<DatabaseWidget>).map(normalizeWidgetToClient) };
 }
 
-export async function createWidget(widget: Widget) {
+export async function createWidget(widget: Widget, databaseConfigId?: string) {
 	const sanitizedWidget = sanitizeWidget(widget);
 
 	const { err, data } = await dataCollector(
@@ -81,6 +81,7 @@ export async function createWidget(widget: Widget) {
 			],
 		},
 		"insert",
+		databaseConfigId
 	);
 
 	if (err) {
@@ -95,7 +96,7 @@ export async function createWidget(widget: Widget) {
 		const result = await dataCollector({
 			query: `SELECT id, title, description, widget_type AS type, created_at AS createdAt, properties,
 			config, updated_at AS updatedAt FROM ${OPENLIT_WIDGET_TABLE_NAME} ORDER BY created_at DESC LIMIT 1`,
-		});
+		}, "query", databaseConfigId);
 
 		if (
 			!result.err &&
