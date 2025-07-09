@@ -84,12 +84,12 @@ export async function createWidget(widget: Widget, databaseConfigId?: string) {
 		databaseConfigId
 	);
 
-	if (err) {
-		return { err: getMessage().WIDGET_UPDATE_FAILED };
-	}
-
 	// Extract the ID from the response
 	const queryId = (data as { query_id: string })?.query_id;
+
+	if (err || !queryId) {
+		return { err: err || getMessage().WIDGET_CREATE_FAILED };
+	}
 
 	// Get the created widget to return its ID
 	if (queryId) {
@@ -139,8 +139,9 @@ export async function updateWidget(widget: Widget) {
 
 	const { err, data } = await dataCollector({ query }, "exec");
 
-	if (err || !(data as { query_id: string }).query_id)
-		return { err: getMessage().WIDGET_UPDATE_FAILED };
+	if (err || !(data as { query_id: string }).query_id) {
+		return { err: err || getMessage().WIDGET_UPDATE_FAILED };
+	}
 
 	return { data: getMessage().WIDGET_UPDATED_SUCCESSFULLY };
 }

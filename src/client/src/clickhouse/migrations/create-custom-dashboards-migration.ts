@@ -74,7 +74,7 @@ export default async function CreateCustomDashboardsMigration(databaseConfigId?:
       
       PRIMARY KEY id
     ) ENGINE = MergeTree()
-    ORDER BY (id, widget_type, created_at)
+    ORDER BY (id, created_at)
     `,
     `
     CREATE TABLE IF NOT EXISTS ${CUSTOM_DASHBOARDS_BOARD_WIDGETS_TABLE} (
