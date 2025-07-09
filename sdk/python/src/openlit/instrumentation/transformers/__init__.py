@@ -30,12 +30,19 @@ class TransformersInstrumentor(BaseInstrumentor):
         version = importlib.metadata.version("transformers")
 
         wrap_function_wrapper(
-            "transformers",  
-            "TextGenerationPipeline.__call__",  
-            pipeline_wrapper(version, environment, application_name,
-                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            "transformers",
+            "TextGenerationPipeline.__call__",
+            pipeline_wrapper(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics
+            ),
         )
 
     def _uninstrument(self, **kwargs):
-        # Proper uninstrumentation logic to revert patched methods
         pass

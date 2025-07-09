@@ -8,40 +8,44 @@ from wrapt import wrap_function_wrapper
 from openlit.instrumentation.ag2.ag2 import (
     conversable_agent, agent_run
 )
+from openlit.instrumentation.ag2.async_ag2 import (
+    async_conversable_agent, async_agent_run
+)
 
-_instruments = ('ag2 >= 0.3.2',)
+_instruments = ("ag2 >= 0.3.2",)
 
 class AG2Instrumentor(BaseInstrumentor):
     """
-    An instrumentor for AG2's client library.
+    An instrumentor for AG2 client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get('application_name', 'default_application')
-        environment = kwargs.get('environment', 'default_environment')
-        tracer = kwargs.get('tracer')
-        event_provider = kwargs.get('event_provider')
-        metrics = kwargs.get('metrics_dict')
-        pricing_info = kwargs.get('pricing_info', {})
-        capture_message_content = kwargs.get('capture_message_content', False)
-        disable_metrics = kwargs.get('disable_metrics')
-        version = importlib.metadata.version('ag2')
+        version = importlib.metadata.version("ag2")
+        environment = kwargs.get("environment", "default")
+        application_name = kwargs.get("application_name", "default")
+        tracer = kwargs.get("tracer")
+        pricing_info = kwargs.get("pricing_info", {})
+        capture_message_content = kwargs.get("capture_message_content", False)
+        metrics = kwargs.get("metrics_dict")
+        disable_metrics = kwargs.get("disable_metrics")
 
+        # sync conversable agent
         wrap_function_wrapper(
-            'autogen.agentchat.conversable_agent',
-            'ConversableAgent.__init__',
+            "autogen.agentchat.conversable_agent",
+            "ConversableAgent.__init__",
             conversable_agent(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
+                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
+        # sync agent run
         wrap_function_wrapper(
-            'autogen.agentchat.conversable_agent',
-            'ConversableAgent.run',
+            "autogen.agentchat.conversable_agent",
+            "ConversableAgent.run",
             agent_run(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
+                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
     def _uninstrument(self, **kwargs):

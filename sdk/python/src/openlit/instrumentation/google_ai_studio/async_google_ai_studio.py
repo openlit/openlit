@@ -2,7 +2,6 @@
 Module for monitoring Google AI Studio API calls.
 """
 
-import logging
 import time
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
@@ -15,9 +14,6 @@ from openlit.instrumentation.google_ai_studio.utils import (
     process_streaming_chat_response
 )
 from openlit.semcov import SemanticConvention
-
-# Initialize logger for logging potential issues and operations
-logger = logging.getLogger(__name__)
 
 def async_generate(version, environment, application_name,
     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
@@ -39,26 +35,31 @@ def async_generate(version, environment, application_name,
             start_time = time.time()
             response = await wrapped(*args, **kwargs)
 
-            response = process_chat_response(
-                    instance = instance,
-                    response=response,
-                    request_model=request_model,
-                    pricing_info=pricing_info,
-                    server_port=server_port,
-                    server_address=server_address,
-                    environment=environment,
-                    application_name=application_name,
-                    metrics=metrics,
-                    start_time=start_time,
-                    span=span,
-                    args=args,
-                    kwargs=kwargs,
-                    capture_message_content=capture_message_content,
-                    disable_metrics=disable_metrics,
-                    version=version,
-            )
+            try:
+                response = process_chat_response(
+                        instance = instance,
+                        response=response,
+                        request_model=request_model,
+                        pricing_info=pricing_info,
+                        server_port=server_port,
+                        server_address=server_address,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        start_time=start_time,
+                        span=span,
+                        args=args,
+                        kwargs=kwargs,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                )
 
-        return response
+            except Exception as e:
+                handle_exception(span, e)
+
+            # Return original response
+            return response
 
     return wrapper
 
@@ -138,7 +139,6 @@ def async_generate_stream(version, environment, application_name,
 
                 except Exception as e:
                     handle_exception(self._span, e)
-                    logger.error("Error in trace creation: %s", e)
                 raise
 
     async def wrapper(wrapped, instance, args, kwargs):

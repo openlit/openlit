@@ -333,3 +333,112 @@ def format_and_concatenate(messages):
         for message_data in formatted_messages.values()
         if message_data['content']
     )
+
+def common_span_attributes(scope, gen_ai_operation, gen_ai_system, server_address, server_port,
+    request_model, response_model, environment, application_name, is_stream, tbt, ttft, version):
+    """
+    Set common span attributes for both chat and RAG operations.
+    """
+
+    scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+    scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, gen_ai_operation)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, gen_ai_system)
+    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+    scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, response_model)
+    scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
+    scope._span.set_attribute(SERVICE_NAME, application_name)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, is_stream)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+
+def record_completion_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
+    request_model, response_model, environment, application_name, start_time, end_time, cost,
+    input_tokens, output_tokens, tbt, ttft):
+    """
+    Record completion metrics for the operation.
+    """
+
+    attributes = create_metrics_attributes(
+        operation=gen_ai_operation,
+        system=gen_ai_system,
+        server_address=server_address,
+        server_port=server_port,
+        request_model=request_model,
+        response_model=response_model,
+        service_name=application_name,
+        deployment_environment=environment,
+    )
+    metrics["genai_client_usage_tokens"].record(input_tokens + output_tokens, attributes)
+    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
+    metrics["genai_server_tbt"].record(tbt, attributes)
+    metrics["genai_server_ttft"].record(ttft, attributes)
+    metrics["genai_requests"].add(1, attributes)
+    metrics["genai_completion_tokens"].add(output_tokens, attributes)
+    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
+    metrics["genai_cost"].record(cost, attributes)
+
+def record_embedding_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
+    request_model, response_model, environment, application_name, start_time, end_time,
+    input_tokens, cost):
+    """
+    Record embedding-specific metrics for the operation.
+    """
+
+    attributes = create_metrics_attributes(
+        operation=gen_ai_operation,
+        system=gen_ai_system,
+        server_address=server_address,
+        server_port=server_port,
+        request_model=request_model,
+        response_model=response_model,
+        service_name=application_name,
+        deployment_environment=environment,
+    )
+    metrics["genai_client_usage_tokens"].record(input_tokens, attributes)
+    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
+    metrics["genai_requests"].add(1, attributes)
+    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
+    metrics["genai_cost"].record(cost, attributes)
+
+def record_audio_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
+    request_model, response_model, environment, application_name, start_time, end_time, cost):
+    """
+    Record audio-specific metrics for the operation.
+    """
+
+    attributes = create_metrics_attributes(
+        operation=gen_ai_operation,
+        system=gen_ai_system,
+        server_address=server_address,
+        server_port=server_port,
+        request_model=request_model,
+        response_model=response_model,
+        service_name=application_name,
+        deployment_environment=environment,
+    )
+    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
+    metrics["genai_requests"].add(1, attributes)
+    metrics["genai_cost"].record(cost, attributes)
+
+def record_image_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
+    request_model, response_model, environment, application_name, start_time, end_time, cost):
+    """
+    Record image-specific metrics for the operation.
+    """
+
+    attributes = create_metrics_attributes(
+        operation=gen_ai_operation,
+        system=gen_ai_system,
+        server_address=server_address,
+        server_port=server_port,
+        request_model=request_model,
+        response_model=response_model,
+        service_name=application_name,
+        deployment_environment=environment,
+    )
+    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
+    metrics["genai_requests"].add(1, attributes)
+    metrics["genai_cost"].record(cost, attributes)

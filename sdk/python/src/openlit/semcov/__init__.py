@@ -130,6 +130,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_FIRECRAWL = "firecrawl"
     GEN_AI_SYSTEM_LETTA = "letta"
     GEN_AI_SYSTEM_TOGETHER = "together"
+    GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
 
     # GenAI Request Attributes (Extra)
     GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.is_stream"
@@ -165,6 +166,7 @@ class SemanticConvention:
     GEN_AI_CONTENT_COMPLETION_EVENT = "gen_ai.content.completion"
     GEN_AI_CONTENT_COMPLETION = "gen_ai.completion"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
+    GEN_AI_CONTENT_REASONING = "gen_ai.content.reasoning"
 
     # GenAI Rag
     GEN_AI_RAG_MAX_SEGMENTS = "gen_ai.rag.max_segments"

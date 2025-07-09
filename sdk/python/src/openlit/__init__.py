@@ -42,6 +42,7 @@ from openlit.instrumentation.premai import PremAIInstrumentor
 from openlit.instrumentation.assemblyai import AssemblyAIInstrumentor
 from openlit.instrumentation.azure_ai_inference import AzureAIInferenceInstrumentor
 from openlit.instrumentation.langchain import LangChainInstrumentor
+from openlit.instrumentation.langchain_community import LangChainCommunityInstrumentor
 from openlit.instrumentation.llamaindex import LlamaIndexInstrumentor
 from openlit.instrumentation.haystack import HaystackInstrumentor
 from openlit.instrumentation.embedchain import EmbedChainInstrumentor
@@ -66,6 +67,7 @@ from openlit.instrumentation.crawl4ai import Crawl4AIInstrumentor
 from openlit.instrumentation.firecrawl import FireCrawlInstrumentor
 from openlit.instrumentation.letta import LettaInstrumentor
 from openlit.instrumentation.openai_agents import OpenAIAgentsInstrumentor
+from openlit.instrumentation.pydantic_ai import PydanticAIInstrumentor
 from openlit.instrumentation.gpu import GPUInstrumentor
 import openlit.guard
 import openlit.evals
@@ -266,6 +268,7 @@ def init(
         "google-ai-studio": "google.genai",
         "azure-ai-inference": "azure.ai.inference",
         "langchain": "langchain",
+        "langchain_community": "langchain_community",
         "llama_index": "llama_index",
         "haystack": "haystack",
         "embedchain": "embedchain",
@@ -294,7 +297,8 @@ def init(
         "firecrawl": "firecrawl",
         "letta": "letta",
         "together": "together",
-        "openai-agents": "agents"
+        "openai-agents": "agents",
+        "pydantic_ai": "pydantic_ai"
     }
 
     invalid_instrumentors = [
@@ -385,6 +389,7 @@ def init(
             "google-ai-studio": GoogleAIStudioInstrumentor(),
             "azure-ai-inference": AzureAIInferenceInstrumentor(),
             "langchain": LangChainInstrumentor(),
+            "langchain_community": LangChainCommunityInstrumentor(),
             "llama_index": LlamaIndexInstrumentor(),
             "haystack": HaystackInstrumentor(),
             "embedchain": EmbedChainInstrumentor(),
@@ -414,6 +419,7 @@ def init(
             "letta": LettaInstrumentor(),
             "together": TogetherInstrumentor(),
             "openai-agents": OpenAIAgentsInstrumentor(),
+            "pydantic_ai": PydanticAIInstrumentor(),
         }
 
         # Initialize and instrument only the enabled instrumentors

@@ -24,13 +24,13 @@ from azure.core.credentials import AzureKeyCredential
 
 # Initialize synchronous Azure AI Inference Chat client
 sync_chat_client = ChatCompletionsClient(
-    endpoint="https://models.inference.ai.azure.com",
+    endpoint="https://models.github.ai/inference",
     credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
 )
 
 # Initialize synchronous Azure AI Inference Chat client
 sync_embed_client = EmbeddingsClient(
-    endpoint="https://models.inference.ai.azure.com",
+    endpoint="https://models.github.ai/inference",
     credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
 )
 
@@ -39,7 +39,7 @@ openlit.init(environment="openlit-testing", application_name="openlit-python-tes
 
 def test_sync_chat_completions():
     """
-    Tests synchronous chat completions with the "Phi-3-mini-4k-instruct" model.
+    Tests synchronous chat completions with the "microsoft/Phi-4-mini-reasoning" model.
 
     Raises:
         AssertionError: If the chat completion response object is not as expected.
@@ -50,7 +50,7 @@ def test_sync_chat_completions():
             SystemMessage(content="You are a helpful assistant."),
             UserMessage(content="sync non-streaming"),
         ],
-        model="Phi-3-mini-4k-instruct",
+        model="microsoft/Phi-4-mini-reasoning",
         temperature=1.0,
         max_tokens=1000,
         top_p=1.0
@@ -59,7 +59,7 @@ def test_sync_chat_completions():
 
 def test_sync_embeddings():
     """
-    Tests synchronous embedding creation with the "cohere-embed-v3-english" model.
+    Tests synchronous embedding creation with the "openai/text-embedding-3-small" model.
 
     Raises:
         AssertionError: If the embedding response object is not as expected.
@@ -67,25 +67,25 @@ def test_sync_embeddings():
 
     response = sync_embed_client.embed(
         input=["LLM Observability", "Monitor GPUs"],
-        model="cohere-embed-v3-english"
+        model="openai/text-embedding-3-small"
     )
     assert response.data[0]["object"] == 'embedding'
 
 from azure.ai.inference.aio import ChatCompletionsClient, EmbeddingsClient
 async_chat_client = ChatCompletionsClient(
-    endpoint="https://models.inference.ai.azure.com",
+    endpoint="https://models.github.ai/inference",
     credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
 )
 
 async_embed_client = EmbeddingsClient(
-    endpoint="https://models.inference.ai.azure.com",
+    endpoint="https://models.github.ai/inference",
     credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
 )
 
 @pytest.mark.asyncio
 async def test_async_chat_completions():
     """
-    Tests synchronous chat completions with the "Phi-3-mini-4k-instruct" model.
+    Tests synchronous chat completions with the "microsoft/Phi-4-mini-reasoning" model.
 
     Raises:
         AssertionError: If the chat completion response object is not as expected.
@@ -96,7 +96,7 @@ async def test_async_chat_completions():
             SystemMessage(content="You are a helpful assistant."),
             UserMessage(content="sync non-streaming"),
         ],
-        model="Phi-3-mini-4k-instruct",
+        model="microsoft/Phi-4-mini-reasoning",
         temperature=1.0,
         max_tokens=1000,
         top_p=1.0
@@ -106,7 +106,7 @@ async def test_async_chat_completions():
 @pytest.mark.asyncio
 async def test_async_embeddings():
     """
-    Tests synchronous embedding creation with the "cohere-embed-v3-english" model.
+    Tests synchronous embedding creation with the "openai/text-embedding-3-small" model.
 
     Raises:
         AssertionError: If the embedding response object is not as expected.
@@ -114,6 +114,6 @@ async def test_async_embeddings():
 
     response = await async_embed_client.embed(
         input=["LLM Observability", "Monitor GPUs"],
-        model="cohere-embed-v3-english"
+        model="openai/text-embedding-3-small"
     )
     assert response.data[0]["object"] == 'embedding'

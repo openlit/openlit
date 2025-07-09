@@ -125,6 +125,30 @@
         "nano": 0.00003333333
     },
     "chat": {
+        "gpt-4.1-nano-2025-04-14": {
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0004
+        },
+        "gpt-4.1-nano": {
+            "promptPrice": 0.0001,
+            "completionPrice": 0.0004
+        },
+        "gpt-4.1-mini-2025-04-14": {
+            "promptPrice": 0.0004,
+            "completionPrice": 0.0016
+        },
+        "gpt-4.1-mini": {
+            "promptPrice": 0.0004,
+            "completionPrice": 0.0016
+        },
+        "gpt-4.1-2025-04-14": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.008
+        },
+        "gpt-4.1": {
+            "promptPrice": 0.002,
+            "completionPrice": 0.008
+        },
         "gpt-4o": {
             "promptPrice": 0.0005,
             "completionPrice": 0.0015
