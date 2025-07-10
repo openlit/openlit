@@ -21,7 +21,7 @@
     "url": "https://github.com/openlit/openlit"
   },
   "modeToggle": {
-    "default": "light"
+    "default": "dark"
   },
   "feedback": {
     "thumbsRating": true,
@@ -66,6 +66,33 @@
         "latest/features/metrics",
         "latest/features/gpu",
         "latest/features/pricing",
+        {
+          "group": "Dashboards",
+          "pages": [
+            "latest/features/dashboards/introduction",
+            "latest/features/dashboards/create-your-first-folder",
+            "latest/features/dashboards/create-your-first-dashboard",
+            "latest/features/dashboards/organize-your-dashboards",
+            "latest/features/dashboards/pin-your-dashboard",
+            "latest/features/dashboards/set-as-main-dashboard",
+            {
+              "group": "Widgets",
+              "pages": [
+                "latest/features/dashboards/widgets/introduction",
+                "latest/features/dashboards/widgets/area-chart-widget",
+                "latest/features/dashboards/widgets/bar-chart-widget",
+                "latest/features/dashboards/widgets/line-chart-widget",
+                "latest/features/dashboards/widgets/markdown-widget",
+                "latest/features/dashboards/widgets/pie-chart-widget",
+                "latest/features/dashboards/widgets/stat-widget",
+                "latest/features/dashboards/widgets/table-widget"
+              ]
+            },
+            "latest/features/dashboards/use-filters-and-dynamic-bindings",
+            "latest/features/dashboards/auto-refresh-and-time-interval"
+          ],
+          "version": "latest"
+        },
         "latest/features/prompt-hub",
         "latest/features/vault",
         "latest/features/guardrails",
