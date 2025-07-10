@@ -2,7 +2,7 @@
 // Provides Hallucination, Bias, Toxicity, and All evaluators
 
 export { Hallucination } from './hallucination';
-export { Bias } from './bias_detection';
-export { ToxicityDetector } from './toxicity';
+export { Bias } from './bias';
+export { Toxicity } from './toxicity';
 export { All } from './all';
 export * from './types';

@@ -1,7 +1,7 @@
 import { BaseEval } from './base';
 import { formatCustomCategories } from './utils';
 
-export class ToxicityDetector extends BaseEval {
+export class Toxicity extends BaseEval {
   getSystemPrompt(): string {
     let prompt = [
       'Output Requirement: JSON Format Only',

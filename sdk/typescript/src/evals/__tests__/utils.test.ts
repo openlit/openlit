@@ -17,13 +17,16 @@ describe('evals/utils', () => {
 
   describe('parseLlmResponse', () => {
     it('parses valid JSON', () => {
-      const obj = { verdict: 'yes', evaluation: 'bias_detection', score: 1, classification: 'age', explanation: 'reason' };
+      const obj = { verdict: 'yes', evaluation: 'Bias', score: 1, classification: 'age', explanation: 'reason' };
       expect(parseLlmResponse(JSON.stringify(obj))).toEqual(obj);
     });
     it('returns fallback on invalid JSON', () => {
+      const originalError = console.error;
+      console.error = jest.fn(); // suppress error output
       const result = parseLlmResponse('not json');
       expect(result.verdict).toBe('no');
       expect(result.classification).toBe('none');
+      console.error = originalError; // restore
     });
   });
 

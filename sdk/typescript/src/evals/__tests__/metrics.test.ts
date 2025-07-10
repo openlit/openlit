@@ -20,7 +20,7 @@ describe('metrics', () => {
     const { recordEvalMetrics, EVAL_METRIC_ATTRIBUTES } = require('../metrics');
     const result = {
       verdict: 'yes',
-      evaluation: 'bias_detection',
+      evaluation: 'Bias',
       score: 0.8,
       classification: 'age',
       explanation: 'reason',
@@ -33,7 +33,7 @@ describe('metrics', () => {
       [EVAL_METRIC_ATTRIBUTES.validator]: 'openai',
       [EVAL_METRIC_ATTRIBUTES.classification]: 'age',
       [EVAL_METRIC_ATTRIBUTES.explanation]: 'reason',
-      evaluation: 'bias_detection',
+      evaluation: 'Bias',
     }));
   });
 

@@ -18,7 +18,7 @@ export interface EvalsInput {
 
 export interface EvalsResult {
   verdict: 'yes' | 'no';
-  evaluation: 'hallucination' | 'bias_detection' | 'toxicity_detection';
+  evaluation: 'Hallucination' | 'Bias' | 'Toxicity';
   score: number;
   classification: string;
   explanation: string;

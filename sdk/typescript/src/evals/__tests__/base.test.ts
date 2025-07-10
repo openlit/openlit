@@ -10,7 +10,7 @@ describe('BaseEval', () => {
       // Simulate a model response
       return JSON.stringify({
         verdict: 'yes',
-        evaluation: 'bias_detection',
+        evaluation: 'Bias',
         score: 0.9,
         classification: 'age',
         explanation: 'reason',
@@ -23,7 +23,7 @@ describe('BaseEval', () => {
     const input: EvalsInput = { text: 'foo' };
     const result = await evaler.measure(input);
     expect(result.verdict).toBe('yes');
-    expect(result.evaluation).toBe('bias_detection');
+    expect(result.evaluation).toBe('Bias');
     expect(result.score).toBe(0.9);
   });
 

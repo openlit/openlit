@@ -1,6 +1,6 @@
 import { EvalsOptions, EvalsInput, EvalsResult } from './types';
 import { formatPrompt, parseLlmResponse } from './utils';
-import { llmResponseOpenAI, llmResponseAnthropic } from './llm';
+import { llmProviders } from './llm/providers';
 import { recordEvalMetrics } from './metrics';
 
 export abstract class BaseEval {
@@ -36,22 +36,22 @@ export abstract class BaseEval {
   }
 
   protected async llmResponse(prompt: string): Promise<string> {
-    if (this.provider === 'openai') {
-      return llmResponseOpenAI({
-        prompt,
-        model: this.model,
-        apiKey: this.apiKey,
-        baseUrl: this.baseUrl
-      });
-    } else if (this.provider === 'anthropic') {
-      return llmResponseAnthropic({
-        prompt,
-        model: this.model,
-        apiKey: this.apiKey
-      });
-    } else {
+    const providerFn = llmProviders[this.provider as keyof typeof llmProviders];
+    if (!providerFn) {
       throw new Error(`Unsupported provider: ${this.provider}`);
     }
+    // Use a union type for options
+    const options: { prompt: string; model?: string; apiKey?: string; baseUrl?: string } = {
+      prompt,
+      model: this.model,
+      apiKey: this.apiKey,
+    };
+    if (this.provider === 'openai') {
+      options.baseUrl = this.baseUrl;
+    } else {
+      delete options.baseUrl;
+    }
+    return providerFn(options);
   }
 
   protected recordMetrics(result: EvalsResult) {
