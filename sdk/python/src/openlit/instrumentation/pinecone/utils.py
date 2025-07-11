@@ -32,9 +32,7 @@ def object_count(obj):
     """
     Counts length of object if it exists, else returns 0.
     """
-    if obj:
-        return len(obj)
-    return 0
+    return len(obj) if obj else 0
 
 def common_vectordb_logic(scope, environment, application_name, 
     metrics, capture_message_content, disable_metrics, version, instance=None):
