@@ -27,7 +27,10 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         server_address, server_port = set_server_address_and_port(instance, "pinecone.io", 443)
 
         db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "unknown")
-        namespace = kwargs.get("namespace") or (args[0] if args else "unknown")
+        if db_operation == "create_collection":
+            namespace = kwargs.get("name") or (args[0] if args else "unknown")
+        else:
+            namespace = kwargs.get("namespace") or (args[0] if args else "unknown")
         span_name = f"{db_operation} {namespace}"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:

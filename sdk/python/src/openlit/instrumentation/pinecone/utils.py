@@ -11,15 +11,17 @@ from openlit.__helpers import (
     common_db_span_attributes,
     record_db_metrics,
     set_server_address_and_port,
+    response_as_dict,
 )
 from openlit.semcov import SemanticConvention
 
 # Operation mapping for simple span naming
 DB_OPERATION_MAP = {
-    "pinecone.create_index": SemanticConvention.DB_OPERATION_CREATE_INDEX,
+    "pinecone.create_collection": SemanticConvention.DB_OPERATION_CREATE_COLLECTION,
     "pinecone.upsert": SemanticConvention.DB_OPERATION_UPSERT,
     "pinecone.query": SemanticConvention.DB_OPERATION_QUERY,
-    "pinecone.search": SemanticConvention.DB_OPERATION_QUERY,
+    "pinecone.search": SemanticConvention.DB_OPERATION_SEARCH,
+    "pinecone.fetch": SemanticConvention.DB_OPERATION_FETCH,
     "pinecone.update": SemanticConvention.DB_OPERATION_UPDATE,
     "pinecone.delete": SemanticConvention.DB_OPERATION_DELETE,
     "pinecone.upsert_records": SemanticConvention.DB_OPERATION_UPSERT,
@@ -34,17 +36,6 @@ def object_count(obj):
         return len(obj)
     return 0
 
-def format_vectors(vectors):
-    """
-    Format vectors for telemetry capture.
-    """
-    if not vectors:
-        return ""
-    
-    if isinstance(vectors, list):
-        return f"Vector count: {len(vectors)}"
-    return "Vector data"
-
 def common_vectordb_logic(scope, environment, application_name, 
     metrics, capture_message_content, disable_metrics, version, instance=None):
     """
@@ -53,85 +44,122 @@ def common_vectordb_logic(scope, environment, application_name,
     
     scope._end_time = time.time()
     
-    # Process response and extract metrics where possible
-    if hasattr(scope._response, "matches") and scope._response.matches:
-        # For query operations, set returned rows count
-        scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS, len(scope._response.matches))
-    elif hasattr(scope._response, "upserted_count"):
-        # For upsert operations, set returned rows count
-        scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS, scope._response.upserted_count)
+    # Set common database span attributes using helper
+    common_db_span_attributes(scope, SemanticConvention.DB_SYSTEM_PINECONE, scope._server_address, scope._server_port,
+        environment, application_name, version)
     
-    # Set operation-specific attributes
+    # Set DB operation specific attributes
     scope._span.set_attribute(SemanticConvention.DB_OPERATION_NAME, scope._db_operation)
+    scope._span.set_attribute(SemanticConvention.DB_CLIENT_OPERATION_DURATION, scope._end_time - scope._start_time)
     
-    if scope._db_operation == SemanticConvention.DB_OPERATION_CREATE_INDEX:
+    # Set Create Index operation specific attributes
+    if scope._db_operation == SemanticConvention.DB_OPERATION_CREATE_COLLECTION:
         # Standard database attributes
         scope._span.set_attribute(SemanticConvention.DB_COLLECTION_NAME, scope._kwargs.get("name", ""))
         
         # Vector database specific attributes (extensions)
-        scope._span.set_attribute(SemanticConvention.DB_INDEX_NAME, scope._kwargs.get("name", ""))
-        scope._span.set_attribute(SemanticConvention.DB_INDEX_DIMENSION, scope._kwargs.get("dimension", ""))
-        scope._span.set_attribute(SemanticConvention.DB_INDEX_METRIC, scope._kwargs.get("metric", ""))
-        scope._span.set_attribute(SemanticConvention.DB_INDEX_SPEC, str(scope._kwargs.get("spec", "")))
+        scope._span.set_attribute(SemanticConvention.DB_COLLECTION_DIMENSION, scope._kwargs.get("dimension", -1))
+        scope._span.set_attribute(SemanticConvention.DB_SEARCH_SIMILARITY_METRIC, scope._kwargs.get("metric", "cosine"))
+        scope._span.set_attribute(SemanticConvention.DB_COLLECTION_SPEC, str(scope._kwargs.get("spec", "")))
         
-    elif scope._db_operation == SemanticConvention.DB_OPERATION_QUERY:
+    elif scope._db_operation == SemanticConvention.DB_OPERATION_SEARCH:
+        namespace = scope._kwargs.get("namespace", "default") or (scope._args[0] if scope._args else "unknown")
+        query = scope._kwargs.get("query", {})
+
+        # Extract query text or vector from different possible locations
+        query_text = query.get("inputs", {}).get("text", "")
+        query_vector = query.get("vector", {})
+        query_content = query_text or str(query_vector)
+
         # Standard database attributes
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(scope._kwargs.get("query", "") or scope._args[1] if len(scope._args) > 1 else ""))
-        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE,
-            str(scope._kwargs.get("namespace", "") or (scope._args[0] if scope._args else "")))
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, query_content)
+        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE, namespace)
         
         # Vector database specific attributes (extensions)
-        scope._span.set_attribute(SemanticConvention.DB_N_RESULTS, scope._kwargs.get("top_k", ""))
+        scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, query.get("top_k", -1))
+
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
+            f"SEARCH {namespace} top_k={query.get('top_k', -1)} text={query_text} vector={query_vector}")
+        
+    elif scope._db_operation == SemanticConvention.DB_OPERATION_QUERY:
+        namespace = scope._kwargs.get("namespace", "default") or (scope._args[0] if scope._args else "unknown")
+        query = scope._kwargs.get("vector", [])
+        
+        # Standard database attributes
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(query))
+        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE, namespace)
+        
+        # Vector database specific attributes (extensions)
+        scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, scope._kwargs.get("top_k", ""))
         scope._span.set_attribute(SemanticConvention.DB_FILTER, str(scope._kwargs.get("filter", "")))
         
         # Generate query summary for better grouping
-        top_k = scope._kwargs.get("top_k", "unknown")
-        has_filter = bool(scope._kwargs.get("filter"))
-        namespace = scope._kwargs.get("namespace", "default") or (scope._args[0] if scope._args else "unknown")
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
-                                 f"QUERY {namespace} top_k={top_k} filtered={has_filter}")
+            f"{scope._db_operation} {namespace} "
+            f"top_k={scope._kwargs.get('top_k', -1)} "
+            f"filtered={scope._kwargs.get('filter', '')} "
+            f"vector={scope._kwargs.get('vector', '')}")
+    
+    elif scope._db_operation == SemanticConvention.DB_OPERATION_FETCH:
+        namespace = scope._kwargs.get("namespace", "default") or (scope._args[0] if scope._args else "unknown")
+        query = scope._kwargs.get("ids", [])
+        
+        # Standard database attributes
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(query))
+        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE, namespace)
+        
+        # Vector database specific attributes (extensions)
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
+            f"FETCH {namespace} ids={query}")
+        scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS, object_count(scope._response.vectors))
         
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPDATE:
+        namespace = scope._kwargs.get("namespace") or (scope._args[0] if scope._args else "unknown")
+        query = scope._kwargs.get("id", "")
+
         # Standard database attributes
-        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE,
-            str(scope._kwargs.get("namespace", "") or (scope._args[0] if scope._args else "")))
-        
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, query)
+        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE, namespace)
+
         # Vector database specific attributes (extensions)
-        scope._span.set_attribute(SemanticConvention.DB_UPDATE_ID, scope._kwargs.get("id", ""))
-        scope._span.set_attribute(SemanticConvention.DB_UPDATE_VALUES, str(scope._kwargs.get("values", [])))
-        scope._span.set_attribute(SemanticConvention.DB_UPDATE_METADATA, str(scope._kwargs.get("set_metadata", "")))
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
+            f"{scope._db_operation} {namespace} "
+            f"id={query} "
+            f"values={scope._kwargs.get('values', [])} "
+            f"set_metadata={scope._kwargs.get('set_metadata', '')}")
         
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPSERT:
+        namespace = scope._kwargs.get("namespace") or (scope._args[0] if scope._args else "unknown")
+        query = scope._kwargs.get("vectors") or (scope._args[1] if len(scope._args) > 1 else None)
+        
         # Standard database attributes
-        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE,
-            str(scope._kwargs.get("namespace", "") or (scope._args[0] if scope._args else "")))
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(query))
+        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE, namespace)
         
         # Vector database specific attributes (extensions)
-        vector_count = object_count(scope._kwargs.get("vectors") or (scope._args[1] if len(scope._args) > 1 else None))
-        scope._span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT, vector_count)
-
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(scope._kwargs.get("vectors", "") or scope._args[1] or ""))
-        
-        # Set returned rows for metrics (number of vectors upserted)
-        scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS, vector_count)
+        scope._span.set_attribute(SemanticConvention.DB_VECTOR_COUNT, object_count(query))
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
+            f"{scope._db_operation} {namespace} vectors_count={object_count(query)}")
         
     elif scope._db_operation == SemanticConvention.DB_OPERATION_DELETE:
+        namespace = scope._kwargs.get("namespace") or (scope._args[0] if scope._args else "unknown")
+        query = scope._kwargs.get("ids") or (scope._args[1] if len(scope._args) > 1 else None)
+
         # Standard database attributes
-        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE,
-            str(scope._kwargs.get("namespace", "") or (scope._args[0] if scope._args else "")))
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(query))
+        scope._span.set_attribute(SemanticConvention.DB_NAMESPACE, namespace)
         
         # Vector database specific attributes (extensions)
         scope._span.set_attribute(SemanticConvention.DB_ID_COUNT, object_count(scope._kwargs.get("ids")))
         scope._span.set_attribute(SemanticConvention.DB_FILTER, str(scope._kwargs.get("filter", "")))
         scope._span.set_attribute(SemanticConvention.DB_DELETE_ALL, scope._kwargs.get("delete_all", False))
-    
-    # Set common database span attributes using helper
-    common_db_span_attributes(scope, SemanticConvention.DB_SYSTEM_PINECONE, scope._server_address, scope._server_port,
-        environment, application_name, version)
-    
-    # Set operation duration
-    scope._span.set_attribute(SemanticConvention.DB_CLIENT_OPERATION_DURATION, scope._end_time - scope._start_time)
-            
+
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
+            f"{scope._db_operation} {namespace} "
+            f"ids={query} "
+            f"filter={scope._kwargs.get('filter', '')} "
+            f"delete_all={scope._kwargs.get('delete_all', False)}")
+
     scope._span.set_status(Status(StatusCode.OK))
     
     # Record metrics using helper

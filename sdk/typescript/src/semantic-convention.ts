@@ -92,7 +92,7 @@ export default class SemanticConvention {
   static DB_OPERATION_ADD = 'add';
   static DB_OPERATION_PEEK = 'peek';
   static DB_ID_COUNT = 'db.ids_count';
-  static DB_VECTOR_DIMENSION_COUNT = 'db.vector_count';
+  static DB_VECTOR_COUNT = 'db.vector_count';
   static DB_METADATA_COUNT = 'db.metadatas_count';
   static DB_DOCUMENTS_COUNT = 'db.documents_count';
   static DB_QUERY_LIMIT = 'db.limit';

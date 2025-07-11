@@ -118,7 +118,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points", [])))
                     span.set_attribute(SemanticConvention.DB_PAYLOAD_COUNT,
                                        object_count(kwargs.get("payload", [])))
@@ -166,7 +166,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvention.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
 
                 elif gen_ai_endpoint == "qdrant.update_vectors":
@@ -177,7 +177,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
 
                 elif gen_ai_endpoint == "qdrant.overwrite_payload":
@@ -188,7 +188,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
                     span.set_attribute(SemanticConvention.DB_PAYLOAD_COUNT,
                                        object_count(kwargs.get("payload")))
@@ -201,7 +201,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvention.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
 
                 elif gen_ai_endpoint in ["qdrant.delete_payload", "qdrant.delete_vectors"]:
@@ -212,7 +212,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points")))
 
                 elif gen_ai_endpoint in ["qdrant.clear_payload", "qdrant.delete"]:
@@ -223,7 +223,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        kwargs.get("collection_name", ""))
                     span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                                        response.status)
-                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
                                        object_count(kwargs.get("points_selector")))
 
                 elif gen_ai_endpoint == "qdrant.create_payload_index":

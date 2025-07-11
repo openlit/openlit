@@ -32,14 +32,14 @@ class PineconeInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "pinecone.pinecone",
             "Pinecone.create_index",
-            general_wrap("pinecone.create_index", version, environment, application_name, 
+            general_wrap("pinecone.create_collection", version, environment, application_name, 
                         tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
             "pinecone.pinecone",
             "Pinecone.create_index_for_model",
-            general_wrap("pinecone.create_index", version, environment, application_name, 
+            general_wrap("pinecone.create_collection", version, environment, application_name, 
                         tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
@@ -68,6 +68,13 @@ class PineconeInstrumentor(BaseInstrumentor):
             "pinecone.db_data.index",
             "Index.search",
             general_wrap("pinecone.search", version, environment, application_name, 
+                        tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+        )
+
+        wrap_function_wrapper(
+            "pinecone.db_data.index",
+            "Index.fetch",
+            general_wrap("pinecone.fetch", version, environment, application_name, 
                         tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
@@ -132,6 +139,13 @@ class PineconeInstrumentor(BaseInstrumentor):
             "pinecone.db_data.index_asyncio",
             "_IndexAsyncio.search",
             async_general_wrap("pinecone.search", version, environment, application_name, 
+                              tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+        )
+
+        wrap_function_wrapper(
+            "pinecone.db_data.index_asyncio",
+            "_IndexAsyncio.fetch",
+            async_general_wrap("pinecone.fetch", version, environment, application_name, 
                               tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
