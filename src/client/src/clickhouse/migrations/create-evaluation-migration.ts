@@ -1,7 +1,7 @@
 import { OPENLIT_EVALUATION_TABLE_NAME } from "@/lib/platform/evaluation/table-details";
 import migrationHelper from "./migration-helper";
 
-const MIGRATION_ID = "create-evaluation-table";
+const MIGRATION_ID = "create-evaluation-table-2";
 
 export default async function CreateEvaluationMigration(
 	databaseConfigId?: string

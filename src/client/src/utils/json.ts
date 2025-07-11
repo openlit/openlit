@@ -5,7 +5,7 @@ export function jsonStringify(json: any) {
 		const jsonS = JSON.stringify(json);
 		return jsonS;
 	} catch (e) {
-		consoleLog(e);
+		consoleLog(e, json);
 		return "";
 	}
 }

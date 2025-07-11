@@ -17,17 +17,24 @@ const PATH_TO_TITLE_MAP = {
 	"/vault": "Vault",
 	"/openground": "Openground",
 	"/settings": "Settings",
+	"/dashboards": "Dashboards",
+	"/dashboards/board": "Board",
+	"/dashboards/explorer": "Explorer",
+	"/dashboards/widget": "Widget",
 };
 
 export default function RouteBreadcrumbs() {
 	const params = usePathname();
 	const paths = params.split("/");
+	const pathArray: string[] = [];
+
 	return (
 		<Breadcrumb className="grow">
 			<BreadcrumbList>
 				{paths.length > 1
 					? paths.map((path, index) => {
-							const pathField = `/${path}`;
+							if (path !== "") pathArray.push(path);
+							const pathField = `/${pathArray.join("/")}`;
 							if (index === paths.length - 1) {
 								return (
 									<BreadcrumbItem key={pathField}>

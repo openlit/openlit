@@ -1,6 +1,6 @@
 type GET_DATA = {
 	body?: string;
-	method?: "GET" | "POST" | "PUT";
+	method?: "GET" | "POST" | "PUT" | "PATCH";
 	url: string;
 };
 

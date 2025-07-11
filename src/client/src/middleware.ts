@@ -22,5 +22,8 @@ export const config = {
 		"/vault",
 		"/settings",
 		"/telemetry-enabled",
+		"/home",
+		"/dashboards/:path*",
+		"/d/:path*",
 	],
 };

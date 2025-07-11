@@ -1,0 +1,48 @@
+---
+title: 'Getting Started with Widgets'
+---
+
+Widgets are the core building blocks of dashboards in OpenLIT. Each widget connects to a ClickHouse query, allowing you to visualize data in different formats—from charts to tables, counters, and text.
+You can configure styling, bind parameters (like time ranges or filters), and arrange widgets freely in your dashboard layout.
+Widgets can be:
+- Visual (e.g., charts)
+- Informational (e.g., stats, markdown)
+- Data-centric (e.g., tables)
+
+Here are the list of supported widgets :
+
+<CardGroup cols={2}>
+		<Card title="Area Chart Widget" href="/latest/features/dashboards/widgets/area-chart-widget" icon='chart-area'>
+    Visualize trends over time with smooth, layered charts. Great for metrics like usage, traffic, or revenue that change over time.
+    </Card>
+
+
+		<Card title="Bar Chart Widget" href="/latest/features/dashboards/widgets/bar-chart-widget" icon='chart-bar'>
+    Compare categories or segments side-by-side. Ideal for showing grouped metrics like errors by type or revenue by plan.
+    </Card>
+
+
+    <Card title="Line Chart Widget" href="/latest/features/dashboards/widgets/line-chart-widget" icon='chart-line'>
+    Plot time-series data with precision. Perfect for tracking latency, load, or other performance metrics over time.
+    </Card>
+
+
+		<Card title="Markdown Widget" href="/latest/features/dashboards/widgets/markdown-widget" icon='markdown'>
+    Add notes, context, or section headers using Markdown. Great for annotating dashboards or linking to documentation.
+    </Card>
+
+
+		<Card title="Pie Chart Widget" href="/latest/features/dashboards/widgets/pie-chart-widget" icon='chart-pie'>
+    Show proportions and segment distribution clearly. Useful for visualizing things like user roles, traffic sources, or error categories.
+    </Card>
+
+
+		<Card title="Stat Widget" href="/latest/features/dashboards/widgets/stat-widget" icon='arrow-up-1-9'>
+    Highlight key metrics like active users, revenue, or conversion rate. A fast and simple way to display KPIs.
+    </Card>
+
+
+		<Card title="Table Widget" href="/latest/features/dashboards/widgets/table-widget" icon='table'>
+    Display structured data in a paginated, sortable table. Perfect for audit logs, event tracking, or error views.
+    </Card>
+</CardGroup>

@@ -1,0 +1,84 @@
+---
+title: How to Use Filters & Dynamic Bindings
+description: Learn how to make OpenLIT dashboards interactive by using filters and mustache-style dynamic bindings inside ClickHouse queries.
+---
+
+OpenLIT makes dashboards interactive by letting you add filters and dynamically bind their values to ClickHouse queries. This enables you to create reusable dashboards that respond to user inputs like time range, environment, region, and more.
+
+---
+
+## 🧩 What Are Filters?
+
+**Filters** are interactive controls (e.g. date ranges) placed at the top of a dashboard. You can bind these filters to your widgets so their values get passed into SQL queries in real time.
+
+---
+
+## 🪄 What Are Dynamic Bindings?
+
+OpenLIT uses **mustache-style bindings** to inject filter values into your queries.
+
+### ✅ Format:
+```sql
+{{variable_name}}
+````
+
+At runtime, OpenLIT replaces each binding with the user-provided filter value.
+
+### Common Examples:
+
+* `{{filter.timeLimit.start}}` and `{{filter.timeLimit.end}}` — for date range filters
+
+---
+
+## 🛠️ How to Add and Use Filters
+
+<video
+  controls
+  className="w-full aspect-video"
+  src="https://youtu.be/J9TFEWmVczI?si=Z8kysxPuF9-mhJJD"
+></video>
+
+---
+
+## 🔍 SQL Example with Mustache Bindings
+
+```sql
+SELECT
+  toStartOfHour(event_time) AS time,
+  count() AS value
+FROM user_events
+WHERE event_time BETWEEN {{filter.timeLimit.start}} AND {{filter.timeLimit.end}}
+GROUP BY time
+ORDER BY time
+```
+
+In this example:
+
+* `{{filter.timeLimit.start}}` & `{{filter.timeLimit.end}}` are bound to a date range filter
+
+---
+
+## 🛠️ Supported Filter Types
+
+* **Date Range** → `{{filter.timeLimit.start}}`, `{{filter.timeLimit.end}}`
+* **(Coming soon)**: Dynamic filters etc
+
+---
+
+## ✅ Best Practices
+
+* Always use meaningful keys like `team_id`, `env`, or `region`
+* Use `coalesce({{param}}, 'default')` to provide fallback values in ClickHouse
+* Test your queries in the SQL editor with example values for clarity
+* Avoid hardcoded constraints—use bindings to keep dashboards flexible
+
+---
+
+## 🔗 Related Guides
+
+- [Create Your First Folder →](/latest/features/dashboards/create-your-first-folder)  
+- [Create Your First Dashboard →](/latest/features/dashboards/create-your-first-dashboard)  
+- [Organize your dashboards →](/latest/features/dashboards/organize-your-dashboards)  
+- [Pin Your Dashboard →](/latest/features/dashboards/pin-your-dashboard)  
+- [Widgets →](/latest/features/dashboards/widgets/introduction)    
+- [Refresh Rate →](/latest/features/dashboards/auto-refresh-and-time-interval)

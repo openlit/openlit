@@ -8,7 +8,13 @@ export default class Sanitizer {
 		const v = objectKeys(obj).reduce((acc: Partial<T>, key) => {
 			let value: T[keyof T] = obj[key];
 			if (isArray(value)) {
-				value = value.map((val) => Sanitizer.sanitizeValue(val)) as T[keyof T];
+				value = value.map((val) => {
+					if (isObject(val)) {
+						return Sanitizer.sanitizeObject(val);
+					} else {
+						return Sanitizer.sanitizeValue(val);
+					}
+				}) as T[keyof T];
 			} else if (isObject(value)) {
 				value = Sanitizer.sanitizeObject(value);
 			} else {
@@ -21,6 +27,9 @@ export default class Sanitizer {
 	}
 	static sanitizeValue<T>(value: T): T {
 		if (!isNil(value)) {
+			if (typeof value === "boolean") {
+				return value as T;
+			}
 			if (typeof value === "string") {
 				return sqlString.escape(value).slice(1, -1) as T; // Remove outer quotes and escape the string
 			} else {

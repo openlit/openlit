@@ -43,7 +43,7 @@ export type GPU_TYPE_KEY =
 	| "power.draw"
 	| "power.limit";
 
-export interface GPUMetricParams extends MetricParams {}
+export interface GPUMetricParams extends MetricParams { }
 
 export type DataCollectorType = { err?: unknown; data?: unknown };
 export async function dataCollector(
@@ -52,7 +52,8 @@ export async function dataCollector(
 		format = "JSONEachRow",
 		table,
 		values,
-	}: Partial<QueryParams & InsertParams & ExecParams & CommandParams>,
+		enable_readonly = false,
+	}: Partial<QueryParams & InsertParams & ExecParams & CommandParams & { enable_readonly?: boolean }>,
 	clientQueryType: "query" | "command" | "insert" | "exec" | "ping" = "query",
 	dbConfigId?: string
 ): Promise<DataCollectorType> {
@@ -82,11 +83,18 @@ export async function dataCollector(
 
 		if (clientQueryType === "query") {
 			if (!query) return { err: "No query specified!" };
+			const object: QueryParams = {
+				query,
+				format,
+			}
+			if (enable_readonly) {
+				object.clickhouse_settings = {
+					readonly: "2",
+				}
+			}
+
 			[respErr, result] = await asaw(
-				client.query({
-					query,
-					format,
-				})
+				client.query(object)
 			);
 
 			if (result) {
@@ -118,7 +126,9 @@ export async function dataCollector(
 				return { data: result };
 			}
 		} else if (clientQueryType === "ping") {
-			[respErr, result] = await asaw(client.ping());
+			[respErr, result] = await asaw(client.query({
+				query: "SELECT 1",
+			}));
 
 			return { err: respErr, data: !!result };
 		} else if (clientQueryType === "command") {

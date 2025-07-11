@@ -7,6 +7,7 @@ import { databaseConfigStoreSlice } from "./database-config";
 import { opengroundStoreSlice } from "./openground";
 import { pageStoreSlice } from "./page";
 import { RootStore } from "@/types/store/root";
+import { dashboardStoreSlice } from "./dashboards";
 
 export const useRootStore = create<RootStore>()(
 	devtools(
@@ -16,6 +17,7 @@ export const useRootStore = create<RootStore>()(
 			databaseConfig: databaseConfigStoreSlice,
 			openground: opengroundStoreSlice,
 			page: pageStoreSlice,
+			dashboards: dashboardStoreSlice,
 		})
 	)
 );

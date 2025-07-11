@@ -25,6 +25,16 @@ export const pageStoreSlice: PageStore = lens((setStore, getStore) => ({
 			exceptionType: true,
 		},
 	},
+	header: {
+		title: "",
+		breadcrumbs: [],
+	},
+	setHeader: (header) => {
+		setStore({
+			...getStore(),
+			header,
+		});
+	},
 	setData: (page, keyPath, value) => {
 		const store = getStore();
 		let pageObject = cloneDeep(store[page as keyof typeof store]);
