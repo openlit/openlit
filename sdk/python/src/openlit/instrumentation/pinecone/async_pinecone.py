@@ -5,9 +5,14 @@ Module for monitoring Pinecone async API calls.
 import time
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
-from openlit.__helpers import handle_exception, set_server_address_and_port
-from openlit.instrumentation.pinecone.utils import process_vectordb_response, DB_OPERATION_MAP
-from openlit.semcov import SemanticConvention
+from openlit.__helpers import (
+    handle_exception,
+    set_server_address_and_port,
+)
+from openlit.instrumentation.pinecone.utils import (
+    process_vectordb_response,
+    DB_OPERATION_MAP,
+)
 
 def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
@@ -25,7 +30,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
         # Get server address and port using the standard helper
         server_address, server_port = set_server_address_and_port(instance, "pinecone.io", 443)
-        
+
         db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "unknown")
         if db_operation == "create_collection":
             namespace = kwargs.get("name") or (args[0] if args else "unknown")
@@ -37,16 +42,16 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
             try:
                 start_time = time.time()
                 response = await wrapped(*args, **kwargs)
-                
+
                 # Process response and generate telemetry
                 response = process_vectordb_response(
                     response, db_operation, server_address, server_port,
                     environment, application_name, metrics, start_time, span, 
                     capture_message_content, disable_metrics, version, instance, args, **kwargs
                 )
-                
+
                 return response
-                
+
             except Exception as e:
                 handle_exception(span, e)
                 raise
