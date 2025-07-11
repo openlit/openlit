@@ -49,6 +49,8 @@ def test_sync_together_chat():
     except Exception as e:
         if "credit_limit" in str(e).lower():
             print("Insufficient balance:", e)
+        elif "429" in str(e) or "rate limit" in str(e).lower():
+            print("Rate limit exceeded:", e)
         else:
             raise
 
@@ -73,6 +75,8 @@ def test_sync_together_image():
     except Exception as e:
         if "credit_limit" in str(e).lower():
             print("Insufficient balance:", e)
+        elif "429" in str(e) or "rate limit" in str(e).lower():
+            print("Rate limit exceeded:", e)
         else:
             raise
 
@@ -102,6 +106,8 @@ async def test_async_together_chat():
     except Exception as e:
         if "credit_limit" in str(e).lower():
             print("Insufficient balance:", e)
+        elif "429" in str(e) or "rate limit" in str(e).lower():
+            print("Rate limit exceeded:", e)
         else:
             raise
 
@@ -127,5 +133,7 @@ async def test_async_together_image():
     except Exception as e:
         if "credit_limit" in str(e).lower():
             print("Insufficient balance:", e)
+        elif "429" in str(e) or "rate limit" in str(e).lower():
+            print("Rate limit exceeded:", e)
         else:
             raise
