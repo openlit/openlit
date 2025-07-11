@@ -30,7 +30,7 @@ def object_count(obj):
     """
     return len(obj) if obj else 0
 
-def common_vectordb_logic(scope, environment, application_name, 
+def common_vectordb_logic(scope, environment, application_name,
     metrics, capture_message_content, disable_metrics, version, instance=None):
     """
     Process vector database request and generate telemetry.
@@ -71,7 +71,7 @@ def common_vectordb_logic(scope, environment, application_name,
 
         # Vector database specific attributes (extensions)
         scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, query.get("top_k", -1))
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"SEARCH {namespace} top_k={query.get('top_k', -1)} text={query_text} vector={query_vector}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_QUERY:
@@ -85,7 +85,7 @@ def common_vectordb_logic(scope, environment, application_name,
         # Vector database specific attributes (extensions)
         scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, scope._kwargs.get("top_k", ""))
         scope._span.set_attribute(SemanticConvention.DB_FILTER, str(scope._kwargs.get("filter", "")))
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {namespace} "
             f"top_k={scope._kwargs.get('top_k', -1)} "
             f"filtered={scope._kwargs.get('filter', '')} "
@@ -100,7 +100,7 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_NAMESPACE, namespace)
 
         # Vector database specific attributes (extensions)
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"FETCH {namespace} ids={query}")
         scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS, object_count(scope._response.vectors))
 
@@ -129,7 +129,7 @@ def common_vectordb_logic(scope, environment, application_name,
 
         # Vector database specific attributes (extensions)
         scope._span.set_attribute(SemanticConvention.DB_VECTOR_COUNT, object_count(query))
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {namespace} vectors_count={object_count(query)}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_DELETE:
@@ -144,7 +144,7 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_ID_COUNT, object_count(scope._kwargs.get("ids")))
         scope._span.set_attribute(SemanticConvention.DB_FILTER, str(scope._kwargs.get("filter", "")))
         scope._span.set_attribute(SemanticConvention.DB_DELETE_ALL, scope._kwargs.get("delete_all", False))
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY, 
+        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {namespace} "
             f"ids={query} "
             f"filter={scope._kwargs.get('filter', '')} "
@@ -157,9 +157,9 @@ def common_vectordb_logic(scope, environment, application_name,
         record_db_metrics(metrics, SemanticConvention.DB_SYSTEM_PINECONE, scope._server_address, scope._server_port,
             environment, application_name, scope._start_time, scope._end_time)
 
-def process_vectordb_response(response, db_operation, server_address, server_port, 
-    environment, application_name, metrics, start_time, span, 
-    capture_message_content=False, disable_metrics=False, 
+def process_vectordb_response(response, db_operation, server_address, server_port,
+    environment, application_name, metrics, start_time, span,
+    capture_message_content=False, disable_metrics=False,
     version="1.0.0", instance=None, args=None, **kwargs):
     """
     Process vector database response and generate telemetry following OpenTelemetry conventions.
