@@ -46,7 +46,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                 # Process response and generate telemetry
                 response = process_vectordb_response(
                     response, db_operation, server_address, server_port,
-                    environment, application_name, metrics, start_time, span, 
+                    environment, application_name, metrics, start_time, span,
                     capture_message_content, disable_metrics, version, instance, args, **kwargs
                 )
 
