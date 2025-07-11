@@ -90,9 +90,9 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvention.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvention.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
-                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
                                        object_count(kwargs.get("embeddings", [])))
-                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
                                        object_count(kwargs.get("metadatas", [])))
                     span.set_attribute(SemanticConvention.DB_DOCUMENTS_COUNT,
                                        object_count(kwargs.get("documents", [])))
@@ -127,9 +127,9 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     db_operation = SemanticConvention.DB_OPERATION_UPDATE
                     span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
                                        SemanticConvention.DB_OPERATION_UPDATE)
-                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
                                        object_count(kwargs.get("embeddings", [])))
-                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
                                        object_count(kwargs.get("metadatas", [])))
                     span.set_attribute(SemanticConvention.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))
@@ -140,9 +140,9 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     db_operation = SemanticConvention.DB_OPERATION_UPSERT
                     span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
                                        SemanticConvention.DB_OPERATION_UPSERT)
-                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
                                        object_count(kwargs.get("embeddings", [])))
-                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
                                        object_count(kwargs.get("metadatas", [])))
                     span.set_attribute(SemanticConvention.DB_ID_COUNT,
                                        object_count(kwargs.get("ids", [])))

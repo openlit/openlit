@@ -104,7 +104,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvention.DB_OPERATION_ADD)
                     span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
                                        object_count(kwargs.get("data")))
                     span.set_attribute(SemanticConvention.DB_OPERATION_COST,
                                        response["cost"])
@@ -133,7 +133,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                                        SemanticConvention.DB_OPERATION_UPSERT)
                     span.set_attribute(SemanticConvention.DB_COLLECTION_NAME,
                                        kwargs.get("collection_name", ""))
-                    span.set_attribute(SemanticConvention.DB_VECTOR_COUNT,
+                    span.set_attribute(SemanticConvention.DB_VECTOR_DIMENSION_COUNT,
                                        object_count(kwargs.get("data")))
                     span.set_attribute(SemanticConvention.DB_OPERATION_COST,
                                        response["cost"])

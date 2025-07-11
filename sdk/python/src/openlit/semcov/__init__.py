@@ -190,6 +190,7 @@ class SemanticConvention:
     DB_NAMESPACE = "db.namespace"
     DB_OPERATION_NAME = "db.operation.name"
     DB_QUERY_TEXT = "db.query.text"
+    DB_QUERY_SUMMARY = "db.query.summary"
     DB_RESPONSE_RETURNED_ROWS = "db.response.returned_rows"
 
 
@@ -217,7 +218,7 @@ class SemanticConvention:
     DB_OPERATION_ADD = "ADD"
     DB_OPERATION_PEEK = "peePEEKk"
     DB_ID_COUNT = "db.ids_count"
-    DB_VECTOR_COUNT = "db.vector_count"
+    DB_VECTOR_DIMENSION_COUNT = "db.vector.dimension_count"
     DB_METADATA = "db.metadata"
     DB_METADATA_COUNT = "db.metadatas_count"
     DB_DOCUMENTS_COUNT = "db.documents_count"
