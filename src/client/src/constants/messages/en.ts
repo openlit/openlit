@@ -53,3 +53,42 @@ export const TRACE_FETCHING_ERROR = "Error fetching trace!";
 export const CRON_RECURRING_TIME_INVALID =
 	"Invalid cron schedule. Please check the format.";
 export const CRON_JOB_UPDATION_ERROR = "Error updating cron job.";
+
+// Manage Dashboard
+export const BOARD_DATA_NOT_FOUND = "Board data not found!";
+export const MANAGE_DASHBOARD_EXPLORER_EMPTY_STATE =
+	"No dashboards or folders yet. Click 'Add' to create one.";
+export const BOARD_UPDATE_FAILED = "Board update failed!";
+export const BOARD_UPDATED_SUCCESSFULLY = "Board updated successfully!";
+export const FOLDER_UPDATE_FAILED = "Folder update failed!";
+export const FOLDER_UPDATED_SUCCESSFULLY = "Folder updated successfully!";
+export const WIDGET_UPDATE_FAILED = "Widget update failed!";
+export const WIDGET_CREATE_FAILED = "Widget create failed!";
+export const WIDGET_UPDATED_SUCCESSFULLY = "Widget updated successfully!";
+export const BOARD_LAYOUT_UPDATED_SUCCESSFULLY =
+	"Board layout updated successfully!";
+export const WIDGET_FETCH_FAILED = "Widget fetch failed!";
+export const WIDGET_RUN_FAILED = "Widget run failed!";
+export const BOARD_DELETE_FAILED = "Board delete failed!";
+export const BOARD_DELETED_SUCCESSFULLY = "Board deleted successfully!";
+export const FOLDER_DELETE_FAILED =
+	"Folder cannot be deleted! It has boards or folders inside it.";
+export const FOLDER_DELETED_SUCCESSFULLY = "Folder deleted successfully!";
+export const MAIN_DASHBOARD_NOT_FOUND = "Main dashboard not found!";
+export const BOARD_CREATE_FAILED = "Board create failed!";
+export const BOARD_IMPORT_FAILED = "Board import failed!";
+export const BOARD_IMPORT_SUCCESSFULLY = "Board import successfully!";
+export const NO_WIDGETS_YET = "No widgets yet!";
+export const NO_WIDGETS_YET_DESCRIPTION = "Create your first widget to start building your custom dashboard. Add charts, stats, and more to visualize your data.";
+export const NO_WIDGETS_YET_ACTION_BUTTON = "Add Your First Widget";
+export const NO_DASHBOARDS_YET = "No Dashboards Yet";
+export const NO_DASHBOARDS_YET_DESCRIPTION = "Create your first dashboard to start visualizing your data in a meaningful way.";
+export const NO_DASHBOARDS_YET_ACTION_BUTTON = "Create Dashboard";
+export const NO_DASHBOARDS_YET_SEARCH_TITLE = "No Dashboards Found";
+export const NO_DASHBOARDS_YET_SEARCH_DESCRIPTION = "No dashboards found matching your search.";
+export const NO_WIDGETS_YET_SEARCH_TITLE = "No Widgets Found";
+export const NO_WIDGETS_YET_SEARCH_DESCRIPTION = "No widgets found matching your search.";
+export const ADD_DASHBOARD_OR_FOLDER = "Create a new dashboard or folder";
+export const EDIT_DASHBOARD_OR_FOLDER = "Edit dashboard or folder";
+export const ERROR_OCCURED = "Broken Dashboard";
+export const ERROR_OCCURED_DESCRIPTION = "An error occurred while fetching the dashboard or the dashboard does not exist. Please try again later.";
