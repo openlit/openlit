@@ -1,5 +1,5 @@
 """
-Module for monitoring Pinecone API calls.
+Module for monitoring Pinecone async API calls.
 """
 
 import time
@@ -14,19 +14,19 @@ from openlit.instrumentation.pinecone.utils import (
     DB_OPERATION_MAP,
 )
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name,
+def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for Pinecone function calls.
+    Generates a telemetry wrapper for Pinecone async function calls.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the Pinecone function call.
+        Wraps the Pinecone async function call.
         """
 
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
 
         # Get server address and port using the standard helper
         server_address, server_port = set_server_address_and_port(instance, "pinecone.io", 443)
@@ -41,7 +41,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             try:
                 start_time = time.time()
-                response = wrapped(*args, **kwargs)
+                response = await wrapped(*args, **kwargs)
 
                 # Process response and generate telemetry
                 response = process_vectordb_response(
