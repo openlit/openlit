@@ -72,7 +72,10 @@ def common_vectordb_logic(scope, environment, application_name,
         # Vector database specific attributes (extensions)
         scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, query.get("top_k", -1))
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
-            f"SEARCH {namespace} top_k={query.get('top_k', -1)} text={query_text} vector={query_vector}")
+            f"{scope._db_operation} {namespace} "
+            f"top_k={query.get('top_k', -1)} "
+            f"text={query_text} "
+            f"vector={query_vector}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_QUERY:
         namespace = scope._kwargs.get("namespace", "default") or (scope._args[0] if scope._args else "unknown")
@@ -101,7 +104,8 @@ def common_vectordb_logic(scope, environment, application_name,
 
         # Vector database specific attributes (extensions)
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
-            f"FETCH {namespace} ids={query}")
+            f"{scope._db_operation} {namespace} "
+            f"ids={query}")
         scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS, object_count(scope._response.vectors))
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPDATE:
