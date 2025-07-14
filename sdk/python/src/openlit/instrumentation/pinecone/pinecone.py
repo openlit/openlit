@@ -50,10 +50,9 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                     capture_message_content, disable_metrics, version, instance, args, **kwargs
                 )
 
-                return response
-
             except Exception as e:
                 handle_exception(span, e)
-                raise
+            
+            return response
 
     return wrapper
