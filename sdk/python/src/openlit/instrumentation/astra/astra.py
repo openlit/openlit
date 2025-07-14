@@ -26,11 +26,11 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         server_address, server_port = set_server_address_and_port(instance)
 
         db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "unknown")
-        
+
         # Handle upsert detection for replace operations
         if db_operation == "DB_OPERATION_REPLACE" and kwargs.get("upsert"):
             db_operation = "DB_OPERATION_UPSERT"
-        
+
         # Get collection name for span naming
         collection_name = getattr(instance, "name", "unknown")
         span_name = f"{db_operation} {collection_name}"

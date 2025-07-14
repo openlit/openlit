@@ -12,23 +12,42 @@ from openlit.instrumentation.astra.async_astra import async_general_wrap
 
 _instruments = ("astrapy >= 1.5.2",)
 
-# Operations to wrap for both sync and async clients
-ASTRA_OPERATIONS = [
+# AstraDB sync operations
+ASTRA_SYNC_OPERATIONS = [
     # Database operations
-    ("create_collection", "astra.create_collection"),
-    ("drop_collection", "astra.drop_collection"),
+    ("astrapy.database", "Database.create_collection", "astra.create_collection"),
+    ("astrapy.database", "Database.drop_collection", "astra.drop_collection"),
     
     # Collection operations
-    ("insert_one", "astra.insert_one"),
-    ("insert_many", "astra.insert_many"),
-    ("update_one", "astra.update_one"),
-    ("update_many", "astra.update_many"),
-    ("find_one_and_update", "astra.find_one_and_update"),
-    ("find", "astra.find"),
-    ("replace_one", "astra.replace_one"),
-    ("find_one_and_delete", "astra.find_one_and_delete"),
-    ("delete_one", "astra.delete_one"),
-    ("delete_many", "astra.delete_many"),
+    ("astrapy.collection", "Collection.insert_one", "astra.insert_one"),
+    ("astrapy.collection", "Collection.insert_many", "astra.insert_many"),
+    ("astrapy.collection", "Collection.update_one", "astra.update_one"),
+    ("astrapy.collection", "Collection.update_many", "astra.update_many"),
+    ("astrapy.collection", "Collection.find_one_and_update", "astra.find_one_and_update"),
+    ("astrapy.collection", "Collection.find", "astra.find"),
+    ("astrapy.collection", "Collection.replace_one", "astra.replace_one"),
+    ("astrapy.collection", "Collection.find_one_and_delete", "astra.find_one_and_delete"),
+    ("astrapy.collection", "Collection.delete_one", "astra.delete_one"),
+    ("astrapy.collection", "Collection.delete_many", "astra.delete_many"),
+]
+
+# AstraDB async operations
+ASTRA_ASYNC_OPERATIONS = [
+    # Async Database operations
+    ("astrapy.database", "AsyncDatabase.create_collection", "astra.create_collection"),
+    ("astrapy.database", "AsyncDatabase.drop_collection", "astra.drop_collection"),
+    
+    # Async Collection operations
+    ("astrapy.collection", "AsyncCollection.insert_one", "astra.insert_one"),
+    ("astrapy.collection", "AsyncCollection.insert_many", "astra.insert_many"),
+    ("astrapy.collection", "AsyncCollection.update_one", "astra.update_one"),
+    ("astrapy.collection", "AsyncCollection.update_many", "astra.update_many"),
+    ("astrapy.collection", "AsyncCollection.find_one_and_update", "astra.find_one_and_update"),
+    ("astrapy.collection", "AsyncCollection.find", "astra.find"),
+    ("astrapy.collection", "AsyncCollection.replace_one", "astra.replace_one"),
+    ("astrapy.collection", "AsyncCollection.find_one_and_delete", "astra.find_one_and_delete"),
+    ("astrapy.collection", "AsyncCollection.delete_one", "astra.delete_one"),
+    ("astrapy.collection", "AsyncCollection.delete_many", "astra.delete_many"),
 ]
 
 class AstraInstrumentor(BaseInstrumentor):
@@ -50,69 +69,21 @@ class AstraInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
 
         # Wrap sync operations
-        # Database operations
-        for method_name, endpoint in [("create_collection", "astra.create_collection"), 
-                                     ("drop_collection", "astra.drop_collection")]:
+        for module, class_method, endpoint in ASTRA_SYNC_OPERATIONS:
             wrap_function_wrapper(
-                "astrapy.database",
-                f"Database.{method_name}",
-                general_wrap(
-                    endpoint, version, environment, application_name, tracer,
-                    pricing_info, capture_message_content, metrics, disable_metrics
-                ),
-            )
-
-        # Collection operations
-        for method_name, endpoint in [("insert_one", "astra.insert_one"),
-                                     ("insert_many", "astra.insert_many"),
-                                     ("update_one", "astra.update_one"),
-                                     ("update_many", "astra.update_many"),
-                                     ("find_one_and_update", "astra.find_one_and_update"),
-                                     ("find", "astra.find"),
-                                     ("replace_one", "astra.replace_one"),
-                                     ("find_one_and_delete", "astra.find_one_and_delete"),
-                                     ("delete_one", "astra.delete_one"),
-                                     ("delete_many", "astra.delete_many")]:
-            wrap_function_wrapper(
-                "astrapy.collection",
-                f"Collection.{method_name}",
-                general_wrap(
-                    endpoint, version, environment, application_name, tracer,
-                    pricing_info, capture_message_content, metrics, disable_metrics
-                ),
+                module,
+                class_method,
+                general_wrap(endpoint, version, environment, application_name,
+                    tracer, pricing_info, capture_message_content, metrics, disable_metrics),
             )
 
         # Wrap async operations
-        # Async Database operations
-        for method_name, endpoint in [("create_collection", "astra.create_collection"), 
-                                     ("drop_collection", "astra.drop_collection")]:
+        for module, class_method, endpoint in ASTRA_ASYNC_OPERATIONS:
             wrap_function_wrapper(
-                "astrapy.database",
-                f"AsyncDatabase.{method_name}",
-                async_general_wrap(
-                    endpoint, version, environment, application_name, tracer,
-                    pricing_info, capture_message_content, metrics, disable_metrics
-                ),
-            )
-
-        # Async Collection operations
-        for method_name, endpoint in [("insert_one", "astra.insert_one"),
-                                     ("insert_many", "astra.insert_many"),
-                                     ("update_one", "astra.update_one"),
-                                     ("update_many", "astra.update_many"),
-                                     ("find_one_and_update", "astra.find_one_and_update"),
-                                     ("find", "astra.find"),
-                                     ("replace_one", "astra.replace_one"),
-                                     ("find_one_and_delete", "astra.find_one_and_delete"),
-                                     ("delete_one", "astra.delete_one"),
-                                     ("delete_many", "astra.delete_many")]:
-            wrap_function_wrapper(
-                "astrapy.collection",
-                f"AsyncCollection.{method_name}",
-                async_general_wrap(
-                    endpoint, version, environment, application_name, tracer,
-                    pricing_info, capture_message_content, metrics, disable_metrics
-                ),
+                module,
+                class_method,
+                async_general_wrap(endpoint, version, environment, application_name,
+                    tracer, pricing_info, capture_message_content, metrics, disable_metrics),
             )
 
     def _uninstrument(self, **kwargs):
