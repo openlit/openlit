@@ -17,7 +17,7 @@ ASTRA_SYNC_OPERATIONS = [
     # Database operations
     ("astrapy.database", "Database.create_collection", "astra.create_collection"),
     ("astrapy.database", "Database.drop_collection", "astra.drop_collection"),
-    
+
     # Collection operations
     ("astrapy.collection", "Collection.insert_one", "astra.insert_one"),
     ("astrapy.collection", "Collection.insert_many", "astra.insert_many"),
@@ -36,7 +36,7 @@ ASTRA_ASYNC_OPERATIONS = [
     # Async Database operations
     ("astrapy.database", "AsyncDatabase.create_collection", "astra.create_collection"),
     ("astrapy.database", "AsyncDatabase.drop_collection", "astra.drop_collection"),
-    
+
     # Async Collection operations
     ("astrapy.collection", "AsyncCollection.insert_one", "astra.insert_one"),
     ("astrapy.collection", "AsyncCollection.insert_many", "astra.insert_many"),
