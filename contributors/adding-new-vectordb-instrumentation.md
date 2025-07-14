@@ -70,26 +70,22 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
         
-        # Extract operation from endpoint
-        db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "unknown")
-        
-        # Server address calculation
+        # Get server address and port using the standard helper
         server_address, server_port = set_server_address_and_port(instance)
         
-        # Span naming: use operation + collection/namespace
+        db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "unknown")
         if db_operation == "create_collection":
             namespace = kwargs.get("name") or (args[0] if args else "unknown")
         else:
             namespace = getattr(instance, "name", "unknown")  # For collection-based databases
         span_name = f"{db_operation} {namespace}"
         
-        # CRITICAL: Use tracer.start_as_current_span() for proper context
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
             response = wrapped(*args, **kwargs)
             
             try:
-                # Process response with endpoint information
+                # Process response and generate telemetry
                 response = process_vectordb_response(
                     response, db_operation, server_address, server_port,
                     environment, application_name, metrics, start_time, span,
@@ -262,7 +258,8 @@ returned_rows = object_count(scope._response['ids'][0]) if scope._response['ids'
 
 ### 1. Quotes
 - **Always use double quotes** for strings: `"example"`
-- Consistent across all files
+- **Never use single quotes** for strings: ❌ `'example'`
+- Consistent across all files including inline comments, error messages, and string literals
 
 ### 2. Indentation
 - **4 spaces** for indentation
@@ -275,6 +272,14 @@ returned_rows = object_count(scope._response['ids'][0]) if scope._response['ids'
       """
       Function description.
       """
+  ```
+- **Standard inline comments** for specific actions:
+  ```python
+  # Get server address and port using the standard helper
+  server_address, server_port = set_server_address_and_port(instance)
+  
+  # Process response and generate telemetry
+  response = process_vectordb_response(...)
   ```
 
 ### 4. Import Order
@@ -404,12 +409,12 @@ wrap_function_wrapper(
 Create sync (and async if needed) wrapper files following the general_wrap pattern.
 
 ### Step 4: Create utils.py
-Include:
-- `DB_OPERATION_MAP` with proper semantic operation mapping
-- `object_count` helper
-- `set_server_address_and_port` function for server address extraction
-- `common_vectordb_logic` with endpoint differentiation
-- `process_vectordb_response`
+Include functions in **standard order**:
+1. `DB_OPERATION_MAP` with proper semantic operation mapping
+2. `object_count` helper function
+3. `set_server_address_and_port` function for server address extraction
+4. `common_vectordb_logic` with endpoint differentiation
+5. `process_vectordb_response` function
 
 **Server Address Extraction Function:**
 ```python
@@ -526,6 +531,23 @@ def auto_instrument(**kwargs):
 ### Step 2: Add Semantic Conventions
 Add any new semantic conventions to `sdk/python/src/openlit/semcov/__init__.py`.
 
+## Consistency Requirements
+
+**CRITICAL**: All vector database instrumentations must follow **identical patterns** for maintainability and developer experience:
+
+### **Code Style Consistency:**
+- **Quotes**: Always use double quotes (`"`) - never single quotes (`'`)
+- **Comments**: Use standardized inline comments (see Code Style Guidelines)
+- **Function Order**: Follow the exact order specified in utils.py structure
+- **Import Order**: Standard library → OpenTelemetry → OpenLIT imports
+- **Variable Names**: Use `snake_case` consistently
+
+### **Structural Consistency:**
+- **Exception Handling**: `wrapped()` call outside try block, telemetry processing inside
+- **Server Address**: Use `set_server_address_and_port(instance)` function signature
+- **Span Creation**: Always use `tracer.start_as_current_span()` - never `tracer.start_span()`
+- **Suppression Check**: Always include `context_api._SUPPRESS_INSTRUMENTATION_KEY` check
+
 ## Key Reminders
 
 1. **Always use `tracer.start_as_current_span()`** - Never use `tracer.start_span()`
@@ -535,7 +557,7 @@ Add any new semantic conventions to `sdk/python/src/openlit/semcov/__init__.py`.
 5. **Semantic operation mapping** - Multiple endpoints can map to same DB operation
 6. **Response structure awareness** - Handle flat vs nested response arrays correctly
 7. **Collection vs namespace** - Use appropriate semantic convention for your database type
-8. **Default values** - Use `'None'` for missing values in query summaries
+8. **Default values** - Use `"None"` for missing values in query summaries (double quotes)
 9. **Test thoroughly** - Include both sync and async tests (if applicable)
 
 ## Example Implementation

@@ -40,7 +40,7 @@ PINECONE_ASYNC_OPERATIONS = [
 
 class PineconeInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for Pinecone's client library.
+    An instrumentor for Pinecone client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:

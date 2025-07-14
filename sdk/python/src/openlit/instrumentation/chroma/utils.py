@@ -2,7 +2,7 @@
 ChromaDB OpenTelemetry instrumentation utility functions
 """
 import time
-
+from urllib.parse import urlparse
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
@@ -41,27 +41,26 @@ def set_server_address_and_port(instance):
     """
     server_address = "localhost"
     server_port = 8000
-    
+
     # Try getting base_url from multiple potential attributes
-    base_client = getattr(instance, '_client', None)
-    base_url = getattr(base_client, 'base_url', None)
+    base_client = getattr(instance, "_client", None)
+    base_url = getattr(base_client, "base_url", None)
 
     if not base_url:
         # Attempt to get endpoint from instance._config.endpoint
-        config = getattr(instance, '_config', None)
-        base_url = getattr(config, 'endpoint', None)
+        config = getattr(instance, "_config", None)
+        base_url = getattr(config, "endpoint", None)
 
     if not base_url:
         # Attempt to get server_url from instance.sdk_configuration.server_url
-        config = getattr(instance, 'sdk_configuration', None)
-        base_url = getattr(config, 'server_url', None)
+        config = getattr(instance, "sdk_configuration", None)
+        base_url = getattr(config, "server_url", None)
 
     if base_url:
         if isinstance(base_url, str):
-            # Check if it's a full URL or just a hostname
-            if base_url.startswith(('http://', 'https://')):
+            # Check if it a full URL or just a hostname
+            if base_url.startswith(("http://", "https://")):
                 try:
-                    from urllib.parse import urlparse
                     url = urlparse(base_url)
                     if url.hostname:
                         server_address = url.hostname
@@ -72,7 +71,7 @@ def set_server_address_and_port(instance):
             else:
                 # Just a hostname
                 server_address = base_url
-    
+
     return server_address, server_port
 
 def common_vectordb_logic(scope, environment, application_name,
@@ -119,7 +118,7 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"ids={query} "
-            f"documents={scope._kwargs.get('documents', [])}")
+            f"documents={scope._kwargs.get("documents", [])}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_GET:
         collection_name = getattr(instance, "name", "unknown")
@@ -140,8 +139,8 @@ def common_vectordb_logic(scope, environment, application_name,
             scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
                 f"{scope._db_operation} {collection_name} "
                 f"ids={query} "
-                f"limit={scope._kwargs.get('limit', 'None')} "
-                f"offset={scope._kwargs.get('offset', 'None')}")
+                f"limit={scope._kwargs.get("limit", "None")} "
+                f"offset={scope._kwargs.get("offset", "None")}")
 
         elif endpoint == "chroma.query":
             query_texts = scope._kwargs.get("query_texts", [])
@@ -166,15 +165,15 @@ def common_vectordb_logic(scope, environment, application_name,
             # Extract response metrics if available
             if scope._response:
                 # Get number of results returned
-                if hasattr(scope._response, 'get') and scope._response.get('ids'):
-                    returned_rows = object_count(scope._response['ids'][0]) if scope._response['ids'] else 0
+                if hasattr(scope._response, "get") and scope._response.get("ids"):
+                    returned_rows = object_count(scope._response["ids"][0]) if scope._response["ids"] else 0
                     scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS, returned_rows)
 
             scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
                 f"{scope._db_operation} {collection_name} "
-                f"n_results={scope._kwargs.get('n_results', 10)} "
+                f"n_results={scope._kwargs.get("n_results", 10)} "
                 f"{query_content} "
-                f"filter={scope._kwargs.get('where', 'None')}")
+                f"filter={scope._kwargs.get("where", "None")}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPDATE:
         collection_name = getattr(instance, "name", "unknown")
@@ -189,9 +188,9 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"ids={query} "
-            f"embeddings={scope._kwargs.get('embeddings', 'None')} "
-            f"metadatas={scope._kwargs.get('metadatas', 'None')} "
-            f"documents={scope._kwargs.get('documents', 'None')}")
+            f"embeddings={scope._kwargs.get("embeddings", "None")} "
+            f"metadatas={scope._kwargs.get("metadatas", "None")} "
+            f"documents={scope._kwargs.get("documents", "None")}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPSERT:
         collection_name = getattr(instance, "name", "unknown")
@@ -206,9 +205,9 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"ids={query} "
-            f"embeddings={scope._kwargs.get('embeddings', 'None')} "
-            f"metadatas={scope._kwargs.get('metadatas', 'None')} "
-            f"documents={scope._kwargs.get('documents', 'None')}")
+            f"embeddings={scope._kwargs.get("embeddings", "None")} "
+            f"metadatas={scope._kwargs.get("metadatas", "None")} "
+            f"documents={scope._kwargs.get("documents", "None")}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_DELETE:
         collection_name = getattr(instance, "name", "unknown")
@@ -224,12 +223,12 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"ids={query} "
-            f"filter={scope._kwargs.get('where', 'None')} "
-            f"delete_all={scope._kwargs.get('delete_all', False)}")
+            f"filter={scope._kwargs.get("where", "None")} "
+            f"delete_all={scope._kwargs.get("delete_all", False)}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_PEEK:
         collection_name = getattr(instance, "name", "unknown")
-        query = f"PEEK limit={scope._kwargs.get('limit', '')}"
+        query = f"PEEK limit={scope._kwargs.get("limit", "")}"
 
         # Standard database attributes
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, query)
@@ -239,7 +238,7 @@ def common_vectordb_logic(scope, environment, application_name,
         # Vector database specific attributes (extensions)
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"limit={scope._kwargs.get('limit', 'None')}")
+            f"limit={scope._kwargs.get("limit", "None")}")
 
     scope._span.set_status(Status(StatusCode.OK))
 

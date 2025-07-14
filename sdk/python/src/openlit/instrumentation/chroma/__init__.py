@@ -13,7 +13,7 @@ _instruments = ("chromadb >= 0.4.0",)
 
 class ChromaInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for ChromaDB's client library.
+    An instrumentor for ChromaDB client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:

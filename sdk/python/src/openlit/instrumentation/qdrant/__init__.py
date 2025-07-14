@@ -38,7 +38,7 @@ QDRANT_OPERATIONS = [
 
 class QdrantInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for Qdrant's client library.
+    An instrumentor for Qdrant client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:

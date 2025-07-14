@@ -2,7 +2,7 @@
 Pinecone OpenTelemetry instrumentation utility functions
 """
 import time
-
+from urllib.parse import urlparse
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
@@ -42,22 +42,21 @@ def set_server_address_and_port(instance):
     """
     server_address = "pinecone.io"
     server_port = 443
-    
+
     # Try getting base_url from multiple potential attributes
-    base_client = getattr(instance, '_client', None)
-    base_url = getattr(base_client, 'base_url', None)
+    base_client = getattr(instance, "_client", None)
+    base_url = getattr(base_client, "base_url", None)
 
     if not base_url:
         # Attempt to get host from instance.config.host (used by Pinecone)
-        config = getattr(instance, 'config', None)
-        base_url = getattr(config, 'host', None)
+        config = getattr(instance, "config", None)
+        base_url = getattr(config, "host", None)
 
     if base_url:
         if isinstance(base_url, str):
-            # Check if it's a full URL or just a hostname
-            if base_url.startswith(('http://', 'https://')):
+            # Check if its a full URL or just a hostname
+            if base_url.startswith(("http://", "https://")):
                 try:
-                    from urllib.parse import urlparse
                     url = urlparse(base_url)
                     if url.hostname:
                         server_address = url.hostname
@@ -68,7 +67,7 @@ def set_server_address_and_port(instance):
             else:
                 # Just a hostname
                 server_address = base_url
-    
+
     return server_address, server_port
 
 def common_vectordb_logic(scope, environment, application_name,
@@ -114,7 +113,7 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, query.get("top_k", -1))
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {namespace} "
-            f"top_k={query.get('top_k', -1)} "
+            f"top_k={query.get("top_k", -1)} "
             f"text={query_text} "
             f"vector={query_vector}")
 
@@ -131,9 +130,9 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_FILTER, str(scope._kwargs.get("filter", "")))
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {namespace} "
-            f"top_k={scope._kwargs.get('top_k', -1)} "
-            f"filtered={scope._kwargs.get('filter', '')} "
-            f"vector={scope._kwargs.get('vector', '')}")
+            f"top_k={scope._kwargs.get("top_k", -1)} "
+            f"filtered={scope._kwargs.get("filter", "")} "
+            f"vector={scope._kwargs.get("vector", "")}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_FETCH:
         namespace = scope._kwargs.get("namespace", "default") or (scope._args[0] if scope._args else "unknown")
@@ -161,8 +160,8 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {namespace} "
             f"id={query} "
-            f"values={scope._kwargs.get('values', [])} "
-            f"set_metadata={scope._kwargs.get('set_metadata', '')}")
+            f"values={scope._kwargs.get("values", [])} "
+            f"set_metadata={scope._kwargs.get("set_metadata", "")}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPSERT:
         namespace = scope._kwargs.get("namespace") or (scope._args[0] if scope._args else "unknown")
@@ -192,8 +191,8 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {namespace} "
             f"ids={query} "
-            f"filter={scope._kwargs.get('filter', '')} "
-            f"delete_all={scope._kwargs.get('delete_all', False)}")
+            f"filter={scope._kwargs.get("filter", "")} "
+            f"delete_all={scope._kwargs.get("delete_all", False)}")
 
     scope._span.set_status(Status(StatusCode.OK))
 
