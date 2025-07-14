@@ -16,7 +16,7 @@ export default function NotFound() {
               404 – Bug or Feature?
             </h1>
             <p className="text-stone-600">
-              This page drifted outside our observability zone. Let's head back to reality.
+              This page drifted outside our observability zone. Let&apos;s head back to reality.
             </p>
           </div>
           <div className="flex flex-col items-center justify-center space-y-4 text-center">
