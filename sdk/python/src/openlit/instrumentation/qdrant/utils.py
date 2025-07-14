@@ -79,7 +79,7 @@ def set_server_address_and_port(instance):
 
     return server_address, server_port
 
-def common_qdrant_logic(scope, environment, application_name, 
+def common_qdrant_logic(scope, environment, application_name,
     metrics, capture_message_content, disable_metrics, version,
     instance=None, endpoint=None):
     """
@@ -88,14 +88,14 @@ def common_qdrant_logic(scope, environment, application_name,
     scope._end_time = time.time()
 
     # Set common database span attributes using helper
-    common_db_span_attributes(scope, SemanticConvention.DB_SYSTEM_QDRANT, 
-                             scope._server_address, scope._server_port, 
-                             environment, application_name, version)
+    common_db_span_attributes(scope, SemanticConvention.DB_SYSTEM_QDRANT,
+        scope._server_address, scope._server_port,
+        environment, application_name, version)
 
     # Set DB operation specific attributes
     scope._span.set_attribute(SemanticConvention.DB_OPERATION_NAME, scope._db_operation)
-    scope._span.set_attribute(SemanticConvention.DB_CLIENT_OPERATION_DURATION, 
-                             scope._end_time - scope._start_time)
+    scope._span.set_attribute(SemanticConvention.DB_CLIENT_OPERATION_DURATION,
+        scope._end_time - scope._start_time)
 
     # Handle collection management operations
     if scope._db_operation in [SemanticConvention.DB_OPERATION_CREATE_COLLECTION,
@@ -166,7 +166,7 @@ def common_qdrant_logic(scope, environment, application_name,
             if scope._response and hasattr(scope._response, "status"):
                 scope._span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                     scope._response.status)
-    
+
             scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
                 f"{scope._db_operation} {collection_name} "
                 f"points={object_count(points)} "
@@ -183,7 +183,7 @@ def common_qdrant_logic(scope, environment, application_name,
             if scope._response and hasattr(scope._response, "status"):
                 scope._span.set_attribute(SemanticConvention.DB_OPERATION_STATUS,
                     scope._response.status)
-            
+
             scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
                 f"{scope._db_operation} {collection_name} "
                 f"points={object_count(points)}")

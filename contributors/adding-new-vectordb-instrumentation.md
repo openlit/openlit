@@ -264,6 +264,24 @@ returned_rows = object_count(scope._response['ids'][0]) if scope._response['ids'
 ### 2. Indentation
 - **4 spaces** for indentation
 - No tabs
+- **Multi-line definitions**: Use **only one level** of indentation for continuation lines
+  ```python
+  # ✅ Correct: One level indentation for multi-line function definitions
+  def general_wrap(gen_ai_endpoint, version, environment, application_name,
+      tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+  
+  # ✅ Correct: One level indentation for multi-line function calls
+  response = process_vectordb_response(
+      response, db_operation, server_address, server_port,
+      environment, application_name, metrics, start_time, span,
+      capture_message_content, disable_metrics, version, 
+      instance, args, endpoint=gen_ai_endpoint, **kwargs
+  )
+  
+  # ❌ Wrong: Don't align with opening parenthesis
+  def general_wrap(gen_ai_endpoint, version, environment, application_name,
+                   tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+  ```
 
 ### 3. Comments
 - **Triple double quotes** for docstrings:

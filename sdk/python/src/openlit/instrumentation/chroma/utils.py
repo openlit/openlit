@@ -118,7 +118,7 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"ids={query} "
-            f"documents={scope._kwargs.get("documents", [])}")
+            f"documents={scope._kwargs.get('documents', [])}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_GET:
         collection_name = getattr(instance, "name", "unknown")
@@ -139,8 +139,8 @@ def common_vectordb_logic(scope, environment, application_name,
             scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
                 f"{scope._db_operation} {collection_name} "
                 f"ids={query} "
-                f"limit={scope._kwargs.get("limit", "None")} "
-                f"offset={scope._kwargs.get("offset", "None")}")
+                f"limit={scope._kwargs.get('limit', 'None')} "
+                f"offset={scope._kwargs.get('offset', 'None')}")
 
         elif endpoint == "chroma.query":
             query_texts = scope._kwargs.get("query_texts", [])
@@ -171,9 +171,9 @@ def common_vectordb_logic(scope, environment, application_name,
 
             scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
                 f"{scope._db_operation} {collection_name} "
-                f"n_results={scope._kwargs.get("n_results", 10)} "
+                f"n_results={scope._kwargs.get('n_results', 10)} "
                 f"{query_content} "
-                f"filter={scope._kwargs.get("where", "None")}")
+                f"filter={scope._kwargs.get('where', 'None')}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPDATE:
         collection_name = getattr(instance, "name", "unknown")
@@ -188,9 +188,9 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"ids={query} "
-            f"embeddings={scope._kwargs.get("embeddings", "None")} "
-            f"metadatas={scope._kwargs.get("metadatas", "None")} "
-            f"documents={scope._kwargs.get("documents", "None")}")
+            f"embeddings={scope._kwargs.get('embeddings', 'None')} "
+            f"metadatas={scope._kwargs.get('metadatas', 'None')} "
+            f"documents={scope._kwargs.get('documents', 'None')}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPSERT:
         collection_name = getattr(instance, "name", "unknown")
@@ -205,9 +205,9 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"ids={query} "
-            f"embeddings={scope._kwargs.get("embeddings", "None")} "
-            f"metadatas={scope._kwargs.get("metadatas", "None")} "
-            f"documents={scope._kwargs.get("documents", "None")}")
+            f"embeddings={scope._kwargs.get('embeddings', 'None')} "
+            f"metadatas={scope._kwargs.get('metadatas', 'None')} "
+            f"documents={scope._kwargs.get('documents', 'None')}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_DELETE:
         collection_name = getattr(instance, "name", "unknown")
@@ -223,12 +223,12 @@ def common_vectordb_logic(scope, environment, application_name,
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"ids={query} "
-            f"filter={scope._kwargs.get("where", "None")} "
-            f"delete_all={scope._kwargs.get("delete_all", False)}")
+            f"filter={scope._kwargs.get('where', 'None')} "
+            f"delete_all={scope._kwargs.get('delete_all', False)}")
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_PEEK:
         collection_name = getattr(instance, "name", "unknown")
-        query = f"PEEK limit={scope._kwargs.get("limit", "")}"
+        query = f"PEEK limit={scope._kwargs.get('limit', '')}"
 
         # Standard database attributes
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, query)
@@ -238,7 +238,7 @@ def common_vectordb_logic(scope, environment, application_name,
         # Vector database specific attributes (extensions)
         scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"limit={scope._kwargs.get("limit", "None")}")
+            f"limit={scope._kwargs.get('limit', 'None')}")
 
     scope._span.set_status(Status(StatusCode.OK))
 
