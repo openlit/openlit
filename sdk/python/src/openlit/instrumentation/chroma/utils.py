@@ -2,7 +2,7 @@
 ChromaDB OpenTelemetry instrumentation utility functions
 """
 import time
-
+from urllib.parse import urlparse
 from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
@@ -28,6 +28,51 @@ def object_count(obj):
     Counts length of object if it exists, else returns 0.
     """
     return len(obj) if obj else 0
+
+def set_server_address_and_port(instance):
+    """
+    Extracts server address and port from ChromaDB client instance.
+    
+    Args:
+        instance: ChromaDB client instance
+        
+    Returns:
+        tuple: (server_address, server_port)
+    """
+    server_address = "localhost"
+    server_port = 8000
+
+    # Try getting base_url from multiple potential attributes
+    base_client = getattr(instance, "_client", None)
+    base_url = getattr(base_client, "base_url", None)
+
+    if not base_url:
+        # Attempt to get endpoint from instance._config.endpoint
+        config = getattr(instance, "_config", None)
+        base_url = getattr(config, "endpoint", None)
+
+    if not base_url:
+        # Attempt to get server_url from instance.sdk_configuration.server_url
+        config = getattr(instance, "sdk_configuration", None)
+        base_url = getattr(config, "server_url", None)
+
+    if base_url:
+        if isinstance(base_url, str):
+            # Check if it a full URL or just a hostname
+            if base_url.startswith(("http://", "https://")):
+                try:
+                    url = urlparse(base_url)
+                    if url.hostname:
+                        server_address = url.hostname
+                    if url.port:
+                        server_port = url.port
+                except Exception:
+                    pass
+            else:
+                # Just a hostname
+                server_address = base_url
+
+    return server_address, server_port
 
 def common_vectordb_logic(scope, environment, application_name,
     metrics, capture_message_content, disable_metrics, version, instance=None, endpoint=None):
@@ -120,8 +165,8 @@ def common_vectordb_logic(scope, environment, application_name,
             # Extract response metrics if available
             if scope._response:
                 # Get number of results returned
-                if hasattr(scope._response, 'get') and scope._response.get('ids'):
-                    returned_rows = object_count(scope._response['ids'][0]) if scope._response['ids'] else 0
+                if hasattr(scope._response, "get") and scope._response.get("ids"):
+                    returned_rows = object_count(scope._response["ids"][0]) if scope._response["ids"] else 0
                     scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS, returned_rows)
 
             scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,

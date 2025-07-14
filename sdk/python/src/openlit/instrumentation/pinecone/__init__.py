@@ -10,9 +10,37 @@ from openlit.instrumentation.pinecone.async_pinecone import async_general_wrap
 
 _instruments = ("pinecone >= 7.3.0",)
 
+# Pinecone sync operations
+PINECONE_SYNC_OPERATIONS = [
+    ("pinecone.pinecone", "Pinecone.create_index", "pinecone.create_collection"),
+    ("pinecone.pinecone", "Pinecone.create_index_for_model", "pinecone.create_collection"),
+    ("pinecone.db_data.index", "Index.upsert", "pinecone.upsert"),
+    ("pinecone.db_data.index", "Index.upsert_records", "pinecone.upsert_records"),
+    ("pinecone.db_data.index", "Index.query", "pinecone.query"),
+    ("pinecone.db_data.index", "Index.search", "pinecone.search"),
+    ("pinecone.db_data.index", "Index.fetch", "pinecone.fetch"),
+    ("pinecone.db_data.index", "Index.search_records", "pinecone.search_records"),
+    ("pinecone.db_data.index", "Index.update", "pinecone.update"),
+    ("pinecone.db_data.index", "Index.delete", "pinecone.delete"),
+]
+
+# Pinecone async operations
+PINECONE_ASYNC_OPERATIONS = [
+    ("pinecone.pinecone_asyncio", "PineconeAsyncio.create_index", "pinecone.create_index"),
+    ("pinecone.pinecone_asyncio", "PineconeAsyncio.create_index_for_model", "pinecone.create_index"),
+    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.upsert", "pinecone.upsert"),
+    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.upsert_records", "pinecone.upsert_records"),
+    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.query", "pinecone.query"),
+    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.search", "pinecone.search"),
+    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.fetch", "pinecone.fetch"),
+    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.search_records", "pinecone.search_records"),
+    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.update", "pinecone.update"),
+    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.delete", "pinecone.delete"),
+]
+
 class PineconeInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for Pinecone's client library.
+    An instrumentor for Pinecone client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
@@ -28,147 +56,23 @@ class PineconeInstrumentor(BaseInstrumentor):
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics")
 
-        # Sync operations
-        wrap_function_wrapper(
-            "pinecone.pinecone",
-            "Pinecone.create_index",
-            general_wrap("pinecone.create_collection", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
+        # Wrap sync operations
+        for module, class_method, endpoint in PINECONE_SYNC_OPERATIONS:
+            wrap_function_wrapper(
+                module,
+                class_method,
+                general_wrap(endpoint, version, environment, application_name,
+                    tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            )
 
-        wrap_function_wrapper(
-            "pinecone.pinecone",
-            "Pinecone.create_index_for_model",
-            general_wrap("pinecone.create_collection", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index",
-            "Index.upsert",
-            general_wrap("pinecone.upsert", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index",
-            "Index.upsert_records",
-            general_wrap("pinecone.upsert_records", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index",
-            "Index.query",
-            general_wrap("pinecone.query", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index",
-            "Index.search",
-            general_wrap("pinecone.search", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index",
-            "Index.fetch",
-            general_wrap("pinecone.fetch", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index",
-            "Index.search_records",
-            general_wrap("pinecone.search_records", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index",
-            "Index.update",
-            general_wrap("pinecone.update", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index",
-            "Index.delete",
-            general_wrap("pinecone.delete", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        # Async operations
-        wrap_function_wrapper(
-            "pinecone.pinecone_asyncio",
-            "PineconeAsyncio.create_index",
-            async_general_wrap("pinecone.create_index", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.pinecone_asyncio",
-            "PineconeAsyncio.create_index_for_model",
-            async_general_wrap("pinecone.create_index", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index_asyncio",
-            "_IndexAsyncio.upsert",
-            async_general_wrap("pinecone.upsert", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index_asyncio",
-            "_IndexAsyncio.upsert_records",
-            async_general_wrap("pinecone.upsert_records", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index_asyncio",
-            "_IndexAsyncio.query",
-            async_general_wrap("pinecone.query", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index_asyncio",
-            "_IndexAsyncio.search",
-            async_general_wrap("pinecone.search", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index_asyncio",
-            "_IndexAsyncio.fetch",
-            async_general_wrap("pinecone.fetch", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index_asyncio",
-            "_IndexAsyncio.search_records",
-            async_general_wrap("pinecone.search_records", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index_asyncio",
-            "_IndexAsyncio.update",
-            async_general_wrap("pinecone.update", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
-
-        wrap_function_wrapper(
-            "pinecone.db_data.index_asyncio",
-            "_IndexAsyncio.delete",
-            async_general_wrap("pinecone.delete", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
-        )
+        # Wrap async operations
+        for module, class_method, endpoint in PINECONE_ASYNC_OPERATIONS:
+            wrap_function_wrapper(
+                module,
+                class_method,
+                async_general_wrap(endpoint, version, environment, application_name,
+                    tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            )
 
     def _uninstrument(self, **kwargs):
         pass
