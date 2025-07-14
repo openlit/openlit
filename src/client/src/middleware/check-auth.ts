@@ -24,49 +24,71 @@ export default function checkAuth(next: NextMiddleware) {
 				return next(request, _next);
 			}
 
-			const token = await getToken({ req: request });
-			const isAuth = !!token;
-			const isAllowedRequestWithoutToken =
-				ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN.includes(pathname);
-			const isCronJobRoute = CRON_JOB_ROUTES.includes(pathname);
-			const isAuthPage =
-				pathname.startsWith("/login") || pathname.startsWith("/register");
-			const isApiPage = pathname.startsWith("/api");
+			try {
+				const token = await getToken({ req: request });
+				const isAuth = !!token;
+				const isAllowedRequestWithoutToken =
+					ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN.includes(pathname);
+				const isCronJobRoute = CRON_JOB_ROUTES.includes(pathname);
+				const isAuthPage =
+					pathname.startsWith("/login") || pathname.startsWith("/register");
+				const isApiPage = pathname.startsWith("/api");
 
-			if (isAuthPage) {
-				if (isAuth) {
+				if (isAuthPage) {
+					if (isAuth) {
+						return NextResponse.redirect(
+							new URL(DEFAULT_LOGGED_IN_ROUTE, request.url)
+						);
+					}
+
+					return NextResponse.next();
+				}
+
+				if (isApiPage) {
+					if (isAuth || isAllowedRequestWithoutToken || isCronJobRoute) {
+						if (isCronJobRoute) {
+							const cronJobToken = request.headers.get("X-CRON-JOB");
+							if (cronJobToken) {
+								return NextResponse.next();
+							}
+						}
+						return NextResponse.next();
+					}
+				}
+
+				if (!isAuth) {
+					let from = pathname;
+					if (request.nextUrl.search) {
+						from += request.nextUrl.search;
+					}
+
 					return NextResponse.redirect(
-						new URL(DEFAULT_LOGGED_IN_ROUTE, request.url)
+						new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, request.url)
 					);
 				}
 
 				return NextResponse.next();
-			}
-
-			if (isApiPage) {
-				if (isAuth || isAllowedRequestWithoutToken || isCronJobRoute) {
-					if (isCronJobRoute) {
-						const cronJobToken = request.headers.get("X-CRON-JOB");
-						if (cronJobToken) {
-							return NextResponse.next();
-						}
+			} catch (error) {
+				// If there's an error getting the token (e.g., invalid/corrupted token),
+				// treat as unauthenticated and redirect to login
+				console.error("Auth middleware error:", error);
+				
+				const isAuthPage =
+					pathname.startsWith("/login") || pathname.startsWith("/register");
+				
+				if (!isAuthPage) {
+					let from = pathname;
+					if (request.nextUrl.search) {
+						from += request.nextUrl.search;
 					}
-					return NextResponse.next();
+
+					return NextResponse.redirect(
+						new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, request.url)
+					);
 				}
+				
+				return NextResponse.next();
 			}
-
-			if (!isAuth) {
-				let from = pathname;
-				if (request.nextUrl.search) {
-					from += request.nextUrl.search;
-				}
-
-				return NextResponse.redirect(
-					new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, request.url)
-				);
-			}
-
-			return NextResponse.next();
 		},
 		{
 			callbacks: {

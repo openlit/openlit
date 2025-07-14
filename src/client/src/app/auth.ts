@@ -9,6 +9,7 @@ import {
 	getUserByEmail,
 	updateUser,
 	doesPasswordMatches,
+	getUserById,
 } from "@/lib/user";
 
 const prisma = new PrismaClient();
@@ -24,6 +25,26 @@ export const authOptions = {
 
 			if (user?.id) {
 				token.id = user.id;
+			}
+
+			// Validate that the user still exists in the database for existing tokens
+			// This prevents issues when starting with a fresh database but stale cookies
+			if (token?.id && !user) {
+				try {
+					const [, existingUser] = await asaw(
+						getUserById({ id: token.id as string })
+					);
+					
+					// If user doesn't exist in database, invalidate the token
+					if (!existingUser) {
+						return null;
+					}
+				} catch (error) {
+					// If there's a database connection error during startup,
+					// allow the token to pass through to avoid blocking the app
+					// The error will be handled at the application level
+					console.error("Database error during JWT validation:", error);
+				}
 			}
 
 			return token;

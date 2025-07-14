@@ -22,8 +22,12 @@ export default async function PlaygroundLayout({
 					<div className="flex flex-col grow w-full">
 						<Header />
 						<main className="flex flex-col grow flex-1 items-start p-4 sm:px-6 overflow-hidden">
-							<ClickhouseConnectivityWrapper />
-							{children}
+							{/* <div className="fixed inset-0 w-full h-full bg-cover bg-center bg-no-repeat z-[-1]" style={{
+								backgroundImage: "linear-gradient(344deg, #f89b29 5%, rgba(255,255,255,0) 72%)"
+							}} /> */}
+							<ClickhouseConnectivityWrapper>
+								{children}
+							</ClickhouseConnectivityWrapper>
 						</main>
 					</div>
 				</div>

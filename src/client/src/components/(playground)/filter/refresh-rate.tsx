@@ -21,11 +21,8 @@ import { CLIENT_EVENTS } from "@/constants/events";
 
 const REFRESH_RATE_EVENT = "refresh-rate";
 
-const PAGES_ENABLED_FOR_REFRESH_RATE = [
-	"/dashboard",
-	"/requests",
-	"/exceptions",
-];
+const PAGES_ENABLED_FOR_REFRESH_RATE =
+	/^\/home$|^\/dashboard$|^\/requests$|^\/exceptions$|^\/d\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const refreshTimes = {
 	[REFRESH_RATE_TYPE["30s"]]: 30 * 1000,
@@ -85,7 +82,7 @@ const RefreshRate = () => {
 	};
 
 	const isRefreshRateEnabled =
-		PAGES_ENABLED_FOR_REFRESH_RATE.includes(pathname);
+		PAGES_ENABLED_FOR_REFRESH_RATE.test(pathname);
 
 	useEffect(() => {
 		if (isRefreshRateEnabled) {
