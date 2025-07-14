@@ -16,11 +16,14 @@ interface BarChartProps {
 }
 
 const BarChartWidgetComponent: React.FC<BarChartProps> = ({ widget, data }) => {
-	const updatedData = data?.map((item) => ({
-		...item,
-		[widget.properties.xAxis]: item[widget.properties.xAxis],
-		[widget.properties.yAxis]: parseFloat(item[widget.properties.yAxis]),
-	})) || [];
+	const updatedData = data?.map((item) => {
+		const yValue = parseFloat(item[widget.properties.yAxis]);
+		return {
+			...item,
+			[widget.properties.xAxis]: item[widget.properties.xAxis],
+			[widget.properties.yAxis]: isNaN(yValue) ? 0 : yValue,
+		};
+	}) || [];
 
 	// return null;
 	return (
