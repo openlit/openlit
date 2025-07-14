@@ -74,9 +74,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer
         db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "unknown")
         
         # Server address calculation
-        server_address, server_port = set_server_address_and_port(
-            instance, "default-host", default_port
-        )
+        server_address, server_port = set_server_address_and_port(instance)
         
         # Span naming: use operation + collection/namespace
         if db_operation == "create_collection":
@@ -87,10 +85,10 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer
         
         # CRITICAL: Use tracer.start_as_current_span() for proper context
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+            response = wrapped(*args, **kwargs)
+            
             try:
-                start_time = time.time()
-                response = wrapped(*args, **kwargs)
-                
                 # Process response with endpoint information
                 response = process_vectordb_response(
                     response, db_operation, server_address, server_port,
@@ -99,10 +97,10 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer
                     instance, args, endpoint=gen_ai_endpoint, **kwargs
                 )
                 
-                return response
             except Exception as e:
                 handle_exception(span, e)
-                raise
+                
+            return response
     
     return wrapper
 ```
@@ -313,7 +311,10 @@ def function_name(gen_ai_endpoint, version, environment, application_name, trace
 mkdir -p sdk/python/src/openlit/instrumentation/{database_name}
 ```
 
-### Step 2: Create __init__.py
+### Step 2: Create __init__.py (Compact Pattern)
+
+**For databases with many operations, use the compact data structure approach:**
+
 ```python
 """
 OpenLIT {DatabaseName} Instrumentation
@@ -329,6 +330,16 @@ from openlit.instrumentation.{database_name}.{database_name} import general_wrap
 # from openlit.instrumentation.{database_name}.async_{database_name} import async_general_wrap
 
 _instruments = ("{database-package} >= {version}",)
+
+# Operations to wrap for both sync and async clients
+{DATABASE_NAME}_OPERATIONS = [
+    ("method_name", "{database}.endpoint"),
+    ("create_collection", "{database}.create_collection"),
+    ("upsert", "{database}.upsert"),
+    ("query", "{database}.query"),
+    ("delete", "{database}.delete"),
+    # ... add all operations here
+]
 
 class {DatabaseName}Instrumentor(BaseInstrumentor):
     """
@@ -349,29 +360,44 @@ class {DatabaseName}Instrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
 
         # Wrap sync operations
-        wrap_function_wrapper(
-            "{database_module}",
-            "{Class}.{method}",
-            general_wrap(
-                "{database}.{operation}",
-                version, environment, application_name, tracer,
-                pricing_info, capture_message_content, metrics, disable_metrics
-            ),
-        )
+        for method_name, endpoint in {DATABASE_NAME}_OPERATIONS:
+            wrap_function_wrapper(
+                "{database_module}",
+                f"{ClientClass}.{method_name}",
+                general_wrap(
+                    endpoint, version, environment, application_name, tracer,
+                    pricing_info, capture_message_content, metrics, disable_metrics
+                ),
+            )
 
-        # Only wrap async operations if database supports them
-        # wrap_function_wrapper(
-        #     "{database_module}",
-        #     "{AsyncClass}.{method}",
-        #     async_general_wrap(
-        #         "{database}.{operation}",
-        #         version, environment, application_name, tracer,
-        #         pricing_info, capture_message_content, metrics, disable_metrics
-        #     ),
-        # )
+        # Wrap async operations (only if database supports them)
+        # for method_name, endpoint in {DATABASE_NAME}_OPERATIONS:
+        #     wrap_function_wrapper(
+        #         "{database_module}",
+        #         f"{AsyncClientClass}.{method_name}",
+        #         async_general_wrap(
+        #             endpoint, version, environment, application_name, tracer,
+        #             pricing_info, capture_message_content, metrics, disable_metrics
+        #         ),
+        #     )
 
     def _uninstrument(self, **kwargs):
         pass
+```
+
+**For databases with few operations, use the direct approach:**
+
+```python
+# Direct wrapping for databases with < 10 operations
+wrap_function_wrapper(
+    "{database_module}",
+    "{Class}.{method}",
+    general_wrap(
+        "{database}.{operation}",
+        version, environment, application_name, tracer,
+        pricing_info, capture_message_content, metrics, disable_metrics
+    ),
+)
 ```
 
 ### Step 3: Create Wrapper Files
@@ -381,8 +407,40 @@ Create sync (and async if needed) wrapper files following the general_wrap patte
 Include:
 - `DB_OPERATION_MAP` with proper semantic operation mapping
 - `object_count` helper
+- `set_server_address_and_port` function for server address extraction
 - `common_vectordb_logic` with endpoint differentiation
 - `process_vectordb_response`
+
+**Server Address Extraction Function:**
+```python
+def set_server_address_and_port(instance):
+    """
+    Extracts server address and port from {database} client instance.
+    
+    Args:
+        instance: {Database} client instance
+        
+    Returns:
+        tuple: (server_address, server_port)
+    """
+    server_address = "default-host"
+    server_port = default_port
+    
+    # Database-specific extraction logic
+    # For Qdrant: instance.init_options
+    # For others: instance._client.base_url, instance.config.host, etc.
+    
+    return server_address, server_port
+```
+
+**Usage in wrapper files:**
+```python
+# Replace generic helper with database-specific function
+from openlit.instrumentation.{database}.utils import set_server_address_and_port
+
+# In wrapper function
+server_address, server_port = set_server_address_and_port(instance)
+```
 
 ### Step 5: Database-Specific Adaptations
 
@@ -483,7 +541,28 @@ Add any new semantic conventions to `sdk/python/src/openlit/semcov/__init__.py`.
 ## Example Implementation
 
 For complete reference implementations, see:
-- **Pinecone**: Full 4-file structure with async support
-- **ChromaDB**: Simplified 3-file structure, collection-based, endpoint differentiation
+
+### **Qdrant** (Optimized Pattern):
+- **Structure**: 4-file structure with async support
+- **Lines**: 80 (__init__.py), 55 (sync), 55 (async), 328 (utils.py)
+- **Features**: Compact __init__.py with data structure, `set_server_address_and_port` function
+- **Pattern**: Collection-based, endpoint differentiation, comprehensive operation coverage
+
+### **Pinecone** (Optimized Pattern):
+- **Structure**: 4-file structure with async support  
+- **Lines**: 78 (__init__.py), 56 (sync), 56 (async), 227 (utils.py)
+- **Features**: Compact __init__.py with data structure, `set_server_address_and_port` function
+- **Pattern**: Namespace-based, comprehensive telemetry
+
+### **ChromaDB** (Simplified Pattern):
+- **Structure**: 3-file structure (no async support)
+- **Lines**: 90 (__init__.py), 57 (sync), 273 (utils.py)
+- **Features**: Collection-based, endpoint differentiation, `set_server_address_and_port` function
+- **Pattern**: Direct wrapping approach for fewer operations
+
+### **Recommended Approach**:
+1. **< 10 operations**: Use ChromaDB pattern (direct wrapping)
+2. **10-20 operations**: Use Pinecone pattern (traditional __init__.py)
+3. **20+ operations**: Use Qdrant pattern (compact data structure)
 
 This guide ensures consistency across all vector database instrumentations while accommodating database-specific requirements and maintaining high quality standards. 

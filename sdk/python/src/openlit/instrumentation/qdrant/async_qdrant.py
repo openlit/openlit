@@ -35,10 +35,10 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name, 
         
         # CRITICAL: Use tracer.start_as_current_span() for proper context
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+            response = await wrapped(*args, **kwargs)
+            
             try:
-                start_time = time.time()
-                response = await wrapped(*args, **kwargs)
-                
                 # Process response with endpoint information
                 response = process_qdrant_response(
                     response, db_operation, server_address, server_port,
@@ -50,6 +50,6 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name, 
             except Exception as e:
                 handle_exception(span, e)
 
-                return response
+            return response
 
     return wrapper
