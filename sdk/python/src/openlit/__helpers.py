@@ -205,11 +205,22 @@ def set_server_address_and_port(client_instance: Any,
         config = getattr(client_instance, 'sdk_configuration', None)
         base_url = getattr(config, 'server_url', None)
 
+    if not base_url:
+        # Attempt to get host from instance.config.host (used by Pinecone and other vector DBs)
+        config = getattr(client_instance, 'config', None)
+        base_url = getattr(config, 'host', None)
+
     if base_url:
         if isinstance(base_url, str):
-            url = urlparse(base_url)
-            server_address = url.hostname or default_server_address
-            server_port = url.port if url.port is not None else default_server_port
+            # Check if it's a full URL or just a hostname
+            if base_url.startswith(('http://', 'https://')):
+                url = urlparse(base_url)
+                server_address = url.hostname or default_server_address
+                server_port = url.port if url.port is not None else default_server_port
+            else:
+                # If it's just a hostname (like Pinecone's case), use it directly
+                server_address = base_url
+                server_port = default_server_port
         else:  # base_url might not be a str; handle as an object.
             server_address = getattr(base_url, 'host', None) or default_server_address
             port_attr = getattr(base_url, 'port', None)
@@ -442,3 +453,37 @@ def record_image_metrics(metrics, gen_ai_operation, gen_ai_system, server_addres
     metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
     metrics["genai_requests"].add(1, attributes)
     metrics["genai_cost"].record(cost, attributes)
+
+def common_db_span_attributes(scope, db_system, server_address, server_port,
+    environment, application_name, version):
+    """
+    Set common span attributes for database operations.
+    """
+
+    scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+    scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB)
+    scope._span.set_attribute(SemanticConvention.DB_SYSTEM_NAME, db_system)
+    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+    scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+    scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
+    scope._span.set_attribute(SERVICE_NAME, application_name)
+    scope._span.set_attribute(SemanticConvention.DB_SDK_VERSION, version)
+
+def record_db_metrics(metrics, db_system, server_address, server_port,
+    environment, application_name, start_time, end_time):
+    """
+    Record database-specific metrics for the operation.
+    """
+
+    attributes = create_metrics_attributes(
+        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB,
+        system=db_system,
+        request_model=db_system,
+        server_address=server_address,
+        server_port=server_port,
+        response_model=db_system,
+        service_name=application_name,
+        deployment_environment=environment,
+    )
+    metrics["db_requests"].add(1, attributes)
+    metrics["db_client_operation_duration"].record(end_time - start_time, attributes)
