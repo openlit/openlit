@@ -1,7 +1,7 @@
 export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  testMatch: ['**/src/evals/**/*.test.ts'],
+  testMatch: ['**/src/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
-  roots: ['<rootDir>/src/evals'],
+  roots: ['<rootDir>/src/'],
 };
