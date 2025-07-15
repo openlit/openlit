@@ -1,20 +1,8 @@
 import { BaseGuard } from './base';
 import { GuardConfig, GuardResult } from './types';
-import { customRuleDetection } from './utils';
+import { customRuleDetection, toGuardResult, applyThresholdScore, guardMetrics, guardMetricAttributes } from './utils';
 import { formatPrompt } from '../evals/utils';
 import { parseLlmResponse } from '../llm';
-
-// Helper to convert LLM/Evals result to GuardResult
-function toGuardResult(result: unknown, guardType: string): GuardResult {
-  const r = result as Partial<GuardResult & { [key: string]: unknown }>;
-  return {
-    score: typeof r.score === 'number' ? r.score : 0,
-    verdict: typeof r.verdict === 'string' ? (r.verdict as GuardResult['verdict']) : 'none',
-    guard: typeof r.guard === 'string' ? r.guard : guardType,
-    classification: typeof r.classification === 'string' ? r.classification : 'none',
-    explanation: typeof r.explanation === 'string' ? r.explanation : 'none',
-  };
-}
 
 export class PromptInjection extends BaseGuard {
   constructor(config: GuardConfig = {}) {
@@ -74,14 +62,14 @@ export class PromptInjection extends BaseGuard {
       explanation: 'none'
     };
     if (this.provider) {
-      const prompt = formatPrompt(this.getSystemPrompt(), { text });
+      const prompt = formatPrompt(this.getSystemPrompt(), { prompt: text, text });
       const response = await this.llmResponse(prompt);
       llmResult = toGuardResult(parseLlmResponse(response), 'prompt_injection');
     }
-    const result = customRuleResult.score >= llmResult.score ? customRuleResult : llmResult;
+    let result = customRuleResult.score >= llmResult.score ? customRuleResult : llmResult;
+    result = applyThresholdScore(result, this.thresholdScore);
     // Metrics collection if enabled
     if (this.collectMetrics) {
-      const { guardMetrics, guardMetricAttributes } = await import('./utils');
       const validator = this.provider || 'custom';
       guardMetrics().add(1, guardMetricAttributes(result.verdict, result.score, validator, result.classification, result.explanation));
     }

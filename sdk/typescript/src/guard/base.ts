@@ -27,14 +27,8 @@ export abstract class BaseGuard {
 
   protected async llmResponse(prompt: string): Promise<string> {
     if (!this.provider) throw new Error('No provider specified');
-    const { llmProviders } = await import('../llm/providers');
-    const providerFn = llmProviders[this.provider];
-    if (!providerFn) throw new Error(`Unsupported provider: ${this.provider}`);
-    return providerFn({
-      prompt,
-      model: this.model,
-      apiKey: this.apiKey,
-      baseUrl: this.baseUrl
-    });
+    // Use unified llmResponse from llm/index.ts and normalize provider
+    const { llmResponse } = await import('../llm');
+    return llmResponse(this.provider.toLowerCase(), prompt, this.model, this.baseUrl, this.apiKey);
   }
 }

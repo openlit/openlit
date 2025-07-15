@@ -26,6 +26,11 @@ export function parseLlmResponse(response: string | object): GuardResult {
     if (typeof data.verdict === 'string') {
       if (data.verdict === 'yes' || data.verdict === 'no') {
         verdict = data.verdict;
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `Unexpected verdict value in LLM response: "${data.verdict}". Coercing to 'none'.`
+        );
       }
     }
     return {

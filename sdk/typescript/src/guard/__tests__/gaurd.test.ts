@@ -2,6 +2,7 @@ import { PromptInjection } from '../prompt-injection';
 import { SensitiveTopic } from '../sensitive-topic';
 import { TopicRestriction } from '../topic-restriction';
 import { All } from '../all';
+import * as utils from '../utils';
 
 describe('PromptInjection', () => {
   it('detects prompt injection using custom rule', async () => {
@@ -71,12 +72,7 @@ describe('All', () => {
 describe('SensitiveTopic metrics', () => {
   it('calls guardMetrics.add when collectMetrics is true', async () => {
     const addSpy = jest.fn();
-    jest.resetModules();
-    jest.doMock('../utils', () => ({
-      guardMetrics: () => ({ add: addSpy }),
-      guardMetricAttributes: jest.requireActual('../utils').guardMetricAttributes,
-      customRuleDetection: jest.requireActual('../utils').customRuleDetection,
-    }));
+    jest.spyOn(utils, 'guardMetrics').mockReturnValue({ add: addSpy });
     const { SensitiveTopic } = await import('../sensitive-topic');
     const guard = new SensitiveTopic({
       customRules: [
@@ -99,12 +95,7 @@ describe('SensitiveTopic metrics', () => {
 
   it('does not call guardMetrics.add when collectMetrics is false', async () => {
     const addSpy = jest.fn();
-    jest.resetModules();
-    jest.doMock('../utils', () => ({
-      guardMetrics: () => ({ add: addSpy }),
-      guardMetricAttributes: jest.requireActual('../utils').guardMetricAttributes,
-      customRuleDetection: jest.requireActual('../utils').customRuleDetection,
-    }));
+    jest.spyOn(utils, 'guardMetrics').mockReturnValue({ add: addSpy });
     const { SensitiveTopic } = await import('../sensitive-topic');
     const guard = new SensitiveTopic({
       customRules: [
