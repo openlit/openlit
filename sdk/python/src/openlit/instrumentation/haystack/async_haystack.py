@@ -1,6 +1,6 @@
 # pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
-Module for monitoring Haystack applications.
+Module for monitoring Haystack async applications.
 """
 
 import time
@@ -13,10 +13,10 @@ from openlit.instrumentation.haystack.utils import (
     set_server_address_and_port,
 )
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name,
+def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
-    Create a wrapper for Haystack operations using the general wrap pattern.
+    Create a wrapper for Haystack async operations using the general wrap pattern.
     
     Args:
         gen_ai_endpoint (str): The endpoint identifier for the operation
@@ -30,25 +30,25 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         disable_metrics (bool): Whether to disable metrics collection
     
     Returns:
-        callable: Wrapped function for telemetry collection
+        callable: Wrapped async function for telemetry collection
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the Haystack function call to add telemetry.
+        Wraps the Haystack async function call to add telemetry.
         
         Args:
-            wrapped: The original function being wrapped
+            wrapped: The original async function being wrapped
             instance: The instance of the class (if method)
             args: Positional arguments
             kwargs: Keyword arguments
             
         Returns:
-            The response from the original function
+            The response from the original async function
         """
         # CRITICAL: Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
 
         # Get server address and port using the standard helper
         server_address, server_port = set_server_address_and_port(instance)
@@ -57,17 +57,19 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         operation_type = OPERATION_MAP.get(gen_ai_endpoint, "framework")
         
         # Create span name based on endpoint
-        if gen_ai_endpoint == "haystack.pipeline_run":
-            span_name = "haystack pipeline_run"
+        if gen_ai_endpoint == "haystack.async_pipeline_run":
+            span_name = "haystack async_pipeline_run"
+        elif gen_ai_endpoint == "haystack.async_generator_run":
+            span_name = "haystack async_generator_run"
         elif gen_ai_endpoint.startswith("haystack.component."):
             component_name = gen_ai_endpoint.replace("haystack.component.", "")
-            span_name = f"haystack {component_name}"
+            span_name = f"haystack async_{component_name}"
         else:
-            span_name = f"haystack {gen_ai_endpoint.split('.')[-1]}"
+            span_name = f"haystack async_{gen_ai_endpoint.split('.')[-1]}"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             
             try:
                 # Process response and generate telemetry
@@ -83,4 +85,4 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
                 
             return response
     
-    return wrapper
+    return wrapper 

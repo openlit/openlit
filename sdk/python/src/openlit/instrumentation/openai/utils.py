@@ -37,9 +37,15 @@ def format_content(messages):
 
     # Handle list of messages
     formatted_messages = []
+
     for message in messages:
-        role = message.get("role", "user")
-        content = message.get("content", "")
+        try:
+            role = message.get("role", "user") or message.role
+            content = message.get("content", "") or message.content
+
+        except:
+            role = "user"
+            content = str(messages)
 
         if isinstance(content, list):
             content_str_list = []
@@ -442,9 +448,9 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text" if isinstance(scope._llmresponse, str) else "json")
 
     # OpenAI-specific attributes
-    if hasattr(scope, "_system_fingerprint"):
+    if hasattr(scope, "_system_fingerprint") and scope._system_fingerprint:
         scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT, scope._system_fingerprint)
-    if hasattr(scope, "_service_tier"):
+    if hasattr(scope, "_service_tier") and scope._service_tier:
         scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER, scope._service_tier)
 
     # Span Attributes for Tools - optimized

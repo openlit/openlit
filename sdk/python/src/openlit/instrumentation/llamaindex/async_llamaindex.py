@@ -1,6 +1,5 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
-Module for monitoring LlamaIndex applications.
+Module for monitoring LlamaIndex async applications.
 """
 
 import time
@@ -13,19 +12,19 @@ from openlit.instrumentation.llamaindex.utils import (
     set_server_address_and_port,
 )
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name,
+def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
-    Generates a telemetry wrapper for LlamaIndex function calls.
+    Generates a telemetry wrapper for LlamaIndex async function calls.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the LlamaIndex function call.
+        Wraps the LlamaIndex async function call.
         """
 
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
 
         # Get server address and port using the standard helper
         server_address, server_port = set_server_address_and_port(instance)
@@ -35,7 +34,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 # Process response and generate telemetry
@@ -51,4 +50,4 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
             return response
 
-    return wrapper
+    return wrapper 

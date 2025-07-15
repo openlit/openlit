@@ -1,0 +1,995 @@
+---
+description: Comprehensive guide for working with OpenLIT's LlamaIndex instrumentation, including architecture patterns, OpenTelemetry comparisons, and LlamaIndex OTel integration context.
+alwaysApply: false
+---
+# OpenLIT LlamaIndex Instrumentation Rules
+
+## Overview
+
+This file provides comprehensive guidance for working with OpenLIT's LlamaIndex instrumentation. It covers the architecture, patterns, and best practices based on the entire OpenLIT codebase context.
+
+## Architecture Overview
+
+### OpenLIT Instrumentation System
+
+OpenLIT uses **OpenTelemetry-based Auto-Instrumentation** to monitor AI applications:
+
+1. **Instrumentors**: Based on `BaseInstrumentor` pattern from OpenTelemetry
+2. **Wrapper Functions**: Use `wrapt.wrap_function_wrapper` to intercept method calls  
+3. **Telemetry Processing**: Custom functions process responses and generate spans/metrics
+4. **Semantic Conventions**: Follow OpenTelemetry Gen AI semantic conventions
+
+### Key Components
+
+```python
+# Core instrumentation structure (4-file pattern)
+llamaindex/
+├── __init__.py          # Instrumentor class with dependency requirements
+├── llamaindex.py        # Sync wrapper functions  
+├── async_llamaindex.py  # Async wrapper functions
+└── utils.py            # Telemetry processing logic
+```
+
+## LlamaIndex Instrumentation Specifics
+
+### 1. Tracing Granularity Configuration
+
+OpenLIT provides **configurable tracing granularity** through the `detailed_tracing` parameter:
+
+```python
+# Workflow-level tracing (production default)
+openlit.init(detailed_tracing=False)  # 5-10 spans per query
+
+# Component-level tracing (debugging/optimization)  
+openlit.init(detailed_tracing=True)   # 20-50+ spans per query
+```
+
+**Workflow-Level Operations** (always enabled):
+- Document loading (`load_data`, `aload_data`)
+- Index construction (`from_documents`, `from_vector_store`)
+- Query engine operations (`as_query_engine`, `query`, `aquery`)
+- Retriever operations (`as_retriever`, `retrieve`, `aretrieve`)
+- Embedding operations (`get_text_embedding`, `aget_text_embedding`)
+- Vector store operations (`add`, `delete`, `query`)
+- LLM operations (`complete`, `acomplete`, `chat`, `achat`)
+
+**Component-Level Operations** (detailed_tracing=True):
+- Text splitter tasks (`split_text`, `_postprocess_nodes`)
+- Node parser tasks (`get_nodes_from_node`, `_parse_nodes`)
+- Document processing (`_extract_metadata`, `_process_document`)
+- Embedding tasks (`_get_text_embeddings`, `_embed_nodes`)
+- Retrieval components (`_get_nodes_with_embeddings`, `_retrieve_nodes`)
+- Response generation (`_prepare_context`, `_generate_response`)
+- Vector store components (`_add_nodes`, `_query_nodes`)
+- Index maintenance (`_insert_nodes`, `_delete_nodes`)
+
+### 2. Operation Mapping Pattern
+
+```python
+# Enhanced operation mapping in utils.py
+OPERATION_MAP = {
+    # Workflow-level operations
+    "framework.document.load": SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
+    "framework.index.construct": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+    "framework.query_engine.query": SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
+    "framework.embedding.generate": SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+    "framework.llm.chat": SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+    
+    # Component-level operations (detailed_tracing=True)
+    "framework.text_splitter.split": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+    "framework.embedding.encode": SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+    "framework.retrieval.search": SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
+}
+```
+
+### 3. Wrapper Implementation Pattern
+
+```python
+def general_wrap(gen_ai_endpoint, version, environment, application_name,
+    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+    """Standard OpenLIT wrapper pattern"""
+    
+    def wrapper(wrapped, instance, args, kwargs):
+        # CRITICAL: Suppression check for nested instrumentation
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            return wrapped(*args, **kwargs)
+
+        # Server address extraction
+        server_address, server_port = set_server_address_and_port(instance)
+
+        # Operation type mapping
+        operation_type = OPERATION_MAP.get(gen_ai_endpoint, "framework")
+        span_name = f"{operation_type} {gen_ai_endpoint}"
+
+        # Span creation with proper context propagation
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+            response = wrapped(*args, **kwargs)  # Execute original function
+
+            try:
+                # Process response and generate telemetry
+                response = process_llamaindex_response(
+                    response, operation_type, server_address, server_port,
+                    environment, application_name, metrics, start_time, span,
+                    capture_message_content, disable_metrics, version, 
+                    instance, args, endpoint=gen_ai_endpoint, **kwargs
+                )
+            except Exception as e:
+                handle_exception(span, e)
+
+            return response
+    return wrapper
+```
+
+### 4. Framework vs Database Metrics
+
+**CRITICAL**: LlamaIndex is a **framework**, not a database. Use `record_framework_metrics`:
+
+```python
+# CORRECT: Framework metrics (only gen_ai_requests counter)
+if not disable_metrics:
+    record_framework_metrics(metrics, scope._operation_type, 
+        SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX, 
+        scope._server_address, scope._server_port, environment, 
+        application_name, scope._start_time, scope._end_time)
+
+# WRONG: Database metrics (for vector databases only)
+# record_db_metrics(...)  # Don't use for frameworks!
+```
+
+### 5. Telemetry Processing
+
+```python
+def common_llamaindex_logic(scope, environment, application_name, 
+    metrics, capture_message_content, disable_metrics, version, 
+    instance=None, endpoint=None, **kwargs):
+    """Process LlamaIndex framework response and generate telemetry"""
+    
+    scope._end_time = time.time()
+
+    # Set common framework span attributes using helper
+    common_framework_span_attributes(scope, SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+        SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX, scope._server_address, scope._server_port,
+        environment, application_name, version, endpoint, instance)
+
+    # Operation-specific telemetry based on endpoint
+    if scope._operation_type == SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE:
+        # Document loading, query operations
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_QUERY, 
+            kwargs.get("query", "unknown"))
+        
+    elif scope._operation_type == SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING:
+        # Embedding operations
+        texts = kwargs.get("texts", [])
+        scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_INPUTS, 
+            object_count(texts))
+    
+    # Set operation duration
+    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, 
+        scope._end_time - scope._start_time)
+
+    scope._span.set_status(Status(StatusCode.OK))
+
+    # Record framework metrics (only gen_ai_requests counter)
+    if not disable_metrics:
+        record_framework_metrics(metrics, scope._operation_type, 
+            SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX, 
+            scope._server_address, scope._server_port, environment, 
+            application_name, scope._start_time, scope._end_time)
+```
+
+## External LlamaIndex Instrumentation Analysis & Comparison
+
+### 1. Traceloop Instrumentation (Third-party)
+
+**CRITICAL**: Traceloop is **NOT** official OpenTelemetry instrumentation - it's a third-party package.
+
+**Repository**: [traceloop/openllmetry](https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-llamaindex)
+**Package**: `opentelemetry-instrumentation-llamaindex` 
+
+#### Traceloop Analysis & Limitations:
+```python
+# Traceloop basic setup
+from opentelemetry.instrumentation.llamaindex import LlamaIndexInstrumentor
+LlamaIndexInstrumentor().instrument()
+
+# Limitations identified:
+# - Basic workflow tracing only (no granularity options)
+# - Generic OpenTelemetry conventions (not AI-optimized)
+# - No cost tracking or token usage analytics
+# - No detailed component observability
+# - Limited semantic attributes
+# - No framework-specific metrics
+# - No cross-system tracing with underlying LLM calls
+```
+
+#### OpenLIT Optimization Opportunities vs Traceloop:
+1. **Add configurable tracing granularity** (`detailed_tracing` parameter)
+2. **Implement AI-specific semantic conventions** from our `semcov` module
+3. **Add framework metrics** (`record_framework_metrics` not `record_db_metrics`)
+4. **Enable cross-system tracing** (LlamaIndex → OpenAI spans in same trace)
+5. **Add cost tracking** and performance analytics
+6. **Implement conditional component instrumentation** for debugging
+
+### 2. LlamaIndex Official OTel Integration
+
+**Repository**: [run-llama/llama_index](https://github.com/run-llama/llama_index/tree/main/llama-index-integrations/observability/llama-index-observability-otel)
+**Package**: `llama-index-observability-otel`
+
+#### Official Integration Analysis:
+```python
+# Official LlamaIndex OTel setup
+from llama_index.observability.otel import OtelObservabilityHandler
+from opentelemetry import trace
+
+trace.set_tracer_provider(TracerProvider())
+handler = OtelObservabilityHandler()
+Settings.observability_handler = handler
+
+# Features:
+# - Basic OpenTelemetry span creation
+# - Standard observability hooks
+# - Core LlamaIndex operations only
+# - Manual setup required
+# - No built-in cost tracking
+```
+
+#### OpenLIT Competitive Advantages:
+1. **Zero-code auto-instrumentation**: `openlit.init()` vs manual setup
+2. **AI-optimized semantic conventions**: Custom Gen AI attributes beyond standard OTel
+3. **Framework-specific metrics**: Only `gen_ai_requests` counter (not database metrics)
+4. **Configurable granularity**: Workflow vs component-level observability
+5. **Unified observability**: Spans, metrics, and events in one package
+6. **Cross-system tracing**: Links LlamaIndex → OpenAI API calls
+7. **Cost tracking**: Comprehensive pricing and token usage analytics
+
+### 3. Competitive Testing Strategy
+
+#### Testing OpenLIT vs Traceloop Performance:
+```python
+def test_llamaindex_comparison():
+    """Test OpenLIT vs Traceloop instrumentation performance and observability"""
+    
+    # Test 1: Traceloop instrumentation
+    from opentelemetry.instrumentation.llamaindex import LlamaIndexInstrumentor
+    LlamaIndexInstrumentor().instrument()
+    
+    traceloop_time, traceloop_spans = run_llamaindex_workflow()
+    
+    # Test 2: OpenLIT workflow-level
+    import openlit
+    openlit.init(detailed_tracing=False)
+    
+    openlit_workflow_time, openlit_workflow_spans = run_llamaindex_workflow()
+    
+    # Test 3: OpenLIT component-level  
+    openlit.init(detailed_tracing=True)
+    
+    openlit_component_time, openlit_component_spans = run_llamaindex_workflow()
+    
+    # Comparison analysis:
+    # - Execution time overhead
+    # - Span count and hierarchy depth
+    # - Semantic attribute richness
+    # - Cost tracking capabilities
+    # - Metric collection differences
+```
+
+#### Span Hierarchy Comparison Testing:
+```python
+def analyze_span_hierarchies():
+    """Compare span hierarchies between instrumentations"""
+    
+    # Expected Traceloop hierarchy (basic):
+    # llamaindex_operation → openai_completion
+    
+    # Expected OpenLIT workflow hierarchy:  
+    # index_construction → embedding_generation → chat_completion
+    # query_engine → retrieval_operation → chat_completion
+    
+    # Expected OpenLIT component hierarchy (detailed_tracing=True):
+    # index_construction → text_splitter.task → node_parser.task → 
+    #   embedding.task → vector_store.add → chat_completion
+```
+
+### 4. Semantic Conventions Optimization
+
+#### CRITICAL: All Attributes Must Use OpenLIT `semcov` Module:
+```python
+# CORRECT: Always import from OpenLIT semantic conventions
+from openlit.semcov import SemanticConvention
+
+# Set framework-level attributes  
+span.set_attribute(SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK, "framework")
+span.set_attribute(SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX, "llamaindex")
+span.set_attribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration)
+
+# WRONG: Never use hardcoded strings
+# span.set_attribute("gen_ai.operation.type", "framework")  # Don't do this!
+```
+
+#### Creating New Framework-Level Attributes:
+```python
+# Add new attributes to semcov/__init__.py for general framework use
+class SemanticConvention:
+    # Existing framework attributes
+    GEN_AI_OPERATION_TYPE_FRAMEWORK = "framework"
+    GEN_AI_SYSTEM_LLAMAINDEX = "llamaindex"
+    
+    # New framework-level attributes (when needed)
+    GEN_AI_REQUEST_DOCUMENT_COUNT = "gen_ai.request.document_count"
+    GEN_AI_REQUEST_EMBEDDING_INPUTS = "gen_ai.request.embedding.inputs"
+    GEN_AI_FRAMEWORK_COMPONENT_TYPE = "gen_ai.framework.component.type"
+    GEN_AI_FRAMEWORK_OPERATION_NAME = "gen_ai.framework.operation.name"
+```
+
+### 3. Semantic Conventions Mapping
+
+```python
+# OpenLIT follows OpenTelemetry Gen AI semantic conventions
+class SemanticConvention:
+    # Standard Gen AI attributes
+    GEN_AI_OPERATION_TYPE_FRAMEWORK = "framework"
+    GEN_AI_OPERATION_TYPE_RETRIEVE = "retrieve"  
+    GEN_AI_OPERATION_TYPE_EMBEDDING = "embedding"
+    GEN_AI_OPERATION_TYPE_CHAT = "chat"
+    
+    # Framework-specific attributes
+    GEN_AI_SYSTEM_LLAMAINDEX = "llamaindex"
+    GEN_AI_REQUEST_QUERY = "gen_ai.request.query"
+    GEN_AI_REQUEST_EMBEDDING_INPUTS = "gen_ai.request.embedding.inputs"
+    GEN_AI_CLIENT_OPERATION_DURATION = "gen_ai.client.operation.duration"
+```
+
+## Code Patterns and Best Practices
+
+### 1. Instrumentor Class Pattern
+
+```python
+class LlamaIndexInstrumentor(BaseInstrumentor):
+    """Standard OpenLIT instrumentor pattern"""
+    
+    def instrumentation_dependencies(self) -> Collection[str]:
+        return ("llama-index >= 0.10.0",)
+
+    def _instrument(self, **kwargs):
+        # Extract configuration
+        version = importlib.metadata.version("llama-index")
+        environment = kwargs.get("environment", "default")
+        detailed_tracing = kwargs.get("detailed_tracing", False)
+        
+        # Workflow-level instrumentation (always enabled)
+        wrap_function_wrapper(
+            "llama_index.core.readers",
+            "SimpleDirectoryReader.load_data",
+            general_wrap("framework.document.load", version, ...),
+        )
+        
+        # Component-level instrumentation (conditional)
+        if detailed_tracing:
+            wrap_function_wrapper(
+                "llama_index.core.node_parser.text.sentence",
+                "SentenceSplitter.split_text",
+                general_wrap("framework.text_splitter.split", version, ...),
+            )
+```
+
+### 2. Error Handling Pattern
+
+```python
+# CRITICAL: All wrap_function_wrapper calls must handle exceptions
+try:
+    wrap_function_wrapper(
+        "llama_index.core.readers",
+        "SimpleDirectoryReader.load_data",
+        general_wrap(...),
+    )
+except Exception:
+    pass  # Module may not exist in all LlamaIndex versions
+```
+
+### 3. Context Suppression Pattern
+
+```python
+# CRITICAL: Always check suppression to prevent nested instrumentation
+def wrapper(wrapped, instance, args, kwargs):
+    if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+        return wrapped(*args, **kwargs)
+    # ... continue with instrumentation
+```
+
+### 4. Span Hierarchy Pattern
+
+```python
+# CRITICAL: Use tracer.start_as_current_span for proper parent-child relationships
+with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+    # This creates proper span hierarchy in traces
+    
+# NEVER use tracer.start_span() - breaks context propagation
+```
+
+## Reference Implementation Examples
+
+### 1. Document Loading Instrumentation
+
+```python
+# Workflow-level: Document loading operation
+wrap_function_wrapper(
+    "llama_index.core.readers",
+    "SimpleDirectoryReader.load_data",
+    general_wrap(
+        "framework.document.load",  # Endpoint identifier
+        version, environment, application_name, tracer,
+        pricing_info, capture_message_content, metrics, disable_metrics
+    ),
+)
+
+# Component-level: Metadata extraction (detailed_tracing=True)
+if detailed_tracing:
+    wrap_function_wrapper(
+        "llama_index.core.readers.base",
+        "BaseReader._extract_metadata",
+        general_wrap(
+            "framework.document_processor.metadata",
+            version, environment, application_name, tracer,
+            pricing_info, capture_message_content, metrics, disable_metrics
+        ),
+    )
+```
+
+### 2. Query Engine Instrumentation
+
+```python
+# Parent span: Query engine creation
+wrap_function_wrapper(
+    "llama_index.core.indices.base",
+    "BaseIndex.as_query_engine",
+    general_wrap("framework.query_engine.create", ...),
+)
+
+# Child span: Query execution
+wrap_function_wrapper(
+    "llama_index.core.query_engine.retriever_query_engine",
+    "RetrieverQueryEngine.query",
+    general_wrap("framework.query_engine.query", ...),
+)
+```
+
+### 3. Embedding Instrumentation
+
+```python
+# High-level embedding operation
+wrap_function_wrapper(
+    "llama_index.core.embeddings.base",
+    "BaseEmbedding.get_text_embedding",
+    general_wrap("framework.embedding.generate", ...),
+)
+
+# Component-level embedding task (detailed_tracing=True)
+if detailed_tracing:
+    wrap_function_wrapper(
+        "llama_index.core.embeddings.base",
+        "BaseEmbedding._get_text_embeddings",
+        general_wrap("framework.embedding.encode", ...),
+    )
+```
+
+## Integration Configurations
+
+### 1. Basic Integration
+
+```python
+import openlit
+
+# Simple setup - workflow-level tracing only
+openlit.init(
+    environment="production",
+    application_name="my-llamaindex-app"
+)
+
+# Your LlamaIndex code runs normally
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+documents = SimpleDirectoryReader("data").load_data()
+index = VectorStoreIndex.from_documents(documents)
+```
+
+### 2. Advanced Integration
+
+```python
+import openlit
+
+# Production monitoring setup
+openlit.init(
+    environment="production",
+    application_name="rag-chatbot",
+    otlp_endpoint="http://localhost:4318",
+    detailed_tracing=False,  # Workflow-level only for production
+    capture_message_content=True,
+    disable_metrics=False
+)
+```
+
+### 3. Development/Debugging Setup
+
+```python
+import openlit
+
+# Development setup with detailed component tracing
+openlit.init(
+    environment="development", 
+    application_name="rag-debug",
+    detailed_tracing=True,  # Component-level for debugging
+    capture_message_content=True
+)
+```
+
+## Performance Considerations
+
+### 1. Tracing Overhead
+
+- **Workflow-level** (`detailed_tracing=False`): 5-10 spans per query, minimal overhead
+- **Component-level** (`detailed_tracing=True`): 20-50+ spans per query, higher overhead
+
+### 2. Storage Optimization
+
+- **Production**: Use `detailed_tracing=False` for minimal storage requirements
+- **Debugging**: Use `detailed_tracing=True` temporarily for issue investigation
+- **Metrics**: Framework metrics only record `gen_ai_requests` counter (lightweight)
+
+### 3. Memory Management
+
+- OpenLIT uses streaming span processing to minimize memory usage
+- Batch span export reduces network overhead
+- Context suppression prevents nested instrumentation overhead
+
+## Troubleshooting
+
+### 1. Common Issues
+
+**Missing Spans:**
+- Check if `detailed_tracing` is set correctly for desired granularity
+- Verify LlamaIndex version compatibility (`>= 0.10.0`)
+- Ensure OpenTelemetry collector is receiving data
+
+**Performance Issues:**
+- Switch from `detailed_tracing=True` to `False` in production
+- Check span export batch size configuration
+- Monitor memory usage with large document sets
+
+**Metric Issues:**
+- Verify framework metrics are being used (not database metrics)
+- Check `disable_metrics=False` configuration
+- Confirm OTLP endpoint accepts metrics
+
+### 2. Debugging Commands
+
+```python
+# Check instrumentation status
+import openlit
+config = openlit.OpenlitConfig()
+print(f"Detailed tracing: {config.detailed_tracing}")
+print(f"Environment: {config.environment}")
+
+# Verify span creation
+from opentelemetry import trace
+tracer = trace.get_tracer(__name__)
+with tracer.start_as_current_span("test-span") as span:
+    print(f"Span ID: {span.get_span_context().span_id}")
+```
+
+## Comparing with LlamaIndex Official OTel
+
+### When to Use OpenLIT vs LlamaIndex OTel
+
+**Use OpenLIT when:**
+- You want **zero-code auto-instrumentation**
+- You need **AI-specific semantic conventions**
+- You want **configurable tracing granularity**
+- You need **unified observability** (traces + metrics + events)
+- You want **cost tracking** and **performance optimization**
+
+**Use LlamaIndex Official OTel when:**
+- You prefer **manual instrumentation control**
+- You already have **custom OpenTelemetry setup**
+- You need **specific observability backend integration**
+- You want **minimal dependencies**
+
+### Migration Considerations
+
+```python
+# From LlamaIndex official OTel
+# from opentelemetry.instrumentation.llamaindex import LlamaIndexInstrumentor
+# LlamaIndexInstrumentor().instrument()
+
+# To OpenLIT (simpler and more powerful)
+import openlit
+openlit.init(detailed_tracing=False)  # Choose granularity level
+```
+
+## Technical Implementation Guidelines
+
+### 1. Code Style and Formatting Standards
+
+#### Quote Convention:
+```python
+# CRITICAL: ALWAYS use double quotes - NEVER single quotes
+def general_wrap(gen_ai_endpoint, version, environment, application_name):
+    """Process LlamaIndex operation with double quotes."""  # Correct
+    # 'Process LlamaIndex operation with single quotes.'    # WRONG!
+    
+    span_name = f"framework {gen_ai_endpoint}"  # Correct
+    # span_name = f'framework {gen_ai_endpoint}'  # WRONG!
+```
+
+#### Indentation Standards:
+```python
+# CRITICAL: 4 spaces for indentation, one level for multi-line continuations
+def general_wrap(gen_ai_endpoint, version, environment, application_name,
+    tracer, pricing_info, capture_message_content, metrics, disable_metrics):  # One level only
+    """Standard OpenLIT wrapper pattern with proper indentation."""
+    
+    # Function calls with multi-line parameters
+    response = process_llamaindex_response(
+        response, operation_type, server_address, server_port,
+        environment, application_name, metrics, start_time, span,
+        capture_message_content, disable_metrics, version, 
+        instance, args, endpoint=gen_ai_endpoint, **kwargs
+    )  # One level indentation for parameters
+
+# WRONG: Don't align with opening parenthesis
+def general_wrap(gen_ai_endpoint, version, environment, application_name,
+                 tracer, pricing_info, capture_message_content):  # DON'T DO THIS
+```
+
+#### Comment Style Standards:
+```python
+# Standard inline comments for specific actions
+# Get server address and port using the standard helper
+server_address, server_port = set_server_address_and_port(instance)
+
+# Process response and generate telemetry
+response = process_llamaindex_response(...)
+
+# Record framework metrics (only gen_ai_requests counter)
+if not disable_metrics:
+    record_framework_metrics(...)
+
+"""
+Triple double quote docstrings for functions.
+Never use single quotes for docstrings.
+"""
+```
+
+### 2. Naming Conventions
+
+#### Variable Names (snake_case):
+```python
+# CORRECT snake_case variables
+gen_ai_endpoint = "framework.query_engine.query"
+server_address = "localhost"
+start_time = time.time()
+operation_type = SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK
+detailed_tracing = config.detailed_tracing
+
+# WRONG: Don't use camelCase or other conventions
+# genAiEndpoint = "framework.query_engine.query"  # DON'T DO THIS
+# serverAddress = "localhost"                     # DON'T DO THIS
+```
+
+#### Function Names (snake_case):
+```python
+# Standard function naming patterns
+def general_wrap():                    # Main wrapper function
+def async_general_wrap():              # Async wrapper function  
+def common_llamaindex_logic():         # Telemetry processing function
+def process_llamaindex_response():     # Response processing function
+def set_server_address_and_port():     # Helper function
+```
+
+#### File Structure Standards:
+```python
+# Standard 4-file OpenLIT instrumentation structure
+llamaindex/
+├── __init__.py          # LlamaIndexInstrumentor class (91 lines)
+├── llamaindex.py        # Sync wrapper functions (58 lines)
+├── async_llamaindex.py  # Async wrapper functions (58 lines) 
+└── utils.py            # Telemetry processing logic (273+ lines)
+```
+
+### 3. Import Order Standards:
+```python
+# File header imports in exact order:
+
+# Standard library imports
+import time
+import importlib.metadata
+from typing import Collection
+
+# OpenTelemetry imports  
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from opentelemetry.trace import Status, StatusCode, SpanKind
+from opentelemetry import context as context_api
+from wrapt import wrap_function_wrapper
+
+# OpenLIT imports
+from openlit.__helpers import (
+    common_framework_span_attributes,
+    record_framework_metrics,    # NEVER record_db_metrics for frameworks
+    handle_exception,
+    set_server_address_and_port,
+)
+from openlit.semcov import SemanticConvention
+from openlit.instrumentation.llamaindex.utils import (
+    common_llamaindex_logic,
+    process_llamaindex_response,
+)
+```
+
+### 4. Metrics Implementation Standards
+
+#### Framework Metrics (CRITICAL):
+```python
+# CORRECT: Use framework metrics for LlamaIndex
+if not disable_metrics:
+    record_framework_metrics(metrics, scope._operation_type, 
+        SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX, 
+        scope._server_address, scope._server_port, environment, 
+        application_name, scope._start_time, scope._end_time)
+
+# WRONG: Never use database metrics for frameworks
+# record_db_metrics(...)  # DON'T USE FOR LLAMAINDEX!
+```
+
+#### Framework Metrics Function Implementation:
+```python
+# In __helpers.py - framework-specific metrics 
+def record_framework_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
+    environment, application_name, start_time, end_time):
+    """Record basic framework metrics (only gen_ai_requests counter)"""
+    
+    attributes = create_metrics_attributes(
+        operation=gen_ai_operation,
+        system=gen_ai_system,
+        request_model=gen_ai_system,
+        server_address=server_address,
+        server_port=server_port,
+        response_model=gen_ai_system,
+        service_name=application_name,
+        deployment_environment=environment,
+    )
+    
+    # Only record essential framework metrics
+    metrics["genai_requests"].add(1, attributes)
+    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
+```
+
+### 5. Exception Handling Patterns
+
+#### CRITICAL Exception Handling:
+```python
+def wrapper(wrapped, instance, args, kwargs):
+    # CRITICAL: Suppression check first
+    if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+        return wrapped(*args, **kwargs)
+
+    with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+        start_time = time.time()
+        
+        # CRITICAL: Execute wrapped function OUTSIDE try block
+        response = wrapped(*args, **kwargs)  # Let original exceptions propagate
+        
+        try:
+            # ONLY telemetry processing in try block
+            response = process_llamaindex_response(
+                response, operation_type, server_address, server_port,
+                environment, application_name, metrics, start_time, span,
+                capture_message_content, disable_metrics, version, 
+                instance, args, endpoint=gen_ai_endpoint, **kwargs
+            )
+        except Exception as e:
+            handle_exception(span, e)  # Handle telemetry errors only
+            
+        return response
+
+# CRITICAL: All wrap_function_wrapper calls must handle missing modules
+try:
+    wrap_function_wrapper(
+        "llama_index.core.readers",
+        "SimpleDirectoryReader.load_data",
+        general_wrap(...)
+    )
+except Exception:
+    pass  # Module may not exist in all LlamaIndex versions
+```
+
+### 6. Span Creation Patterns
+
+#### CRITICAL Span Context:
+```python
+# CORRECT: Always use tracer.start_as_current_span for proper hierarchy
+with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+    # This maintains parent-child relationships in trace context
+    
+# WRONG: Never use tracer.start_span (breaks context propagation)
+# span = tracer.start_span(span_name)  # DON'T DO THIS!
+```
+
+#### Function Parameters Pattern:
+```python
+# Standard parameter order for all wrapper functions
+def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer, 
+                pricing_info, capture_message_content, metrics, disable_metrics):
+    """All wrapper functions follow this exact parameter order."""
+
+# Standard parameter order for telemetry processing
+def common_llamaindex_logic(scope, environment, application_name, 
+    metrics, capture_message_content, disable_metrics, version, 
+    instance=None, endpoint=None, **kwargs):
+    """All telemetry functions must accept **kwargs for extensibility."""
+```
+
+### 7. File Organization Standards
+
+#### __init__.py Structure:
+```python
+class LlamaIndexInstrumentor(BaseInstrumentor):
+    def instrumentation_dependencies(self) -> Collection[str]:
+        return ("llama-index >= 0.10.0",)
+
+    def _instrument(self, **kwargs):
+        # Extract all configuration
+        version = importlib.metadata.version("llama-index")
+        detailed_tracing = kwargs.get("detailed_tracing", False)
+        
+        # Workflow-level instrumentation (always enabled)
+        # Component-level instrumentation (conditional on detailed_tracing)
+        
+    def _uninstrument(self, **kwargs):
+        pass
+```
+
+#### utils.py Function Order:
+```python
+# Standard function order in utils.py
+def object_count():                    # 1. Helper functions first
+def set_server_address_and_port():     # 2. Server address extraction
+def common_llamaindex_logic():         # 3. Main telemetry processing  
+def process_llamaindex_response():     # 4. Response processing wrapper
+```
+
+### 8. Testing Implementation Standards
+
+#### Comparison Test Structure:
+```python
+def test_llamaindex_instrumentation_comparison():
+    """Standard test comparing OpenLIT vs Traceloop performance and observability"""
+    
+    print("🧪 LlamaIndex Instrumentation Comparison Test")
+    print("="*60)
+    
+    # Test 1: Baseline (no instrumentation)
+    baseline_time = run_llamaindex_workflow()
+    
+    # Test 2: Traceloop instrumentation
+    from opentelemetry.instrumentation.llamaindex import LlamaIndexInstrumentor
+    LlamaIndexInstrumentor().instrument()
+    traceloop_time, traceloop_spans = run_llamaindex_workflow_with_tracing()
+    
+    # Test 3: OpenLIT workflow-level
+    import openlit
+    openlit.init(detailed_tracing=False)
+    openlit_workflow_time, openlit_workflow_spans = run_llamaindex_workflow_with_tracing()
+    
+    # Test 4: OpenLIT component-level
+    openlit.init(detailed_tracing=True)
+    openlit_component_time, openlit_component_spans = run_llamaindex_workflow_with_tracing()
+    
+    # Performance analysis
+    print(f"Baseline: {baseline_time:.3f}s")
+    print(f"Traceloop: {traceloop_time:.3f}s ({len(traceloop_spans)} spans)")
+    print(f"OpenLIT Workflow: {openlit_workflow_time:.3f}s ({len(openlit_workflow_spans)} spans)")
+    print(f"OpenLIT Component: {openlit_component_time:.3f}s ({len(openlit_component_spans)} spans)")
+```
+
+## References and External Links
+
+- **Traceloop Repository**: [traceloop/openllmetry](https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-llamaindex)
+- **LlamaIndex Official OTel**: [run-llama/llama_index](https://github.com/run-llama/llama_index/tree/main/llama-index-integrations/observability/llama-index-observability-otel)
+- **OpenTelemetry Gen AI Semantic Conventions**: https://opentelemetry.io/docs/specs/semconv/gen-ai/
+- **LlamaIndex Documentation**: https://docs.llamaindex.ai/en/stable/module_guides/observability/
+- **OpenLIT Documentation**: https://docs.openlit.io/latest/integrations/llama-index
+- **LlamaIndex Repository**: https://github.com/run-llama/llama_index
+- **OpenTelemetry Instrumentation**: https://opentelemetry.io/docs/instrumentation/
+
+## Technical Implementation Guidelines
+
+### 1. Code Style and Formatting Standards
+
+#### Quote Convention:
+```python
+# CRITICAL: ALWAYS use double quotes - NEVER single quotes
+def general_wrap(gen_ai_endpoint, version, environment, application_name):
+    """Process LlamaIndex operation with double quotes."""  # Correct
+    # 'Process LlamaIndex operation with single quotes.'    # WRONG!
+    
+    span_name = f"framework {gen_ai_endpoint}"  # Correct
+    # span_name = f'framework {gen_ai_endpoint}'  # WRONG!
+```
+
+#### Indentation Standards:
+```python
+# CRITICAL: 4 spaces for indentation, one level for multi-line continuations
+def general_wrap(gen_ai_endpoint, version, environment, application_name,
+    tracer, pricing_info, capture_message_content, metrics, disable_metrics):  # One level only
+    """Standard OpenLIT wrapper pattern with proper indentation."""
+    
+    # Function calls with multi-line parameters
+    response = process_llamaindex_response(
+        response, operation_type, server_address, server_port,
+        environment, application_name, metrics, start_time, span,
+        capture_message_content, disable_metrics, version, 
+        instance, args, endpoint=gen_ai_endpoint, **kwargs
+    )  # One level indentation for parameters
+```
+
+### 2. Framework Metrics Implementation (CRITICAL)
+
+#### Framework vs Database Metrics:
+```python
+# CORRECT: Use framework metrics for LlamaIndex (framework)
+if not disable_metrics:
+    record_framework_metrics(metrics, scope._operation_type, 
+        SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX, 
+        scope._server_address, scope._server_port, environment, 
+        application_name, scope._start_time, scope._end_time)
+
+# WRONG: Never use database metrics for frameworks
+# record_db_metrics(...)  # DON'T USE FOR LLAMAINDEX!
+```
+
+### 3. Testing Comparison Standards
+
+#### OpenLIT vs Traceloop Performance Testing:
+```python
+def test_llamaindex_instrumentation_comparison():
+    """Standard test comparing OpenLIT vs Traceloop performance and observability"""
+    
+    print("🧪 LlamaIndex Instrumentation Comparison Test")
+    print("="*60)
+    
+    # Test 1: Baseline (no instrumentation)
+    baseline_time = run_llamaindex_workflow()
+    
+    # Test 2: Traceloop instrumentation
+    from opentelemetry.instrumentation.llamaindex import LlamaIndexInstrumentor
+    LlamaIndexInstrumentor().instrument()
+    traceloop_time, traceloop_spans = run_llamaindex_workflow_with_tracing()
+    
+    # Test 3: OpenLIT workflow-level
+    import openlit
+    openlit.init(detailed_tracing=False)
+    openlit_workflow_time, openlit_workflow_spans = run_llamaindex_workflow_with_tracing()
+    
+    # Test 4: OpenLIT component-level
+    openlit.init(detailed_tracing=True)
+    openlit_component_time, openlit_component_spans = run_llamaindex_workflow_with_tracing()
+```
+
+### 4. Semantic Conventions Usage (CRITICAL)
+
+#### All Attributes Must Use OpenLIT `semcov` Module:
+```python
+# CORRECT: Always import from OpenLIT semantic conventions
+from openlit.semcov import SemanticConvention
+
+# Set framework-level attributes  
+span.set_attribute(SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK, "framework")
+span.set_attribute(SemanticConvention.GEN_AI_SYSTEM_LLAMAINDEX, "llamaindex")
+span.set_attribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration)
+
+# WRONG: Never use hardcoded strings
+# span.set_attribute("gen_ai.operation.type", "framework")  # Don't do this!
+```
+
+
+

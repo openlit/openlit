@@ -469,6 +469,44 @@ def common_db_span_attributes(scope, db_system, server_address, server_port,
     scope._span.set_attribute(SERVICE_NAME, application_name)
     scope._span.set_attribute(SemanticConvention.DB_SDK_VERSION, version)
 
+def common_framework_span_attributes(scope, framework_system, server_address, server_port,
+    environment, application_name, version, endpoint, instance=None):
+    """
+    Set common span attributes for GenAI framework operations.
+    """
+
+    scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, framework_system)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, endpoint)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, 
+        getattr(instance, "model_name", "unknown") if instance else "unknown")
+    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+    scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+    scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
+    scope._span.set_attribute(SERVICE_NAME, application_name)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION,
+        scope._end_time - scope._start_time)
+
+def record_framework_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
+    environment, application_name, start_time, end_time):
+    """
+    Record basic framework metrics for the operation (only gen_ai_requests counter).
+    """
+
+    attributes = create_metrics_attributes(
+        operation=gen_ai_operation,
+        system=gen_ai_system,
+        server_address=server_address,
+        server_port=server_port,
+        request_model="unknown",
+        response_model="unknown",
+        service_name=application_name,
+        deployment_environment=environment,
+    )
+    metrics["genai_requests"].add(1, attributes)
+    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
+
 def record_db_metrics(metrics, db_system, server_address, server_port,
     environment, application_name, start_time, end_time):
     """
