@@ -137,6 +137,27 @@ class SemanticConvention:
     GEN_AI_SYSTEM_TOGETHER = "together"
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
 
+    # GenAI Framework Component Attributes (Standard)
+    GEN_AI_FRAMEWORK_COMPONENT_NAME = "gen_ai.framework.component.name"
+    GEN_AI_FRAMEWORK_COMPONENT_TYPE = "gen_ai.framework.component.type"
+    GEN_AI_FRAMEWORK_COMPONENT_CLASS_NAME = "gen_ai.component.class_name"
+    GEN_AI_FRAMEWORK_COMPONENT_INPUT_TYPES = "gen_ai.framework.component.input_types"
+    GEN_AI_FRAMEWORK_COMPONENT_OUTPUT_TYPES = "gen_ai.framework.component.output_types"
+    GEN_AI_FRAMEWORK_COMPONENT_INPUT_SPEC = "gen_ai.framework.component.input_spec"
+    GEN_AI_FRAMEWORK_COMPONENT_OUTPUT_SPEC = "gen_ai.framework.component.output_spec"
+    GEN_AI_FRAMEWORK_COMPONENT_VISITS = "gen_ai.framework.component.visits"
+    GEN_AI_FRAMEWORK_COMPONENT_SENDERS = "gen_ai.framework.component.senders"
+    GEN_AI_FRAMEWORK_COMPONENT_RECEIVERS = "gen_ai.framework.component.receivers"
+    GEN_AI_FRAMEWORK_COMPONENT_CONNECTIONS = "gen_ai.framework.component.connections"
+    
+    # GenAI Framework Pipeline Attributes (Standard)  
+    GEN_AI_FRAMEWORK_PIPELINE_INPUT_DATA = "gen_ai.framework.pipeline.input_data"
+    GEN_AI_FRAMEWORK_PIPELINE_OUTPUT_DATA = "gen_ai.framework.pipeline.output_data"
+    GEN_AI_FRAMEWORK_PIPELINE_METADATA = "gen_ai.framework.pipeline.metadata"
+    GEN_AI_FRAMEWORK_PIPELINE_MAX_RUNS = "gen_ai.framework.pipeline.max_runs_per_component"
+    GEN_AI_FRAMEWORK_PIPELINE_COMPONENT_COUNT = "gen_ai.framework.pipeline.component_count"
+    GEN_AI_FRAMEWORK_PIPELINE_EXECUTION_TIME = "gen_ai.framework.pipeline.execution_time"
+
     # GenAI Request Attributes (Extra)
     GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.is_stream"
     GEN_AI_REQUEST_USER = "gen_ai.request.user"
