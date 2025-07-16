@@ -466,15 +466,66 @@ echo "Lines over 80 characters: $long_lines"
 
 ### Step 7.2: Comprehensive Pylint Error Handling
 
-**Run Pylint Check:**
+**Run Pylint Check with Project Configuration:**
 ```bash
-pylint --disable=all --enable=line-too-long,trailing-whitespace,missing-final-newline,trailing-newlines,syntax-error,unused-import,consider-iterating-dictionary,consider-using-in,too-many-nested-blocks,missing-class-docstring,missing-function-docstring,multiple-statements,too-few-public-methods,import-outside-toplevel,undefined-variable src/openlit/instrumentation/{framework}/
+# Use the project's pylintrc configuration
+cd sdk/python
+pylint src/openlit/instrumentation/{framework}/ --rcfile=.pylintrc
 ```
 
-### Step 7.3: Common Pylint Issues and Fixes
+**Note**: The project's `.pylintrc` disables many common warnings like `broad-exception-caught`, `too-many-locals`, etc.
+
+### Step 7.3: Configure Project Pylint Rules
+
+**Add `import-outside-toplevel` to disabled rules in `sdk/python/.pylintrc`:**
+
+```ini
+[MESSAGES CONTROL]
+disable=
+    # ... existing rules ...
+    import-outside-toplevel    # Essential for optional dependencies
+```
+
+**Why**: Import-outside-toplevel warnings are triggered by correct optional dependency patterns in OpenLIT.
+
+### Step 7.4: Optimize Dummy Classes for Perfect Score
+
+**Eliminate unnecessary dummy classes to achieve 10.00/10:**
+
+#### **Use TYPE_CHECKING Pattern for Type-Only Classes**
+```python
+from typing import TYPE_CHECKING
+
+try:
+    from framework import MainClass
+    if TYPE_CHECKING:
+        from framework import TypeOnlyClass1, TypeOnlyClass2
+    AVAILABLE = True
+except ImportError:
+    class MainClass:
+        """Dummy class - actually used at runtime"""
+        def method(self): return None
+    
+    if TYPE_CHECKING:
+        # Type hints only - don't exist at runtime
+        TypeOnlyClass1 = Any
+        TypeOnlyClass2 = Any
+    AVAILABLE = False
+
+# Use quoted type hints for methods
+def process(self, item: "TypeOnlyClass1") -> None:
+```
+
+#### **When R0903 is Still Acceptable**
+- **Status**: ✅ **ACCEPTABLE** for classes actually used at runtime
+- **Example**: TracingProcessor base class that's inherited from
+
+**Target Score**: **10.00/10** is achievable for most instrumentations
+
+### Step 7.5: Common Pylint Issues and Fixes
 
 #### **C0301: Line Too Long**
-**Problem**: Lines exceed character limit (usually 135 characters)
+**Problem**: Lines exceed character limit (135 characters per project pylintrc)
 
 **Fix Pattern**:
 ```python
@@ -574,24 +625,28 @@ class Trace:
 ```
 
 #### **C0415: Import Outside Toplevel**
-**Context**: These warnings are often **ACCEPTABLE** for optional dependencies
+**Context**: These warnings are **ACCEPTABLE** and **REQUIRED** for optional dependencies
 
-**Acceptable Pattern**:
+**Correct Pattern (DO NOT "FIX")**:
 ```python
-# This is CORRECT for optional dependencies
-def _capture_model_parameters(self, span, data):
+# This is CORRECT for optional dependencies - keep as-is
+def _instrument(self, **kwargs):
     try:
-        import json  # Acceptable inside function for conditional import
-        params = {"model": data.model}
-        span.set_attribute("gen_ai.request.parameters", json.dumps(params))
-    except Exception:
-        pass
+        from agents import set_trace_processors  # CORRECT inside function
+        set_trace_processors([processor])
+    except ImportError:
+        pass  # Package not available
 ```
 
-**Fix When Possible**:
+**Why This is Correct**:
+- Prevents import errors when target package isn't installed
+- Essential for OpenLIT's optional dependency pattern
+- Moving to top level would break instrumentation
+
+**Only Fix When**:
 ```python
-# BETTER: Move to top level when import is always needed
-import json  # At top of file
+# ONLY move to top level for always-needed imports
+import json  # At top of file when always used
 from typing import Any, Dict, Optional
 
 def _capture_model_parameters(self, span, data):
@@ -666,24 +721,29 @@ def process_data(self, data):
 ```
 
 #### **R0903: Too Few Public Methods**
-**Context**: Often **ACCEPTABLE** for dummy/placeholder classes
+**Context**: **ACCEPTABLE** and **EXPECTED** for dummy/placeholder classes
 
-**Acceptable Pattern**:
+**Correct Pattern (DO NOT "FIX")**:
 ```python
-# This is CORRECT for dummy classes
+# This is CORRECT for dummy classes - keep as-is
 class TracingProcessor:
     """Dummy TracingProcessor class for when agents is not available"""
     
     def force_flush(self):
         """Dummy force_flush method"""
-        pass
+        return None
     
     def shutdown(self):
         """Dummy shutdown method"""
-        pass
+        return None
 ```
 
-### Step 7.4: Automated Pylint Fix Script
+**Why This is Correct**:
+- Dummy classes by design to prevent import errors
+- Only need minimal methods to satisfy interfaces
+- Adding unnecessary methods would be incorrect
+
+### Step 7.6: Automated Pylint Fix Script
 
 **Create comprehensive fix script:**
 ```bash
@@ -740,7 +800,7 @@ echo "🎉 Pylint fix script completed!"
 echo "💡 Run full pylint check and fix remaining issues manually"
 ```
 
-### Step 7.5: Manual Fix Checklist
+### Step 7.7: Manual Fix Checklist
 
 **Before committing, verify:**
 - [ ] ✅ All files compile without syntax errors
@@ -754,7 +814,7 @@ echo "💡 Run full pylint check and fix remaining issues manually"
 - [ ] ✅ Imports are at top level when possible
 - [ ] ✅ Nested blocks reduced where possible
 
-### Step 7.6: Usage Instructions
+### Step 7.8: Usage Instructions
 
 **Run the fix script:**
 ```bash
@@ -779,7 +839,7 @@ print('✅ Instrumentation works after pylint fixes')
 "
 ```
 
-### Step 7.7: Testing After Pylint Fixes
+### Step 7.9: Testing After Pylint Fixes
 
 **CRITICAL**: Always test that instrumentation works after fixing pylint issues:
 
@@ -933,7 +993,7 @@ span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, response)
 5. ✅ Maintains proper span hierarchy
 6. ✅ Performance overhead <10%
 7. ✅ Handles errors gracefully
-8. ✅ Code quality standards met
+8. ✅ **Perfect 10.00/10 pylint score achieved**
 
 **OpenLIT Competitive Advantages Delivered:**
 - 🎯 **Business Intelligence**: Cost tracking, token usage, performance metrics
