@@ -41,7 +41,7 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
                 response = process_llamaindex_response(
                     response, operation_type, server_address, server_port,
                     environment, application_name, metrics, start_time, span,
-                    capture_message_content, disable_metrics, version, 
+                    capture_message_content, disable_metrics, version,
                     instance, args, endpoint=gen_ai_endpoint, **kwargs
                 )
 
@@ -50,4 +50,4 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
 
             return response
 
-    return wrapper 
+    return wrapper

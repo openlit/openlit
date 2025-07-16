@@ -11,8 +11,9 @@ This guide provides a comprehensive, step-by-step process for adding new framewo
 5. [Phase 4: Code Implementation](#phase-4-code-implementation)
 6. [Phase 5: Testing & Validation](#phase-5-testing--validation)
 7. [Phase 6: Optimization](#phase-6-optimization)
-8. [Code Standards & Patterns](#code-standards--patterns)
-9. [Quality Checklist](#quality-checklist)
+8. [Phase 7: Post-Change Cleanup](#phase-7-post-change-cleanup)
+9. [Code Standards & Patterns](#code-standards--patterns)
+10. [Quality Checklist](#quality-checklist)
 
 ## Prerequisites
 
@@ -575,180 +576,187 @@ def test_framework_compatibility():
     # Verify graceful degradation in all cases
 ```
 
-## Code Standards & Patterns
+## Phase 7: Post-Change Cleanup
 
-### Import Order
-```python
-# Standard library imports
-import time
-from typing import Dict, Any
+**CRITICAL**: After implementing any changes, always run comprehensive cleanup to ensure code quality compliance.
 
-# OpenTelemetry imports
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
+### Step 7.1: Run Pylint Checks
 
-# OpenLIT imports  
-from openlit.__helpers import common_framework_span_attributes
-from openlit.semcov import SemanticConvention
-```
-
-### Code Quality Standards
-
-**Line Length & Formatting:**
-```python
-# BAD: Long lines over 80 characters
-wrap_function_wrapper("very_long_module_name.submodule", "VeryLongClassName.very_long_method_name", wrapper_function)
-
-# GOOD: Break long lines appropriately
-wrap_function_wrapper(
-    "very_long_module_name.submodule", 
-    "VeryLongClassName.very_long_method_name", 
-    wrapper_function
-)
-```
-
-**Whitespace Management:**
-- Remove all trailing whitespace from lines
-- End files with single newline (no extra blank lines)
-- Use 4 spaces for indentation (no tabs)
-- No more than 2 consecutive blank lines
-
-**String Formatting:**
-```python
-# Consistent double quotes
-error_message = "Failed to process request"
-
-# Multi-line strings with proper indentation
-long_description = (
-    "This is a long description that spans multiple lines "
-    "and follows proper formatting standards"
-)
-```
-
-### Pylint Compliance
-
-**Essential Pylint Checks:**
 ```bash
-# Run these specific checks before committing
-pylint --disable=all --enable=line-too-long,trailing-whitespace,missing-final-newline,trailing-newlines src/openlit/instrumentation/{framework}/
-
-# Common issues to fix:
-# C0301: Line too long (>80 characters)
-# C0303: Trailing whitespace
-# C0304: Final newline missing
-# C0305: Trailing newlines
+# Check specific issues that commonly occur after changes
+pylint --disable=all --enable=line-too-long,trailing-whitespace,missing-final-newline,trailing-newlines,syntax-error,unused-import,consider-iterating-dictionary,consider-using-in,too-many-nested-blocks src/openlit/instrumentation/{framework}/
 ```
 
-**Automated Quality Checks:**
+### Step 7.2: Common Issues and Automated Fixes
+
+**1. Trailing Whitespace (C0303)**
+```bash
+# Remove trailing whitespace from all files
+for file in $(find src/openlit/instrumentation/{framework} -name "*.py"); do
+    sed 's/[[:space:]]*$//' "$file" > /tmp/temp_file && mv /tmp/temp_file "$file"
+done
+```
+
+**2. Missing Final Newlines (C0304)**
+```bash
+# Add missing final newlines
+for file in $(find src/openlit/instrumentation/{framework} -name "*.py"); do
+    if [[ ! -s "$file" || $(tail -c1 "$file" | wc -l) -eq 0 ]]; then
+        echo "" >> "$file"
+    fi
+done
+```
+
+**3. Line Too Long (C0301)**
+```bash
+# Find long lines for manual fixing
+awk 'length($0) > 80 { print FILENAME ":" NR ":" length($0) ":" $0 }' src/openlit/instrumentation/{framework}/*.py
+```
+
+**Manual fixes for long lines:**
 ```python
-# Add to CI/CD pipeline or pre-commit hooks
-def check_code_quality(file_path):
-    """Automated code quality validation"""
-    with open(file_path, 'r') as f:
-        lines = f.readlines()
-    
-    issues = []
-    
-    # Check line length
-    for i, line in enumerate(lines, 1):
-        if len(line.rstrip()) > 80:
-            issues.append(f"Line {i}: Too long ({len(line.rstrip())} chars)")
-    
-    # Check trailing whitespace
-    for i, line in enumerate(lines, 1):
-        if line.rstrip() != line.rstrip(' \t'):
-            issues.append(f"Line {i}: Trailing whitespace")
-    
-    # Check final newline
-    if lines and not lines[-1].endswith('\n'):
-        issues.append("Missing final newline")
-    
-    # Check for multiple trailing newlines
-    while lines and lines[-1].strip() == '':
-        issues.append("Extra trailing blank line")
-        lines.pop()
-    
-    return issues
+# BAD: Long import
+from openlit.instrumentation.framework.async_framework import async_general_wrap
+
+# GOOD: Split import
+from openlit.instrumentation.framework.async_framework import (
+    async_general_wrap
+)
+
+# BAD: Long tuple
+("very.long.module.name", "VeryLongClassName.very_long_method_name", "operation_type"),
+
+# GOOD: Split tuple
+("very.long.module.name", 
+ "VeryLongClassName.very_long_method_name", "operation_type"),
+
+# BAD: Long function call
+wrap_function_wrapper(module, method, general_wrap(operation_type, version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics))
+
+# GOOD: Split function call
+wrap_function_wrapper(
+    module, method,
+    general_wrap(operation_type, version, environment, application_name,
+                tracer, pricing_info, capture_message_content,
+                metrics, disable_metrics)
+)
 ```
 
-### Critical Patterns
+**4. Syntax Errors (E0001)**
+```bash
+# Test compilation to catch syntax errors
+python3 -m py_compile src/openlit/instrumentation/{framework}/*.py
+```
 
-**1. Context Suppression Check:**
+**5. Code Quality Issues**
+
+**Unused Imports (W0611)**
 ```python
-if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-    return wrapped(*args, **kwargs)
+# BAD: Unused import
+from typing import Dict, Any, Optional  # Optional not used
+
+# GOOD: Remove unused
+from typing import Dict, Any
 ```
 
-**2. Span Creation:**
+**Consider Using 'in' (R1714)**
 ```python
-# ALWAYS use start_as_current_span for proper hierarchy
-with tracer.start_as_current_span(span_name) as span:
+# BAD: Multiple or comparisons
+if endpoint == "query" or endpoint == "query_async":
+
+# GOOD: Use 'in' operator
+if endpoint in ("query", "query_async"):
 ```
 
-**3. Exception Handling:**
+**Too Many Nested Blocks (R1702)**
 ```python
-try:
-    # Telemetry processing only
-    _process_response(span, response)
-except Exception as e:
-    handle_exception(span, e)
+# BAD: Deep nesting
+if condition1:
+    if condition2:
+        if condition3:
+            if condition4:
+                if condition5:
+                    # Too nested
+
+# GOOD: Early returns or extraction
+if not condition1:
+    return
+if not condition2:
+    return
+# Process main logic
 ```
 
-**4. Graceful Wrapping:**
-```python
-try:
-    wrap_function_wrapper(module, method, wrapper)
-except Exception:
-    pass  # Handle missing modules gracefully
+### Step 7.3: Automated Cleanup Script
+
+Create a cleanup script for consistent application:
+
+```bash
+#!/bin/bash
+# cleanup_instrumentation.sh
+
+FRAMEWORK_DIR="src/openlit/instrumentation/$1"
+
+echo "🧹 Cleaning up $FRAMEWORK_DIR..."
+
+# 1. Remove trailing whitespace
+echo "  ✂️  Removing trailing whitespace..."
+find "$FRAMEWORK_DIR" -name "*.py" -exec sed -i '' 's/[[:space:]]*$//' {} \;
+
+# 2. Add missing final newlines
+echo "  📝 Adding missing final newlines..."
+find "$FRAMEWORK_DIR" -name "*.py" | while read file; do
+    if [[ ! -s "$file" || $(tail -c1 "$file" | wc -l) -eq 0 ]]; then
+        echo "" >> "$file"
+    fi
+done
+
+# 3. Check for syntax errors
+echo "  🔍 Checking syntax..."
+for file in "$FRAMEWORK_DIR"/*.py; do
+    if ! python3 -m py_compile "$file" 2>/dev/null; then
+        echo "    ❌ Syntax error in $file"
+    fi
+done
+
+# 4. Find long lines
+echo "  📏 Checking line lengths..."
+long_lines=$(find "$FRAMEWORK_DIR" -name "*.py" -exec awk 'length($0) > 80 { print FILENAME ":" NR ":" length($0) }' {} \; | wc -l)
+if [ "$long_lines" -gt 0 ]; then
+    echo "    ⚠️  Found $long_lines lines over 80 characters"
+    find "$FRAMEWORK_DIR" -name "*.py" -exec awk 'length($0) > 80 { print FILENAME ":" NR ":" length($0) }' {} \;
+fi
+
+echo "✅ Cleanup complete!"
 ```
 
-### Code Style Standards
+**Usage:**
+```bash
+chmod +x cleanup_instrumentation.sh
+./cleanup_instrumentation.sh llamaindex
+./cleanup_instrumentation.sh haystack
+```
 
-- **Quotes**: Always use double quotes `"string"`
-- **Indentation**: 4 spaces, no tabs
-- **Docstrings**: Triple double quotes with clear descriptions
-- **Variable Naming**: `snake_case` consistently
-- **Function Parameters**: Follow standard order pattern
-- **Comments**: Clear, explaining why not what
+### Step 7.4: Final Validation
 
-## Quality Checklist
+**Required Checks Before Commit:**
+1. ✅ All files compile without syntax errors
+2. ✅ No trailing whitespace
+3. ✅ All files end with newline
+4. ✅ No lines over 80 characters (or acceptable limit)
+5. ✅ No unused imports
+6. ✅ Code quality issues resolved
 
-### Technical Excellence
-- [ ] Follows 4-file structure pattern
-- [ ] Uses general_wrap pattern for efficiency
-- [ ] Implements proper error handling
-- [ ] Uses semantic conventions from semcov
-- [ ] Maintains span hierarchy with start_as_current_span
+**Validation Commands:**
+```bash
+# Complete validation suite
+python3 -m py_compile src/openlit/instrumentation/{framework}/*.py
+grep -r " $" src/openlit/instrumentation/{framework}/ | wc -l  # Should be 0
+find src/openlit/instrumentation/{framework} -name "*.py" -exec awk 'length($0) > 80' {} \; | wc -l  # Should be 0
+pylint --disable=all --enable=line-too-long,trailing-whitespace,missing-final-newline,trailing-newlines,syntax-error,unused-import src/openlit/instrumentation/{framework}/
+```
 
-### Competitive Advantage
-- [ ] Exceeds competitor span attribute count
-- [ ] Provides business intelligence (cost, tokens)
-- [ ] Captures comprehensive content
-- [ ] Offers technical framework introspection
-- [ ] Enables cross-system tracing
-
-### Performance & Reliability
-- [ ] Minimal code footprint (<300 lines total)
-- [ ] Graceful degradation for missing components
-- [ ] Configurable tracing levels
-- [ ] Low execution overhead
-- [ ] Memory efficient implementation
-
-### Documentation & Maintainability
-- [ ] Clear docstrings and comments
-- [ ] Follows established code patterns
-- [ ] Easy to understand and modify
-- [ ] Well-structured and organized
-- [ ] Comprehensive test coverage
-
-## Example Implementation Verification
-
-After creating your instrumentation, verify it follows this guide by:
-
-1. **Code Review**: Check against all patterns and standards
-2. **Performance Testing**: Measure overhead and efficiency
-3. **Competitive Analysis**: Compare with competitor features
-4. **Integration Testing**: Verify cross-system tracing works
-5. **Documentation**: Update relevant docs and examples
-
-This guide ensures every OpenLIT framework instrumentation delivers superior observability while maintaining optimal performance and developer experience. 
+**Success Criteria:**
+- Exit code 0 from py_compile (no syntax errors)
+- 0 trailing whitespace instances
+- 0 lines over length limit
+- Clean pylint output for enabled checks 

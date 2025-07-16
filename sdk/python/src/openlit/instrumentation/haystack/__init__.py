@@ -37,7 +37,7 @@ class HaystackInstrumentor(BaseInstrumentor):
                            tracer, pricing_info, capture_message_content,
                            metrics, disable_metrics)
             )
-                        wrap_function_wrapper(
+            wrap_function_wrapper(
                 "haystack", "AsyncPipeline.run_async",
                 async_general_wrap("pipeline", version, environment,
                                  application_name, tracer, pricing_info,

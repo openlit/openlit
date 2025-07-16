@@ -105,20 +105,20 @@ INSTRUMENTOR_MAP = {
 def get_instrumentor_class(name):
     """
     Dynamically import and return an instrumentor class.
-    
+
     Args:
         name (str): Name of the instrumentor
-        
+
     Returns:
         class: Instrumentor class or None if not found
     """
     import importlib
-    
+
     if name not in INSTRUMENTOR_MAP:
         return None
-    
+
     module_path, class_name = INSTRUMENTOR_MAP[name].rsplit(".", 1)
-    
+
     try:
         module = importlib.import_module(module_path)
         return getattr(module, class_name)
@@ -129,12 +129,12 @@ def get_instrumentor_class(name):
 def create_instrumentor_instances():
     """
     Create instances of all available instrumentors.
-    
+
     Returns:
         dict: Dictionary mapping instrumentor names to instances
     """
     instances = {}
-    
+
     for name in INSTRUMENTOR_MAP.keys():
         instrumentor_class = get_instrumentor_class(name)
         if instrumentor_class:
@@ -142,5 +142,5 @@ def create_instrumentor_instances():
                 instances[name] = instrumentor_class()
             except Exception:
                 pass  # Skip instrumentors that fail to instantiate
-    
-    return instances 
+
+    return instances

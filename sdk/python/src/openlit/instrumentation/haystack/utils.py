@@ -3,7 +3,7 @@ Haystack utilities
 """
 import time
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from opentelemetry.trace import Status, StatusCode
 from openlit.__helpers import common_framework_span_attributes, record_framework_metrics
 from openlit.semcov import SemanticConvention

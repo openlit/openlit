@@ -18,14 +18,14 @@ def async_general_wrap(endpoint, version, environment, application_name,
 
     async def wrapper(wrapped, instance, args, kwargs):
         """Fast async wrapper with minimal overhead"""
-        
+
         # CRITICAL: Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return await wrapped(*args, **kwargs)
 
         # Fast operation mapping
         operation_type = OPERATION_MAP.get(endpoint, "framework")
-        
+
         # Optimized span naming
         if endpoint == "pipeline":
             span_name = f"{operation_type} pipeline"
@@ -38,17 +38,17 @@ def async_general_wrap(endpoint, version, environment, application_name,
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
             response = await wrapped(*args, **kwargs)
-            
+
             try:
                 response = process_haystack_response(
                     response, operation_type, server_address, server_port,
                     environment, application_name, metrics, start_time, span,
-                    capture_message_content, disable_metrics, version, 
+                    capture_message_content, disable_metrics, version,
                     instance, args, endpoint=endpoint, **kwargs
                 )
             except Exception as e:
                 handle_exception(span, e)
-                
+
             return response
-    
-    return wrapper 
+
+    return wrapper

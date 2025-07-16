@@ -149,8 +149,8 @@ class SemanticConvention:
     GEN_AI_FRAMEWORK_COMPONENT_SENDERS = "gen_ai.framework.component.senders"
     GEN_AI_FRAMEWORK_COMPONENT_RECEIVERS = "gen_ai.framework.component.receivers"
     GEN_AI_FRAMEWORK_COMPONENT_CONNECTIONS = "gen_ai.framework.component.connections"
-    
-    # GenAI Framework Pipeline Attributes (Standard)  
+
+    # GenAI Framework Pipeline Attributes (Standard)
     GEN_AI_FRAMEWORK_PIPELINE_INPUT_DATA = "gen_ai.framework.pipeline.input_data"
     GEN_AI_FRAMEWORK_PIPELINE_OUTPUT_DATA = "gen_ai.framework.pipeline.output_data"
     GEN_AI_FRAMEWORK_PIPELINE_METADATA = "gen_ai.framework.pipeline.metadata"
@@ -348,20 +348,20 @@ class SemanticConvention:
     EVAL_EXPLANATION = "evals.explanation"
 
     # === FRAMEWORK OPERATIONS (Generic attributes for all RAG/AI frameworks) ===
-    
+
     # Document Processing
     GEN_AI_FRAMEWORK_DOCUMENTS_COUNT = "gen_ai.framework.documents.count"
     GEN_AI_FRAMEWORK_DOCUMENT_SOURCES = "gen_ai.framework.document.sources"
     GEN_AI_FRAMEWORK_DOCUMENT_SIZE = "gen_ai.framework.document.size"
     GEN_AI_FRAMEWORK_DOCUMENT_TYPE = "gen_ai.framework.document.type"
-    
+
     # Text Processing & Chunking
     GEN_AI_FRAMEWORK_CHUNK_SIZE = "gen_ai.framework.chunk.size"
     GEN_AI_FRAMEWORK_CHUNK_OVERLAP = "gen_ai.framework.chunk.overlap"
     GEN_AI_FRAMEWORK_CHUNK_COUNT = "gen_ai.framework.chunk.count"
     GEN_AI_FRAMEWORK_TEXT_LENGTH = "gen_ai.framework.text.length"
     GEN_AI_FRAMEWORK_TEXT_PROCESSED = "gen_ai.framework.text.processed"
-    
+
     # Node/Data Processing
     GEN_AI_FRAMEWORK_NODES_COUNT = "gen_ai.framework.nodes.count"
     GEN_AI_FRAMEWORK_NODES_PROCESSED = "gen_ai.framework.nodes.processed"
@@ -370,35 +370,35 @@ class SemanticConvention:
     GEN_AI_FRAMEWORK_NODES_INSERTED = "gen_ai.framework.nodes.inserted"
     GEN_AI_FRAMEWORK_NODES_DELETED = "gen_ai.framework.nodes.deleted"
     GEN_AI_FRAMEWORK_NODE_ID = "gen_ai.framework.node.id"
-    
+
     # Embedding Operations
     GEN_AI_FRAMEWORK_EMBEDDING_DIMENSION = "gen_ai.framework.embedding.dimension"
     GEN_AI_FRAMEWORK_EMBEDDING_COUNT = "gen_ai.framework.embedding.count"
     GEN_AI_FRAMEWORK_EMBEDDING_BATCH_SIZE = "gen_ai.framework.embedding.batch_size"
     GEN_AI_FRAMEWORK_EMBEDDING_MODEL = "gen_ai.framework.embedding.model"
     GEN_AI_FRAMEWORK_EMBEDDING_PROCESSED = "gen_ai.framework.embedding.processed"
-    
+
     # Query Operations
     GEN_AI_FRAMEWORK_QUERY_TYPE = "gen_ai.framework.query.type"
     GEN_AI_FRAMEWORK_QUERY_TEXT = "gen_ai.framework.query.text"
     GEN_AI_FRAMEWORK_QUERY_LENGTH = "gen_ai.framework.query.length"
     GEN_AI_FRAMEWORK_SIMILARITY_TOP_K = "gen_ai.framework.similarity.top_k"
     GEN_AI_FRAMEWORK_SIMILARITY_THRESHOLD = "gen_ai.framework.similarity.threshold"
-    
+
     # Retrieval Operations
     GEN_AI_FRAMEWORK_RETRIEVAL_SOURCE = "gen_ai.framework.retrieval.source"
     GEN_AI_FRAMEWORK_RETRIEVAL_COUNT = "gen_ai.framework.retrieval.count"
     GEN_AI_FRAMEWORK_RETRIEVAL_METHOD = "gen_ai.framework.retrieval.method"
-    
+
     # Response Generation
     GEN_AI_FRAMEWORK_RESPONSE_LENGTH = "gen_ai.framework.response.length"
     GEN_AI_FRAMEWORK_TEMPLATE_TYPE = "gen_ai.framework.template.type"
     GEN_AI_FRAMEWORK_CONTEXT_SIZE = "gen_ai.framework.context.size"
     GEN_AI_FRAMEWORK_CONTEXT_COUNT = "gen_ai.framework.context.count"
-    
-    # Processing Flags & Configuration  
+
+    # Processing Flags & Configuration
     GEN_AI_FRAMEWORK_SHOW_PROGRESS = "gen_ai.framework.show_progress"
-    
+
     # Vector Store Operations (reuse DB attributes where appropriate)
     GEN_AI_FRAMEWORK_VECTOR_DIMENSION = "gen_ai.framework.vector.dimension"
     GEN_AI_FRAMEWORK_INDEX_NAME = "gen_ai.framework.index.name"

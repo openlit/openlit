@@ -251,7 +251,7 @@ def common_llamaindex_logic(scope, environment, application_name,
             scope._span.set_attribute("gen_ai.index.unique_authors", len(unique_authors))
             scope._span.set_attribute("gen_ai.index.avg_document_size", total_content_length // max(doc_count, 1))
 
-    elif endpoint == "framework.query_engine.query" or endpoint == "framework.query_engine.query_async":
+    elif endpoint in ("framework.query_engine.query", "framework.query_engine.query_async"):
         # Enhanced query processing telemetry
         query_text = scope._args[0] if scope._args else scope._kwargs.get("query", "unknown")
         if capture_message_content:
@@ -299,7 +299,7 @@ def common_llamaindex_logic(scope, environment, application_name,
 
         scope._span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_QUERY_TYPE, "query_engine")
 
-    elif endpoint == "framework.retriever.retrieve" or endpoint == "framework.retriever.retrieve_async":
+    elif endpoint in ("framework.retriever.retrieve", "framework.retriever.retrieve_async"):
         # Enhanced retrieval telemetry
         query_text = scope._args[0] if scope._args else scope._kwargs.get("query", "unknown")
         if capture_message_content:
