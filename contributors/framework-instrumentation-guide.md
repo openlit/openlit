@@ -464,17 +464,369 @@ long_lines=$(find "$FRAMEWORK_DIR" -name "*.py" -exec awk 'length($0) > 80' {} \
 echo "Lines over 80 characters: $long_lines"
 ```
 
-### Step 7.2: Final Validation Checklist
+### Step 7.2: Comprehensive Pylint Error Handling
 
-**Before committing:**
-- [ ] All files compile without syntax errors
-- [ ] No trailing whitespace
-- [ ] Consistent span naming: `{operation_type} {operation_name}`
-- [ ] Semantic conventions used extensively
-- [ ] Business intelligence attributes captured
-- [ ] Competitive validation passed
-- [ ] Performance overhead acceptable (<10%)
-- [ ] Proper error handling for missing components
+**Run Pylint Check:**
+```bash
+pylint --disable=all --enable=line-too-long,trailing-whitespace,missing-final-newline,trailing-newlines,syntax-error,unused-import,consider-iterating-dictionary,consider-using-in,too-many-nested-blocks,missing-class-docstring,missing-function-docstring,multiple-statements,too-few-public-methods,import-outside-toplevel,undefined-variable src/openlit/instrumentation/{framework}/
+```
+
+### Step 7.3: Common Pylint Issues and Fixes
+
+#### **C0301: Line Too Long**
+**Problem**: Lines exceed character limit (usually 135 characters)
+
+**Fix Pattern**:
+```python
+# BAD: Long function call
+span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, handle_not_given(kwargs.get("frequency_penalty"), 0.0))
+
+# GOOD: Split across multiple lines
+span.set_attribute(
+    SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, 
+    handle_not_given(kwargs.get("frequency_penalty"), 0.0)
+)
+
+# BAD: Long function call with many parameters
+common_span_attributes(scope, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_OPENAI, server_address, server_port, request_model, response_model, environment, application_name, is_stream, tbt, ttft, version)
+
+# GOOD: Split parameters logically
+common_span_attributes(
+    scope,
+    SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, 
+    SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+    server_address, server_port, request_model, 
+    response_model, environment, application_name, 
+    is_stream, tbt, ttft, version
+)
+
+# BAD: Long import
+from openlit.instrumentation.framework.async_framework import async_general_wrap
+
+# GOOD: Split import
+from openlit.instrumentation.framework.async_framework import (
+    async_general_wrap
+)
+```
+
+#### **C0303: Trailing Whitespace**
+**Automated Fix**:
+```bash
+# Remove all trailing whitespace
+find src/openlit/instrumentation/{framework} -name "*.py" -exec sed -i '' 's/[[:space:]]*$//' {} \;
+```
+
+#### **C0304: Missing Final Newline**
+**Automated Fix**:
+```bash
+# Add missing final newlines
+find src/openlit/instrumentation/{framework} -name "*.py" | while read file; do
+    if [[ ! -s "$file" || $(tail -c1 "$file" | wc -l) -eq 0 ]]; then
+        echo "" >> "$file"
+    fi
+done
+```
+
+#### **C0115: Missing Class Docstring**
+**Fix Pattern**:
+```python
+# BAD: No docstring
+class TracingProcessor:
+    def force_flush(self): pass
+
+# GOOD: Add descriptive docstring
+class TracingProcessor:
+    """Dummy TracingProcessor class for when agents is not available"""
+    
+    def force_flush(self):
+        """Dummy force_flush method"""
+        pass
+```
+
+#### **C0116: Missing Function Docstring**
+**Fix Pattern**:
+```python
+# BAD: No docstring
+def _extract_model_info(self, data):
+    return data.model
+
+# GOOD: Add descriptive docstring
+def _extract_model_info(self, data):
+    """Extract model information from span data or agent configuration"""
+    return data.model
+```
+
+#### **C0321: Multiple Statements on Single Line**
+**Fix Pattern**:
+```python
+# BAD: Multiple statements
+def force_flush(self): pass
+class Trace: pass
+
+# GOOD: Separate lines with proper formatting
+def force_flush(self):
+    """Dummy force_flush method"""
+    pass
+
+class Trace:
+    """Dummy Trace class for when agents is not available"""
+    pass
+```
+
+#### **C0415: Import Outside Toplevel**
+**Context**: These warnings are often **ACCEPTABLE** for optional dependencies
+
+**Acceptable Pattern**:
+```python
+# This is CORRECT for optional dependencies
+def _capture_model_parameters(self, span, data):
+    try:
+        import json  # Acceptable inside function for conditional import
+        params = {"model": data.model}
+        span.set_attribute("gen_ai.request.parameters", json.dumps(params))
+    except Exception:
+        pass
+```
+
+**Fix When Possible**:
+```python
+# BETTER: Move to top level when import is always needed
+import json  # At top of file
+from typing import Any, Dict, Optional
+
+def _capture_model_parameters(self, span, data):
+    try:
+        params = {"model": data.model}
+        span.set_attribute("gen_ai.request.parameters", json.dumps(params))
+    except Exception:
+        pass
+```
+
+#### **E0602: Undefined Variable**
+**Problem**: Variable used before definition
+
+**Fix Pattern**:
+```python
+# BAD: Undefined variable
+cost = get_chat_model_cost(model, pricing_info, input_tokens, output_tokens)
+
+# GOOD: Import the function
+from openlit.__helpers import (
+    common_framework_span_attributes,
+    handle_exception,
+    get_chat_model_cost  # Add missing import
+)
+```
+
+#### **Syntax Errors: Missing except/finally**
+**Problem**: Try block without proper exception handling
+
+**Fix Pattern**:
+```python
+# BAD: Missing except block
+def _extract_token_usage(self, span, data):
+    try:
+        usage = data.usage
+        span.set_attribute("gen_ai.usage.input_tokens", usage.input_tokens)
+
+# GOOD: Add except block
+def _extract_token_usage(self, span, data):
+    try:
+        usage = data.usage
+        span.set_attribute("gen_ai.usage.input_tokens", usage.input_tokens)
+    except Exception:
+        pass  # Ignore errors in token usage extraction
+```
+
+#### **R1702: Too Many Nested Blocks**
+**Fix Pattern**:
+```python
+# BAD: Deep nesting
+def process_data(self, data):
+    if hasattr(data, 'config'):
+        if data.config:
+            if hasattr(data.config, 'model'):
+                if data.config.model:
+                    if isinstance(data.config.model, str):
+                        return data.config.model
+
+# GOOD: Early returns
+def process_data(self, data):
+    if not hasattr(data, 'config'):
+        return None
+    if not data.config:
+        return None
+    if not hasattr(data.config, 'model'):
+        return None
+    if not data.config.model:
+        return None
+    if not isinstance(data.config.model, str):
+        return None
+    return data.config.model
+```
+
+#### **R0903: Too Few Public Methods**
+**Context**: Often **ACCEPTABLE** for dummy/placeholder classes
+
+**Acceptable Pattern**:
+```python
+# This is CORRECT for dummy classes
+class TracingProcessor:
+    """Dummy TracingProcessor class for when agents is not available"""
+    
+    def force_flush(self):
+        """Dummy force_flush method"""
+        pass
+    
+    def shutdown(self):
+        """Dummy shutdown method"""
+        pass
+```
+
+### Step 7.4: Automated Pylint Fix Script
+
+**Create comprehensive fix script:**
+```bash
+#!/bin/bash
+# fix_pylint_issues.sh
+FRAMEWORK_DIR="src/openlit/instrumentation/$1"
+
+echo "🔧 Fixing Pylint issues in $FRAMEWORK_DIR..."
+
+# 1. Remove trailing whitespace
+echo "  ✂️  Removing trailing whitespace..."
+find "$FRAMEWORK_DIR" -name "*.py" -exec sed -i '' 's/[[:space:]]*$//' {} \;
+
+# 2. Add missing final newlines
+echo "  📝 Adding missing final newlines..."
+find "$FRAMEWORK_DIR" -name "*.py" | while read file; do
+    if [[ ! -s "$file" || $(tail -c1 "$file" | wc -l) -eq 0 ]]; then
+        echo "" >> "$file"
+    fi
+done
+
+# 3. Check syntax errors
+echo "  🔍 Checking syntax..."
+syntax_errors=0
+for file in "$FRAMEWORK_DIR"/*.py; do
+    if ! python3 -m py_compile "$file" 2>/dev/null; then
+        echo "    ❌ Syntax error in $file"
+        syntax_errors=$((syntax_errors + 1))
+    fi
+done
+
+# 4. Check line lengths and provide guidance
+echo "  📏 Checking line lengths..."
+long_lines=$(find "$FRAMEWORK_DIR" -name "*.py" -exec awk 'length($0) > 135 { print FILENAME ":" NR ":" length($0) ":" $0 }' {} \;)
+if [ -n "$long_lines" ]; then
+    echo "    ⚠️  Long lines found (>135 chars):"
+    echo "$long_lines" | head -5
+    echo "    💡 Split long lines using the patterns in the guide"
+fi
+
+# 5. Final validation
+echo "  ✅ Running final validation..."
+if [ $syntax_errors -eq 0 ]; then
+    echo "✅ All syntax errors fixed!"
+else
+    echo "❌ $syntax_errors syntax errors remaining - manual fix required"
+fi
+
+# 6. Run limited pylint check
+echo "  🔍 Running key pylint checks..."
+pylint --disable=all --enable=syntax-error,undefined-variable,trailing-whitespace,missing-final-newline "$FRAMEWORK_DIR" 2>/dev/null || echo "Some pylint issues remain - check manually"
+
+echo "🎉 Pylint fix script completed!"
+echo "💡 Run full pylint check and fix remaining issues manually"
+```
+
+### Step 7.5: Manual Fix Checklist
+
+**Before committing, verify:**
+- [ ] ✅ All files compile without syntax errors
+- [ ] ✅ No trailing whitespace
+- [ ] ✅ All files end with newline  
+- [ ] ✅ No lines over 135 characters (or split appropriately)
+- [ ] ✅ All classes have docstrings
+- [ ] ✅ All public methods have docstrings
+- [ ] ✅ No undefined variables
+- [ ] ✅ Try blocks have except/finally
+- [ ] ✅ Imports are at top level when possible
+- [ ] ✅ Nested blocks reduced where possible
+
+### Step 7.6: Usage Instructions
+
+**Run the fix script:**
+```bash
+chmod +x fix_pylint_issues.sh
+./fix_pylint_issues.sh openai_agents
+./fix_pylint_issues.sh haystack
+```
+
+**Final validation:**
+```bash
+# Check specific framework
+pylint src/openlit/instrumentation/openai_agents/
+
+# Quick syntax check
+python3 -m py_compile src/openlit/instrumentation/openai_agents/*.py
+
+# Test instrumentation still works
+cd sdk/python && PYTHONPATH=src python -c "
+import openlit
+openlit.init()
+print('✅ Instrumentation works after pylint fixes')
+"
+```
+
+### Step 7.7: Testing After Pylint Fixes
+
+**CRITICAL**: Always test that instrumentation works after fixing pylint issues:
+
+```python
+# test_after_pylint_fix.py
+import sys
+sys.path.insert(0, 'sdk/python/src')
+
+import openlit
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+class TestExporter:
+    def __init__(self): 
+        self.spans = []
+    def export(self, spans): 
+        self.spans.extend(spans)
+        return 0
+    def shutdown(self): 
+        pass
+
+def test_instrumentation_after_fixes():
+    """Test that instrumentation works after pylint fixes"""
+    exporter = TestExporter()
+    tracer_provider = TracerProvider()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+    
+    # Initialize OpenLIT
+    openlit.init(detailed_tracing=True)
+    
+    # Run basic test based on framework
+    # ... framework-specific test code ...
+    
+    tracer_provider.force_flush(1000)
+    
+    assert len(exporter.spans) > 0, "Instrumentation should generate spans"
+    print(f"✅ Generated {len(exporter.spans)} spans after pylint fixes")
+    
+    # Validate span naming convention
+    for span in exporter.spans:
+        assert ' ' in span.name, f"Span '{span.name}' should follow '{{operation_type}} {{operation_name}}' format"
+    
+    print("✅ All tests passed - instrumentation working correctly")
+
+if __name__ == "__main__":
+    test_instrumentation_after_fixes()
+```
 
 ## Code Standards & Patterns
 

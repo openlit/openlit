@@ -257,8 +257,14 @@ def common_response_logic(scope, pricing_info, environment, application_name, me
 
     # Span Attributes for Request parameters specific to responses API
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, handle_not_given(scope._kwargs.get("temperature"), 1.0))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, handle_not_given(scope._kwargs.get("top_p"), 1.0))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, handle_not_given(scope._kwargs.get("max_output_tokens"), -1))
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_TOP_P, 
+        handle_not_given(scope._kwargs.get("top_p"), 1.0)
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 
+        handle_not_given(scope._kwargs.get("max_output_tokens"), -1)
+    )
 
     # Reasoning parameters
     reasoning = scope._kwargs.get("reasoning", {})
@@ -435,16 +441,26 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
 
     # Common Span Attributes
-    common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_OPENAI,
-        scope._server_address, scope._server_port, request_model, scope._response_model,
-        environment, application_name, is_stream, scope._tbt, scope._ttft, version)
+    common_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, 
+        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+        scope._server_address, scope._server_port, request_model, 
+        scope._response_model, environment, application_name, 
+        is_stream, scope._tbt, scope._ttft, version
+    )
 
     # Span Attributes for Request parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED, str(handle_not_given(scope._kwargs.get("seed"), "")))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, handle_not_given(scope._kwargs.get("frequency_penalty"), 0.0))
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, 
+        handle_not_given(scope._kwargs.get("frequency_penalty"), 0.0)
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, handle_not_given(scope._kwargs.get("max_tokens"), -1))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, handle_not_given(scope._kwargs.get("presence_penalty"), 0.0))
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, 
+        handle_not_given(scope._kwargs.get("presence_penalty"), 0.0)
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, handle_not_given(scope._kwargs.get("stop"), []))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, handle_not_given(scope._kwargs.get("temperature"), 1.0))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, handle_not_given(scope._kwargs.get("top_p"), 1.0))
@@ -579,7 +595,10 @@ def common_embedding_logic(scope, request_model, pricing_info, environment, appl
         environment, application_name, False, scope._tbt, scope._ttft, version)
 
     # Span Attributes for Request parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [handle_not_given(scope._kwargs.get("encoding_format"), "float")])
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, 
+        [handle_not_given(scope._kwargs.get("encoding_format"), "float")]
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, handle_not_given(scope._kwargs.get("user"), ""))
 
     # Span Attributes for Cost and Tokens
@@ -620,7 +639,10 @@ def common_image_logic(scope, request_model, pricing_info, environment, applicat
 
     # Span Attributes for Request parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_SIZE, handle_not_given(scope._kwargs.get("size"), "1024x1024"))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY, handle_not_given(scope._kwargs.get("quality"), "standard"))
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_IMAGE_QUALITY, 
+        handle_not_given(scope._kwargs.get("quality"), "standard")
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, handle_not_given(scope._kwargs.get("user"), ""))
 
     # Extract response data
@@ -718,7 +740,10 @@ def common_audio_logic(scope, request_model, pricing_info, environment, applicat
 
     # Span Attributes for Request parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_VOICE, handle_not_given(scope._kwargs.get("voice"), "alloy"))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT, handle_not_given(scope._kwargs.get("response_format"), "mp3"))
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_AUDIO_RESPONSE_FORMAT, 
+        handle_not_given(scope._kwargs.get("response_format"), "mp3")
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_SPEED, handle_not_given(scope._kwargs.get("speed"), 1.0))
 
     # Span Attributes for Cost

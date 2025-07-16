@@ -2,7 +2,9 @@
 OpenLIT OpenAI Agents Instrumentation - Native TracingProcessor Implementation
 """
 
+import json
 import time
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from opentelemetry import context as context_api
@@ -12,7 +14,8 @@ from opentelemetry.context import detach
 from openlit.__helpers import (
     common_framework_span_attributes,
     handle_exception,
-    record_framework_metrics
+    record_framework_metrics,
+    get_chat_model_cost
 )
 from openlit.semcov import SemanticConvention
 
@@ -23,10 +26,24 @@ try:
 except ImportError:
     # Create dummy classes for when agents is not available
     class TracingProcessor:
-        def force_flush(self): pass
-        def shutdown(self): pass
-    class Trace: pass  
-    class Span: pass
+        """Dummy TracingProcessor class for when agents is not available"""
+        
+        def force_flush(self):
+            """Dummy force_flush method"""
+            pass
+        
+        def shutdown(self):
+            """Dummy shutdown method"""
+            pass
+    
+    class Trace:
+        """Dummy Trace class for when agents is not available"""
+        pass
+    
+    class Span:
+        """Dummy Span class for when agents is not available"""
+        pass
+    
     TRACING_AVAILABLE = False
 
 
@@ -79,7 +96,7 @@ class OpenLITTracingProcessor(TracingProcessor):
         # Set common framework attributes for root span
         self._set_common_attributes(otel_span, trace.trace_id)
         
-        # Set agent name for root span using semantic conventions  
+        # Set agent name for root span using semantic conventions
         if hasattr(trace, 'name') and trace.name:
             otel_span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, trace.name)
             
@@ -348,153 +365,96 @@ class OpenLITTracingProcessor(TracingProcessor):
                                 return model_value
                                 
         # Try looking in the agent span itself
-        if hasattr(agent_span, 'agent') and agent_span.agent:
-            agent = agent_span.agent
-            for attr in model_attrs + config_attrs:
-                if hasattr(agent, attr):
-                    value = getattr(agent, attr)
-                    if isinstance(value, str) and value:
-                        return value
-                    elif hasattr(value, 'model'):
-                        return getattr(value, 'model', None)
+        if hasattr(agent_span, 'model'):
+            return str(agent_span.model)
+            
+        # Try agent_config if available
+        if hasattr(agent_span, 'agent_config'):
+            config = agent_span.agent_config
+            for attr in model_attrs:
+                if hasattr(config, attr):
+                    model_value = getattr(config, attr)
+                    if model_value and isinstance(model_value, str):
+                        return model_value
                         
-        # Default OpenAI Agents model if no explicit model found
-        return "gpt-4o"  # OpenAI Agents default model
-        
+        # Default fallback
+        return "gpt-4o"
+
     def _extract_handoff_target(self, data: Any, agent_span: Span[Any]) -> Optional[str]:
-        """Extract target agent name from handoff span data"""
-        
-        # Track handoff context for flow analysis
-        if hasattr(data, '__class__') and 'Handoff' in data.__class__.__name__:
-            if hasattr(data, 'from_agent') and data.from_agent:
-                # Store handoff context to use for next span
-                self._last_handoff_from = data.from_agent
-        
-        # Try direct handoff target attributes first
-        target_attrs = ['to_agent', 'target_agent', 'agent_name', 'target', 'handoff_to', 'agent']
+        """Extract handoff target information with enhanced logic"""
+        # Try direct target attributes
+        target_attrs = ['to_agent', 'target_agent', 'destination_agent', 'next_agent']
         for attr in target_attrs:
             if hasattr(data, attr):
-                target_value = getattr(data, attr)
-                if target_value and isinstance(target_value, str) and target_value != "None":
-                    return f"handoff to {target_value}"
-                elif hasattr(target_value, 'name'):
-                    # If target is an agent object with name attribute
-                    agent_name = getattr(target_value, 'name', None)
-                    if agent_name and isinstance(agent_name, str):
-                        return f"handoff to {agent_name}"
+                target = getattr(data, attr)
+                if target and isinstance(target, str):
+                    return f"to {target}"
+                    
+        # Try from_agent for better handoff description
+        from_attrs = ['from_agent', 'source_agent', 'previous_agent']
+        for attr in from_attrs:
+            if hasattr(data, attr):
+                source = getattr(data, attr)
+                if source and isinstance(source, str):
+                    return f"from {source}"
+                    
+        # Try nested objects
+        if hasattr(data, 'handoff_info'):
+            info = data.handoff_info
+            for attr in target_attrs + from_attrs:
+                if hasattr(info, attr):
+                    value = getattr(info, attr)
+                    if value and isinstance(value, str):
+                        prefix = "to" if attr in target_attrs else "from"
+                        return f"{prefix} {value}"
                         
-        # Try calling export method for additional data
-        if hasattr(data, 'export') and callable(data.export):
-            try:
-                exported_data = data.export()
-                if isinstance(exported_data, dict):
-                    # Look for target agent in exported data
-                    for key in ['to_agent', 'target_agent', 'target', 'handoff_to']:
-                        if key in exported_data and exported_data[key]:
-                            target_value = exported_data[key]
-                            if isinstance(target_value, str) and target_value != "None":
-                                return f"handoff to {target_value}"
-                            elif hasattr(target_value, 'name'):
-                                return f"handoff to {getattr(target_value, 'name', None)}"
-            except Exception:
-                pass  # Ignore export errors
-        
-        # If we have source agent info, we can indicate direction
-        if hasattr(data, 'from_agent') and data.from_agent:
-            return f"handoff from {data.from_agent}"  # Shows direction even without target
-             
         return None
-        
+
     def _capture_input_output(self, span: Any, data: Any) -> None:
-        """Capture detailed input/output with MIME types (following OpenInference approach)"""
+        """Capture input/output content with MIME type detection (OpenLIT enhancement)"""
         try:
-            # Handle ResponseSpanData with OpenAI Response object
-            if hasattr(data, '__class__') and 'ResponseSpanData' in data.__class__.__name__:
-                # Handle input data
-                if hasattr(data, 'input') and data.input:
-                    if isinstance(data.input, str):
-                        span.set_attribute("gen_ai.prompt", data.input)
-                        span.set_attribute("input.mime_type", "text/plain")
-                    elif isinstance(data.input, list):
-                        import json
-                        span.set_attribute("gen_ai.prompt", json.dumps(data.input))
-                        span.set_attribute("input.mime_type", "application/json")
-                
-                # Handle response/output data
-                if hasattr(data, 'response') and data.response:
-                    if hasattr(data.response, 'model_dump_json'):
-                        # This is an OpenAI Response object
-                        span.set_attribute("output.mime_type", "application/json")
-                        span.set_attribute("gen_ai.completion", data.response.model_dump_json())
-                    elif isinstance(data.response, str):
-                        span.set_attribute("gen_ai.completion", data.response)
-                        span.set_attribute("output.mime_type", "text/plain")
-            else:
-                # Fallback for other span types
-                # Try generic input/output attributes
-                if hasattr(data, 'input') and data.input:
-                    if isinstance(data.input, str):
-                        span.set_attribute("gen_ai.prompt", data.input)
-                        span.set_attribute("input.mime_type", "text/plain")
-                    elif isinstance(data.input, (list, dict)):
-                        import json
-                        span.set_attribute("gen_ai.prompt", json.dumps(data.input))
-                        span.set_attribute("input.mime_type", "application/json")
-                        
-                if hasattr(data, 'output') and data.output:
-                    if isinstance(data.output, str):
-                        span.set_attribute("gen_ai.completion", data.output)
-                        span.set_attribute("output.mime_type", "text/plain")
-                    elif isinstance(data.output, (list, dict)):
-                        import json
-                        span.set_attribute("gen_ai.completion", json.dumps(data.output))
-                        span.set_attribute("output.mime_type", "application/json")
+            # Capture input content
+            if hasattr(data, 'input') and data.input is not None:
+                content = str(data.input)
+                span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, content)
+                # Set MIME type based on content structure
+                if content.startswith('{') or content.startswith('['):
+                    span.set_attribute("gen_ai.content.prompt.mime_type", "application/json")
+                else:
+                    span.set_attribute("gen_ai.content.prompt.mime_type", "text/plain")
+                    
+            # Capture output/response content
+            if hasattr(data, 'response') and data.response is not None:
+                content = str(data.response)
+                span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, content)
+                # Set MIME type based on content structure
+                if content.startswith('{') or content.startswith('['):
+                    span.set_attribute("gen_ai.content.completion.mime_type", "application/json")
+                else:
+                    span.set_attribute("gen_ai.content.completion.mime_type", "text/plain")
                     
         except Exception:
-            pass  # Don't fail instrumentation for I/O capture errors
-            
+            pass  # Ignore export errors
+
     def _capture_detailed_token_usage(self, span: Any, data: Any) -> None:
-        """Capture enhanced token usage details (following OpenInference approach)"""
+        """Capture detailed token usage information (inspired by OpenInference)"""
         try:
-            # Handle ResponseSpanData with OpenAI Response object
-            if hasattr(data, '__class__') and 'ResponseSpanData' in data.__class__.__name__:
-                if hasattr(data, 'response') and data.response and hasattr(data.response, 'usage'):
-                    usage = data.response.usage
-                    
-                    # Basic token counts
-                    if hasattr(usage, 'input_tokens'):
-                        span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, usage.input_tokens)
-                    if hasattr(usage, 'output_tokens'):
-                        span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, usage.output_tokens)
-                    if hasattr(usage, 'total_tokens'):
-                        span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, usage.total_tokens)
-                        
-                    # Enhanced details (following OpenInference pattern)
-                    if hasattr(usage, 'input_tokens_details') and usage.input_tokens_details:
-                        if hasattr(usage.input_tokens_details, 'cached_tokens'):
-                            span.set_attribute("gen_ai.usage.input_tokens.cache_read", usage.input_tokens_details.cached_tokens)
-                            
-                    if hasattr(usage, 'output_tokens_details') and usage.output_tokens_details:
-                        if hasattr(usage.output_tokens_details, 'reasoning_tokens'):
-                            span.set_attribute("gen_ai.usage.output_tokens.reasoning", usage.output_tokens_details.reasoning_tokens)
-            
-            # Fallback for other span types            
-            elif hasattr(data, 'usage') and data.usage:
+            if hasattr(data, 'usage'):
                 usage = data.usage
                 
-                # Basic token counts
+                # Standard token usage
                 if hasattr(usage, 'input_tokens'):
                     span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, usage.input_tokens)
                 if hasattr(usage, 'output_tokens'):
                     span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, usage.output_tokens)
-                if hasattr(usage, 'total_tokens'):
-                    span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, usage.total_tokens)
                     
-                # Enhanced details
+                # Enhanced token details (when available)
                 if hasattr(usage, 'input_tokens_details'):
                     details = usage.input_tokens_details
                     if hasattr(details, 'cached_tokens'):
-                        span.set_attribute("gen_ai.usage.input_tokens.cache_read", details.cached_tokens)
+                        span.set_attribute("gen_ai.usage.input_tokens.cached", details.cached_tokens)
+                    if hasattr(details, 'reasoning_tokens'):
+                        span.set_attribute("gen_ai.usage.input_tokens.reasoning", details.reasoning_tokens)
                         
                 if hasattr(usage, 'output_tokens_details'):
                     details = usage.output_tokens_details
@@ -502,93 +462,127 @@ class OpenLITTracingProcessor(TracingProcessor):
                         span.set_attribute("gen_ai.usage.output_tokens.reasoning", details.reasoning_tokens)
                         
         except Exception:
-            pass  # Don't fail instrumentation for token capture errors
-            
+            pass  # Ignore export errors
+
     def _capture_model_parameters(self, span: Any, data: Any) -> None:
-        """Capture model invocation parameters as JSON (following OpenInference approach)"""
+        """Capture model invocation parameters as JSON (new feature from OpenInference)"""
         try:
-            # Handle ResponseSpanData with OpenAI Response object
-            if hasattr(data, '__class__') and 'ResponseSpanData' in data.__class__.__name__:
-                if hasattr(data, 'response') and data.response and hasattr(data.response, 'model_dump'):
-                    # Use OpenInference exclusion pattern
-                    params = data.response.model_dump(
-                        exclude_none=True,
-                        exclude={"object", "tools", "usage", "output", "error", "status"}
-                    )
-                    if params:
-                        import json
-                        span.set_attribute("gen_ai.invocation_parameters", json.dumps(params))
+            # Look for model configuration parameters
+            params = {}
             
-            # Fallback for other span types
-            elif hasattr(data, 'model_dump') and callable(data.model_dump):
-                # Use OpenInference exclusion pattern
-                params = data.model_dump(
-                    exclude_none=True,
-                    exclude={"object", "tools", "usage", "output", "error", "status", "input"}
-                )
-                if params:
-                    import json
-                    span.set_attribute("gen_ai.invocation_parameters", json.dumps(params))
+            # Common parameter attributes
+            param_attrs = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty']
+            for attr in param_attrs:
+                if hasattr(data, attr):
+                    params[attr] = getattr(data, attr)
                     
+            # Try nested config objects
+            if hasattr(data, 'config'):
+                config = data.config
+                for attr in param_attrs:
+                    if hasattr(config, attr):
+                        params[attr] = getattr(config, attr)
+                        
+            # Try response object if available
+            if hasattr(data, 'response') and hasattr(data.response, 'model_dump'):
+                try:
+                    response_dict = data.response.model_dump()
+                    if response_dict and isinstance(response_dict, dict):
+                        # Extract model parameters from response
+                        if 'model' in response_dict:
+                            params['model'] = response_dict['model']
+                        if 'usage' in response_dict:
+                            params['usage'] = response_dict['usage']
+                except Exception:
+                    pass
+                    
+            # Set as JSON if we found any parameters
+            if params:
+                span.set_attribute("gen_ai.request.parameters", json.dumps(params))
+                
         except Exception:
-            pass  # Don't fail instrumentation for parameter capture errors
+            pass  # Ignore export errors
 
     def _process_span_completion(self, span: Any, agent_span: Span[Any]) -> None:
-        """Process span completion with business intelligence"""
+        """Process span completion with enhanced business intelligence"""
         data = agent_span.span_data
         
-        # Handle response data for LLM operations
-        if hasattr(data, '__class__') and 'Generation' in data.__class__.__name__:
-            self._process_generation_data(span, data)
-        elif hasattr(data, '__class__') and 'Response' in data.__class__.__name__:
-            self._process_response_data(span, data)
+        # Process response data if available
+        self._process_response_data(span, data)
+        
+        # Extract and set token usage for business intelligence
+        self._extract_token_usage(span, data)
 
-    def _process_generation_data(self, span: Any, data: Any) -> None:
-        """Process LLM generation data with cost tracking"""
-        # Extract token usage and cost information
-        if hasattr(data, 'usage'):
-            usage = data.usage
-            input_tokens = getattr(usage, 'prompt_tokens', 0)
-            output_tokens = getattr(usage, 'completion_tokens', 0)
+    def _extract_token_usage(self, span: Any, data: Any) -> None:
+        """Extract token usage and calculate costs (OpenLIT's business intelligence)"""
+        try:
+            # Try to extract token usage from various possible locations
+            input_tokens = 0
+            output_tokens = 0
             
+            # Check direct usage attributes
+            if hasattr(data, 'usage'):
+                usage = data.usage
+                input_tokens = getattr(usage, 'input_tokens', 0) or getattr(usage, 'prompt_tokens', 0)
+                output_tokens = getattr(usage, 'output_tokens', 0) or getattr(usage, 'completion_tokens', 0)
+                
+            # Check response object
+            elif hasattr(data, 'response') and hasattr(data.response, 'usage'):
+                usage = data.response.usage
+                input_tokens = getattr(usage, 'input_tokens', 0) or getattr(usage, 'prompt_tokens', 0)
+                output_tokens = getattr(usage, 'output_tokens', 0) or getattr(usage, 'completion_tokens', 0)
+                
+            # Set token attributes
             span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
             span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
             span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens)
-            
+
             # Calculate cost (OpenLIT's business intelligence advantage)
             model = getattr(data, 'model', 'gpt-4o')
             cost = get_chat_model_cost(model, self._pricing_info, input_tokens, output_tokens)
             span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+            
+        except Exception:
+            pass  # Ignore errors in token usage extraction
 
     def _process_response_data(self, span: Any, data: Any) -> None:
         """Process response data with content capture"""
         if self._capture_message_content:
-            if hasattr(data, 'content'):
-                span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, str(data.content))
+            self._capture_input_output(span, data)
 
     def _process_trace_completion(self, span: Any, trace: Trace) -> None:
-        """Process trace completion with workflow-level business intelligence"""
-        # Add workflow completion information
-        if hasattr(trace, 'name'):
-            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, trace.name)
+        """Process trace completion with business intelligence aggregation"""
+        # Add trace-level metadata
+        span.set_attribute(SemanticConvention.GEN_AI_OPERATION_NAME, "workflow")
+        
+        # Calculate total duration
+        if trace.trace_id in self._span_start_times:
+            start_time = self._span_start_times[trace.trace_id]
+            duration = time.time() - start_time
+            span.set_attribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration)
 
-    def _parse_timestamp(self, timestamp: str) -> float:
-        """Parse ISO timestamp to float"""
-        try:
-            from datetime import datetime
-            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-            return dt.timestamp()
-        except:
+    def _parse_timestamp(self, timestamp: Any) -> float:
+        """Parse timestamp from various formats"""
+        if isinstance(timestamp, (int, float)):
+            return float(timestamp)
+        elif isinstance(timestamp, str):
+            try:
+                # Try parsing ISO format
+                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                return dt.timestamp()
+            except ValueError:
+                return time.time()
+        else:
             return time.time()
 
     def _as_utc_nano(self, timestamp: float) -> int:
-        """Convert timestamp to nanoseconds"""
+        """Convert timestamp to UTC nanoseconds for OpenTelemetry"""
         return int(timestamp * 1_000_000_000)
-    
-    def force_flush(self, timeout_millis: int = 30000) -> bool:
-        """Force flush any pending traces (required by TracingProcessor)"""
+
+    def force_flush(self) -> bool:
+        """Force flush any pending spans (required by TracingProcessor)"""
         return True
-    
+
     def shutdown(self) -> bool:
         """Shutdown the processor (required by TracingProcessor)"""
-        return True 
+        return True
