@@ -33,10 +33,10 @@ def object_count(obj):
 def set_server_address_and_port(instance):
     """
     Extracts server address and port from Pinecone client instance.
-    
+
     Args:
         instance: Pinecone client instance
-        
+
     Returns:
         tuple: (server_address, server_port)
     """

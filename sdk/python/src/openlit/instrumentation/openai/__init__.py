@@ -35,15 +35,15 @@ class OpenAIInstrumentor(BaseInstrumentor):
 
         # chat completions
         wrap_function_wrapper(
-            "openai.resources.chat.completions",  
-            "Completions.create",  
+            "openai.resources.chat.completions",
+            "Completions.create",
             chat_completions(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
-            "openai.resources.chat.completions",  
-            "AsyncCompletions.create",  
+            "openai.resources.chat.completions",
+            "AsyncCompletions.create",
             async_chat_completions(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
@@ -65,75 +65,75 @@ class OpenAIInstrumentor(BaseInstrumentor):
 
         # responses
         wrap_function_wrapper(
-            "openai.resources.responses.responses",  
-            "Responses.create",  
+            "openai.resources.responses.responses",
+            "Responses.create",
             responses(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
-            "openai.resources.responses.responses",  
-            "AsyncResponses.create",  
+            "openai.resources.responses.responses",
+            "AsyncResponses.create",
             async_responses(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # embeddings
         wrap_function_wrapper(
-            "openai.resources.embeddings",  
-            "Embeddings.create",  
+            "openai.resources.embeddings",
+            "Embeddings.create",
             embedding(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
-            "openai.resources.embeddings",  
-            "AsyncEmbeddings.create",  
+            "openai.resources.embeddings",
+            "AsyncEmbeddings.create",
             async_embedding(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # image generation
         wrap_function_wrapper(
-            "openai.resources.images",  
-            "Images.generate",  
+            "openai.resources.images",
+            "Images.generate",
             image_generate(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
-            "openai.resources.images",  
-            "AsyncImages.generate",  
+            "openai.resources.images",
+            "AsyncImages.generate",
             async_image_generate(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # image variations
         wrap_function_wrapper(
-            "openai.resources.images",  
-            "Images.create_variation",  
+            "openai.resources.images",
+            "Images.create_variation",
             image_variatons(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
-            "openai.resources.images",  
-            "AsyncImages.create_variation",  
+            "openai.resources.images",
+            "AsyncImages.create_variation",
             async_image_variations(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # audio generation
         wrap_function_wrapper(
-            "openai.resources.audio.speech",  
-            "Speech.create",  
+            "openai.resources.audio.speech",
+            "Speech.create",
             audio_create(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         wrap_function_wrapper(
-            "openai.resources.audio.speech",  
-            "AsyncSpeech.create",  
+            "openai.resources.audio.speech",
+            "AsyncSpeech.create",
             async_audio_create(version, environment, application_name,
                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )

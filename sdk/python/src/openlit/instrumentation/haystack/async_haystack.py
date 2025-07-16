@@ -1,5 +1,5 @@
 """
-Haystack sync wrapper
+Haystack async wrapper
 """
 
 import time
@@ -12,16 +12,16 @@ from openlit.instrumentation.haystack.utils import (
     set_server_address_and_port,
 )
 
-def general_wrap(endpoint, version, environment, application_name,
+def async_general_wrap(endpoint, version, environment, application_name,
     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
-    """Optimized wrapper for Haystack operations"""
+    """Optimized async wrapper for Haystack operations"""
 
-    def wrapper(wrapped, instance, args, kwargs):
-        """Fast wrapper with minimal overhead"""
+    async def wrapper(wrapped, instance, args, kwargs):
+        """Fast async wrapper with minimal overhead"""
 
         # CRITICAL: Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
 
         # Fast operation mapping
         operation_type = OPERATION_MAP.get(endpoint, "framework")
@@ -37,7 +37,7 @@ def general_wrap(endpoint, version, environment, application_name,
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 response = process_haystack_response(
