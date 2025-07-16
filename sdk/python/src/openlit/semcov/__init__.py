@@ -135,6 +135,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_FIRECRAWL = "firecrawl"
     GEN_AI_SYSTEM_LETTA = "letta"
     GEN_AI_SYSTEM_TOGETHER = "together"
+    GEN_AI_SYSTEM_OPENAI_AGENTS = "openai_agents"
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
 
     # GenAI Framework Component Attributes (Standard)
