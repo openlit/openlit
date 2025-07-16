@@ -32,10 +32,10 @@ def object_count(obj):
 def set_server_address_and_port(instance):
     """
     Extracts server address and port from ChromaDB client instance.
-    
+
     Args:
         instance: ChromaDB client instance
-        
+
     Returns:
         tuple: (server_address, server_port)
     """

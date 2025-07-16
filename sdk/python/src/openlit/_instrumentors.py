@@ -1,7 +1,7 @@
 """
-Instrumentor registry and mappings for OpenLIT.
-This module centralizes all instrumentor metadata to keep the main __init__.py concise.
+OpenLIT Instrumentors
 """
+import importlib
 
 # Mapping of instrumentor names to their required Python packages
 MODULE_NAME_MAP = {
@@ -52,7 +52,7 @@ MODULE_NAME_MAP = {
     "pydantic_ai": "pydantic_ai"
 }
 
-# Mapping of instrumentor names to their import paths
+# Dictionary mapping instrumentor names to their full module paths
 INSTRUMENTOR_MAP = {
     "openai": "openlit.instrumentation.openai.OpenAIInstrumentor",
     "anthropic": "openlit.instrumentation.anthropic.AnthropicInstrumentor",
@@ -104,7 +104,7 @@ INSTRUMENTOR_MAP = {
 
 def get_instrumentor_class(name):
     """
-    Dynamically import and return an instrumentor class.
+    Get instrumentor class by name.
 
     Args:
         name (str): Name of the instrumentor
@@ -112,8 +112,6 @@ def get_instrumentor_class(name):
     Returns:
         class: Instrumentor class or None if not found
     """
-    import importlib
-
     if name not in INSTRUMENTOR_MAP:
         return None
 
@@ -126,16 +124,16 @@ def get_instrumentor_class(name):
         return None
 
 
-def create_instrumentor_instances():
+def get_all_instrumentors():
     """
-    Create instances of all available instrumentors.
+    Get all available instrumentor instances.
 
     Returns:
-        dict: Dictionary mapping instrumentor names to instances
+        dict: Dictionary of instrumentor instances
     """
     instances = {}
 
-    for name in INSTRUMENTOR_MAP.keys():
+    for name in INSTRUMENTOR_MAP:
         instrumentor_class = get_instrumentor_class(name)
         if instrumentor_class:
             try:

@@ -207,7 +207,7 @@ def init(
         disable_metrics (bool): Flag to disable metrics (Optional).
         pricing_json(str): File path or url to the pricing json (Optional).
         collect_gpu_stats (bool): Flag to enable or disable GPU metrics collection.
-        detailed_tracing (bool): Enable detailed component-level tracing for debugging and optimization. 
+        detailed_tracing (bool): Enable detailed component-level tracing for debugging and optimization.
                                 Defaults to False to use workflow-level tracing with minimal storage overhead.
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []

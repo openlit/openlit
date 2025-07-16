@@ -34,32 +34,32 @@ class TogetherInstrumentor(BaseInstrumentor):
 
         # Chat completions
         wrap_function_wrapper(
-            "together.resources.chat.completions",  
-            "ChatCompletions.create",  
+            "together.resources.chat.completions",
+            "ChatCompletions.create",
             completion(version, environment, application_name,
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Image generate
         wrap_function_wrapper(
-            "together.resources.images",  
-            "Images.generate",  
+            "together.resources.images",
+            "Images.generate",
             image_generate(version, environment, application_name,
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Chat completions
         wrap_function_wrapper(
-            "together.resources.chat.completions",  
-            "AsyncChatCompletions.create",  
+            "together.resources.chat.completions",
+            "AsyncChatCompletions.create",
             async_completion(version, environment, application_name,
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )
 
         # Image generate
         wrap_function_wrapper(
-            "together.resources.images",  
-            "AsyncImages.generate",  
+            "together.resources.images",
+            "AsyncImages.generate",
             async_image_generate(version, environment, application_name,
                   tracer, pricing_info, capture_message_content, metrics, disable_metrics),
         )

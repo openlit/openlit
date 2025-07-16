@@ -258,46 +258,14 @@ def common_llamaindex_logic(scope, environment, application_name,
             scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, str(query_text))
 
         # Query analysis
-        query_metrics = extract_content_metrics(query_text)
-        scope._span.set_attribute("gen_ai.query.length", query_metrics.get("char_count", 0))
-        scope._span.set_attribute("gen_ai.query.word_count", query_metrics.get("word_count", 0))
-        scope._span.set_attribute("gen_ai.query.complexity_score", query_metrics.get("complexity_score", 0))
-        scope._span.set_attribute("gen_ai.query.hash", query_metrics.get("content_hash", ""))
-
-        # Response handling with enhanced analysis
-        if scope._response:
-            response_text = str(scope._response)
-            if capture_message_content and len(response_text) > 0:
-                scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, response_text)
-
-            # Response analysis
-            response_metrics = extract_content_metrics(response_text)
-            scope._span.set_attribute("gen_ai.response.length", response_metrics.get("char_count", 0))
-            scope._span.set_attribute("gen_ai.response.word_count", response_metrics.get("word_count", 0))
-            scope._span.set_attribute("gen_ai.response.quality_score", min(100, response_metrics.get("word_count", 0) * 2))
-
-            # Enhanced retrieval metadata
-            if hasattr(scope._response, 'source_nodes'):
-                retrieved_count = object_count(scope._response.source_nodes)
-                scope._span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_RETRIEVAL_COUNT, retrieved_count)
-
-                if scope._response.source_nodes:
-                    # Analyze source diversity
-                    sources = []
-                    scores = []
-                    for node in scope._response.source_nodes[:5]:
-                        if hasattr(node, 'metadata'):
-                            sources.append(node.metadata.get('file_path', 'unknown'))
-                        if hasattr(node, 'score'):
-                            scores.append(float(node.score))
-
-                    scope._span.set_attribute("gen_ai.retrieval.sources", str(sources))
-                    scope._span.set_attribute("gen_ai.retrieval.unique_sources", len(set(sources)))
-                    scope._span.set_attribute("gen_ai.retrieval.avg_score", sum(scores) / len(scores) if scores else 0.0)
-                    scope._span.set_attribute("gen_ai.retrieval.min_score", min(scores) if scores else 0.0)
-                    scope._span.set_attribute("gen_ai.retrieval.max_score", max(scores) if scores else 0.0)
-
+        query_length = len(str(query_text))
+        query_words = len(str(query_text).split())
+        scope._span.set_attribute("gen_ai.query.length", query_length)
+        scope._span.set_attribute("gen_ai.query.word_count", query_words)
         scope._span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_QUERY_TYPE, "query_engine")
+
+        # Process index operations using helper function
+        _process_index_operations(scope, endpoint, capture_message_content)
 
     elif endpoint in ("framework.retriever.retrieve", "framework.retriever.retrieve_async"):
         # Enhanced retrieval telemetry
@@ -408,3 +376,37 @@ def process_llamaindex_response(response, operation_type, server_address, server
     )
 
     return response
+
+def _process_index_operations(scope, endpoint, capture_message_content):
+    """Helper function to process index operations and reduce nesting"""
+    if not hasattr(scope, '_result') or not scope._result:
+        return
+
+    try:
+        if hasattr(scope._result, "source_nodes"):
+            nodes = scope._result.source_nodes
+        elif hasattr(scope._result, "nodes"):
+            nodes = scope._result.nodes
+        else:
+            return
+
+        doc_count = len(nodes)
+        scope._span.set_attribute("gen_ai.index.document_count", doc_count)
+
+        # Process document metadata
+        unique_authors = set()
+        total_content_length = 0
+
+        for node in nodes:
+            if hasattr(node, "metadata") and isinstance(node.metadata, dict):
+                if "author" in node.metadata:
+                    unique_authors.add(node.metadata["author"])
+
+            if hasattr(node, "text"):
+                total_content_length += len(str(node.text))
+
+        scope._span.set_attribute("gen_ai.index.total_content_length", total_content_length)
+        scope._span.set_attribute("gen_ai.index.unique_authors", len(unique_authors))
+        scope._span.set_attribute("gen_ai.index.avg_document_size", total_content_length // max(doc_count, 1))
+    except Exception:
+        pass  # Don't fail on metadata extraction

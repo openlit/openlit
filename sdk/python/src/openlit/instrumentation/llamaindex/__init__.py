@@ -143,9 +143,9 @@ class LlamaIndexInstrumentor(BaseInstrumentor):
         for module, method, operation_type in workflow_operations:
             try:
                 wrap_function_wrapper(
-                    module, method, 
+                    module, method,
                     general_wrap(operation_type, version, environment, application_name,
-                               tracer, pricing_info, capture_message_content, 
+                               tracer, pricing_info, capture_message_content,
                                metrics, disable_metrics)
                 )
             except Exception:
@@ -155,9 +155,9 @@ class LlamaIndexInstrumentor(BaseInstrumentor):
         for module, method, operation_type in async_operations:
             try:
                 wrap_function_wrapper(
-                    module, method, 
-                    async_general_wrap(operation_type, version, environment, 
-                                     application_name, tracer, pricing_info, 
+                    module, method,
+                    async_general_wrap(operation_type, version, environment,
+                                     application_name, tracer, pricing_info,
                                      capture_message_content, metrics, disable_metrics)
                 )
             except Exception:
@@ -168,9 +168,9 @@ class LlamaIndexInstrumentor(BaseInstrumentor):
             for module, method, operation_type in component_operations:
                 try:
                     wrap_function_wrapper(
-                        module, method, 
-                        general_wrap(operation_type, version, environment, 
-                                   application_name, tracer, pricing_info, 
+                        module, method,
+                        general_wrap(operation_type, version, environment,
+                                   application_name, tracer, pricing_info,
                                    capture_message_content, metrics, disable_metrics)
                     )
                 except Exception:

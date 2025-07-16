@@ -479,7 +479,7 @@ def common_framework_span_attributes(scope, framework_system, server_address, se
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
     scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, framework_system)
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, endpoint)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, 
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL,
         getattr(instance, "model_name", "unknown") if instance else "unknown")
     scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
     scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)

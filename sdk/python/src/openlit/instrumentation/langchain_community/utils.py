@@ -9,7 +9,7 @@ def process_general_response(response, gen_ai_endpoint, server_port, server_addr
                             environment, application_name, span, version="1.0.0"):
     """
     Process general LangChain Community operations (document loading, text splitting) and generate telemetry.
-    
+
     Args:
         response: The response object from the LangChain Community operation
         gen_ai_endpoint: The endpoint identifier for the operation
@@ -19,7 +19,7 @@ def process_general_response(response, gen_ai_endpoint, server_port, server_addr
         application_name: Application name
         span: OpenTelemetry span
         version: Version string
-    
+
     Returns:
         The original response object
     """

@@ -19,7 +19,7 @@ def evaluate(gen_ai_endpoint, version, environment, application_name,
 
     This function wraps any given function to measure its execution time,
     log its operation, and trace its execution using OpenTelemetry.
-    
+
     Parameters:
     - gen_ai_endpoint (str): A descriptor or name for the endpoint being traced.
     - version (str): The version of the EmbedChain application.
@@ -49,7 +49,7 @@ def evaluate(gen_ai_endpoint, version, environment, application_name,
 
         Returns:
         - The result of the wrapped function call.
-        
+
         The wrapper initiates a span with the provided tracer, sets various attributes
         on the span based on the function's execution and response, and ensures
         errors are handled and logged appropriately.
@@ -97,7 +97,7 @@ def get_data_sources(gen_ai_endpoint, version, environment, application_name,
 
     This function wraps any given function to measure its execution time,
     log its operation, and trace its execution using OpenTelemetry.
-    
+
     Parameters:
     - gen_ai_endpoint (str): A descriptor or name for the endpoint being traced.
     - version (str): The version of the EmbedChain application.
@@ -127,7 +127,7 @@ def get_data_sources(gen_ai_endpoint, version, environment, application_name,
 
         Returns:
         - The result of the wrapped function call.
-        
+
         The wrapper initiates a span with the provided tracer, sets various attributes
         on the span based on the function's execution and response, and ensures
         errors are handled and logged appropriately.
