@@ -1,13 +1,13 @@
 # Framework Instrumentation Guide for OpenLIT
 
-This guide provides a comprehensive, step-by-step process for adding new framework instrumentations or updating existing ones in OpenLIT. It's based on the optimized Haystack instrumentation and ensures consistency, performance, and competitive advantages across all framework integrations.
+This guide provides a comprehensive, step-by-step process for adding new framework instrumentations or updating existing ones in OpenLIT. It's based on lessons learned from successful instrumentations including OpenAI Agents, Haystack, and others, ensuring consistency, performance, and competitive advantages across all framework integrations.
 
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
 2. [Phase 1: Competitive Analysis](#phase-1-competitive-analysis)
 3. [Phase 2: Framework Analysis](#phase-2-framework-analysis)
-4. [Phase 3: Implementation Structure](#phase-3-implementation-structure)
+4. [Phase 3: Implementation Strategy](#phase-3-implementation-strategy)
 5. [Phase 4: Code Implementation](#phase-4-code-implementation)
 6. [Phase 5: Testing & Validation](#phase-5-testing--validation)
 7. [Phase 6: Optimization](#phase-6-optimization)
@@ -23,17 +23,23 @@ Before starting, ensure you have:
 - Access to competitor repositories for analysis
 - Understanding of OpenTelemetry concepts
 
+**CRITICAL**: Always use local OpenLIT source code for testing:
+```bash
+# DON'T install OpenLIT - use local source
+PYTHONPATH=sdk/python/src python your_test_script.py
+```
+
 ## Phase 1: Competitive Analysis
 
-### Step 1.1: Research Competitor Implementations
+### Step 1.1: Clone and Research Competitor Implementations
 
 **Primary Competitors:**
 - [OpenInference](https://github.com/Arize-ai/openinference/tree/main/python/instrumentation)
 - [OpenLLMetry](https://github.com/traceloop/openllmetry/tree/main/packages)
 
-**Research Tasks:**
+**Research Process:**
 ```bash
-# Clone competitor repositories for analysis
+# Clone competitor repositories for deep analysis
 git clone https://github.com/Arize-ai/openinference.git
 git clone https://github.com/traceloop/openllmetry.git
 
@@ -42,579 +48,509 @@ cd openinference/python/instrumentation/openinference-instrumentation-{framework
 cd openllmetry/packages/openllmetry-instrumentation-{framework}
 ```
 
-**Analysis Checklist:**
-- [ ] **Span Structure**: How many spans do they create?
-- [ ] **Span Hierarchy**: Do they maintain parent-child relationships?
-- [ ] **Attributes**: What attributes do they capture?
-- [ ] **Content Capture**: Do they capture input/output content?
-- [ ] **Metrics**: What metrics do they track?
+**Deep Analysis Checklist:**
+- [ ] **Integration Pattern**: Function wrapping vs native integration (like TracingProcessor)
+- [ ] **Span Structure**: How many spans do they create and why?
+- [ ] **Span Hierarchy**: Do they maintain proper parent-child relationships?
+- [ ] **Span Naming**: What naming convention do they use?
+- [ ] **Attributes**: What attributes do they capture? Check against semantic conventions
+- [ ] **Content Capture**: Do they capture input/output content with MIME types?
+- [ ] **Business Intelligence**: Do they track cost, tokens, performance metrics?
+- [ ] **Error Handling**: How do they handle framework version differences?
 - [ ] **Performance**: How much overhead do they add?
 - [ ] **Coverage**: Which framework operations do they instrument?
 
-### Step 1.2: Document Competitor Strengths & Gaps
+### Step 1.2: Document Competitive Gaps and OpenLIT Advantages
 
-Create a comparison table:
+Create detailed comparison:
 
 | Feature | OpenInference | OpenLLMetry | OpenLIT Target |
 |---------|---------------|-------------|----------------|
-| Span Count | X spans | Y spans | Z spans (optimal) |
-| Technical Detail | High/Medium/Low | High/Medium/Low | Enhanced |
-| Business Intelligence | High/Medium/Low | High/Medium/Low | Complete |
-| Content Capture | Yes/No/Partial | Yes/No/Partial | Full |
-| Cost Tracking | Yes/No | Yes/No | Yes |
-| Performance Impact | X ms | Y ms | Minimal |
+| Integration Method | Function wrapping | Function wrapping | Native (if available) |
+| Span Count | X spans | Y spans | Z+ spans (comprehensive) |
+| Business Intelligence | None/Basic | None/Basic | **Complete** (cost, tokens, metrics) |
+| Content Capture | Basic | Basic | **Enhanced** (MIME types, structured) |
+| Cross-System Tracing | Limited | Limited | **Full** (links to LLM providers) |
+| Error Resilience | Basic | Basic | **Robust** (graceful degradation) |
+| Semantic Conventions | Standard | Standard | **Extended** (custom attributes) |
+
+**Key Insight**: OpenLIT's competitive advantage is **business intelligence** and **enhanced observability**.
 
 ## Phase 2: Framework Analysis
 
-### Step 2.1: Understand Framework Architecture
+### Step 2.1: Explore Framework's Built-in Capabilities
 
-**Key Questions:**
-- What are the main execution flows?
-- Which operations should be workflow-level vs component-level?
-- Does the framework have built-in monitoring/tracing?
-- What are the most important operations for users?
+**CRITICAL**: Before implementing, check if the framework has built-in tracing/monitoring:
 
-**Framework Mapping:**
+```python
+# Example: Discover OpenAI Agents has native tracing
+import {framework}
+
+# Look for tracing, monitoring, observability features
+# Check documentation for:
+# - Built-in tracing systems
+# - Processor patterns  
+# - Event hooks
+# - Monitoring callbacks
+
+# Example: OpenAI Agents has TracingProcessor
+from agents import TracingProcessor, set_trace_processors
+```
+
+**Framework Integration Decision Tree:**
+1. **Native Integration Available** (e.g., OpenAI Agents TracingProcessor)
+   - ✅ Use native integration for perfect hierarchy
+   - ✅ Extends framework's built-in system
+   - ✅ Better performance and reliability
+
+2. **Function Wrapping Required** (most frameworks)
+   - ✅ Standard approach for frameworks without native tracing
+   - ⚠️ Requires careful hierarchy management
+
+### Step 2.2: Map Framework Operations
+
+**Workflow vs Component Operations:**
 ```python
 # Example for any framework
 WORKFLOW_OPERATIONS = [
-    # High-level operations users care about
-    "pipeline.run",
-    "agent.execute", 
-    "workflow.process"
+    # High-level operations users care about in production
+    "agent.run_sync",     # OpenAI Agents
+    "pipeline.run",       # Haystack  
+    "workflow.execute"    # Generic
 ]
 
 COMPONENT_OPERATIONS = [
-    # Detailed operations for debugging
+    # Detailed operations for debugging (detailed_tracing=True)
     "retriever.retrieve",
-    "generator.generate",
-    "embedder.embed"
+    "generator.generate", 
+    "embedder.embed",
+    "tool.call"
 ]
 ```
 
-### Step 2.2: Test Built-in Framework Monitoring
+### Step 2.3: Test Framework Methods and Patterns
 
-Create test scripts to understand framework's native instrumentation:
-
+**Method Discovery Script:**
 ```python
-# test_framework_native.py
+# test_framework_exploration.py
 import {framework}
-# Enable any built-in tracing/monitoring
-# Run sample operations
-# Document what spans/metrics are created natively
+
+# Discover available methods and attributes
+obj = SomeFrameworkClass()
+print("Available methods:", [m for m in dir(obj) if not m.startswith('_')])
+
+# Test built-in monitoring
+if hasattr(obj, 'trace') or hasattr(obj, 'monitor'):
+    print("Built-in tracing available!")
+    
+# Check for callback patterns
+if hasattr(obj, 'add_callback') or hasattr(obj, 'on_event'):
+    print("Event system available!")
 ```
 
-### Step 2.3: Identify OpenLIT Enhancement Opportunities
+## Phase 3: Implementation Strategy
 
-**Enhancement Areas:**
-- [ ] Business metrics (cost, tokens, performance)
-- [ ] Content capture (prompts, responses)
-- [ ] Cross-system tracing (LLM provider integration)
-- [ ] Advanced attributes (model details, usage patterns)
-- [ ] Performance optimization
+### Step 3.1: Choose Integration Pattern
 
-## Phase 3: Implementation Structure
-
-### Step 3.1: Create Directory Structure
-
-```
-sdk/python/src/openlit/instrumentation/{framework}/
-├── __init__.py              # Instrumentor class (70-100 lines)
-├── {framework}.py           # Sync wrapper (50-60 lines)
-├── async_{framework}.py     # Async wrapper (50-60 lines)
-└── utils.py                 # Processing logic (200-400 lines)
-```
-
-### Step 3.2: Define Operation Mapping
-
-In `utils.py`, create centralized operation mapping:
-
+**Pattern 1: Native Integration (Preferred when available)**
 ```python
-# Operation mapping for semantic conventions
-OPERATION_MAP = {
-    "pipeline": "workflow",
-    "agent.execute": "agent",
-    "retriever.retrieve": "retrieve", 
-    "generator.generate": "generate",
-    # Map framework operations to semantic operation types
-}
+# Example: OpenAI Agents TracingProcessor
+class OpenLITTracingProcessor(TracingProcessor):
+    def on_trace_start(self, trace): pass
+    def on_span_start(self, span): pass  
+    def on_span_end(self, span): pass
 ```
 
-### Step 3.3: Plan Instrumentation Levels
+**Pattern 2: Function Wrapping (Standard)**
+```python
+# Traditional OpenLIT pattern
+wrap_function_wrapper("module", "Class.method", wrapper)
+```
 
-**Workflow Level (Always Enabled):**
-- High-level operations users monitor in production
-- Minimal span count for performance
-- Essential business metrics
+### Step 3.2: Plan Span Naming Convention
 
-**Component Level (detailed_tracing=True):**
-- Detailed operations for debugging
-- Comprehensive technical attributes
-- Enhanced framework introspection
+**CRITICAL**: Follow consistent naming pattern:
+```python
+# Standard format: "{operation_type} {operation_name}"
+"agent Triage agent"      # operation_type=agent, operation_name=Triage agent
+"chat gpt-4o"            # operation_type=chat, operation_name=gpt-4o  
+"retrieve documents"      # operation_type=retrieve, operation_name=documents
+"generate response"       # operation_type=generate, operation_name=response
+```
+
+### Step 3.3: Plan Semantic Conventions Usage
+
+**Extend semcov.py when needed:**
+```python
+# It's OK to add new semantic conventions for better attributes
+class SemanticConvention:
+    # Add framework-specific conventions
+    GEN_AI_AGENT_DESCRIPTION = "gen_ai.agent.description"
+    GEN_AI_AGENT_VERSION = "gen_ai.agent.version"
+    GEN_AI_WORKFLOW_TYPE = "gen_ai.workflow.type"
+```
 
 ## Phase 4: Code Implementation
 
-### Step 4.1: Implement __init__.py
+### Step 4.1: Create Test Infrastructure First
 
-Follow the optimized pattern:
-
+**Create span hierarchy test before implementing:**
 ```python
-"""
-OpenLIT {Framework} Instrumentation - Optimized for Performance
-"""
+# test_span_hierarchy.py - Always create this first
+import sys
+sys.path.insert(0, 'sdk/python/src')  # Use local source
 
-from typing import Collection
-import importlib.metadata
-from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
-from wrapt import wrap_function_wrapper
+import openlit
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-from openlit.instrumentation.{framework}.{framework} import general_wrap
-from openlit.instrumentation.{framework}.async_{framework} import async_general_wrap
+class CollectingSpanExporter:
+    def __init__(self):
+        self.spans = []
+    
+    def export(self, spans):
+        for span in spans:
+            self.spans.append({
+                'name': span.name,
+                'parent_id': format(span.parent.span_id, '016x') if span.parent else None,
+                'attributes': dict(span.attributes) if span.attributes else {}
+            })
+        return 0
 
-_instruments = ("{framework}-package >= X.Y.Z",)
+def print_span_hierarchy(spans):
+    """Print spans in hierarchical tree structure"""
+    # Build parent-child relationships
+    root_spans = [s for s in spans if s['parent_id'] is None]
+    child_map = {}
+    for span in spans:
+        if span['parent_id']:
+            child_map.setdefault(span['parent_id'], []).append(span)
+    
+    def print_span(span, level=0):
+        indent = "  " * level
+        prefix = "├── " if level > 0 else ""
+        print(f"{indent}{prefix}{span['name']}")
+        
+        span_id = format(int(span['parent_id'] or 0), '016x')
+        for child in child_map.get(span_id, []):
+            print_span(child, level + 1)
+    
+    for root in root_spans:
+        print_span(root)
 
-class {Framework}Instrumentor(BaseInstrumentor):
-    """Optimized instrumentor for {Framework} with minimal overhead"""
-
-    def instrumentation_dependencies(self) -> Collection[str]:
-        return _instruments
-
-    def _instrument(self, **kwargs):
-        version = importlib.metadata.version("{framework}-package")
-        environment = kwargs.get("environment", "default")
-        application_name = kwargs.get("application_name", "default")
-        tracer = kwargs.get("tracer")
-        pricing_info = kwargs.get("pricing_info", {})
-        capture_message_content = kwargs.get("capture_message_content", False)
-        metrics = kwargs.get("metrics_dict")
-        disable_metrics = kwargs.get("disable_metrics")
-        detailed_tracing = kwargs.get("detailed_tracing", False)
-
-        # Workflow operations (always enabled)
-        try:
-            wrap_function_wrapper(
-                "{framework}.module", "Class.method",
-                general_wrap("operation_type", version, environment, application_name, tracer,
-                    pricing_info, capture_message_content, metrics, disable_metrics)
-            )
-        except Exception:
-            pass  # Handle missing modules gracefully
-
-        # Component operations (only if detailed_tracing enabled)
-        if detailed_tracing:
-            components = [
-                ("{framework}.module", "Component.method", "component_type"),
-                # List all component operations
-            ]
-            
-            for module, method, component_type in components:
-                try:
-                    wrap_function_wrapper(
-                        module, method,
-                        general_wrap(component_type, version, environment, application_name, tracer,
-                            pricing_info, capture_message_content, metrics, disable_metrics)
-                    )
-                except Exception:
-                    pass  # Each component wrapped individually
-
-    def _uninstrument(self, **kwargs):
-        pass
+def test_framework():
+    collector = CollectingSpanExporter()
+    tracer_provider = TracerProvider()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(collector))
+    
+    openlit.init(detailed_tracing=True)
+    
+    # Test framework operations here
+    # ...
+    
+    print_span_hierarchy(collector.spans)
 ```
 
-### Step 4.2: Implement Sync Wrapper
+### Step 4.2: Implement Based on Integration Pattern
 
-In `{framework}.py`:
-
+**For Native Integration:**
 ```python
-"""
-Sync wrapper for {Framework} operations
-"""
-
-from opentelemetry import context as context_api
-from openlit.instrumentation.{framework}.utils import general_wrap_sync
-
-def general_wrap(operation_type, version, environment, application_name, tracer, 
-                pricing_info, capture_message_content, metrics, disable_metrics):
-    """
-    General wrapper for {Framework} operations with optimized performance
-    """
-    def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Check instrumentation suppression
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        return general_wrap_sync(
-            wrapped, instance, args, kwargs,
-            operation_type, version, environment, application_name, tracer,
-            pricing_info, capture_message_content, metrics, disable_metrics
-        )
-    
-    return wrapper
+# processor.py - When framework has built-in tracing
+class OpenLITTracingProcessor(FrameworkProcessor):
+    def on_span_start(self, span):
+        # Create OpenTelemetry span with proper naming
+        span_name = self._get_span_name(span)  # {operation_type} {operation_name}
+        otel_span = self._tracer.start_span(span_name, kind=SpanKind.CLIENT)
+        
+        # Set semantic convention attributes
+        self._set_common_attributes(otel_span, span)
+        
+    def _get_span_name(self, span):
+        operation_type = self._get_operation_type(span.span_data)
+        operation_name = self._extract_operation_name(span.span_data)
+        return f"{operation_type} {operation_name}"
 ```
 
-### Step 4.3: Implement Async Wrapper
-
-In `async_{framework}.py`:
-
+**For Function Wrapping:**
 ```python
-"""
-Async wrapper for {Framework} operations  
-"""
-
-from opentelemetry import context as context_api
-from openlit.instrumentation.{framework}.utils import general_wrap_async
-
-def async_general_wrap(operation_type, version, environment, application_name, tracer,
-                      pricing_info, capture_message_content, metrics, disable_metrics):
-    """
-    General async wrapper for {Framework} operations
-    """
-    def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Check instrumentation suppression
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        return general_wrap_async(
-            wrapped, instance, args, kwargs,
-            operation_type, version, environment, application_name, tracer,
-            pricing_info, capture_message_content, metrics, disable_metrics
-        )
-    
-    return wrapper
+# Follow existing 4-file structure
+# __init__.py, sync_wrapper.py, async_wrapper.py, utils.py
 ```
 
-### Step 4.4: Implement Utils.py
+### Step 4.3: Implement Comprehensive Attributes
 
-Core processing logic with comprehensive telemetry:
-
+**Use semantic conventions extensively:**
 ```python
-"""
-Utility functions for {Framework} instrumentation
-"""
-
-import time
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
-from openlit.__helpers import (
-    common_framework_span_attributes,
-    handle_exception,
-    record_framework_metrics,
-    format_content
-)
-from openlit.semcov import SemanticConvention
-
-# Operation mapping for semantic conventions
-OPERATION_MAP = {
-    "pipeline": "workflow",
-    "component": "component",
-    # Add framework-specific mappings
-}
-
-def general_wrap_sync(wrapped, instance, args, kwargs, operation_type, version, environment, 
-                     application_name, tracer, pricing_info, capture_message_content, 
-                     metrics, disable_metrics):
-    """
-    Synchronous wrapper with comprehensive telemetry
-    """
-    # Extract operation details
-    gen_ai_endpoint = OPERATION_MAP.get(operation_type, operation_type)
+def _set_span_attributes(self, span, data):
+    # Standard framework attributes
+    span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, "framework_name")
+    span.set_attribute(SemanticConvention.GEN_AI_OPERATION_NAME, operation_name)
     
-    # Create span name following pattern: "{operation_type} {component/model}"
-    component_name = _extract_component_name(instance, operation_type)
-    span_name = f"{gen_ai_endpoint} {component_name}"
-
-    with tracer.start_as_current_span(span_name) as span:
-        try:
-            # Set common framework attributes
-            _set_common_attributes(span, operation_type, instance, version, 
-                                 environment, application_name, gen_ai_endpoint)
-            
-            # Record request details
-            _record_request_details(span, args, kwargs, capture_message_content)
-            
-            # Execute operation
-            start_time = time.time()
-            response = wrapped(*args, **kwargs)
-            end_time = time.time()
-            
-            # Process response
-            try:
-                _process_response(span, response, operation_type, capture_message_content)
-                span.set_status(Status(StatusCode.OK))
-            except Exception as e:
-                handle_exception(span, e)
-                
-            # Record metrics
-            if not disable_metrics and metrics:
-                _record_operation_metrics(metrics, operation_type, start_time, end_time, 
-                                        environment, application_name)
-                
-        except Exception as e:
-            handle_exception(span, e)
-            raise
-            
-        return response
-
-def _extract_component_name(instance, operation_type):
-    """Extract component name for span naming"""
-    if hasattr(instance, '__class__'):
-        return instance.__class__.__name__.lower()
-    return operation_type
-
-def _set_common_attributes(span, operation_type, instance, version, environment, 
-                          application_name, gen_ai_endpoint):
-    """Set common framework span attributes"""
-    # Use centralized helper for standard attributes
-    common_framework_span_attributes(
-        span, "{framework}", None, None, environment, 
-        application_name, version, gen_ai_endpoint, instance
-    )
+    # Model information (critical for business intelligence)
+    model = self._extract_model_info(data)
+    if model:
+        span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model)
+    
+    # Content capture with MIME types (OpenLIT enhancement)
+    if self._capture_message_content:
+        self._capture_input_output_with_mime_types(span, data)
+    
+    # Business intelligence attributes
+    self._capture_token_usage(span, data)
+    self._capture_cost_metrics(span, data)
     
     # Framework-specific attributes
-    span.set_attribute(SemanticConvention.GEN_AI_OPERATION_TYPE, operation_type)
-
-def _record_request_details(span, args, kwargs, capture_message_content):
-    """Record request parameters and content"""
-    try:
-        # Extract and record input parameters
-        if capture_message_content:
-            # Record input content based on framework patterns
-            pass
-            
-        # Record technical parameters
-        _extract_technical_details(span, args, kwargs)
-        
-    except Exception:
-        pass  # Don't fail instrumentation for attribute errors
-
-def _process_response(span, response, operation_type, capture_message_content):
-    """Process and record response details"""
-    try:
-        if capture_message_content:
-            # Record output content
-            pass
-            
-        # Extract business metrics (tokens, cost, etc.)
-        _extract_business_metrics(span, response)
-        
-        # Extract technical framework details  
-        _extract_framework_details(span, response, operation_type)
-        
-    except Exception:
-        pass  # Don't fail instrumentation for response processing
-
-def _extract_technical_details(span, args, kwargs):
-    """Extract technical framework details for enhanced observability"""
-    # Component specifications
-    # Input/output types
-    # Framework-specific parameters
-    pass
-
-def _extract_business_metrics(span, response):
-    """Extract business intelligence metrics"""
-    # Token usage
-    # Cost calculations
-    # Performance metrics
-    pass
-
-def _extract_framework_details(span, response, operation_type):
-    """Extract framework-specific technical details"""
-    # Use semantic conventions from semcov
-    # Component connections
-    # Pipeline metadata
-    # Execution details
-    pass
-
-def _record_operation_metrics(metrics, operation_type, start_time, end_time, 
-                            environment, application_name):
-    """Record framework operation metrics"""
-    record_framework_metrics(
-        metrics, "{framework}", None, None, environment, 
-        application_name, start_time, end_time
-    )
-
-# Async version
-async def general_wrap_async(wrapped, instance, args, kwargs, operation_type, version, 
-                           environment, application_name, tracer, pricing_info, 
-                           capture_message_content, metrics, disable_metrics):
-    """
-    Asynchronous wrapper - mirrors sync implementation
-    """
-    # Same logic as sync version but with async/await
-    pass
+    if hasattr(data, 'agent_name'):
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, data.agent_name)
 ```
 
 ## Phase 5: Testing & Validation
 
-### Step 5.1: Create Test Scripts
+### Step 5.1: Create Comprehensive Test Suite
 
-**Basic Functionality Test:**
+**Test Categories:**
+1. **Span Hierarchy Test** (most important)
+2. **Competitive Comparison Test**
+3. **Mock Framework Test** (when real framework unavailable)
+4. **Error Resilience Test**
+
+**Span Hierarchy Validation:**
 ```python
-# test_basic_instrumentation.py
-import openlit
-from {framework} import *
-
-# Initialize with different configurations
-openlit.init(detailed_tracing=False)  # Workflow only
-openlit.init(detailed_tracing=True)   # Full instrumentation
-
-# Test basic operations
-# Verify span creation and attributes
+def test_span_hierarchy():
+    """Validate proper parent-child relationships and span naming"""
+    spans = run_instrumentation_test()
+    
+    # Validate hierarchy structure
+    assert len(spans) > 0, "Must generate spans"
+    
+    # Check root span exists
+    root_spans = [s for s in spans if s['parent_id'] is None]
+    assert len(root_spans) == 1, "Must have exactly one root span"
+    
+    # Validate span naming convention
+    for span in spans:
+        assert ' ' in span['name'], f"Span name '{span['name']}' should follow '{{operation_type}} {{operation_name}}' format"
+    
+    # Check semantic conventions
+    for span in spans:
+        attrs = span['attributes']
+        assert 'gen_ai.system' in attrs, "Must have gen_ai.system attribute"
 ```
 
-**Comparison Test:**
+### Step 5.2: Competitive Validation
+
+**Critical Test - OpenLIT vs Competitors:**
 ```python
-# test_competitive_comparison.py
-# Compare span count, attributes, and performance with competitors
-# Document improvements and advantages
+def test_competitive_superiority():
+    """Validate OpenLIT generates more/better spans than competitors"""
+    
+    # Test OpenLIT
+    openlit_spans = test_openlit_instrumentation()
+    
+    # Test competitors (with error handling)
+    try:
+        competitor1_spans = test_competitor_instrumentation("openinference")
+        competitor2_spans = test_competitor_instrumentation("openllmetry")
+    except Exception as e:
+        print(f"Competitor failed: {e}")
+        competitor1_spans = competitor2_spans = 0
+    
+    # Validate OpenLIT superiority
+    assert openlit_spans > 0, "OpenLIT must generate spans"
+    print(f"OpenLIT: {openlit_spans} spans (with business intelligence)")
+    print(f"Competitor 1: {competitor1_spans} spans") 
+    print(f"Competitor 2: {competitor2_spans} spans")
+    
+    # OpenLIT should provide comprehensive coverage
+    assert openlit_spans >= max(competitor1_spans, competitor2_spans)
 ```
 
-### Step 5.2: Validation Checklist
+### Step 5.3: Mock Testing When Framework Unavailable
 
-- [ ] **Span Creation**: Correct number and hierarchy of spans
-- [ ] **Span Naming**: Follows `{operation_type} {component}` pattern
-- [ ] **Attributes**: Uses semantic conventions from semcov
-- [ ] **Content Capture**: Captures input/output when enabled
-- [ ] **Error Handling**: Graceful failure for missing components
-- [ ] **Performance**: Minimal overhead impact
-- [ ] **Cross-System**: Integrates with LLM provider instrumentations
+**Create realistic mock scenarios:**
+```python
+def test_with_mocks():
+    """Test instrumentation when real framework isn't available"""
+    tracer = trace.get_tracer(__name__)
+    
+    # Create realistic span hierarchy manually
+    with tracer.start_as_current_span("agent Agent workflow") as root:
+        root.set_attribute("gen_ai.agent.name", "Agent workflow")
+        
+        with tracer.start_as_current_span("agent Triage agent") as agent:
+            agent.set_attribute("gen_ai.agent.name", "Triage agent")
+            
+            with tracer.start_as_current_span("chat gpt-4o") as chat:
+                chat.set_attribute("gen_ai.request.model", "gpt-4o")
+```
 
 ## Phase 6: Optimization
 
-### Step 6.1: Performance Optimization
+### Step 6.1: Performance Validation
 
-**Metrics to Track:**
-- Line count reduction (target: 60-70% of original)
-- Execution overhead (target: <5ms per operation)
-- Memory usage impact
-- Span creation efficiency
-
-### Step 6.2: Code Efficiency
-
-**Optimization Patterns:**
-- Use `general_wrap` pattern instead of individual wrappers
-- Centralize operation mapping in `OPERATION_MAP`
-- Leverage common helper functions
-- Implement lazy loading for expensive operations
-
-### Step 6.3: Competitive Validation Testing
-
-**Critical Testing Requirements:**
-After implementation, create comprehensive competitive tests to validate superiority:
-
+**Measure instrumentation overhead:**
 ```python
-# competitive_test.py - Test against OpenInference and OpenLLMetry
-import openlit
-import opentelemetry
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-
-def test_openlit_vs_competitors():
-    """
-    Test OpenLIT against competitors for reliability and span generation
-    """
+def benchmark_performance():
+    """Measure instrumentation performance impact"""
+    import time
     
-    # Test OpenLIT implementation
-    openlit.init(detailed_tracing=True)
-    spans_openlit = run_framework_operations()
+    # Test without instrumentation
+    start = time.time()
+    run_framework_operations(count=100)
+    baseline = time.time() - start
     
-    # Test competitor implementations (with error handling)
-    try:
-        # Configure competitor tracing
-        spans_competitor1 = test_competitor_implementation("openinference")
-        spans_competitor2 = test_competitor_implementation("openllmetry")
-    except Exception as e:
-        print(f"Competitor failed: {e}")
-        spans_competitor1 = spans_competitor2 = 0
+    # Test with instrumentation
+    openlit.init()
+    start = time.time()
+    run_framework_operations(count=100)
+    instrumented = time.time() - start
     
-    # Validate OpenLIT superiority
-    assert spans_openlit > 0, "OpenLIT must generate spans"
-    assert spans_openlit >= spans_competitor1, "OpenLIT should match/exceed competitor spans"
-    assert spans_openlit >= spans_competitor2, "OpenLIT should match/exceed competitor spans"
-    
-    print(f"OpenLIT: {spans_openlit} spans")
-    print(f"Competitor 1: {spans_competitor1} spans") 
-    print(f"Competitor 2: {spans_competitor2} spans")
+    overhead = ((instrumented - baseline) / baseline) * 100
+    print(f"Instrumentation overhead: {overhead:.2f}%")
+    assert overhead < 10, "Overhead should be under 10%"
 ```
 
-**Validation Success Criteria:**
-- OpenLIT generates spans when competitors fail
-- OpenLIT span count >= competitor span count  
-- OpenLIT provides enhanced business intelligence
-- OpenLIT demonstrates better error resilience
-- OpenLIT shows superior OpenTelemetry SDK compatibility
+### Step 6.2: Business Intelligence Validation
 
-### Step 6.4: Error Resilience Validation
-
-**Version Compatibility Testing:**
+**Verify OpenLIT's competitive advantages:**
 ```python
-# Test across different OpenTelemetry SDK versions
-def test_version_compatibility():
-    """Test instrumentation works across SDK versions"""
-    sdk_versions = ["1.19.0", "1.20.0", "1.21.0", "latest"]
+def test_business_intelligence():
+    """Validate comprehensive business metrics capture"""
+    spans = run_instrumentation_test()
     
-    for version in sdk_versions:
-        try:
-            # Test with specific SDK version
-            test_result = run_instrumentation_test(sdk_version=version)
-            assert test_result.spans_generated > 0
-            print(f"✅ Compatible with OpenTelemetry SDK {version}")
-        except Exception as e:
-            print(f"❌ Failed with SDK {version}: {e}")
-```
-
-**Framework Version Testing:**
-```python
-# Test across different framework versions
-def test_framework_compatibility():
-    """Test instrumentation gracefully handles missing components"""
+    business_attributes = [
+        'gen_ai.usage.input_tokens',
+        'gen_ai.usage.output_tokens',
+        'gen_ai.client.operation.duration',
+        'gen_ai.request.model'
+    ]
     
-    # Test with minimal framework installation
-    # Test with full framework installation  
-    # Test with missing optional components
-    # Verify graceful degradation in all cases
+    for span in spans:
+        attrs = span['attributes']
+        found_attrs = [attr for attr in business_attributes if attr in attrs]
+        print(f"Span '{span['name']}': {len(found_attrs)}/{len(business_attributes)} business attributes")
 ```
 
 ## Phase 7: Post-Change Cleanup
 
-**CRITICAL**: After implementing any changes, always run comprehensive cleanup to ensure code quality compliance.
+**CRITICAL**: Always run comprehensive cleanup after implementation:
 
-### Step 7.1: Run Pylint Checks
+### Step 7.1: Automated Code Quality Check
 
 ```bash
-# Check specific issues that commonly occur after changes
-pylint --disable=all --enable=line-too-long,trailing-whitespace,missing-final-newline,trailing-newlines,syntax-error,unused-import,consider-iterating-dictionary,consider-using-in,too-many-nested-blocks src/openlit/instrumentation/{framework}/
-```
+#!/bin/bash
+# cleanup_instrumentation.sh
+FRAMEWORK_DIR="src/openlit/instrumentation/$1"
 
-### Step 7.2: Common Issues and Automated Fixes
+echo "🧹 Cleaning up $FRAMEWORK_DIR..."
 
-**1. Trailing Whitespace (C0303)**
-```bash
-# Remove trailing whitespace from all files
-for file in $(find src/openlit/instrumentation/{framework} -name "*.py"); do
-    sed 's/[[:space:]]*$//' "$file" > /tmp/temp_file && mv /tmp/temp_file "$file"
-done
-```
+# Remove trailing whitespace
+find "$FRAMEWORK_DIR" -name "*.py" -exec sed -i '' 's/[[:space:]]*$//' {} \;
 
-**2. Missing Final Newlines (C0304)**
-```bash
 # Add missing final newlines
-for file in $(find src/openlit/instrumentation/{framework} -name "*.py"); do
+find "$FRAMEWORK_DIR" -name "*.py" | while read file; do
     if [[ ! -s "$file" || $(tail -c1 "$file" | wc -l) -eq 0 ]]; then
         echo "" >> "$file"
     fi
 done
+
+# Check syntax
+for file in "$FRAMEWORK_DIR"/*.py; do
+    python3 -m py_compile "$file" || echo "❌ Syntax error in $file"
+done
+
+# Check line lengths
+long_lines=$(find "$FRAMEWORK_DIR" -name "*.py" -exec awk 'length($0) > 80' {} \; | wc -l)
+echo "Lines over 80 characters: $long_lines"
 ```
 
-**3. Line Too Long (C0301)**
+### Step 7.2: Comprehensive Pylint Error Handling
+
+**Run Pylint Check with Project Configuration:**
 ```bash
-# Find long lines for manual fixing
-awk 'length($0) > 80 { print FILENAME ":" NR ":" length($0) ":" $0 }' src/openlit/instrumentation/{framework}/*.py
+# Use the project's pylintrc configuration
+cd sdk/python
+pylint src/openlit/instrumentation/{framework}/ --rcfile=.pylintrc
 ```
 
-**Manual fixes for long lines:**
+**Note**: The project's `.pylintrc` disables many common warnings like `broad-exception-caught`, `too-many-locals`, etc.
+
+### Step 7.3: Configure Project Pylint Rules
+
+**Add `import-outside-toplevel` to disabled rules in `sdk/python/.pylintrc`:**
+
+```ini
+[MESSAGES CONTROL]
+disable=
+    # ... existing rules ...
+    import-outside-toplevel    # Essential for optional dependencies
+```
+
+**Why**: Import-outside-toplevel warnings are triggered by correct optional dependency patterns in OpenLIT.
+
+### Step 7.4: Optimize Dummy Classes for Perfect Score
+
+**Eliminate unnecessary dummy classes to achieve 10.00/10:**
+
+#### **Use TYPE_CHECKING Pattern for Type-Only Classes**
 ```python
+from typing import TYPE_CHECKING
+
+try:
+    from framework import MainClass
+    if TYPE_CHECKING:
+        from framework import TypeOnlyClass1, TypeOnlyClass2
+    AVAILABLE = True
+except ImportError:
+    class MainClass:
+        """Dummy class - actually used at runtime"""
+        def method(self): return None
+    
+    if TYPE_CHECKING:
+        # Type hints only - don't exist at runtime
+        TypeOnlyClass1 = Any
+        TypeOnlyClass2 = Any
+    AVAILABLE = False
+
+# Use quoted type hints for methods
+def process(self, item: "TypeOnlyClass1") -> None:
+```
+
+#### **When R0903 is Still Acceptable**
+- **Status**: ✅ **ACCEPTABLE** for classes actually used at runtime
+- **Example**: TracingProcessor base class that's inherited from
+
+**Target Score**: **10.00/10** is achievable for most instrumentations
+
+### Step 7.5: Common Pylint Issues and Fixes
+
+#### **C0301: Line Too Long**
+**Problem**: Lines exceed character limit (135 characters per project pylintrc)
+
+**Fix Pattern**:
+```python
+# BAD: Long function call
+span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, handle_not_given(kwargs.get("frequency_penalty"), 0.0))
+
+# GOOD: Split across multiple lines
+span.set_attribute(
+    SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, 
+    handle_not_given(kwargs.get("frequency_penalty"), 0.0)
+)
+
+# BAD: Long function call with many parameters
+common_span_attributes(scope, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_OPENAI, server_address, server_port, request_model, response_model, environment, application_name, is_stream, tbt, ttft, version)
+
+# GOOD: Split parameters logically
+common_span_attributes(
+    scope,
+    SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, 
+    SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+    server_address, server_port, request_model, 
+    response_model, environment, application_name, 
+    is_stream, tbt, ttft, version
+)
+
 # BAD: Long import
 from openlit.instrumentation.framework.async_framework import async_general_wrap
 
@@ -622,81 +558,200 @@ from openlit.instrumentation.framework.async_framework import async_general_wrap
 from openlit.instrumentation.framework.async_framework import (
     async_general_wrap
 )
+```
 
-# BAD: Long tuple
-("very.long.module.name", "VeryLongClassName.very_long_method_name", "operation_type"),
+#### **C0303: Trailing Whitespace**
+**Automated Fix**:
+```bash
+# Remove all trailing whitespace
+find src/openlit/instrumentation/{framework} -name "*.py" -exec sed -i '' 's/[[:space:]]*$//' {} \;
+```
 
-# GOOD: Split tuple
-("very.long.module.name", 
- "VeryLongClassName.very_long_method_name", "operation_type"),
+#### **C0304: Missing Final Newline**
+**Automated Fix**:
+```bash
+# Add missing final newlines
+find src/openlit/instrumentation/{framework} -name "*.py" | while read file; do
+    if [[ ! -s "$file" || $(tail -c1 "$file" | wc -l) -eq 0 ]]; then
+        echo "" >> "$file"
+    fi
+done
+```
 
-# BAD: Long function call
-wrap_function_wrapper(module, method, general_wrap(operation_type, version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics))
+#### **C0115: Missing Class Docstring**
+**Fix Pattern**:
+```python
+# BAD: No docstring
+class TracingProcessor:
+    def force_flush(self): pass
 
-# GOOD: Split function call
-wrap_function_wrapper(
-    module, method,
-    general_wrap(operation_type, version, environment, application_name,
-                tracer, pricing_info, capture_message_content,
-                metrics, disable_metrics)
+# GOOD: Add descriptive docstring
+class TracingProcessor:
+    """Dummy TracingProcessor class for when agents is not available"""
+    
+    def force_flush(self):
+        """Dummy force_flush method"""
+        pass
+```
+
+#### **C0116: Missing Function Docstring**
+**Fix Pattern**:
+```python
+# BAD: No docstring
+def _extract_model_info(self, data):
+    return data.model
+
+# GOOD: Add descriptive docstring
+def _extract_model_info(self, data):
+    """Extract model information from span data or agent configuration"""
+    return data.model
+```
+
+#### **C0321: Multiple Statements on Single Line**
+**Fix Pattern**:
+```python
+# BAD: Multiple statements
+def force_flush(self): pass
+class Trace: pass
+
+# GOOD: Separate lines with proper formatting
+def force_flush(self):
+    """Dummy force_flush method"""
+    pass
+
+class Trace:
+    """Dummy Trace class for when agents is not available"""
+    pass
+```
+
+#### **C0415: Import Outside Toplevel**
+**Context**: These warnings are **ACCEPTABLE** and **REQUIRED** for optional dependencies
+
+**Correct Pattern (DO NOT "FIX")**:
+```python
+# This is CORRECT for optional dependencies - keep as-is
+def _instrument(self, **kwargs):
+    try:
+        from agents import set_trace_processors  # CORRECT inside function
+        set_trace_processors([processor])
+    except ImportError:
+        pass  # Package not available
+```
+
+**Why This is Correct**:
+- Prevents import errors when target package isn't installed
+- Essential for OpenLIT's optional dependency pattern
+- Moving to top level would break instrumentation
+
+**Only Fix When**:
+```python
+# ONLY move to top level for always-needed imports
+import json  # At top of file when always used
+from typing import Any, Dict, Optional
+
+def _capture_model_parameters(self, span, data):
+    try:
+        params = {"model": data.model}
+        span.set_attribute("gen_ai.request.parameters", json.dumps(params))
+    except Exception:
+        pass
+```
+
+#### **E0602: Undefined Variable**
+**Problem**: Variable used before definition
+
+**Fix Pattern**:
+```python
+# BAD: Undefined variable
+cost = get_chat_model_cost(model, pricing_info, input_tokens, output_tokens)
+
+# GOOD: Import the function
+from openlit.__helpers import (
+    common_framework_span_attributes,
+    handle_exception,
+    get_chat_model_cost  # Add missing import
 )
 ```
 
-**4. Syntax Errors (E0001)**
-```bash
-# Test compilation to catch syntax errors
-python3 -m py_compile src/openlit/instrumentation/{framework}/*.py
-```
+#### **Syntax Errors: Missing except/finally**
+**Problem**: Try block without proper exception handling
 
-**5. Code Quality Issues**
-
-**Unused Imports (W0611)**
+**Fix Pattern**:
 ```python
-# BAD: Unused import
-from typing import Dict, Any, Optional  # Optional not used
+# BAD: Missing except block
+def _extract_token_usage(self, span, data):
+    try:
+        usage = data.usage
+        span.set_attribute("gen_ai.usage.input_tokens", usage.input_tokens)
 
-# GOOD: Remove unused
-from typing import Dict, Any
+# GOOD: Add except block
+def _extract_token_usage(self, span, data):
+    try:
+        usage = data.usage
+        span.set_attribute("gen_ai.usage.input_tokens", usage.input_tokens)
+    except Exception:
+        pass  # Ignore errors in token usage extraction
 ```
 
-**Consider Using 'in' (R1714)**
-```python
-# BAD: Multiple or comparisons
-if endpoint == "query" or endpoint == "query_async":
-
-# GOOD: Use 'in' operator
-if endpoint in ("query", "query_async"):
-```
-
-**Too Many Nested Blocks (R1702)**
+#### **R1702: Too Many Nested Blocks**
+**Fix Pattern**:
 ```python
 # BAD: Deep nesting
-if condition1:
-    if condition2:
-        if condition3:
-            if condition4:
-                if condition5:
-                    # Too nested
+def process_data(self, data):
+    if hasattr(data, 'config'):
+        if data.config:
+            if hasattr(data.config, 'model'):
+                if data.config.model:
+                    if isinstance(data.config.model, str):
+                        return data.config.model
 
-# GOOD: Early returns or extraction
-if not condition1:
-    return
-if not condition2:
-    return
-# Process main logic
+# GOOD: Early returns
+def process_data(self, data):
+    if not hasattr(data, 'config'):
+        return None
+    if not data.config:
+        return None
+    if not hasattr(data.config, 'model'):
+        return None
+    if not data.config.model:
+        return None
+    if not isinstance(data.config.model, str):
+        return None
+    return data.config.model
 ```
 
-### Step 7.3: Automated Cleanup Script
+#### **R0903: Too Few Public Methods**
+**Context**: **ACCEPTABLE** and **EXPECTED** for dummy/placeholder classes
 
-Create a cleanup script for consistent application:
+**Correct Pattern (DO NOT "FIX")**:
+```python
+# This is CORRECT for dummy classes - keep as-is
+class TracingProcessor:
+    """Dummy TracingProcessor class for when agents is not available"""
+    
+    def force_flush(self):
+        """Dummy force_flush method"""
+        return None
+    
+    def shutdown(self):
+        """Dummy shutdown method"""
+        return None
+```
 
+**Why This is Correct**:
+- Dummy classes by design to prevent import errors
+- Only need minimal methods to satisfy interfaces
+- Adding unnecessary methods would be incorrect
+
+### Step 7.6: Automated Pylint Fix Script
+
+**Create comprehensive fix script:**
 ```bash
 #!/bin/bash
-# cleanup_instrumentation.sh
-
+# fix_pylint_issues.sh
 FRAMEWORK_DIR="src/openlit/instrumentation/$1"
 
-echo "🧹 Cleaning up $FRAMEWORK_DIR..."
+echo "🔧 Fixing Pylint issues in $FRAMEWORK_DIR..."
 
 # 1. Remove trailing whitespace
 echo "  ✂️  Removing trailing whitespace..."
@@ -710,53 +765,239 @@ find "$FRAMEWORK_DIR" -name "*.py" | while read file; do
     fi
 done
 
-# 3. Check for syntax errors
+# 3. Check syntax errors
 echo "  🔍 Checking syntax..."
+syntax_errors=0
 for file in "$FRAMEWORK_DIR"/*.py; do
     if ! python3 -m py_compile "$file" 2>/dev/null; then
         echo "    ❌ Syntax error in $file"
+        syntax_errors=$((syntax_errors + 1))
     fi
 done
 
-# 4. Find long lines
+# 4. Check line lengths and provide guidance
 echo "  📏 Checking line lengths..."
-long_lines=$(find "$FRAMEWORK_DIR" -name "*.py" -exec awk 'length($0) > 80 { print FILENAME ":" NR ":" length($0) }' {} \; | wc -l)
-if [ "$long_lines" -gt 0 ]; then
-    echo "    ⚠️  Found $long_lines lines over 80 characters"
-    find "$FRAMEWORK_DIR" -name "*.py" -exec awk 'length($0) > 80 { print FILENAME ":" NR ":" length($0) }' {} \;
+long_lines=$(find "$FRAMEWORK_DIR" -name "*.py" -exec awk 'length($0) > 135 { print FILENAME ":" NR ":" length($0) ":" $0 }' {} \;)
+if [ -n "$long_lines" ]; then
+    echo "    ⚠️  Long lines found (>135 chars):"
+    echo "$long_lines" | head -5
+    echo "    💡 Split long lines using the patterns in the guide"
 fi
 
-echo "✅ Cleanup complete!"
+# 5. Final validation
+echo "  ✅ Running final validation..."
+if [ $syntax_errors -eq 0 ]; then
+    echo "✅ All syntax errors fixed!"
+else
+    echo "❌ $syntax_errors syntax errors remaining - manual fix required"
+fi
+
+# 6. Run limited pylint check
+echo "  🔍 Running key pylint checks..."
+pylint --disable=all --enable=syntax-error,undefined-variable,trailing-whitespace,missing-final-newline "$FRAMEWORK_DIR" 2>/dev/null || echo "Some pylint issues remain - check manually"
+
+echo "🎉 Pylint fix script completed!"
+echo "💡 Run full pylint check and fix remaining issues manually"
 ```
 
-**Usage:**
+### Step 7.7: Manual Fix Checklist
+
+**Before committing, verify:**
+- [ ] ✅ All files compile without syntax errors
+- [ ] ✅ No trailing whitespace
+- [ ] ✅ All files end with newline  
+- [ ] ✅ No lines over 135 characters (or split appropriately)
+- [ ] ✅ All classes have docstrings
+- [ ] ✅ All public methods have docstrings
+- [ ] ✅ No undefined variables
+- [ ] ✅ Try blocks have except/finally
+- [ ] ✅ Imports are at top level when possible
+- [ ] ✅ Nested blocks reduced where possible
+
+### Step 7.8: Usage Instructions
+
+**Run the fix script:**
 ```bash
-chmod +x cleanup_instrumentation.sh
-./cleanup_instrumentation.sh llamaindex
-./cleanup_instrumentation.sh haystack
+chmod +x fix_pylint_issues.sh
+./fix_pylint_issues.sh openai_agents
+./fix_pylint_issues.sh haystack
 ```
 
-### Step 7.4: Final Validation
-
-**Required Checks Before Commit:**
-1. ✅ All files compile without syntax errors
-2. ✅ No trailing whitespace
-3. ✅ All files end with newline
-4. ✅ No lines over 80 characters (or acceptable limit)
-5. ✅ No unused imports
-6. ✅ Code quality issues resolved
-
-**Validation Commands:**
+**Final validation:**
 ```bash
-# Complete validation suite
-python3 -m py_compile src/openlit/instrumentation/{framework}/*.py
-grep -r " $" src/openlit/instrumentation/{framework}/ | wc -l  # Should be 0
-find src/openlit/instrumentation/{framework} -name "*.py" -exec awk 'length($0) > 80' {} \; | wc -l  # Should be 0
-pylint --disable=all --enable=line-too-long,trailing-whitespace,missing-final-newline,trailing-newlines,syntax-error,unused-import src/openlit/instrumentation/{framework}/
+# Check specific framework
+pylint src/openlit/instrumentation/openai_agents/
+
+# Quick syntax check
+python3 -m py_compile src/openlit/instrumentation/openai_agents/*.py
+
+# Test instrumentation still works
+cd sdk/python && PYTHONPATH=src python -c "
+import openlit
+openlit.init()
+print('✅ Instrumentation works after pylint fixes')
+"
 ```
 
-**Success Criteria:**
-- Exit code 0 from py_compile (no syntax errors)
-- 0 trailing whitespace instances
-- 0 lines over length limit
-- Clean pylint output for enabled checks 
+### Step 7.9: Testing After Pylint Fixes
+
+**CRITICAL**: Always test that instrumentation works after fixing pylint issues:
+
+```python
+# test_after_pylint_fix.py
+import sys
+sys.path.insert(0, 'sdk/python/src')
+
+import openlit
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+class TestExporter:
+    def __init__(self): 
+        self.spans = []
+    def export(self, spans): 
+        self.spans.extend(spans)
+        return 0
+    def shutdown(self): 
+        pass
+
+def test_instrumentation_after_fixes():
+    """Test that instrumentation works after pylint fixes"""
+    exporter = TestExporter()
+    tracer_provider = TracerProvider()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+    
+    # Initialize OpenLIT
+    openlit.init(detailed_tracing=True)
+    
+    # Run basic test based on framework
+    # ... framework-specific test code ...
+    
+    tracer_provider.force_flush(1000)
+    
+    assert len(exporter.spans) > 0, "Instrumentation should generate spans"
+    print(f"✅ Generated {len(exporter.spans)} spans after pylint fixes")
+    
+    # Validate span naming convention
+    for span in exporter.spans:
+        assert ' ' in span.name, f"Span '{span.name}' should follow '{{operation_type}} {{operation_name}}' format"
+    
+    print("✅ All tests passed - instrumentation working correctly")
+
+if __name__ == "__main__":
+    test_instrumentation_after_fixes()
+```
+
+## Code Standards & Patterns
+
+### Span Naming Convention
+
+**MANDATORY Format**: `{operation_type} {operation_name}`
+
+```python
+# ✅ CORRECT
+"agent Triage agent"
+"chat gpt-4o"
+"retrieve documents"
+"generate response"
+"workflow multi-agent"
+
+# ❌ INCORRECT  
+"Triage agent"           # Missing operation type
+"agent_execution"        # Wrong format
+"chat_completion_gpt4"   # Wrong format
+```
+
+### Semantic Conventions Usage
+
+**Extensive usage required - add to semcov.py when needed:**
+
+```python
+# Always use semantic conventions
+span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, "framework_name")
+span.set_attribute(SemanticConvention.GEN_AI_OPERATION_NAME, operation_name)
+span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model)
+
+# Add new conventions when needed
+class SemanticConvention:
+    GEN_AI_AGENT_DESCRIPTION = "gen_ai.agent.description"
+    GEN_AI_WORKFLOW_TYPE = "gen_ai.workflow.type"
+```
+
+### Business Intelligence Attributes
+
+**Always capture OpenLIT's competitive advantages:**
+
+```python
+# Token usage and cost tracking
+span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
+span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
+span.set_attribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration)
+
+# Content capture with MIME types
+span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, content)
+span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, response)
+```
+
+## Quality Checklist
+
+### Phase Completion Checklist
+
+**Phase 1 - Competitive Analysis:**
+- [ ] Competitor repositories cloned and analyzed
+- [ ] Integration patterns documented
+- [ ] Competitive gaps identified
+- [ ] OpenLIT advantages planned
+
+**Phase 2 - Framework Analysis:**
+- [ ] Built-in capabilities explored
+- [ ] Method discovery completed
+- [ ] Integration pattern chosen
+- [ ] Operation mapping defined
+
+**Phase 3 - Implementation Strategy:**
+- [ ] Span naming convention defined
+- [ ] Semantic conventions planned
+- [ ] Test infrastructure designed
+
+**Phase 4 - Implementation:**
+- [ ] Test script created first
+- [ ] Integration pattern implemented
+- [ ] Semantic conventions used extensively
+- [ ] Business intelligence captured
+
+**Phase 5 - Testing:**
+- [ ] Span hierarchy validated
+- [ ] Competitive comparison passed
+- [ ] Mock testing completed
+- [ ] Error resilience tested
+
+**Phase 6 - Optimization:**
+- [ ] Performance overhead measured (<10%)
+- [ ] Business intelligence validated
+- [ ] Competitive advantages confirmed
+
+**Phase 7 - Cleanup:**
+- [ ] Code quality checks passed
+- [ ] Syntax errors resolved
+- [ ] Line length compliant
+- [ ] Final validation completed
+
+### Success Criteria
+
+**Instrumentation is complete when:**
+1. ✅ Generates more/better spans than competitors
+2. ✅ Follows `{operation_type} {operation_name}` naming
+3. ✅ Uses semantic conventions extensively
+4. ✅ Captures comprehensive business intelligence
+5. ✅ Maintains proper span hierarchy
+6. ✅ Performance overhead <10%
+7. ✅ Handles errors gracefully
+8. ✅ **Perfect 10.00/10 pylint score achieved**
+
+**OpenLIT Competitive Advantages Delivered:**
+- 🎯 **Business Intelligence**: Cost tracking, token usage, performance metrics
+- 🔗 **Cross-System Integration**: Links to LLM provider spans
+- 🎨 **Enhanced Observability**: MIME types, structured content capture
+- 🛡️ **Error Resilience**: Graceful degradation across framework versions
+- 📊 **Comprehensive Coverage**: More spans and attributes than competitors 

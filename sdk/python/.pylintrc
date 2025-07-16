@@ -31,4 +31,5 @@ disable=
     expression-not-assigned,
     unnecessary-direct-lambda-call,
     no-member,
-    no-else-return
+    no-else-return,
+    import-outside-toplevel
