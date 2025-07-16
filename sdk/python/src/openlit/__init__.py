@@ -22,7 +22,7 @@ from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
 from openlit.otel.events import setup_events
 from openlit.__helpers import fetch_pricing_info, get_env_variable
-from openlit._instrumentors import MODULE_NAME_MAP, create_instrumentor_instances
+from openlit._instrumentors import MODULE_NAME_MAP, get_all_instrumentors
 
 # Import GPU instrumentor separately as it doesn't follow the standard pattern
 from openlit.instrumentation.gpu import GPUInstrumentor
@@ -288,7 +288,7 @@ def init(
         )
 
         # Create instrumentor instances dynamically
-        instrumentor_instances = create_instrumentor_instances()
+        instrumentor_instances = get_all_instrumentors()
 
         # Initialize and instrument only the enabled instrumentors
         for name, instrumentor in instrumentor_instances.items():
