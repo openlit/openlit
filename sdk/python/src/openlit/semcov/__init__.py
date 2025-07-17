@@ -6,6 +6,8 @@ intended for use across different components of AI applications, including reque
 response processing, usage metrics, and interaction with vector databases and AI systems.
 The purpose is to standardize the semantics for easier integration, analytics, and maintenance.
 """
+
+
 class SemanticConvention:
     """
     The SemanticConvention class provides a centralized repository of constant values that
@@ -155,9 +157,15 @@ class SemanticConvention:
     GEN_AI_FRAMEWORK_PIPELINE_INPUT_DATA = "gen_ai.framework.pipeline.input_data"
     GEN_AI_FRAMEWORK_PIPELINE_OUTPUT_DATA = "gen_ai.framework.pipeline.output_data"
     GEN_AI_FRAMEWORK_PIPELINE_METADATA = "gen_ai.framework.pipeline.metadata"
-    GEN_AI_FRAMEWORK_PIPELINE_MAX_RUNS = "gen_ai.framework.pipeline.max_runs_per_component"
-    GEN_AI_FRAMEWORK_PIPELINE_COMPONENT_COUNT = "gen_ai.framework.pipeline.component_count"
-    GEN_AI_FRAMEWORK_PIPELINE_EXECUTION_TIME = "gen_ai.framework.pipeline.execution_time"
+    GEN_AI_FRAMEWORK_PIPELINE_MAX_RUNS = (
+        "gen_ai.framework.pipeline.max_runs_per_component"
+    )
+    GEN_AI_FRAMEWORK_PIPELINE_COMPONENT_COUNT = (
+        "gen_ai.framework.pipeline.component_count"
+    )
+    GEN_AI_FRAMEWORK_PIPELINE_EXECUTION_TIME = (
+        "gen_ai.framework.pipeline.execution_time"
+    )
 
     # GenAI Request Attributes (Extra)
     GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.is_stream"
@@ -219,7 +227,6 @@ class SemanticConvention:
     DB_QUERY_TEXT = "db.query.text"
     DB_QUERY_SUMMARY = "db.query.summary"
     DB_RESPONSE_RETURNED_ROWS = "db.response.returned_rows"
-
 
     # Vector DB Attributes (Extras)
     DB_SDK_VERSION = "db.sdk.version"
@@ -285,7 +292,6 @@ class SemanticConvention:
     GEN_AI_AGENT_ID = "gen_ai.agent.id"
     GEN_AI_AGENT_NAME = "gen_ai.agent.name"
     GEN_AI_AGENT_DESCRIPTION = "gen_ai.agent.description"
-
 
     GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
@@ -405,6 +411,64 @@ class SemanticConvention:
     GEN_AI_FRAMEWORK_INDEX_NAME = "gen_ai.framework.index.name"
     GEN_AI_FRAMEWORK_INDEX_TYPE = "gen_ai.framework.index.type"
 
+    # === GENERAL FRAMEWORK SEMANTIC CONVENTIONS (reusable across frameworks) ===
+
+    # Framework tracing attributes (general, reusable across frameworks)
+    GEN_AI_FRAMEWORK_TAGS = "gen_ai.framework.tags"
+
+    # Framework performance tracking (general)
+    GEN_AI_FRAMEWORK_PERFORMANCE_VS_BASELINE = (
+        "gen_ai.framework.performance.vs_baseline"
+    )
+    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_AVG = (
+        "gen_ai.framework.performance.baseline_avg"
+    )
+    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_PERCENTILE = (
+        "gen_ai.framework.performance.baseline_percentile"
+    )
+
+    # Framework error classification (general)
+    GEN_AI_FRAMEWORK_ERROR_CLASS = "gen_ai.framework.error.class"
+    GEN_AI_FRAMEWORK_ERROR_TYPE = "gen_ai.framework.error.type"
+    GEN_AI_FRAMEWORK_ERROR_MESSAGE = "gen_ai.framework.error.message"
+
+    # Workflow attributes (general, reusable)
+    GEN_AI_WORKFLOW_TYPE = "gen_ai.workflow.type"
+    GEN_AI_WORKFLOW_INPUT = "gen_ai.workflow.input"
+    GEN_AI_WORKFLOW_OUTPUT = "gen_ai.workflow.output"
+
+    # Serialized function information (general, reusable)
+    GEN_AI_SERIALIZED_NAME = "gen_ai.serialized.name"
+    GEN_AI_SERIALIZED_SIGNATURE = "gen_ai.serialized.signature"
+    GEN_AI_SERIALIZED_DOC = "gen_ai.serialized.doc"
+    GEN_AI_SERIALIZED_MODULE = "gen_ai.serialized.module"
+
+    # Tool operation attributes (general, reusable)
+    GEN_AI_TOOL_INPUT = "gen_ai.tool.input"
+    GEN_AI_TOOL_OUTPUT = "gen_ai.tool.output"
+
+    # Retrieval operation attributes (general, reusable)
+    GEN_AI_RETRIEVAL_QUERY = "gen_ai.retrieval.query"
+    GEN_AI_RETRIEVAL_DOCUMENT_COUNT = "gen_ai.retrieval.document_count"
+    GEN_AI_RETRIEVAL_DOCUMENTS = "gen_ai.retrieval.documents"
+
+    # Provider information (general, reusable)
+    GEN_AI_REQUEST_PROVIDER = "gen_ai.request.provider"
+
+    # Enhanced token details (general, reusable across providers)
+    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_AUDIO = (
+        "gen_ai.usage.completion_tokens_details.audio"
+    )
+    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = (
+        "gen_ai.usage.completion_tokens_details.reasoning"
+    )
+    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = (
+        "gen_ai.usage.prompt_tokens_details.cache_read"
+    )
+    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE = (
+        "gen_ai.usage.prompt_tokens_details.cache_write"
+    )
+
     # === STANDARD OPENTELEMETRY SEMANTIC CONVENTIONS ===
     # These are framework-agnostic and reusable across all agent frameworks
 
@@ -415,7 +479,9 @@ class SemanticConvention:
     GEN_AI_OPENAI_RUN_ID = "gen_ai.openai.run.id"
     GEN_AI_OPENAI_REQUEST_SERVICE_TIER = "gen_ai.openai.request.service_tier"
     GEN_AI_OPENAI_RESPONSE_SERVICE_TIER = "gen_ai.openai.response.service_tier"
-    GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT = "gen_ai.openai.response.system_fingerprint"
+    GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT = (
+        "gen_ai.openai.response.system_fingerprint"
+    )
 
     # Data Source Attributes (for RAG and knowledge retrieval)
     GEN_AI_DATA_SOURCE_ID = "gen_ai.data_source.id"

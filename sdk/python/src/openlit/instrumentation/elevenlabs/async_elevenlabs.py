@@ -8,8 +8,18 @@ from openlit.__helpers import handle_exception
 from openlit.instrumentation.elevenlabs.utils import process_audio_response
 from openlit.semcov import SemanticConvention
 
-def async_generate(gen_ai_endpoint, version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def async_generate(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -20,7 +30,9 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
         """
 
         server_address, server_port = "api.elevenlabs.io", 443
-        request_model = kwargs.get("model", kwargs.get("model_id", "eleven_multilingual_v2"))
+        request_model = kwargs.get(
+            "model", kwargs.get("model_id", "eleven_multilingual_v2")
+        )
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}"
 
@@ -44,7 +56,7 @@ def async_generate(gen_ai_endpoint, version, environment, application_name,
                     kwargs=kwargs,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
-                    version=version
+                    version=version,
                 )
 
             except Exception as e:

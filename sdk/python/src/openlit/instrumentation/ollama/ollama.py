@@ -4,20 +4,26 @@ Module for monitoring Ollama API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.ollama.utils import (
     process_chunk,
     process_chat_response,
     process_streaming_chat_response,
-    process_embedding_response
+    process_embedding_response,
 )
 from openlit.semcov import SemanticConvention
 
-def chat(version, environment, application_name,
-            tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def chat(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for Ollama chat function call
     """
@@ -28,15 +34,15 @@ def chat(version, environment, application_name,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                args,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            args,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._llmresponse = ""
@@ -78,7 +84,9 @@ def chat(version, environment, application_name,
                 return chunk
             except StopIteration:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind=SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -87,7 +95,7 @@ def chat(version, environment, application_name,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -101,7 +109,9 @@ def chat(version, environment, application_name,
 
         streaming = kwargs.get("stream", False)
 
-        server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 11434)
+        server_address, server_port = set_server_address_and_port(
+            instance, "127.0.0.1", 11434
+        )
         json_body = kwargs.get("json", {}) or {}
         request_model = json_body.get("model") or kwargs.get("model")
 
@@ -110,7 +120,15 @@ def chat(version, environment, application_name,
         if streaming:
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port, args)
+            return TracedSyncStream(
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                args,
+            )
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -133,7 +151,7 @@ def chat(version, environment, application_name,
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
-                        **kwargs
+                        **kwargs,
                     )
 
                 except Exception as e:
@@ -143,8 +161,17 @@ def chat(version, environment, application_name,
 
     return wrapper
 
-def embeddings(version, environment, application_name,
-              tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def embeddings(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for Ollama embeddings function call
     """
@@ -154,10 +181,14 @@ def embeddings(version, environment, application_name,
         Wraps the Ollama embeddings function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 11434)
+        server_address, server_port = set_server_address_and_port(
+            instance, "127.0.0.1", 11434
+        )
         request_model = kwargs.get("model")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.monotonic()
@@ -179,7 +210,7 @@ def embeddings(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:

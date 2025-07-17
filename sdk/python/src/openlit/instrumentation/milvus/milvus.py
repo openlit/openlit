@@ -12,11 +12,22 @@ from openlit.instrumentation.milvus.utils import (
     set_server_address_and_port,
 )
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def general_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for Milvus function calls.
     """
+
     def wrapper(wrapped, instance, args, kwargs):
         # CRITICAL: Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
@@ -27,7 +38,9 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
         db_operation = DB_OPERATION_MAP.get(gen_ai_endpoint, "unknown")
         if db_operation == "create_collection":
-            collection_name = kwargs.get("collection_name") or (args[0] if args else "unknown")
+            collection_name = kwargs.get("collection_name") or (
+                args[0] if args else "unknown"
+            )
         else:
             collection_name = kwargs.get("collection_name", "unknown")
         span_name = f"{db_operation} {collection_name}"
@@ -39,9 +52,21 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Process response and generate telemetry
                 response = process_milvus_response(
-                    response, db_operation, server_address, server_port,
-                    environment, application_name, metrics, start_time, span,
-                    capture_message_content, disable_metrics, version, instance, args, **kwargs
+                    response,
+                    db_operation,
+                    server_address,
+                    server_port,
+                    environment,
+                    application_name,
+                    metrics,
+                    start_time,
+                    span,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    instance,
+                    args,
+                    **kwargs,
                 )
 
             except Exception as e:

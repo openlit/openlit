@@ -5,11 +5,10 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.vllm.vllm import (
-    generate
-)
+from openlit.instrumentation.vllm.vllm import generate
 
 _instruments = ("vllm >= 0.5.4",)
+
 
 class VLLMInstrumentor(BaseInstrumentor):
     """
@@ -33,8 +32,16 @@ class VLLMInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "vllm.entrypoints.llm",
             "LLM.generate",
-            generate(version, environment, application_name,
-                     tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            generate(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

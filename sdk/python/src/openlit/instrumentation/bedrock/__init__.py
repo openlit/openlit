@@ -9,6 +9,7 @@ from openlit.instrumentation.bedrock.bedrock import converse, converse_stream
 
 _instruments = ("boto3 >= 1.34.138",)
 
+
 class BedrockInstrumentor(BaseInstrumentor):
     """
     An instrumentor for AWS Bedrock client library.
@@ -31,16 +32,32 @@ class BedrockInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "botocore.client",
             "ClientCreator.create_client",
-            converse(version, environment, application_name, tracer, pricing_info,
-                capture_message_content, metrics, disable_metrics),
+            converse(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # streaming
         wrap_function_wrapper(
             "botocore.client",
             "ClientCreator.create_client",
-            converse_stream(version, environment, application_name, tracer, pricing_info,
-                capture_message_content, metrics, disable_metrics),
+            converse_stream(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

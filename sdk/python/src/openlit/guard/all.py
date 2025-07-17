@@ -12,10 +12,15 @@ from openlit.guard.utils import (
     parse_llm_response,
     custom_rule_detection,
     guard_metrics,
-    guard_metric_attributes
+    guard_metric_attributes,
 )
 
-def get_all_system_prompt(valid_topics: Optional[List[str]] = None, invalid_topics: Optional[List[str]] = None, custom_categories: Optional[Dict[str, str]] = None) -> str:
+
+def get_all_system_prompt(
+    valid_topics: Optional[List[str]] = None,
+    invalid_topics: Optional[List[str]] = None,
+    custom_categories: Optional[Dict[str, str]] = None,
+) -> str:
     """
     Returns the system prompt used for LLM analysis to capture prompt injections, valid topics, and sensitive topics.
 
@@ -68,8 +73,15 @@ def get_all_system_prompt(valid_topics: Optional[List[str]] = None, invalid_topi
 
     # Append custom categories for prompt injection if provided
     if custom_categories:
-        custom_categories_str = "\n".join([f"- {key}: {description}" for key, description in custom_categories.items()])
-        base_prompt += f"\n    Additional Prompt Injection Categories:\n{custom_categories_str}"
+        custom_categories_str = "\n".join(
+            [
+                f"- {key}: {description}"
+                for key, description in custom_categories.items()
+            ]
+        )
+        base_prompt += (
+            f"\n    Additional Prompt Injection Categories:\n{custom_categories_str}"
+        )
 
     base_prompt += """
 
@@ -116,8 +128,15 @@ def get_all_system_prompt(valid_topics: Optional[List[str]] = None, invalid_topi
 
     # Append custom categories for sensitive topics if provided
     if custom_categories:
-        custom_categories_str = "\n".join([f"- {key}: {description}" for key, description in custom_categories.items()])
-        base_prompt += f"\n    Additional Sensitive Topics Categories:\n{custom_categories_str}"
+        custom_categories_str = "\n".join(
+            [
+                f"- {key}: {description}"
+                for key, description in custom_categories.items()
+            ]
+        )
+        base_prompt += (
+            f"\n    Additional Sensitive Topics Categories:\n{custom_categories_str}"
+        )
 
     base_prompt += """
 
@@ -125,6 +144,7 @@ def get_all_system_prompt(valid_topics: Optional[List[str]] = None, invalid_topi
     - If no sensitive topics are detected, return: {"score": 0.0, "verdict": "no", "guard": "sensitive_topic", "classification": "none", "explanation": "none"}.
     """
     return base_prompt
+
 
 class All:
     """
@@ -141,13 +161,18 @@ class All:
         invalid_topics (Optional[List[str]]): List of invalid topics.
     """
 
-    def __init__(self, provider: Optional[str] = None, api_key: Optional[str] = None,
-                 model: Optional[str] = None, base_url: Optional[str] = None,
-                 custom_rules: Optional[List[dict]] = None,
-                 custom_categories: Optional[Dict[str, str]] = None,
-                 valid_topics: Optional[List[str]] = None,
-                 invalid_topics: Optional[List[str]] = None,
-                 collect_metrics: Optional[bool] = False):
+    def __init__(
+        self,
+        provider: Optional[str] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        base_url: Optional[str] = None,
+        custom_rules: Optional[List[dict]] = None,
+        custom_categories: Optional[Dict[str, str]] = None,
+        valid_topics: Optional[List[str]] = None,
+        invalid_topics: Optional[List[str]] = None,
+        collect_metrics: Optional[bool] = False,
+    ):
         """
         Initializes the All class with specified LLM settings, custom rules, and categories.
 
@@ -165,8 +190,12 @@ class All:
             ValueError: If provider is not specified.
         """
         self.provider = provider
-        self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
-        self.system_prompt = get_all_system_prompt(valid_topics, invalid_topics, custom_categories)
+        self.api_key, self.model, self.base_url = setup_provider(
+            provider, api_key, model, base_url
+        )
+        self.system_prompt = get_all_system_prompt(
+            valid_topics, invalid_topics, custom_categories
+        )
         self.custom_rules = custom_rules or []
         self.valid_topics = valid_topics or []
         self.invalid_topics = invalid_topics or []
@@ -183,18 +212,31 @@ class All:
             JsonOutput: The structured result of the detection.
         """
         custom_rule_result = custom_rule_detection(text, self.custom_rules)
-        llm_result = JsonOutput(score=0.0, verdict="no", guard="none", classification="none", explanation="none")
+        llm_result = JsonOutput(
+            score=0.0,
+            verdict="no",
+            guard="none",
+            classification="none",
+            explanation="none",
+        )
 
         if self.provider:
             prompt = format_prompt(self.system_prompt, text)
-            llm_result = parse_llm_response(llm_response(self.provider, prompt, self.model, self.base_url))
+            llm_result = parse_llm_response(
+                llm_response(self.provider, prompt, self.model, self.base_url)
+            )
 
         result = max(custom_rule_result, llm_result, key=lambda x: x.score)
 
         if self.collect_metrics:
             guard_counter = guard_metrics()
-            attributes = guard_metric_attributes(result.verdict, result.score, result.guard,
-                                                 result.classification, result.explanation)
+            attributes = guard_metric_attributes(
+                result.verdict,
+                result.score,
+                result.guard,
+                result.classification,
+                result.explanation,
+            )
             guard_counter.add(1, attributes)
 
         return result

@@ -7,14 +7,11 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.ollama.ollama import (
-    chat, embeddings
-)
-from openlit.instrumentation.ollama.async_ollama import (
-    async_chat, async_embeddings
-)
+from openlit.instrumentation.ollama.ollama import chat, embeddings
+from openlit.instrumentation.ollama.async_ollama import async_chat, async_embeddings
 
 _instruments = ("ollama >= 0.2.0",)
+
 
 # Dispatch wrapper to route instrumentation to chat or embeddings based on path
 def _dispatch(sync_chat_wrap, sync_emb_wrap):
@@ -26,7 +23,9 @@ def _dispatch(sync_chat_wrap, sync_emb_wrap):
             if op == "embeddings":
                 return sync_emb_wrap(wrapped, instance, args, kwargs)
         return wrapped(*args, **kwargs)
+
     return wrapper
+
 
 def _dispatch_async(async_chat_wrap, async_emb_wrap):
     async def wrapper(wrapped, instance, args, kwargs):
@@ -37,7 +36,9 @@ def _dispatch_async(async_chat_wrap, async_emb_wrap):
             if op == "embeddings":
                 return await async_emb_wrap(wrapped, instance, args, kwargs)
         return await wrapped(*args, **kwargs)
+
     return wrapper
+
 
 class OllamaInstrumentor(BaseInstrumentor):
     """
@@ -59,24 +60,44 @@ class OllamaInstrumentor(BaseInstrumentor):
 
         # Build wrapper factories for chat and embeddings
         sync_chat_wrap = chat(
-            version, environment, application_name,
-            tracer, pricing_info,
-            capture_message_content, metrics, disable_metrics
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
         )
         sync_emb_wrap = embeddings(
-            version, environment, application_name,
-            tracer, pricing_info,
-            capture_message_content, metrics, disable_metrics
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
         )
         async_chat_wrap = async_chat(
-            version, environment, application_name,
-            tracer, pricing_info,
-            capture_message_content, metrics, disable_metrics
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
         )
         async_emb_wrap = async_embeddings(
-            version, environment, application_name,
-            tracer, pricing_info,
-            capture_message_content, metrics, disable_metrics
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
         )
 
         # Patch underlying request methods to ensure instrumentation regardless of import order

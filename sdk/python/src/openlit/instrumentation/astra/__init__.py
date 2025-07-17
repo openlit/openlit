@@ -17,16 +17,23 @@ ASTRA_SYNC_OPERATIONS = [
     # Database operations
     ("astrapy.database", "Database.create_collection", "astra.create_collection"),
     ("astrapy.database", "Database.drop_collection", "astra.drop_collection"),
-
     # Collection operations
     ("astrapy.collection", "Collection.insert_one", "astra.insert_one"),
     ("astrapy.collection", "Collection.insert_many", "astra.insert_many"),
     ("astrapy.collection", "Collection.update_one", "astra.update_one"),
     ("astrapy.collection", "Collection.update_many", "astra.update_many"),
-    ("astrapy.collection", "Collection.find_one_and_update", "astra.find_one_and_update"),
+    (
+        "astrapy.collection",
+        "Collection.find_one_and_update",
+        "astra.find_one_and_update",
+    ),
     ("astrapy.collection", "Collection.find", "astra.find"),
     ("astrapy.collection", "Collection.replace_one", "astra.replace_one"),
-    ("astrapy.collection", "Collection.find_one_and_delete", "astra.find_one_and_delete"),
+    (
+        "astrapy.collection",
+        "Collection.find_one_and_delete",
+        "astra.find_one_and_delete",
+    ),
     ("astrapy.collection", "Collection.delete_one", "astra.delete_one"),
     ("astrapy.collection", "Collection.delete_many", "astra.delete_many"),
 ]
@@ -36,19 +43,27 @@ ASTRA_ASYNC_OPERATIONS = [
     # Async Database operations
     ("astrapy.database", "AsyncDatabase.create_collection", "astra.create_collection"),
     ("astrapy.database", "AsyncDatabase.drop_collection", "astra.drop_collection"),
-
     # Async Collection operations
     ("astrapy.collection", "AsyncCollection.insert_one", "astra.insert_one"),
     ("astrapy.collection", "AsyncCollection.insert_many", "astra.insert_many"),
     ("astrapy.collection", "AsyncCollection.update_one", "astra.update_one"),
     ("astrapy.collection", "AsyncCollection.update_many", "astra.update_many"),
-    ("astrapy.collection", "AsyncCollection.find_one_and_update", "astra.find_one_and_update"),
+    (
+        "astrapy.collection",
+        "AsyncCollection.find_one_and_update",
+        "astra.find_one_and_update",
+    ),
     ("astrapy.collection", "AsyncCollection.find", "astra.find"),
     ("astrapy.collection", "AsyncCollection.replace_one", "astra.replace_one"),
-    ("astrapy.collection", "AsyncCollection.find_one_and_delete", "astra.find_one_and_delete"),
+    (
+        "astrapy.collection",
+        "AsyncCollection.find_one_and_delete",
+        "astra.find_one_and_delete",
+    ),
     ("astrapy.collection", "AsyncCollection.delete_one", "astra.delete_one"),
     ("astrapy.collection", "AsyncCollection.delete_many", "astra.delete_many"),
 ]
+
 
 class AstraInstrumentor(BaseInstrumentor):
     """
@@ -73,8 +88,17 @@ class AstraInstrumentor(BaseInstrumentor):
             wrap_function_wrapper(
                 module,
                 class_method,
-                general_wrap(endpoint, version, environment, application_name,
-                    tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                general_wrap(
+                    endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
             )
 
         # Wrap async operations
@@ -82,8 +106,17 @@ class AstraInstrumentor(BaseInstrumentor):
             wrap_function_wrapper(
                 module,
                 class_method,
-                async_general_wrap(endpoint, version, environment, application_name,
-                    tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                async_general_wrap(
+                    endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
             )
 
     def _uninstrument(self, **kwargs):

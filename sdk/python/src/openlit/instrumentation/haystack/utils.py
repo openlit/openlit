@@ -1,6 +1,7 @@
 """
 Haystack utilities
 """
+
 import time
 import json
 from typing import Dict, Any
@@ -19,9 +20,11 @@ OPERATION_MAP = {
     "document_embedder": SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
 }
 
+
 def set_server_address_and_port(instance):
     """Fast server address extraction"""
     return "localhost", 8080
+
 
 def object_count(obj):
     """Fast object counting"""
@@ -30,7 +33,10 @@ def object_count(obj):
     except:
         return 1
 
-def extract_component_technical_details(instance, args, kwargs, endpoint) -> Dict[str, Any]:
+
+def extract_component_technical_details(
+    instance, args, kwargs, endpoint
+) -> Dict[str, Any]:
     """Extract comprehensive component technical details with performance optimization"""
     details = {}
 
@@ -41,7 +47,9 @@ def extract_component_technical_details(instance, args, kwargs, endpoint) -> Dic
             details["module_name"] = instance.__class__.__module__
 
         # Component input type extraction (optimized)
-        if hasattr(instance, "_component_config") and hasattr(instance._component_config, "input_types"):
+        if hasattr(instance, "_component_config") and hasattr(
+            instance._component_config, "input_types"
+        ):
             input_types = {}
             for name, type_info in instance._component_config.input_types.items():
                 input_types[name] = str(type_info) if type_info else "Any"
@@ -53,7 +61,9 @@ def extract_component_technical_details(instance, args, kwargs, endpoint) -> Dic
             details["input_types"] = input_types
 
         # Component output type extraction (optimized)
-        if hasattr(instance, "_component_config") and hasattr(instance._component_config, "output_types"):
+        if hasattr(instance, "_component_config") and hasattr(
+            instance._component_config, "output_types"
+        ):
             output_types = {}
             for name, type_info in instance._component_config.output_types.items():
                 output_types[name] = str(type_info) if type_info else "Any"
@@ -70,7 +80,7 @@ def extract_component_technical_details(instance, args, kwargs, endpoint) -> Dic
                     spec_info = {
                         "type": str(getattr(socket, "type", "Any")),
                         "default_value": str(getattr(socket, "default_value", None)),
-                        "is_optional": getattr(socket, "is_optional", False)
+                        "is_optional": getattr(socket, "is_optional", False),
                     }
                     input_spec[socket_name] = spec_info
                 details["input_spec"] = input_spec
@@ -81,7 +91,7 @@ def extract_component_technical_details(instance, args, kwargs, endpoint) -> Dic
                 for socket_name, socket in config.output_sockets.items():
                     spec_info = {
                         "type": str(getattr(socket, "type", "Any")),
-                        "is_list": getattr(socket, "is_list", False)
+                        "is_list": getattr(socket, "is_list", False),
                     }
                     output_spec[socket_name] = spec_info
                 details["output_spec"] = output_spec
@@ -102,6 +112,7 @@ def extract_component_technical_details(instance, args, kwargs, endpoint) -> Dic
         pass
 
     return details
+
 
 def extract_pipeline_metadata(instance, args, kwargs) -> Dict[str, Any]:
     """Extract pipeline-level metadata and configuration"""
@@ -126,7 +137,7 @@ def extract_pipeline_metadata(instance, args, kwargs) -> Dict[str, Any]:
                         connection_info = {
                             "source": source,
                             "target": target,
-                            "data": str(data) if data else None
+                            "data": str(data) if data else None,
                         }
                         connections.append(connection_info)
                 metadata["connections"] = connections
@@ -134,10 +145,14 @@ def extract_pipeline_metadata(instance, args, kwargs) -> Dict[str, Any]:
                 # Component list with types
                 components = []
                 for node in graph.nodes():
-                    node_data = graph.nodes[node] if hasattr(graph.nodes[node], "get") else {}
+                    node_data = (
+                        graph.nodes[node] if hasattr(graph.nodes[node], "get") else {}
+                    )
                     component_info = {
                         "name": node,
-                        "type": str(type(node_data.get("instance", ""))) if node_data.get("instance") else "unknown"
+                        "type": str(type(node_data.get("instance", "")))
+                        if node_data.get("instance")
+                        else "unknown",
                     }
                     components.append(component_info)
                 metadata["components"] = components
@@ -157,7 +172,9 @@ def extract_pipeline_metadata(instance, args, kwargs) -> Dict[str, Any]:
                     if isinstance(value, (str, int, float, bool)):
                         sanitized_input[key] = value
                     elif isinstance(value, dict):
-                        sanitized_input[key] = {k: str(v)[:100] for k, v in value.items()}
+                        sanitized_input[key] = {
+                            k: str(v)[:100] for k, v in value.items()
+                        }
                     else:
                         sanitized_input[key] = str(type(value)).__name__
                 metadata["input_data"] = sanitized_input
@@ -168,33 +185,38 @@ def extract_pipeline_metadata(instance, args, kwargs) -> Dict[str, Any]:
 
     return metadata
 
+
 def extract_component_connections(instance) -> Dict[str, Any]:
     """Extract component connection and data flow information"""
     connections = {}
 
     try:
         # Extract senders (components that send data to this component)
-        if hasattr(instance, "_component_config") and hasattr(instance._component_config, "input_sockets"):
+        if hasattr(instance, "_component_config") and hasattr(
+            instance._component_config, "input_sockets"
+        ):
             senders = []
             for socket_name, socket in instance._component_config.input_sockets.items():
                 if hasattr(socket, "_senders") and socket._senders:
                     for sender in socket._senders:
-                        sender_info = {
-                            "component": str(sender),
-                            "socket": socket_name
-                        }
+                        sender_info = {"component": str(sender), "socket": socket_name}
                         senders.append(sender_info)
             connections["senders"] = senders
 
         # Extract receivers (components that receive data from this component)
-        if hasattr(instance, "_component_config") and hasattr(instance._component_config, "output_sockets"):
+        if hasattr(instance, "_component_config") and hasattr(
+            instance._component_config, "output_sockets"
+        ):
             receivers = []
-            for socket_name, socket in instance._component_config.output_sockets.items():
+            for (
+                socket_name,
+                socket,
+            ) in instance._component_config.output_sockets.items():
                 if hasattr(socket, "_receivers") and socket._receivers:
                     for receiver in socket._receivers:
                         receiver_info = {
                             "component": str(receiver),
-                            "socket": socket_name
+                            "socket": socket_name,
                         }
                         receivers.append(receiver_info)
             connections["receivers"] = receivers
@@ -205,26 +227,50 @@ def extract_component_connections(instance) -> Dict[str, Any]:
 
     return connections
 
-def process_haystack_response(response, operation_type, server_address, server_port,
-    environment, application_name, metrics, start_time, span,
-    capture_message_content, disable_metrics, version, instance=None,
-    args=None, endpoint=None, **kwargs):
+
+def process_haystack_response(
+    response,
+    operation_type,
+    server_address,
+    server_port,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    span,
+    capture_message_content,
+    disable_metrics,
+    version,
+    instance=None,
+    args=None,
+    endpoint=None,
+    **kwargs,
+):
     """Enhanced response processing with comprehensive technical details and optimized performance"""
 
     end_time = time.time()
 
     # Essential attributes
     common_framework_span_attributes(
-        type("Scope", (), {
-            "_span": span,
-            "_server_address": server_address,
-            "_server_port": server_port,
-            "_start_time": start_time,
-            "_end_time": end_time
-        })(),
+        type(
+            "Scope",
+            (),
+            {
+                "_span": span,
+                "_server_address": server_address,
+                "_server_port": server_port,
+                "_start_time": start_time,
+                "_end_time": end_time,
+            },
+        )(),
         SemanticConvention.GEN_AI_SYSTEM_HAYSTACK,
-        server_address, server_port, environment, application_name,
-        version, endpoint, instance
+        server_address,
+        server_port,
+        environment,
+        application_name,
+        version,
+        endpoint,
+        instance,
     )
 
     # Core operation attributes
@@ -233,41 +279,60 @@ def process_haystack_response(response, operation_type, server_address, server_p
     # Enhanced technical details collection
     if instance:
         # Extract comprehensive component technical details
-        tech_details = extract_component_technical_details(instance, args, kwargs, endpoint)
+        tech_details = extract_component_technical_details(
+            instance, args, kwargs, endpoint
+        )
 
         # Apply component technical attributes using new semantic conventions
         if tech_details.get("class_name"):
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_CLASS_NAME, tech_details["class_name"])
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_CLASS_NAME,
+                tech_details["class_name"],
+            )
 
         if tech_details.get("input_types"):
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_INPUT_TYPES,
-                             json.dumps(tech_details["input_types"]))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_INPUT_TYPES,
+                json.dumps(tech_details["input_types"]),
+            )
 
         if tech_details.get("output_types"):
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_OUTPUT_TYPES,
-                             json.dumps(tech_details["output_types"]))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_OUTPUT_TYPES,
+                json.dumps(tech_details["output_types"]),
+            )
 
         if tech_details.get("input_spec"):
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_INPUT_SPEC,
-                             json.dumps(tech_details["input_spec"]))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_INPUT_SPEC,
+                json.dumps(tech_details["input_spec"]),
+            )
 
         if tech_details.get("output_spec"):
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_OUTPUT_SPEC,
-                             json.dumps(tech_details["output_spec"]))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_OUTPUT_SPEC,
+                json.dumps(tech_details["output_spec"]),
+            )
 
         # Component connections and data flow
         connections = extract_component_connections(instance)
         if connections.get("senders"):
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_SENDERS,
-                             json.dumps(connections["senders"]))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_SENDERS,
+                json.dumps(connections["senders"]),
+            )
 
         if connections.get("receivers"):
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_RECEIVERS,
-                             json.dumps(connections["receivers"]))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_RECEIVERS,
+                json.dumps(connections["receivers"]),
+            )
 
     # Enhanced telemetry - pipeline level
     if endpoint == "pipeline" and isinstance(response, dict):
-        span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_CONTEXT_COUNT, len(response))
+        span.set_attribute(
+            SemanticConvention.GEN_AI_FRAMEWORK_CONTEXT_COUNT, len(response)
+        )
 
         # Enhanced pipeline metadata collection
         if instance:
@@ -275,24 +340,34 @@ def process_haystack_response(response, operation_type, server_address, server_p
 
             # Apply pipeline metadata using new semantic conventions
             if pipeline_metadata.get("component_count"):
-                span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_COMPONENT_COUNT,
-                                 pipeline_metadata["component_count"])
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_COMPONENT_COUNT,
+                    pipeline_metadata["component_count"],
+                )
 
             if pipeline_metadata.get("max_runs_per_component"):
-                span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_MAX_RUNS,
-                                 pipeline_metadata["max_runs_per_component"])
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_MAX_RUNS,
+                    pipeline_metadata["max_runs_per_component"],
+                )
 
             if pipeline_metadata.get("connections"):
-                span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_CONNECTIONS,
-                                 json.dumps(pipeline_metadata["connections"]))
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_CONNECTIONS,
+                    json.dumps(pipeline_metadata["connections"]),
+                )
 
             if pipeline_metadata.get("components"):
-                span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_METADATA,
-                                 json.dumps(pipeline_metadata["components"]))
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_METADATA,
+                    json.dumps(pipeline_metadata["components"]),
+                )
 
             if pipeline_metadata.get("input_data"):
-                span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_INPUT_DATA,
-                                 json.dumps(pipeline_metadata["input_data"]))
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_INPUT_DATA,
+                    json.dumps(pipeline_metadata["input_data"]),
+                )
 
         # Pipeline output data
         if response:
@@ -305,53 +380,87 @@ def process_haystack_response(response, operation_type, server_address, server_p
                     sanitized_output[key] = f"{len(value['replies'])} replies"
                 else:
                     sanitized_output[key] = str(type(value)).__name__
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_OUTPUT_DATA,
-                             json.dumps(sanitized_output))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_OUTPUT_DATA,
+                json.dumps(sanitized_output),
+            )
 
         # Fast LLM response extraction
         for key, value in response.items():
-            if key in ["llm", "generator"] and isinstance(value, dict) and "replies" in value:
+            if (
+                key in ["llm", "generator"]
+                and isinstance(value, dict)
+                and "replies" in value
+            ):
                 replies = value["replies"]
                 if replies and capture_message_content:
-                    span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, str(replies[0])[:500])
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+                        str(replies[0])[:500],
+                    )
                 break
 
     # Enhanced telemetry - retriever level
-    elif "retriever" in endpoint and isinstance(response, dict) and "documents" in response:
+    elif (
+        "retriever" in endpoint
+        and isinstance(response, dict)
+        and "documents" in response
+    ):
         docs = response["documents"]
-        span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_RETRIEVAL_COUNT, object_count(docs))
-        span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_DOCUMENTS_COUNT, object_count(docs))
+        span.set_attribute(
+            SemanticConvention.GEN_AI_FRAMEWORK_RETRIEVAL_COUNT, object_count(docs)
+        )
+        span.set_attribute(
+            SemanticConvention.GEN_AI_FRAMEWORK_DOCUMENTS_COUNT, object_count(docs)
+        )
 
         # Component identification
         if instance:
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_NAME, endpoint)
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_TYPE, "retriever")
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_NAME, endpoint
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_TYPE, "retriever"
+            )
 
     # Enhanced telemetry - generator level
     elif "generator" in endpoint:
         # Component identification
         if instance:
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_NAME, endpoint)
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_TYPE, "generator")
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_NAME, endpoint
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_TYPE, "generator"
+            )
 
         if args and capture_message_content:
             span.set_attribute(SemanticConvention.GEN_AI_PROMPT, str(args[0])[:500])
 
         if isinstance(response, dict) and "replies" in response:
             replies = response["replies"]
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_CONTEXT_COUNT, object_count(replies))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_CONTEXT_COUNT, object_count(replies)
+            )
 
     # Enhanced telemetry - prompt builder level
     elif endpoint == "prompt_builder":
         # Component identification
         if instance:
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_NAME, endpoint)
-            span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_TYPE, "prompt_builder")
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_NAME, endpoint
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_COMPONENT_TYPE, "prompt_builder"
+            )
 
         if kwargs and capture_message_content:
             for key, value in kwargs.items():
                 if key in ["documents", "question"] and value:
-                    span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_CONTEXT_COUNT, object_count([value]))
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_FRAMEWORK_CONTEXT_COUNT,
+                        object_count([value]),
+                    )
                     break
 
     # Component visit tracking (simulate component execution count)
@@ -361,17 +470,30 @@ def process_haystack_response(response, operation_type, server_address, server_p
 
     # Duration and status
     execution_time = end_time - start_time
-    span.set_attribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, execution_time)
+    span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, execution_time
+    )
 
     # Pipeline execution time tracking
     if endpoint == "pipeline":
-        span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_EXECUTION_TIME, execution_time)
+        span.set_attribute(
+            SemanticConvention.GEN_AI_FRAMEWORK_PIPELINE_EXECUTION_TIME, execution_time
+        )
 
     span.set_status(Status(StatusCode.OK))
 
     # Metrics
     if not disable_metrics:
-        record_framework_metrics(metrics, operation_type, SemanticConvention.GEN_AI_SYSTEM_HAYSTACK,
-            server_address, server_port, environment, application_name, start_time, end_time)
+        record_framework_metrics(
+            metrics,
+            operation_type,
+            SemanticConvention.GEN_AI_SYSTEM_HAYSTACK,
+            server_address,
+            server_port,
+            environment,
+            application_name,
+            start_time,
+            end_time,
+        )
 
     return response

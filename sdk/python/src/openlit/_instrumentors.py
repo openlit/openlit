@@ -1,6 +1,7 @@
 """
 OpenLIT Instrumentors
 """
+
 import importlib
 
 # Mapping of instrumentor names to their required Python packages
@@ -49,7 +50,7 @@ MODULE_NAME_MAP = {
     "letta": "letta",
     "together": "together",
     "openai-agents": "agents",
-    "pydantic_ai": "pydantic_ai"
+    "pydantic_ai": "pydantic_ai",
 }
 
 # Dictionary mapping instrumentor names to their full module paths

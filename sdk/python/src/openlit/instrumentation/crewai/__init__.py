@@ -19,7 +19,6 @@ WORKFLOW_OPERATIONS = [
     ("crewai.crew", "Crew.kickoff_async", "crew_kickoff_async"),
     ("crewai.crew", "Crew.kickoff_for_each", "crew_kickoff_for_each"),
     ("crewai.crew", "Crew.kickoff_for_each_async", "crew_kickoff_for_each_async"),
-
     # High-level Agent and Task Operations
     ("crewai.agent", "Agent.execute_task", "agent_execute_task"),
     ("crewai.task", "Task.execute", "task_execute"),
@@ -33,18 +32,17 @@ COMPONENT_OPERATIONS = [
     ("crewai.tools.base", "BaseTool._run", "tool_run_internal"),
     ("crewai.memory.base", "BaseMemory.save", "memory_save"),
     ("crewai.memory.base", "BaseMemory.search", "memory_search"),
-
     # Process and Collaboration Operations
     ("crewai.process", "Process.kickoff", "process_kickoff"),
     ("crewai.agent", "Agent.delegate", "agent_delegate"),
     ("crewai.agent", "Agent.ask_question", "agent_ask_question"),
     ("crewai.task", "Task.callback", "task_callback"),
-
     # Internal Task Management
     # Instrument only the core task execution (remove the sync duplicate)
     # Task Operations (keep only core execution)
     ("crewai.task", "Task._execute_core", "task_execute_core"),
 ]
+
 
 class CrewAIInstrumentor(BaseInstrumentor):
     """
@@ -70,10 +68,19 @@ class CrewAIInstrumentor(BaseInstrumentor):
         for module, method, operation_type in WORKFLOW_OPERATIONS:
             try:
                 wrap_function_wrapper(
-                    module, method,
-                    general_wrap(operation_type, version, environment, application_name,
-                               tracer, pricing_info, capture_message_content,
-                               metrics, disable_metrics)
+                    module,
+                    method,
+                    general_wrap(
+                        operation_type,
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
                 )
             except Exception:
                 # Graceful degradation for missing operations
@@ -84,10 +91,19 @@ class CrewAIInstrumentor(BaseInstrumentor):
             if "async" in operation_type:
                 try:
                     wrap_function_wrapper(
-                        module, method,
-                        async_general_wrap(operation_type, version, environment,
-                                         application_name, tracer, pricing_info,
-                                         capture_message_content, metrics, disable_metrics)
+                        module,
+                        method,
+                        async_general_wrap(
+                            operation_type,
+                            version,
+                            environment,
+                            application_name,
+                            tracer,
+                            pricing_info,
+                            capture_message_content,
+                            metrics,
+                            disable_metrics,
+                        ),
                     )
                 except Exception:
                     pass
@@ -97,10 +113,19 @@ class CrewAIInstrumentor(BaseInstrumentor):
             for module, method, operation_type in COMPONENT_OPERATIONS:
                 try:
                     wrap_function_wrapper(
-                        module, method,
-                        general_wrap(operation_type, version, environment,
-                                   application_name, tracer, pricing_info,
-                                   capture_message_content, metrics, disable_metrics)
+                        module,
+                        method,
+                        general_wrap(
+                            operation_type,
+                            version,
+                            environment,
+                            application_name,
+                            tracer,
+                            pricing_info,
+                            capture_message_content,
+                            metrics,
+                            disable_metrics,
+                        ),
                     )
                 except Exception:
                     pass

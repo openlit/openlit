@@ -5,18 +5,15 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.cohere.cohere import (
-    chat,
-    chat_stream,
-    embed
-)
+from openlit.instrumentation.cohere.cohere import chat, chat_stream, embed
 from openlit.instrumentation.cohere.async_cohere import (
     async_chat,
     async_chat_stream,
-    async_embed
+    async_embed,
 )
 
 _instruments = ("cohere >= 5.14.0",)
+
 
 class CohereInstrumentor(BaseInstrumentor):
     """
@@ -40,48 +37,96 @@ class CohereInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "cohere.client_v2",
             "ClientV2.chat",
-            chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # sync chat streaming
         wrap_function_wrapper(
             "cohere.client_v2",
             "ClientV2.chat_stream",
-            chat_stream(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            chat_stream(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # sync embeddings
         wrap_function_wrapper(
             "cohere.client_v2",
             "ClientV2.embed",
-            embed(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            embed(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async chat completions
         wrap_function_wrapper(
             "cohere.client_v2",
             "AsyncClientV2.chat",
-            async_chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async chat streaming
         wrap_function_wrapper(
             "cohere.client_v2",
             "AsyncClientV2.chat_stream",
-            async_chat_stream(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_chat_stream(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async embeddings
         wrap_function_wrapper(
             "cohere.client_v2",
             "AsyncClientV2.embed",
-            async_embed(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_embed(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

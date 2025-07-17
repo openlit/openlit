@@ -12,8 +12,18 @@ from openlit.instrumentation.crewai.utils import (
     set_server_address_and_port,
 )
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def general_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Modern wrapper for CrewAI operations following Framework Instrumentation Guide patterns.
     """
@@ -34,7 +44,9 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
         operation_type = OPERATION_MAP.get(gen_ai_endpoint, "framework")
 
         # Generate span name following {operation_type} {operation_name} pattern
-        span_name = _generate_span_name(operation_type, gen_ai_endpoint, instance, args, kwargs)
+        span_name = _generate_span_name(
+            operation_type, gen_ai_endpoint, instance, args, kwargs
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -43,10 +55,22 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Process response and generate comprehensive telemetry
                 response = process_crewai_response(
-                    response, operation_type, server_address, server_port,
-                    environment, application_name, metrics, start_time, span,
-                    capture_message_content, disable_metrics, version,
-                    instance, args, endpoint=gen_ai_endpoint, **kwargs
+                    response,
+                    operation_type,
+                    server_address,
+                    server_port,
+                    environment,
+                    application_name,
+                    metrics,
+                    start_time,
+                    span,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    instance,
+                    args,
+                    endpoint=gen_ai_endpoint,
+                    **kwargs,
                 )
 
             except Exception as e:
@@ -55,6 +79,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
             return response
 
     return wrapper
+
 
 def _generate_span_name(operation_type, endpoint, instance, args, kwargs):
     """

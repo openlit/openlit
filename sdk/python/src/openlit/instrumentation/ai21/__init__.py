@@ -5,14 +5,11 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.ai21.ai21 import (
-    chat, chat_rag
-)
-from openlit.instrumentation.ai21.async_ai21 import (
-    async_chat, async_chat_rag
-)
+from openlit.instrumentation.ai21.ai21 import chat, chat_rag
+from openlit.instrumentation.ai21.async_ai21 import async_chat, async_chat_rag
 
 _instruments = ("ai21 >= 3.0.0",)
+
 
 class AI21Instrumentor(BaseInstrumentor):
     """
@@ -36,32 +33,64 @@ class AI21Instrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "ai21.clients.studio.resources.chat.chat_completions",
             "ChatCompletions.create",
-            chat(version, environment, application_name,
-                 tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # RAG completions
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
             "StudioConversationalRag.create",
-            chat_rag(version, environment, application_name,
-                     tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            chat_rag(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # Async chat completions
         wrap_function_wrapper(
             "ai21.clients.studio.resources.chat.async_chat_completions",
             "AsyncChatCompletions.create",
-            async_chat(version, environment, application_name,
-                       tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # Async RAG completions
         wrap_function_wrapper(
             "ai21.clients.studio.resources.studio_conversational_rag",
             "AsyncStudioConversationalRag.create",
-            async_chat_rag(version, environment, application_name,
-                           tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_chat_rag(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

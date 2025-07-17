@@ -23,6 +23,7 @@ MILVUS_OPERATIONS = [
     ("delete", "milvus.delete"),
 ]
 
+
 class MilvusInstrumentor(BaseInstrumentor):
     """
     An instrumentor for Milvus's client library.
@@ -47,8 +48,15 @@ class MilvusInstrumentor(BaseInstrumentor):
                 "pymilvus",
                 f"MilvusClient.{method_name}",
                 general_wrap(
-                    endpoint, version, environment, application_name, tracer,
-                    pricing_info, capture_message_content, metrics, disable_metrics
+                    endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
                 ),
             )
 

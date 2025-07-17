@@ -10,6 +10,7 @@ from openlit.instrumentation.openai_agents.processor import OpenLITTracingProces
 
 _instruments = ("openai-agents >= 0.0.3",)
 
+
 class OpenAIAgentsInstrumentor(BaseInstrumentor):
     """OpenLIT instrumentor for OpenAI Agents using native tracing system"""
 
@@ -37,18 +38,20 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
             capture_message_content=capture_message_content,
             metrics=metrics,
             disable_metrics=disable_metrics,
-            detailed_tracing=detailed_tracing
+            detailed_tracing=detailed_tracing,
         )
 
         # Integrate with OpenAI Agents' native tracing system
         try:
             from agents import set_trace_processors
+
             # Replace existing processors with our enhanced processor
             set_trace_processors([processor])
         except ImportError:
             # Fallback: Add our processor to existing ones
             try:
                 from agents import add_trace_processor
+
                 add_trace_processor(processor)
             except ImportError:
                 pass  # Agents package may not have tracing
@@ -57,6 +60,7 @@ class OpenAIAgentsInstrumentor(BaseInstrumentor):
         # Clear our processors
         try:
             from agents import set_trace_processors
+
             set_trace_processors([])
         except ImportError:
             pass

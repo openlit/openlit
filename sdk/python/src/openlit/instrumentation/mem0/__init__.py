@@ -1,5 +1,6 @@
 # pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of mem0 Functions"""
+
 from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
@@ -48,6 +49,7 @@ WRAPPED_METHODS = [
     },
 ]
 
+
 class Mem0Instrumentor(BaseInstrumentor):
     """An instrumentor for mem0's client library."""
 
@@ -70,8 +72,15 @@ class Mem0Instrumentor(BaseInstrumentor):
             wrap_function_wrapper(
                 wrap_package,
                 wrap_object,
-                wrapper(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, capture_message_content),
+                wrapper(
+                    gen_ai_endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                ),
             )
 
     @staticmethod
