@@ -268,7 +268,9 @@ def init(
             logger.error(
                 "OpenLIT metrics setup failed. Metrics will not be available: %s", err
             )
-            return
+            # Set metrics_dict to None and disable metrics instead of returning early
+            metrics_dict = None
+            disable_metrics = True
 
         if (
             os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower
