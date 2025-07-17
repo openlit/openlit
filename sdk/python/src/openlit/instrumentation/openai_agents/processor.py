@@ -422,3 +422,35 @@ class OpenLITTracingProcessor(TracingProcessor):
             )
         except Exception:  # pylint: disable=broad-exception-caught
             return 0.0
+
+    # Abstract method implementations required by OpenAI Agents framework
+    def on_trace_start(self, trace):
+        """Called when a trace starts - required by OpenAI Agents framework"""
+        try:
+            self.start_trace(getattr(trace, 'trace_id', 'unknown'),
+                           getattr(trace, 'name', 'workflow'))
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
+
+    def on_trace_end(self, trace):
+        """Called when a trace ends - required by OpenAI Agents framework"""
+        try:
+            self.end_trace(getattr(trace, 'trace_id', 'unknown'))
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
+
+    def on_span_start(self, span):
+        """Called when a span starts - required by OpenAI Agents framework"""
+        try:
+            trace_id = getattr(span, 'trace_id', 'unknown')
+            self.span_start(span, trace_id)
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
+
+    def on_span_end(self, span):
+        """Called when a span ends - required by OpenAI Agents framework"""
+        try:
+            trace_id = getattr(span, 'trace_id', 'unknown')
+            self.span_end(span, trace_id)
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
