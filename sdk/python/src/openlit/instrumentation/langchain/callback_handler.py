@@ -4,7 +4,8 @@ OpenLIT LangChain Callback Handler for Hierarchical Span Creation
 
 import time
 import json
-from typing import Any, Dict, List, Optional, Type, Union
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from langchain_core.callbacks import BaseCallbackHandler
@@ -22,8 +23,6 @@ from openlit.__helpers import (
     general_tokens,
 )
 from openlit.semcov import SemanticConvention
-
-from datetime import datetime, timezone
 
 # Enhanced Provider Mapping (inspired by OpenInference)
 LANGCHAIN_PROVIDER_MAP = {
@@ -105,10 +104,12 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
     # Required BaseCallbackHandler properties
     @property
     def raise_error(self) -> bool:
+        """Should the handler raise errors instead of logging them."""
         return False
 
     @property
     def run_inline(self) -> bool:
+        """Should the handler run inline with the main thread."""
         return True
 
     # Ignore flags - all set to False so we capture everything
@@ -177,7 +178,26 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
         context_token = context_api.attach(span_context)
 
         # Store span with start time and context token
-        self.spans[run_id] = SpanHolder(span, time.time(), context_token)
+        start_time = time.time()
+        self.spans[run_id] = SpanHolder(span, start_time, context_token)
+        
+        # Set common framework span attributes for consistency
+        scope = type("GenericScope", (), {})()
+        scope._span = span
+        scope._start_time = start_time
+        scope._end_time = None
+        
+        common_framework_span_attributes(
+            scope,
+            SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+            "localhost",  # Default server address for LangChain
+            8080,  # Default port
+            self.environment,
+            self.application_name,
+            self.version,
+            span_name,
+        )
+        
         return span
 
     def _end_span(self, run_id: UUID) -> None:
@@ -196,6 +216,13 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
         # Restore the previous context before ending span
         if span_holder.context_token:
             context_api.detach(span_holder.context_token)
+
+        # Update end time for duration calculation
+        end_time = time.time()
+        duration = end_time - span_holder.start_time
+        span.set_attribute(
+            SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration
+        )
 
         # End this span
         span.set_status(Status(StatusCode.OK))
@@ -360,13 +387,13 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             # Capture input if enabled (with safe JSON serialization)
             if self.capture_message_content:
                 try:
-                    input_str = json.dumps(inputs, default=str)[:1000]
+                    input_str = json.dumps(prompts, default=str)[:1000]
                     span.set_attribute(
                         SemanticConvention.GEN_AI_WORKFLOW_INPUT, input_str
                     )
                 except Exception:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_WORKFLOW_INPUT, str(inputs)[:1000]
+                        SemanticConvention.GEN_AI_WORKFLOW_INPUT, str(prompts)[:1000]
                     )
 
             # Framework enhancements - use attributes only (not events for non-chat operations)
@@ -378,7 +405,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             # Extract provider information (OpenInference-inspired enhancement)
             self._extract_provider_info(span, **kwargs)
 
-        except Exception as e:
+        except Exception:
             # Graceful error handling to prevent callback system failure
             pass
 
@@ -402,11 +429,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             # Process LLM response with OpenLIT's business intelligence
             self._process_llm_response(span, response, run_id)
 
-            # Set duration
-            duration = time.time() - self.spans[run_id].start_time
-            span.set_attribute(
-                SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration
-            )
+            # Duration is set in _end_span method
 
             # NEW: Add performance baseline tracking
             if span_holder:
@@ -417,7 +440,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
 
             self._end_span(run_id)
 
-        except Exception as e:
+        except Exception:
             # Graceful error handling
             pass
 
@@ -459,7 +482,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
 
             self._end_span(run_id)
 
-        except Exception as e:
+        except Exception:
             # Graceful error handling
             pass
 
@@ -526,7 +549,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
                 chain_tags.append(f"input_count:{len(inputs)}")
             span.set_attribute(SemanticConvention.GEN_AI_FRAMEWORK_TAGS, chain_tags)
 
-        except Exception as e:
+        except Exception:
             # Graceful error handling to prevent callback system failure
             pass
 
@@ -558,15 +581,11 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
                         SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, str(outputs)[:1000]
                     )
 
-            # Set duration
-            duration = time.time() - self.spans[run_id].start_time
-            span.set_attribute(
-                SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration
-            )
+            # Duration is set in _end_span method
 
             self._end_span(run_id)
 
-        except Exception as e:
+        except Exception:
             # Graceful error handling
             pass
 
@@ -670,7 +689,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
                     SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
                 )
 
-        except Exception as e:
+        except Exception:
             # Graceful error handling
             pass
 
@@ -993,10 +1012,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
         if self.capture_message_content:
             span.set_attribute(SemanticConvention.GEN_AI_TOOL_OUTPUT, output[:1000])
 
-        duration = time.time() - self.spans[run_id].start_time
-        span.set_attribute(
-            SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration
-        )
+        # Duration is set in _end_span method
 
         self._end_span(run_id)
 
@@ -1058,10 +1074,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
                 SemanticConvention.GEN_AI_RETRIEVAL_DOCUMENTS, "; ".join(sample_docs)
             )
 
-        duration = time.time() - self.spans[run_id].start_time
-        span.set_attribute(
-            SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration
-        )
+        # Duration is set in _end_span method
 
         self._end_span(run_id)
 
