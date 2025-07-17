@@ -66,7 +66,7 @@ export default class Metrics {
         resource: options.resource,
         readers: [metricReader],
       });
-      this.meter = metrics.getMeter('openlit', '1.0.0');
+      this.meter = this.meterProvider.getMeter('openlit', '1.0.0');
       this.metricReaders.push(metricReader);
       metrics.setGlobalMeterProvider(this.meterProvider);
       this.initializeMetrics();
