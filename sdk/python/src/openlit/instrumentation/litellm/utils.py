@@ -115,10 +115,11 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     # Helper function to handle None values with proper defaults
     def safe_get(value, default):
         return default if value is None else value
-    
+
     # Span Attributes for Request parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED, safe_get(scope._kwargs.get('seed'), ''))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, safe_get(scope._kwargs.get('frequency_penalty'), 0.0))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+        safe_get(scope._kwargs.get('frequency_penalty'), 0.0))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, safe_get(scope._kwargs.get('max_tokens'), -1))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, safe_get(scope._kwargs.get('presence_penalty'), 0.0))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, scope._kwargs.get('stop', []))
@@ -263,7 +264,7 @@ def process_embedding_response(response, request_model, pricing_info, server_por
     # Helper function to handle None values with proper defaults
     def safe_get(value, default):
         return default if value is None else value
-    
+
     # Span Attributes for Request parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [scope._kwargs.get('encoding_format', 'float')])
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, safe_get(scope._kwargs.get('user'), ''))

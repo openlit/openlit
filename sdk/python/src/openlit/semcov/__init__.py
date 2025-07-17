@@ -407,7 +407,7 @@ class SemanticConvention:
 
     # === STANDARD OPENTELEMETRY SEMANTIC CONVENTIONS ===
     # These are framework-agnostic and reusable across all agent frameworks
-    
+
     # OpenAI Agent-specific Attributes (for any framework using OpenAI models)
     GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
     GEN_AI_OPENAI_ASSISTANT_ID = "gen_ai.openai.assistant.id"
@@ -416,19 +416,19 @@ class SemanticConvention:
     GEN_AI_OPENAI_REQUEST_SERVICE_TIER = "gen_ai.openai.request.service_tier"
     GEN_AI_OPENAI_RESPONSE_SERVICE_TIER = "gen_ai.openai.response.service_tier"
     GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT = "gen_ai.openai.response.system_fingerprint"
-    
+
     # Data Source Attributes (for RAG and knowledge retrieval)
     GEN_AI_DATA_SOURCE_ID = "gen_ai.data_source.id"
     GEN_AI_DATA_SOURCE_TYPE = "gen_ai.data_source.type"
-    
+
     # Standard Tool Attributes (framework-agnostic)
     GEN_AI_TOOL_TYPE = "gen_ai.tool.type"
-    
+
     # Standard Workflow Attributes (framework-agnostic)
     GEN_AI_WORKFLOW_AGENT_COUNT = "gen_ai.workflow.agent_count"
     GEN_AI_WORKFLOW_TASK_COUNT = "gen_ai.workflow.task_count"
     GEN_AI_WORKFLOW_EXECUTION_TYPE = "gen_ai.workflow.execution_type"
-    
+
     # Standard Task Attributes (framework-agnostic)
     GEN_AI_TASK_DESCRIPTION = "gen_ai.task.description"
     GEN_AI_TASK_EXPECTED_OUTPUT = "gen_ai.task.expected_output"
