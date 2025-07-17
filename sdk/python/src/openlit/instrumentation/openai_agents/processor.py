@@ -3,17 +3,13 @@ OpenLIT OpenAI Agents Instrumentation - Native TracingProcessor Implementation
 """
 
 import time
-from datetime import datetime
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import Any, Dict, TYPE_CHECKING
 
-from opentelemetry import context as context_api
 from opentelemetry.trace import SpanKind, Status, StatusCode, set_span_in_context
-from opentelemetry.context import detach
 
 from openlit.__helpers import (
     common_framework_span_attributes,
     handle_exception,
-    record_framework_metrics,
     get_chat_model_cost
 )
 from openlit.semcov import SemanticConvention
