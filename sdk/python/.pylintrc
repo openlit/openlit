@@ -32,4 +32,5 @@ disable=
     unnecessary-direct-lambda-call,
     no-member,
     no-else-return,
-    import-outside-toplevel
+    import-outside-toplevel,
+    too-many-return-statements

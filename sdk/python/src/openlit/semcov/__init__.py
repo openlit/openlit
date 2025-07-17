@@ -74,8 +74,8 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_IMAGE = "image"
     GEN_AI_OPERATION_TYPE_AUDIO = "audio"
     GEN_AI_OPERATION_TYPE_VECTORDB = "vectordb"
-    GEN_AI_OPERATION_TYPE_FRAMEWORK = "framework"
-    GEN_AI_OPERATION_TYPE_AGENT = "agent"
+    GEN_AI_OPERATION_TYPE_FRAMEWORK = "workflow"
+    GEN_AI_OPERATION_TYPE_AGENT = "invoke_agent"
     GEN_AI_OPERATION_TYPE_CREATE_AGENT = "create_agent"
     GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = "execute_task"
     GEN_AI_OPERATION_TYPE_RETRIEVE = "retrieve"
@@ -404,3 +404,31 @@ class SemanticConvention:
     GEN_AI_FRAMEWORK_VECTOR_DIMENSION = "gen_ai.framework.vector.dimension"
     GEN_AI_FRAMEWORK_INDEX_NAME = "gen_ai.framework.index.name"
     GEN_AI_FRAMEWORK_INDEX_TYPE = "gen_ai.framework.index.type"
+
+    # === STANDARD OPENTELEMETRY SEMANTIC CONVENTIONS ===
+    # These are framework-agnostic and reusable across all agent frameworks
+    
+    # OpenAI Agent-specific Attributes (for any framework using OpenAI models)
+    GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
+    GEN_AI_OPENAI_ASSISTANT_ID = "gen_ai.openai.assistant.id"
+    GEN_AI_OPENAI_THREAD_ID = "gen_ai.openai.thread.id"
+    GEN_AI_OPENAI_RUN_ID = "gen_ai.openai.run.id"
+    GEN_AI_OPENAI_REQUEST_SERVICE_TIER = "gen_ai.openai.request.service_tier"
+    GEN_AI_OPENAI_RESPONSE_SERVICE_TIER = "gen_ai.openai.response.service_tier"
+    GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT = "gen_ai.openai.response.system_fingerprint"
+    
+    # Data Source Attributes (for RAG and knowledge retrieval)
+    GEN_AI_DATA_SOURCE_ID = "gen_ai.data_source.id"
+    GEN_AI_DATA_SOURCE_TYPE = "gen_ai.data_source.type"
+    
+    # Standard Tool Attributes (framework-agnostic)
+    GEN_AI_TOOL_TYPE = "gen_ai.tool.type"
+    
+    # Standard Workflow Attributes (framework-agnostic)
+    GEN_AI_WORKFLOW_AGENT_COUNT = "gen_ai.workflow.agent_count"
+    GEN_AI_WORKFLOW_TASK_COUNT = "gen_ai.workflow.task_count"
+    GEN_AI_WORKFLOW_EXECUTION_TYPE = "gen_ai.workflow.execution_type"
+    
+    # Standard Task Attributes (framework-agnostic)
+    GEN_AI_TASK_DESCRIPTION = "gen_ai.task.description"
+    GEN_AI_TASK_EXPECTED_OUTPUT = "gen_ai.task.expected_output"
