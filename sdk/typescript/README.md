@@ -1,4 +1,4 @@
-<div align="center>
+<div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
 <h3>OpenTelemetry-native</h3>
 <h1>AI Observability, Monitoring and Evaluation Framework</h1>
