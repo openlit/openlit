@@ -12,11 +12,22 @@ from openlit.instrumentation.astra.utils import (
     set_server_address_and_port,
 )
 
-def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def async_general_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for AstraDB async function calls.
     """
+
     async def wrapper(wrapped, instance, args, kwargs):
         # CRITICAL: Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
@@ -42,9 +53,21 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
             try:
                 # Process response and generate telemetry
                 response = process_astra_response(
-                    response, db_operation, server_address, server_port,
-                    environment, application_name, metrics, start_time, span,
-                    capture_message_content, disable_metrics, version, instance, args, **kwargs
+                    response,
+                    db_operation,
+                    server_address,
+                    server_port,
+                    environment,
+                    application_name,
+                    metrics,
+                    start_time,
+                    span,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    instance,
+                    args,
+                    **kwargs,
                 )
 
             except Exception as e:

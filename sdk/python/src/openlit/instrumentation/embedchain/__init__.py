@@ -1,5 +1,6 @@
 # pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of EmbedChain Functions"""
+
 from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
@@ -24,6 +25,7 @@ WRAPPED_METHODS = [
     },
 ]
 
+
 class EmbedChainInstrumentor(BaseInstrumentor):
     """An instrumentor for EmbedChain's client library."""
 
@@ -46,8 +48,15 @@ class EmbedChainInstrumentor(BaseInstrumentor):
             wrap_function_wrapper(
                 wrap_package,
                 wrap_object,
-                wrapper(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, capture_message_content),
+                wrapper(
+                    gen_ai_endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                ),
             )
 
     @staticmethod

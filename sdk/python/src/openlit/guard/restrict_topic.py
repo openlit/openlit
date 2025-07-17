@@ -11,10 +11,13 @@ from openlit.guard.utils import (
     llm_response,
     parse_llm_response,
     guard_metrics,
-    guard_metric_attributes
+    guard_metric_attributes,
 )
 
-def get_system_prompt(valid_topics: Optional[List[str]] = None, invalid_topics: Optional[List[str]] = None) -> str:
+
+def get_system_prompt(
+    valid_topics: Optional[List[str]] = None, invalid_topics: Optional[List[str]] = None
+) -> str:
     """
     Returns the system prompt used for LLM analysis, including valid and invalid topics if provided.
 
@@ -79,6 +82,7 @@ def get_system_prompt(valid_topics: Optional[List[str]] = None, invalid_topics: 
 
     return base_prompt
 
+
 class TopicRestriction:
     """
     A class to validate if text belongs to valid or invalid topics using LLM.
@@ -92,12 +96,16 @@ class TopicRestriction:
         invalid_topics (Optional[List[str]]): List of invalid topics.
     """
 
-    def __init__(self, provider: Optional[str], valid_topics: Optional[List[str]] = None,
-                 api_key: Optional[str] = None, model: Optional[str] = None,
-                 base_url: Optional[str] = None,
-                 invalid_topics: Optional[List[str]] = None,
-                 collect_metrics: Optional[bool] = False,
-                ):
+    def __init__(
+        self,
+        provider: Optional[str],
+        valid_topics: Optional[List[str]] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        base_url: Optional[str] = None,
+        invalid_topics: Optional[List[str]] = None,
+        collect_metrics: Optional[bool] = False,
+    ):
         """
         Initializes the TopicRestriction with specified LLM settings and topics.
 
@@ -114,12 +122,18 @@ class TopicRestriction:
         """
         self.provider = provider
         if self.provider is None:
-            raise ValueError("An LLM provider must be specified for TopicRestriction Validator")
-        self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
+            raise ValueError(
+                "An LLM provider must be specified for TopicRestriction Validator"
+            )
+        self.api_key, self.model, self.base_url = setup_provider(
+            provider, api_key, model, base_url
+        )
         self.system_prompt = get_system_prompt(valid_topics, invalid_topics)
         self.valid_topics = valid_topics
         if self.valid_topics is None:
-            raise ValueError("Valid Topics must be specified for TopicRestriction Validator")
+            raise ValueError(
+                "Valid Topics must be specified for TopicRestriction Validator"
+            )
         self.invalid_topics = invalid_topics or []
         self.collect_metrics = collect_metrics
 
@@ -139,14 +153,31 @@ class TopicRestriction:
 
         # Adjusted logic for consistency with updated JSON structure
         if llm_result.classification == "valid_topic":
-            result = JsonOutput(score=0, verdict="no", guard="topic_restriction", classification="valid_topic", explanation="Text fits into a valid topic.")
+            result = JsonOutput(
+                score=0,
+                verdict="no",
+                guard="topic_restriction",
+                classification="valid_topic",
+                explanation="Text fits into a valid topic.",
+            )
         else:
-            result = JsonOutput(score=1.0, verdict="yes", guard="topic_restriction", classification="invalid_topic", explanation="Text does not match any valid categories.")
+            result = JsonOutput(
+                score=1.0,
+                verdict="yes",
+                guard="topic_restriction",
+                classification="invalid_topic",
+                explanation="Text does not match any valid categories.",
+            )
 
         if self.collect_metrics:
             guard_counter = guard_metrics()
-            attributes = guard_metric_attributes(result.verdict, result.score, result.guard,
-                                                 result.classification, result.explanation)
+            attributes = guard_metric_attributes(
+                result.verdict,
+                result.score,
+                result.guard,
+                result.classification,
+                result.explanation,
+            )
             guard_counter.add(1, attributes)
 
         return result

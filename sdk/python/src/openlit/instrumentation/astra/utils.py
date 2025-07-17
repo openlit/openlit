@@ -30,6 +30,7 @@ DB_OPERATION_MAP = {
     "astra.delete_many": SemanticConvention.DB_OPERATION_DELETE,
 }
 
+
 def object_count(obj):
     """
     Counts length of object if it exists, else returns 0.
@@ -39,6 +40,7 @@ def object_count(obj):
     elif obj is not None:
         return 1
     return 0
+
 
 def set_server_address_and_port(instance):
     """
@@ -83,9 +85,18 @@ def set_server_address_and_port(instance):
 
     return server_address, server_port
 
-def common_astra_logic(scope, environment, application_name,
-    metrics, capture_message_content, disable_metrics, version,
-    instance=None, endpoint=None):
+
+def common_astra_logic(
+    scope,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+    instance=None,
+    endpoint=None,
+):
     """
     Process AstraDB request and generate telemetry.
 
@@ -103,13 +114,22 @@ def common_astra_logic(scope, environment, application_name,
     scope._end_time = time.time()
 
     # Set common database span attributes using helper
-    common_db_span_attributes(scope, SemanticConvention.DB_SYSTEM_ASTRA,
-        scope._server_address, scope._server_port, environment, application_name, version)
+    common_db_span_attributes(
+        scope,
+        SemanticConvention.DB_SYSTEM_ASTRA,
+        scope._server_address,
+        scope._server_port,
+        environment,
+        application_name,
+        version,
+    )
 
     # Set DB operation specific attributes
     scope._span.set_attribute(SemanticConvention.DB_OPERATION_NAME, scope._db_operation)
-    scope._span.set_attribute(SemanticConvention.DB_CLIENT_OPERATION_DURATION,
-        scope._end_time - scope._start_time)
+    scope._span.set_attribute(
+        SemanticConvention.DB_CLIENT_OPERATION_DURATION,
+        scope._end_time - scope._start_time,
+    )
 
     # Get collection name from instance
     collection_name = getattr(instance, "name", "unknown")
@@ -117,124 +137,192 @@ def common_astra_logic(scope, environment, application_name,
 
     if scope._db_operation == SemanticConvention.DB_OPERATION_CREATE_COLLECTION:
         # Handle create_collection operation
-        scope._span.set_attribute(SemanticConvention.DB_COLLECTION_DIMENSION,
-            scope._kwargs.get("dimension", -1))
-        scope._span.set_attribute(SemanticConvention.DB_INDEX_METRIC,
-            str(scope._kwargs.get("metric", "")))
+        scope._span.set_attribute(
+            SemanticConvention.DB_COLLECTION_DIMENSION,
+            scope._kwargs.get("dimension", -1),
+        )
+        scope._span.set_attribute(
+            SemanticConvention.DB_INDEX_METRIC, str(scope._kwargs.get("metric", ""))
+        )
 
         # Set namespace if available in response
         if scope._response and hasattr(scope._response, "keyspace"):
-            scope._span.set_attribute(SemanticConvention.DB_NAMESPACE, scope._response.keyspace)
+            scope._span.set_attribute(
+                SemanticConvention.DB_NAMESPACE, scope._response.keyspace
+            )
 
         if scope._response and hasattr(scope._response, "name"):
-            scope._span.set_attribute(SemanticConvention.DB_COLLECTION_NAME, scope._response.name)
+            scope._span.set_attribute(
+                SemanticConvention.DB_COLLECTION_NAME, scope._response.name
+            )
 
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
+        scope._span.set_attribute(
+            SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"dimension={scope._kwargs.get('dimension', 'None')} "
-            f"metric={scope._kwargs.get('metric', 'None')}")
+            f"metric={scope._kwargs.get('metric', 'None')}",
+        )
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_DELETE_COLLECTION:
         # Handle drop_collection operation
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
-            f"{scope._db_operation} {collection_name}")
+        scope._span.set_attribute(
+            SemanticConvention.DB_QUERY_SUMMARY,
+            f"{scope._db_operation} {collection_name}",
+        )
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_INSERT:
         # Handle insert operations (insert_one, insert_many, regular insert)
-        documents = scope._args[0] if scope._args else scope._kwargs.get("documents", [])
+        documents = (
+            scope._args[0] if scope._args else scope._kwargs.get("documents", [])
+        )
 
-        scope._span.set_attribute(SemanticConvention.DB_DOCUMENTS_COUNT, object_count(documents))
+        scope._span.set_attribute(
+            SemanticConvention.DB_DOCUMENTS_COUNT, object_count(documents)
+        )
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(documents))
 
         # Response metrics
         if scope._response and hasattr(scope._response, "inserted_ids"):
-            scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS,
-                len(scope._response.inserted_ids))
+            scope._span.set_attribute(
+                SemanticConvention.DB_RESPONSE_RETURNED_ROWS,
+                len(scope._response.inserted_ids),
+            )
 
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
+        scope._span.set_attribute(
+            SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"documents_count={object_count(documents)}")
+            f"documents_count={object_count(documents)}",
+        )
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPDATE:
         # Handle update operations (update_one, update_many, regular update)
-        update_query = scope._args[1] if len(scope._args) > 1 else scope._kwargs.get("update", {})
-        filter_query = scope._args[0] if scope._args else scope._kwargs.get("filter", {})
+        update_query = (
+            scope._args[1] if len(scope._args) > 1 else scope._kwargs.get("update", {})
+        )
+        filter_query = (
+            scope._args[0] if scope._args else scope._kwargs.get("filter", {})
+        )
 
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(update_query))
         scope._span.set_attribute(SemanticConvention.DB_FILTER, str(filter_query))
 
         # Response metrics
         if scope._response and hasattr(scope._response, "update_info"):
-            scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS,
-                scope._response.update_info.get("nModified", 0))
+            scope._span.set_attribute(
+                SemanticConvention.DB_RESPONSE_RETURNED_ROWS,
+                scope._response.update_info.get("nModified", 0),
+            )
 
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
+        scope._span.set_attribute(
+            SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"filter={str(filter_query)[:100]}... "
-            f"update={str(update_query)[:100]}...")
+            f"update={str(update_query)[:100]}...",
+        )
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_REPLACE:
         # Handle replace operations (find_one_and_update, replace_one)
-        filter_query = scope._args[0] if scope._args else scope._kwargs.get("filter", {})
+        filter_query = (
+            scope._args[0] if scope._args else scope._kwargs.get("filter", {})
+        )
 
         # Check if it's an upsert operation
         if scope._kwargs.get("upsert"):
             scope._db_operation = SemanticConvention.DB_OPERATION_UPSERT
-            scope._span.set_attribute(SemanticConvention.DB_OPERATION_NAME,
-                SemanticConvention.DB_OPERATION_UPSERT)
+            scope._span.set_attribute(
+                SemanticConvention.DB_OPERATION_NAME,
+                SemanticConvention.DB_OPERATION_UPSERT,
+            )
 
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(filter_query))
         scope._span.set_attribute(SemanticConvention.DB_FILTER, str(filter_query))
 
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
+        scope._span.set_attribute(
+            SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
             f"filter={str(filter_query)[:100]}... "
-            f"upsert={scope._kwargs.get('upsert', False)}")
+            f"upsert={scope._kwargs.get('upsert', False)}",
+        )
 
     elif scope._db_operation == SemanticConvention.DB_OPERATION_SELECT:
         # Handle find operations
-        filter_query = scope._args[0] if scope._args else scope._kwargs.get("filter", {})
+        filter_query = (
+            scope._args[0] if scope._args else scope._kwargs.get("filter", {})
+        )
 
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(filter_query))
         scope._span.set_attribute(SemanticConvention.DB_FILTER, str(filter_query))
 
         # Response metrics
         if scope._response and hasattr(scope._response, "__len__"):
-            scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS,
-                len(scope._response))
+            scope._span.set_attribute(
+                SemanticConvention.DB_RESPONSE_RETURNED_ROWS, len(scope._response)
+            )
 
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
+        scope._span.set_attribute(
+            SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"filter={str(filter_query)[:100]}...")
+            f"filter={str(filter_query)[:100]}...",
+        )
 
-    elif scope._db_operation in [SemanticConvention.DB_OPERATION_DELETE,
-                                 SemanticConvention.DB_OPERATION_FIND_AND_DELETE]:
+    elif scope._db_operation in [
+        SemanticConvention.DB_OPERATION_DELETE,
+        SemanticConvention.DB_OPERATION_FIND_AND_DELETE,
+    ]:
         # Handle delete operations (delete_one, delete_many, find_one_and_delete)
-        filter_query = scope._args[0] if scope._args else scope._kwargs.get("filter", {})
+        filter_query = (
+            scope._args[0] if scope._args else scope._kwargs.get("filter", {})
+        )
 
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(filter_query))
         scope._span.set_attribute(SemanticConvention.DB_FILTER, str(filter_query))
 
         # Response metrics
         if scope._response and hasattr(scope._response, "deleted_count"):
-            scope._span.set_attribute(SemanticConvention.DB_RESPONSE_RETURNED_ROWS,
-                scope._response.deleted_count)
+            scope._span.set_attribute(
+                SemanticConvention.DB_RESPONSE_RETURNED_ROWS,
+                scope._response.deleted_count,
+            )
 
-        scope._span.set_attribute(SemanticConvention.DB_QUERY_SUMMARY,
+        scope._span.set_attribute(
+            SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"filter={str(filter_query)[:100]}...")
+            f"filter={str(filter_query)[:100]}...",
+        )
 
     scope._span.set_status(Status(StatusCode.OK))
 
     # Record metrics using helper
     if not disable_metrics:
-        record_db_metrics(metrics, SemanticConvention.DB_SYSTEM_ASTRA,
-            scope._server_address, scope._server_port, environment, application_name,
-            scope._start_time, scope._end_time)
+        record_db_metrics(
+            metrics,
+            SemanticConvention.DB_SYSTEM_ASTRA,
+            scope._server_address,
+            scope._server_port,
+            environment,
+            application_name,
+            scope._start_time,
+            scope._end_time,
+        )
 
-def process_astra_response(response, db_operation, server_address, server_port,
-    environment, application_name, metrics, start_time, span,
-    capture_message_content, disable_metrics, version, instance, args, **kwargs):
+
+def process_astra_response(
+    response,
+    db_operation,
+    server_address,
+    server_port,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    span,
+    capture_message_content,
+    disable_metrics,
+    version,
+    instance,
+    args,
+    **kwargs,
+):
     """
     Process AstraDB response and generate telemetry.
 
@@ -271,7 +359,15 @@ def process_astra_response(response, db_operation, server_address, server_port,
     scope._args = args
 
     # Process the response using common logic
-    common_astra_logic(scope, environment, application_name,
-        metrics, capture_message_content, disable_metrics, version, instance)
+    common_astra_logic(
+        scope,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
+        instance,
+    )
 
     return response

@@ -5,11 +5,10 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.premai.premai import (
-    chat, embedding
-)
+from openlit.instrumentation.premai.premai import chat, embedding
 
 _instruments = ("premai >= 0.3.79",)
+
 
 class PremAIInstrumentor(BaseInstrumentor):
     """
@@ -33,16 +32,32 @@ class PremAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "premai.api",
             "ChatCompletionsModule.create",
-            chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # sync embedding
         wrap_function_wrapper(
             "premai.api",
             "EmbeddingsModule.create",
-            embedding(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            embedding(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

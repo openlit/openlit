@@ -12,8 +12,17 @@ from openlit.semcov import SemanticConvention
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def transcribe(version, environment, application_name,
-                 tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def transcribe(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for AssemblyAI transcribe function call
     """
@@ -23,7 +32,9 @@ def transcribe(version, environment, application_name,
         Wraps the AssemblyAI transcribe function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.assemblyai.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.assemblyai.com", 443
+        )
         request_model = kwargs.get("speech_model", "best")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}"
@@ -48,7 +59,7 @@ def transcribe(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:

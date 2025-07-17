@@ -1,6 +1,7 @@
 """
 VertexAI OpenTelemetry instrumentation utility functions
 """
+
 import time
 
 from opentelemetry.trace import Status, StatusCode
@@ -13,6 +14,7 @@ from openlit.__helpers import (
     common_span_attributes,
 )
 from openlit.semcov import SemanticConvention
+
 
 def format_content(contents):
     """
@@ -37,7 +39,9 @@ def format_content(contents):
             if part.thought:
                 content_str.append(f"thought: {part.thought}")
             if part.code_execution_result:
-                content_str.append(f"code_execution_result: {part.code_execution_result}")
+                content_str.append(
+                    f"code_execution_result: {part.code_execution_result}"
+                )
             if part.executable_code:
                 content_str.append(f"executable_code: {part.executable_code}")
             if part.file_data:
@@ -52,6 +56,7 @@ def format_content(contents):
         formatted_messages.append(f"{role}: {', '.join(content_str)}")
 
     return "\n".join(formatted_messages)
+
 
 def process_chunk(scope, chunk):
     """
@@ -71,8 +76,18 @@ def process_chunk(scope, chunk):
     scope._input_tokens = chunk.usage_metadata.prompt_token_count
     scope._output_tokens = chunk.usage_metadata.candidates_token_count
 
-def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-                        capture_message_content, disable_metrics, version, is_stream):
+
+def common_chat_logic(
+    scope,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+    is_stream,
+):
     """
     Process chat request and generate Telemetry
     """
@@ -86,13 +101,26 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     formatted_messages = format_content(contents)
     prompt = formatted_messages or str(scope._args[0][0])
 
-    cost = get_chat_model_cost(scope._request_model, pricing_info, scope._input_tokens, scope._output_tokens)
+    cost = get_chat_model_cost(
+        scope._request_model, pricing_info, scope._input_tokens, scope._output_tokens
+    )
 
     # Common Span Attributes
-    common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_VERTEXAI,
-        scope._server_address, scope._server_port, scope._request_model, scope._request_model,
-        environment, application_name, is_stream, scope._tbt, scope._ttft, version)
+    common_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        SemanticConvention.GEN_AI_SYSTEM_VERTEXAI,
+        scope._server_address,
+        scope._server_port,
+        scope._request_model,
+        scope._request_model,
+        environment,
+        application_name,
+        is_stream,
+        scope._tbt,
+        scope._ttft,
+        version,
+    )
 
     # Span Attributes for Request parameters (VertexAI-specific)
     inference_config = scope._kwargs.get("generation_config", {})
@@ -115,18 +143,30 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
             scope._span.set_attribute(attribute, value)
 
     # Span Attributes for Response parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text" if isinstance(scope._llmresponse, str) else "json")
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_OUTPUT_TYPE,
+        "text" if isinstance(scope._llmresponse, str) else "json",
+    )
 
     # Span Attributes for Cost and Tokens
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens + scope._output_tokens)
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
+        scope._input_tokens + scope._output_tokens,
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+        )
 
         # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(
@@ -146,23 +186,69 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Record metrics
     if not disable_metrics:
-        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_VERTEXAI,
-            scope._server_address, scope._server_port, scope._request_model, scope._request_model, environment,
-            application_name, scope._start_time, scope._end_time, scope._input_tokens, scope._output_tokens,
-            cost, scope._tbt, scope._ttft)
+        record_completion_metrics(
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_VERTEXAI,
+            scope._server_address,
+            scope._server_port,
+            scope._request_model,
+            scope._request_model,
+            environment,
+            application_name,
+            scope._start_time,
+            scope._end_time,
+            scope._input_tokens,
+            scope._output_tokens,
+            cost,
+            scope._tbt,
+            scope._ttft,
+        )
 
-def process_streaming_chat_response(scope, pricing_info, environment, application_name, metrics,
-                                    capture_message_content=False, disable_metrics=False, version=""):
+
+def process_streaming_chat_response(
+    scope,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="",
+):
     """
     Process streaming chat response and generate telemetry.
     """
 
-    common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-                        capture_message_content, disable_metrics, version, is_stream=True)
+    common_chat_logic(
+        scope,
+        pricing_info,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
+        is_stream=True,
+    )
 
-def process_chat_response(response, request_model, pricing_info, server_port, server_address,
-                          environment, application_name, metrics, start_time,
-                          span, capture_message_content=False, disable_metrics=False, version="1.0.0", **kwargs):
+
+def process_chat_response(
+    response,
+    request_model,
+    pricing_info,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    span,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="1.0.0",
+    **kwargs,
+):
     """
     Process non-streaming chat response and generate telemetry.
     """
@@ -182,10 +268,20 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     scope._kwargs = kwargs
     scope._args = [kwargs.get("contents", [])]
 
-    common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-                        capture_message_content, disable_metrics, version, is_stream=False)
+    common_chat_logic(
+        scope,
+        pricing_info,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
+        is_stream=False,
+    )
 
     return response
+
 
 def extract_vertexai_details(instance):
     """

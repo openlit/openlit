@@ -5,7 +5,11 @@ Module for monitoring multion calls.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.sdk.resources import (
+    SERVICE_NAME,
+    TELEMETRY_SDK_NAME,
+    DEPLOYMENT_ENVIRONMENT,
+)
 from openlit.__helpers import (
     handle_exception,
 )
@@ -14,8 +18,18 @@ from openlit.semcov import SemanticConvention
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def multion_wrap(gen_ai_endpoint, version, environment, application_name,
-                     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def multion_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for chat completions to collect metrics.
 
@@ -50,36 +64,47 @@ def multion_wrap(gen_ai_endpoint, version, environment, application_name,
         """
 
         # pylint: disable=line-too-long
-        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+        with tracer.start_as_current_span(
+            gen_ai_endpoint, kind=SpanKind.CLIENT
+        ) as span:
             response = wrapped(*args, **kwargs)
 
             try:
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
-                                    SemanticConvention.GEN_AI_SYSTEM_MULTION)
-                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
-                                    SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT)
-                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
-                                    gen_ai_endpoint)
-                span.set_attribute(SERVICE_NAME,
-                                    application_name)
-                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
-                                    environment)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_SYSTEM_MULTION,
+                )
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OPERATION,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+                )
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                span.set_attribute(SERVICE_NAME, application_name)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
 
                 if gen_ai_endpoint == "multion.browse":
-                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL,
-                                    kwargs.get("url", ""))
-                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_STEP_COUNT,
-                                    response.metadata.step_count)
-                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_RESPONSE_TIME,
-                                    response.metadata.processing_time)
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_AGENT_BROWSE_URL,
+                        kwargs.get("url", ""),
+                    )
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_AGENT_STEP_COUNT,
+                        response.metadata.step_count,
+                    )
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_AGENT_RESPONSE_TIME,
+                        response.metadata.processing_time,
+                    )
 
                     if capture_message_content:
                         span.add_event(
                             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvention.GEN_AI_CONTENT_PROMPT: kwargs.get("cmd", ""),
+                                SemanticConvention.GEN_AI_CONTENT_PROMPT: kwargs.get(
+                                    "cmd", ""
+                                ),
                             },
                         )
                         span.add_event(
@@ -89,14 +114,18 @@ def multion_wrap(gen_ai_endpoint, version, environment, application_name,
                             },
                         )
                 elif gen_ai_endpoint == "multion.retrieve":
-                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL,
-                                    kwargs.get("url", ""))
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_AGENT_BROWSE_URL,
+                        kwargs.get("url", ""),
+                    )
 
                     if capture_message_content:
                         span.add_event(
                             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvention.GEN_AI_CONTENT_PROMPT: kwargs.get("cmd", ""),
+                                SemanticConvention.GEN_AI_CONTENT_PROMPT: kwargs.get(
+                                    "cmd", ""
+                                ),
                             },
                         )
                         span.add_event(
@@ -107,8 +136,10 @@ def multion_wrap(gen_ai_endpoint, version, environment, application_name,
                         )
 
                 elif gen_ai_endpoint == "multion.sessions.create":
-                    span.set_attribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL,
-                                    kwargs.get("url", ""))
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_AGENT_BROWSE_URL,
+                        kwargs.get("url", ""),
+                    )
 
                     if capture_message_content:
                         span.add_event(

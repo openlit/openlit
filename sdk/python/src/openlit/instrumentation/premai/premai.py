@@ -4,20 +4,26 @@ Module for monitoring PremAI API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.premai.utils import (
     process_chat_response,
     process_chunk,
     process_streaming_chat_response,
-    process_embedding_response
+    process_embedding_response,
 )
 from openlit.semcov import SemanticConvention
 
-def chat(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def chat(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -28,15 +34,15 @@ def chat(version, environment, application_name,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                **args,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            **args,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -75,7 +81,9 @@ def chat(version, environment, application_name,
 
             finally:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind=SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -84,7 +92,7 @@ def chat(version, environment, application_name,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
 
                 except Exception as e:
@@ -98,7 +106,9 @@ def chat(version, environment, application_name,
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
 
-        server_address, server_port = set_server_address_and_port(instance, "app.premai.io", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "app.premai.io", 443
+        )
         request_model = kwargs.get("model", "gpt-4o-mini")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -107,7 +117,9 @@ def chat(version, environment, application_name,
             # Special handling for streaming response to accommodate the nature of data flow
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+            return TracedSyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            )
 
         # Handling for non-streaming responses
         else:
@@ -130,7 +142,7 @@ def chat(version, environment, application_name,
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
-                        **kwargs
+                        **kwargs,
                     )
 
                 except Exception as e:
@@ -140,8 +152,17 @@ def chat(version, environment, application_name,
 
     return wrapper
 
-def embedding(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def embedding(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -151,10 +172,14 @@ def embedding(version, environment, application_name,
         Wraps the GenAI function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "app.premai.io", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "app.premai.io", 443
+        )
         request_model = kwargs.get("model", "text-embedding-ada-002")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -175,7 +200,7 @@ def embedding(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:

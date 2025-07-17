@@ -36,6 +36,7 @@ QDRANT_OPERATIONS = [
     ("query_points", "qdrant.query_points"),
 ]
 
+
 class QdrantInstrumentor(BaseInstrumentor):
     """
     An instrumentor for Qdrant client library.
@@ -60,8 +61,15 @@ class QdrantInstrumentor(BaseInstrumentor):
                 "qdrant_client",
                 f"QdrantClient.{method_name}",
                 general_wrap(
-                    endpoint, version, environment, application_name, tracer,
-                    pricing_info, capture_message_content, metrics, disable_metrics
+                    endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
                 ),
             )
 
@@ -71,8 +79,15 @@ class QdrantInstrumentor(BaseInstrumentor):
                 "qdrant_client",
                 f"AsyncQdrantClient.{method_name}",
                 async_general_wrap(
-                    endpoint, version, environment, application_name, tracer,
-                    pricing_info, capture_message_content, metrics, disable_metrics
+                    endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
                 ),
             )
 

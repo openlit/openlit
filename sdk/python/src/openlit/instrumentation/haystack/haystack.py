@@ -12,8 +12,18 @@ from openlit.instrumentation.haystack.utils import (
     set_server_address_and_port,
 )
 
-def general_wrap(endpoint, version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def general_wrap(
+    endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """Optimized wrapper for Haystack operations"""
 
     def wrapper(wrapped, instance, args, kwargs):
@@ -41,10 +51,22 @@ def general_wrap(endpoint, version, environment, application_name,
 
             try:
                 response = process_haystack_response(
-                    response, operation_type, server_address, server_port,
-                    environment, application_name, metrics, start_time, span,
-                    capture_message_content, disable_metrics, version,
-                    instance, args, endpoint=endpoint, **kwargs
+                    response,
+                    operation_type,
+                    server_address,
+                    server_port,
+                    environment,
+                    application_name,
+                    metrics,
+                    start_time,
+                    span,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    instance,
+                    args,
+                    endpoint=endpoint,
+                    **kwargs,
                 )
             except Exception as e:
                 handle_exception(span, e)

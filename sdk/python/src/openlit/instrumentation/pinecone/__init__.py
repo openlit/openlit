@@ -13,7 +13,11 @@ _instruments = ("pinecone >= 7.3.0",)
 # Pinecone sync operations
 PINECONE_SYNC_OPERATIONS = [
     ("pinecone.pinecone", "Pinecone.create_index", "pinecone.create_collection"),
-    ("pinecone.pinecone", "Pinecone.create_index_for_model", "pinecone.create_collection"),
+    (
+        "pinecone.pinecone",
+        "Pinecone.create_index_for_model",
+        "pinecone.create_collection",
+    ),
     ("pinecone.db_data.index", "Index.upsert", "pinecone.upsert"),
     ("pinecone.db_data.index", "Index.upsert_records", "pinecone.upsert_records"),
     ("pinecone.db_data.index", "Index.query", "pinecone.query"),
@@ -26,17 +30,34 @@ PINECONE_SYNC_OPERATIONS = [
 
 # Pinecone async operations
 PINECONE_ASYNC_OPERATIONS = [
-    ("pinecone.pinecone_asyncio", "PineconeAsyncio.create_index", "pinecone.create_index"),
-    ("pinecone.pinecone_asyncio", "PineconeAsyncio.create_index_for_model", "pinecone.create_index"),
+    (
+        "pinecone.pinecone_asyncio",
+        "PineconeAsyncio.create_index",
+        "pinecone.create_index",
+    ),
+    (
+        "pinecone.pinecone_asyncio",
+        "PineconeAsyncio.create_index_for_model",
+        "pinecone.create_index",
+    ),
     ("pinecone.db_data.index_asyncio", "_IndexAsyncio.upsert", "pinecone.upsert"),
-    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.upsert_records", "pinecone.upsert_records"),
+    (
+        "pinecone.db_data.index_asyncio",
+        "_IndexAsyncio.upsert_records",
+        "pinecone.upsert_records",
+    ),
     ("pinecone.db_data.index_asyncio", "_IndexAsyncio.query", "pinecone.query"),
     ("pinecone.db_data.index_asyncio", "_IndexAsyncio.search", "pinecone.search"),
     ("pinecone.db_data.index_asyncio", "_IndexAsyncio.fetch", "pinecone.fetch"),
-    ("pinecone.db_data.index_asyncio", "_IndexAsyncio.search_records", "pinecone.search_records"),
+    (
+        "pinecone.db_data.index_asyncio",
+        "_IndexAsyncio.search_records",
+        "pinecone.search_records",
+    ),
     ("pinecone.db_data.index_asyncio", "_IndexAsyncio.update", "pinecone.update"),
     ("pinecone.db_data.index_asyncio", "_IndexAsyncio.delete", "pinecone.delete"),
 ]
+
 
 class PineconeInstrumentor(BaseInstrumentor):
     """
@@ -61,8 +82,17 @@ class PineconeInstrumentor(BaseInstrumentor):
             wrap_function_wrapper(
                 module,
                 class_method,
-                general_wrap(endpoint, version, environment, application_name,
-                    tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                general_wrap(
+                    endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
             )
 
         # Wrap async operations
@@ -70,8 +100,17 @@ class PineconeInstrumentor(BaseInstrumentor):
             wrap_function_wrapper(
                 module,
                 class_method,
-                async_general_wrap(endpoint, version, environment, application_name,
-                    tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                async_general_wrap(
+                    endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
             )
 
     def _uninstrument(self, **kwargs):

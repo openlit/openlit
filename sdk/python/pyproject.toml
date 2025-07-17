@@ -24,6 +24,7 @@ opentelemetry-instrumentation = ">=0.52b0,<1.0.0"
 openai = "^1.1.1"
 anthropic = ">=0.42.0,<1.0.0"
 openai-agents = ">=0.0.3"
+langchain = "^0.3.15"
 
 [build-system]
 requires = ["poetry-core>=1.1.0"]

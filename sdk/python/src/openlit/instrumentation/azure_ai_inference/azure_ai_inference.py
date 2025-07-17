@@ -20,8 +20,17 @@ from openlit.semcov import SemanticConvention
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def complete(version, environment, application_name,
-             tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def complete(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -32,15 +41,15 @@ def complete(version, environment, application_name,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                **args,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            **args,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -71,8 +80,14 @@ def complete(version, environment, application_name,
         def __exit__(self, exc_type, exc_val, exc_tb):
             self.__wrapped__.__exit__(exc_type, exc_val, exc_tb)
             process_streaming_chat_response(
-                self, pricing_info, environment, application_name, metrics,
-                capture_message_content, disable_metrics, version
+                self,
+                pricing_info,
+                environment,
+                application_name,
+                metrics,
+                capture_message_content,
+                disable_metrics,
+                version,
             )
 
         def __iter__(self):
@@ -92,7 +107,9 @@ def complete(version, environment, application_name,
         """
 
         streaming = kwargs.get("stream", False)
-        server_address, server_port = set_server_address_and_port(instance, "models.github.ai", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "models.github.ai", 443
+        )
         request_model = kwargs.get("model", "gpt-4o")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -101,7 +118,9 @@ def complete(version, environment, application_name,
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+            return TracedSyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            )
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -121,15 +140,24 @@ def complete(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             return response
 
     return wrapper
 
-def embed(version, environment, application_name,
-          tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def embed(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI embedding function call
     """
@@ -139,10 +167,14 @@ def embed(version, environment, application_name,
         Wraps the GenAI embedding function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "models.github.ai", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "models.github.ai", 443
+        )
         request_model = kwargs.get("model", "text-embedding-3-small")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -163,7 +195,7 @@ def embed(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:

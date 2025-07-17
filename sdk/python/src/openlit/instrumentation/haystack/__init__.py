@@ -12,6 +12,7 @@ from openlit.instrumentation.haystack.async_haystack import async_general_wrap
 
 _instruments = ("haystack-ai >= 2.0.0",)
 
+
 class HaystackInstrumentor(BaseInstrumentor):
     """Optimized instrumentor for Haystack with minimal overhead"""
 
@@ -32,16 +33,34 @@ class HaystackInstrumentor(BaseInstrumentor):
         # Pipeline operations (always enabled)
         try:
             wrap_function_wrapper(
-                "haystack", "Pipeline.run",
-                general_wrap("pipeline", version, environment, application_name,
-                           tracer, pricing_info, capture_message_content,
-                           metrics, disable_metrics)
+                "haystack",
+                "Pipeline.run",
+                general_wrap(
+                    "pipeline",
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
             )
             wrap_function_wrapper(
-                "haystack", "AsyncPipeline.run_async",
-                async_general_wrap("pipeline", version, environment,
-                                 application_name, tracer, pricing_info,
-                                 capture_message_content, metrics, disable_metrics)
+                "haystack",
+                "AsyncPipeline.run_async",
+                async_general_wrap(
+                    "pipeline",
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
             )
         except Exception:
             pass
@@ -49,27 +68,54 @@ class HaystackInstrumentor(BaseInstrumentor):
         # Component operations (only if detailed_tracing enabled)
         if detailed_tracing:
             components = [
-                ("haystack.components.retrievers.in_memory",
-                 "InMemoryBM25Retriever.run", "bm25_retriever"),
-                ("haystack.components.builders.prompt_builder",
-                 "PromptBuilder.run", "prompt_builder"),
-                ("haystack.components.generators.openai",
-                 "OpenAIGenerator.run", "openai_generator"),
-                ("haystack.components.generators.chat.openai",
-                 "OpenAIChatGenerator.run", "openai_chat_generator"),
-                ("haystack.components.embedders.openai_text_embedder",
-                 "OpenAITextEmbedder.run", "text_embedder"),
-                ("haystack.components.embedders.openai_document_embedder",
-                 "OpenAIDocumentEmbedder.run", "document_embedder"),
+                (
+                    "haystack.components.retrievers.in_memory",
+                    "InMemoryBM25Retriever.run",
+                    "bm25_retriever",
+                ),
+                (
+                    "haystack.components.builders.prompt_builder",
+                    "PromptBuilder.run",
+                    "prompt_builder",
+                ),
+                (
+                    "haystack.components.generators.openai",
+                    "OpenAIGenerator.run",
+                    "openai_generator",
+                ),
+                (
+                    "haystack.components.generators.chat.openai",
+                    "OpenAIChatGenerator.run",
+                    "openai_chat_generator",
+                ),
+                (
+                    "haystack.components.embedders.openai_text_embedder",
+                    "OpenAITextEmbedder.run",
+                    "text_embedder",
+                ),
+                (
+                    "haystack.components.embedders.openai_document_embedder",
+                    "OpenAIDocumentEmbedder.run",
+                    "document_embedder",
+                ),
             ]
 
             for module, method, component_type in components:
                 try:
                     wrap_function_wrapper(
-                        module, method,
-                        general_wrap(component_type, version, environment,
-                                   application_name, tracer, pricing_info,
-                                   capture_message_content, metrics, disable_metrics)
+                        module,
+                        method,
+                        general_wrap(
+                            component_type,
+                            version,
+                            environment,
+                            application_name,
+                            tracer,
+                            pricing_info,
+                            capture_message_content,
+                            metrics,
+                            disable_metrics,
+                        ),
                     )
                 except Exception:
                     pass

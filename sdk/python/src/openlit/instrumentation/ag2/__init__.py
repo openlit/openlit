@@ -5,14 +5,14 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.ag2.ag2 import (
-    conversable_agent, agent_run
-)
+from openlit.instrumentation.ag2.ag2 import conversable_agent, agent_run
 from openlit.instrumentation.ag2.async_ag2 import (
-    async_conversable_agent, async_agent_run
+    async_conversable_agent,
+    async_agent_run,
 )
 
 _instruments = ("ag2 >= 0.3.2",)
+
 
 class AG2Instrumentor(BaseInstrumentor):
     """
@@ -36,16 +36,32 @@ class AG2Instrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "autogen.agentchat.conversable_agent",
             "ConversableAgent.__init__",
-            conversable_agent(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            conversable_agent(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # sync agent run
         wrap_function_wrapper(
             "autogen.agentchat.conversable_agent",
             "ConversableAgent.run",
-            agent_run(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            agent_run(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

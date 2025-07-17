@@ -5,11 +5,10 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.gpt4all.gpt4all import (
-    embed, generate
-)
+from openlit.instrumentation.gpt4all.gpt4all import embed, generate
 
 _instruments = ("gpt4all >= 2.6.0",)
+
 
 class GPT4AllInstrumentor(BaseInstrumentor):
     """
@@ -33,16 +32,32 @@ class GPT4AllInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "gpt4all",
             "GPT4All.generate",
-            generate(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            generate(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # embed
         wrap_function_wrapper(
             "gpt4all",
             "Embed4All.embed",
-            embed(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            embed(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):
