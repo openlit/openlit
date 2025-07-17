@@ -6,15 +6,17 @@ import {
 } from '@opentelemetry/semantic-conventions';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OpenlitOptions } from './types';
-import Tracing from './tracing';
+import Tracing from './otel/tracing';
 import { DEFAULT_APPLICATION_NAME, DEFAULT_ENVIRONMENT, SDK_NAME } from './constant';
 import { SpanExporter } from '@opentelemetry/sdk-trace-base';
 import BaseOpenlit from './features/base';
 import { Hallucination, Bias, Toxicity, All } from './evals';
+import Metrics from './otel/metrics';
 
 // Factory functions for evals
 const evals = {
-  Hallucination: (options: ConstructorParameters<typeof Hallucination>[0]) => new Hallucination(options),
+  Hallucination: (options: ConstructorParameters<typeof Hallucination>[0]) =>
+    new Hallucination(options),
   Bias: (options: ConstructorParameters<typeof Bias>[0]) => new Bias(options),
   Toxicity: (options: ConstructorParameters<typeof Toxicity>[0]) => new Toxicity(options),
   All: (options: ConstructorParameters<typeof All>[0]) => new All(options),
@@ -69,6 +71,15 @@ class Openlit extends BaseOpenlit {
         resource: this.resource,
       });
 
+      Metrics.setup({
+        ...options,
+        environment,
+        applicationName,
+        otlpEndpoint,
+        otlpHeaders,
+        resource: this.resource,
+      });
+      
       this._sdk = new NodeSDK({
         resource: this.resource,
         traceExporter: Tracing.traceExporter as SpanExporter,
