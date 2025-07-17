@@ -1,6 +1,7 @@
 """
 Ollama OpenTelemetry instrumentation utility functions
 """
+
 import time
 
 from opentelemetry.trace import Status, StatusCode
@@ -18,6 +19,7 @@ from openlit.__helpers import (
 )
 from openlit.semcov import SemanticConvention
 
+
 def format_content(messages):
     """
     Process a list of messages to extract content.
@@ -30,8 +32,9 @@ def format_content(messages):
 
         if isinstance(content, list):
             content_str = ", ".join(
-                f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
-                if "type" in item else f'text: {item["text"]}'
+                f"{item['type']}: {item['text'] if 'text' in item else item['image_url']}"
+                if "type" in item
+                else f"text: {item['text']}"
                 for item in content
             )
             formatted_messages.append(f"{role}: {content_str}")
@@ -39,6 +42,7 @@ def format_content(messages):
             formatted_messages.append(f"{role}: {content}")
 
     return "\n".join(formatted_messages)
+
 
 def process_chunk(self, chunk):
     """
@@ -66,8 +70,22 @@ def process_chunk(self, chunk):
         self._response_model = chunked.get("model", "")
         self._finish_reason = chunked.get("done_reason", "")
 
-def record_embedding_metrics(metrics, gen_ai_operation, gen_ai_system, server_address, server_port,
-    request_model, response_model, environment, application_name, start_time, end_time, cost, input_tokens):
+
+def record_embedding_metrics(
+    metrics,
+    gen_ai_operation,
+    gen_ai_system,
+    server_address,
+    server_port,
+    request_model,
+    response_model,
+    environment,
+    application_name,
+    start_time,
+    end_time,
+    cost,
+    input_tokens,
+):
     """
     Record embedding metrics for the operation.
     """
@@ -88,8 +106,18 @@ def record_embedding_metrics(metrics, gen_ai_operation, gen_ai_system, server_ad
     metrics["genai_prompt_tokens"].add(input_tokens, attributes)
     metrics["genai_cost"].record(cost, attributes)
 
-def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
-    metrics, capture_message_content, disable_metrics, version):
+
+def common_chat_logic(
+    scope,
+    gen_ai_endpoint,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+):
     """
     Process chat request and generate Telemetry
     """
@@ -103,13 +131,26 @@ def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, applica
     request_model = json_body.get("model") or scope._kwargs.get("model", "llama3.2")
     is_stream = scope._kwargs.get("stream", False)
 
-    cost = get_chat_model_cost(request_model, pricing_info, scope._input_tokens, scope._output_tokens)
+    cost = get_chat_model_cost(
+        request_model, pricing_info, scope._input_tokens, scope._output_tokens
+    )
 
     # Common Span Attributes
-    common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
-        scope._server_address, scope._server_port, request_model, request_model,
-        environment, application_name, is_stream, scope._tbt, scope._ttft, version)
+    common_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+        scope._server_address,
+        scope._server_port,
+        request_model,
+        request_model,
+        environment,
+        application_name,
+        is_stream,
+        scope._tbt,
+        scope._ttft,
+        version,
+    )
 
     # Span Attributes for Request parameters
     options = json_body.get("options", scope._kwargs.get("options", {}))
@@ -128,25 +169,46 @@ def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, applica
             scope._span.set_attribute(attribute, value)
 
     # Span Attributes for Response parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason])
-    scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE,"text" if isinstance(scope._llmresponse, str) else "json")
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_OUTPUT_TYPE,
+        "text" if isinstance(scope._llmresponse, str) else "json",
+    )
 
     # Span Attributes for Cost and Tokens
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens + scope._output_tokens)
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
+        scope._input_tokens + scope._output_tokens,
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Tools
     if scope._tools is not None:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function","")).get("name","")
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id","")))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("function","").get("arguments","")))
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function", "")
+        ).get("name", "")
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_ARGS,
+            str(scope._tools.get("function", "").get("arguments", "")),
+        )
 
     # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+        )
 
         # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(
@@ -166,13 +228,37 @@ def common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, applica
 
     # Metrics
     if not disable_metrics:
-        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-            SemanticConvention.GEN_AI_SYSTEM_OLLAMA, scope._server_address, scope._server_port,
-            request_model, scope._response_model, environment, application_name, scope._start_time,
-            scope._end_time, cost, scope._input_tokens, scope._output_tokens, scope._tbt, scope._ttft)
+        record_completion_metrics(
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+            scope._server_address,
+            scope._server_port,
+            request_model,
+            scope._response_model,
+            environment,
+            application_name,
+            scope._start_time,
+            scope._end_time,
+            cost,
+            scope._input_tokens,
+            scope._output_tokens,
+            scope._tbt,
+            scope._ttft,
+        )
 
-def common_embedding_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
-    metrics, capture_message_content, disable_metrics, version):
+
+def common_embedding_logic(
+    scope,
+    gen_ai_endpoint,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+):
     """
     Process embedding request and generate Telemetry
     """
@@ -186,14 +272,29 @@ def common_embedding_logic(scope, gen_ai_endpoint, pricing_info, environment, ap
     cost = get_embed_model_cost(request_model, pricing_info, input_tokens)
 
     # Common Span Attributes
-    common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING, SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
-        scope._server_address, scope._server_port, request_model, request_model,
-        environment, application_name, is_stream, scope._tbt, scope._ttft, version)
+    common_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+        SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+        scope._server_address,
+        scope._server_port,
+        request_model,
+        request_model,
+        environment,
+        application_name,
+        is_stream,
+        scope._tbt,
+        scope._ttft,
+        version,
+    )
 
     # Span Attributes for Embedding-specific parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens)
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens
+    )
 
     # Span Attributes for Cost
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
@@ -206,23 +307,66 @@ def common_embedding_logic(scope, gen_ai_endpoint, pricing_info, environment, ap
 
     # Metrics
     if not disable_metrics:
-        record_embedding_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
-            SemanticConvention.GEN_AI_SYSTEM_OLLAMA, scope._server_address, scope._server_port,
-            request_model, request_model, environment, application_name, scope._start_time,
-            scope._end_time, cost, input_tokens)
+        record_embedding_metrics(
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+            SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+            scope._server_address,
+            scope._server_port,
+            request_model,
+            request_model,
+            environment,
+            application_name,
+            scope._start_time,
+            scope._end_time,
+            cost,
+            input_tokens,
+        )
 
-def process_streaming_chat_response(self, pricing_info, environment, application_name, metrics,
-    capture_message_content=False, disable_metrics=False, version=""):
+
+def process_streaming_chat_response(
+    self,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="",
+):
     """
     Process streaming chat request and generate Telemetry
     """
 
-    common_chat_logic(self, "ollama.chat", pricing_info, environment, application_name, metrics,
-        capture_message_content, disable_metrics, version)
+    common_chat_logic(
+        self,
+        "ollama.chat",
+        pricing_info,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
+    )
 
-def process_chat_response(response, gen_ai_endpoint, pricing_info, server_port, server_address,
-    environment, application_name, metrics, start_time, span, capture_message_content=False,
-    disable_metrics=False, version="1.0.0", **kwargs):
+
+def process_chat_response(
+    response,
+    gen_ai_endpoint,
+    pricing_info,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    span,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="1.0.0",
+    **kwargs,
+):
     """
     Process chat request and generate Telemetry
     """
@@ -250,14 +394,37 @@ def process_chat_response(response, gen_ai_endpoint, pricing_info, server_port, 
     else:
         scope._tools = None
 
-    common_chat_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name, metrics,
-        capture_message_content, disable_metrics, version)
+    common_chat_logic(
+        scope,
+        gen_ai_endpoint,
+        pricing_info,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
+    )
 
     return response
 
-def process_embedding_response(response, gen_ai_endpoint, pricing_info, server_port, server_address,
-    environment, application_name, metrics, start_time, span, capture_message_content=False,
-    disable_metrics=False, version="1.0.0", **kwargs):
+
+def process_embedding_response(
+    response,
+    gen_ai_endpoint,
+    pricing_info,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    span,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="1.0.0",
+    **kwargs,
+):
     """
     Process embedding request and generate Telemetry
     """
@@ -275,7 +442,16 @@ def process_embedding_response(response, gen_ai_endpoint, pricing_info, server_p
     scope._tbt = 0.0
     scope._ttft = scope._end_time - scope._start_time
 
-    common_embedding_logic(scope, gen_ai_endpoint, pricing_info, environment, application_name,
-        metrics, capture_message_content, disable_metrics, version)
+    common_embedding_logic(
+        scope,
+        gen_ai_endpoint,
+        pricing_info,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
+    )
 
     return response

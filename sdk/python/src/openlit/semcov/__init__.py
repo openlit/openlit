@@ -6,6 +6,8 @@ intended for use across different components of AI applications, including reque
 response processing, usage metrics, and interaction with vector databases and AI systems.
 The purpose is to standardize the semantics for easier integration, analytics, and maintenance.
 """
+
+
 class SemanticConvention:
     """
     The SemanticConvention class provides a centralized repository of constant values that
@@ -74,10 +76,11 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_IMAGE = "image"
     GEN_AI_OPERATION_TYPE_AUDIO = "audio"
     GEN_AI_OPERATION_TYPE_VECTORDB = "vectordb"
-    GEN_AI_OPERATION_TYPE_FRAMEWORK = "framework"
-    GEN_AI_OPERATION_TYPE_AGENT = "agent"
+    GEN_AI_OPERATION_TYPE_FRAMEWORK = "workflow"
+    GEN_AI_OPERATION_TYPE_AGENT = "invoke_agent"
     GEN_AI_OPERATION_TYPE_CREATE_AGENT = "create_agent"
     GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = "execute_task"
+    GEN_AI_OPERATION_TYPE_RETRIEVE = "retrieve"
 
     # GenAI Output Types (OTel Semconv)
     GEN_AI_OUTPUT_TYPE_IMAGE = "image"
@@ -134,7 +137,35 @@ class SemanticConvention:
     GEN_AI_SYSTEM_FIRECRAWL = "firecrawl"
     GEN_AI_SYSTEM_LETTA = "letta"
     GEN_AI_SYSTEM_TOGETHER = "together"
+    GEN_AI_SYSTEM_OPENAI_AGENTS = "openai_agents"
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
+
+    # GenAI Framework Component Attributes (Standard)
+    GEN_AI_FRAMEWORK_COMPONENT_NAME = "gen_ai.framework.component.name"
+    GEN_AI_FRAMEWORK_COMPONENT_TYPE = "gen_ai.framework.component.type"
+    GEN_AI_FRAMEWORK_COMPONENT_CLASS_NAME = "gen_ai.component.class_name"
+    GEN_AI_FRAMEWORK_COMPONENT_INPUT_TYPES = "gen_ai.framework.component.input_types"
+    GEN_AI_FRAMEWORK_COMPONENT_OUTPUT_TYPES = "gen_ai.framework.component.output_types"
+    GEN_AI_FRAMEWORK_COMPONENT_INPUT_SPEC = "gen_ai.framework.component.input_spec"
+    GEN_AI_FRAMEWORK_COMPONENT_OUTPUT_SPEC = "gen_ai.framework.component.output_spec"
+    GEN_AI_FRAMEWORK_COMPONENT_VISITS = "gen_ai.framework.component.visits"
+    GEN_AI_FRAMEWORK_COMPONENT_SENDERS = "gen_ai.framework.component.senders"
+    GEN_AI_FRAMEWORK_COMPONENT_RECEIVERS = "gen_ai.framework.component.receivers"
+    GEN_AI_FRAMEWORK_COMPONENT_CONNECTIONS = "gen_ai.framework.component.connections"
+
+    # GenAI Framework Pipeline Attributes (Standard)
+    GEN_AI_FRAMEWORK_PIPELINE_INPUT_DATA = "gen_ai.framework.pipeline.input_data"
+    GEN_AI_FRAMEWORK_PIPELINE_OUTPUT_DATA = "gen_ai.framework.pipeline.output_data"
+    GEN_AI_FRAMEWORK_PIPELINE_METADATA = "gen_ai.framework.pipeline.metadata"
+    GEN_AI_FRAMEWORK_PIPELINE_MAX_RUNS = (
+        "gen_ai.framework.pipeline.max_runs_per_component"
+    )
+    GEN_AI_FRAMEWORK_PIPELINE_COMPONENT_COUNT = (
+        "gen_ai.framework.pipeline.component_count"
+    )
+    GEN_AI_FRAMEWORK_PIPELINE_EXECUTION_TIME = (
+        "gen_ai.framework.pipeline.execution_time"
+    )
 
     # GenAI Request Attributes (Extra)
     GEN_AI_REQUEST_IS_STREAM = "gen_ai.request.is_stream"
@@ -196,7 +227,6 @@ class SemanticConvention:
     DB_QUERY_TEXT = "db.query.text"
     DB_QUERY_SUMMARY = "db.query.summary"
     DB_RESPONSE_RETURNED_ROWS = "db.response.returned_rows"
-
 
     # Vector DB Attributes (Extras)
     DB_SDK_VERSION = "db.sdk.version"
@@ -263,7 +293,6 @@ class SemanticConvention:
     GEN_AI_AGENT_NAME = "gen_ai.agent.name"
     GEN_AI_AGENT_DESCRIPTION = "gen_ai.agent.description"
 
-
     GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
     GEN_AI_AGENT_ROLE = "gen_ai.agent.role"
@@ -324,3 +353,148 @@ class SemanticConvention:
     EVAL_CLASSIFICATION = "evals.classification"
     EVAL_VALIDATOR = "evals.validator"
     EVAL_EXPLANATION = "evals.explanation"
+
+    # === FRAMEWORK OPERATIONS (Generic attributes for all RAG/AI frameworks) ===
+
+    # Document Processing
+    GEN_AI_FRAMEWORK_DOCUMENTS_COUNT = "gen_ai.framework.documents.count"
+    GEN_AI_FRAMEWORK_DOCUMENT_SOURCES = "gen_ai.framework.document.sources"
+    GEN_AI_FRAMEWORK_DOCUMENT_SIZE = "gen_ai.framework.document.size"
+    GEN_AI_FRAMEWORK_DOCUMENT_TYPE = "gen_ai.framework.document.type"
+
+    # Text Processing & Chunking
+    GEN_AI_FRAMEWORK_CHUNK_SIZE = "gen_ai.framework.chunk.size"
+    GEN_AI_FRAMEWORK_CHUNK_OVERLAP = "gen_ai.framework.chunk.overlap"
+    GEN_AI_FRAMEWORK_CHUNK_COUNT = "gen_ai.framework.chunk.count"
+    GEN_AI_FRAMEWORK_TEXT_LENGTH = "gen_ai.framework.text.length"
+    GEN_AI_FRAMEWORK_TEXT_PROCESSED = "gen_ai.framework.text.processed"
+
+    # Node/Data Processing
+    GEN_AI_FRAMEWORK_NODES_COUNT = "gen_ai.framework.nodes.count"
+    GEN_AI_FRAMEWORK_NODES_PROCESSED = "gen_ai.framework.nodes.processed"
+    GEN_AI_FRAMEWORK_NODES_CREATED = "gen_ai.framework.nodes.created"
+    GEN_AI_FRAMEWORK_NODES_ADDED = "gen_ai.framework.nodes.added"
+    GEN_AI_FRAMEWORK_NODES_INSERTED = "gen_ai.framework.nodes.inserted"
+    GEN_AI_FRAMEWORK_NODES_DELETED = "gen_ai.framework.nodes.deleted"
+    GEN_AI_FRAMEWORK_NODE_ID = "gen_ai.framework.node.id"
+
+    # Embedding Operations
+    GEN_AI_FRAMEWORK_EMBEDDING_DIMENSION = "gen_ai.framework.embedding.dimension"
+    GEN_AI_FRAMEWORK_EMBEDDING_COUNT = "gen_ai.framework.embedding.count"
+    GEN_AI_FRAMEWORK_EMBEDDING_BATCH_SIZE = "gen_ai.framework.embedding.batch_size"
+    GEN_AI_FRAMEWORK_EMBEDDING_MODEL = "gen_ai.framework.embedding.model"
+    GEN_AI_FRAMEWORK_EMBEDDING_PROCESSED = "gen_ai.framework.embedding.processed"
+
+    # Query Operations
+    GEN_AI_FRAMEWORK_QUERY_TYPE = "gen_ai.framework.query.type"
+    GEN_AI_FRAMEWORK_QUERY_TEXT = "gen_ai.framework.query.text"
+    GEN_AI_FRAMEWORK_QUERY_LENGTH = "gen_ai.framework.query.length"
+    GEN_AI_FRAMEWORK_SIMILARITY_TOP_K = "gen_ai.framework.similarity.top_k"
+    GEN_AI_FRAMEWORK_SIMILARITY_THRESHOLD = "gen_ai.framework.similarity.threshold"
+
+    # Retrieval Operations
+    GEN_AI_FRAMEWORK_RETRIEVAL_SOURCE = "gen_ai.framework.retrieval.source"
+    GEN_AI_FRAMEWORK_RETRIEVAL_COUNT = "gen_ai.framework.retrieval.count"
+    GEN_AI_FRAMEWORK_RETRIEVAL_METHOD = "gen_ai.framework.retrieval.method"
+
+    # Response Generation
+    GEN_AI_FRAMEWORK_RESPONSE_LENGTH = "gen_ai.framework.response.length"
+    GEN_AI_FRAMEWORK_TEMPLATE_TYPE = "gen_ai.framework.template.type"
+    GEN_AI_FRAMEWORK_CONTEXT_SIZE = "gen_ai.framework.context.size"
+    GEN_AI_FRAMEWORK_CONTEXT_COUNT = "gen_ai.framework.context.count"
+
+    # Processing Flags & Configuration
+    GEN_AI_FRAMEWORK_SHOW_PROGRESS = "gen_ai.framework.show_progress"
+
+    # Vector Store Operations (reuse DB attributes where appropriate)
+    GEN_AI_FRAMEWORK_VECTOR_DIMENSION = "gen_ai.framework.vector.dimension"
+    GEN_AI_FRAMEWORK_INDEX_NAME = "gen_ai.framework.index.name"
+    GEN_AI_FRAMEWORK_INDEX_TYPE = "gen_ai.framework.index.type"
+
+    # === GENERAL FRAMEWORK SEMANTIC CONVENTIONS (reusable across frameworks) ===
+
+    # Framework tracing attributes (general, reusable across frameworks)
+    GEN_AI_FRAMEWORK_TAGS = "gen_ai.framework.tags"
+
+    # Framework performance tracking (general)
+    GEN_AI_FRAMEWORK_PERFORMANCE_VS_BASELINE = (
+        "gen_ai.framework.performance.vs_baseline"
+    )
+    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_AVG = (
+        "gen_ai.framework.performance.baseline_avg"
+    )
+    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_PERCENTILE = (
+        "gen_ai.framework.performance.baseline_percentile"
+    )
+
+    # Framework error classification (general)
+    GEN_AI_FRAMEWORK_ERROR_CLASS = "gen_ai.framework.error.class"
+    GEN_AI_FRAMEWORK_ERROR_TYPE = "gen_ai.framework.error.type"
+    GEN_AI_FRAMEWORK_ERROR_MESSAGE = "gen_ai.framework.error.message"
+
+    # Workflow attributes (general, reusable)
+    GEN_AI_WORKFLOW_TYPE = "gen_ai.workflow.type"
+    GEN_AI_WORKFLOW_INPUT = "gen_ai.workflow.input"
+    GEN_AI_WORKFLOW_OUTPUT = "gen_ai.workflow.output"
+
+    # Serialized function information (general, reusable)
+    GEN_AI_SERIALIZED_NAME = "gen_ai.serialized.name"
+    GEN_AI_SERIALIZED_SIGNATURE = "gen_ai.serialized.signature"
+    GEN_AI_SERIALIZED_DOC = "gen_ai.serialized.doc"
+    GEN_AI_SERIALIZED_MODULE = "gen_ai.serialized.module"
+
+    # Tool operation attributes (general, reusable)
+    GEN_AI_TOOL_INPUT = "gen_ai.tool.input"
+    GEN_AI_TOOL_OUTPUT = "gen_ai.tool.output"
+
+    # Retrieval operation attributes (general, reusable)
+    GEN_AI_RETRIEVAL_QUERY = "gen_ai.retrieval.query"
+    GEN_AI_RETRIEVAL_DOCUMENT_COUNT = "gen_ai.retrieval.document_count"
+    GEN_AI_RETRIEVAL_DOCUMENTS = "gen_ai.retrieval.documents"
+
+    # Provider information (general, reusable)
+    GEN_AI_REQUEST_PROVIDER = "gen_ai.request.provider"
+
+    # Enhanced token details (general, reusable across providers)
+    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_AUDIO = (
+        "gen_ai.usage.completion_tokens_details.audio"
+    )
+    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = (
+        "gen_ai.usage.completion_tokens_details.reasoning"
+    )
+    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = (
+        "gen_ai.usage.prompt_tokens_details.cache_read"
+    )
+    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE = (
+        "gen_ai.usage.prompt_tokens_details.cache_write"
+    )
+
+    # === STANDARD OPENTELEMETRY SEMANTIC CONVENTIONS ===
+    # These are framework-agnostic and reusable across all agent frameworks
+
+    # OpenAI Agent-specific Attributes (for any framework using OpenAI models)
+    GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
+    GEN_AI_OPENAI_ASSISTANT_ID = "gen_ai.openai.assistant.id"
+    GEN_AI_OPENAI_THREAD_ID = "gen_ai.openai.thread.id"
+    GEN_AI_OPENAI_RUN_ID = "gen_ai.openai.run.id"
+    GEN_AI_OPENAI_REQUEST_SERVICE_TIER = "gen_ai.openai.request.service_tier"
+    GEN_AI_OPENAI_RESPONSE_SERVICE_TIER = "gen_ai.openai.response.service_tier"
+    GEN_AI_OPENAI_RESPONSE_SYSTEM_FINGERPRINT = (
+        "gen_ai.openai.response.system_fingerprint"
+    )
+
+    # Data Source Attributes (for RAG and knowledge retrieval)
+    GEN_AI_DATA_SOURCE_ID = "gen_ai.data_source.id"
+    GEN_AI_DATA_SOURCE_TYPE = "gen_ai.data_source.type"
+
+    # Standard Tool Attributes (framework-agnostic)
+    GEN_AI_TOOL_TYPE = "gen_ai.tool.type"
+
+    # Standard Workflow Attributes (framework-agnostic)
+    GEN_AI_WORKFLOW_AGENT_COUNT = "gen_ai.workflow.agent_count"
+    GEN_AI_WORKFLOW_TASK_COUNT = "gen_ai.workflow.task_count"
+    GEN_AI_WORKFLOW_EXECUTION_TYPE = "gen_ai.workflow.execution_type"
+
+    # Standard Task Attributes (framework-agnostic)
+    GEN_AI_TASK_DESCRIPTION = "gen_ai.task.description"
+    GEN_AI_TASK_EXPECTED_OUTPUT = "gen_ai.task.expected_output"

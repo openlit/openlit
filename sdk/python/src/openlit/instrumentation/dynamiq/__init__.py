@@ -6,11 +6,10 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.dynamiq.dynamiq import (
-    dynamiq_wrap
-)
+from openlit.instrumentation.dynamiq.dynamiq import dynamiq_wrap
 
 _instruments = ("dynamiq >= 0.4.0",)
+
 
 class DynamiqInstrumentor(BaseInstrumentor):
     """
@@ -33,31 +32,66 @@ class DynamiqInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "dynamiq.nodes.agents.base",
             "Agent.run",
-            dynamiq_wrap("dynamiq.agent_run", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            dynamiq_wrap(
+                "dynamiq.agent_run",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "dynamiq",
             "Workflow.run",
-            dynamiq_wrap("dynamiq.workflow_run", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            dynamiq_wrap(
+                "dynamiq.workflow_run",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "dynamiq.memory",
             "Memory.add",
-            dynamiq_wrap("dynamiq.memory_add", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            dynamiq_wrap(
+                "dynamiq.memory_add",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "dynamiq.memory",
             "Memory.search",
-            dynamiq_wrap("dynamiq.memory_search", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            dynamiq_wrap(
+                "dynamiq.memory_search",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
-
 
     def _uninstrument(self, **kwargs):
         # Proper uninstrumentation logic to revert patched methods

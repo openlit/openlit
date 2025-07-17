@@ -6,14 +6,15 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 from openlit.instrumentation.azure_ai_inference.azure_ai_inference import (
     complete,
-    embed
+    embed,
 )
 from openlit.instrumentation.azure_ai_inference.async_azure_ai_inference import (
     async_complete,
-    async_embed
+    async_embed,
 )
 
 _instruments = ("azure-ai-inference >= 1.0.0b4",)
+
 
 class AzureAIInferenceInstrumentor(BaseInstrumentor):
     """
@@ -37,32 +38,64 @@ class AzureAIInferenceInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "azure.ai.inference",
             "ChatCompletionsClient.complete",
-            complete(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            complete(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async chat completions
         wrap_function_wrapper(
             "azure.ai.inference.aio",
             "ChatCompletionsClient.complete",
-            async_complete(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_complete(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # sync embeddings
         wrap_function_wrapper(
             "azure.ai.inference",
             "EmbeddingsClient.embed",
-            embed(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            embed(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async embeddings
         wrap_function_wrapper(
             "azure.ai.inference.aio",
             "EmbeddingsClient.embed",
-            async_embed(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_embed(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

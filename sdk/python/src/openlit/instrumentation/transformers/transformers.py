@@ -9,8 +9,16 @@ from openlit.instrumentation.transformers.utils import process_chat_response
 from openlit.semcov import SemanticConvention
 
 
-def pipeline_wrapper(version, environment, application_name, tracer, pricing_info,
-                     capture_message_content, metrics, disable_metrics):
+def pipeline_wrapper(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -20,7 +28,9 @@ def pipeline_wrapper(version, environment, application_name, tracer, pricing_inf
         Wraps the GenAI function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 80)
+        server_address, server_port = set_server_address_and_port(
+            instance, "127.0.0.1", 80
+        )
         request_model = instance.model.config.name_or_path
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"

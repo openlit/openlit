@@ -5,21 +5,33 @@ Module for monitoring EmbedChain applications.
 
 import logging
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.sdk.resources import (
+    SERVICE_NAME,
+    TELEMETRY_SDK_NAME,
+    DEPLOYMENT_ENVIRONMENT,
+)
 from openlit.__helpers import handle_exception
 from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def evaluate(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, capture_message_content):
+
+def evaluate(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
 
     This function wraps any given function to measure its execution time,
     log its operation, and trace its execution using OpenTelemetry.
-    
+
     Parameters:
     - gen_ai_endpoint (str): A descriptor or name for the endpoint being traced.
     - version (str): The version of the EmbedChain application.
@@ -49,32 +61,41 @@ def evaluate(gen_ai_endpoint, version, environment, application_name,
 
         Returns:
         - The result of the wrapped function call.
-        
+
         The wrapper initiates a span with the provided tracer, sets various attributes
         on the span based on the function's execution and response, and ensures
         errors are handled and logged appropriately.
         """
-        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+        with tracer.start_as_current_span(
+            gen_ai_endpoint, kind=SpanKind.CLIENT
+        ) as span:
             response = wrapped(*args, **kwargs)
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
-                                    SemanticConvention.GEN_AI_SYSTEM_EMBEDCHAIN)
-                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
-                                    gen_ai_endpoint)
-                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
-                                    environment)
-                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
-                                    SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK)
-                span.set_attribute(SERVICE_NAME,
-                                    application_name)
-                span.set_attribute(SemanticConvention.GEN_AI_EVAL_CONTEXT_RELEVANCY,
-                                    response["context_relevancy"])
-                span.set_attribute(SemanticConvention.GEN_AI_EVAL_ANSWER_RELEVANCY,
-                                    response["answer_relevancy"])
-                span.set_attribute(SemanticConvention.GEN_AI_EVAL_GROUNDEDNESS,
-                                    response["groundedness"])
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_SYSTEM_EMBEDCHAIN,
+                )
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OPERATION,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+                )
+                span.set_attribute(SERVICE_NAME, application_name)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_EVAL_CONTEXT_RELEVANCY,
+                    response["context_relevancy"],
+                )
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_EVAL_ANSWER_RELEVANCY,
+                    response["answer_relevancy"],
+                )
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_EVAL_GROUNDEDNESS,
+                    response["groundedness"],
+                )
 
                 span.set_status(Status(StatusCode.OK))
 
@@ -90,14 +111,22 @@ def evaluate(gen_ai_endpoint, version, environment, application_name,
 
     return wrapper
 
-def get_data_sources(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, capture_message_content):
+
+def get_data_sources(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+):
     """
     Creates a wrapper around a function call to trace and log its execution metrics.
 
     This function wraps any given function to measure its execution time,
     log its operation, and trace its execution using OpenTelemetry.
-    
+
     Parameters:
     - gen_ai_endpoint (str): A descriptor or name for the endpoint being traced.
     - version (str): The version of the EmbedChain application.
@@ -127,28 +156,32 @@ def get_data_sources(gen_ai_endpoint, version, environment, application_name,
 
         Returns:
         - The result of the wrapped function call.
-        
+
         The wrapper initiates a span with the provided tracer, sets various attributes
         on the span based on the function's execution and response, and ensures
         errors are handled and logged appropriately.
         """
-        with tracer.start_as_current_span(gen_ai_endpoint, kind= SpanKind.CLIENT) as span:
+        with tracer.start_as_current_span(
+            gen_ai_endpoint, kind=SpanKind.CLIENT
+        ) as span:
             response = wrapped(*args, **kwargs)
 
             try:
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM,
-                                    SemanticConvention.GEN_AI_SYSTEM_EMBEDCHAIN)
-                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT,
-                                    gen_ai_endpoint)
-                span.set_attribute(DEPLOYMENT_ENVIRONMENT,
-                                    environment)
-                span.set_attribute(SemanticConvention.GEN_AI_OPERATION,
-                                    SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK)
-                span.set_attribute(SERVICE_NAME,
-                                    application_name)
-                span.set_attribute(SemanticConvention.GEN_AI_DATA_SOURCES,
-                                    len(response))
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_SYSTEM_EMBEDCHAIN,
+                )
+                span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT, gen_ai_endpoint)
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_OPERATION,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+                )
+                span.set_attribute(SERVICE_NAME, application_name)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_DATA_SOURCES, len(response)
+                )
 
                 span.set_status(Status(StatusCode.OK))
 

@@ -1,42 +1,66 @@
-"""Initializer of Auto Instrumentation of OpenAI Agents Functions"""
+"""
+OpenLIT OpenAI Agents Instrumentation
+"""
 
 from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
-from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.openai_agents.openai_agents import (
-    create_agent
-)
+from openlit.instrumentation.openai_agents.processor import OpenLITTracingProcessor
 
-_instruments = ('openai-agents >= 0.0.3',)
+_instruments = ("openai-agents >= 0.0.3",)
+
 
 class OpenAIAgentsInstrumentor(BaseInstrumentor):
-    """
-    An instrumentor for openai-agents's client library.
-    """
+    """OpenLIT instrumentor for OpenAI Agents using native tracing system"""
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get('application_name', 'default')
-        environment = kwargs.get('environment', 'default')
-        tracer = kwargs.get('tracer')
-        event_provider = kwargs.get('event_provider')
-        metrics = kwargs.get('metrics_dict')
-        pricing_info = kwargs.get('pricing_info', {})
-        capture_message_content = kwargs.get('capture_message_content', False)
-        disable_metrics = kwargs.get('disable_metrics')
-        version = importlib.metadata.version('openai-agents')
+        version = importlib.metadata.version("openai-agents")
+        environment = kwargs.get("environment", "default")
+        application_name = kwargs.get("application_name", "default")
+        tracer = kwargs.get("tracer")
+        pricing_info = kwargs.get("pricing_info", {})
+        capture_message_content = kwargs.get("capture_message_content", False)
+        metrics = kwargs.get("metrics_dict")
+        disable_metrics = kwargs.get("disable_metrics")
+        detailed_tracing = kwargs.get("detailed_tracing", False)
 
-        wrap_function_wrapper(
-            'agents.agent',
-            'Agent.__init__',
-            create_agent(version, environment, application_name,
-                  tracer, event_provider, pricing_info, capture_message_content, metrics, disable_metrics),
+        # Create our processor with OpenLIT enhancements
+        processor = OpenLITTracingProcessor(
+            tracer=tracer,
+            version=version,
+            environment=environment,
+            application_name=application_name,
+            pricing_info=pricing_info,
+            capture_message_content=capture_message_content,
+            metrics=metrics,
+            disable_metrics=disable_metrics,
+            detailed_tracing=detailed_tracing,
         )
 
+        # Integrate with OpenAI Agents' native tracing system
+        try:
+            from agents import set_trace_processors
+
+            # Replace existing processors with our enhanced processor
+            set_trace_processors([processor])
+        except ImportError:
+            # Fallback: Add our processor to existing ones
+            try:
+                from agents import add_trace_processor
+
+                add_trace_processor(processor)
+            except ImportError:
+                pass  # Agents package may not have tracing
+
     def _uninstrument(self, **kwargs):
-        # Proper uninstrumentation logic to revert patched methods
-        pass
+        # Clear our processors
+        try:
+            from agents import set_trace_processors
+
+            set_trace_processors([])
+        except ImportError:
+            pass

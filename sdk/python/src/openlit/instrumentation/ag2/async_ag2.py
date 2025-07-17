@@ -4,18 +4,24 @@ Module for monitoring AG2 API calls (async version).
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.ag2.utils import (
     process_agent_creation,
     process_agent_run,
 )
 from openlit.semcov import SemanticConvention
 
-def async_conversable_agent(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def async_conversable_agent(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for AG2 async conversable agent creation.
     """
@@ -25,12 +31,16 @@ def async_conversable_agent(version, environment, application_name, tracer, pric
         Wraps the AG2 async conversable agent creation call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 80)
+        server_address, server_port = set_server_address_and_port(
+            instance, "127.0.0.1", 80
+        )
         agent_name = kwargs.get("name", "NOT_FOUND")
         llm_config = kwargs.get("llm_config", {})
         system_message = kwargs.get("system_message", "")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT} {agent_name}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CREATE_AGENT} {agent_name}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -51,7 +61,7 @@ def async_conversable_agent(version, environment, application_name, tracer, pric
                     span=span,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
-                    version=version
+                    version=version,
                 )
 
             except Exception as e:
@@ -61,8 +71,17 @@ def async_conversable_agent(version, environment, application_name, tracer, pric
 
     return wrapper
 
-def async_agent_run(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def async_agent_run(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for AG2 async agent run execution.
     """
@@ -72,7 +91,9 @@ def async_agent_run(version, environment, application_name, tracer, pricing_info
         Wraps the AG2 async agent run execution call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 80)
+        server_address, server_port = set_server_address_and_port(
+            instance, "127.0.0.1", 80
+        )
 
         # Extract agent name from instance
         agent_name = getattr(instance, "name", "NOT_FOUND")
@@ -103,7 +124,7 @@ def async_agent_run(version, environment, application_name, tracer, pricing_info
                     span=span,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
-                    version=version
+                    version=version,
                 )
 
             except Exception as e:

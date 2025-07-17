@@ -5,14 +5,14 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.together.together import (
-    completion, image_generate
-)
+from openlit.instrumentation.together.together import completion, image_generate
 from openlit.instrumentation.together.async_together import (
-    async_completion, async_image_generate
+    async_completion,
+    async_image_generate,
 )
 
 _instruments = ("together >= 1.3.5",)
+
 
 class TogetherInstrumentor(BaseInstrumentor):
     """
@@ -34,34 +34,66 @@ class TogetherInstrumentor(BaseInstrumentor):
 
         # Chat completions
         wrap_function_wrapper(
-            "together.resources.chat.completions",  
-            "ChatCompletions.create",  
-            completion(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            "together.resources.chat.completions",
+            "ChatCompletions.create",
+            completion(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # Image generate
         wrap_function_wrapper(
-            "together.resources.images",  
-            "Images.generate",  
-            image_generate(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            "together.resources.images",
+            "Images.generate",
+            image_generate(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # Chat completions
         wrap_function_wrapper(
-            "together.resources.chat.completions",  
-            "AsyncChatCompletions.create",  
-            async_completion(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            "together.resources.chat.completions",
+            "AsyncChatCompletions.create",
+            async_completion(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # Image generate
         wrap_function_wrapper(
-            "together.resources.images",  
-            "AsyncImages.generate",  
-            async_image_generate(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            "together.resources.images",
+            "AsyncImages.generate",
+            async_image_generate(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

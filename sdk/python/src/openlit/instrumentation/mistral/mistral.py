@@ -16,8 +16,17 @@ from openlit.instrumentation.mistral.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def complete(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def complete(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI complete function call
     """
@@ -27,7 +36,9 @@ def complete(version, environment, application_name,
         Wraps the GenAI complete function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.mistral.ai", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.mistral.ai", 443
+        )
         request_model = kwargs.get("model", "mistral-small-latest")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -49,15 +60,24 @@ def complete(version, environment, application_name,
                 capture_message_content=capture_message_content,
                 disable_metrics=disable_metrics,
                 version=version,
-                **kwargs
+                **kwargs,
             )
 
         return response
 
     return wrapper
 
-def stream(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def stream(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI stream function call
     """
@@ -68,15 +88,15 @@ def stream(version, environment, application_name,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                **args,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            **args,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -119,7 +139,9 @@ def stream(version, environment, application_name,
                 return chunk
             except StopIteration:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind= SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -128,7 +150,7 @@ def stream(version, environment, application_name,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
 
                 except Exception as e:
@@ -141,7 +163,9 @@ def stream(version, environment, application_name,
         Wraps the GenAI stream function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.mistral.ai", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.mistral.ai", 443
+        )
         request_model = kwargs.get("model", "mistral-small-latest")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -150,12 +174,23 @@ def stream(version, environment, application_name,
         awaited_wrapped = wrapped(*args, **kwargs)
         span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-        return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+        return TracedSyncStream(
+            awaited_wrapped, span, span_name, kwargs, server_address, server_port
+        )
 
     return wrapper
 
-def embed(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def embed(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI embedding function call
     """
@@ -165,10 +200,14 @@ def embed(version, environment, application_name,
         Wraps the GenAI embedding function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.mistral.ai", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.mistral.ai", 443
+        )
         request_model = kwargs.get("model", "mistral-embed")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -189,7 +228,7 @@ def embed(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:

@@ -6,11 +6,10 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.firecrawl.firecrawl import (
-    wrap_crawl
-)
+from openlit.instrumentation.firecrawl.firecrawl import wrap_crawl
 
 _instruments = ("firecrawl-py >= 1.6.3",)
+
 
 class FireCrawlInstrumentor(BaseInstrumentor):
     """
@@ -33,15 +32,33 @@ class FireCrawlInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "firecrawl.firecrawl",
             "FirecrawlApp.scrape_url",
-            wrap_crawl("firecrawl.scrape_url", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            wrap_crawl(
+                "firecrawl.scrape_url",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "firecrawl.firecrawl",
             "FirecrawlApp.crawl_url",
-            wrap_crawl("firecrawl.crawl_url", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            wrap_crawl(
+                "firecrawl.crawl_url",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

@@ -4,20 +4,26 @@ Module for monitoring LiteLLM API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.litellm.utils import (
     process_chunk,
     process_streaming_chat_response,
     process_chat_response,
-    process_embedding_response
+    process_embedding_response,
 )
 from openlit.semcov import SemanticConvention
 
-def completion(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def completion(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -28,15 +34,15 @@ def completion(version, environment, application_name, tracer, pricing_info,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                **args,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            **args,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -79,7 +85,9 @@ def completion(version, environment, application_name, tracer, pricing_info,
                 return chunk
             except StopIteration:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind=SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -88,7 +96,7 @@ def completion(version, environment, application_name, tracer, pricing_info,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
 
                 except Exception as e:
@@ -102,7 +110,9 @@ def completion(version, environment, application_name, tracer, pricing_info,
         """
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
-        server_address, server_port = set_server_address_and_port(instance, "NOT_FOUND", "NOT_FOUND")
+        server_address, server_port = set_server_address_and_port(
+            instance, "NOT_FOUND", "NOT_FOUND"
+        )
         request_model = kwargs.get("model", "openai/gpt-4o")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -111,7 +121,9 @@ def completion(version, environment, application_name, tracer, pricing_info,
             # Special handling for streaming response
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+            return TracedSyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            )
         else:
             # Handling for non-streaming responses
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -133,7 +145,7 @@ def completion(version, environment, application_name, tracer, pricing_info,
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
-                        **kwargs
+                        **kwargs,
                     )
 
                 except Exception as e:
@@ -143,8 +155,17 @@ def completion(version, environment, application_name, tracer, pricing_info,
 
     return wrapper
 
-def embedding(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def embedding(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI embedding function call
     """
@@ -153,10 +174,14 @@ def embedding(version, environment, application_name, tracer, pricing_info,
         """
         Wraps the GenAI embedding function call.
         """
-        server_address, server_port = set_server_address_and_port(instance, "NOT_FOUND", "NOT_FOUND")
+        server_address, server_port = set_server_address_and_port(
+            instance, "NOT_FOUND", "NOT_FOUND"
+        )
         request_model = kwargs.get("model", "text-embedding-ada-002")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -177,7 +202,7 @@ def embedding(version, environment, application_name, tracer, pricing_info,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:

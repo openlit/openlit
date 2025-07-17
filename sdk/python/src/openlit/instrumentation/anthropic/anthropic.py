@@ -4,10 +4,7 @@ Module for monitoring Anthropic API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.anthropic.utils import (
     process_chunk,
     process_chat_response,
@@ -15,7 +12,17 @@ from openlit.instrumentation.anthropic.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def messages(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def messages(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for Anthropic Messages.create calls.
     """
@@ -26,14 +33,14 @@ def messages(version, environment, application_name, tracer, pricing_info, captu
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -87,7 +94,7 @@ def messages(version, environment, application_name, tracer, pricing_info, captu
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -99,7 +106,9 @@ def messages(version, environment, application_name, tracer, pricing_info, captu
         """
 
         streaming = kwargs.get("stream", False)
-        server_address, server_port = set_server_address_and_port(instance, "api.anthropic.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.anthropic.com", 443
+        )
         request_model = kwargs.get("model", "claude-3-5-sonnet-latest")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -109,7 +118,9 @@ def messages(version, environment, application_name, tracer, pricing_info, captu
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+            return TracedSyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            )
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -131,7 +142,7 @@ def messages(version, environment, application_name, tracer, pricing_info, captu
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
-                        **kwargs
+                        **kwargs,
                     )
 
                 except Exception as e:

@@ -10,6 +10,7 @@ from openlit.instrumentation.elevenlabs.async_elevenlabs import async_generate
 
 _instruments = ("elevenlabs >= 1.4.0",)
 
+
 class ElevenLabsInstrumentor(BaseInstrumentor):
     """
     An instrumentor for ElevenLabs client library.
@@ -32,16 +33,34 @@ class ElevenLabsInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "elevenlabs.text_to_speech.client",
             "TextToSpeechClient.convert",
-            generate("elevenlabs.text_to_speech", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            generate(
+                "elevenlabs.text_to_speech",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async text_to_speech.convert
         wrap_function_wrapper(
             "elevenlabs.text_to_speech.client",
             "AsyncTextToSpeechClient.convert",
-            async_generate("elevenlabs.text_to_speech", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_generate(
+                "elevenlabs.text_to_speech",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

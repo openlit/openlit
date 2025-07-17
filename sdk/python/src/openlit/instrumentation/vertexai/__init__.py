@@ -10,6 +10,7 @@ from openlit.instrumentation.vertexai.async_vertexai import async_send_message
 
 _instruments = ("google-cloud-aiplatform >= 1.38.1",)
 
+
 class VertexAIInstrumentor(BaseInstrumentor):
     """
     An instrumentor for VertexAI client library.
@@ -32,60 +33,124 @@ class VertexAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "vertexai.generative_models",
             "GenerativeModel.generate_content",
-            send_message(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            send_message(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "vertexai.generative_models",
             "ChatSession.send_message",
-            send_message(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            send_message(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # sync language models
         wrap_function_wrapper(
             "vertexai.language_models",
             "ChatSession.send_message",
-            send_message(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            send_message(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "vertexai.language_models",
             "ChatSession.send_message_streaming",
-            send_message(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            send_message(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async generative models
         wrap_function_wrapper(
             "vertexai.generative_models",
             "GenerativeModel.generate_content_async",
-            async_send_message(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_send_message(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "vertexai.generative_models",
             "ChatSession.send_message_async",
-            async_send_message(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_send_message(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async language models
         wrap_function_wrapper(
             "vertexai.language_models",
             "ChatSession.send_message_async",
-            async_send_message(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_send_message(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "vertexai.language_models",
             "ChatSession.send_message_streaming_async",
-            async_send_message(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_send_message(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):
