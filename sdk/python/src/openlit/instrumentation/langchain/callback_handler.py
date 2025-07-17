@@ -157,6 +157,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
         parent_run_id: Optional[UUID],
         span_name: str,
         kind: SpanKind = SpanKind.CLIENT,
+        model_name: Optional[str] = None,
     ) -> Span:
         """Create a span with proper parent-child relationship and set as active context"""
 
@@ -187,6 +188,11 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
         scope._start_time = start_time
         scope._end_time = None
 
+        # Create mock instance with model name for common_framework_span_attributes
+        mock_instance = None
+        if model_name:
+            mock_instance = type("MockInstance", (), {"model_name": model_name})()
+
         common_framework_span_attributes(
             scope,
             SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
@@ -196,6 +202,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             self.application_name,
             self.version,
             span_name,
+            mock_instance,
         )
 
         return span
@@ -656,7 +663,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
 
             # Create chat span with model name
             span_name = f"chat {model_name}"
-            span = self._create_span(run_id, parent_run_id, span_name, SpanKind.CLIENT)
+            span = self._create_span(run_id, parent_run_id, span_name, SpanKind.CLIENT, model_name)
 
             # Set OpenLIT chat operation attributes
             span.set_attribute(
