@@ -1,4 +1,4 @@
-<div align="center">
+<div align="center>
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
 <h3>OpenTelemetry-native</h3>
 <h1>AI Observability, Monitoring and Evaluation Framework</h1>
@@ -53,6 +53,24 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 - [✅ Dynatrace](https://docs.openlit.io/latest/connections/dynatrace)
 - [✅ OpenObserve](https://docs.openlit.io/latest/connections/openobserve)
 - [✅ Highlight.io](https://docs.openlit.io/latest/connections/highlight)
+
+## Supported Metrics
+
+> **Note:** Metrics tracking in the TypeScript SDK is only available for Anthropic, Cohere, Ollama, and OpenAI integrations.
+
+The following metrics are supported:
+
+- **genaiClientUsageTokens**: Histogram for total input/output tokens used.
+- **genaiClientOperationDuration**: Histogram for GenAI operation duration.
+- **genaiServerTbt**: Histogram for time per output token after the first token.
+- **genaiServerTtft**: Histogram for time to first token for successful responses.
+- **genaiRequests**: Counter for number of GenAI requests.
+- **genaiPromptTokens**: Counter for number of prompt tokens processed.
+- **genaiCompletionTokens**: Counter for number of completion tokens processed.
+- **genaiReasoningTokens**: Counter for number of reasoning thought tokens processed.
+- **genaiCost**: Histogram for distribution of GenAI request costs (USD).
+
+These metrics allow you to monitor usage, performance, and cost for supported GenAI operations.
 
 ## 💿 Installation
 
