@@ -58,7 +58,11 @@ export default class Metrics {
   }
 
   static setup(options: SetupMetricsOptions) {
-    if (options.meter) return options.meter;
+    if (options.meter) {
+      this.meter = options.meter;
+      this.initializeMetrics();
+      return this.meter;
+    }
     try {
       const consoleMetricExporter = new ConsoleMetricExporter();
       const metricReader = new PeriodicExportingMetricReader({ exporter: consoleMetricExporter });
