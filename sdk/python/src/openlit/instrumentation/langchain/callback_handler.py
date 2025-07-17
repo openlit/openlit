@@ -54,7 +54,7 @@ LANGCHAIN_PROVIDER_MAP = {
 }
 
 
-class SpanHolder:
+class SpanHolder:  # pylint: disable=too-few-public-methods
     """Holds span information and tracks relationships"""
 
     def __init__(self, span: Span, start_time: float, context_token=None):
@@ -180,13 +180,13 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
         # Store span with start time and context token
         start_time = time.time()
         self.spans[run_id] = SpanHolder(span, start_time, context_token)
-        
+
         # Set common framework span attributes for consistency
         scope = type("GenericScope", (), {})()
         scope._span = span
         scope._start_time = start_time
         scope._end_time = None
-        
+
         common_framework_span_attributes(
             scope,
             SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
@@ -197,7 +197,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             self.version,
             span_name,
         )
-        
+
         return span
 
     def _end_span(self, run_id: UUID) -> None:

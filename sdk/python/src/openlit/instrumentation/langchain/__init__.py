@@ -14,7 +14,7 @@ from openlit.instrumentation.langchain.callback_handler import (
 _instruments = ("langchain >= 0.1.20",)
 
 
-class CallbackManagerWrapper:
+class CallbackManagerWrapper:  # pylint: disable=too-few-public-methods
     """Wrapper to inject OpenLIT callback handler into LangChain's callback system"""
 
     def __init__(self, callback_handler: OpenLITLangChainCallbackHandler):
