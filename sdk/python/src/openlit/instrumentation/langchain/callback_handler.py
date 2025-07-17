@@ -663,7 +663,9 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
 
             # Create chat span with model name
             span_name = f"chat {model_name}"
-            span = self._create_span(run_id, parent_run_id, span_name, SpanKind.CLIENT, model_name)
+            span = self._create_span(
+                run_id, parent_run_id, span_name, SpanKind.CLIENT, model_name
+            )
 
             # Set OpenLIT chat operation attributes
             span.set_attribute(
