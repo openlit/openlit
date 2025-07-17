@@ -498,3 +498,13 @@ class SemanticConvention:
     # Standard Task Attributes (framework-agnostic)
     GEN_AI_TASK_DESCRIPTION = "gen_ai.task.description"
     GEN_AI_TASK_EXPECTED_OUTPUT = "gen_ai.task.expected_output"
+
+    GEN_AI_GROUPCHAT_PARTICIPANTS = "gen_ai.groupchat.participants"
+    GEN_AI_GROUPCHAT_SPEAKER_SELECTION = "gen_ai.groupchat.speaker_selection"
+    GEN_AI_GROUPCHAT_MESSAGE_COUNT = "gen_ai.groupchat.message_count"
+    GEN_AI_GROUPCHAT_TURN_COUNT = "gen_ai.groupchat.turn_count"
+
+    GEN_AI_AGENT_RECIPIENT = "gen_ai.agent.recipient"
+    GEN_AI_AGENT_SENDER = "gen_ai.agent.sender"
+    GEN_AI_AGENT_MESSAGE_TYPE = "gen_ai.agent.message_type"
+    GEN_AI_AGENT_REPLY_MODE = "gen_ai.agent.reply_mode"
