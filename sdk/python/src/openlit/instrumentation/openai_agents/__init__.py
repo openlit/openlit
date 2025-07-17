@@ -1,5 +1,5 @@
 """
-OpenLIT OpenAI Agents Instrumentation - Native Tracing Integration
+OpenLIT OpenAI Agents Instrumentation
 """
 
 from typing import Collection

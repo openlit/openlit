@@ -24,9 +24,11 @@ from openlit.semcov import SemanticConvention
 
 def handle_not_given(value, default=None):
     """
-    Handle OpenAI's NotGiven values by converting them to appropriate defaults.
+    Handle OpenAI's NotGiven values and None values by converting them to appropriate defaults.
     """
     if hasattr(value, '__class__') and value.__class__.__name__ == 'NotGiven':
+        return default
+    if value is None:
         return default
     return value
 

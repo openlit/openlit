@@ -1,5 +1,5 @@
 """
-CrewAI sync wrapper using modern general_wrap pattern
+CrewAI async wrapper using modern async_general_wrap pattern
 """
 
 import time
@@ -12,20 +12,20 @@ from openlit.instrumentation.crewai.utils import (
     set_server_address_and_port,
 )
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name,
+def async_general_wrap(gen_ai_endpoint, version, environment, application_name,
     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
     """
-    Modern wrapper for CrewAI operations following Framework Instrumentation Guide patterns.
+    Modern async wrapper for CrewAI operations following Framework Instrumentation Guide patterns.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the CrewAI operation call with comprehensive telemetry.
+        Wraps the async CrewAI operation call with comprehensive telemetry.
         """
 
         # CRITICAL: Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
 
         # Get server address and port using the standard helper
         server_address, server_port = set_server_address_and_port(instance)
@@ -38,7 +38,7 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name,
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 # Process response and generate comprehensive telemetry
@@ -64,9 +64,9 @@ def _generate_span_name(operation_type, endpoint, instance, args, kwargs):
     # Crew-level operations
     if endpoint.startswith("crew_"):
         crew_name = getattr(instance, "name", None) or "CrewAI Workflow"
-        if endpoint == "crew_kickoff":
+        if endpoint == "crew_kickoff_async":
             return f"{operation_type} {crew_name}"
-        elif endpoint == "crew_kickoff_for_each":
+        elif endpoint == "crew_kickoff_for_each_async":
             return f"{operation_type} {crew_name} Batch"
         else:
             return f"{operation_type} {crew_name}"
@@ -84,18 +84,6 @@ def _generate_span_name(operation_type, endpoint, instance, args, kwargs):
         else:
             return f"{operation_type} Task"
 
-    # Tool-level operations
-    elif endpoint.startswith("tool_"):
-        tool_name = getattr(instance, "name", None) or "Tool"
-        return f"{operation_type} {tool_name}"
-
-    # Memory-level operations
-    elif endpoint.startswith("memory_"):
-        if "search" in endpoint:
-            return "retrieve crew_memory"
-        else:
-            return f"{operation_type} crew_memory"
-
-    # Default naming
+    # Default naming for async operations
     else:
         return f"{operation_type} {endpoint}"

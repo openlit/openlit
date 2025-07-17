@@ -112,16 +112,21 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
         scope._server_address, scope._server_port, request_model, scope._response_model,
         environment, application_name, is_stream, scope._tbt, scope._ttft, version)
 
+    # Helper function to handle None values with proper defaults
+    def safe_get(value, default):
+        return default if value is None else value
+
     # Span Attributes for Request parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED, scope._kwargs.get('seed', ''))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, scope._kwargs.get('frequency_penalty', 0.0))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, scope._kwargs.get('max_tokens', -1))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, scope._kwargs.get('presence_penalty', 0.0))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED, safe_get(scope._kwargs.get('seed'), ''))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+        safe_get(scope._kwargs.get('frequency_penalty'), 0.0))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, safe_get(scope._kwargs.get('max_tokens'), -1))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, safe_get(scope._kwargs.get('presence_penalty'), 0.0))
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, scope._kwargs.get('stop', []))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, scope._kwargs.get('temperature', 1.0))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, scope._kwargs.get('top_p', 1.0))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, scope._kwargs.get('user', ''))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER, scope._kwargs.get('service_tier', 'auto'))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, safe_get(scope._kwargs.get('temperature'), 1.0))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, safe_get(scope._kwargs.get('top_p'), 1.0))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, safe_get(scope._kwargs.get('user'), ''))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER, safe_get(scope._kwargs.get('service_tier'), 'auto'))
 
     # Span Attributes for Response parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
@@ -256,9 +261,13 @@ def process_embedding_response(response, request_model, pricing_info, server_por
         scope._server_address, scope._server_port, request_model, scope._response_model,
         environment, application_name, False, 0, scope._end_time - scope._start_time, version)
 
+    # Helper function to handle None values with proper defaults
+    def safe_get(value, default):
+        return default if value is None else value
+
     # Span Attributes for Request parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [scope._kwargs.get('encoding_format', 'float')])
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, scope._kwargs.get('user', ''))
+    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_USER, safe_get(scope._kwargs.get('user'), ''))
 
     # Span Attributes for Cost and Tokens
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
