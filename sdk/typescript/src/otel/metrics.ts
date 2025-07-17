@@ -72,6 +72,7 @@ export default class Metrics {
       this.initializeMetrics();
       return this.meter;
     } catch (e) {
+      console.error('Failed to initialize metrics:', e);
       return null;
     }
   }
