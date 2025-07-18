@@ -37,7 +37,6 @@ class PydanticAIInstrumentor(BaseInstrumentor):
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("pydantic-ai")
-        print(f"Pydantic AI version: {version}")
 
         wrap_function_wrapper(
             "pydantic_ai.agent",
