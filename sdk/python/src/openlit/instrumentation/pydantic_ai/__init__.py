@@ -8,6 +8,12 @@ from wrapt import wrap_function_wrapper
 from openlit.instrumentation.pydantic_ai.pydantic_ai import (
     agent_create,
     agent_run,
+    graph_execution,
+    user_prompt_processing,
+    model_request_processing,
+    tool_calls_processing,
+)
+from openlit.instrumentation.pydantic_ai.async_pydantic_ai import (
     async_agent_run,
 )
 
@@ -31,6 +37,7 @@ class PydanticAIInstrumentor(BaseInstrumentor):
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("pydantic-ai")
+        print(f"Pydantic AI version: {version}")
 
         wrap_function_wrapper(
             "pydantic_ai.agent",
@@ -76,6 +83,88 @@ class PydanticAIInstrumentor(BaseInstrumentor):
                 disable_metrics,
             ),
         )
+
+        # Enhanced instrumentation for richer span hierarchy
+        # These wrap internal Pydantic AI graph execution components
+        try:
+            # Agent.iter() - Graph execution iterator
+            wrap_function_wrapper(
+                "pydantic_ai.agent",
+                "Agent.iter",
+                graph_execution(
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
+            )
+        except Exception:
+            # If Agent.iter doesn't exist, skip this instrumentation
+            pass
+
+        try:
+            # UserPromptNode.run() - User prompt processing
+            wrap_function_wrapper(
+                "pydantic_ai._agent_graph",
+                "UserPromptNode.run",
+                user_prompt_processing(
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
+            )
+        except Exception:
+            # If UserPromptNode.run doesn't exist, skip this instrumentation
+            pass
+
+        try:
+            # ModelRequestNode.run() - Model request processing
+            wrap_function_wrapper(
+                "pydantic_ai._agent_graph",
+                "ModelRequestNode.run",
+                model_request_processing(
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
+            )
+        except Exception:
+            # If ModelRequestNode.run doesn't exist, skip this instrumentation
+            pass
+
+        try:
+            # CallToolsNode.run() - Tool calls processing
+            wrap_function_wrapper(
+                "pydantic_ai._agent_graph",
+                "CallToolsNode.run",
+                tool_calls_processing(
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
+            )
+        except Exception:
+            # If CallToolsNode.run doesn't exist, skip this instrumentation
+            pass
 
     def _uninstrument(self, **kwargs):
         # Proper uninstrumentation logic to revert patched methods
