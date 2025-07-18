@@ -4,20 +4,26 @@ Module for monitoring GPT4All API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.gpt4all.utils import (
     process_generate_response,
     process_chunk,
     process_streaming_generate_response,
-    process_embedding_response
+    process_embedding_response,
 )
 from openlit.semcov import SemanticConvention
 
-def generate(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def generate(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -28,16 +34,16 @@ def generate(version, environment, application_name,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                args,
-                kwargs,
-                server_address,
-                server_port,
-                request_model,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            args,
+            kwargs,
+            server_address,
+            server_port,
+            request_model,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -75,7 +81,9 @@ def generate(version, environment, application_name,
                 return chunk
             except StopIteration:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind=SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
                         process_streaming_generate_response(
                             self,
                             pricing_info=pricing_info,
@@ -84,7 +92,7 @@ def generate(version, environment, application_name,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
 
                 except Exception as e:
@@ -100,8 +108,13 @@ def generate(version, environment, application_name,
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("streaming", False)
 
-        server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 80)
-        request_model = str(instance.model.model_path).rsplit("/", maxsplit=1)[-1] or "orca-mini-3b-gguf2-q4_0.gguf"
+        server_address, server_port = set_server_address_and_port(
+            instance, "127.0.0.1", 80
+        )
+        request_model = (
+            str(instance.model.model_path).rsplit("/", maxsplit=1)[-1]
+            or "orca-mini-3b-gguf2-q4_0.gguf"
+        )
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
@@ -109,7 +122,16 @@ def generate(version, environment, application_name,
             # Special handling for streaming response to accommodate the nature of data flow
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-            return TracedSyncStream(awaited_wrapped, span, span_name, args, kwargs, server_address, server_port, request_model)
+            return TracedSyncStream(
+                awaited_wrapped,
+                span,
+                span_name,
+                args,
+                kwargs,
+                server_address,
+                server_port,
+                request_model,
+            )
 
         # Handling for non-streaming responses
         else:
@@ -133,7 +155,7 @@ def generate(version, environment, application_name,
                         kwargs=kwargs,
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
-                        version=version
+                        version=version,
                     )
 
                 except Exception as e:
@@ -143,8 +165,17 @@ def generate(version, environment, application_name,
 
     return wrapper
 
-def embed(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def embed(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -154,10 +185,17 @@ def embed(version, environment, application_name,
         Wraps the GenAI function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "127.0.0.1", 80)
-        request_model = str(instance.gpt4all.model.model_path).rsplit("/", maxsplit=1)[-1] or "all-MiniLM-L6-v2.gguf2.f16.gguf"
+        server_address, server_port = set_server_address_and_port(
+            instance, "127.0.0.1", 80
+        )
+        request_model = (
+            str(instance.gpt4all.model.model_path).rsplit("/", maxsplit=1)[-1]
+            or "all-MiniLM-L6-v2.gguf2.f16.gguf"
+        )
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -178,7 +216,7 @@ def embed(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:

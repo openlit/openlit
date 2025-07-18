@@ -19,8 +19,17 @@ from openlit.semcov import SemanticConvention
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
-def async_send_message(version, environment, application_name, tracer,
-             pricing_info, capture_message_content, metrics, disable_metrics):
+
+def async_send_message(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for VertexAI AsyncMessages calls.
     """
@@ -31,16 +40,16 @@ def async_send_message(version, environment, application_name, tracer,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                request_model,
-                args,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            request_model,
+            args,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -88,7 +97,7 @@ def async_send_message(version, environment, application_name, tracer,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -108,7 +117,16 @@ def async_send_message(version, environment, application_name, tracer,
             awaited_wrapped = await wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            return TracedAsyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port, request_model, args)
+            return TracedAsyncStream(
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                request_model,
+                args,
+            )
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -130,7 +148,7 @@ def async_send_message(version, environment, application_name, tracer,
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
-                        **kwargs
+                        **kwargs,
                     )
 
                 except Exception as e:

@@ -1,4 +1,5 @@
 """Initializer of Auto Instrumentation of LangChain Community Functions"""
+
 from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
@@ -40,6 +41,7 @@ WRAPPED_METHODS = [
     },
 ]
 
+
 class LangChainCommunityInstrumentor(BaseInstrumentor):
     """
     An instrumentor for LangChain Community client library.
@@ -66,8 +68,17 @@ class LangChainCommunityInstrumentor(BaseInstrumentor):
             wrap_function_wrapper(
                 wrap_package,
                 wrap_object,
-                wrapper(gen_ai_endpoint, version, environment, application_name,
-                       tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+                wrapper(
+                    gen_ai_endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
             )
 
     def _uninstrument(self, **kwargs):

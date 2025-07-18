@@ -2,33 +2,35 @@
 """
 Setups up OpenTelemetry Meter
 """
+
 import os
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, ConsoleMetricExporter
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.sdk.metrics.export import (
+    PeriodicExportingMetricReader,
+    ConsoleMetricExporter,
+)
+from opentelemetry.sdk.resources import (
+    SERVICE_NAME,
+    TELEMETRY_SDK_NAME,
+    DEPLOYMENT_ENVIRONMENT,
+)
 from opentelemetry.sdk.resources import Resource
 from openlit.semcov import SemanticConvention
 
 if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
-    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+        OTLPMetricExporter,
+    )
 else:
-    from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+    from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+        OTLPMetricExporter,
+    )
 
 # Global flag to check if the meter provider initialization is complete.
 METER_SET = False
 
-_DB_CLIENT_OPERATION_DURATION_BUCKETS = [
-    0.001,
-    0.005,
-    0.01,
-    0.05,
-    0.1,
-    0.5,
-    1,
-    5,
-    10
-]
+_DB_CLIENT_OPERATION_DURATION_BUCKETS = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]
 
 _GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS = [
     0.01,
@@ -60,7 +62,7 @@ _GEN_AI_SERVER_TBT = [
     0.5,
     0.75,
     1.0,
-    2.5
+    2.5,
 ]
 
 _GEN_AI_SERVER_TFTT = [
@@ -79,7 +81,7 @@ _GEN_AI_SERVER_TFTT = [
     2.5,
     5.0,
     7.5,
-    10.0
+    10.0,
 ]
 
 _GEN_AI_CLIENT_TOKEN_USAGE_BUCKETS = [
@@ -98,6 +100,7 @@ _GEN_AI_CLIENT_TOKEN_USAGE_BUCKETS = [
     16777216,
     67108864,
 ]
+
 
 def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_headers):
     """
@@ -118,10 +121,12 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
     try:
         if meter is None and not METER_SET:
             # Create a resource with the service name attribute.
-            resource = Resource.create(attributes={
-                SERVICE_NAME: application_name,
-                DEPLOYMENT_ENVIRONMENT: environment,
-                TELEMETRY_SDK_NAME: "openlit"}
+            resource = Resource.create(
+                attributes={
+                    SERVICE_NAME: application_name,
+                    DEPLOYMENT_ENVIRONMENT: environment,
+                    TELEMETRY_SDK_NAME: "openlit",
+                }
             )
 
             # Only set environment variables if you have a non-None value.
@@ -130,7 +135,9 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
 
             if otlp_headers is not None:
                 if isinstance(otlp_headers, dict):
-                    headers_str = ','.join(f"{key}={value}" for key, value in otlp_headers.items())
+                    headers_str = ",".join(
+                        f"{key}={value}" for key, value in otlp_headers.items()
+                    )
                 else:
                     headers_str = otlp_headers
                 # Now, we have either converted the dict to a string or used the provided string.
@@ -144,7 +151,9 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
 
             metric_reader = PeriodicExportingMetricReader(metric_exporter)
 
-            meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+            meter_provider = MeterProvider(
+                resource=resource, metric_readers=[metric_reader]
+            )
 
             metrics.set_meter_provider(meter_provider)
 
@@ -185,7 +194,6 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 unit="s",
                 explicit_bucket_boundaries_advisory=_DB_CLIENT_OPERATION_DURATION_BUCKETS,
             ),
-
             # Extra
             "genai_requests": meter.create_counter(
                 name=SemanticConvention.GEN_AI_REQUESTS,

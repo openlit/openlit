@@ -6,11 +6,10 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.controlflow.controlflow import (
-    wrap_controlflow
-)
+from openlit.instrumentation.controlflow.controlflow import wrap_controlflow
 
 _instruments = ("controlflow >= 0.3.2",)
+
 
 class ControlFlowInstrumentor(BaseInstrumentor):
     """
@@ -33,22 +32,49 @@ class ControlFlowInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "controlflow.agents.agent",
             "Agent.__init__",
-            wrap_controlflow("controlflow.create_agent", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            wrap_controlflow(
+                "controlflow.create_agent",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "controlflow.tasks.task",
             "Task.__init__",
-            wrap_controlflow("controlflow.create_task", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            wrap_controlflow(
+                "controlflow.create_task",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "controlflow",
             "run",
-            wrap_controlflow("controlflow.run", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            wrap_controlflow(
+                "controlflow.run",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

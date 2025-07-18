@@ -4,7 +4,11 @@ Setups up OpenTelemetry tracer
 
 import os
 from opentelemetry import trace
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.sdk.resources import (
+    SERVICE_NAME,
+    TELEMETRY_SDK_NAME,
+    DEPLOYMENT_ENVIRONMENT,
+)
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
@@ -18,7 +22,10 @@ else:
 # Global flag to check if the tracer provider initialization is complete.
 TRACER_SET = False
 
-def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_headers, disable_batch):
+
+def setup_tracing(
+    application_name, environment, tracer, otlp_endpoint, otlp_headers, disable_batch
+):
     """
     Sets up tracing with OpenTelemetry.
     Initializes the tracer provider and configures the span processor and exporter.
@@ -33,15 +40,17 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
     global TRACER_SET
 
     try:
-        #Disable Haystack Auto Tracing
+        # Disable Haystack Auto Tracing
         os.environ["HAYSTACK_AUTO_TRACE_ENABLED"] = "false"
 
         if not TRACER_SET:
             # Create a resource with the service name attribute.
-            resource = Resource.create(attributes={
-                SERVICE_NAME: application_name,
-                DEPLOYMENT_ENVIRONMENT: environment,
-                TELEMETRY_SDK_NAME: "openlit"}
+            resource = Resource.create(
+                attributes={
+                    SERVICE_NAME: application_name,
+                    DEPLOYMENT_ENVIRONMENT: environment,
+                    TELEMETRY_SDK_NAME: "openlit",
+                }
             )
 
             # Initialize the TracerProvider with the created resource.
@@ -53,7 +62,9 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
 
             if otlp_headers is not None:
                 if isinstance(otlp_headers, dict):
-                    headers_str = ','.join(f"{key}={value}" for key, value in otlp_headers.items())
+                    headers_str = ",".join(
+                        f"{key}={value}" for key, value in otlp_headers.items()
+                    )
                 else:
                     headers_str = otlp_headers
 
@@ -63,7 +74,11 @@ def setup_tracing(application_name, environment, tracer, otlp_endpoint, otlp_hea
             if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
                 span_exporter = OTLPSpanExporter()
                 # pylint: disable=line-too-long
-                span_processor = BatchSpanProcessor(span_exporter) if not disable_batch else SimpleSpanProcessor(span_exporter)
+                span_processor = (
+                    BatchSpanProcessor(span_exporter)
+                    if not disable_batch
+                    else SimpleSpanProcessor(span_exporter)
+                )
             else:
                 span_exporter = ConsoleSpanExporter()
                 span_processor = SimpleSpanProcessor(span_exporter)

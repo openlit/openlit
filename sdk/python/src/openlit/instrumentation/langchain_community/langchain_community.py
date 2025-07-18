@@ -12,8 +12,18 @@ from openlit.instrumentation.langchain_community.utils import process_general_re
 # Initialize logger for LangChain Community instrumentation
 logger = logging.getLogger(__name__)
 
-def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def general_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI operations.
     """
@@ -28,15 +38,23 @@ def general_wrap(gen_ai_endpoint, version, environment, application_name, tracer
         server_port = "80"
 
         # Get the parent span from the tracer
-        with tracer.start_as_current_span(gen_ai_endpoint, kind=trace.SpanKind.CLIENT) as span:
+        with tracer.start_as_current_span(
+            gen_ai_endpoint, kind=trace.SpanKind.CLIENT
+        ) as span:
             try:
                 # Call the original function
                 response = wrapped(*args, **kwargs)
 
                 # Process the response using the utility function
                 response = process_general_response(
-                    response, gen_ai_endpoint, server_port, server_address,
-                    environment, application_name, span, version
+                    response,
+                    gen_ai_endpoint,
+                    server_port,
+                    server_address,
+                    environment,
+                    application_name,
+                    span,
+                    version,
                 )
 
                 span.set_status(Status(StatusCode.OK))

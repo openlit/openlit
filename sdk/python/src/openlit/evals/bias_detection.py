@@ -11,11 +11,14 @@ from openlit.evals.utils import (
     llm_response,
     parse_llm_response,
     eval_metrics,
-    eval_metric_attributes
+    eval_metric_attributes,
 )
 
-def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None,
-                      threshold_score: Optional[float] = 0.5) -> str:
+
+def get_system_prompt(
+    custom_categories: Optional[Dict[str, str]] = None,
+    threshold_score: Optional[float] = 0.5,
+) -> str:
     """
     Returns the system prompt used for LLM analysis, including custom categories if provided.
 
@@ -55,7 +58,9 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None,
     """
 
     if custom_categories:
-        custom_categories_str = "\n".join([f"- {key}: {value}" for key, value in custom_categories.items()])
+        custom_categories_str = "\n".join(
+            [f"- {key}: {value}" for key, value in custom_categories.items()]
+        )
         base_prompt += f"\n    Additional Bias Categories:\n{custom_categories_str}"
 
     base_prompt += """
@@ -100,6 +105,7 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None,
     """
     return base_prompt
 
+
 class BiasDetector:
     """
     A class to detect Bias in AI responses using LLM or custom categories.
@@ -112,11 +118,16 @@ class BiasDetector:
         custom_categories (Optional[Dict[str, str]]): Additional categories for prompt injections.
     """
 
-    def __init__(self, provider: Optional[str] = "openai", api_key: Optional[str] = None,
-                 model: Optional[str] = None, base_url: Optional[str] = None,
-                 custom_categories: Optional[Dict[str, str]] = None,
-                 collect_metrics: Optional[bool] = False,
-                 threshold_score: Optional[float] = 0.5):
+    def __init__(
+        self,
+        provider: Optional[str] = "openai",
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        base_url: Optional[str] = None,
+        custom_categories: Optional[Dict[str, str]] = None,
+        collect_metrics: Optional[bool] = False,
+        threshold_score: Optional[float] = 0.5,
+    ):
         """
         Initializes the Bias detector with specified LLM settings, custom rules, and categories.
 
@@ -134,15 +145,22 @@ class BiasDetector:
         self.provider = provider
         if self.provider is None:
             raise ValueError("An LLM provider must be specified for Bias detection.")
-        self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
+        self.api_key, self.model, self.base_url = setup_provider(
+            provider, api_key, model, base_url
+        )
         self.collect_metrics = collect_metrics
         self.custom_categories = custom_categories
         self.threshold_score = threshold_score
-        self.system_prompt = get_system_prompt(self.custom_categories, self.threshold_score)
+        self.system_prompt = get_system_prompt(
+            self.custom_categories, self.threshold_score
+        )
 
-    def measure(self, prompt: Optional[str] = "",
-               contexts: Optional[List[str]] = None,
-               text: Optional[str] = None) -> JsonOutput:
+    def measure(
+        self,
+        prompt: Optional[str] = "",
+        contexts: Optional[List[str]] = None,
+        text: Optional[str] = None,
+    ) -> JsonOutput:
         """
         Detects toxicity in AI output using LLM or custom rules.
 
@@ -160,14 +178,23 @@ class BiasDetector:
         llm_result = parse_llm_response(response)
         result_verdict = "yes" if llm_result.score > self.threshold_score else "no"
 
-        result = JsonOutput(score=llm_result.score, evaluation=llm_result.evaluation,
-                            classification=llm_result.classification,
-                            explanation=llm_result.explanation, verdict=result_verdict)
+        result = JsonOutput(
+            score=llm_result.score,
+            evaluation=llm_result.evaluation,
+            classification=llm_result.classification,
+            explanation=llm_result.explanation,
+            verdict=result_verdict,
+        )
 
         if self.collect_metrics:
             eval_counter = eval_metrics()
-            attributes = eval_metric_attributes(result_verdict, result.score, result.evaluation,
-                                                result.classification, result.explanation)
+            attributes = eval_metric_attributes(
+                result_verdict,
+                result.score,
+                result.evaluation,
+                result.classification,
+                result.explanation,
+            )
             eval_counter.add(1, attributes)
 
         return result

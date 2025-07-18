@@ -7,10 +7,24 @@ import time
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
 from openlit.__helpers import handle_exception
-from openlit.instrumentation.qdrant.utils import DB_OPERATION_MAP, process_qdrant_response, set_server_address_and_port
+from openlit.instrumentation.qdrant.utils import (
+    DB_OPERATION_MAP,
+    process_qdrant_response,
+    set_server_address_and_port,
+)
 
-def async_general_wrap(gen_ai_endpoint, version, environment, application_name, tracer,
-    pricing_info, capture_message_content, metrics, disable_metrics):
+
+def async_general_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for Pinecone function calls.
     """
@@ -41,10 +55,22 @@ def async_general_wrap(gen_ai_endpoint, version, environment, application_name, 
             try:
                 # Process response with endpoint information
                 response = process_qdrant_response(
-                    response, db_operation, server_address, server_port,
-                    environment, application_name, metrics, start_time, span,
-                    capture_message_content, disable_metrics, version,
-                    instance=instance, args=args, endpoint=gen_ai_endpoint, **kwargs
+                    response,
+                    db_operation,
+                    server_address,
+                    server_port,
+                    environment,
+                    application_name,
+                    metrics,
+                    start_time,
+                    span,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    instance=instance,
+                    args=args,
+                    endpoint=gen_ai_endpoint,
+                    **kwargs,
                 )
 
             except Exception as e:

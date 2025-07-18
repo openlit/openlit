@@ -4,10 +4,7 @@ Module for monitoring Amazon Bedrock API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.bedrock.utils import (
     process_chunk,
     process_chat_response,
@@ -15,7 +12,17 @@ from openlit.instrumentation.bedrock.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def converse(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def converse(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for AWS Bedrock converse calls.
     """
@@ -30,10 +37,14 @@ def converse(version, environment, application_name, tracer, pricing_info, captu
             Wraps the individual converse method call.
             """
 
-            server_address, server_port = set_server_address_and_port(instance, "aws.amazon.com", 443)
+            server_address, server_port = set_server_address_and_port(
+                instance, "aws.amazon.com", 443
+            )
             request_model = method_kwargs.get("modelId", "amazon.titan-text-express-v1")
 
-            span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+            span_name = (
+                f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+            )
 
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
@@ -56,7 +67,7 @@ def converse(version, environment, application_name, tracer, pricing_info, captu
                         disable_metrics=disable_metrics,
                         version=version,
                         llm_config=llm_config,
-                        **method_kwargs
+                        **method_kwargs,
                     )
 
                 except Exception as e:
@@ -70,13 +81,25 @@ def converse(version, environment, application_name, tracer, pricing_info, captu
         # Replace the original method with the instrumented one
         if kwargs.get("service_name") == "bedrock-runtime":
             original_invoke_model = client.converse
-            client.converse = lambda *args, **kwargs: converse_wrapper(original_invoke_model, *args, **kwargs)
+            client.converse = lambda *args, **kwargs: converse_wrapper(
+                original_invoke_model, *args, **kwargs
+            )
 
         return client
 
     return wrapper
 
-def converse_stream(version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def converse_stream(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for AWS Bedrock converse_stream calls.
     """
@@ -87,15 +110,15 @@ def converse_stream(version, environment, application_name, tracer, pricing_info
         """
 
         def __init__(
-                self,
-                wrapped_response,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                **args,
-            ):
+            self,
+            wrapped_response,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            **args,
+        ):
             self.__wrapped_response = wrapped_response
             # Extract the actual stream iterator from the response
             if isinstance(wrapped_response, dict) and "stream" in wrapped_response:
@@ -159,7 +182,9 @@ def converse_stream(version, environment, application_name, tracer, pricing_info
             except StopIteration:
                 try:
                     llm_config = self._kwargs.get("inferenceConfig", {})
-                    with tracer.start_as_current_span(self._span_name, kind=SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -169,7 +194,7 @@ def converse_stream(version, environment, application_name, tracer, pricing_info
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
-                            llm_config=llm_config
+                            llm_config=llm_config,
                         )
 
                 except Exception as e:
@@ -187,16 +212,27 @@ def converse_stream(version, environment, application_name, tracer, pricing_info
             Wraps the individual converse_stream method call.
             """
 
-            server_address, server_port = set_server_address_and_port(instance, "aws.amazon.com", 443)
+            server_address, server_port = set_server_address_and_port(
+                instance, "aws.amazon.com", 443
+            )
             request_model = method_kwargs.get("modelId", "amazon.titan-text-express-v1")
 
-            span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+            span_name = (
+                f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+            )
 
             # Get the streaming response
             stream_response = original_method(*method_args, **method_kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            return TracedSyncStream(stream_response, span, span_name, method_kwargs, server_address, server_port)
+            return TracedSyncStream(
+                stream_response,
+                span,
+                span_name,
+                method_kwargs,
+                server_address,
+                server_port,
+            )
 
         # Get the original client instance from the wrapper
         client = wrapped(*args, **kwargs)
@@ -204,7 +240,9 @@ def converse_stream(version, environment, application_name, tracer, pricing_info
         # Replace the original method with the instrumented one
         if kwargs.get("service_name") == "bedrock-runtime":
             original_stream_model = client.converse_stream
-            client.converse_stream = lambda *args, **kwargs: converse_stream_wrapper(original_stream_model, *args, **kwargs)
+            client.converse_stream = lambda *args, **kwargs: converse_stream_wrapper(
+                original_stream_model, *args, **kwargs
+            )
 
         return client
 

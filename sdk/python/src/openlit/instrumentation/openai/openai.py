@@ -4,10 +4,7 @@ Module for monitoring OpenAI API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.openai.utils import (
     process_chat_chunk,
     process_response_chunk,
@@ -21,8 +18,17 @@ from openlit.instrumentation.openai.utils import (
 )
 from openlit.semcov import SemanticConvention
 
-def chat_completions(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def chat_completions(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for OpenAI chat completions.
     """
@@ -33,14 +39,14 @@ def chat_completions(version, environment, application_name, tracer, pricing_inf
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -90,7 +96,7 @@ def chat_completions(version, environment, application_name, tracer, pricing_inf
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -102,7 +108,9 @@ def chat_completions(version, environment, application_name, tracer, pricing_inf
         """
 
         streaming = kwargs.get("stream", False)
-        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.openai.com", 443
+        )
         request_model = kwargs.get("model", "gpt-4o")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -111,7 +119,9 @@ def chat_completions(version, environment, application_name, tracer, pricing_inf
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+            return TracedSyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            )
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -121,9 +131,9 @@ def chat_completions(version, environment, application_name, tracer, pricing_inf
                 try:
                     response = process_chat_response(
                         response=response,
-                            request_model=request_model,
+                        request_model=request_model,
                         pricing_info=pricing_info,
-                            server_port=server_port,
+                        server_port=server_port,
                         server_address=server_address,
                         environment=environment,
                         application_name=application_name,
@@ -133,7 +143,7 @@ def chat_completions(version, environment, application_name, tracer, pricing_inf
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
-                        **kwargs
+                        **kwargs,
                     )
 
                 except Exception as e:
@@ -143,8 +153,18 @@ def chat_completions(version, environment, application_name, tracer, pricing_inf
 
     return wrapper
 
-def responses(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics, **kwargs):
+
+def responses(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    **kwargs,
+):
     """
     Generates a telemetry wrapper for OpenAI responses API.
     """
@@ -155,14 +175,14 @@ def responses(version, environment, application_name, tracer, pricing_info,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -216,7 +236,7 @@ def responses(version, environment, application_name, tracer, pricing_info,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -228,7 +248,9 @@ def responses(version, environment, application_name, tracer, pricing_info,
         """
 
         streaming = kwargs.get("stream", False)
-        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.openai.com", 443
+        )
         request_model = kwargs.get("model", "gpt-4o")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -237,7 +259,9 @@ def responses(version, environment, application_name, tracer, pricing_info,
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+            return TracedSyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            )
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -247,9 +271,9 @@ def responses(version, environment, application_name, tracer, pricing_info,
                 try:
                     response = process_response_response(
                         response=response,
-                            request_model=request_model,
+                        request_model=request_model,
                         pricing_info=pricing_info,
-                            server_port=server_port,
+                        server_port=server_port,
                         server_address=server_address,
                         environment=environment,
                         application_name=application_name,
@@ -259,7 +283,7 @@ def responses(version, environment, application_name, tracer, pricing_info,
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
-                        **kwargs
+                        **kwargs,
                     )
 
                 except Exception as e:
@@ -269,8 +293,17 @@ def responses(version, environment, application_name, tracer, pricing_info,
 
     return wrapper
 
-def chat_completions_parse(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def chat_completions_parse(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for OpenAI chat completions parse.
     """
@@ -280,7 +313,9 @@ def chat_completions_parse(version, environment, application_name, tracer, prici
         Wraps the OpenAI chat completions parse call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.openai.com", 443
+        )
         request_model = kwargs.get("model", "gpt-4o")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -292,9 +327,9 @@ def chat_completions_parse(version, environment, application_name, tracer, prici
             try:
                 response = process_chat_response(
                     response=response,
-                        request_model=request_model,
+                    request_model=request_model,
                     pricing_info=pricing_info,
-                        server_port=server_port,
+                    server_port=server_port,
                     server_address=server_address,
                     environment=environment,
                     application_name=application_name,
@@ -304,7 +339,7 @@ def chat_completions_parse(version, environment, application_name, tracer, prici
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:
@@ -314,8 +349,18 @@ def chat_completions_parse(version, environment, application_name, tracer, prici
 
     return wrapper
 
-def embedding(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics, **kwargs):
+
+def embedding(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    **kwargs,
+):
     """
     Generates a telemetry wrapper for OpenAI embeddings.
     """
@@ -325,10 +370,14 @@ def embedding(version, environment, application_name, tracer, pricing_info,
         Wraps the OpenAI embeddings call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.openai.com", 443
+        )
         request_model = kwargs.get("model", "text-embedding-ada-002")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        span_name = (
+            f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING} {request_model}"
+        )
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
@@ -337,9 +386,9 @@ def embedding(version, environment, application_name, tracer, pricing_info,
             try:
                 response = process_embedding_response(
                     response=response,
-                        request_model=request_model,
+                    request_model=request_model,
                     pricing_info=pricing_info,
-                        server_port=server_port,
+                    server_port=server_port,
                     server_address=server_address,
                     environment=environment,
                     application_name=application_name,
@@ -349,7 +398,7 @@ def embedding(version, environment, application_name, tracer, pricing_info,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:
@@ -359,8 +408,18 @@ def embedding(version, environment, application_name, tracer, pricing_info,
 
     return wrapper
 
-def image_generate(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics, **kwargs):
+
+def image_generate(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    **kwargs,
+):
     """
     Generates a telemetry wrapper for OpenAI image generation.
     """
@@ -370,7 +429,9 @@ def image_generate(version, environment, application_name, tracer, pricing_info,
         Wraps the OpenAI image generation call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.openai.com", 443
+        )
         request_model = kwargs.get("model", "dall-e-2")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE} {request_model}"
@@ -383,9 +444,9 @@ def image_generate(version, environment, application_name, tracer, pricing_info,
             try:
                 response = process_image_response(
                     response=response,
-                        request_model=request_model,
+                    request_model=request_model,
                     pricing_info=pricing_info,
-                        server_port=server_port,
+                    server_port=server_port,
                     server_address=server_address,
                     environment=environment,
                     application_name=application_name,
@@ -396,7 +457,7 @@ def image_generate(version, environment, application_name, tracer, pricing_info,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:
@@ -406,8 +467,17 @@ def image_generate(version, environment, application_name, tracer, pricing_info,
 
     return wrapper
 
-def image_variatons(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def image_variatons(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for OpenAI image variations.
     """
@@ -417,7 +487,9 @@ def image_variatons(version, environment, application_name, tracer, pricing_info
         Wraps the OpenAI image variations call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.openai.com", 443
+        )
         request_model = kwargs.get("model", "dall-e-2")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE} {request_model}"
@@ -430,9 +502,9 @@ def image_variatons(version, environment, application_name, tracer, pricing_info
             try:
                 response = process_image_response(
                     response=response,
-                        request_model=request_model,
+                    request_model=request_model,
                     pricing_info=pricing_info,
-                        server_port=server_port,
+                    server_port=server_port,
                     server_address=server_address,
                     environment=environment,
                     application_name=application_name,
@@ -443,7 +515,7 @@ def image_variatons(version, environment, application_name, tracer, pricing_info
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:
@@ -453,8 +525,17 @@ def image_variatons(version, environment, application_name, tracer, pricing_info
 
     return wrapper
 
-def audio_create(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def audio_create(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for OpenAI audio creation.
     """
@@ -464,7 +545,9 @@ def audio_create(version, environment, application_name, tracer, pricing_info,
         Wraps the OpenAI audio creation call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.openai.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.openai.com", 443
+        )
         request_model = kwargs.get("model", "tts-1")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO} {request_model}"
@@ -477,9 +560,9 @@ def audio_create(version, environment, application_name, tracer, pricing_info,
             try:
                 response = process_audio_response(
                     response=response,
-                        request_model=request_model,
+                    request_model=request_model,
                     pricing_info=pricing_info,
-                        server_port=server_port,
+                    server_port=server_port,
                     server_address=server_address,
                     environment=environment,
                     application_name=application_name,
@@ -490,7 +573,7 @@ def audio_create(version, environment, application_name, tracer, pricing_info,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:

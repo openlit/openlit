@@ -4,19 +4,25 @@ Module for monitoring Groq API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.groq.utils import (
     process_chunk,
     process_streaming_chat_response,
-    process_chat_response
+    process_chat_response,
 )
 from openlit.semcov import SemanticConvention
 
-def chat(version, environment, application_name, tracer, pricing_info,
-    capture_message_content, metrics, disable_metrics):
+
+def chat(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -27,15 +33,15 @@ def chat(version, environment, application_name, tracer, pricing_info,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                **args,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            **args,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -78,7 +84,9 @@ def chat(version, environment, application_name, tracer, pricing_info,
                 return chunk
             except StopIteration:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind= SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -87,7 +95,7 @@ def chat(version, environment, application_name, tracer, pricing_info,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
 
                 except Exception as e:
@@ -101,7 +109,9 @@ def chat(version, environment, application_name, tracer, pricing_info,
         """
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
-        server_address, server_port = set_server_address_and_port(instance, "api.groq.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.groq.com", 443
+        )
         request_model = kwargs.get("model", "mixtral-8x7b-32768")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -110,7 +120,9 @@ def chat(version, environment, application_name, tracer, pricing_info,
             # Special handling for streaming response
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-            return TracedSyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+            return TracedSyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            )
         else:
             # Handling for non-streaming responses
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -132,7 +144,7 @@ def chat(version, environment, application_name, tracer, pricing_info,
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
-                        **kwargs
+                        **kwargs,
                     )
 
                 except Exception as e:
