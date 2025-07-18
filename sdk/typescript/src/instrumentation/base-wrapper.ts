@@ -50,12 +50,12 @@ export default class BaseWrapper {
       ...(cost !== undefined ? { [SemanticConvention.GEN_AI_USAGE_COST]: cost } : {}),
     };
     Metrics.genaiRequests?.add(1, attributes);
-    if (typeof inputTokens === 'number') Metrics.genaiPromptTokens?.add(inputTokens, attributes);
-    if (typeof outputTokens === 'number') Metrics.genaiCompletionTokens?.add(outputTokens, attributes);
-    if (typeof duration === 'number') Metrics.genaiClientOperationDuration?.record(duration, attributes);
+    if (Number.isFinite(inputTokens)) Metrics.genaiPromptTokens?.add(inputTokens as number, attributes);
+    if (Number.isFinite(outputTokens)) Metrics.genaiCompletionTokens?.add(outputTokens as number, attributes);
+    if (Number.isFinite(duration)) Metrics.genaiClientOperationDuration?.record(duration as number, attributes);
     if (cost !== undefined) {
       const numericCost = typeof cost === 'number' ? cost : Number(cost);
-      if (!isNaN(numericCost)) {
+      if (Number.isFinite(numericCost)) {
         Metrics.genaiCost?.record(numericCost, attributes);
       }
     }

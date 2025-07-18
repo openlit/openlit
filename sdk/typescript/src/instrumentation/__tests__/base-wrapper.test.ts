@@ -5,7 +5,6 @@ import Metrics from '../../otel/metrics';
 import BaseWrapper from '../base-wrapper';
 
 describe('BaseWrapper.setBaseSpanAttributes', () => {
-  // Extend Partial<Span> to include 'attributes' for testing
   interface TestSpan extends Partial<Span> {
     attributes?: Record<string, unknown>;
   }
@@ -86,5 +85,84 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
     expect(Metrics.genaiCompletionTokens!.add).not.toHaveBeenCalled();
     expect(Metrics.genaiClientOperationDuration!.record).not.toHaveBeenCalled();
     expect(Metrics.genaiCost!.record).not.toHaveBeenCalled();
+  });
+
+  describe('metrics logic for inputTokens, outputTokens, duration, cost', () => {
+    beforeEach(() => {
+      Metrics.setup({ resource: Resource.default() });
+      jest.spyOn(Metrics.genaiPromptTokens!, 'add').mockImplementation(() => {});
+      jest.spyOn(Metrics.genaiCompletionTokens!, 'add').mockImplementation(() => {});
+      jest.spyOn(Metrics.genaiClientOperationDuration!, 'record').mockImplementation(() => {});
+      jest.spyOn(Metrics.genaiCost!, 'record').mockImplementation(() => {});
+    });
+
+    it('should not call metrics for NaN, undefined, or non-number values', () => {
+      const span: TestSpan = {
+        setAttribute: jest.fn(),
+        setStatus: jest.fn(),
+        setAttributes: jest.fn(),
+        attributes: {
+          [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: NaN,
+          [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: undefined,
+          duration: 'not-a-number',
+        },
+      };
+      BaseWrapper.setBaseSpanAttributes(span as unknown as Span, {
+        model: 'gpt-4',
+        user: 'user1',
+        cost: 'not-a-number',
+        aiSystem: 'openai',
+        genAIEndpoint: 'endpoint',
+      });
+      expect(Metrics.genaiPromptTokens!.add).not.toHaveBeenCalled();
+      expect(Metrics.genaiCompletionTokens!.add).not.toHaveBeenCalled();
+      expect(Metrics.genaiClientOperationDuration!.record).not.toHaveBeenCalled();
+      expect(Metrics.genaiCost!.record).not.toHaveBeenCalled();
+    });
+
+    it('should call metrics for zero and negative values', () => {
+      const span: TestSpan = {
+        setAttribute: jest.fn(),
+        setStatus: jest.fn(),
+        setAttributes: jest.fn(),
+        attributes: {
+          [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: 0,
+          [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: -5,
+          duration: -1.5,
+        },
+      };
+      BaseWrapper.setBaseSpanAttributes(span as unknown as Span, {
+        model: 'gpt-4',
+        user: 'user1',
+        cost: 0,
+        aiSystem: 'openai',
+        genAIEndpoint: 'endpoint',
+      });
+      expect(Metrics.genaiPromptTokens!.add).toHaveBeenCalledWith(0, expect.any(Object));
+      expect(Metrics.genaiCompletionTokens!.add).toHaveBeenCalledWith(-5, expect.any(Object));
+      expect(Metrics.genaiClientOperationDuration!.record).toHaveBeenCalledWith(-1.5, expect.any(Object));
+      expect(Metrics.genaiCost!.record).toHaveBeenCalledWith(0, expect.any(Object));
+    });
+
+    it('should convert string cost to number if possible', () => {
+      const span: TestSpan = {
+        setAttribute: jest.fn(),
+        setStatus: jest.fn(),
+        setAttributes: jest.fn(),
+        attributes: {
+          [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: 1,
+          [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: 2,
+          duration: 3,
+        },
+      };
+      BaseWrapper.setBaseSpanAttributes(span as unknown as Span, {
+        model: 'gpt-4',
+        user: 'user1',
+        cost: '1.23',
+        aiSystem: 'openai',
+        genAIEndpoint: 'endpoint',
+      });
+      expect(Metrics.genaiCost!.record).toHaveBeenCalledWith(1.23, expect.any(Object));
+    });
   });
 });
