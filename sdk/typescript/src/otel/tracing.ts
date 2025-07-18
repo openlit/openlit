@@ -1,4 +1,4 @@
-import { SetupTracerOptions } from './types';
+import { SetupTracerOptions } from '../types';
 import {
   NodeTracerProvider,
   BatchSpanProcessor,
@@ -8,8 +8,8 @@ import {
 } from '@opentelemetry/sdk-trace-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 
-import Instrumentations from './instrumentation';
-import OpenlitConfig from './config';
+import Instrumentations from '../instrumentation';
+import OpenlitConfig from '../config';
 
 export default class Tracing {
   static traceProvider: NodeTracerProvider;

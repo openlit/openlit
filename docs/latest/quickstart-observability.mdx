@@ -203,6 +203,7 @@ flowchart TB;
                     apiKey: YOUR_OPENAI_KEY,
                 });
                 const completion = await openai.chat.completions.create({
+                    model: "gpt-3.5-turbo",
                     messages: [{ role: "system", content: "Who are you ?" }],
                 });
 
@@ -228,6 +229,7 @@ flowchart TB;
                     apiKey: YOUR_OPENAI_KEY,
                 });
                 const completion = await openai.chat.completions.create({
+                    model: "gpt-3.5-turbo",
                     messages: [{ role: "system", content: "Who are you ?" }],
                 });
 
@@ -399,6 +401,7 @@ flowchart TB;
                 apiKey: YOUR_OPENAI_KEY,
             });
             const completion = await openai.chat.completions.create({
+                model: "gpt-3.5-turbo",
                 messages: [{ role: "system", content: "Who are you ?" }],
             });
 
@@ -423,6 +426,7 @@ flowchart TB;
                 apiKey: YOUR_OPENAI_KEY,
             });
             const completion = await openai.chat.completions.create({
+                model: "gpt-3.5-turbo",
                 messages: [{ role: "system", content: "Who are you ?" }],
             });
 

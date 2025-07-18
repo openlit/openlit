@@ -1,6 +1,7 @@
 // import { Instrumentation } from '@opentelemetry/instrumentation';
 import { Resource } from '@opentelemetry/resources';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { metrics } from '@opentelemetry/api';
 
 export type InstrumentationType = 'openai' | 'anthropic' | 'cohere';
 
@@ -45,6 +46,12 @@ export type OpenlitOptions = {
 
 export type SetupTracerOptions = OpenlitOptions & {
   resource: Resource;
+};
+
+export type MeterType = ReturnType<typeof metrics.getMeter>;
+
+export type SetupMetricsOptions = SetupTracerOptions & {
+  meter?: MeterType;
 };
 
 export interface BaseOpenlitOptions {

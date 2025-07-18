@@ -44,6 +44,7 @@ export default class SemanticConvention {
   static GEN_AI_USAGE_OUTPUT_TOKENS = 'gen_ai.usage.output_tokens';
   static GEN_AI_USAGE_TOTAL_TOKENS = 'gen_ai.usage.total_tokens';
   static GEN_AI_USAGE_COST = 'gen_ai.usage.cost';
+  static GEN_AI_USAGE_REASONING_TOKENS = 'gen_ai.usage.reasoning_tokens';
 
   // GenAI Response
   static GEN_AI_RESPONSE_ID = 'gen_ai.response.id';
@@ -110,4 +111,8 @@ export default class SemanticConvention {
   static DB_UPDATE_METADATA = 'db.update.metadata';
   static DB_UPDATE_VALUES = 'db.update.values';
   static DB_UPDATE_ID = 'db.update.id';
+  static GEN_AI_CLIENT_OPERATION_DURATION = 'gen_ai.client.operation.duration';
+  static GEN_AI_SERVER_TBT = 'gen_ai.server.tbt';
+  static GEN_AI_SERVER_TTFT = 'gen_ai.server.ttft';
+  static DB_CLIENT_OPERATION_DURATION = 'db.client.operation.duration';
 }
