@@ -4,17 +4,21 @@ Module for monitoring vLLM API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
-from openlit.instrumentation.vllm.utils import (
-    process_chat_response
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.instrumentation.vllm.utils import process_chat_response
 from openlit.semcov import SemanticConvention
 
-def generate(version, environment, application_name, tracer, pricing_info,
-             capture_message_content, metrics, disable_metrics):
+
+def generate(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -23,7 +27,9 @@ def generate(version, environment, application_name, tracer, pricing_info,
         """
         Wraps the GenAI function call.
         """
-        server_address, server_port = set_server_address_and_port(instance, "http://127.0.0.1", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "http://127.0.0.1", 443
+        )
         request_model = instance.llm_engine.model_config.model or "facebook/opt-125m"
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"

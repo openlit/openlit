@@ -11,6 +11,7 @@ from openlit.instrumentation.transformers.transformers import pipeline_wrapper
 
 _instruments = ("transformers >= 4.48.0",)
 
+
 class TransformersInstrumentor(BaseInstrumentor):
     """
     An instrumentor for HuggingFace Transformer library.
@@ -40,7 +41,7 @@ class TransformersInstrumentor(BaseInstrumentor):
                 pricing_info,
                 capture_message_content,
                 metrics,
-                disable_metrics
+                disable_metrics,
             ),
         )
 

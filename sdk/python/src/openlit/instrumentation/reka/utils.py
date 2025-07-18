@@ -1,6 +1,7 @@
 """
 Reka OpenTelemetry instrumentation utility functions
 """
+
 import time
 
 from opentelemetry.trace import Status, StatusCode
@@ -14,6 +15,7 @@ from openlit.__helpers import (
 )
 from openlit.semcov import SemanticConvention
 
+
 def format_content(messages):
     """
     Process a list of messages to extract content.
@@ -26,8 +28,9 @@ def format_content(messages):
 
         if isinstance(content, list):
             content_str = ", ".join(
-                f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
-                if "type" in item else f'text: {item["text"]}'
+                f"{item['type']}: {item['text'] if 'text' in item else item['image_url']}"
+                if "type" in item
+                else f"text: {item['text']}"
                 for item in content
             )
             formatted_messages.append(f"{role}: {content_str}")
@@ -36,8 +39,18 @@ def format_content(messages):
 
     return "\n".join(formatted_messages)
 
-def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-    capture_message_content, disable_metrics, version, is_stream):
+
+def common_chat_logic(
+    scope,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+    is_stream,
+):
     """
     Process chat request and generate Telemetry
     """
@@ -48,42 +61,92 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     prompt = format_content(scope._kwargs.get("messages", ""))
     request_model = scope._kwargs.get("model", "reka-core-20240501")
 
-    cost = get_chat_model_cost(request_model, pricing_info, scope._input_tokens, scope._output_tokens)
+    cost = get_chat_model_cost(
+        request_model, pricing_info, scope._input_tokens, scope._output_tokens
+    )
 
     # Common Span Attributes
-    common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,SemanticConvention.GEN_AI_SYSTEM_REKAAI,
-        scope._server_address, scope._server_port, request_model, scope._response_model,
-        environment, application_name, is_stream, scope._tbt, scope._ttft, version)
+    common_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        SemanticConvention.GEN_AI_SYSTEM_REKAAI,
+        scope._server_address,
+        scope._server_port,
+        request_model,
+        scope._response_model,
+        environment,
+        application_name,
+        is_stream,
+        scope._tbt,
+        scope._ttft,
+        version,
+    )
 
     # Span Attributes for Response parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason])
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_SEED, scope._kwargs.get("seed", ""))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, scope._kwargs.get("max_tokens", -1))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, scope._kwargs.get("presence_penalty", 0.0))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, scope._kwargs.get("stop", []))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, scope._kwargs.get("temperature", 0.4))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, scope._kwargs.get("top_k", 1.0))
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, scope._kwargs.get("top_p", 1.0))
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_SEED, scope._kwargs.get("seed", "")
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
+        scope._kwargs.get("max_tokens", -1),
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
+        scope._kwargs.get("presence_penalty", 0.0),
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES, scope._kwargs.get("stop", [])
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
+        scope._kwargs.get("temperature", 0.4),
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_TOP_K, scope._kwargs.get("top_k", 1.0)
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_REQUEST_TOP_P, scope._kwargs.get("top_p", 1.0)
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text" if isinstance(scope._llmresponse, str) else "json")
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_OUTPUT_TYPE,
+        "text" if isinstance(scope._llmresponse, str) else "json",
+    )
 
     # Span Attributes for Cost and Tokens
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens + scope._output_tokens)
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
+        scope._input_tokens + scope._output_tokens,
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Tools
     if scope._tools:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("name",""))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id","")))
-        scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("parameters","")))
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("name", "")
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("parameters", ""))
+        )
 
     # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+        )
 
         # To be removed one the change to span_attributes (from span events) is complete
         scope._span.add_event(
@@ -103,14 +166,42 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Metrics
     if not disable_metrics:
-        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_REKAAI,
-            scope._server_address, scope._server_port, request_model, scope._response_model, environment,
-            application_name, scope._start_time, scope._end_time, scope._input_tokens, scope._output_tokens,
-            cost, scope._tbt, scope._ttft)
+        record_completion_metrics(
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_REKAAI,
+            scope._server_address,
+            scope._server_port,
+            request_model,
+            scope._response_model,
+            environment,
+            application_name,
+            scope._start_time,
+            scope._end_time,
+            scope._input_tokens,
+            scope._output_tokens,
+            cost,
+            scope._tbt,
+            scope._ttft,
+        )
 
-def process_chat_response(response, request_model, pricing_info, server_port, server_address,
-    environment, application_name, metrics, start_time, span, capture_message_content=False,
-    disable_metrics=False, version="1.0.0", **kwargs):
+
+def process_chat_response(
+    response,
+    request_model,
+    pricing_info,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    span,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="1.0.0",
+    **kwargs,
+):
     """
     Process chat request and generate Telemetry
     """
@@ -135,11 +226,22 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
     scope._kwargs = kwargs
     scope._finish_reason = str(response_dict.get("responses")[0].get("finish_reason"))
     if scope._kwargs.get("tools"):
-        scope._tools = response_dict.get("responses")[0].get("message").get("tool_calls")
+        scope._tools = (
+            response_dict.get("responses")[0].get("message").get("tool_calls")
+        )
     else:
         scope._tools = None
 
-    common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-        capture_message_content, disable_metrics, version, is_stream=False)
+    common_chat_logic(
+        scope,
+        pricing_info,
+        environment,
+        application_name,
+        metrics,
+        capture_message_content,
+        disable_metrics,
+        version,
+        is_stream=False,
+    )
 
     return response

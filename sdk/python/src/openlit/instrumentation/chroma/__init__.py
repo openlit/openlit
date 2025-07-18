@@ -11,6 +11,7 @@ from openlit.instrumentation.chroma.chroma import general_wrap
 
 _instruments = ("chromadb >= 0.4.0",)
 
+
 class ChromaInstrumentor(BaseInstrumentor):
     """
     An instrumentor for ChromaDB client library.
@@ -33,57 +34,129 @@ class ChromaInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "chromadb.db",
             "DB.create_collection",
-            general_wrap("chroma.create_collection", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            general_wrap(
+                "chroma.create_collection",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "chromadb",
             "Collection.add",
-            general_wrap("chroma.add", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            general_wrap(
+                "chroma.add",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "chromadb",
             "Collection.get",
-            general_wrap("chroma.get", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            general_wrap(
+                "chroma.get",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "chromadb",
             "Collection.peek",
-            general_wrap("chroma.peek", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            general_wrap(
+                "chroma.peek",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "chromadb",
             "Collection.query",
-            general_wrap("chroma.query", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            general_wrap(
+                "chroma.query",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "chromadb",
             "Collection.update",
-            general_wrap("chroma.update", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            general_wrap(
+                "chroma.update",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "chromadb",
             "Collection.upsert",
-            general_wrap("chroma.upsert", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            general_wrap(
+                "chroma.upsert",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "chromadb",
             "Collection.delete",
-            general_wrap("chroma.delete", version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            general_wrap(
+                "chroma.delete",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

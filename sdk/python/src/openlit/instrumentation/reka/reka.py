@@ -4,17 +4,21 @@ Module for monitoring Reka API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
-from openlit.instrumentation.reka.utils import (
-    process_chat_response
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.instrumentation.reka.utils import process_chat_response
 from openlit.semcov import SemanticConvention
 
-def chat(version, environment, application_name,
-                     tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def chat(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -24,7 +28,9 @@ def chat(version, environment, application_name,
         Wraps the GenAI function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.reka.ai", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.reka.ai", 443
+        )
         request_model = kwargs.get("model", "reka-core-20240501")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -48,7 +54,7 @@ def chat(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
             except Exception as e:

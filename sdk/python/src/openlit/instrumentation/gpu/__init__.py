@@ -5,12 +5,17 @@ from typing import Collection, Iterable
 import logging
 from functools import partial
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.sdk.resources import (
+    SERVICE_NAME,
+    TELEMETRY_SDK_NAME,
+    DEPLOYMENT_ENVIRONMENT,
+)
 from opentelemetry.metrics import get_meter, CallbackOptions, Observation
 from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
+
 
 class GPUInstrumentor(BaseInstrumentor):
     """
@@ -55,8 +60,14 @@ class GPUInstrumentor(BaseInstrumentor):
         for semantic_name, internal_name in metric_names:
             meter.create_observable_gauge(
                 name=getattr(SemanticConvention, semantic_name),
-                callbacks=[partial(self._collect_metric,
-                                   environment, application_name, internal_name)],
+                callbacks=[
+                    partial(
+                        self._collect_metric,
+                        environment,
+                        application_name,
+                        internal_name,
+                    )
+                ],
                 description=f"GPU {internal_name.replace('_', ' ').title()}",
             )
 
@@ -67,32 +78,38 @@ class GPUInstrumentor(BaseInstrumentor):
     def _get_gpu_type(self) -> str:
         try:
             import pynvml
+
             pynvml.nvmlInit()
             return "nvidia"
         except Exception:
             try:
                 import amdsmi
+
                 amdsmi.amdsmi_init()
                 return "amd"
             except Exception:
                 return None
 
-
-    def _collect_metric(self, environment, application_name,
-                        metric_name,
-                        options: CallbackOptions) -> Iterable[Observation]:
+    def _collect_metric(
+        self, environment, application_name, metric_name, options: CallbackOptions
+    ) -> Iterable[Observation]:
         # pylint: disable=no-else-return
         if self.gpu_type == "nvidia":
-            return self._collect_nvidia_metrics(environment, application_name, metric_name, options)
+            return self._collect_nvidia_metrics(
+                environment, application_name, metric_name, options
+            )
         elif self.gpu_type == "amd":
-            return self._collect_amd_metrics(environment, application_name, metric_name, options)
+            return self._collect_amd_metrics(
+                environment, application_name, metric_name, options
+            )
         return []
 
-    def _collect_nvidia_metrics(self, environment, application_name,
-                        metric_name,
-                        options: CallbackOptions) -> Iterable[Observation]:
+    def _collect_nvidia_metrics(
+        self, environment, application_name, metric_name, options: CallbackOptions
+    ) -> Iterable[Observation]:
         try:
             import pynvml
+
             gpu_count = pynvml.nvmlDeviceGetCount()
             mega_bytes = 1024 * 1024
             gpu_index = 0
@@ -103,8 +120,9 @@ class GPUInstrumentor(BaseInstrumentor):
                     try:
                         # pylint: disable=no-else-return
                         if metric_name == "temperature":
-                            return pynvml.nvmlDeviceGetTemperature(handle,
-                                                                   pynvml.NVML_TEMPERATURE_GPU)
+                            return pynvml.nvmlDeviceGetTemperature(
+                                handle, pynvml.NVML_TEMPERATURE_GPU
+                            )
                         elif metric_name == "utilization":
                             return pynvml.nvmlDeviceGetUtilizationRates(handle).gpu
                         elif metric_name == "utilization_enc":
@@ -115,26 +133,43 @@ class GPUInstrumentor(BaseInstrumentor):
                             return 0
                         elif metric_name == "memory_available":
                             memory_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                            return (memory_info.free // mega_bytes)  # Assuming reserved memory is 0
+                            return (
+                                memory_info.free // mega_bytes
+                            )  # Assuming reserved memory is 0
                         elif metric_name == "memory_total":
-                            return (pynvml.nvmlDeviceGetMemoryInfo(handle).total // mega_bytes)
+                            return (
+                                pynvml.nvmlDeviceGetMemoryInfo(handle).total
+                                // mega_bytes
+                            )
                         elif metric_name == "memory_used":
-                            return (pynvml.nvmlDeviceGetMemoryInfo(handle).used // mega_bytes)
+                            return (
+                                pynvml.nvmlDeviceGetMemoryInfo(handle).used
+                                // mega_bytes
+                            )
                         elif metric_name == "memory_free":
-                            return (pynvml.nvmlDeviceGetMemoryInfo(handle).free // mega_bytes)
+                            return (
+                                pynvml.nvmlDeviceGetMemoryInfo(handle).free
+                                // mega_bytes
+                            )
                         elif metric_name == "power_draw":
-                            return (pynvml.nvmlDeviceGetPowerUsage(handle) // 1000.0)
+                            return pynvml.nvmlDeviceGetPowerUsage(handle) // 1000.0
                         elif metric_name == "power_limit":
-                            return (pynvml.nvmlDeviceGetEnforcedPowerLimit(handle) // 1000.0)
+                            return (
+                                pynvml.nvmlDeviceGetEnforcedPowerLimit(handle) // 1000.0
+                            )
                     except Exception as e:
                         # pylint: disable=cell-var-from-loop
-                        logger.error("Error collecting metric %s for GPU %d: %s", metric_name,
-                                                                                  gpu_index, e)
+                        logger.error(
+                            "Error collecting metric %s for GPU %d: %s",
+                            metric_name,
+                            gpu_index,
+                            e,
+                        )
                     return 0
 
                 def safe_decode(byte_string):
                     if isinstance(byte_string, bytes):
-                        return byte_string.decode('utf-8')
+                        return byte_string.decode("utf-8")
                     return byte_string
 
                 attributes = {
@@ -142,19 +177,24 @@ class GPUInstrumentor(BaseInstrumentor):
                     SERVICE_NAME: application_name,
                     DEPLOYMENT_ENVIRONMENT: environment,
                     SemanticConvention.GPU_INDEX: str(gpu_index),
-                    SemanticConvention.GPU_UUID: safe_decode(pynvml.nvmlDeviceGetUUID(handle)),
-                    SemanticConvention.GPU_NAME: safe_decode(pynvml.nvmlDeviceGetName(handle))
+                    SemanticConvention.GPU_UUID: safe_decode(
+                        pynvml.nvmlDeviceGetUUID(handle)
+                    ),
+                    SemanticConvention.GPU_NAME: safe_decode(
+                        pynvml.nvmlDeviceGetName(handle)
+                    ),
                 }
                 yield Observation(get_metric_value(handle, metric_name), attributes)
 
         except Exception as e:
             logger.error("Error in GPU metrics collection: %s", e)
 
-    def _collect_amd_metrics(self, environment, application_name,
-                             metric_name,
-                             options: CallbackOptions) -> Iterable[Observation]:
+    def _collect_amd_metrics(
+        self, environment, application_name, metric_name, options: CallbackOptions
+    ) -> Iterable[Observation]:
         try:
             import amdsmi
+
             # Get the number of AMD GPUs
             devices = amdsmi.amdsmi_get_processor_handles()
             mega_bytes = 1024 * 1024
@@ -165,36 +205,69 @@ class GPUInstrumentor(BaseInstrumentor):
                         # pylint: disable=no-else-return
                         if metric_name == "temperature":
                             # pylint: disable=line-too-long
-                            return amdsmi.amdsmi_get_temp_metric(device_handle,
-                                                                 amdsmi.AmdSmiTemperatureType.EDGE,
-                                                                 amdsmi.AmdSmiTemperatureMetric.CURRENT)
+                            return amdsmi.amdsmi_get_temp_metric(
+                                device_handle,
+                                amdsmi.AmdSmiTemperatureType.EDGE,
+                                amdsmi.AmdSmiTemperatureMetric.CURRENT,
+                            )
                         elif metric_name == "utilization":
                             # pylint: disable=line-too-long
-                            return amdsmi.amdsmi_get_utilization_count(device_handle,
-                                                                       amdsmi.AmdSmiUtilizationCounterType.COARSE_GRAIN_GFX_ACTIVITY)
+                            return amdsmi.amdsmi_get_utilization_count(
+                                device_handle,
+                                amdsmi.AmdSmiUtilizationCounterType.COARSE_GRAIN_GFX_ACTIVITY,
+                            )
                         elif metric_name in ["utilization_enc", "utilization_dec"]:
                             return 0  # Placeholder if unsupported
                         elif metric_name == "fan_speed":
                             return amdsmi.amdsmi_get_gpu_fan_speed(device_handle, 0)
                         elif metric_name == "memory_available":
-                            return (amdsmi.amdsmi_get_gpu_memory_total(device_handle) // mega_bytes)
+                            return (
+                                amdsmi.amdsmi_get_gpu_memory_total(device_handle)
+                                // mega_bytes
+                            )
                         elif metric_name == "memory_total":
-                            return (amdsmi.amdsmi_get_gpu_memory_total(device_handle) // mega_bytes)
+                            return (
+                                amdsmi.amdsmi_get_gpu_memory_total(device_handle)
+                                // mega_bytes
+                            )
                         elif metric_name == "memory_used":
-                            return (amdsmi.amdsmi_get_gpu_memory_usage(device_handle) // mega_bytes)
+                            return (
+                                amdsmi.amdsmi_get_gpu_memory_usage(device_handle)
+                                // mega_bytes
+                            )
                         elif metric_name == "memory_free":
-                            total_mem = (amdsmi.amdsmi_get_gpu_memory_total(device_handle) // mega_bytes)
-                            used_mem = (amdsmi.amdsmi_get_gpu_memory_usage(device_handle) // mega_bytes)
-                            return (total_mem - used_mem)
+                            total_mem = (
+                                amdsmi.amdsmi_get_gpu_memory_total(device_handle)
+                                // mega_bytes
+                            )
+                            used_mem = (
+                                amdsmi.amdsmi_get_gpu_memory_usage(device_handle)
+                                // mega_bytes
+                            )
+                            return total_mem - used_mem
                         elif metric_name == "power_draw":
                             # pylint: disable=line-too-long
-                            return (amdsmi.amdsmi_get_power_info(device_handle)['average_socket_power'] // 1000.0)
+                            return (
+                                amdsmi.amdsmi_get_power_info(device_handle)[
+                                    "average_socket_power"
+                                ]
+                                // 1000.0
+                            )
                         elif metric_name == "power_limit":
                             # pylint: disable=line-too-long
-                            return (amdsmi.amdsmi_get_power_info(device_handle)['power_limit'] // 1000.0)
+                            return (
+                                amdsmi.amdsmi_get_power_info(device_handle)[
+                                    "power_limit"
+                                ]
+                                // 1000.0
+                            )
                     except Exception as e:
-                        logger.error("Error collecting metric %s for AMD GPU %d: %s", metric_name,
-                                      amdsmi.amdsmi_get_xgmi_info(device_handle)['index'], e)
+                        logger.error(
+                            "Error collecting metric %s for AMD GPU %d: %s",
+                            metric_name,
+                            amdsmi.amdsmi_get_xgmi_info(device_handle)["index"],
+                            e,
+                        )
                     return 0
 
                 attributes = {
@@ -202,12 +275,20 @@ class GPUInstrumentor(BaseInstrumentor):
                     SERVICE_NAME: application_name,
                     DEPLOYMENT_ENVIRONMENT: environment,
                     # pylint: disable=line-too-long
-                    SemanticConvention.GPU_INDEX: amdsmi.amdsmi_get_xgmi_info(device_handle)['index'],
+                    SemanticConvention.GPU_INDEX: amdsmi.amdsmi_get_xgmi_info(
+                        device_handle
+                    )["index"],
                     # pylint: disable=line-too-long
-                    SemanticConvention.GPU_UUID: amdsmi.amdsmi_get_gpu_asic_info(device_handle)['market_name'],
-                    SemanticConvention.GPU_NAME: amdsmi.amdsmi_get_device_name(device_handle)
+                    SemanticConvention.GPU_UUID: amdsmi.amdsmi_get_gpu_asic_info(
+                        device_handle
+                    )["market_name"],
+                    SemanticConvention.GPU_NAME: amdsmi.amdsmi_get_device_name(
+                        device_handle
+                    ),
                 }
-                yield Observation(get_metric_value(device_handle, metric_name), attributes)
+                yield Observation(
+                    get_metric_value(device_handle, metric_name), attributes
+                )
 
         except Exception as e:
             logger.error("Error in AMD GPU metrics collection: %s", e)

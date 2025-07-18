@@ -1,6 +1,7 @@
 """
 AWS Bedrock OpenTelemetry instrumentation utility functions
 """
+
 import time
 
 from opentelemetry.trace import Status, StatusCode
@@ -12,9 +13,10 @@ from openlit.__helpers import (
     get_chat_model_cost,
     record_completion_metrics,
     common_span_attributes,
-    handle_exception
+    handle_exception,
 )
 from openlit.semcov import SemanticConvention
+
 
 def format_content(messages):
     """
@@ -51,6 +53,7 @@ def format_content(messages):
         formatted_messages.append(f"{role}: {content}")
 
     return "\n".join(formatted_messages)
+
 
 def process_chunk(self, chunk):
     """
@@ -92,8 +95,19 @@ def process_chunk(self, chunk):
         self._output_tokens = usage.get("outputTokens", 0)
         self._end_time = end_time
 
-def common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-                        capture_message_content, disable_metrics, version, llm_config, is_stream):
+
+def common_chat_logic(
+    scope,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+    llm_config,
+    is_stream,
+):
     """
     Process chat request and generate Telemetry
     """
@@ -105,13 +119,26 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
     formatted_messages = format_content(scope._kwargs.get("messages", []))
     request_model = scope._kwargs.get("modelId", "amazon.titan-text-express-v1")
 
-    cost = get_chat_model_cost(request_model, pricing_info, scope._input_tokens, scope._output_tokens)
+    cost = get_chat_model_cost(
+        request_model, pricing_info, scope._input_tokens, scope._output_tokens
+    )
 
     # Common Span Attributes
-    common_span_attributes(scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_AWS_BEDROCK,
-        scope._server_address, scope._server_port, request_model, scope._response_model,
-        environment, application_name, is_stream, scope._tbt, scope._ttft, version)
+    common_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        SemanticConvention.GEN_AI_SYSTEM_AWS_BEDROCK,
+        scope._server_address,
+        scope._server_port,
+        request_model,
+        scope._response_model,
+        environment,
+        application_name,
+        is_stream,
+        scope._tbt,
+        scope._ttft,
+        version,
+    )
 
     # Bedrock-specific attributes from llm_config
     bedrock_attributes = [
@@ -132,19 +159,35 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Span Attributes for Response parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason])
-    scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, "text" if isinstance(scope._llmresponse, str) else "json")
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_OUTPUT_TYPE,
+        "text" if isinstance(scope._llmresponse, str) else "json",
+    )
 
     # Span Attributes for Cost and Tokens
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, scope._input_tokens + scope._output_tokens)
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
+        scope._input_tokens + scope._output_tokens,
+    )
     scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, formatted_messages)
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_CONTENT_PROMPT, formatted_messages
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+        )
 
         # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(
@@ -164,13 +207,37 @@ def common_chat_logic(scope, pricing_info, environment, application_name, metric
 
     # Record metrics
     if not disable_metrics:
-        record_completion_metrics(metrics, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT, SemanticConvention.GEN_AI_SYSTEM_AWS_BEDROCK,
-            scope._server_address, scope._server_port, request_model, scope._response_model, environment,
-            application_name, scope._start_time, scope._end_time, scope._input_tokens, scope._output_tokens,
-            cost, scope._tbt, scope._ttft)
+        record_completion_metrics(
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_AWS_BEDROCK,
+            scope._server_address,
+            scope._server_port,
+            request_model,
+            scope._response_model,
+            environment,
+            application_name,
+            scope._start_time,
+            scope._end_time,
+            scope._input_tokens,
+            scope._output_tokens,
+            cost,
+            scope._tbt,
+            scope._ttft,
+        )
 
-def process_streaming_chat_response(scope, pricing_info, environment, application_name, metrics,
-                                    capture_message_content=False, disable_metrics=False, version="", llm_config=None):
+
+def process_streaming_chat_response(
+    scope,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="",
+    llm_config=None,
+):
     """
     Process streaming chat response and generate telemetry.
     """
@@ -179,15 +246,40 @@ def process_streaming_chat_response(scope, pricing_info, environment, applicatio
         if llm_config is None:
             llm_config = {}
 
-        common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-                            capture_message_content, disable_metrics, version, llm_config, is_stream=True)
+        common_chat_logic(
+            scope,
+            pricing_info,
+            environment,
+            application_name,
+            metrics,
+            capture_message_content,
+            disable_metrics,
+            version,
+            llm_config,
+            is_stream=True,
+        )
     except Exception as e:
         handle_exception(scope._span, e)
         raise
 
-def process_chat_response(response, request_model, pricing_info, server_port, server_address, environment,
-                          application_name, metrics, start_time, span, capture_message_content=False,
-                          disable_metrics=False, version="1.0.0", llm_config=None, **kwargs):
+
+def process_chat_response(
+    response,
+    request_model,
+    pricing_info,
+    server_port,
+    server_address,
+    environment,
+    application_name,
+    metrics,
+    start_time,
+    span,
+    capture_message_content=False,
+    disable_metrics=False,
+    version="1.0.0",
+    llm_config=None,
+    **kwargs,
+):
     """
     Process non-streaming chat response and generate telemetry.
     """
@@ -202,8 +294,15 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
         scope._start_time = start_time
         scope._end_time = time.time()
         scope._span = span
-        scope._llmresponse = response_dict.get("output", {}).get("message", {}).get("content", [{}])[0].get("text", "")
-        scope._response_role = response_dict.get("output", {}).get("message", {}).get("role", "assistant")
+        scope._llmresponse = (
+            response_dict.get("output", {})
+            .get("message", {})
+            .get("content", [{}])[0]
+            .get("text", "")
+        )
+        scope._response_role = (
+            response_dict.get("output", {}).get("message", {}).get("role", "assistant")
+        )
         scope._input_tokens = response_dict.get("usage", {}).get("inputTokens", 0)
         scope._output_tokens = response_dict.get("usage", {}).get("outputTokens", 0)
         scope._response_model = request_model
@@ -214,8 +313,18 @@ def process_chat_response(response, request_model, pricing_info, server_port, se
         scope._server_address, scope._server_port = server_address, server_port
         scope._kwargs = kwargs
 
-        common_chat_logic(scope, pricing_info, environment, application_name, metrics,
-                            capture_message_content, disable_metrics, version, llm_config, is_stream=False)
+        common_chat_logic(
+            scope,
+            pricing_info,
+            environment,
+            application_name,
+            metrics,
+            capture_message_content,
+            disable_metrics,
+            version,
+            llm_config,
+            is_stream=False,
+        )
 
         return response
     except Exception as e:

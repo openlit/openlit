@@ -5,14 +5,11 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.reka.reka import (
-    chat
-)
-from openlit.instrumentation.reka.async_reka import (
-    async_chat
-)
+from openlit.instrumentation.reka.reka import chat
+from openlit.instrumentation.reka.async_reka import async_chat
 
 _instruments = ("reka-api >= 3.2.0",)
+
 
 class RekaInstrumentor(BaseInstrumentor):
     """
@@ -36,16 +33,32 @@ class RekaInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "reka.chat.client",
             "ChatClient.create",
-            chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # Chat completions
         wrap_function_wrapper(
             "reka.chat.client",
             "AsyncChatClient.create",
-            async_chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

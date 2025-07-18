@@ -6,14 +6,11 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.crawl4ai.crawl4ai import (
-    wrap_crawl
-)
-from openlit.instrumentation.crawl4ai.async_crawl4ai import (
-    async_wrap_crawl
-)
+from openlit.instrumentation.crawl4ai.crawl4ai import wrap_crawl
+from openlit.instrumentation.crawl4ai.async_crawl4ai import async_wrap_crawl
 
 _instruments = ("crawl4ai >= 0.4.0",)
+
 
 class Crawl4AIInstrumentor(BaseInstrumentor):
     """
@@ -36,15 +33,33 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "crawl4ai.web_crawler",
             "WebCrawler.run",
-            wrap_crawl("crawl4ai.web_crawl", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            wrap_crawl(
+                "crawl4ai.web_crawl",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         wrap_function_wrapper(
             "crawl4ai.async_webcrawler",
             "AsyncWebCrawler.arun",
-            async_wrap_crawl("crawl4ai.web_crawl", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_wrap_crawl(
+                "crawl4ai.web_crawl",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

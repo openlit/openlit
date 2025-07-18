@@ -4,20 +4,26 @@ Module for monitoring Together API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.together.utils import (
     process_chat_response,
     process_chunk,
     process_streaming_chat_response,
-    process_image_response
+    process_image_response,
 )
 from openlit.semcov import SemanticConvention
 
-def async_completion(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def async_completion(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -28,15 +34,15 @@ def async_completion(version, environment, application_name,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                **args,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            **args,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
@@ -78,7 +84,9 @@ def async_completion(version, environment, application_name,
                 return chunk
             except StopIteration:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind= SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -87,7 +95,7 @@ def async_completion(version, environment, application_name,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
 
                 except Exception as e:
@@ -103,7 +111,9 @@ def async_completion(version, environment, application_name,
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
 
-        server_address, server_port = set_server_address_and_port(instance, "api.together.xyz", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.together.xyz", 443
+        )
         request_model = kwargs.get("model", "gpt-4o")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -112,11 +122,13 @@ def async_completion(version, environment, application_name,
             # Special handling for streaming response to accommodate the nature of data flow
             awaited_wrapped = await wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
-            return TracedAsyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+            return TracedAsyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            )
 
         # Handling for non-streaming responses
         else:
-            with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
+            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
                 response = await wrapped(*args, **kwargs)
 
@@ -135,7 +147,7 @@ def async_completion(version, environment, application_name,
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
-                        **kwargs
+                        **kwargs,
                     )
 
                 except Exception as e:
@@ -145,8 +157,17 @@ def async_completion(version, environment, application_name,
 
     return wrapper
 
-def async_image_generate(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def async_image_generate(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -156,12 +177,14 @@ def async_image_generate(version, environment, application_name,
         Wraps the GenAI function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "api.together.xyz", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "api.together.xyz", 443
+        )
         request_model = kwargs.get("model", "dall-e-2")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE} {request_model}"
 
-        with tracer.start_as_current_span(span_name, kind= SpanKind.CLIENT) as span:
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
             response = await wrapped(*args, **kwargs)
             end_time = time.time()
@@ -182,7 +205,7 @@ def async_image_generate(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    **kwargs
+                    **kwargs,
                 )
 
                 return response

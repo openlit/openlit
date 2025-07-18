@@ -9,6 +9,7 @@ from openlit.instrumentation.assemblyai.assemblyai import transcribe
 
 _instruments = ("assemblyai >= 0.35.1",)
 
+
 class AssemblyAIInstrumentor(BaseInstrumentor):
     """
     An instrumentor for AssemblyAI client library.
@@ -31,8 +32,16 @@ class AssemblyAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "assemblyai.transcriber",
             "Transcriber.transcribe",
-            transcribe(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            transcribe(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

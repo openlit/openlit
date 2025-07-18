@@ -7,7 +7,7 @@ max-locals=30
 max-args=25
 
 # Maximum number of positional arguments (see R0917).
-max-positional-arguments=16
+max-positional-arguments=20
 
 # Maximum allowed line length
 max-line-length=135
@@ -31,4 +31,6 @@ disable=
     expression-not-assigned,
     unnecessary-direct-lambda-call,
     no-member,
-    no-else-return
+    no-else-return,
+    import-outside-toplevel,
+    too-many-return-statements
