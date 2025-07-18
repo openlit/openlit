@@ -16,6 +16,7 @@ from openlit.semcov import SemanticConvention
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
+
 class JsonOutput(BaseModel):
     """
     A model representing the structure of JSON output for prompt injection detection.
@@ -34,13 +35,17 @@ class JsonOutput(BaseModel):
     classification: str
     explanation: str
 
-def setup_provider(provider: Optional[str], api_key: Optional[str],
-                   model: Optional[str],
-                   base_url: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+
+def setup_provider(
+    provider: Optional[str],
+    api_key: Optional[str],
+    model: Optional[str],
+    base_url: Optional[str],
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Function to setup LLM provider"""
     provider_configs = {
         "openai": {"env_var": "OPENAI_API_KEY"},
-        "anthropic": {"env_var": "ANTHROPIC_API_KEY"}
+        "anthropic": {"env_var": "ANTHROPIC_API_KEY"},
     }
 
     if provider is None:
@@ -60,7 +65,9 @@ def setup_provider(provider: Optional[str], api_key: Optional[str],
 
     if not api_key:
         # pylint: disable=line-too-long
-        raise ValueError(f"API key required via 'api_key' parameter or '{env_var}' environment variable")
+        raise ValueError(
+            f"API key required via 'api_key' parameter or '{env_var}' environment variable"
+        )
 
     return api_key, model, base_url
 
@@ -68,6 +75,7 @@ def setup_provider(provider: Optional[str], api_key: Optional[str],
 def format_prompt(system_prompt: str, text: str) -> str:
     """Function to format the prompt"""
     return system_prompt.replace("{{prompt}}", text)
+
 
 def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
     """Function to get LLM response based on provider"""
@@ -78,6 +86,7 @@ def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
         return llm_response_anthropic(prompt, model)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
+
 
 def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     """Function to make LLM call to OpenAI"""
@@ -95,9 +104,10 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
             {"role": "user", "content": prompt},
         ],
         temperature=0.0,
-        response_format=JsonOutput
+        response_format=JsonOutput,
     )
     return response.choices[0].message.content
+
 
 def llm_response_anthropic(prompt: str, model: str) -> str:
     """Function to make LLM call to Anthropic"""
@@ -113,26 +123,42 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "verdict": {"type": "string", "description": "Verdict of guardrail"},
+                    "verdict": {
+                        "type": "string",
+                        "description": "Verdict of guardrail",
+                    },
                     "guard": {"type": "string", "description": "Type of guard"},
-                    "score": {"type": "number", "description": "Prompt score from Guard."},
-                    "classification": {"type": "string", "description": "Incorrect prompt type"},
-                    "explanation": {"type": "string", "description": "Reason for classification"}
+                    "score": {
+                        "type": "number",
+                        "description": "Prompt score from Guard.",
+                    },
+                    "classification": {
+                        "type": "string",
+                        "description": "Incorrect prompt type",
+                    },
+                    "explanation": {
+                        "type": "string",
+                        "description": "Reason for classification",
+                    },
                 },
-                "required": ["verdict", "guard", "score", "classification", "explanation"]
-            }
+                "required": [
+                    "verdict",
+                    "guard",
+                    "score",
+                    "classification",
+                    "explanation",
+                ],
+            },
         }
     ]
 
     response = client.messages.create(
         model=model,
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
+        messages=[{"role": "user", "content": prompt}],
         max_tokens=2000,
         temperature=0.0,
         tools=tools,
-        stream=False
+        stream=False,
     )
 
     for content in response.content:
@@ -141,6 +167,7 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
             break
 
     return response
+
 
 def parse_llm_response(response) -> JsonOutput:
     """
@@ -163,8 +190,14 @@ def parse_llm_response(response) -> JsonOutput:
         return JsonOutput(**data)
     except (json.JSONDecodeError, TypeError) as e:
         logger.error("Error parsing LLM response: '%s'", e)
-        return JsonOutput(score=0, classification="none", explanation="none",
-                          verdict="none", guard="none")
+        return JsonOutput(
+            score=0,
+            classification="none",
+            explanation="none",
+            verdict="none",
+            guard="none",
+        )
+
 
 def custom_rule_detection(text: str, custom_rules: list) -> JsonOutput:
     """
@@ -183,10 +216,12 @@ def custom_rule_detection(text: str, custom_rules: list) -> JsonOutput:
                 guard=rule.get("guard", "prompt_injection"),
                 score=rule.get("score", 0.5),
                 classification=rule.get("classification", "custom"),
-                explanation=rule.get("explanation", "Matched custom rule pattern.")
+                explanation=rule.get("explanation", "Matched custom rule pattern."),
             )
-    return JsonOutput(score=0, classification="none", explanation="none",
-                      verdict="none", guard="none")
+    return JsonOutput(
+        score=0, classification="none", explanation="none", verdict="none", guard="none"
+    )
+
 
 def guard_metrics():
     """
@@ -204,10 +239,11 @@ def guard_metrics():
     guard_requests = meter.create_counter(
         name=SemanticConvention.GUARD_REQUESTS,
         description="Counter for Guard requests",
-        unit="1"
+        unit="1",
     )
 
     return guard_requests
+
 
 def guard_metric_attributes(verdict, score, validator, classification, explanation):
     """

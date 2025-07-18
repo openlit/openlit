@@ -6,14 +6,17 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.google_ai_studio.google_ai_studio import (
-    generate, generate_stream
+    generate,
+    generate_stream,
 )
 
 from openlit.instrumentation.google_ai_studio.async_google_ai_studio import (
-    async_generate, async_generate_stream
+    async_generate,
+    async_generate_stream,
 )
 
 _instruments = ("google-genai >= 1.3.0",)
+
 
 class GoogleAIStudioInstrumentor(BaseInstrumentor):
     """
@@ -37,32 +40,64 @@ class GoogleAIStudioInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "google.genai.models",
             "Models.generate_content",
-            generate(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            generate(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # sync stream generate
         wrap_function_wrapper(
             "google.genai.models",
             "Models.generate_content_stream",
-            generate_stream(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            generate_stream(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async generate
         wrap_function_wrapper(
             "google.genai.models",
             "AsyncModels.generate_content",
-            async_generate(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_generate(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # async stream generate
         wrap_function_wrapper(
             "google.genai.models",
             "AsyncModels.generate_content_stream",
-            async_generate_stream(version, environment, application_name,
-                tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            async_generate_stream(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

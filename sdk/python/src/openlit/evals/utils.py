@@ -15,6 +15,7 @@ from openlit.semcov import SemanticConvention
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
 
+
 class JsonOutput(BaseModel):
     """
     A model representing the structure of JSON output for prompt injection detection.
@@ -32,9 +33,13 @@ class JsonOutput(BaseModel):
     classification: str
     explanation: str
 
-def setup_provider(provider: Optional[str], api_key: Optional[str],
-                   model: Optional[str],
-                   base_url: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+
+def setup_provider(
+    provider: Optional[str],
+    api_key: Optional[str],
+    model: Optional[str],
+    base_url: Optional[str],
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Sets up the provider, API key, model, and base URL.
 
@@ -52,7 +57,7 @@ def setup_provider(provider: Optional[str], api_key: Optional[str],
     """
     provider_configs = {
         "openai": {"env_var": "OPENAI_API_KEY"},
-        "anthropic": {"env_var": "ANTHROPIC_API_KEY"}
+        "anthropic": {"env_var": "ANTHROPIC_API_KEY"},
     }
 
     if provider is None:
@@ -72,12 +77,16 @@ def setup_provider(provider: Optional[str], api_key: Optional[str],
 
     if not api_key:
         # pylint: disable=line-too-long
-        raise ValueError(f"API key required via 'api_key' parameter or '{env_var}' environment variable")
+        raise ValueError(
+            f"API key required via 'api_key' parameter or '{env_var}' environment variable"
+        )
 
     return api_key, model, base_url
 
 
-def format_prompt(system_prompt: str, prompt: str, contexts: List[str], text: str) -> str:
+def format_prompt(
+    system_prompt: str, prompt: str, contexts: List[str], text: str
+) -> str:
     """
     Format the prompt.
 
@@ -98,6 +107,7 @@ def format_prompt(system_prompt: str, prompt: str, contexts: List[str], text: st
 
     return formatted_prompt
 
+
 def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
     """
     Generates an LLM response using the configured provider.
@@ -116,6 +126,7 @@ def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
         return llm_response_anthropic(prompt, model)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
+
 
 def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     """
@@ -142,9 +153,10 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
             {"role": "user", "content": prompt},
         ],
         temperature=0.0,
-        response_format=JsonOutput
+        response_format=JsonOutput,
     )
     return response.choices[0].message.content
+
 
 def llm_response_anthropic(prompt: str, model: str) -> str:
     """
@@ -172,23 +184,33 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
                     "verdict": {"type": "string", "description": "Evaluation verdict"},
                     "evaluation": {"type": "string", "description": "Evaluation type"},
                     "score": {"type": "number", "description": "Evaluation score"},
-                    "classification": {"type": "string", "description": "Evaluation category"},
-                    "explanation": {"type": "string", "description": "Evaluation reason"}
+                    "classification": {
+                        "type": "string",
+                        "description": "Evaluation category",
+                    },
+                    "explanation": {
+                        "type": "string",
+                        "description": "Evaluation reason",
+                    },
                 },
-                "required": ["verdict", "evaluation", "score", "classification", "explanation"]
-            }
+                "required": [
+                    "verdict",
+                    "evaluation",
+                    "score",
+                    "classification",
+                    "explanation",
+                ],
+            },
         }
     ]
 
     response = client.messages.create(
         model=model,
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
+        messages=[{"role": "user", "content": prompt}],
         max_tokens=2000,
         temperature=0.0,
         tools=tools,
-        stream=False
+        stream=False,
     )
 
     for content in response.content:
@@ -197,6 +219,7 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
             break
 
     return response
+
 
 def parse_llm_response(response) -> JsonOutput:
     """
@@ -220,8 +243,14 @@ def parse_llm_response(response) -> JsonOutput:
         return JsonOutput(**data)
     except (json.JSONDecodeError, TypeError) as e:
         logger.error("Error parsing LLM response: '%s'", e)
-        return JsonOutput(score=0, classification="none", explanation="none",
-                          verdict="no", evaluation="none")
+        return JsonOutput(
+            score=0,
+            classification="none",
+            explanation="none",
+            verdict="no",
+            evaluation="none",
+        )
+
 
 def eval_metrics():
     """
@@ -240,10 +269,11 @@ def eval_metrics():
     guard_requests = meter.create_counter(
         name=SemanticConvention.EVAL_REQUESTS,
         description="Counter for evaluation requests",
-        unit="1"
+        unit="1",
     )
 
     return guard_requests
+
 
 def eval_metric_attributes(verdict, score, validator, classification, explanation):
     """
@@ -260,16 +290,10 @@ def eval_metric_attributes(verdict, score, validator, classification, explanatio
     """
 
     return {
-            TELEMETRY_SDK_NAME:
-                "openlit",
-            SemanticConvention.EVAL_VERDICT:
-                verdict,
-            SemanticConvention.EVAL_SCORE:
-                score,
-            SemanticConvention.EVAL_VALIDATOR:
-                validator,
-            SemanticConvention.EVAL_CLASSIFICATION:
-                classification,
-            SemanticConvention.EVAL_EXPLANATION:
-                explanation,
+        TELEMETRY_SDK_NAME: "openlit",
+        SemanticConvention.EVAL_VERDICT: verdict,
+        SemanticConvention.EVAL_SCORE: score,
+        SemanticConvention.EVAL_VALIDATOR: validator,
+        SemanticConvention.EVAL_CLASSIFICATION: classification,
+        SemanticConvention.EVAL_EXPLANATION: explanation,
     }

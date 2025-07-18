@@ -6,11 +6,10 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.phidata.phidata import (
-    phidata_wrap
-)
+from openlit.instrumentation.phidata.phidata import phidata_wrap
 
 _instruments = ("phidata >= 2.5.32",)
+
 
 class PhidataInstrumentor(BaseInstrumentor):
     """
@@ -33,8 +32,17 @@ class PhidataInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "phi.agent",
             "Agent.print_response",
-            phidata_wrap("phidata.print_response", version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            phidata_wrap(
+                "phidata.print_response",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):
