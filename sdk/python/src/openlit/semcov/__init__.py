@@ -80,6 +80,19 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_AGENT = "invoke_agent"
     GEN_AI_OPERATION_TYPE_CREATE_AGENT = "create_agent"
     GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = "execute_task"
+    GEN_AI_OPERATION_TYPE_GRAPH_EXECUTION = "graph_execution"
+    GEN_AI_OPERATION_TYPE_USER_PROMPT_PROCESSING = "user_prompt_processing"
+    GEN_AI_OPERATION_TYPE_MODEL_REQUEST = "model_request"
+    GEN_AI_OPERATION_TYPE_TOOL_COORDINATION = "tool_coordination"
+
+    # Model Request Types
+    GEN_AI_MODEL_REQUEST_TYPE_INITIAL = "initial"
+    GEN_AI_MODEL_REQUEST_TYPE_TOOL_RESPONSE = "tool_response"
+    GEN_AI_MODEL_REQUEST_TYPE_CHAT = "chat"
+
+    # Tool Processing Types
+    GEN_AI_TOOL_PROCESSING_TYPE_EXECUTION = "execution"
+    GEN_AI_TOOL_PROCESSING_TYPE_COORDINATION = "coordination"
     GEN_AI_OPERATION_TYPE_RETRIEVE = "retrieve"
 
     # GenAI Output Types (OTel Semconv)
@@ -508,3 +521,39 @@ class SemanticConvention:
     GEN_AI_AGENT_SENDER = "gen_ai.agent.sender"
     GEN_AI_AGENT_MESSAGE_TYPE = "gen_ai.agent.message_type"
     GEN_AI_AGENT_REPLY_MODE = "gen_ai.agent.reply_mode"
+
+    # === ENHANCED SEMANTIC CONVENTIONS FOR COMPREHENSIVE INSTRUMENTATION ===
+
+    # Message structure attributes (reuse existing prompt for input, add output messages)
+    # Note: For input messages, we reuse GEN_AI_CONTENT_PROMPT for consistency
+    GEN_AI_OUTPUT_MESSAGES = "gen_ai.output_messages"
+    GEN_AI_MESSAGE_ROLE = "gen_ai.message.role"
+    GEN_AI_MESSAGE_CONTENT = "gen_ai.message.content"
+
+    # Tool result tracking (extending existing tool attributes)
+    GEN_AI_TOOL_RESULT = "gen_ai.tool.result"
+    GEN_AI_TOOL_SCHEMA = "gen_ai.tool.schema"
+
+    # Model invocation parameters (for comprehensive model tracking)
+    GEN_AI_REQUEST_PARAMETERS = "gen_ai.request.parameters"
+
+    # Session and conversation tracking
+    GEN_AI_SESSION_ID = "gen_ai.session.id"
+    GEN_AI_USER_ID = "gen_ai.user.id"
+
+    # Agent lifecycle phases
+    GEN_AI_AGENT_LIFECYCLE_PHASE = "gen_ai.agent.lifecycle.phase"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_CREATE = "create"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE = "execute"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_GRAPH_EXECUTION = "graph_execution"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_USER_PROMPT_PROCESSING = "user_prompt_processing"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_MODEL_REQUEST = "model_request"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_TOOL_EXECUTION = "tool_execution"
+
+    # Performance metrics (extending existing cost tracking)
+    GEN_AI_PERFORMANCE_TOKENS_PER_SECOND = "gen_ai.performance.tokens_per_second"
+    # Note: For latency/duration, we reuse existing GEN_AI_CLIENT_OPERATION_DURATION
+
+    # Tool execution metadata
+    GEN_AI_TOOL_EXECUTION_DURATION = "gen_ai.tool.execution.duration"
+    GEN_AI_TOOL_EXECUTION_SUCCESS = "gen_ai.tool.execution.success"
