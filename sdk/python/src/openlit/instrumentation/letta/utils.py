@@ -4,7 +4,7 @@ Letta OpenTelemetry instrumentation utility functions following framework guide 
 
 import json
 import time
-from opentelemetry.trace import Status, StatusCode
+from opentelemetry.trace import Status, StatusCode, SpanKind
 from openlit.__helpers import (
     common_framework_span_attributes,
     handle_exception,
@@ -256,13 +256,25 @@ def get_span_name(operation_type, endpoint, instance=None, kwargs=None, response
 class TracedLettaStream:
     """Traced streaming wrapper for Letta message operations"""
     
-    def __init__(self, wrapped_stream, span, span_name, kwargs, capture_content=False):
+    def __init__(self, wrapped_stream, span, span_name, kwargs, operation_type, instance, 
+                 start_time, environment, application_name, version, endpoint, 
+                 capture_content, pricing_info, tracer):
         self.__wrapped__ = wrapped_stream
         self._span = span
         self._span_name = span_name
         self._kwargs = kwargs
+        self._operation_type = operation_type
+        self._instance = instance
+        self._start_time = start_time
+        self._environment = environment
+        self._application_name = application_name
+        self._version = version
+        self._endpoint = endpoint
         self._capture_content = capture_content
-        self._start_time = time.time()
+        self._pricing_info = pricing_info
+        self._tracer = tracer
+        
+        # Response tracking
         self._response_content = ""
         self._response_messages = []
         self._chunk_count = 0
@@ -278,7 +290,15 @@ class TracedLettaStream:
             self._process_chunk(chunk)
             return chunk
         except StopIteration:
-            self._finalize_span()
+            try:
+                # Following LiteLLM pattern: create new span context for finalization
+                with self._tracer.start_as_current_span(
+                    self._span_name, kind=SpanKind.CLIENT
+                ) as finalization_span:
+                    # Process the streaming response with all collected data
+                    self._process_streaming_response(finalization_span)
+            except Exception as e:
+                handle_exception(self._span, e)
             raise
         except Exception as e:
             handle_exception(self._span, e)
@@ -292,13 +312,58 @@ class TracedLettaStream:
         if self._chunk_count == 1:
             self._ttft = time.time() - self._start_time
         
-        # Accumulate response content
+        # Accumulate response content and messages
         self._response_messages.append(chunk)
         
-        if hasattr(chunk, 'content'):
+        # Extract content from various message types
+        if hasattr(chunk, 'content') and chunk.content:
             self._response_content += str(chunk.content)
         elif hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
             self._response_content += str(chunk.message.content)
+        
+        # Set streaming attributes while span is still active
+        if self._span.is_recording():
+            self._span.set_attribute("letta.streaming.chunks", self._chunk_count)
+            if self._ttft > 0:
+                self._span.set_attribute("letta.streaming.ttft", self._ttft)
+    
+    def _process_streaming_response(self, span):
+        """Process the complete streaming response (following LiteLLM pattern)"""
+        try:
+            # Process the streaming response with all collected data
+            process_letta_response(
+                span,
+                self._response_messages,  # Pass collected messages as response
+                self._kwargs,
+                self._operation_type,
+                self._instance,
+                self._start_time,
+                self._environment,
+                self._application_name,
+                self._version,
+                self._endpoint,
+                self._capture_content,
+                self._pricing_info,
+            )
+            
+            # Set streaming-specific attributes
+            duration = time.time() - self._start_time
+            span.set_attribute("letta.streaming.chunks", self._chunk_count)
+            span.set_attribute("letta.streaming.duration", duration)
+            span.set_attribute("letta.streaming.ttft", self._ttft)
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True)
+            span.set_attribute("letta.streaming.response_count", len(self._response_messages))
+            
+            # Set completion content if available
+            if self._capture_content and self._response_messages:
+                completion_content = str(self._response_messages)
+                span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion_content)
+            elif self._capture_content and self._response_content:
+                span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, self._response_content)
+                
+        except Exception:
+            # Ignore errors during finalization
+            pass
     
     def _finalize_span(self):
         """Finalize span with streaming metrics"""
@@ -321,6 +386,10 @@ class TracedLettaStream:
                 # Set content if enabled
                 if self._capture_content and self._response_content:
                     self._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, self._response_content)
+                elif self._capture_content and self._response_messages:
+                    # Fallback: Use response messages if no direct content
+                    completion_content = str(self._response_messages)
+                    self._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion_content)
                 
                 # Set response messages if available
                 if self._response_messages:
@@ -335,12 +404,19 @@ class TracedLettaStream:
         """Close the wrapped stream"""
         if not self._finalized:
             try:
+                # Close the underlying generator properly
                 if hasattr(self.__wrapped__, 'close'):
                     self.__wrapped__.close()
+                elif hasattr(self.__wrapped__, '__del__'):
+                    try:
+                        # Force generator cleanup
+                        self.__wrapped__.__del__()
+                    except Exception:
+                        pass
             except Exception:
                 pass  # Ignore cleanup errors
             finally:
-                self._finalize_span()
+                self._finalized = True
     
     def __enter__(self):
         """Context manager entry"""

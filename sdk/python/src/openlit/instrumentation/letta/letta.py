@@ -55,40 +55,40 @@ def create_letta_wrapper(
         span_name = get_span_name(operation_type, gen_ai_endpoint, instance, kwargs)
         start_time = time.time()
         
+        # Check if this is a streaming operation
+        streaming = (operation_type == "chat")  # Assume chat operations might stream
+        
+        if streaming:
+            # Execute the operation first to check if it's actually streaming
+            response = wrapped(*args, **kwargs)
+            
+            # Check if response is actually a stream
+            if hasattr(response, '__iter__') and hasattr(response, '__next__'):
+                # For streaming: create span without context manager (like LiteLLM)
+                span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+                return TracedLettaStream(
+                    wrapped_stream=response,
+                    span=span,
+                    span_name=span_name,
+                    kwargs=kwargs,
+                    operation_type=operation_type,
+                    instance=instance,
+                    start_time=start_time,
+                    environment=environment,
+                    application_name=application_name,
+                    version=version,
+                    endpoint=gen_ai_endpoint,
+                    capture_content=capture_message_content,
+                    pricing_info=pricing_info,
+                    tracer=tracer
+                )
+        
+        # Non-streaming or non-chat operations
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             try:
-                # Execute the operation
-                response = wrapped(*args, **kwargs)
-                
-                # Handle streaming responses (for message operations)
-                if (operation_type == "chat" and 
-                    hasattr(response, '__iter__') and 
-                    hasattr(response, '__next__')):
-                    
-                    # Set initial span attributes for streaming
-                    process_letta_response(
-                        span,
-                        None,  # No response yet
-                        kwargs,
-                        operation_type,
-                        instance,
-                        start_time,
-                        environment,
-                        application_name,
-                        version,
-                        gen_ai_endpoint,
-                        capture_message_content,
-                        pricing_info,
-                    )
-                    
-                    # Return traced streaming wrapper
-                    return TracedLettaStream(
-                        wrapped_stream=response,
-                        span=span,
-                        span_name=span_name,
-                        kwargs=kwargs,
-                        capture_content=capture_message_content
-                    )
+                if not streaming:
+                    # Execute the operation for non-streaming
+                    response = wrapped(*args, **kwargs)
                 
                 # Process non-streaming response using common helpers
                 process_letta_response(
