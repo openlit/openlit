@@ -2,7 +2,7 @@
 """
 This module contains tests for Cohere functionality using the Cohere Python library.
 
-Tests cover various API endpoints, including chat and embeddings. 
+Tests cover various API endpoints, including chat and embeddings.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -19,7 +19,9 @@ import openlit
 sync_client = cohere.Client()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-cohere-test")
+openlit.init(
+    environment="openlit-python-testing", application_name="openlit-python-cohere-test"
+)
 
 
 def test_embed():

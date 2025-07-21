@@ -1,7 +1,7 @@
 """
 This module contains tests for Together functionality using the Together Python library.
 
-Tests cover various API endpoints, including chat and embeddings. 
+Tests cover various API endpoints, including chat and embeddings.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -22,7 +22,11 @@ sync_client = Together()
 async_client = AsyncTogether()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-together-test")
+openlit.init(
+    environment="openlit-python-testing",
+    application_name="openlit-python-together-test",
+)
+
 
 def test_sync_together_chat():
     """
@@ -33,18 +37,15 @@ def test_sync_together_chat():
     """
 
     try:
-        response =  sync_client.chat.completions.create(
+        response = sync_client.chat.completions.create(
             model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
             messages=[
-                {
-                        "role": "user",
-                        "content": "Hi"
-                },
+                {"role": "user", "content": "Hi"},
             ],
             max_tokens=1,
             stream=False,
         )
-        assert response.model == 'meta-llama/Llama-3.3-70B-Instruct-Turbo'
+        assert response.model == "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 
     except Exception as e:
         if "credit_limit" in str(e).lower():
@@ -53,6 +54,7 @@ def test_sync_together_chat():
             print("Rate limit exceeded:", e)
         else:
             raise
+
 
 def test_sync_together_image():
     """
@@ -70,7 +72,7 @@ def test_sync_together_image():
             height=768,
             n=1,
         )
-        assert response.model == 'black-forest-labs/FLUX.1-dev'
+        assert response.model == "black-forest-labs/FLUX.1-dev"
 
     except Exception as e:
         if "credit_limit" in str(e).lower():
@@ -79,6 +81,7 @@ def test_sync_together_image():
             print("Rate limit exceeded:", e)
         else:
             raise
+
 
 @pytest.mark.asyncio
 async def test_async_together_chat():
@@ -90,18 +93,15 @@ async def test_async_together_chat():
     """
 
     try:
-        response =  await async_client.chat.completions.create(
+        response = await async_client.chat.completions.create(
             model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
             messages=[
-                {
-                        "role": "user",
-                        "content": "Hi"
-                },
+                {"role": "user", "content": "Hi"},
             ],
             max_tokens=1,
             stream=False,
         )
-        assert response.model == 'meta-llama/Llama-3.3-70B-Instruct-Turbo'
+        assert response.model == "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 
     except Exception as e:
         if "credit_limit" in str(e).lower():
@@ -110,6 +110,7 @@ async def test_async_together_chat():
             print("Rate limit exceeded:", e)
         else:
             raise
+
 
 @pytest.mark.asyncio
 async def test_async_together_image():
@@ -128,7 +129,7 @@ async def test_async_together_image():
             height=768,
             n=1,
         )
-        assert response.model == 'black-forest-labs/FLUX.1-dev'
+        assert response.model == "black-forest-labs/FLUX.1-dev"
 
     except Exception as e:
         if "credit_limit" in str(e).lower():

@@ -541,7 +541,7 @@ class SemanticConvention:
     GEN_AI_SESSION_ID = "gen_ai.session.id"
     GEN_AI_USER_ID = "gen_ai.user.id"
     GEN_AI_RUN_ID = "gen_ai.run.id"
-    
+
     # Memory operation types
     GEN_AI_OPERATION_TYPE_MEMORY = "memory"
     GEN_AI_OPERATION_TYPE_MEMORY_ADD = "memory_add"
@@ -549,7 +549,7 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_MEMORY_GET = "memory_get"
     GEN_AI_OPERATION_TYPE_MEMORY_UPDATE = "memory_update"
     GEN_AI_OPERATION_TYPE_MEMORY_DELETE = "memory_delete"
-    
+
     # Memory-specific attributes
     GEN_AI_MEMORY_TYPE = "gen_ai.memory.type"
     GEN_AI_MEMORY_METADATA = "gen_ai.memory.metadata"
