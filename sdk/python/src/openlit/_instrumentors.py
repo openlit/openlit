@@ -47,7 +47,7 @@ MODULE_NAME_MAP = {
     "assemblyai": "assemblyai",
     "crawl4ai": "crawl4ai",
     "firecrawl": "firecrawl",
-    "letta": "letta",
+    "letta": "letta_client",
     "together": "together",
     "openai-agents": "agents",
     "pydantic_ai": "pydantic_ai",

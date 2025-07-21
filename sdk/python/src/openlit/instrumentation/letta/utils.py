@@ -1,0 +1,287 @@
+"""
+Letta OpenTelemetry instrumentation utility functions following framework guide patterns
+"""
+
+import json
+import time
+from opentelemetry.trace import Status, StatusCode
+from openlit.__helpers import (
+    common_framework_span_attributes,
+    handle_exception,
+    get_chat_model_cost,
+)
+from openlit.semcov import SemanticConvention
+
+
+def process_letta_response(
+    span,
+    response,
+    kwargs,
+    operation_type,
+    instance,
+    start_time,
+    environment,
+    application_name,
+    version,
+    endpoint,
+    capture_message_content=False,
+    pricing_info=None,
+):
+    """Process Letta response and set appropriate span attributes using common helpers"""
+    
+    end_time = time.time()
+    
+    # Create proper scope object for common_framework_span_attributes
+    scope = type("LettaScope", (), {})()
+    scope._span = span
+    scope._start_time = start_time
+    scope._end_time = end_time
+    
+    # Create model wrapper for framework span attributes
+    class LettaModelWrapper:
+        def __init__(self, original_instance, model_name):
+            self._original = original_instance
+            self.model_name = model_name
+        
+        def __getattr__(self, name):
+            return getattr(self._original, name) if self._original else None
+    
+    # Extract model name
+    model_name = kwargs.get('model', 'gpt-4o')  # Default Letta model
+    if response and hasattr(response, 'llm_config') and hasattr(response.llm_config, 'model'):
+        model_name = response.llm_config.model
+    
+    model_instance = LettaModelWrapper(instance, model_name)
+    
+    # Set common framework span attributes using helper
+    common_framework_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_SYSTEM_LETTA,
+        None,  # server_address 
+        None,  # server_port
+        environment,
+        application_name,
+        version,
+        operation_type,  # Use operation_type as endpoint
+        model_instance,
+    )
+    
+    # Set Letta-specific attributes
+    _set_letta_specific_attributes(span, kwargs, response, operation_type)
+    
+    # Set content attributes for chat operations
+    if operation_type == "chat" and capture_message_content:
+        _set_content_attributes(span, kwargs, response)
+    
+    # Calculate cost for chat operations
+    if operation_type == "chat" and pricing_info and response:
+        _calculate_cost(span, response, pricing_info, model_name)
+    
+    span.set_status(Status(StatusCode.OK))
+
+
+def _set_letta_specific_attributes(span, kwargs, response, operation_type):
+    """Set Letta-specific span attributes"""
+    
+    # Extract agent ID from kwargs or response
+    agent_id = None
+    if 'agent_id' in kwargs:
+        agent_id = str(kwargs['agent_id'])
+    elif hasattr(response, 'id'):
+        agent_id = str(response.id)
+    
+    if agent_id:
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, agent_id)
+    
+    # Extract agent information from response
+    if response:
+        if hasattr(response, 'name'):
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(response.name))
+        if hasattr(response, 'system'):
+            # Truncate long system instructions
+            instructions = str(response.system)
+            if len(instructions) > 2000:
+                instructions = instructions[:2000] + "..."
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_INSTRUCTIONS, instructions)
+        if hasattr(response, 'agent_type'):
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_TYPE, response.agent_type)
+        
+        # Set usage metrics for chat operations
+        if operation_type == "chat" and hasattr(response, 'usage'):
+            usage = response.usage
+            if hasattr(usage, 'step_count'):
+                span.set_attribute(SemanticConvention.GEN_AI_AGENT_STEP_COUNT, usage.step_count)
+            if hasattr(usage, 'prompt_tokens'):
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, usage.prompt_tokens)
+            if hasattr(usage, 'completion_tokens'):
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, usage.completion_tokens)
+            if hasattr(usage, 'total_tokens'):
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, usage.total_tokens)
+
+
+def _set_content_attributes(span, kwargs, response):
+    """Set content attributes for chat operations"""
+    try:
+        # Input content
+        if 'messages' in kwargs:
+            messages_str = json.dumps(str(kwargs['messages']))
+            span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, messages_str)
+        
+        # Output content
+        if response and hasattr(response, 'messages'):
+            completion_str = str(response.messages)
+            span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion_str)
+    except Exception:
+        pass
+
+
+def _calculate_cost(span, response, pricing_info, model_name):
+    """Calculate and set cost attributes"""
+    try:
+        if hasattr(response, 'usage'):
+            usage = response.usage
+            if hasattr(usage, 'prompt_tokens') and hasattr(usage, 'completion_tokens'):
+                cost = get_chat_model_cost(
+                    model_name,
+                    pricing_info,
+                    usage.prompt_tokens,
+                    usage.completion_tokens,
+                )
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+    except Exception:
+        pass
+
+
+def get_span_name(operation_type, endpoint, instance=None, kwargs=None, response=None):
+    """Generate proper span name following OpenTelemetry patterns"""
+    
+    # For chat operations, follow LiteLLM pattern: "chat {model}"
+    if operation_type == "chat":
+        model = "gpt-4o"  # Default
+        if kwargs and 'model' in kwargs:
+            model = kwargs['model']
+        elif response and hasattr(response, 'llm_config') and hasattr(response.llm_config, 'model'):
+            model = response.llm_config.model
+        return f"chat {model}"
+    
+    # For agent operations, follow CrewAI pattern: "operation_type agent_name"
+    elif operation_type in ["create_agent", "invoke_agent"]:
+        agent_name = "agent"
+        
+        # Try to get agent name from various sources
+        if instance and hasattr(instance, 'name'):
+            agent_name = instance.name
+        elif response and hasattr(response, 'name'):
+            agent_name = response.name
+        elif kwargs and 'name' in kwargs:
+            agent_name = kwargs['name']
+        elif kwargs and 'agent_id' in kwargs:
+            agent_name = f"agent-{str(kwargs['agent_id'])[:8]}"
+        
+        return f"{operation_type} {agent_name}"
+    
+    # For workflow operations
+    elif operation_type == "workflow":
+        return f"workflow {endpoint.split('.')[-1]}"
+    
+    # For tool operations
+    elif operation_type == "execute_tool":
+        return f"tool {endpoint.split('.')[-1]}"
+    
+    # Default fallback
+    return f"{operation_type} {endpoint.split('.')[-1]}"
+
+
+class TracedLettaStream:
+    """Traced streaming wrapper for Letta message operations"""
+    
+    def __init__(self, wrapped_stream, span, span_name, kwargs, capture_content=False):
+        self.__wrapped__ = wrapped_stream
+        self._span = span
+        self._span_name = span_name
+        self._kwargs = kwargs
+        self._capture_content = capture_content
+        self._start_time = time.time()
+        self._response_content = ""
+        self._response_messages = []
+        self._chunk_count = 0
+        self._ttft = 0
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        try:
+            chunk = next(self.__wrapped__)
+            self._process_chunk(chunk)
+            return chunk
+        except StopIteration:
+            self._finalize_span()
+            raise
+        except Exception as e:
+            handle_exception(self._span, e)
+            raise
+    
+    def _process_chunk(self, chunk):
+        """Process individual chunk"""
+        self._chunk_count += 1
+        
+        # Calculate TTFT on first chunk
+        if self._chunk_count == 1:
+            self._ttft = time.time() - self._start_time
+        
+        # Accumulate response content
+        self._response_messages.append(chunk)
+        
+        if hasattr(chunk, 'content'):
+            self._response_content += str(chunk.content)
+        elif hasattr(chunk, 'message') and hasattr(chunk.message, 'content'):
+            self._response_content += str(chunk.message.content)
+    
+    def _finalize_span(self):
+        """Finalize span with streaming metrics"""
+        duration = time.time() - self._start_time
+        
+        # Set streaming-specific attributes
+        self._span.set_attribute("letta.streaming.ttft", self._ttft)
+        self._span.set_attribute("letta.streaming.chunks", self._chunk_count)
+        self._span.set_attribute("letta.streaming.duration", duration)
+        
+        # Set content if enabled
+        if self._capture_content and self._response_content:
+            self._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, self._response_content)
+        
+        self._span.set_status(Status(StatusCode.OK))
+    
+    def close(self):
+        """Close the wrapped stream"""
+        if hasattr(self.__wrapped__, 'close'):
+            self.__wrapped__.close()
+    
+    def __getattr__(self, name):
+        return getattr(self.__wrapped__, name)
+
+
+# Operation type mappings for Letta endpoints
+OPERATION_TYPE_MAP = {
+    # Agent operations
+    "create": "create_agent",
+    "retrieve": "invoke_agent", 
+    "modify": "invoke_agent",
+    "delete": "invoke_agent",
+    "list": "workflow",
+    
+    # Message operations (chat)
+    "create_stream": "chat",
+    "create": "chat",
+    "create_async": "chat",
+    "cancel": "chat",
+    "reset": "chat",
+    
+    # Tool operations
+    "attach": "execute_tool",
+    "detach": "execute_tool",
+    
+    # Memory/Context operations - workflow
+    # These remain as "workflow"
+}
