@@ -9,9 +9,7 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
-from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry import context
-from opentelemetry.context import attach, detach
 from opentelemetry.sdk.resources import (
     SERVICE_NAME,
     TELEMETRY_SDK_NAME,
@@ -90,36 +88,42 @@ class Mem0Context:
 
     @property
     def user_id(self) -> Optional[str]:
+        """Get user_id with lazy loading."""
         if self._user_id is None:
             self._user_id = self.kwargs.get("user_id")
         return self._user_id
 
     @property
     def agent_id(self) -> Optional[str]:
+        """Get agent_id with lazy loading."""
         if self._agent_id is None:
             self._agent_id = self.kwargs.get("agent_id")
         return self._agent_id
 
     @property
     def run_id(self) -> Optional[str]:
+        """Get run_id with lazy loading."""
         if self._run_id is None:
             self._run_id = self.kwargs.get("run_id")
         return self._run_id
 
     @property
     def metadata(self) -> Optional[Dict[str, Any]]:
+        """Get metadata with lazy loading."""
         if self._metadata is None:
             self._metadata = self.kwargs.get("metadata")
         return self._metadata
 
     @property
     def memory_type(self) -> Optional[str]:
+        """Get memory_type with lazy loading."""
         if self._memory_type is None:
             self._memory_type = self.kwargs.get("memory_type")
         return self._memory_type
 
     @property
     def messages(self) -> Any:
+        """Get messages with lazy loading."""
         if self._messages is None:
             self._messages = self.args[0] if self.args else self.kwargs.get("messages")
         return self._messages

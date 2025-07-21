@@ -302,4 +302,4 @@ class Mem0Instrumentor(BaseInstrumentor):
     @staticmethod
     def _uninstrument(self, **kwargs):
         """Uninstrument mem0."""
-        pass
+        # Currently no cleanup needed
