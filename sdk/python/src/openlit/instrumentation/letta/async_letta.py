@@ -43,17 +43,17 @@ def create_async_letta_wrapper(
         """
         Wraps the async API call to add telemetry.
         """
-        
+
         async def async_wrapper(*args, **kwargs):
             # Extract operation type from endpoint
-            endpoint_parts = gen_ai_endpoint.split('.')
+            endpoint_parts = gen_ai_endpoint.split(".")
             operation = endpoint_parts[-1] if endpoint_parts else "unknown"
             operation_type = OPERATION_TYPE_MAP.get(operation, "workflow")
-            
+
             # Generate proper span name with context
             span_name = get_span_name(operation_type, gen_ai_endpoint, instance, kwargs)
             start_time = time.time()
-            
+
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 try:
                     # Execute async operation
@@ -61,7 +61,7 @@ def create_async_letta_wrapper(
                         response = await wrapped(*args, **kwargs)
                     else:
                         response = wrapped(*args, **kwargs)
-                    
+
                     # Process response using common helpers
                     process_letta_response(
                         span,
@@ -77,9 +77,9 @@ def create_async_letta_wrapper(
                         capture_message_content,
                         pricing_info,
                     )
-                    
+
                     return response
-                    
+
                 except Exception as e:
                     handle_exception(span, e)
                     logger.error("Error in async Letta trace creation: %s", e)
@@ -95,20 +95,52 @@ def create_async_letta_wrapper(
 
 
 # Async agent operations
-def async_create_agent(gen_ai_endpoint, version, environment, application_name, tracer,
-                      pricing_info, capture_message_content, metrics, disable_metrics):
+def async_create_agent(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """Async agent operations wrapper"""
     return create_async_letta_wrapper(
-        gen_ai_endpoint, version, environment, application_name, tracer,
-        pricing_info, capture_message_content, metrics, disable_metrics
+        gen_ai_endpoint,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
     )
 
 
-# Async message operations  
-def async_send_message(gen_ai_endpoint, version, environment, application_name, tracer,
-                      pricing_info, capture_message_content, metrics, disable_metrics):
+# Async message operations
+def async_send_message(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """Async message operations wrapper"""
     return create_async_letta_wrapper(
-        gen_ai_endpoint, version, environment, application_name, tracer,
-        pricing_info, capture_message_content, metrics, disable_metrics
+        gen_ai_endpoint,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
     )
