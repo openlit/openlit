@@ -134,7 +134,6 @@ class SemanticConvention:
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
-    GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
     GEN_AI_SYSTEM_MEM0 = "mem0"
     GEN_AI_SYSTEM_LITELLM = "litellm"
     GEN_AI_SYSTEM_CREWAI = "crewai"
@@ -576,3 +575,23 @@ class SemanticConvention:
     # Tool execution metadata
     GEN_AI_TOOL_EXECUTION_DURATION = "gen_ai.tool.execution.duration"
     GEN_AI_TOOL_EXECUTION_SUCCESS = "gen_ai.tool.execution.success"
+
+    # Additional request parameters (general, reusable across integrations)
+    GEN_AI_REQUEST_CONTEXT_WINDOW = "gen_ai.request.context_window"
+    GEN_AI_REQUEST_ENABLE_REASONER = "gen_ai.request.enable_reasoner"
+    GEN_AI_REQUEST_REASONING_EFFORT = "gen_ai.request.reasoning_effort"
+    GEN_AI_REQUEST_ASYNC = "gen_ai.request.async"
+    GEN_AI_REQUEST_RETURN_SEQUENCE_NO = "gen_ai.request.return_sequence_no"
+    GEN_AI_REQUEST_INCLUDE_FINAL_MESSAGE = "gen_ai.request.include_final_message"
+    GEN_AI_REQUEST_MESSAGE_COUNT = "gen_ai.request.message_count"
+
+    # Model configuration attributes (general, reusable)
+    GEN_AI_MODEL_HANDLE = "gen_ai.model.handle"
+
+    # Agent attributes (general, reusable)
+    GEN_AI_AGENT_SLUG = "gen_ai.agent.slug"
+    GEN_AI_AGENT_STEP_MESSAGES = "gen_ai.agent.step_messages"
+
+    # Streaming attributes (general, reusable)
+    GEN_AI_STREAMING_CHUNK_COUNT = "gen_ai.streaming.chunk_count"
+    GEN_AI_STREAMING_RESPONSE_COUNT = "gen_ai.streaming.response_count"

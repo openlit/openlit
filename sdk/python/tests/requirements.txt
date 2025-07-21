@@ -37,7 +37,6 @@ astrapy
 # Frameworks
 langchain
 langchainhub
-embedchain
 
 # GPU
 xmltodict
