@@ -19,42 +19,39 @@ import openlit
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(
     environment="openlit-python-testing",
-    application_name="openlit-python-embedchain-test"
+    application_name="openlit-python-embedchain-test",
 )
 
 config = {
-    'app': {
-        'config': {
-            'name': 'openlit-testing'
-        }
+    "app": {"config": {"name": "openlit-testing"}},
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-3.5-turbo",
+            "temperature": 0.5,
+            "max_tokens": 1,
+            "top_p": 1,
+            "stream": False,
+            "api_key": os.getenv("OPENAI_API_TOKEN"),
+        },
     },
-    'llm': {
-        'provider': 'openai',
-        'config': {
-            'model': 'gpt-3.5-turbo',
-            'temperature': 0.5,
-            'max_tokens': 1,
-            'top_p': 1,
-            'stream': False,
-            'api_key': os.getenv("OPENAI_API_TOKEN")
-        }
+    "vectordb": {
+        "provider": "chroma",
+        "config": {
+            "collection_name": "full-stack-app",
+            "dir": "db",
+            "allow_reset": True,
+        },
     },
-    'vectordb': {
-        'provider': 'chroma',
-        'config': {
-            'collection_name': 'full-stack-app',
-            'dir': 'db',
-            'allow_reset': True
-        }
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-ada-002",
+            "api_key": os.getenv("OPENAI_API_TOKEN"),
+        },
     },
-    'embedder': {
-        'provider': 'openai',
-        'config': {
-            'model': 'text-embedding-ada-002',
-            'api_key': os.getenv("OPENAI_API_TOKEN")
-        }
-    }
 }
+
 
 def test_embedchain():
     """
@@ -76,6 +73,7 @@ def test_embedchain():
     data_sources = app.get_data_sources()
     assert isinstance(len(data_sources), int)
 
-    evals = app.evaluate(["What is the net worth of Elon Musk?",
-                          "How many companies Elon Musk owns?"])
+    evals = app.evaluate(
+        ["What is the net worth of Elon Musk?", "How many companies Elon Musk owns?"]
+    )
     assert isinstance(evals, dict)

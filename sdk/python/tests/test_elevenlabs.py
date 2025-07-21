@@ -2,7 +2,7 @@
 """
 This module contains tests for ElevenLabs functionality using the ElevenLabs Python library.
 
-Tests cover various API endpoints. 
+Tests cover various API endpoints.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -25,7 +25,7 @@ async_client = AsyncElevenLabs()
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(
     environment="openlit-python-testing",
-    application_name="openlit-python-elevenlabs-test"
+    application_name="openlit-python-elevenlabs-test",
 )
 
 
@@ -52,6 +52,7 @@ def test_sync_elevenlabs_t2s():
             print("Rate Limited:", e)
         else:
             raise
+
 
 @pytest.mark.asyncio
 async def test_async_elevenlabs_t2s():

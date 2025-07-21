@@ -3,7 +3,7 @@
 This module contains tests for Google AI Studio functionality using the google-generativeai
 Python library.
 
-Tests cover various API endpoints, including chat. 
+Tests cover various API endpoints, including chat.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -20,9 +20,7 @@ from google.genai import types
 import openlit
 
 # Initialize Google AI Studio client
-client = genai.Client(
-    api_key=os.getenv("GOOGLE_AI_STUDIO_API_TOKEN")
-)
+client = genai.Client(api_key=os.getenv("GOOGLE_AI_STUDIO_API_TOKEN"))
 contents = [
     types.Content(
         role="user",
@@ -36,7 +34,10 @@ generate_content_config = types.GenerateContentConfig(
 )
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-gemini-test")
+openlit.init(
+    environment="openlit-testing", application_name="openlit-python-gemini-test"
+)
+
 
 def test_sync_generate_content():
     """
@@ -60,6 +61,7 @@ def test_sync_generate_content():
             print("Rate Limited:", e)
         else:
             raise
+
 
 @pytest.mark.asyncio
 async def test_async_generate_content():

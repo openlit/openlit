@@ -540,6 +540,25 @@ class SemanticConvention:
     # Session and conversation tracking
     GEN_AI_SESSION_ID = "gen_ai.session.id"
     GEN_AI_USER_ID = "gen_ai.user.id"
+    GEN_AI_RUN_ID = "gen_ai.run.id"
+
+    # Memory operation types
+    GEN_AI_OPERATION_TYPE_MEMORY = "memory"
+    GEN_AI_OPERATION_TYPE_MEMORY_ADD = "memory_add"
+    GEN_AI_OPERATION_TYPE_MEMORY_SEARCH = "memory_search"
+    GEN_AI_OPERATION_TYPE_MEMORY_GET = "memory_get"
+    GEN_AI_OPERATION_TYPE_MEMORY_UPDATE = "memory_update"
+    GEN_AI_OPERATION_TYPE_MEMORY_DELETE = "memory_delete"
+
+    # Memory-specific attributes
+    GEN_AI_MEMORY_TYPE = "gen_ai.memory.type"
+    GEN_AI_MEMORY_METADATA = "gen_ai.memory.metadata"
+    GEN_AI_MEMORY_INFER = "gen_ai.memory.infer"
+    GEN_AI_MEMORY_COUNT = "gen_ai.memory.count"
+    GEN_AI_MEMORY_SEARCH_QUERY = "gen_ai.memory.search.query"
+    GEN_AI_MEMORY_SEARCH_LIMIT = "gen_ai.memory.search.limit"
+    GEN_AI_MEMORY_SEARCH_THRESHOLD = "gen_ai.memory.search.threshold"
+    GEN_AI_MEMORY_OPERATION_RESULT_COUNT = "gen_ai.memory.operation.result_count"
 
     # Agent lifecycle phases
     GEN_AI_AGENT_LIFECYCLE_PHASE = "gen_ai.agent.lifecycle.phase"

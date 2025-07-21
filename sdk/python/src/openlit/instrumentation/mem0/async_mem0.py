@@ -1,6 +1,6 @@
 # pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
 """
-Optimized sync mem0 instrumentation following OpenLIT Framework Guide.
+Optimized async mem0 instrumentation following OpenLIT Framework Guide.
 """
 
 import time
@@ -9,7 +9,6 @@ from opentelemetry import context
 from opentelemetry.instrumentation.utils import _SUPPRESS_INSTRUMENTATION_KEY
 from openlit.__helpers import handle_exception
 from openlit.instrumentation.mem0.utils import (
-    patch_concurrent_futures_context,
     Mem0Context,
     set_mem0_span_attributes,
     set_mem0_content_attributes,
@@ -17,7 +16,7 @@ from openlit.instrumentation.mem0.utils import (
 )
 
 
-def mem0_wrap(
+def async_mem0_wrap(
     gen_ai_endpoint,
     version,
     environment,
@@ -27,21 +26,21 @@ def mem0_wrap(
     capture_message_content,
 ):
     """
-    Optimized wrapper for sync mem0 operations with proper hierarchy and performance.
+    Optimized wrapper for async mem0 operations with proper hierarchy and performance.
 
     Returns:
-        Wrapper function for mem0 operations
+        Wrapper function for async mem0 operations
     """
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        Inner wrapper with comprehensive tracing and optimized performance.
+        Inner wrapper with comprehensive tracing for async operations.
         """
         # Suppression check
         if context.get_value(_SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
 
-        # Handle Memory.__init__ to create parent span for initialization operations
+        # Handle AsyncMemory.__init__ to create parent span for initialization operations
         if gen_ai_endpoint == "memory init":
             with tracer.start_as_current_span("memory init", kind=SpanKind.INTERNAL):
                 return wrapped(*args, **kwargs)
@@ -68,15 +67,8 @@ def mem0_wrap(
             start_time = time.perf_counter()
 
             try:
-                # Apply threading context fix for all CLIENT operations (mem0 operations use ThreadPoolExecutor)
-                if span_kind == SpanKind.CLIENT:
-                    restore_patch = patch_concurrent_futures_context(span_context)
-                    try:
-                        response = wrapped(*args, **kwargs)
-                    finally:
-                        restore_patch()
-                else:
-                    response = wrapped(*args, **kwargs)
+                # Execute async operation (no threading patches needed for async)
+                response = wrapped(*args, **kwargs)
 
                 # Calculate duration
                 duration = time.perf_counter() - start_time

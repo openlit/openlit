@@ -31,7 +31,10 @@ async_client = AsyncOpenAI(
 )
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-xai-test")
+openlit.init(
+    environment="openlit-python-testing", application_name="openlit-python-xai-test"
+)
+
 
 def test_sync_xai_chat_completions():
     """
@@ -49,7 +52,7 @@ def test_sync_xai_chat_completions():
             ],
             max_tokens=1,
         )
-        assert response.object == 'chat.completion'
+        assert response.object == "chat.completion"
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
@@ -57,6 +60,7 @@ def test_sync_xai_chat_completions():
             print("Insufficient balance:", e)
         else:
             raise
+
 
 @pytest.mark.asyncio
 async def test_async_xai_chat_completions():
@@ -75,7 +79,7 @@ async def test_async_xai_chat_completions():
             ],
             max_tokens=1,
         )
-        assert response.object == 'chat.completion'
+        assert response.object == "chat.completion"
 
     # pylint: disable=broad-exception-caught
     except Exception as e:

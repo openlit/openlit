@@ -3,7 +3,7 @@
 This module contains tests for AstraDB functionality using the AstraDB Python library.
 
 Tests cover various API endpoints, including create_collection, add, query,
-upsert, update, get, peek and delete. 
+upsert, update, get, peek and delete.
 These tests validate integration with OpenLIT.
 
 Note: Ensure the environment is properly configured for AstraDB access and OpenLIT monitoring
@@ -16,12 +16,13 @@ import openlit
 
 # Initialize the client
 client = DataAPIClient(os.getenv("ASTRA_DB_APPLICATION_TOKEN"))
-db = client.get_database_by_api_endpoint(
-  os.getenv("ASTRA_DB_API_ENDPOINT")
-)
+db = client.get_database_by_api_endpoint(os.getenv("ASTRA_DB_API_ENDPOINT"))
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-astra-test")
+openlit.init(
+    environment="openlit-python-testing", application_name="openlit-python-astra-test"
+)
+
 
 def test_db_astra():
     """
@@ -40,31 +41,33 @@ def test_db_astra():
     # assert collection.name == "openlit"
     collection = db.get_collection("openlit")
 
-    response = collection.insert_one({"summary": "I was flying", "$vector": [-0.4, 0.7, 0]})
+    response = collection.insert_one(
+        {"summary": "I was flying", "$vector": [-0.4, 0.7, 0]}
+    )
     assert isinstance(response.inserted_id, str)
 
     response = collection.insert_many(
-      [
-          {
-              "tags": ["food"],
-              "summary": "A dinner on the Moon",
-              "$vector": [0.2, -0.3, -0.5],
-          },
-          {
-              "summary": "Riding the waves",
-              "tags": ["sport"],
-              "$vector": [0, 0.2, 1],
-          },
-          {
-              "summary": "Friendly aliens in town",
-              "tags": ["scifi"],
-              "$vector": [-0.3, 0, 0.8],
-          },
-          {
-              "summary": "Meeting Beethoven at the dentist",
-              "$vector": [0.2, 0.6, 0],
-          },
-      ],
+        [
+            {
+                "tags": ["food"],
+                "summary": "A dinner on the Moon",
+                "$vector": [0.2, -0.3, -0.5],
+            },
+            {
+                "summary": "Riding the waves",
+                "tags": ["sport"],
+                "$vector": [0, 0.2, 1],
+            },
+            {
+                "summary": "Friendly aliens in town",
+                "tags": ["scifi"],
+                "$vector": [-0.3, 0, 0.8],
+            },
+            {
+                "summary": "Meeting Beethoven at the dentist",
+                "$vector": [0.2, 0.6, 0],
+            },
+        ],
     )
     assert isinstance(response.inserted_ids, list)
 
@@ -96,11 +99,11 @@ def test_db_astra():
         include_similarity=True,
     )
     for response in cursor:
-        assert isinstance(response['summary'], str)
+        assert isinstance(response["summary"], str)
 
     response = collection.replace_one(
-        {"tag": {"$exists": True}}, # filter
-        {"summary": "Pest"}, # replacement
+        {"tag": {"$exists": True}},  # filter
+        {"summary": "Pest"},  # replacement
     )
     assert isinstance(response.update_info["n"], int)
 
