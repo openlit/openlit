@@ -53,12 +53,50 @@ def process_letta_response(
     
     model_instance = LettaModelWrapper(instance, model_name)
     
+    # Get server address and port for Letta agent
+    server_address = "api.letta.com"
+    server_port = 443
+    
+    # Try to get actual server info from instance if available
+    if instance:
+        # Try various common client attributes for base URL
+        base_url = None
+        
+        # Method 1: Check Letta-specific _client_wrapper._base_url pattern
+        if hasattr(instance, '_client_wrapper') and hasattr(instance._client_wrapper, '_base_url'):
+            base_url = instance._client_wrapper._base_url
+        # Method 2: Check if instance has direct _client with base_url
+        elif hasattr(instance, '_client') and hasattr(instance._client, 'base_url'):
+            base_url = instance._client.base_url
+        # Method 3: Check if instance itself has base_url
+        elif hasattr(instance, 'base_url'):
+            base_url = instance.base_url
+        # Method 4: Check if instance has _base_url
+        elif hasattr(instance, '_base_url'):
+            base_url = instance._base_url
+        # Method 5: Check SDK configuration patterns
+        elif hasattr(instance, 'sdk_configuration') and hasattr(instance.sdk_configuration, 'server_url'):
+            base_url = instance.sdk_configuration.server_url
+        # Method 6: Check config.host pattern (common in other clients)
+        elif hasattr(instance, 'config') and hasattr(instance.config, 'host'):
+            base_url = instance.config.host
+        
+        if base_url:
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(str(base_url))
+                if parsed.hostname:
+                    server_address = parsed.hostname
+                    server_port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+            except Exception:
+                pass
+    
     # Set common framework span attributes using helper
     common_framework_span_attributes(
         scope,
         SemanticConvention.GEN_AI_SYSTEM_LETTA,
-        None,  # server_address 
-        None,  # server_port
+        server_address,
+        server_port,
         environment,
         application_name,
         version,
@@ -97,6 +135,8 @@ def _set_letta_specific_attributes(span, kwargs, response, operation_type):
     if response:
         if hasattr(response, 'name'):
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(response.name))
+        if hasattr(response, 'slug'):
+            span.set_attribute("letta.agent.slug", str(response.slug))
         if hasattr(response, 'system'):
             # Truncate long system instructions
             instructions = str(response.system)
@@ -117,6 +157,12 @@ def _set_letta_specific_attributes(span, kwargs, response, operation_type):
                 span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, usage.completion_tokens)
             if hasattr(usage, 'total_tokens'):
                 span.set_attribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, usage.total_tokens)
+    
+    # Also check kwargs for agent name/slug info
+    if 'name' in kwargs:
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, str(kwargs['name']))
+    if 'slug' in kwargs:
+        span.set_attribute("letta.agent.slug", str(kwargs['slug']))
 
 
 def _set_content_attributes(span, kwargs, response):
@@ -168,15 +214,30 @@ def get_span_name(operation_type, endpoint, instance=None, kwargs=None, response
     elif operation_type in ["create_agent", "invoke_agent"]:
         agent_name = "agent"
         
-        # Try to get agent name from various sources
-        if instance and hasattr(instance, 'name'):
-            agent_name = instance.name
-        elif response and hasattr(response, 'name'):
+        # Try to get agent name/slug from various sources with better extraction
+        if response and hasattr(response, 'name'):
             agent_name = response.name
+        elif response and hasattr(response, 'slug'):
+            agent_name = response.slug
         elif kwargs and 'name' in kwargs:
             agent_name = kwargs['name']
+        elif kwargs and 'slug' in kwargs:
+            agent_name = kwargs['slug']
+        elif instance and hasattr(instance, 'name'):
+            agent_name = instance.name
+        elif instance and hasattr(instance, 'slug'):
+            agent_name = instance.slug
         elif kwargs and 'agent_id' in kwargs:
-            agent_name = f"agent-{str(kwargs['agent_id'])[:8]}"
+            # Try to get agent name from agent_id lookup if possible
+            agent_id = str(kwargs['agent_id'])
+            agent_name = f"agent-{agent_id[:8]}"
+        
+        # Clean up agent name (remove spaces, special chars for better span names)
+        if agent_name and agent_name != "agent":
+            agent_name = agent_name.replace(" ", "_").replace("-", "_").lower()
+            # Limit length for readability
+            if len(agent_name) > 20:
+                agent_name = agent_name[:20]
         
         return f"{operation_type} {agent_name}"
     
@@ -206,6 +267,7 @@ class TracedLettaStream:
         self._response_messages = []
         self._chunk_count = 0
         self._ttft = 0
+        self._finalized = False
     
     def __iter__(self):
         return self
@@ -240,23 +302,61 @@ class TracedLettaStream:
     
     def _finalize_span(self):
         """Finalize span with streaming metrics"""
-        duration = time.time() - self._start_time
+        if self._finalized:
+            return  # Already finalized
         
-        # Set streaming-specific attributes
-        self._span.set_attribute("letta.streaming.ttft", self._ttft)
-        self._span.set_attribute("letta.streaming.chunks", self._chunk_count)
-        self._span.set_attribute("letta.streaming.duration", duration)
+        self._finalized = True
         
-        # Set content if enabled
-        if self._capture_content and self._response_content:
-            self._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, self._response_content)
-        
-        self._span.set_status(Status(StatusCode.OK))
+        try:
+            duration = time.time() - self._start_time
+            
+            # Check if span is still recording before setting attributes
+            if self._span.is_recording():
+                # Set streaming-specific attributes
+                self._span.set_attribute("letta.streaming.ttft", self._ttft)
+                self._span.set_attribute("letta.streaming.chunks", self._chunk_count)
+                self._span.set_attribute("letta.streaming.duration", duration)
+                self._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True)
+                
+                # Set content if enabled
+                if self._capture_content and self._response_content:
+                    self._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, self._response_content)
+                
+                # Set response messages if available
+                if self._response_messages:
+                    self._span.set_attribute("letta.streaming.response_count", len(self._response_messages))
+                
+                self._span.set_status(Status(StatusCode.OK))
+        except Exception:
+            # Ignore any errors during finalization
+            pass
     
     def close(self):
         """Close the wrapped stream"""
-        if hasattr(self.__wrapped__, 'close'):
-            self.__wrapped__.close()
+        if not self._finalized:
+            try:
+                if hasattr(self.__wrapped__, 'close'):
+                    self.__wrapped__.close()
+            except Exception:
+                pass  # Ignore cleanup errors
+            finally:
+                self._finalize_span()
+    
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - finalize immediately"""
+        if not self._finalized:
+            self._finalize_span()
+    
+    def __del__(self):
+        """Destructor cleanup"""
+        try:
+            self.close()
+        except Exception:
+            pass  # Ignore cleanup errors
     
     def __getattr__(self, name):
         return getattr(self.__wrapped__, name)

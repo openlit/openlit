@@ -51,8 +51,8 @@ def create_letta_wrapper(
         operation = endpoint_parts[-1] if endpoint_parts else "unknown"
         operation_type = OPERATION_TYPE_MAP.get(operation, "workflow")
         
-        # Generate proper span name
-        span_name = get_span_name(operation_type, gen_ai_endpoint)
+        # Generate proper span name with context
+        span_name = get_span_name(operation_type, gen_ai_endpoint, instance, kwargs)
         start_time = time.time()
         
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -64,6 +64,22 @@ def create_letta_wrapper(
                 if (operation_type == "chat" and 
                     hasattr(response, '__iter__') and 
                     hasattr(response, '__next__')):
+                    
+                    # Set initial span attributes for streaming
+                    process_letta_response(
+                        span,
+                        None,  # No response yet
+                        kwargs,
+                        operation_type,
+                        instance,
+                        start_time,
+                        environment,
+                        application_name,
+                        version,
+                        gen_ai_endpoint,
+                        capture_message_content,
+                        pricing_info,
+                    )
                     
                     # Return traced streaming wrapper
                     return TracedLettaStream(

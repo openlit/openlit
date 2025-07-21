@@ -50,8 +50,8 @@ def create_async_letta_wrapper(
             operation = endpoint_parts[-1] if endpoint_parts else "unknown"
             operation_type = OPERATION_TYPE_MAP.get(operation, "workflow")
             
-            # Generate proper span name
-            span_name = get_span_name(operation_type, gen_ai_endpoint)
+            # Generate proper span name with context
+            span_name = get_span_name(operation_type, gen_ai_endpoint, instance, kwargs)
             start_time = time.time()
             
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
