@@ -68,12 +68,8 @@ def mem0_wrap(
             start_time = time.perf_counter()
 
             try:
-                # Apply threading context fix for add/search operations
-                if (
-                    span_kind == SpanKind.CLIENT
-                    and gen_ai_endpoint in ["memory add", "memory search"]
-                    and hasattr(instance, "_add_to_vector_store")
-                ):
+                # Apply threading context fix for all CLIENT operations (mem0 operations use ThreadPoolExecutor)
+                if span_kind == SpanKind.CLIENT:
                     restore_patch = patch_concurrent_futures_context(span_context)
                     try:
                         response = wrapped(*args, **kwargs)
