@@ -134,7 +134,6 @@ class SemanticConvention:
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
-    GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
     GEN_AI_SYSTEM_MEM0 = "mem0"
     GEN_AI_SYSTEM_LITELLM = "litellm"
     GEN_AI_SYSTEM_CREWAI = "crewai"

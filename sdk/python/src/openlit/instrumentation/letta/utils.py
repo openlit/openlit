@@ -38,7 +38,7 @@ def process_letta_response(
     scope._end_time = end_time
 
     # Create model wrapper for framework span attributes
-    class LettaModelWrapper:
+    class LettaModelWrapper:  # pylint: disable=too-few-public-methods
         """Model wrapper for Letta instances to provide consistent interface"""
 
         def __init__(self, original_instance, model_name):
