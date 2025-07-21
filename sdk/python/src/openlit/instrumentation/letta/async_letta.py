@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument
+# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, too-many-branches
 """
 Module for monitoring async Letta calls following OpenTelemetry patterns.
 """
@@ -6,14 +6,8 @@ Module for monitoring async Letta calls following OpenTelemetry patterns.
 import logging
 import asyncio
 import time
-from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import (
-    SERVICE_NAME,
-    TELEMETRY_SDK_NAME,
-    DEPLOYMENT_ENVIRONMENT,
-)
-from openlit.__helpers import handle_exception, common_span_attributes
-from openlit.semcov import SemanticConvention
+from opentelemetry.trace import SpanKind
+from openlit.__helpers import handle_exception
 from .utils import (
     get_span_name,
     process_letta_response,
@@ -36,12 +30,14 @@ def create_async_letta_wrapper(
     disable_metrics,
 ):
     """
-    Creates a unified telemetry wrapper for async Letta operations.
+    Creates a unified telemetry wrapper for async Letta operations following OpenTelemetry patterns.
+
+    This follows the same pattern as sync LiteLLM and CrewAI instrumentations but for async operations.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the async API call to add telemetry.
+        Wraps the async API call to add telemetry following OpenTelemetry semantic conventions.
         """
 
         async def async_wrapper(*args, **kwargs):
@@ -54,13 +50,33 @@ def create_async_letta_wrapper(
             span_name = get_span_name(operation_type, gen_ai_endpoint, instance, kwargs)
             start_time = time.time()
 
+            # Check if this is a streaming operation
+            streaming = operation_type == "chat"  # Assume chat operations might stream
+
+            if streaming:
+                # Execute the operation first to check if it's actually streaming
+                if asyncio.iscoroutinefunction(wrapped):
+                    response = await wrapped(*args, **kwargs)
+                else:
+                    response = wrapped(*args, **kwargs)
+
+                # Check if response is actually a stream
+                if hasattr(response, "__aiter__") and hasattr(response, "__anext__"):
+                    # For async streaming: create span without context manager (like LiteLLM)
+                    span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+                    # Note: For async streams, we'd need an async version of TracedLettaStream
+                    # For now, we'll treat them as non-streaming
+                    streaming = False
+
+            # Non-streaming or non-chat operations
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 try:
-                    # Execute async operation
-                    if asyncio.iscoroutinefunction(wrapped):
-                        response = await wrapped(*args, **kwargs)
-                    else:
-                        response = wrapped(*args, **kwargs)
+                    if not streaming:
+                        # Execute async operation
+                        if asyncio.iscoroutinefunction(wrapped):
+                            response = await wrapped(*args, **kwargs)
+                        else:
+                            response = wrapped(*args, **kwargs)
 
                     # Process response using common helpers
                     process_letta_response(
@@ -106,7 +122,7 @@ def async_create_agent(
     metrics,
     disable_metrics,
 ):
-    """Async agent operations wrapper"""
+    """Async agent operations wrapper (create, retrieve, modify, delete, list)"""
     return create_async_letta_wrapper(
         gen_ai_endpoint,
         version,
@@ -132,7 +148,111 @@ def async_send_message(
     metrics,
     disable_metrics,
 ):
-    """Async message operations wrapper"""
+    """Async message operations wrapper (create, create_stream, list, modify, etc.)"""
+    return create_async_letta_wrapper(
+        gen_ai_endpoint,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
+    )
+
+
+# Async memory operations
+def async_memory_operation(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Async memory operations wrapper (core memory, blocks)"""
+    return create_async_letta_wrapper(
+        gen_ai_endpoint,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
+    )
+
+
+# Async tool operations
+def async_tool_operation(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Async tool operations wrapper (list, attach, detach, create)"""
+    return create_async_letta_wrapper(
+        gen_ai_endpoint,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
+    )
+
+
+# Async context operations
+def async_context_operation(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Async context operations wrapper"""
+    return create_async_letta_wrapper(
+        gen_ai_endpoint,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
+    )
+
+
+# Async source operations
+def async_source_operation(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """Async source operations wrapper"""
     return create_async_letta_wrapper(
         gen_ai_endpoint,
         version,

@@ -282,14 +282,14 @@ class LettaInstrumentor(BaseInstrumentor):
         for (
             module_name,
             method_name,
-            operation_type,
+            _operation_type,
         ), wrapper_func in LETTA_OPERATIONS.items():
             try:
                 wrap_function_wrapper(
                     module_name,
                     method_name,
                     wrapper_func(
-                        f"letta.{method_name.split('.')[-1]}",
+                        f"letta.{method_name.rsplit('.', maxsplit=1)[-1]}",
                         version,
                         environment,
                         application_name,
@@ -309,14 +309,14 @@ class LettaInstrumentor(BaseInstrumentor):
             for (
                 module_name,
                 method_name,
-                operation_type,
+                _operation_type,
             ), wrapper_func in EXTENDED_OPERATIONS.items():
                 try:
                     wrap_function_wrapper(
                         module_name,
                         method_name,
                         wrapper_func(
-                            f"letta.{method_name.split('.')[-1]}",
+                            f"letta.{method_name.rsplit('.', maxsplit=1)[-1]}",
                             version,
                             environment,
                             application_name,
@@ -335,14 +335,14 @@ class LettaInstrumentor(BaseInstrumentor):
             for (
                 module_name,
                 method_name,
-                operation_type,
+                _operation_type,
             ), wrapper_func in ASYNC_OPERATIONS.items():
                 try:
                     wrap_function_wrapper(
                         module_name,
                         method_name,
                         wrapper_func(
-                            f"letta.{method_name.split('.')[-1]}",
+                            f"letta.{method_name.rsplit('.', maxsplit=1)[-1]}",
                             version,
                             environment,
                             application_name,
@@ -359,4 +359,5 @@ class LettaInstrumentor(BaseInstrumentor):
 
     def _uninstrument(self, **kwargs):
         """Uninstrumentation would restore original functions."""
-        pass
+        # No cleanup needed for this instrumentation
+        return

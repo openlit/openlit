@@ -39,6 +39,8 @@ def process_letta_response(
 
     # Create model wrapper for framework span attributes
     class LettaModelWrapper:
+        """Model wrapper for Letta instances to provide consistent interface"""
+
         def __init__(self, original_instance, model_name):
             self._original = original_instance
             self.model_name = model_name
@@ -644,8 +646,6 @@ class TracedLettaStream:
         self._finalized = True
 
         try:
-            duration = time.time() - self._start_time
-
             # Check if span is still recording before setting attributes
             if self._span.is_recording():
                 # Set streaming-specific attributes using semantic conventions
@@ -693,8 +693,8 @@ class TracedLettaStream:
                     self.__wrapped__.close()
                 elif hasattr(self.__wrapped__, "__del__"):
                     try:
-                        # Force generator cleanup
-                        self.__wrapped__.__del__()
+                        # Force generator cleanup using del
+                        del self.__wrapped__
                     except Exception:
                         pass
             except Exception:
@@ -732,7 +732,7 @@ OPERATION_TYPE_MAP = {
     "list": "workflow",
     # Message operations (chat)
     "create_stream": "chat",
-    "create": "chat",
+    "create_message": "chat",  # Renamed from duplicate "create"
     "create_async": "chat",
     "cancel": "chat",
     "reset": "chat",

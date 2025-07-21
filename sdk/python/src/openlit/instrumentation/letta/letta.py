@@ -5,14 +5,8 @@ Module for monitoring Letta calls following OpenTelemetry patterns.
 
 import logging
 import time
-from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import (
-    SERVICE_NAME,
-    TELEMETRY_SDK_NAME,
-    DEPLOYMENT_ENVIRONMENT,
-)
-from openlit.__helpers import handle_exception, common_span_attributes
-from openlit.semcov import SemanticConvention
+from opentelemetry.trace import SpanKind
+from openlit.__helpers import handle_exception
 from .utils import (
     get_span_name,
     process_letta_response,
