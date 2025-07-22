@@ -1,10 +1,10 @@
 import Metrics from '../metrics';
 import SemanticConvention from '../../semantic-convention';
-import { Resource } from '@opentelemetry/resources';
+import { defaultResource } from '@opentelemetry/resources';
 
 describe('Metrics creation', () => {
   beforeEach(() => {
-    Metrics.setup({ resource: Resource.default() }); // Ensure metrics are initialized
+    Metrics.setup({ resource: defaultResource(), otlpEndpoint: 'http://localhost:4318'  }); // Ensure metrics are initialized
   });
 
   it('should create genaiRequests counter and allow increment', () => {

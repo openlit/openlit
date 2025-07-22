@@ -4,6 +4,14 @@ import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
 
+type BaseSpanAttributes = {
+  genAIEndpoint: string;
+  model: string;
+  user: string;
+  cost: number;
+  aiSystem: string;
+};
+
 export default class AnthropicWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC;
 
@@ -33,7 +41,7 @@ export default class AnthropicWrapper extends BaseWrapper {
             return AnthropicWrapper._messageCreate({ args, genAIEndpoint, response, span });
           })
           .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
+            OpenLitHelper.handleException(span, e as Error);
             span.end();
             throw e;
           });
@@ -47,21 +55,24 @@ export default class AnthropicWrapper extends BaseWrapper {
     response,
     span,
   }: {
-    args: any[];
+    args: Record<string, unknown>[];
     genAIEndpoint: string;
-    response: any;
+    response: Record<string, unknown>;
     span: Span;
   }) {
     try {
-      await AnthropicWrapper._messageCreateCommonSetter({
+      const metricParams = await AnthropicWrapper._messageCreateCommonSetter({
         args,
         genAIEndpoint,
         result: response,
         span,
       });
+
+      BaseWrapper.recordMetrics(span, metricParams);
+
       return response;
-    } catch (e: any) {
-      OpenLitHelper.handleException(span, e);
+    } catch (e: unknown) {
+      OpenLitHelper.handleException(span, e as Error);
     } finally {
       span.end();
     }
@@ -155,101 +166,27 @@ export default class AnthropicWrapper extends BaseWrapper {
     genAIEndpoint: string;
     result: any;
     span: Span;
-  }) {
-    const traceContent = OpenlitConfig.traceContent;
-    const {
-      messages,
-      max_tokens = null,
-      seed = null,
-      temperature = 1,
-      top_p,
-      top_k,
-      user,
-      stream = false,
-      stop_reason,
-    } = args[0];
-
-    // Format 'messages' into a single string
-    const messagePrompt = messages || '';
-    const formattedMessages = [];
-
-    for (const message of messagePrompt) {
-      const role = message.role;
-      const content = message.content;
-
-      if (Array.isArray(content)) {
-        const contentStr = content
-          .map((item) => {
-            if ('type' in item) {
-              return `${item.type}: ${item.text ? item.text : item.image_url}`;
-            } else {
-              return `text: ${item.text}`;
-            }
-          })
-          .join(', ');
-        formattedMessages.push(`${role}: ${contentStr}`);
-      } else {
-        formattedMessages.push(`${role}: ${content}`);
-      }
-    }
-
-    const prompt = formattedMessages.join('\n');
-    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
-    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
-
-    const model = result.model || 'claude-3-sonnet-20240229';
-
+  }): Promise<BaseSpanAttributes> {
     const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
 
     // Calculate cost of the operation
     const cost = OpenLitHelper.getChatModelCost(
-      model,
+      result.model,
       pricingInfo,
       result.usage.input_tokens,
       result.usage.output_tokens
     );
 
-    AnthropicWrapper.setBaseSpanAttributes(span, {
+    const attributes = {
       genAIEndpoint,
-      model,
-      user,
+      model: result.model,
+      user: args[0]?.user || 'unknown',
       cost,
       aiSystem: AnthropicWrapper.aiSystem,
-    });
+    };
 
-    // Request Params attributes : Start
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, top_k);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
+    AnthropicWrapper.setBaseSpanAttributes(span, attributes);
 
-    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, stop_reason);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
-    if (traceContent) {
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
-    }
-    // Request Params attributes : End
-
-    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, result.usage.input_tokens);
-    span.setAttribute(
-      SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-      result.usage.output_tokens
-    );
-    span.setAttribute(
-      SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-      result.usage.input_tokens + result.usage.output_tokens
-    );
-
-    if (result.stop_reason) {
-      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, result.stop_reason);
-    }
-
-    if (traceContent) {
-      span.setAttribute(
-        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-        result.content?.[0]?.text || ''
-      );
-    }
+    return attributes;
   }
 }

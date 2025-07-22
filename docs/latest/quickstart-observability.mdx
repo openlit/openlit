@@ -187,7 +187,7 @@ flowchart TB;
            ```typescript
           import Openlit from "openlit"
 
-          Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })
+          Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
           ```
 
           Example Usage for monitoring `OpenAI` Usage:
@@ -195,7 +195,7 @@ flowchart TB;
           ```typescript
           import Openlit from "openlit"
 
-          Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })
+          Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318" })
 
           async function main() {
                 const OpenAI = await import("openai").then((e) => e.default);
@@ -218,7 +218,7 @@ flowchart TB;
           import OpenAI from "openai"
 
           openlit.init({ 
-            otlpEndpoint: "http://127.0.0.1:4318/v1/traces", 
+            otlpEndpoint: "http://127.0.0.1:4318", 
             instrumentations: {
               openai: OpenAI,
             } 

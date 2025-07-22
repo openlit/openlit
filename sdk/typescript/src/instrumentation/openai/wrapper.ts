@@ -4,7 +4,7 @@ import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import BaseWrapper from '../base-wrapper';
 
-export default class OpenAIWrapper extends BaseWrapper {
+class OpenAIWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_OPENAI;
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.chat.completions';
@@ -18,7 +18,7 @@ export default class OpenAIWrapper extends BaseWrapper {
           .then((response: any) => {
             const { stream = false } = args[0];
 
-            if (!!stream) {
+            if (stream) {
               return OpenLitHelper.createStreamProxy(
                 response,
                 OpenAIWrapper._chatCompletionGenerator({
@@ -51,8 +51,9 @@ export default class OpenAIWrapper extends BaseWrapper {
     response: any;
     span: Span;
   }): Promise<any> {
+    let metricParams;
     try {
-      await OpenAIWrapper._chatCompletionCommonSetter({
+      metricParams = await OpenAIWrapper._chatCompletionCommonSetter({
         args,
         genAIEndpoint,
         result: response,
@@ -63,6 +64,10 @@ export default class OpenAIWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      // Record metrics after span has ended if parameters are available
+      if (metricParams) {
+        BaseWrapper.recordMetrics(span, metricParams);
+      }
     }
   }
 
@@ -77,6 +82,7 @@ export default class OpenAIWrapper extends BaseWrapper {
     response: any;
     span: Span;
   }): AsyncGenerator<unknown, any, unknown> {
+    let metricParams;
     try {
       const { messages } = args[0];
       let { tools } = args[0];
@@ -139,7 +145,7 @@ export default class OpenAIWrapper extends BaseWrapper {
 
       args[0].tools = tools;
 
-      await OpenAIWrapper._chatCompletionCommonSetter({
+      metricParams = await OpenAIWrapper._chatCompletionCommonSetter({
         args,
         genAIEndpoint,
         result,
@@ -151,6 +157,10 @@ export default class OpenAIWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      // Record metrics after span has ended if parameters are available
+      if (metricParams) {
+        BaseWrapper.recordMetrics(span, metricParams);
+      }
     }
   }
 
@@ -276,6 +286,15 @@ export default class OpenAIWrapper extends BaseWrapper {
         }
       }
     }
+
+    // Return metric parameters instead of recording metrics directly
+    return {
+      genAIEndpoint,
+      model,
+      user,
+      cost,
+      aiSystem: OpenAIWrapper.aiSystem,
+    };
   }
 
   static _patchEmbedding(tracer: Tracer): any {
@@ -286,6 +305,7 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -329,12 +349,25 @@ export default class OpenAIWrapper extends BaseWrapper {
               SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
               response.usage.total_tokens
             );
+            
+            // Store metric parameters for use after span ends
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              cost,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
 
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            // Record metrics after span has ended if parameters are available
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
           }
         });
       };
@@ -348,6 +381,7 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -399,11 +433,23 @@ export default class OpenAIWrapper extends BaseWrapper {
             );
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FINETUNE_STATUS, response.status);
 
+            // Store metric parameters for use after span ends
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
+
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            // Record metrics after span has ended if parameters are available
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
           }
         });
       };
@@ -417,6 +463,7 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -474,11 +521,24 @@ export default class OpenAIWrapper extends BaseWrapper {
               }
             }
 
+            // Store metric parameters for use after span ends
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              cost,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
+
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            // Record metrics after span has ended if parameters are available
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
           }
         });
       };
@@ -492,6 +552,7 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -549,11 +610,24 @@ export default class OpenAIWrapper extends BaseWrapper {
               }
             }
 
+            // Store metric parameters for use after span ends
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              cost,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
+
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            // Record metrics after span has ended if parameters are available
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
           }
         });
       };
@@ -567,6 +641,7 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -602,14 +677,29 @@ export default class OpenAIWrapper extends BaseWrapper {
             }
             // Request Params attributes : End
 
+            // Store metric parameters for use after span ends
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              cost,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
+
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            // Record metrics after span has ended if parameters are available
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
           }
         });
       };
     };
   }
 }
+
+export default OpenAIWrapper;

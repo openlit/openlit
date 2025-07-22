@@ -1,9 +1,5 @@
-import { Resource } from '@opentelemetry/resources';
-import {
-  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-  SEMRESATTRS_SERVICE_NAME,
-  SEMRESATTRS_TELEMETRY_SDK_NAME,
-} from '@opentelemetry/semantic-conventions';
+import { resourceFromAttributes } from '@opentelemetry/resources';
+import { ATTR_SERVICE_NAME, ATTR_TELEMETRY_SDK_NAME } from '@opentelemetry/semantic-conventions';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OpenlitOptions } from './types';
 import Tracing from './otel/tracing';
@@ -12,6 +8,7 @@ import { SpanExporter } from '@opentelemetry/sdk-trace-base';
 import BaseOpenlit from './features/base';
 import { Hallucination, Bias, Toxicity, All } from './evals';
 import Metrics from './otel/metrics';
+import SemanticConvention from './semantic-convention';
 
 // Factory functions for evals
 const evals = {
@@ -23,7 +20,7 @@ const evals = {
 };
 
 class Openlit extends BaseOpenlit {
-  static resource: Resource;
+  static resource: ReturnType<typeof resourceFromAttributes>;
   static options: OpenlitOptions;
   static _sdk: NodeSDK;
   static evals = evals;
@@ -56,10 +53,10 @@ class Openlit extends BaseOpenlit {
       this.options.disableBatch =
         options?.disableBatch === undefined ? true : !!options.disableBatch;
 
-      this.resource = new Resource({
-        [SEMRESATTRS_SERVICE_NAME]: applicationName,
-        [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: environment,
-        [SEMRESATTRS_TELEMETRY_SDK_NAME]: SDK_NAME,
+      this.resource = resourceFromAttributes({
+        [ATTR_SERVICE_NAME]: applicationName,
+        [SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT]: environment,
+        [ATTR_TELEMETRY_SDK_NAME]: SDK_NAME,
       });
 
       Tracing.setup({
@@ -70,6 +67,8 @@ class Openlit extends BaseOpenlit {
         otlpHeaders,
         resource: this.resource,
       });
+      const exportIntervalMillis =
+        Number(process.env.OTEL_EXPORTER_OTLP_METRICS_EXPORT_INTERVAL ?? 60000) || 60000;
 
       Metrics.setup({
         ...options,
@@ -78,11 +77,13 @@ class Openlit extends BaseOpenlit {
         otlpEndpoint,
         otlpHeaders,
         resource: this.resource,
+        exportIntervalMillis: exportIntervalMillis,
       });
-      
+
       this._sdk = new NodeSDK({
         resource: this.resource,
         traceExporter: Tracing.traceExporter as SpanExporter,
+        metricReader: Metrics.metricReaders[0],
       });
 
       // This was causing the traceProvider initilization with multiple instances.

@@ -1,14 +1,17 @@
 export default class SemanticConvention {
+  // Unstable SemConv
+  static ATTR_DEPLOYMENT_ENVIRONMENT = 'deployment.environment'
   // GenAI General
   static GEN_AI_ENDPOINT = 'gen_ai.endpoint';
   static GEN_AI_SYSTEM = 'gen_ai.system';
   static GEN_AI_ENVIRONMENT = 'gen_ai.environment';
   static GEN_AI_APPLICATION_NAME = 'gen_ai.application_name';
-  static GEN_AI_OPERATION = 'gen_ai.type';
+  static GEN_AI_OPERATION = 'gen_ai.operation.name';
   static GEN_AI_HUB_OWNER = 'gen_ai.hub.owner';
   static GEN_AI_HUB_REPO = 'gen_ai.hub.repo';
   static GEN_AI_RETRIEVAL_SOURCE = 'gen_ai.retrieval.source';
   static GEN_AI_REQUESTS = 'gen_ai.total.requests';
+  
 
   // GenAI Request
   static GEN_AI_REQUEST_MODEL = 'gen_ai.request.model';

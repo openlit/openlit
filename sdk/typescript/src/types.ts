@@ -52,6 +52,7 @@ export type MeterType = ReturnType<typeof metrics.getMeter>;
 
 export type SetupMetricsOptions = SetupTracerOptions & {
   meter?: MeterType;
+  exportIntervalMillis?: number;
 };
 
 export interface BaseOpenlitOptions {

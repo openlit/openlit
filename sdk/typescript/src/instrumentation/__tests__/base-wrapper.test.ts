@@ -1,5 +1,5 @@
 import { Span } from '@opentelemetry/api';
-import { Resource } from '@opentelemetry/resources';
+import { defaultResource } from '@opentelemetry/resources';
 import SemanticConvention from '../../semantic-convention';
 import Metrics from '../../otel/metrics';
 import BaseWrapper from '../base-wrapper';
@@ -15,7 +15,7 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
   let recordSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    Metrics.setup({ resource: Resource.default() }); // Ensure metrics are initialized
+    Metrics.setup({ resource: defaultResource(), otlpEndpoint: 'http://localhost:4318' }); // Ensure metrics are initialized with a valid endpoint
     addSpy = jest.spyOn(Metrics.genaiRequests!, 'add').mockImplementation(() => {});
     jest.spyOn(Metrics.genaiPromptTokens!, 'add').mockImplementation(() => {});
     jest.spyOn(Metrics.genaiCompletionTokens!, 'add').mockImplementation(() => {});
@@ -44,13 +44,18 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
   });
 
   it('should increment all metrics and set span attributes', () => {
-    // @ts-expect-error: test mock span needs attributes property for metrics extraction
-    BaseWrapper.setBaseSpanAttributes(span, {
+    const baseAttributes = {
       model: 'gpt-4',
       user: 'user1',
       cost: 0.99,
       aiSystem: 'openai',
-    });
+      genAIEndpoint: 'endpoint',
+    };
+    // @ts-expect-error: test mock span needs attributes property for metrics extraction
+    BaseWrapper.setBaseSpanAttributes(span, baseAttributes);
+    // After refactoring, we need to call recordMetrics to test the metrics logic
+    BaseWrapper.recordMetrics(span as unknown as Span, baseAttributes);
+    
     expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_USER, 'user1');
     expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_COST, 0.99);
     expect(span.setStatus).toHaveBeenCalled();
@@ -58,11 +63,10 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
       [SemanticConvention.GEN_AI_SYSTEM]: 'openai',
       [SemanticConvention.GEN_AI_REQUEST_USER]: 'user1',
       [SemanticConvention.GEN_AI_REQUEST_MODEL]: 'gpt-4',
-      [SemanticConvention.GEN_AI_USAGE_COST]: 0.99,
     }));
     expect(Metrics.genaiPromptTokens!.add).toHaveBeenCalledWith(10, expect.any(Object));
     expect(Metrics.genaiCompletionTokens!.add).toHaveBeenCalledWith(20, expect.any(Object));
-    expect(Metrics.genaiClientOperationDuration!.record).toHaveBeenCalledWith(1.5, expect.any(Object));
+    expect(Metrics.genaiClientOperationDuration!.record).toHaveBeenCalledWith(1.5e-9, expect.any(Object));
     expect(Metrics.genaiCost!.record).toHaveBeenCalledWith(0.99, expect.any(Object));
   });
 
@@ -74,13 +78,16 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
       configurable: true,
       enumerable: true,
     });
-    BaseWrapper.setBaseSpanAttributes(span as unknown as Span, {
+    const baseAttributes = {
       genAIEndpoint: 'endpoint',
       model: 'gpt-4',
       user: 'user2',
       cost: undefined,
       aiSystem: 'openai',
-    });
+    };
+    BaseWrapper.setBaseSpanAttributes(span as unknown as Span, baseAttributes);
+    BaseWrapper.recordMetrics(span as unknown as Span, baseAttributes);
+    
     expect(Metrics.genaiPromptTokens!.add).not.toHaveBeenCalled();
     expect(Metrics.genaiCompletionTokens!.add).not.toHaveBeenCalled();
     expect(Metrics.genaiClientOperationDuration!.record).not.toHaveBeenCalled();
@@ -89,7 +96,7 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
 
   describe('metrics logic for inputTokens, outputTokens, duration, cost', () => {
     beforeEach(() => {
-      Metrics.setup({ resource: Resource.default() });
+      Metrics.setup({ resource: defaultResource(), otlpEndpoint: 'http://localhost:4318' });
       jest.spyOn(Metrics.genaiPromptTokens!, 'add').mockImplementation(() => {});
       jest.spyOn(Metrics.genaiCompletionTokens!, 'add').mockImplementation(() => {});
       jest.spyOn(Metrics.genaiClientOperationDuration!, 'record').mockImplementation(() => {});
@@ -107,13 +114,16 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
           duration: 'not-a-number',
         },
       };
-      BaseWrapper.setBaseSpanAttributes(span as unknown as Span, {
+      const baseAttributes = {
         model: 'gpt-4',
         user: 'user1',
         cost: 'not-a-number',
         aiSystem: 'openai',
         genAIEndpoint: 'endpoint',
-      });
+      };
+      BaseWrapper.setBaseSpanAttributes(span as unknown as Span, baseAttributes);
+      BaseWrapper.recordMetrics(span as unknown as Span, baseAttributes);
+      
       expect(Metrics.genaiPromptTokens!.add).not.toHaveBeenCalled();
       expect(Metrics.genaiCompletionTokens!.add).not.toHaveBeenCalled();
       expect(Metrics.genaiClientOperationDuration!.record).not.toHaveBeenCalled();
@@ -131,16 +141,19 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
           duration: -1.5,
         },
       };
-      BaseWrapper.setBaseSpanAttributes(span as unknown as Span, {
+      const baseAttributes = {
         model: 'gpt-4',
         user: 'user1',
         cost: 0,
         aiSystem: 'openai',
         genAIEndpoint: 'endpoint',
-      });
+      };
+      BaseWrapper.setBaseSpanAttributes(span as unknown as Span, baseAttributes);
+      BaseWrapper.recordMetrics(span as unknown as Span, baseAttributes);
+      
       expect(Metrics.genaiPromptTokens!.add).toHaveBeenCalledWith(0, expect.any(Object));
       expect(Metrics.genaiCompletionTokens!.add).toHaveBeenCalledWith(-5, expect.any(Object));
-      expect(Metrics.genaiClientOperationDuration!.record).toHaveBeenCalledWith(-1.5, expect.any(Object));
+      expect(Metrics.genaiClientOperationDuration!.record).toHaveBeenCalledWith(-1.5e-9, expect.any(Object));
       expect(Metrics.genaiCost!.record).toHaveBeenCalledWith(0, expect.any(Object));
     });
 
@@ -155,13 +168,16 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
           duration: 3,
         },
       };
-      BaseWrapper.setBaseSpanAttributes(span as unknown as Span, {
+      const baseAttributes = {
         model: 'gpt-4',
         user: 'user1',
         cost: '1.23',
         aiSystem: 'openai',
         genAIEndpoint: 'endpoint',
-      });
+      };
+      BaseWrapper.setBaseSpanAttributes(span as unknown as Span, baseAttributes);
+      BaseWrapper.recordMetrics(span as unknown as Span, baseAttributes);
+      
       expect(Metrics.genaiCost!.record).toHaveBeenCalledWith(1.23, expect.any(Object));
     });
   });
