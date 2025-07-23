@@ -31,7 +31,9 @@ export default class BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment);
     span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, applicationName);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, typeof user === 'string' || typeof user === 'number' ? user : String(user ?? ''));
+    if (typeof user === 'string' || typeof user === 'number') {
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, user);
+    }
     if (cost !== undefined) {
       span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, cost);
     }
