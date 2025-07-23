@@ -110,7 +110,15 @@ export default class BaseWrapper {
       }
       return undefined;
     }
-    // @ts-expect-error: OpenTelemetry Span may have attributes property in some implementations
-    return typeof span.attributes === 'object' ? span.attributes[key] : undefined;
+    // Use official OpenTelemetry API for attribute access
+    if (typeof (span as any).attributes?.get === 'function') {
+      // For Map-like attributes (OTel SDK >= 1.7.0)
+      return (span as any).attributes.get(key);
+    }
+    if (typeof (span as any).attribute === 'function') {
+      // For older OTel SDKs
+      return (span as any).attribute(key);
+    }
+    return undefined;
   }
 }
