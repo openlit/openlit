@@ -47,7 +47,7 @@ export default class BaseWrapper {
 
     const inputTokens = BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS);
     const outputTokens = BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS);
-    const duration = BaseWrapper.getSpanAttribute(span, 'duration') ?? BaseWrapper.getSpanAttribute(span, 'gen_ai.duration');
+    const duration = BaseWrapper.getSpanAttribute(span, 'gen_ai.duration');
     const attributes = {
       [ATTR_SERVICE_NAME]: applicationName,
       [SemanticConvention.GEN_AI_SYSTEM]: aiSystem,
