@@ -45,14 +45,12 @@ export default class CohereWrapper extends BaseWrapper {
             });
 
             // Request Params attributes : Start
-
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, encoding_format);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION, dimensions);
             if (traceContent) {
               span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, JSON.stringify(texts));
             }
             // Request Params attributes : End
-
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.id);
 
             span.setAttribute(

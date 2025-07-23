@@ -24,7 +24,6 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
     span = {
       setAttribute: jest.fn(),
       setStatus: jest.fn(),
-      // Simulate attributes property for test
       attributes: {
         [SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS]: 10,
         [SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS]: 20,
@@ -53,7 +52,6 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
     };
     // @ts-expect-error: test mock span needs attributes property for metrics extraction
     BaseWrapper.setBaseSpanAttributes(span, baseAttributes);
-    // After refactoring, we need to call recordMetrics to test the metrics logic
     BaseWrapper.recordMetrics(span as unknown as Span, baseAttributes);
     
     expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_USER, 'user1');
@@ -71,7 +69,6 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
   });
 
   it('should handle missing tokens and duration gracefully', () => {
-    // Assign attributes property for test mock
     Object.defineProperty(span, 'attributes', {
       value: {},
       writable: true,

@@ -1,5 +1,6 @@
 import OpenlitConfig from '../config';
 import { SDK_NAME, TELEMETRY_SDK_NAME } from '../constant';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import SemanticConvention from '../semantic-convention';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import Metrics from '../otel/metrics';
@@ -17,8 +18,8 @@ export default class BaseWrapper {
     span: Span,
     { genAIEndpoint, model, user, cost, aiSystem }: BaseSpanAttributes
   ) {
-    const applicationName = OpenlitConfig.applicationName!;
-    const environment = OpenlitConfig.environment!;
+    const applicationName = OpenlitConfig.applicationName || "default";
+    const environment = OpenlitConfig.environment || "default";
 
     span.setAttributes({
       [TELEMETRY_SDK_NAME]: SDK_NAME,
@@ -35,7 +36,6 @@ export default class BaseWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, cost);
     }
     span.setStatus({ code: SpanStatusCode.OK });
-    // Metrics are now recorded in recordMetrics after the span is fully populated.
   }
 
   static recordMetrics(span: Span, baseAttributes: BaseSpanAttributes) {
@@ -47,10 +47,10 @@ export default class BaseWrapper {
     const outputTokens = BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS);
     const duration = BaseWrapper.getSpanAttribute(span, 'duration') ?? BaseWrapper.getSpanAttribute(span, 'gen_ai.duration');
     const attributes = {
+      [ATTR_SERVICE_NAME]: applicationName,
       [SemanticConvention.GEN_AI_SYSTEM]: aiSystem,
       [SemanticConvention.GEN_AI_ENDPOINT]: genAIEndpoint,
-      [SemanticConvention.GEN_AI_ENVIRONMENT]: environment,
-      [SemanticConvention.GEN_AI_APPLICATION_NAME]: applicationName,
+      [SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT]: environment,
       [SemanticConvention.GEN_AI_REQUEST_MODEL]: model,
       [SemanticConvention.GEN_AI_REQUEST_USER]: typeof user === 'string' || typeof user === 'number' ? user : String(user ?? ''),
     };
@@ -87,7 +87,6 @@ export default class BaseWrapper {
         attributes?: Record<string, unknown> 
       };
       
-      // First check span.attributes.duration for test compatibility
       if (s.attributes && typeof s.attributes.duration !== 'undefined') {
         const attrDuration = s.attributes.duration;
         if (typeof attrDuration === 'number' && !isNaN(attrDuration)) {
@@ -95,11 +94,9 @@ export default class BaseWrapper {
         }
       }
       
-      // Then check span direct properties
       if (typeof s.duration === 'number' && !isNaN(s.duration)) return s.duration;
       if (typeof s._duration === 'number' && !isNaN(s._duration)) return s._duration;
       
-      // Finally calculate from start/end times
       if (s.endTime && s.startTime) {
         const [endSec, endNano] = s.endTime;
         const [startSec, startNano] = s.startTime;
@@ -111,7 +108,6 @@ export default class BaseWrapper {
       }
       return undefined;
     }
-    // Only look in attributes for non-duration keys
     // @ts-expect-error: OpenTelemetry Span may have attributes property in some implementations
     return typeof span.attributes === 'object' ? span.attributes[key] : undefined;
   }
