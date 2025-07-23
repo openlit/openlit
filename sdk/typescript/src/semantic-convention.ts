@@ -1,14 +1,17 @@
 export default class SemanticConvention {
+  // Unstable SemConv
+  static ATTR_DEPLOYMENT_ENVIRONMENT = 'deployment.environment'
   // GenAI General
   static GEN_AI_ENDPOINT = 'gen_ai.endpoint';
   static GEN_AI_SYSTEM = 'gen_ai.system';
   static GEN_AI_ENVIRONMENT = 'gen_ai.environment';
   static GEN_AI_APPLICATION_NAME = 'gen_ai.application_name';
-  static GEN_AI_OPERATION = 'gen_ai.type';
+  static GEN_AI_OPERATION = 'gen_ai.operation.name';
   static GEN_AI_HUB_OWNER = 'gen_ai.hub.owner';
   static GEN_AI_HUB_REPO = 'gen_ai.hub.repo';
   static GEN_AI_RETRIEVAL_SOURCE = 'gen_ai.retrieval.source';
   static GEN_AI_REQUESTS = 'gen_ai.total.requests';
+  
 
   // GenAI Request
   static GEN_AI_REQUEST_MODEL = 'gen_ai.request.model';
@@ -44,6 +47,7 @@ export default class SemanticConvention {
   static GEN_AI_USAGE_OUTPUT_TOKENS = 'gen_ai.usage.output_tokens';
   static GEN_AI_USAGE_TOTAL_TOKENS = 'gen_ai.usage.total_tokens';
   static GEN_AI_USAGE_COST = 'gen_ai.usage.cost';
+  static GEN_AI_USAGE_REASONING_TOKENS = 'gen_ai.usage.reasoning_tokens';
 
   // GenAI Response
   static GEN_AI_RESPONSE_ID = 'gen_ai.response.id';
@@ -110,4 +114,8 @@ export default class SemanticConvention {
   static DB_UPDATE_METADATA = 'db.update.metadata';
   static DB_UPDATE_VALUES = 'db.update.values';
   static DB_UPDATE_ID = 'db.update.id';
+  static GEN_AI_CLIENT_OPERATION_DURATION = 'gen_ai.client.operation.duration';
+  static GEN_AI_SERVER_TBT = 'gen_ai.server.tbt';
+  static GEN_AI_SERVER_TTFT = 'gen_ai.server.ttft';
+  static DB_CLIENT_OPERATION_DURATION = 'db.client.operation.duration';
 }

@@ -3,8 +3,9 @@ import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import { SDK_NAME, TELEMETRY_SDK_NAME } from '../../constant';
+import BaseWrapper from '../base-wrapper';
 
-export default class OllamaWrapper {
+export default class OllamaWrapper extends BaseWrapper {
   static setBaseSpanAttributes(
     span: any,
     { genAIEndpoint, model, user, cost, environment, applicationName }: any
