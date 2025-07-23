@@ -37,6 +37,7 @@ sync_embed_client = EmbeddingsClient(
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
+
 def test_sync_chat_completions():
     """
     Tests synchronous chat completions with the "microsoft/Phi-4-mini-reasoning" model.
@@ -53,9 +54,10 @@ def test_sync_chat_completions():
         model="microsoft/Phi-4-mini-reasoning",
         temperature=1.0,
         max_tokens=1000,
-        top_p=1.0
+        top_p=1.0,
     )
-    assert response["object"] == 'chat.completion'
+    assert response["object"] == "chat.completion"
+
 
 def test_sync_embeddings():
     """
@@ -67,11 +69,13 @@ def test_sync_embeddings():
 
     response = sync_embed_client.embed(
         input=["LLM Observability", "Monitor GPUs"],
-        model="openai/text-embedding-3-small"
+        model="openai/text-embedding-3-small",
     )
-    assert response.data[0]["object"] == 'embedding'
+    assert response.data[0]["object"] == "embedding"
+
 
 from azure.ai.inference.aio import ChatCompletionsClient, EmbeddingsClient
+
 async_chat_client = ChatCompletionsClient(
     endpoint="https://models.github.ai/inference",
     credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
@@ -81,6 +85,7 @@ async_embed_client = EmbeddingsClient(
     endpoint="https://models.github.ai/inference",
     credential=AzureKeyCredential(os.getenv("AZURE_AI_INFERENCE_API_TOKEN")),
 )
+
 
 @pytest.mark.asyncio
 async def test_async_chat_completions():
@@ -99,9 +104,10 @@ async def test_async_chat_completions():
         model="microsoft/Phi-4-mini-reasoning",
         temperature=1.0,
         max_tokens=1000,
-        top_p=1.0
+        top_p=1.0,
     )
-    assert response["object"] == 'chat.completion'
+    assert response["object"] == "chat.completion"
+
 
 @pytest.mark.asyncio
 async def test_async_embeddings():
@@ -114,6 +120,6 @@ async def test_async_embeddings():
 
     response = await async_embed_client.embed(
         input=["LLM Observability", "Monitor GPUs"],
-        model="openai/text-embedding-3-small"
+        model="openai/text-embedding-3-small",
     )
-    assert response.data[0]["object"] == 'embedding'
+    assert response.data[0]["object"] == "embedding"

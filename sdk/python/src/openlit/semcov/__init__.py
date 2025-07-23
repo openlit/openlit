@@ -80,6 +80,19 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_AGENT = "invoke_agent"
     GEN_AI_OPERATION_TYPE_CREATE_AGENT = "create_agent"
     GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK = "execute_task"
+    GEN_AI_OPERATION_TYPE_GRAPH_EXECUTION = "graph_execution"
+    GEN_AI_OPERATION_TYPE_USER_PROMPT_PROCESSING = "user_prompt_processing"
+    GEN_AI_OPERATION_TYPE_MODEL_REQUEST = "model_request"
+    GEN_AI_OPERATION_TYPE_TOOL_COORDINATION = "tool_coordination"
+
+    # Model Request Types
+    GEN_AI_MODEL_REQUEST_TYPE_INITIAL = "initial"
+    GEN_AI_MODEL_REQUEST_TYPE_TOOL_RESPONSE = "tool_response"
+    GEN_AI_MODEL_REQUEST_TYPE_CHAT = "chat"
+
+    # Tool Processing Types
+    GEN_AI_TOOL_PROCESSING_TYPE_EXECUTION = "execution"
+    GEN_AI_TOOL_PROCESSING_TYPE_COORDINATION = "coordination"
     GEN_AI_OPERATION_TYPE_RETRIEVE = "retrieve"
 
     # GenAI Output Types (OTel Semconv)
@@ -121,7 +134,6 @@ class SemanticConvention:
     GEN_AI_SYSTEM_LANGCHAIN = "langchain"
     GEN_AI_SYSTEM_LLAMAINDEX = "llama_index"
     GEN_AI_SYSTEM_HAYSTACK = "haystack"
-    GEN_AI_SYSTEM_EMBEDCHAIN = "embedchain"
     GEN_AI_SYSTEM_MEM0 = "mem0"
     GEN_AI_SYSTEM_LITELLM = "litellm"
     GEN_AI_SYSTEM_CREWAI = "crewai"
@@ -498,3 +510,88 @@ class SemanticConvention:
     # Standard Task Attributes (framework-agnostic)
     GEN_AI_TASK_DESCRIPTION = "gen_ai.task.description"
     GEN_AI_TASK_EXPECTED_OUTPUT = "gen_ai.task.expected_output"
+
+    GEN_AI_GROUPCHAT_PARTICIPANTS = "gen_ai.groupchat.participants"
+    GEN_AI_GROUPCHAT_SPEAKER_SELECTION = "gen_ai.groupchat.speaker_selection"
+    GEN_AI_GROUPCHAT_MESSAGE_COUNT = "gen_ai.groupchat.message_count"
+    GEN_AI_GROUPCHAT_TURN_COUNT = "gen_ai.groupchat.turn_count"
+
+    GEN_AI_AGENT_RECIPIENT = "gen_ai.agent.recipient"
+    GEN_AI_AGENT_SENDER = "gen_ai.agent.sender"
+    GEN_AI_AGENT_MESSAGE_TYPE = "gen_ai.agent.message_type"
+    GEN_AI_AGENT_REPLY_MODE = "gen_ai.agent.reply_mode"
+
+    # === ENHANCED SEMANTIC CONVENTIONS FOR COMPREHENSIVE INSTRUMENTATION ===
+
+    # Message structure attributes (reuse existing prompt for input, add output messages)
+    # Note: For input messages, we reuse GEN_AI_CONTENT_PROMPT for consistency
+    GEN_AI_OUTPUT_MESSAGES = "gen_ai.output_messages"
+    GEN_AI_MESSAGE_ROLE = "gen_ai.message.role"
+    GEN_AI_MESSAGE_CONTENT = "gen_ai.message.content"
+
+    # Tool result tracking (extending existing tool attributes)
+    GEN_AI_TOOL_RESULT = "gen_ai.tool.result"
+    GEN_AI_TOOL_SCHEMA = "gen_ai.tool.schema"
+
+    # Model invocation parameters (for comprehensive model tracking)
+    GEN_AI_REQUEST_PARAMETERS = "gen_ai.request.parameters"
+
+    # Session and conversation tracking
+    GEN_AI_SESSION_ID = "gen_ai.session.id"
+    GEN_AI_USER_ID = "gen_ai.user.id"
+    GEN_AI_RUN_ID = "gen_ai.run.id"
+
+    # Memory operation types
+    GEN_AI_OPERATION_TYPE_MEMORY = "memory"
+    GEN_AI_OPERATION_TYPE_MEMORY_ADD = "memory_add"
+    GEN_AI_OPERATION_TYPE_MEMORY_SEARCH = "memory_search"
+    GEN_AI_OPERATION_TYPE_MEMORY_GET = "memory_get"
+    GEN_AI_OPERATION_TYPE_MEMORY_UPDATE = "memory_update"
+    GEN_AI_OPERATION_TYPE_MEMORY_DELETE = "memory_delete"
+
+    # Memory-specific attributes
+    GEN_AI_MEMORY_TYPE = "gen_ai.memory.type"
+    GEN_AI_MEMORY_METADATA = "gen_ai.memory.metadata"
+    GEN_AI_MEMORY_INFER = "gen_ai.memory.infer"
+    GEN_AI_MEMORY_COUNT = "gen_ai.memory.count"
+    GEN_AI_MEMORY_SEARCH_QUERY = "gen_ai.memory.search.query"
+    GEN_AI_MEMORY_SEARCH_LIMIT = "gen_ai.memory.search.limit"
+    GEN_AI_MEMORY_SEARCH_THRESHOLD = "gen_ai.memory.search.threshold"
+    GEN_AI_MEMORY_OPERATION_RESULT_COUNT = "gen_ai.memory.operation.result_count"
+
+    # Agent lifecycle phases
+    GEN_AI_AGENT_LIFECYCLE_PHASE = "gen_ai.agent.lifecycle.phase"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_CREATE = "create"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE = "execute"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_GRAPH_EXECUTION = "graph_execution"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_USER_PROMPT_PROCESSING = "user_prompt_processing"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_MODEL_REQUEST = "model_request"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_TOOL_EXECUTION = "tool_execution"
+
+    # Performance metrics (extending existing cost tracking)
+    GEN_AI_PERFORMANCE_TOKENS_PER_SECOND = "gen_ai.performance.tokens_per_second"
+    # Note: For latency/duration, we reuse existing GEN_AI_CLIENT_OPERATION_DURATION
+
+    # Tool execution metadata
+    GEN_AI_TOOL_EXECUTION_DURATION = "gen_ai.tool.execution.duration"
+    GEN_AI_TOOL_EXECUTION_SUCCESS = "gen_ai.tool.execution.success"
+
+    # Additional request parameters (general, reusable across integrations)
+    GEN_AI_REQUEST_CONTEXT_WINDOW = "gen_ai.request.context_window"
+    GEN_AI_REQUEST_ENABLE_REASONER = "gen_ai.request.enable_reasoner"
+    GEN_AI_REQUEST_REASONING_EFFORT = "gen_ai.request.reasoning_effort"
+    GEN_AI_REQUEST_ASYNC = "gen_ai.request.async"
+    GEN_AI_REQUEST_RETURN_SEQUENCE_NO = "gen_ai.request.return_sequence_no"
+    GEN_AI_REQUEST_INCLUDE_FINAL_MESSAGE = "gen_ai.request.include_final_message"
+    GEN_AI_REQUEST_MESSAGE_COUNT = "gen_ai.request.message_count"
+
+    # Model configuration attributes (general, reusable)
+    GEN_AI_MODEL_HANDLE = "gen_ai.model.handle"
+
+    # Agent attributes (general, reusable)
+    GEN_AI_AGENT_SLUG = "gen_ai.agent.slug"
+    GEN_AI_AGENT_STEP_MESSAGES = "gen_ai.agent.step_messages"
+
+    # Streaming attributes (general, reusable)
+    GEN_AI_STREAMING_CHUNK_COUNT = "gen_ai.streaming.chunk_count"
+    GEN_AI_STREAMING_RESPONSE_COUNT = "gen_ai.streaming.response_count"

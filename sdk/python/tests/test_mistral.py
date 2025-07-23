@@ -2,7 +2,7 @@
 """
 This module contains tests for Mistral functionality using the Mistral Python library.
 
-Tests cover various API endpoints, including chat and embeddings. 
+Tests cover various API endpoints, including chat and embeddings.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -23,7 +23,10 @@ client = Mistral(
 )
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-mistral-test")
+openlit.init(
+    environment="openlit-python-testing", application_name="openlit-python-mistral-test"
+)
+
 
 def test_sync_mistral_chat():
     """
@@ -45,7 +48,8 @@ def test_sync_mistral_chat():
         messages=messages,
         max_tokens=1,
     )
-    assert message.object == 'chat.completion'
+    assert message.object == "chat.completion"
+
 
 def test_sync_mistral_embeddings():
     """
@@ -56,10 +60,11 @@ def test_sync_mistral_embeddings():
     """
 
     response = client.embeddings.create(
-      model="mistral-embed",
-      inputs=["Embed this sentence.", "OpenTelemetry LLM Observability"],
+        model="mistral-embed",
+        inputs=["Embed this sentence.", "OpenTelemetry LLM Observability"],
     )
-    assert response.object == 'list'
+    assert response.object == "list"
+
 
 @pytest.mark.asyncio
 async def test_async_mistral():
@@ -83,11 +88,11 @@ async def test_async_mistral():
         messages=messages,
         max_tokens=1,
     )
-    assert message.object == 'chat.completion'
+    assert message.object == "chat.completion"
 
     # Tests asynchronous embedding creation with the 'mistral-embed' model.
     response = await client.embeddings.create_async(
-      model="mistral-embed",
-      inputs=["Embed this sentence.", "Monitor LLM Applications"],
+        model="mistral-embed",
+        inputs=["Embed this sentence.", "Monitor LLM Applications"],
     )
-    assert response.object == 'list'
+    assert response.object == "list"

@@ -3,7 +3,7 @@
 This module contains tests for ChromaDB functionality using the ChromaDB Python library.
 
 Tests cover various API endpoints, including create_collection, add, query,
-upsert, update, get, peek and delete. 
+upsert, update, get, peek and delete.
 These tests validate integration with OpenLIT.
 
 Note: Ensure the environment is properly configured for ChromaDB access and OpenLIT monitoring
@@ -18,6 +18,7 @@ chroma_client = chromadb.Client()
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+
 
 def test_db_chroma():
     """
@@ -35,7 +36,7 @@ def test_db_chroma():
       expected document ids.
     - A delete operation targets a specific document by id, and successful deletion
       is implicitly verified by the absence of an error response.
-    
+
     The test ensures the basic CRUD operations perform as expected in ChromaDB.
     Raises:
       AssertionError: If the responses from ChromaDB operations do not meet the expected outcomes.
@@ -43,26 +44,20 @@ def test_db_chroma():
 
     # Create a new collection named "openlit"
     collection = chroma_client.create_collection(name="openlit")
-    assert collection.name == 'openlit'
+    assert collection.name == "openlit"
 
     # Add documents to the collection
     db_add = collection.add(
         documents=["This is a document", "This is another document"],
         metadatas=[{"source": "my_source"}, {"source": "my_source"}],
-        ids=["id1", "id2"]
+        ids=["id1", "id2"],
     )
     assert db_add is None
 
     # Query the documents in the collection
-    db_query = collection.query(
-        query_texts=["This is a query document"],
-        n_results=2
-    )
-    assert db_query["ids"] == [['id1', 'id2']]
+    db_query = collection.query(query_texts=["This is a query document"], n_results=2)
+    assert db_query["ids"] == [["id1", "id2"]]
 
     # Delete a document from the collection
-    db_delete = collection.delete(
-        ids=["id2"],
-        where={"source": "my_source"}
-    )
+    db_delete = collection.delete(ids=["id2"], where={"source": "my_source"})
     assert db_delete is None

@@ -25,7 +25,10 @@ sync_client = OpenAI()
 async_client = AsyncOpenAI()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-openai-test")
+openlit.init(
+    environment="openlit-python-testing", application_name="openlit-python-openai-test"
+)
+
 
 def test_sync_openai_chat_completions():
     """
@@ -38,9 +41,10 @@ def test_sync_openai_chat_completions():
     chat_completions_resp = sync_client.chat.completions.create(
         model="gpt-3.5-turbo",
         max_tokens=1,
-        messages=[{"role": "user", "content": "What is LLM Observability?"}]
+        messages=[{"role": "user", "content": "What is LLM Observability?"}],
     )
-    assert chat_completions_resp.object == 'chat.completion'
+    assert chat_completions_resp.object == "chat.completion"
+
 
 def test_sync_openai_chat_completions_parse():
     """
@@ -52,19 +56,26 @@ def test_sync_openai_chat_completions_parse():
 
     class User(BaseModel):
         """A model to represent a user's details."""
+
         name: str
         age: int
-
 
     chat_completions_resp = sync_client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Extract the user's name and age from the following text."},
-            {"role": "user", "content": "The user's name is John Doe and he is 30 years old."},
+            {
+                "role": "system",
+                "content": "Extract the user's name and age from the following text.",
+            },
+            {
+                "role": "user",
+                "content": "The user's name is John Doe and he is 30 years old.",
+            },
         ],
         response_format=User,  # Pass the Pydantic model as the response format
     )
-    assert chat_completions_resp.object == 'chat.completion'
+    assert chat_completions_resp.object == "chat.completion"
+
 
 def test_sync_openai_embeddings():
     """
@@ -77,9 +88,10 @@ def test_sync_openai_embeddings():
     embeddings_resp = sync_client.embeddings.create(
         model="text-embedding-ada-002",
         input="The quick brown fox jumped over the lazy dog",
-        encoding_format="float"
+        encoding_format="float",
     )
-    assert embeddings_resp.data[0].object == 'embedding'
+    assert embeddings_resp.data[0].object == "embedding"
+
 
 # def test_sync_openai_fine_tuning_job_creation():
 #     """
@@ -102,6 +114,7 @@ def test_sync_openai_embeddings():
 #             rate_limit_code = error_json['error']['code']
 #             print(rate_limit_code)
 
+
 def test_sync_openai_image_generation():
     """
     Tests synchronous image generation with the 'dall-e-2' model.
@@ -111,12 +124,10 @@ def test_sync_openai_image_generation():
     """
 
     image_generation_resp = sync_client.images.generate(
-        model='dall-e-2',
-        prompt='Generate an image of a cat.',
-        size='256x256',
-        n=1
+        model="dall-e-2", prompt="Generate an image of a cat.", size="256x256", n=1
     )
     assert image_generation_resp.created is not None
+
 
 def test_sync_openai_image_variations():
     """
@@ -128,11 +139,12 @@ def test_sync_openai_image_variations():
 
     image_variation_resp = sync_client.images.create_variation(
         image=open("tests/test-image-for-openai.png", "rb"),
-        model='dall-e-2',
+        model="dall-e-2",
         n=1,
-        size="256x256"
+        size="256x256",
     )
     assert image_variation_resp.created is not None
+
 
 def test_sync_openai_audio_speech_create():
     """
@@ -143,10 +155,10 @@ def test_sync_openai_audio_speech_create():
     """
 
     audio_speech_resp = sync_client.audio.speech.create(
-        model='tts-1',
-        voice='alloy',
-        input='LLM Observability!')
+        model="tts-1", voice="alloy", input="LLM Observability!"
+    )
     assert audio_speech_resp is not None and isinstance(audio_speech_resp, object)
+
 
 @pytest.mark.asyncio
 async def test_async_openai_chat_completions():
@@ -160,9 +172,10 @@ async def test_async_openai_chat_completions():
     chat_completions_resp = await async_client.chat.completions.create(
         model="gpt-3.5-turbo",
         max_tokens=1,
-        messages=[{"role": "user", "content": "What is LLM Observability?"}]
+        messages=[{"role": "user", "content": "What is LLM Observability?"}],
     )
-    assert chat_completions_resp.object == 'chat.completion'
+    assert chat_completions_resp.object == "chat.completion"
+
 
 @pytest.mark.asyncio
 async def test_async_openai_chat_completions_parse():
@@ -175,18 +188,26 @@ async def test_async_openai_chat_completions_parse():
 
     class User(BaseModel):
         """A model to represent a user's details."""
+
         name: str
         age: int
 
     chat_completions_resp = await async_client.beta.chat.completions.parse(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Extract the user's name and age from the following text."},
-            {"role": "user", "content": "The user's name is John Doe and he is 30 years old."},
+            {
+                "role": "system",
+                "content": "Extract the user's name and age from the following text.",
+            },
+            {
+                "role": "user",
+                "content": "The user's name is John Doe and he is 30 years old.",
+            },
         ],
         response_format=User,  # Pass the Pydantic model as the response format
     )
-    assert chat_completions_resp.object == 'chat.completion'
+    assert chat_completions_resp.object == "chat.completion"
+
 
 # @pytest.mark.asyncio
 # async def test_async_openai_embeddings():

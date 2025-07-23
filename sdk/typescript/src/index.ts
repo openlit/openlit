@@ -9,6 +9,10 @@ import BaseOpenlit from './features/base';
 import { Hallucination, Bias, Toxicity, All } from './evals';
 import Metrics from './otel/metrics';
 import SemanticConvention from './semantic-convention';
+import { PromptInjection } from './guard/prompt-injection';
+import { SensitiveTopic } from './guard/sensitive-topic';
+import { TopicRestriction } from './guard/topic-restriction';
+import { All as GuardAll } from './guard/all';
 
 // Factory functions for evals
 const evals = {
@@ -19,11 +23,20 @@ const evals = {
   All: (options: ConstructorParameters<typeof All>[0]) => new All(options),
 };
 
+// Factory functions for guards
+const guard = {
+  PromptInjection: (options: ConstructorParameters<typeof PromptInjection>[0]) => new PromptInjection(options),
+  SensitiveTopic: (options: ConstructorParameters<typeof SensitiveTopic>[0]) => new SensitiveTopic(options),
+  TopicRestriction: (options: ConstructorParameters<typeof TopicRestriction>[0]) => new TopicRestriction(options),
+  All: (options: ConstructorParameters<typeof GuardAll>[0]) => new GuardAll(options),
+};
+
 class Openlit extends BaseOpenlit {
   static resource: ReturnType<typeof resourceFromAttributes>;
   static options: OpenlitOptions;
   static _sdk: NodeSDK;
   static evals = evals;
+  static guard = guard;
   static init(options?: OpenlitOptions) {
     try {
       const { environment = DEFAULT_ENVIRONMENT, applicationName = DEFAULT_APPLICATION_NAME } =
@@ -96,6 +109,7 @@ class Openlit extends BaseOpenlit {
 
 const openlit = Openlit as typeof Openlit & {
   evals: typeof evals;
+  guard: typeof guard;
 };
 
 export default openlit;

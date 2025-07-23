@@ -2,7 +2,7 @@
 """
 This module contains tests for Anthropic functionality using the Anthropic Python library.
 
-Tests cover various API endpoints, including chat. 
+Tests cover various API endpoints, including chat.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -23,7 +23,11 @@ sync_client = Anthropic()
 async_client = AsyncAnthropic()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-anthropic-test")
+openlit.init(
+    environment="openlit-python-testing",
+    application_name="openlit-python-anthropic-test",
+)
+
 
 def test_sync_anthropic_messages():
     """
@@ -44,7 +48,7 @@ def test_sync_anthropic_messages():
             ],
             model="claude-3-haiku-20240307",
         )
-        assert message.type == 'message'
+        assert message.type == "message"
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
@@ -52,6 +56,7 @@ def test_sync_anthropic_messages():
             print("Rate Limited:", e)
         else:
             raise
+
 
 @pytest.mark.asyncio
 async def test_async_anthropic_messages():
@@ -73,7 +78,7 @@ async def test_async_anthropic_messages():
             ],
             model="claude-3-haiku-20240307",
         )
-        assert message.type == 'message'
+        assert message.type == "message"
 
     # pylint: disable=broad-exception-caught
     except Exception as e:

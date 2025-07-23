@@ -100,8 +100,10 @@ import litellm
 import json
 import sys
 
-def get_system_prompt(threshold_score: float,
-                      prompt: str, contexts: str, response: str) -> str:
+
+def get_system_prompt(
+    threshold_score: float, prompt: str, contexts: str, response: str
+) -> str:
     return f"""
     Output Requirement: List of JSON Objects in JSON array
 
@@ -192,7 +194,7 @@ def llm_response(prompt: str, model: str, api_key=str):
             {"role": "user", "content": prompt},
         ],
         temperature=0.0,
-        response_format={ "type": "json_object" }
+        response_format={"type": "json_object"},
     )
 
     try:
@@ -201,17 +203,23 @@ def llm_response(prompt: str, model: str, api_key=str):
         parsed_content = json.loads(content)
         return parsed_content
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}
 
-def measure(api_key: [str], model: Optional[str] = "openai/gpt-4o",
-            prompt: Optional[str] = None,
-            contexts: Optional[List[str]] = None,
-            response: Optional[str] = None, threshold_score: Optional[float] = 0.5):
 
-    llm_prompt = get_system_prompt(threshold_score=threshold_score, prompt=prompt, contexts=contexts, response=response)
+def measure(
+    api_key: [str],
+    model: Optional[str] = "openai/gpt-4o",
+    prompt: Optional[str] = None,
+    contexts: Optional[List[str]] = None,
+    response: Optional[str] = None,
+    threshold_score: Optional[float] = 0.5,
+):
+    llm_prompt = get_system_prompt(
+        threshold_score=threshold_score,
+        prompt=prompt,
+        contexts=contexts,
+        response=response,
+    )
     response = llm_response(llm_prompt, model, api_key)
 
     return response
@@ -221,31 +229,26 @@ def main():
     try:
         # Read JSON input from stdin
         input_json = json.loads(sys.argv[1])
-        
+
         # Call measure function with parameters from JSON
         result = measure(
-            api_key=input_json.get('api_key'),
-            model=input_json.get('model'),
-            prompt=input_json.get('prompt'),
-            contexts=input_json.get('contexts'),
-            response=input_json.get('response'),
-            threshold_score=input_json.get('threshold_score', 0.5)
+            api_key=input_json.get("api_key"),
+            model=input_json.get("model"),
+            prompt=input_json.get("prompt"),
+            contexts=input_json.get("contexts"),
+            response=input_json.get("response"),
+            threshold_score=input_json.get("threshold_score", 0.5),
         )
-        
+
         # print(input_json)
         # Print result as JSON string
         print(json.dumps(result))
 
     except json.JSONDecodeError:
-        print(json.dumps({
-            "success": False,
-            "error": "Invalid JSON input"
-        }))
+        print(json.dumps({"success": False, "error": "Invalid JSON input"}))
     except Exception as e:
-        print(json.dumps({
-            "success": False,
-            "error": str(e)
-        }))
+        print(json.dumps({"success": False, "error": str(e)}))
+
 
 if __name__ == "__main__":
     main()

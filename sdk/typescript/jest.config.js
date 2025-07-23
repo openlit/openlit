@@ -3,5 +3,5 @@ export default {
   testEnvironment: 'node',
   testMatch: ['**/src/**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/src/'],
 };

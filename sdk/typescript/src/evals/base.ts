@@ -1,6 +1,6 @@
 import { EvalsOptions, EvalsInput, EvalsResult } from './types';
 import { formatPrompt, parseLlmResponse } from './utils';
-import { llmProviders } from './llm/providers';
+import { llmProviders } from '../llm/providers';
 import { recordEvalMetrics } from './metrics';
 
 export abstract class BaseEval {

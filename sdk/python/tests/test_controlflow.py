@@ -2,7 +2,7 @@
 """
 This module contains tests for ControlFlow functionality using the ControlFlow Python library.
 
-Tests cover various API endpoints, including chat and embeddings. 
+Tests cover various API endpoints, including chat and embeddings.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -18,8 +18,9 @@ import openlit
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(
     environment="openlit-python-testing",
-    application_name="openlit-python-controlflow-test"
+    application_name="openlit-python-controlflow-test",
 )
+
 
 def test_sync_controlflow_agent():
     """
@@ -35,6 +36,7 @@ def test_sync_controlflow_agent():
         instructions="You are an AI Observability expert",
     )
     assert isinstance(agent, cf.Agent)
+
 
 def test_sync_controlflow_task():
     """

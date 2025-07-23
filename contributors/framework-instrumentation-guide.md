@@ -23,11 +23,23 @@ Before starting, ensure you have:
 - Access to competitor repositories for analysis
 - Understanding of OpenTelemetry concepts
 
-**CRITICAL**: Always use local OpenLIT source code for testing:
+**CRITICAL**: Always use the venv in the root directory and test with test.py:
 ```bash
-# DON'T install OpenLIT - use local source
-PYTHONPATH=sdk/python/src python your_test_script.py
+# ALWAYS use the venv in project root
+source venv/bin/activate
+
+# ALWAYS name your test file test.py (mandatory naming convention)
+python test.py
+
+# Alternative approach with explicit sys.path (for test.py):
+sys.path.insert(0, "sdk/python/src")
 ```
+
+**MANDATORY Testing Standards:**
+- Test file must be named `test.py` (not test_framework.py or similar)
+- Always use `source venv/bin/activate` first
+- Place test.py in project root directory
+- Use sys.path.insert(0, "sdk/python/src") in test.py
 
 ## Phase 1: Competitive Analysis
 
@@ -36,12 +48,19 @@ PYTHONPATH=sdk/python/src python your_test_script.py
 **Primary Competitors:**
 - [OpenInference](https://github.com/Arize-ai/openinference/tree/main/python/instrumentation)
 - [OpenLLMetry](https://github.com/traceloop/openllmetry/tree/main/packages)
+- [AgentOps](https://github.com/AgentOps-AI/agentops)
+- [LangFuse](https://github.com/langfuse/langfuse) (Not OpenTelemetry native)
+- [LangSmith](https://github.com/langchain-ai/langsmith-sdk)
 
 **Research Process:**
 ```bash
 # Clone competitor repositories for deep analysis
+mkdir competitive_analysis && cd competitive_analysis
 git clone https://github.com/Arize-ai/openinference.git
 git clone https://github.com/traceloop/openllmetry.git
+git clone https://github.com/AgentOps-AI/agentops.git
+git clone https://github.com/langfuse/langfuse.git
+git clone https://github.com/langchain-ai/langsmith-sdk.git
 
 # Navigate to framework-specific instrumentations
 cd openinference/python/instrumentation/openinference-instrumentation-{framework}
@@ -51,7 +70,8 @@ cd openllmetry/packages/openllmetry-instrumentation-{framework}
 **Deep Analysis Checklist:**
 - [ ] **Integration Pattern**: Function wrapping vs native integration (like TracingProcessor)
 - [ ] **Span Structure**: How many spans do they create and why?
-- [ ] **Span Hierarchy**: Do they maintain proper parent-child relationships?
+- [ ] **🚨 CRITICAL: Span Hierarchy**: Do they maintain proper parent-child relationships? (MOST IMPORTANT)
+- [ ] **Threading Context**: How do they handle ThreadPoolExecutor and async contexts?
 - [ ] **Span Naming**: What naming convention do they use?
 - [ ] **Attributes**: What attributes do they capture? Check against semantic conventions
 - [ ] **Content Capture**: Do they capture input/output content with MIME types?
@@ -59,6 +79,8 @@ cd openllmetry/packages/openllmetry-instrumentation-{framework}
 - [ ] **Error Handling**: How do they handle framework version differences?
 - [ ] **Performance**: How much overhead do they add?
 - [ ] **Coverage**: Which framework operations do they instrument?
+
+**⚠️ SPAN HIERARCHY IS CRITICAL**: This is the #1 issue that breaks observability. Frameworks often use ThreadPoolExecutor or async operations that break OpenTelemetry context propagation, resulting in "all root spans" instead of proper parent-child relationships.
 
 ### Step 1.2: Document Competitive Gaps and OpenLIT Advantages
 
@@ -75,6 +97,141 @@ Create detailed comparison:
 | Semantic Conventions | Standard | Standard | **Extended** (custom attributes) |
 
 **Key Insight**: OpenLIT's competitive advantage is **business intelligence** and **enhanced observability**.
+
+### Step 1.2: Instrumentation Structure Patterns
+
+**FLEXIBLE file structures based on framework complexity:**
+
+```python
+# PATTERN 1: Single File (Simple frameworks)
+# Example: Simple utilities, basic wrappers
+framework_name/
+├── __init__.py      # Instrumentation setup + all logic
+└── (optional utils if needed)
+
+# PATTERN 2: Processor Pattern (OpenAI Agents style)
+# Example: Pipeline/processing-based frameworks
+framework_name/
+├── __init__.py      # Instrumentation setup
+└── processor.py     # All processing logic, context handling
+
+# PATTERN 3: Callback Pattern (LangChain style)
+# Example: Frameworks with built-in callback systems
+framework_name/
+├── __init__.py      # Instrumentation setup
+└── callback_handler.py # Framework's callback interface
+
+# PATTERN 4: RECOMMENDED 4-File Structure (Mem0, CrewAI, Pydantic AI)
+# Example: Complex frameworks needing performance optimization
+framework_name/
+├── __init__.py                  # Instrumentation setup with separated SYNC/ASYNC methods
+├── framework_name.py            # Sync wrappers with threading context fixes  
+├── async_framework_name.py      # Async wrappers
+└── utils.py                     # Shared utilities with context caching and __slots__
+
+**🎯 PREFERRED STRUCTURE**: Use Pattern 4 for any framework with threading issues or performance needs.
+
+```
+
+### Step 1.3: Threading Context Propagation Issues (CRITICAL)
+
+**🚨 MOST COMMON FAILURE**: Frameworks using ThreadPoolExecutor break OpenTelemetry context propagation.
+
+**Example Problem (like mem0):**
+```python
+# mem0/memory/main.py - Line 257-261
+with concurrent.futures.ThreadPoolExecutor() as executor:
+    future1 = executor.submit(self._add_to_vector_store, messages, ...)
+    future2 = executor.submit(self._add_to_graph, messages, ...)
+    # ❌ This breaks context propagation - results in "all root spans"
+```
+
+**OpenLIT Solution Pattern:**
+```python
+# In utils.py - Threading context fix
+def patch_concurrent_futures_context(span_context):
+    """Patch ThreadPoolExecutor to propagate OpenTelemetry context."""
+    original_submit = concurrent.futures.ThreadPoolExecutor.submit
+    
+    def patched_submit(self, fn, *args, **kwargs):
+        # Capture current context and propagate it
+        current_context = context.get_current()
+        
+        def context_wrapper(*args, **kwargs):
+            token = context.attach(span_context)
+            try:
+                return fn(*args, **kwargs)
+            finally:
+                context.detach(token)
+        
+        return original_submit(self, context_wrapper, *args, **kwargs)
+    
+    concurrent.futures.ThreadPoolExecutor.submit = patched_submit
+    return lambda: setattr(concurrent.futures.ThreadPoolExecutor, "submit", original_submit)
+
+# In framework_name.py - Apply threading fix  
+def framework_wrap(gen_ai_endpoint, ...):
+    def wrapper(wrapped, instance, args, kwargs):
+        with tracer.start_as_current_span(gen_ai_endpoint, kind=span_kind, context=current_context) as span:
+            span_context = set_span_in_context(span, context=current_context)
+            
+            # ✅ Apply threading context fix for CLIENT operations
+            if span_kind == SpanKind.CLIENT:
+                restore_patch = patch_concurrent_futures_context(span_context)
+                try:
+                    response = wrapped(*args, **kwargs)
+                finally:
+                    restore_patch()
+            else:
+                response = wrapped(*args, **kwargs)
+```
+
+**🔧 When to Apply Threading Fixes:**
+- Framework uses `concurrent.futures.ThreadPoolExecutor`
+- Framework uses `asyncio.run_in_executor`
+- You see "all root spans" in your hierarchy test
+- Child operations (OpenAI, Qdrant, etc.) appear as separate root spans
+
+### Step 1.4: Performance Optimization Patterns
+
+**CRITICAL**: Study existing OpenLIT implementations for optimization patterns:
+
+```python
+# Study these proven patterns in existing instrumentations:
+# - Mem0: threading context propagation, __slots__ optimization
+# - CrewAI: excellent agent patterns, lifecycle management
+# - OpenAI Agents: great tool handling (processor.py pattern)
+# - LangChain/LlamaIndex: mature framework patterns, utils.py caching
+# - Pydantic AI: context caching with PydanticAIInstrumentationContext
+
+# Example: Optimized context caching with __slots__
+class FrameworkInstrumentationContext:
+    """Context object to cache expensive extractions."""
+    
+    __slots__ = ("instance", "args", "kwargs", "version", "environment", 
+                 "application_name", "_agent_name", "_model_name", "_tools", "_messages")
+    
+    def __init__(self, instance, args, kwargs, version, environment, application_name):
+        self.instance = instance
+        self.args = args
+        self.kwargs = kwargs
+        self.version = version
+        self.environment = environment
+        self.application_name = application_name
+        
+        # Cache expensive operations with lazy loading
+        self._agent_name = None
+        self._model_name = None
+        self._tools = None
+        self._messages = None
+    
+    @property
+    def agent_name(self) -> str:
+        """Lazy-loaded with caching."""
+        if self._agent_name is None:
+            self._agent_name = self._extract_agent_name()
+        return self._agent_name
+```
 
 ## Phase 2: Framework Analysis
 
@@ -107,7 +264,38 @@ from agents import TracingProcessor, set_trace_processors
    - ✅ Standard approach for frameworks without native tracing
    - ⚠️ Requires careful hierarchy management
 
-### Step 2.2: Map Framework Operations
+### Step 2.2: Clone and Study Target SDK (CRITICAL)
+
+**ALWAYS clone the actual SDK you're instrumenting:**
+
+### Step 2.3: Semantic Conventions Are CRITICAL
+
+**NEVER hardcode strings - ALWAYS use SemanticConvention:**
+
+```python
+# ❌ WRONG - will be rejected in code review:
+span.set_attribute("gen_ai.operation.name", "chat")
+span.set_attribute("gen_ai.system", "pydantic_ai")
+
+# ✅ CORRECT - must use semantic conventions:
+from openlit.semcov import SemanticConvention
+
+span.set_attribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
+span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_PYDANTIC_AI)
+
+# Check existing constants first:
+# - GEN_AI_OPERATION_TYPE_* 
+# - GEN_AI_AGENT_LIFECYCLE_PHASE_*
+# - GEN_AI_SYSTEM_* (add new ones if needed)
+
+# If needed, add to semcov.py:
+class SemanticConvention:
+    # Add framework-specific constants
+    GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
+    GEN_AI_AGENT_LIFECYCLE_PHASE_GRAPH_EXECUTION = "graph_execution"
+```
+
+### Step 2.4: Map Framework Operations
 
 **Workflow vs Component Operations:**
 ```python
@@ -192,64 +380,88 @@ class SemanticConvention:
 
 ## Phase 4: Code Implementation
 
-### Step 4.1: Create Test Infrastructure First
+### Step 4.1: Create Span Hierarchy Test First (MANDATORY)
 
-**Create span hierarchy test before implementing:**
+**🚨 CRITICAL**: Create test.py (mandatory name) with span hierarchy analysis BEFORE any implementation:
+
 ```python
-# test_span_hierarchy.py - Always create this first
+# test.py - MANDATORY filename, must be in project root
+#!/usr/bin/env python3
+"""
+MANDATORY span hierarchy test for framework instrumentation.
+This MUST be created first and MUST verify proper parent-child relationships.
+"""
+
 import sys
-sys.path.insert(0, 'sdk/python/src')  # Use local source
+import os
+
+sys.path.insert(0, "sdk/python/src")  # MANDATORY path setup
 
 import openlit
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+import logging
 
-class CollectingSpanExporter:
-    def __init__(self):
-        self.spans = []
-    
-    def export(self, spans):
-        for span in spans:
-            self.spans.append({
-                'name': span.name,
-                'parent_id': format(span.parent.span_id, '016x') if span.parent else None,
-                'attributes': dict(span.attributes) if span.attributes else {}
-            })
-        return 0
+# Minimal logging to focus on span hierarchy
+logging.getLogger().setLevel(logging.ERROR)
 
-def print_span_hierarchy(spans):
-    """Print spans in hierarchical tree structure"""
-    # Build parent-child relationships
-    root_spans = [s for s in spans if s['parent_id'] is None]
-    child_map = {}
-    for span in spans:
-        if span['parent_id']:
-            child_map.setdefault(span['parent_id'], []).append(span)
-    
-    def print_span(span, level=0):
-        indent = "  " * level
-        prefix = "├── " if level > 0 else ""
-        print(f"{indent}{prefix}{span['name']}")
-        
-        span_id = format(int(span['parent_id'] or 0), '016x')
-        for child in child_map.get(span_id, []):
-            print_span(child, level + 1)
-    
-    for root in root_spans:
-        print_span(root)
+def test_framework_hierarchy():
+    """
+    🚨 CRITICAL TEST: Verify span hierarchy is correct, not "all root spans"
+    """
+    print("🧠 Framework Instrumentation Test")
+    print("=" * 40)
 
-def test_framework():
-    collector = CollectingSpanExporter()
-    tracer_provider = TracerProvider()
-    tracer_provider.add_span_processor(SimpleSpanProcessor(collector))
-    
+    # Initialize OpenLIT - use venv: source venv/bin/activate
+    print("✅ Initializing OpenLIT...")
     openlit.init(detailed_tracing=True)
-    
-    # Test framework operations here
-    # ...
-    
-    print_span_hierarchy(collector.spans)
+
+    # Import and use framework
+    print("✅ Testing framework operations...")
+    from your_framework import YourClass
+
+    instance = YourClass()
+
+    # Test operations that should create proper hierarchy
+    result1 = instance.main_operation("test data", user_id="test_user")
+    print(f"✅ Main operation result: {result1}")
+
+    result2 = instance.secondary_operation("search query", user_id="test_user", limit=1)
+    print(f"✅ Secondary operation result: {len(result2) if result2 else 0} items")
+
+    print("\n🎯 EXPECTED HIERARCHY:")
+    print("🔸 ROOT: main_operation")
+    print("  ↳ internal_operation_1")
+    print("    ↳ openai_call (or similar)")
+    print("    ↳ database_operation")
+    print("🔸 ROOT: secondary_operation")  
+    print("  ↳ internal_operation_2")
+    print("    ↳ embedding_call")
+
+    print("\n⚠️  VERIFY: Check console output above for proper parent-child relationships")
+    print("❌ If you see 'all root spans', you have threading context propagation issues!")
+
+if __name__ == "__main__":
+    test_framework_hierarchy()
 ```
+
+**🔧 SPAN HIERARCHY DEBUGGING COMMANDS:**
+
+```bash
+# Run test.py and analyze hierarchy
+source venv/bin/activate  # MANDATORY first step
+python test.py > spans.json 2>&1
+
+# Parse and analyze hierarchy (create this script)
+python3 -c "
+import json
+# ... hierarchy parsing script from mem0 experience ...
+# Shows proper tree structure or identifies 'all root spans' issue
+"
+```
+
+**⚠️ HIERARCHY TESTING IS THE MOST IMPORTANT STEP**: 
+- If hierarchy is broken (all root spans), nothing else matters
+- This is the #1 failure mode in framework instrumentation  
+- Threading context propagation issues MUST be caught early
 
 ### Step 4.2: Implement Based on Integration Pattern
 
@@ -310,9 +522,10 @@ def _set_span_attributes(self, span, data):
 
 **Test Categories:**
 1. **Span Hierarchy Test** (most important)
-2. **Competitive Comparison Test**
-3. **Mock Framework Test** (when real framework unavailable)
-4. **Error Resilience Test**
+2. **Competitive Comparison Test** (CRITICAL)
+3. **Performance Benchmarking Test**
+4. **Mock Framework Test** (when real framework unavailable)
+5. **Error Resilience Test**
 
 **Span Hierarchy Validation:**
 ```python
@@ -351,18 +564,68 @@ def test_competitive_superiority():
     try:
         competitor1_spans = test_competitor_instrumentation("openinference")
         competitor2_spans = test_competitor_instrumentation("openllmetry")
+        competitor3_spans = test_competitor_instrumentation("agentops")
     except Exception as e:
         print(f"Competitor failed: {e}")
-        competitor1_spans = competitor2_spans = 0
+        competitor1_spans = competitor2_spans = competitor3_spans = 0
     
     # Validate OpenLIT superiority
     assert openlit_spans > 0, "OpenLIT must generate spans"
     print(f"OpenLIT: {openlit_spans} spans (with business intelligence)")
-    print(f"Competitor 1: {competitor1_spans} spans") 
-    print(f"Competitor 2: {competitor2_spans} spans")
+    print(f"OpenInference: {competitor1_spans} spans") 
+    print(f"OpenLLMetry: {competitor2_spans} spans")
+    print(f"AgentOps: {competitor3_spans} spans")
     
     # OpenLIT should provide comprehensive coverage
-    assert openlit_spans >= max(competitor1_spans, competitor2_spans)
+    assert openlit_spans >= max(competitor1_spans, competitor2_spans, competitor3_spans)
+```
+
+### Step 5.3: Performance Benchmarking
+
+**Critical Test - Performance vs Competitors:**
+```python
+def benchmark_instrumentation_performance():
+    """Compare instrumentation overhead across competitors."""
+    
+    import time
+    
+    # Test scenarios
+    test_cases = [
+        "single_agent_simple_task",
+        "multi_agent_conversation", 
+        "tool_heavy_workflow",
+        "high_frequency_requests"
+    ]
+    
+    competitors = ["openlit", "openinference", "openllmetry", "agentops"]
+    
+    results = {}
+    for competitor in competitors:
+        results[competitor] = {}
+        
+        for test_case in test_cases:
+            # Baseline without instrumentation
+            start = time.time()
+            run_test_case(test_case, instrumentation=None)
+            baseline = time.time() - start
+            
+            # With competitor instrumentation
+            start = time.time()
+            run_test_case(test_case, instrumentation=competitor)
+            instrumented = time.time() - start
+            
+            overhead = ((instrumented - baseline) / baseline) * 100
+            results[competitor][test_case] = {
+                "overhead_percent": overhead,
+                "baseline_ms": baseline * 1000,
+                "instrumented_ms": instrumented * 1000
+            }
+    
+    # Validate OpenLIT performance
+    openlit_avg_overhead = sum(results["openlit"][tc]["overhead_percent"] for tc in test_cases) / len(test_cases)
+    assert openlit_avg_overhead < 10, f"OpenLIT overhead too high: {openlit_avg_overhead:.2f}%"
+    
+    return results
 ```
 
 ### Step 5.3: Mock Testing When Framework Unavailable
@@ -386,7 +649,74 @@ def test_with_mocks():
 
 ## Phase 6: Optimization
 
-### Step 6.1: Performance Validation
+### Step 6.1: Context Caching for Performance
+
+**Implement context caching pattern (learned from Pydantic AI optimization):**
+
+```python
+class FrameworkInstrumentationContext:
+    """Context object to cache expensive extractions and reduce performance overhead."""
+    
+    def __init__(self, instance, args, kwargs, version, environment, application_name):
+        self.instance = instance
+        self.args = args
+        self.kwargs = kwargs
+        self.version = version
+        self.environment = environment
+        self.application_name = application_name
+        
+        # Cache expensive operations with lazy loading
+        self._agent_name = None
+        self._model_name = None
+        self._server_info = None
+        self._messages = None
+        self._tools = None
+        self._model_params = None
+        
+    @property
+    def agent_name(self) -> str:
+        """Get agent name with caching - avoids repeated extraction."""
+        if self._agent_name is None:
+            self._agent_name = getattr(self.instance, 'name', None) or "default_agent"
+        return self._agent_name
+    
+    @property
+    def model_name(self) -> str:
+        """Get model name with caching."""
+        if self._model_name is None:
+            if hasattr(self.instance, 'model') and hasattr(self.instance.model, 'model_name'):
+                self._model_name = str(self.instance.model.model_name)
+            else:
+                self._model_name = "unknown"
+        return self._model_name
+
+def set_span_attributes(span, operation_name: str, ctx: FrameworkInstrumentationContext, 
+                       lifecycle_phase: Optional[str] = None,
+                       additional_attrs: Optional[Dict[str, Any]] = None):
+    """Optimized attribute setting with context caching."""
+    
+    # Set core attributes using cached context
+    span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_name)
+    span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_FRAMEWORK)
+    span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, ctx.agent_name)
+    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, ctx.model_name)
+    
+    # Set environment attributes
+    span.set_attribute(DEPLOYMENT_ENVIRONMENT, ctx.environment)
+    span.set_attribute(SERVICE_NAME, ctx.application_name)
+    span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, ctx.version)
+    
+    # Set lifecycle phase if provided
+    if lifecycle_phase:
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE, lifecycle_phase)
+    
+    # Set additional attributes
+    if additional_attrs:
+        for key, value in additional_attrs.items():
+            span.set_attribute(key, value)
+```
+
+### Step 6.2: Performance Validation
 
 **Measure instrumentation overhead:**
 ```python
@@ -466,14 +796,92 @@ echo "Lines over 80 characters: $long_lines"
 
 ### Step 7.2: Comprehensive Pylint Error Handling
 
+**🚨 MANDATORY: 10.00/10 PYLINT SCORE REQUIRED**
+
 **Run Pylint Check with Project Configuration:**
 ```bash
-# Use the project's pylintrc configuration
+# ALWAYS use venv first, then run from SDK directory  
+source venv/bin/activate
 cd sdk/python
-pylint src/openlit/instrumentation/{framework}/ --rcfile=.pylintrc
+python -m pylint src/openlit/instrumentation/{framework}/ --rcfile=.pylintrc
+
+# TARGET SCORE: 10.00/10 (not 9.5, must be perfect)
+```
+
+**Run Script for Perfect 10.0/10:**
+```bash
+# Use the script pattern from mem0 success
+#!/bin/bash
+cd /Users/user/openlit  # Adjust path
+source venv/bin/activate
+export PYTHONPATH="/Users/user/openlit/sdk/python/src:$PYTHONPATH"
+cd sdk/python
+python -m pylint src/openlit/instrumentation/{framework}/ --rcfile=.pylintrc
 ```
 
 **Note**: The project's `.pylintrc` disables many common warnings like `broad-exception-caught`, `too-many-locals`, etc.
+
+### Step 7.2b: Pylint Optimization Patterns
+
+**Common High-Impact Fixes:**
+
+```python
+# 1. Lazy logging (prevents W1203: logging-fstring-interpolation)
+# ❌ BAD:
+logger.debug(f"Failed to extract messages: {e}")
+
+# ✅ GOOD:
+logger.debug("Failed to extract messages: %s", e)
+
+# 2. Remove unused imports and variables
+# ❌ BAD:
+import importlib.metadata
+from typing import Dict, Any, Optional, List, Union, Tuple
+
+def wrapper(wrapped, instance, args, kwargs):
+    method_name = wrapped.__name__  # Unused variable
+    return wrapped(*args, **kwargs)
+
+# ✅ GOOD:
+import json
+from typing import Dict, Any, Optional, List, Tuple
+
+def wrapper(wrapped, instance, args, kwargs):
+    return wrapped(*args, **kwargs)
+
+# 3. Fix exception handling
+# ❌ BAD:
+try:
+    # some code
+except Exception as e:  # Unused variable
+    pass
+
+# ✅ GOOD:
+try:
+    # some code
+except Exception:
+    pass
+
+# 4. Add class methods for R0903: Too few public methods
+# ❌ BAD:
+class CreateContext:
+    def __init__(self):
+        self.data = {}
+
+# ✅ GOOD:
+class CreateContext:
+    """Context for agent creation instrumentation."""
+    def __init__(self):
+        self.data = {}
+    
+    def get_context_info(self):
+        """Get context information."""
+        return self.data
+    
+    def has_data(self):
+        """Check if context has data."""
+        return bool(self.data)
+```
 
 ### Step 7.3: Configure Project Pylint Rules
 
@@ -986,18 +1394,28 @@ span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, response)
 ### Success Criteria
 
 **Instrumentation is complete when:**
-1. ✅ Generates more/better spans than competitors
-2. ✅ Follows `{operation_type} {operation_name}` naming
-3. ✅ Uses semantic conventions extensively
-4. ✅ Captures comprehensive business intelligence
-5. ✅ Maintains proper span hierarchy
-6. ✅ Performance overhead <10%
-7. ✅ Handles errors gracefully
-8. ✅ **Perfect 10.00/10 pylint score achieved**
+1. 🚨 **CRITICAL: Proper Span Hierarchy**: NO "all root spans" - proper parent-child relationships maintained
+2. 🚨 **CRITICAL: Threading Context Fixes**: Handles ThreadPoolExecutor and async context propagation  
+3. ✅ **Perfect Pylint Score**: Achieves exactly 10.00/10 (not 9.5, must be perfect)
+4. ✅ **Mandatory test.py**: Uses exactly "test.py" filename with venv testing
+5. ✅ **Competitive Analysis**: Studied OpenInference, OpenLLMetry, AgentOps, LangFuse
+6. ✅ **Target SDK Study**: Cloned and analyzed framework's internal structure
+7. ✅ **Semantic Conventions**: Uses SemanticConvention extensively (no hardcoded strings)
+8. ✅ **Superior Span Coverage**: Generates more/better spans than competitors
+9. ✅ **Naming Convention**: Follows `{operation_type} {operation_name}` format
+10. ✅ **4-File Structure**: Uses recommended Pattern 4 when needed for complex frameworks
+11. ✅ **Context Caching**: Implements performance optimization patterns with __slots__
+12. ✅ **Business Intelligence**: Captures comprehensive cost/token/performance data
+13. ✅ **Performance**: Overhead <10% with benchmarking vs competitors
+14. ✅ **Error Resilience**: Handles framework version differences gracefully
+
+**⚠️ PRIORITY ORDER**: Span hierarchy (#1) and threading fixes (#2) are MOST CRITICAL - everything else is secondary.
 
 **OpenLIT Competitive Advantages Delivered:**
-- 🎯 **Business Intelligence**: Cost tracking, token usage, performance metrics
-- 🔗 **Cross-System Integration**: Links to LLM provider spans
+- 🎯 **Superior Business Intelligence**: Detailed cost tracking, token usage, performance metrics
+- 🔗 **Cross-System Integration**: Links to LLM provider spans with proper hierarchy
 - 🎨 **Enhanced Observability**: MIME types, structured content capture
 - 🛡️ **Error Resilience**: Graceful degradation across framework versions
-- 📊 **Comprehensive Coverage**: More spans and attributes than competitors 
+- 📊 **Comprehensive Coverage**: More spans and attributes than all competitors
+- ⚡ **Performance Leadership**: Context caching and optimization patterns
+- 🏗️ **Flexible Architecture**: Adapts to different framework patterns (processor, callback, wrapper) 
