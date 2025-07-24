@@ -159,7 +159,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					variant="outline"
 					onClick={handleGoogleSignIn}
 					disabled={isGoogleLoading}
-					className="w-full bg-white dark:bg-white text-stone-900 dark:text-stone-900 border-stone-200 dark:border-stone-200 hover:bg-stone-50 dark:hover:bg-stone-50 rounded-full"
+					className="w-full bg-white dark:bg-white text-stone-900 dark:text-stone-900 border-stone-200 dark:border-stone-200 hover:bg-stone-50 dark:hover:bg-stone-50 rounded-full hover:bg-stone-50 dark:hover:bg-stone-50 dark:hover:text-stone-900 hover:text-stone-900"
 				>
 					{isGoogleLoading ? (
 						"Signing in..."
@@ -199,7 +199,7 @@ export function AuthForm({ type }: { type: "login" | "register" }) {
 					variant="outline"
 					onClick={handleGithubSignIn}
 					disabled={isGithubLoading}
-					className="w-full bg-white dark:bg-white text-stone-900 dark:text-stone-900 border-stone-200 dark:border-stone-200 hover:bg-stone-50 dark:hover:bg-stone-50 rounded-full"
+					className="w-full bg-white dark:bg-white text-stone-900 dark:text-stone-900 dark:hover:text-stone-900 border-stone-200 dark:border-stone-200 hover:bg-stone-50 dark:hover:bg-stone-50 rounded-full hover:bg-stone-50 dark:hover:bg-stone-50 hover:dark:bg-stone-50 hover:dark:text-stone-900 hover:text-stone-900"
 				>
 					{isGithubLoading ? (
 						"Signing in..."
