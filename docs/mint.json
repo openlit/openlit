@@ -54,7 +54,8 @@
         "latest/quickstart-guard",
         "latest/installation",
         "latest/sdk-configuration",
-        "latest/ui-configuration"
+        "latest/ui-configuration",
+        "latest/oauth-authentication"
       ],
       "version": "latest"
     },
