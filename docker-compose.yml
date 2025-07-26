@@ -19,7 +19,7 @@ services:
     environment:
       TELEMETRY_ENABLED: "true"
       INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: 8123
+      INIT_DB_PORT: 9000
       INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
       INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
       INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
@@ -28,31 +28,37 @@ services:
       DOCKER_PORT: ${PORT:-3000}
     ports:
       - "${PORT:-3000}:${DOCKER_PORT:-3000}"
+      - "4317:4317"  # OTLP gRPC receiver
+      - "4318:4318"  # OTLP HTTP receiver
+      - 13133:13133 # health_check extension
+      - 55679:55679 # zpages extension
     depends_on:
       - clickhouse
     volumes:
       - openlit-data:/app/client/data
+      - ../assets/otel-collector-config.yaml:/etc/otel/config.yaml
+      - ../assets/supervisor.yaml:/etc/otel/supervisor.yaml
     restart: always
 
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.94.0
-    container_name: otel-collector
-    environment:
-      INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: 9000
-      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
-      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
-      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
-    ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "8888:8888"
-      - "55679:55679"
-    depends_on:
-      - clickhouse
-    volumes:
-      - ./assets/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
-    restart: always
+  # otel-collector:
+  #   image: otel/opentelemetry-collector-contrib:0.94.0
+  #   container_name: otel-collector
+  #   environment:
+  #     INIT_DB_HOST: clickhouse
+  #     INIT_DB_PORT: 9000
+  #     INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
+  #     INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
+  #     INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+  #   ports:
+  #     - "4317:4317"
+  #     - "4318:4318"
+  #     - "8888:8888"
+  #     - "55679:55679"
+  #   depends_on:
+  #     - clickhouse
+  #   volumes:
+  #     - ./assets/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+  #   restart: always
 
 volumes:
   clickhouse-data:

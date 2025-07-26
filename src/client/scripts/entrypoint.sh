@@ -3,6 +3,23 @@ set -e
 
 # Generate and set NextAuth.js secret as an environment variable
 export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+# OPAMP
+export OPAMP_PORT=${OPENLIT_OPAMP_PORT:-4320}
+export OPAMP_SERVER_URL="http://127.0.0.1:${OPAMP_PORT}"
+
+# Simulate Docker Service DNS
+echo "127.0.0.1      ch-server" >> /etc/hosts
+echo "127.0.0.1      db" >> /etc/hosts
+
+echo ""
+echo "Send OpenTelemetry data via:
+  http/protobuf: OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+  gRPC: OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+"
+
+# Start Otel Collector directly
+/otelcontribcol --config /etc/otel/config.yaml > /var/log/otel-collector.log 2>&1 &
+
 
 # Set NextAuth.js environment variables
 echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment

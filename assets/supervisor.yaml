@@ -1,0 +1,23 @@
+# https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/cmd/opampsupervisor/specification/README.md#supervisor-configuration
+server:
+  endpoint: ${OPAMP_SERVER_URL}/v1/opamp
+
+capabilities:
+  reports_effective_config: true
+  reports_own_metrics: true
+  reports_own_logs: true
+  reports_own_traces: true
+  reports_health: true
+  accepts_remote_config: true
+  reports_remote_config: true
+
+agent:
+  executable: /otelcontribcol
+  config_files:
+    - /etc/otel/config.yaml
+  args:
+    - ${env:OTEL_AGENT_FEATURE_GATE_ARG}
+  passthrough_logs: ${env:OTEL_SUPERVISOR_PASSTHROUGH_LOGS}
+
+storage:
+  directory: /etc/otel/supervisor-data/

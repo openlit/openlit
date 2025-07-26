@@ -1,3 +1,10 @@
+ARG OTEL_COLLECTOR_VERSION=0.129.1
+ARG OTEL_COLLECTOR_OPAMPSUPERVISOR_VERSION=0.128.0
+# base #############################################################################################
+# == Otel Collector Image ==
+FROM otel/opentelemetry-collector-contrib:${OTEL_COLLECTOR_VERSION} AS otel_collector_base
+FROM otel/opentelemetry-collector-opampsupervisor:${OTEL_COLLECTOR_OPAMPSUPERVISOR_VERSION} AS otel_collector_opampsupervisor_base
+
 # Use an alpine as a base image
 FROM alpine AS builder
 
@@ -25,12 +32,21 @@ WORKDIR /app/client
 # Copy package.json and package-lock.json to the working directory & the rest of the application code
 COPY . .
 
+# Copying otel collector config
+# COPY ../assets/otel-collector-config.yaml /etc/otel/config.yaml
+# COPY ../assets/supervisor.yaml /etc/otel/supervisor.yaml
+
 # Install dependencies & Build the Next.js application
 RUN npm install && npm run build
 
 
 # Use a smaller image for production
 FROM alpine
+
+
+# Copy from otel collector bases
+COPY --from=otel_collector_base --chmod=755 /otelcol-contrib /otelcontribcol
+COPY --from=otel_collector_opampsupervisor_base --chmod=755 /usr/local/bin/opampsupervisor /usr/local/bin/opampsupervisor
 
 # Installing extra packages
 RUN apk add nodejs bash openssl python3
@@ -55,6 +71,13 @@ COPY --from=builder /app/client/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/client/node_modules/.bin ./node_modules/.bin
 COPY --from=builder /app/client/node_modules/prisma ./node_modules/prisma
 
+# Set up Otel Collector
+# COPY --from=builder /etc/otel/config.yaml /etc/otel/config.yaml
+# COPY --from=builder /etc/otel/supervisor.yaml  /etc/otel/supervisor.yaml
+
+RUN mkdir -p /etc/otel/supervisor-data && \
+    rm -rf /var/cache/apk/*
+
 # Execute entrypoint script to generate NextAuth.js secret and run commands
 RUN chmod +x ./scripts/entrypoint.sh
 
@@ -62,7 +85,7 @@ RUN chmod +x ./scripts/entrypoint.sh
 # RUN npm install -g prisma@5.15.0
 
 # Expose the port that Next.js will run on
-EXPOSE ${DOCKER_PORT:-3000}
+EXPOSE 4317 4318 13133 55679 ${DOCKER_PORT:-3000}
 
 # Run the entrypoint script
 CMD ["/app/client/scripts/entrypoint.sh"]

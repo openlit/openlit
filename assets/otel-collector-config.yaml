@@ -14,7 +14,10 @@ processors:
     spike_limit_mib: 512
     check_interval: 5s
 extensions:
-  zpages: {}
+  zpages:
+    endpoint: 0.0.0.0:55679
+  health_check:
+    endpoint: 0.0.0.0:13133
 exporters:
   clickhouse:
     endpoint: tcp://${env:INIT_DB_HOST}:${env:INIT_DB_PORT}?dial_timeout=10s
@@ -32,6 +35,7 @@ exporters:
       max_interval: 30s
       max_elapsed_time: 300s
 service:
+  extensions: [zpages, health_check]
   pipelines:
     logs:
       receivers: [ otlp ]
