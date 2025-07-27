@@ -3,6 +3,7 @@ import { defaultResource } from '@opentelemetry/resources';
 import SemanticConvention from '../../semantic-convention';
 import Metrics from '../../otel/metrics';
 import BaseWrapper from '../base-wrapper';
+import Openlit from '../../index';
 
 describe('BaseWrapper.setBaseSpanAttributes', () => {
   interface TestSpan extends Partial<Span> {
@@ -14,7 +15,13 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let recordSpy: jest.SpyInstance;
 
+
   beforeEach(() => {
+    Openlit.init({
+      applicationName: 'TestApp',
+      environment: 'TestEnv',
+      otlpEndpoint: 'http://localhost:4318',
+    });
     Metrics.setup({ resource: defaultResource(), otlpEndpoint: 'http://localhost:4318' }); // Ensure metrics are initialized with a valid endpoint
     addSpy = jest.spyOn(Metrics.genaiRequests!, 'add').mockImplementation(() => {});
     jest.spyOn(Metrics.genaiPromptTokens!, 'add').mockImplementation(() => {});

@@ -125,6 +125,20 @@ export default class Metrics {
     });
   }
 
+  static handleExporterFallback(err: Error, allowConsoleExporterFallback: boolean): ConsoleMetricExporter {
+    if (allowConsoleExporterFallback) {
+      console.warn(
+        '[Metrics] Falling back to ConsoleMetricExporter. WARNING: ConsoleMetricExporter may expose sensitive data in logs. Do NOT use in production!',
+        err
+      );
+      return new ConsoleMetricExporter();
+    } else {
+      throw new Error(
+        '[Metrics] Failed to initialize OTLPMetricExporter and fallback to ConsoleMetricExporter is disabled. Set allowConsoleExporterFallback=true to enable fallback (not recommended for production).'
+      );
+    }
+  }
+
   static setup(options: SetupMetricsOptions) {
     if (options.meter) {
       this.meter = options.meter;
@@ -140,8 +154,7 @@ export default class Metrics {
           headers: options.otlpHeaders as Record<string, string> | undefined,
         });
       } catch (err) {
-        console.warn('[Metrics] Falling back to ConsoleMetricExporter:', err);
-        metricExporter = new ConsoleMetricExporter();
+        metricExporter = this.handleExporterFallback(err as Error, options.allowConsoleExporterFallback ?? false);
       }
       const metricReader = new PeriodicExportingMetricReader({
         exportIntervalMillis: options.exportIntervalMillis || 60000,

@@ -18,8 +18,15 @@ export default class BaseWrapper {
     span: Span,
     { genAIEndpoint, model, user, cost, aiSystem }: BaseSpanAttributes
   ) {
-    const applicationName = OpenlitConfig.applicationName || "default";
-    const environment = OpenlitConfig.environment || "default";
+    const applicationName = OpenlitConfig.applicationName;
+    const environment = OpenlitConfig.environment;
+    
+    if (!applicationName) {
+      throw new Error("[Openlit] OpenlitConfig.applicationName is not set. Please check your configuration.");
+    }
+    if (!environment) {
+      throw new Error("[Openlit] OpenlitConfig.environment is not set. Please check your configuration.");
+    }
 
     span.setAttributes({
       [TELEMETRY_SDK_NAME]: SDK_NAME,

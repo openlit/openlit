@@ -239,10 +239,6 @@ export default class CohereWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
 
-    console.log('Debug: setAttribute called with:', SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
-    console.log('Debug: span object in _chatCommonSetter:', span);
-    console.log('Debug: span in _chatCommonSetter:', span);
-
     if (traceContent) {
       span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, message);
     }

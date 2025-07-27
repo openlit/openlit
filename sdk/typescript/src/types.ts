@@ -53,6 +53,7 @@ export type MeterType = ReturnType<typeof metrics.getMeter>;
 export type SetupMetricsOptions = SetupTracerOptions & {
   meter?: MeterType;
   exportIntervalMillis?: number;
+  allowConsoleExporterFallback?: boolean;
 };
 
 export interface BaseOpenlitOptions {

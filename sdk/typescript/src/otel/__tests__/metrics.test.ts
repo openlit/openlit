@@ -1,6 +1,7 @@
 import Metrics from '../metrics';
 import SemanticConvention from '../../semantic-convention';
 import { defaultResource } from '@opentelemetry/resources';
+import { ConsoleMetricExporter } from '@opentelemetry/sdk-metrics';
 
 describe('Metrics creation', () => {
   beforeEach(() => {
@@ -35,5 +36,18 @@ describe('Metrics creation', () => {
     expect(Metrics.genaiCost).toBeDefined();
     expect(typeof Metrics.genaiCost.record).toBe('function');
     expect(() => Metrics.genaiCost.record(0.99, { [SemanticConvention.GEN_AI_SYSTEM]: 'openai' })).not.toThrow();
+  });
+
+  it('should throw an error when allowConsoleExporterFallback is not set and fallback is required', () => {
+    expect(() => {
+      Metrics.handleExporterFallback(new Error('Simulated OTLPMetricExporter failure'), false);
+    }).toThrow('[Metrics] Failed to initialize OTLPMetricExporter and fallback to ConsoleMetricExporter is disabled. Set allowConsoleExporterFallback=true to enable fallback (not recommended for production).');
+  });
+
+  it('should use ConsoleMetricExporter when allowConsoleExporterFallback is set to true', () => {
+    expect(() => {
+      const exporter = Metrics.handleExporterFallback(new Error('Simulated OTLPMetricExporter failure'), true);
+      expect(exporter).toBeInstanceOf(ConsoleMetricExporter);
+    }).not.toThrow();
   });
 });
