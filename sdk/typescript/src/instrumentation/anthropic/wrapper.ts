@@ -71,7 +71,6 @@ export default class AnthropicWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
-      console.log("recording metrics with params", span);
       BaseWrapper.recordMetrics(span, metricParams);
     }
   }

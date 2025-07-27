@@ -115,7 +115,6 @@ export default class OllamaWrapper extends BaseWrapper {
         },
       };
       for await (const chunk of response) {
-        console.log(chunk);
         switch (chunk.type) {
           case 'content_block_delta':
             result.content[0].text += chunk.delta?.text ?? '';
