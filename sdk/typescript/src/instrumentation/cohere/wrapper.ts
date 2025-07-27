@@ -146,7 +146,6 @@ export default class CohereWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
-      // Record metrics after span has ended if parameters are available
       if (metricParams) {
         BaseWrapper.recordMetrics(span, metricParams);
       }

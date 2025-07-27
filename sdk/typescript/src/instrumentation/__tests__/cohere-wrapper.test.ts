@@ -122,5 +122,27 @@ describe('CohereWrapper', () => {
         aiSystem: 'cohere',
       });
     });
+
+    describe('_chatCommonSetter error handling', () => {
+      it('should not call recordMetrics and handle the error properly', async () => {
+        const mockArgs = [{ message: 'test message', max_tokens: 100, temperature: 0.7 }];
+        const mockGenAIEndpoint = 'cohere.endpoint';
+        const mockError = new Error('Test error');
+
+        jest.spyOn(CohereWrapper, '_chatCommonSetter').mockRejectedValue(mockError);
+
+        await expect(
+          CohereWrapper._chatCommonSetter({
+            args: mockArgs,
+            genAIEndpoint: mockGenAIEndpoint,
+            result: {},
+            span,
+            stream: false,
+          })
+        ).rejects.toThrow('Test error');
+
+        expect(BaseWrapper.recordMetrics).not.toHaveBeenCalled();
+      });
+    });
   });
 });
