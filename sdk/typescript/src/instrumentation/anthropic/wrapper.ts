@@ -2,15 +2,7 @@ import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper from '../base-wrapper';
-
-type BaseSpanAttributes = {
-  genAIEndpoint: string;
-  model: string;
-  user: string;
-  cost: number;
-  aiSystem: string;
-};
+import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
 export default class AnthropicWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC;
@@ -41,7 +33,7 @@ export default class AnthropicWrapper extends BaseWrapper {
             return AnthropicWrapper._messageCreate({ args, genAIEndpoint, response, span });
           })
           .catch((e: any) => {
-            OpenLitHelper.handleException(span, e as Error);
+            OpenLitHelper.handleException(span, e);
             span.end();
             throw e;
           });
@@ -55,26 +47,32 @@ export default class AnthropicWrapper extends BaseWrapper {
     response,
     span,
   }: {
-    args: Record<string, unknown>[];
+    args: any[];
     genAIEndpoint: string;
-    response: Record<string, unknown>;
+    response: any;
     span: Span;
   }) {
+    let metricParams: BaseSpanAttributes = {
+      genAIEndpoint,
+      model: '',
+      user: '',
+      cost: 0,
+      aiSystem: AnthropicWrapper.aiSystem,
+    };
     try {
-      const metricParams = await AnthropicWrapper._messageCreateCommonSetter({
+      metricParams = await AnthropicWrapper._messageCreateCommonSetter({
         args,
         genAIEndpoint,
         result: response,
         span,
       });
-
-      BaseWrapper.recordMetrics(span, metricParams);
-
       return response;
-    } catch (e: unknown) {
-      OpenLitHelper.handleException(span, e as Error);
+    } catch (e: any) {
+      OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      console.log("recording metrics with params", span);
+      BaseWrapper.recordMetrics(span, metricParams);
     }
   }
 
@@ -166,27 +164,108 @@ export default class AnthropicWrapper extends BaseWrapper {
     genAIEndpoint: string;
     result: any;
     span: Span;
-  }): Promise<BaseSpanAttributes> {
+  }) {
+    const traceContent = OpenlitConfig.traceContent;
+    const {
+      messages,
+      max_tokens = null,
+      seed = null,
+      temperature = 1,
+      top_p,
+      top_k,
+      user,
+      stream = false,
+      stop_reason,
+    } = args[0];
+
+    // Format 'messages' into a single string
+    const messagePrompt = messages || '';
+    const formattedMessages = [];
+
+    for (const message of messagePrompt) {
+      const role = message.role;
+      const content = message.content;
+
+      if (Array.isArray(content)) {
+        const contentStr = content
+          .map((item) => {
+            if ('type' in item) {
+              return `${item.type}: ${item.text ? item.text : item.image_url}`;
+            } else {
+              return `text: ${item.text}`;
+            }
+          })
+          .join(', ');
+        formattedMessages.push(`${role}: ${contentStr}`);
+      } else {
+        formattedMessages.push(`${role}: ${content}`);
+      }
+    }
+
+    const prompt = formattedMessages.join('\n');
+    span.setAttribute(
+      SemanticConvention.GEN_AI_OPERATION,
+      SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
+    );
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
+
+    const model = result.model || 'claude-3-sonnet-20240229';
+
     const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
 
     // Calculate cost of the operation
     const cost = OpenLitHelper.getChatModelCost(
-      result.model,
+      model,
       pricingInfo,
       result.usage.input_tokens,
       result.usage.output_tokens
     );
 
-    const attributes = {
+    AnthropicWrapper.setBaseSpanAttributes(span, {
       genAIEndpoint,
-      model: result.model,
-      user: args[0]?.user || 'unknown',
+      model,
+      user,
+      cost,
+      aiSystem: AnthropicWrapper.aiSystem,
+    });
+
+    // Request Params attributes : Start
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_K, top_k);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
+
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, stop_reason);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
+    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
+    if (traceContent) {
+      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+    }
+    // Request Params attributes : End
+
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, result.usage.input_tokens);
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, result.usage.output_tokens);
+    span.setAttribute(
+      SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
+      result.usage.input_tokens + result.usage.output_tokens
+    );
+
+    if (result.stop_reason) {
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, result.stop_reason);
+    }
+
+    if (traceContent) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+        result.content?.[0]?.text || ''
+      );
+    }
+    return {
+      genAIEndpoint,
+      model,
+      user,
       cost,
       aiSystem: AnthropicWrapper.aiSystem,
     };
-
-    AnthropicWrapper.setBaseSpanAttributes(span, attributes);
-
-    return attributes;
   }
 }

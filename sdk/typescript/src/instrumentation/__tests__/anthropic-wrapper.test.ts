@@ -28,12 +28,16 @@ describe('AnthropicWrapper', () => {
       const mockArgs = [{ message: 'test message' }];
       const mockResponse = { response_id: '123', meta: { billedUnits: { inputTokens: 10, outputTokens: 20 } } };
 
-      jest.spyOn(AnthropicWrapper, '_messageCreateCommonSetter').mockResolvedValue({
-        genAIEndpoint: 'anthropic.endpoint',
-        model: 'test-model',
-        user: 'test-user',
-        cost: 0.5,
-        aiSystem: 'anthropic',
+      jest.spyOn(BaseWrapper, 'recordMetrics').mockImplementation(() => {});
+
+      jest.spyOn(AnthropicWrapper, '_messageCreateCommonSetter').mockImplementation(async () => {
+        return {
+          genAIEndpoint: 'anthropic.endpoint',
+          model: 'test-model',
+          user: 'test-user',
+          cost: 0.5,
+          aiSystem: 'anthropic',
+        };
       });
 
       await AnthropicWrapper._messageCreate({
@@ -44,11 +48,11 @@ describe('AnthropicWrapper', () => {
       });
 
       expect(BaseWrapper.recordMetrics).toHaveBeenCalledWith(span, {
-        genAIEndpoint: 'anthropic.endpoint',
         model: 'test-model',
         user: 'test-user',
         cost: 0.5,
         aiSystem: 'anthropic',
+        genAIEndpoint: 'anthropic.endpoint',
       });
     });
   });

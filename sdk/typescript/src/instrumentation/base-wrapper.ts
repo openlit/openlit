@@ -5,7 +5,7 @@ import SemanticConvention from '../semantic-convention';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import Metrics from '../otel/metrics';
 
-type BaseSpanAttributes = {
+export type BaseSpanAttributes = {
   genAIEndpoint: string;
   model: string;
   user?: unknown;
