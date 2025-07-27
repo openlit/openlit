@@ -2,7 +2,7 @@ import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper from '../base-wrapper';
+import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
 class OpenAIWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_OPENAI;
@@ -229,7 +229,10 @@ class OpenAIWrapper extends BaseWrapper {
     }
     // Request Params attributes : End
 
-    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
+    span.setAttribute(
+      SemanticConvention.GEN_AI_OPERATION,
+      SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
+    );
 
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
@@ -287,7 +290,6 @@ class OpenAIWrapper extends BaseWrapper {
       }
     }
 
-    // Return metric parameters instead of recording metrics directly
     return {
       genAIEndpoint,
       model,
@@ -305,7 +307,13 @@ class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
-          let metricParams;
+          let metricParams: BaseSpanAttributes = {
+            genAIEndpoint,
+            model: '',
+            user: '',
+            cost: 0,
+            aiSystem: OpenAIWrapper.aiSystem,
+          };
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -333,14 +341,13 @@ class OpenAIWrapper extends BaseWrapper {
             });
 
             // Request Params attributes : Start
-
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, encoding_format);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION, dimensions);
             if (traceContent) {
               span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, input);
             }
-            // Request Params attributes : End
 
+            // Request Params attributes : End
             span.setAttribute(
               SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
               response.usage.prompt_tokens
@@ -349,8 +356,7 @@ class OpenAIWrapper extends BaseWrapper {
               SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
               response.usage.total_tokens
             );
-            
-            // Store metric parameters for use after span ends
+
             metricParams = {
               genAIEndpoint,
               model,
@@ -364,10 +370,7 @@ class OpenAIWrapper extends BaseWrapper {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
-            // Record metrics after span has ended if parameters are available
-            if (metricParams) {
-              BaseWrapper.recordMetrics(span, metricParams);
-            }
+            BaseWrapper.recordMetrics(span, metricParams);
           }
         });
       };
@@ -476,7 +479,10 @@ class OpenAIWrapper extends BaseWrapper {
               user,
             } = args[0];
 
-            span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE);
+            span.setAttribute(
+              SemanticConvention.GEN_AI_OPERATION,
+              SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE
+            );
 
             const model = response.model || 'dall-e-2';
 
@@ -565,7 +571,10 @@ class OpenAIWrapper extends BaseWrapper {
               user,
             } = args[0];
 
-            span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE);
+            span.setAttribute(
+              SemanticConvention.GEN_AI_OPERATION,
+              SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE
+            );
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.created);
 
             const model = response.model || 'dall-e-2';
@@ -647,7 +656,10 @@ class OpenAIWrapper extends BaseWrapper {
 
             const { input, user, voice, response_format = 'mp3', speed = 1 } = args[0];
 
-            span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO);
+            span.setAttribute(
+              SemanticConvention.GEN_AI_OPERATION,
+              SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO
+            );
 
             const model = response.model || 'tts-1';
 
