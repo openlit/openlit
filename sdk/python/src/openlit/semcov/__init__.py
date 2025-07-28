@@ -140,7 +140,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_AG2 = "ag2"
     GEN_AI_SYSTEM_MULTION = "multion"
     GEN_AI_SYSTEM_DYNAMIQ = "dynamiq"
-    GEN_AI_SYSTEM_PHIDATA = "phidata"
+    GEN_AI_SYSTEM_AGNO = "agno"
     GEN_AI_SYSTEM_JULEP = "julep"
     GEN_AI_SYSTEM_AI21 = "ai21"
     GEN_AI_SYSTEM_CONTROLFLOW = "controlflow"
@@ -595,3 +595,82 @@ class SemanticConvention:
     # Streaming attributes (general, reusable)
     GEN_AI_STREAMING_CHUNK_COUNT = "gen_ai.streaming.chunk_count"
     GEN_AI_STREAMING_RESPONSE_COUNT = "gen_ai.streaming.response_count"
+
+    # Agent execution and performance attributes (only truly new ones)
+    GEN_AI_AGENT_INTRODUCTION = "gen_ai.agent.introduction"
+    GEN_AI_AGENT_MEMORY_ENABLED = "gen_ai.agent.memory_enabled"
+    GEN_AI_AGENT_EXECUTION_TIME = "gen_ai.agent.execution_time"
+    GEN_AI_AGENT_SHOW_REASONING = "gen_ai.agent.show_reasoning"
+    GEN_AI_AGENT_STREAM_INTERMEDIATE_STEPS = "gen_ai.agent.stream_intermediate_steps"
+    # Reuse existing: GEN_AI_REQUEST_USER, GEN_AI_SESSION_ID, GEN_AI_REQUEST_IS_STREAM
+
+    # Tool execution attributes (only truly new ones)
+    GEN_AI_TOOL_DESCRIPTION = "gen_ai.tool.description"
+    GEN_AI_TOOL_PARAMETERS = "gen_ai.tool.parameters"
+    GEN_AI_TOOL_INPUT_KWARGS = "gen_ai.tool.input_kwargs"
+    GEN_AI_TOOL_OUTPUT_TYPE = "gen_ai.tool.output_type"
+    GEN_AI_TOOL_ERROR = "gen_ai.tool.error"
+
+    # Toolkit attributes (new)
+    GEN_AI_TOOLKIT_NAME = "gen_ai.toolkit.name"
+    GEN_AI_TOOLKIT_FUNCTIONS = "gen_ai.toolkit.functions"
+    GEN_AI_TOOLKIT_FUNCTION_COUNT = "gen_ai.toolkit.function_count"
+    GEN_AI_TOOLKIT_EXECUTION_DURATION = "gen_ai.toolkit.execution.duration"
+
+    # Memory operation attributes (only truly new ones)
+    GEN_AI_MEMORY_OPERATION = "gen_ai.memory.operation"
+    GEN_AI_MEMORY_SESSION_ID = "gen_ai.memory.session_id"
+    GEN_AI_MEMORY_USER_ID = "gen_ai.memory.user_id"
+    GEN_AI_MEMORY_RESULTS_COUNT = "gen_ai.memory.results_count"
+    GEN_AI_MEMORY_DB_TYPE = "gen_ai.memory.db_type"
+    GEN_AI_MEMORY_TABLE_NAME = "gen_ai.memory.table_name"
+    GEN_AI_MEMORY_INPUT = "gen_ai.memory.input"
+    GEN_AI_MEMORY_AGENT_ID = "gen_ai.memory.agent_id"
+    GEN_AI_MEMORY_OPERATION_DURATION = "gen_ai.memory.operation.duration"
+    GEN_AI_MEMORY_OPERATION_SUCCESS = "gen_ai.memory.operation.success"
+    GEN_AI_MEMORY_RESULT_ID = "gen_ai.memory.result_id"
+    GEN_AI_MEMORY_SEARCH_RESULTS_COUNT = "gen_ai.memory.search.results_count"
+    GEN_AI_MEMORY_SEARCH_TOP_SCORES = "gen_ai.memory.search.top_scores"
+    # Reuse existing: GEN_AI_MEMORY_METADATA, GEN_AI_MEMORY_SEARCH_QUERY, GEN_AI_MEMORY_SEARCH_LIMIT
+
+    # VectorDB operation attributes (only truly new ones)
+    GEN_AI_VECTORDB_NAME = "gen_ai.vectordb.name"
+    GEN_AI_VECTORDB_DIMENSIONS = "gen_ai.vectordb.dimensions"
+    GEN_AI_VECTORDB_SEARCH_QUERY = "gen_ai.vectordb.search.query"
+    GEN_AI_VECTORDB_SEARCH_VECTOR_SIZE = "gen_ai.vectordb.search.vector_size"
+    GEN_AI_VECTORDB_SEARCH_LIMIT = "gen_ai.vectordb.search.limit"
+    GEN_AI_VECTORDB_SEARCH_RESULTS_COUNT = "gen_ai.vectordb.search.results_count"
+    GEN_AI_VECTORDB_SEARCH_TOP_SCORES = "gen_ai.vectordb.search.top_scores"
+    GEN_AI_VECTORDB_OPERATION_DURATION = "gen_ai.vectordb.operation.duration"
+    GEN_AI_VECTORDB_OPERATION_SUCCESS = "gen_ai.vectordb.operation.success"
+    GEN_AI_VECTORDB_UPSERT_DOCUMENT_COUNT = "gen_ai.vectordb.upsert.document_count"
+
+    # Knowledge base operation attributes (only truly new ones)
+    GEN_AI_KNOWLEDGE_SEARCH_QUERY = "gen_ai.knowledge.search.query"
+    GEN_AI_KNOWLEDGE_SEARCH_LIMIT = "gen_ai.knowledge.search.limit"
+    GEN_AI_KNOWLEDGE_SEARCH_RESULTS_COUNT = "gen_ai.knowledge.search.results_count"
+    GEN_AI_KNOWLEDGE_ADD_DOCUMENT_COUNT = "gen_ai.knowledge.add.document_count"
+    GEN_AI_KNOWLEDGE_ADD_CONTENT_LENGTH = "gen_ai.knowledge.add.content_length"
+    GEN_AI_KNOWLEDGE_OPERATION_DURATION = "gen_ai.knowledge.operation.duration"
+    GEN_AI_KNOWLEDGE_OPERATION_SUCCESS = "gen_ai.knowledge.operation.success"
+
+    # Workflow operation attributes (additional ones not already covered above)
+    GEN_AI_WORKFLOW_NAME = "gen_ai.workflow.name"
+    GEN_AI_WORKFLOW_DESCRIPTION = "gen_ai.workflow.description"
+    GEN_AI_WORKFLOW_EXECUTION_DURATION = "gen_ai.workflow.execution.duration"
+    GEN_AI_WORKFLOW_OPERATION_SUCCESS = "gen_ai.workflow.operation.success"
+
+    # Team operation attributes (additional ones not already covered above)
+    GEN_AI_TEAM_NAME = "gen_ai.team.name"
+    GEN_AI_TEAM_AGENTS = "gen_ai.team.agents"
+    GEN_AI_TEAM_AGENT_COUNT = "gen_ai.team.agent_count"
+    GEN_AI_TEAM_EXECUTION_DURATION = "gen_ai.team.execution.duration"
+    GEN_AI_TEAM_OPERATION_SUCCESS = "gen_ai.team.operation.success"
+
+    # Reasoning operation attributes (additional ones not already covered above)
+    GEN_AI_REASONING_MIN_STEPS = "gen_ai.reasoning.min_steps"
+    GEN_AI_REASONING_MAX_STEPS = "gen_ai.reasoning.max_steps"
+    GEN_AI_REASONING_MODEL = "gen_ai.reasoning.model"
+    GEN_AI_REASONING_EXECUTION_DURATION = "gen_ai.reasoning.execution_duration"
+
+    # Note: Most workflow and team attributes already exist above, only add truly new ones if needed
