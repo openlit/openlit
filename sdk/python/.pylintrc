@@ -33,4 +33,6 @@ disable=
     no-member,
     no-else-return,
     import-outside-toplevel,
-    too-many-return-statements
+    too-many-return-statements,
+    too-many-function-args
+    
