@@ -610,7 +610,6 @@ class SemanticConvention:
     GEN_AI_TOOL_INPUT_KWARGS = "gen_ai.tool.input_kwargs"
     GEN_AI_TOOL_OUTPUT_TYPE = "gen_ai.tool.output_type"
     GEN_AI_TOOL_ERROR = "gen_ai.tool.error"
-    # Reuse existing: GEN_AI_TOOL_NAME, GEN_AI_TOOL_INPUT, GEN_AI_TOOL_OUTPUT, GEN_AI_TOOL_EXECUTION_DURATION, GEN_AI_TOOL_EXECUTION_SUCCESS
 
     # Toolkit attributes (new)
     GEN_AI_TOOLKIT_NAME = "gen_ai.toolkit.name"
