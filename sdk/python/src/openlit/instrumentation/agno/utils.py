@@ -1,11 +1,9 @@
-# pylint: disable=broad-exception-caught, too-many-branches, duplicate-code
 """
 Utility functions for Agno instrumentation following OpenLIT patterns.
 """
 
 import logging
 import time
-from typing import Dict, Any
 from openlit.__helpers import (
     common_span_attributes,
 )
@@ -16,6 +14,32 @@ logger = logging.getLogger(__name__)
 
 
 # Simple utility functions following OpenLIT patterns
+
+
+class _ScopeWrapper:
+    """
+    A scope wrapper class for common_span_attributes compatibility.
+
+    This class wraps the necessary parameters required by the common_span_attributes
+    function to maintain consistency with OpenLIT instrumentation patterns.
+    """
+
+    def __init__(self, span, instance, kwargs, args, start_time):
+        """Initialize the scope wrapper with required parameters."""
+        self._span = span
+        self._instance = instance
+        self._kwargs = kwargs
+        self._args = args
+        self._start_time = start_time
+        self._end_time = time.time()
+
+    def get_span(self):
+        """Get the associated span."""
+        return self._span
+
+    def get_instance(self):
+        """Get the instrumented instance."""
+        return self._instance
 
 
 def process_agent_request(
@@ -57,17 +81,8 @@ def process_agent_request(
         elif hasattr(model, "name"):
             request_model = str(model.name)
 
-    # Create scope-like object for common_span_attributes compatibility
-    class Scope:
-        def __init__(self):
-            self._span = span
-            self._instance = instance
-            self._kwargs = kwargs
-            self._args = args
-            self._start_time = start_time
-            self._end_time = time.time()
-
-    scope = Scope()
+    # Create scope object for common_span_attributes compatibility
+    scope = _ScopeWrapper(span, instance, kwargs, args, start_time)
 
     # Use common span attributes helper from __helpers
     common_span_attributes(
@@ -207,17 +222,8 @@ def process_tool_request(
 
     execution_time = time.time() - start_time
 
-    # Create scope-like object for common_span_attributes compatibility
-    class Scope:
-        def __init__(self):
-            self._span = span
-            self._instance = instance
-            self._kwargs = kwargs
-            self._args = args
-            self._start_time = start_time
-            self._end_time = time.time()
-
-    scope = Scope()
+    # Create scope object for common_span_attributes compatibility
+    scope = _ScopeWrapper(span, instance, kwargs, args, start_time)
 
     # Get model info from instance if available
     request_model = getattr(instance, "model", None)
@@ -310,17 +316,8 @@ def process_memory_request(
 
     execution_time = time.time() - start_time
 
-    # Create scope-like object for common_span_attributes compatibility
-    class Scope:
-        def __init__(self):
-            self._span = span
-            self._instance = instance
-            self._kwargs = kwargs
-            self._args = args
-            self._start_time = start_time
-            self._end_time = time.time()
-
-    scope = Scope()
+    # Create scope object for common_span_attributes compatibility
+    scope = _ScopeWrapper(span, instance, kwargs, args, start_time)
 
     # Use common span attributes for memory operations
     common_span_attributes(
@@ -402,17 +399,8 @@ def process_reasoning_request(
     execution_time = time.time() - start_time
     agent_name = getattr(instance, "name", None) or "unknown_agent"
 
-    # Create scope-like object for common_span_attributes compatibility
-    class Scope:
-        def __init__(self):
-            self._span = span
-            self._instance = instance
-            self._kwargs = kwargs
-            self._args = args
-            self._start_time = start_time
-            self._end_time = time.time()
-
-    scope = Scope()
+    # Create scope object for common_span_attributes compatibility
+    scope = _ScopeWrapper(span, instance, kwargs, args, start_time)
 
     # Get model info from agent instance if available
     request_model = getattr(instance, "model", None)
@@ -492,17 +480,8 @@ def process_vectordb_request(
 
     execution_time = time.time() - start_time
 
-    # Create scope-like object for common_span_attributes compatibility
-    class Scope:
-        def __init__(self):
-            self._span = span
-            self._instance = instance
-            self._kwargs = kwargs
-            self._args = args
-            self._start_time = start_time
-            self._end_time = time.time()
-
-    scope = Scope()
+    # Create scope object for common_span_attributes compatibility
+    scope = _ScopeWrapper(span, instance, kwargs, args, start_time)
 
     # Use common span attributes for vectordb operations
     common_span_attributes(
@@ -598,17 +577,8 @@ def process_knowledge_request(
 
     execution_time = time.time() - start_time
 
-    # Create scope-like object for common_span_attributes compatibility
-    class Scope:
-        def __init__(self):
-            self._span = span
-            self._instance = instance
-            self._kwargs = kwargs
-            self._args = args
-            self._start_time = start_time
-            self._end_time = time.time()
-
-    scope = Scope()
+    # Create scope object for common_span_attributes compatibility
+    scope = _ScopeWrapper(span, instance, kwargs, args, start_time)
 
     # Use common span attributes for knowledge operations
     common_span_attributes(
@@ -691,17 +661,8 @@ def process_workflow_request(
     execution_time = time.time() - start_time
     workflow_name = getattr(instance, "name", "unknown_workflow")
 
-    # Create scope-like object for common_span_attributes compatibility
-    class Scope:
-        def __init__(self):
-            self._span = span
-            self._instance = instance
-            self._kwargs = kwargs
-            self._args = args
-            self._start_time = start_time
-            self._end_time = time.time()
-
-    scope = Scope()
+    # Create scope object for common_span_attributes compatibility
+    scope = _ScopeWrapper(span, instance, kwargs, args, start_time)
 
     # Use common span attributes for workflow operations
     common_span_attributes(
@@ -765,17 +726,8 @@ def process_team_request(
     execution_time = time.time() - start_time
     team_name = getattr(instance, "name", "unknown_team")
 
-    # Create scope-like object for common_span_attributes compatibility
-    class Scope:
-        def __init__(self):
-            self._span = span
-            self._instance = instance
-            self._kwargs = kwargs
-            self._args = args
-            self._start_time = start_time
-            self._end_time = time.time()
-
-    scope = Scope()
+    # Create scope object for common_span_attributes compatibility
+    scope = _ScopeWrapper(span, instance, kwargs, args, start_time)
 
     # Use common span attributes for team operations
     common_span_attributes(

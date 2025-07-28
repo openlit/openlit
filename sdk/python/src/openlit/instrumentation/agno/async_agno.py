@@ -1,4 +1,3 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-locals, unused-argument
 """
 Module for monitoring Agno agent framework async operations.
 """
@@ -9,7 +8,6 @@ from opentelemetry.trace import Status, StatusCode, SpanKind
 from opentelemetry import context as context_api
 from openlit.__helpers import (
     handle_exception,
-    common_span_attributes,
 )
 from openlit.instrumentation.agno.utils import (
     process_agent_request,

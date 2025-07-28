@@ -1,4 +1,3 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of Agno Framework Functions"""
 
 from typing import Collection
@@ -63,6 +62,11 @@ class AgnoInstrumentor(BaseInstrumentor):
     """
     An instrumentor for Agno Framework's agent library.
     """
+
+    def __init__(self):
+        """Initialize the AgnoInstrumentor."""
+        super().__init__()
+        self._original_thread_pool_submit = None
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
