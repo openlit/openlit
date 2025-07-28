@@ -1,8 +1,16 @@
 #!/bin/bash
 set -e
 
-# Generate and set NextAuth.js secret as an environment variable
-export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+# Generate or load persistent NextAuth.js secret
+NEXTAUTH_SECRET_FILE="/app/client/data/nextauth_secret"
+if [ ! -f "$NEXTAUTH_SECRET_FILE" ]; then
+    # Generate new secret using Node.js crypto and save it
+    node -e "console.log(require('crypto').randomBytes(32).toString('base64'))" > "$NEXTAUTH_SECRET_FILE"
+    echo "Generated new NextAuth secret using Node.js crypto"
+else
+    echo "Using existing NextAuth secret"
+fi
+export NEXTAUTH_SECRET=$(cat "$NEXTAUTH_SECRET_FILE")
 # OPAMP
 export OPAMP_PORT=${OPENLIT_OPAMP_PORT:-4320}
 export OPAMP_SERVER_URL="http://127.0.0.1:${OPAMP_PORT}"
@@ -18,6 +26,7 @@ echo "Send OpenTelemetry data via:
 "
 
 # Start Otel Collector directly
+echo "Started OpAMP Server on port ${OPAMP_PORT}"
 /otelcontribcol --config /etc/otel/config.yaml > /var/log/otel-collector.log 2>&1 &
 
 
