@@ -360,14 +360,14 @@ def async_text_transliterate(
     Generates a telemetry wrapper for async Sarvam AI Text transliterate calls.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the async Sarvam AI Text transliterate call.
         """
 
         # Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.sarvam.ai", 443
@@ -380,7 +380,7 @@ def async_text_transliterate(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 response = process_transliterate_response(
@@ -422,14 +422,14 @@ def async_text_identify_language(
     Generates a telemetry wrapper for async Sarvam AI Text language identification calls.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the async Sarvam AI Text language identification call.
         """
 
         # Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.sarvam.ai", 443
@@ -442,7 +442,7 @@ def async_text_identify_language(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 response = process_language_identification_response(
@@ -484,14 +484,14 @@ def async_speech_to_text_translate(
     Generates a telemetry wrapper for async Sarvam AI Speech to Text translate calls.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
         Wraps the async Sarvam AI Speech to Text translate call.
         """
 
         # Suppression check
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
+            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.sarvam.ai", 443
@@ -502,7 +502,7 @@ def async_speech_to_text_translate(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 response = process_speech_to_text_translate_response(
