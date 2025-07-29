@@ -75,6 +75,12 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_EMBEDDING = "embeddings"
     GEN_AI_OPERATION_TYPE_IMAGE = "image"
     GEN_AI_OPERATION_TYPE_AUDIO = "audio"
+    GEN_AI_OPERATION_TYPE_TRANSLATE = "translate"
+    GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT = "speech_to_text"
+    GEN_AI_OPERATION_TYPE_TEXT_TO_SPEECH = "text_to_speech"
+    GEN_AI_OPERATION_TYPE_TRANSLITERATE = "transliterate"
+    GEN_AI_OPERATION_TYPE_LANGUAGE_IDENTIFICATION = "language_identification"
+    GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT_TRANSLATE = "speech_to_text_translate"
     GEN_AI_OPERATION_TYPE_VECTORDB = "vectordb"
     GEN_AI_OPERATION_TYPE_FRAMEWORK = "workflow"
     GEN_AI_OPERATION_TYPE_AGENT = "invoke_agent"
@@ -84,6 +90,11 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_USER_PROMPT_PROCESSING = "user_prompt_processing"
     GEN_AI_OPERATION_TYPE_MODEL_REQUEST = "model_request"
     GEN_AI_OPERATION_TYPE_TOOL_COORDINATION = "tool_coordination"
+
+    # Julep-specific Operation Types
+    GEN_AI_OPERATION_TYPE_AGENT_CREATE = "agent"
+    GEN_AI_OPERATION_TYPE_TASK_CREATE = "task"
+    GEN_AI_OPERATION_TYPE_EXECUTION_CREATE = "execution"
 
     # Model Request Types
     GEN_AI_MODEL_REQUEST_TYPE_INITIAL = "initial"
@@ -151,6 +162,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_TOGETHER = "together"
     GEN_AI_SYSTEM_OPENAI_AGENTS = "openai_agents"
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
+    GEN_AI_SYSTEM_SARVAM = "sarvam"
 
     # GenAI Framework Component Attributes (Standard)
     GEN_AI_FRAMEWORK_COMPONENT_NAME = "gen_ai.framework.component.name"
@@ -189,6 +201,82 @@ class SemanticConvention:
     GEN_AI_REQUEST_AUDIO_SPEED = "gen_ai.request.audio_speed"
     GEN_AI_REQUEST_AUDIO_SETTINGS = "gen_ai.request.audio_settings"
     GEN_AI_REQUEST_AUDIO_DURATION = "gen_ai.request.audio_duration"
+
+    # Translation request attributes
+    GEN_AI_REQUEST_TRANSLATE_SOURCE_LANGUAGE = (
+        "gen_ai.request.translate.source_language"
+    )
+    GEN_AI_REQUEST_TRANSLATE_TARGET_LANGUAGE = (
+        "gen_ai.request.translate.target_language"
+    )
+    GEN_AI_REQUEST_TRANSLATE_SPEAKER_GENDER = "gen_ai.request.translate.speaker_gender"
+    GEN_AI_REQUEST_TRANSLATE_MODE = "gen_ai.request.translate.mode"
+    GEN_AI_REQUEST_TRANSLATE_ENABLE_PREPROCESSING = (
+        "gen_ai.request.translate.enable_preprocessing"
+    )
+    GEN_AI_REQUEST_TRANSLATE_OUTPUT_SCRIPT = "gen_ai.request.translate.output_script"
+    GEN_AI_REQUEST_TRANSLATE_NUMERALS_FORMAT = (
+        "gen_ai.request.translate.numerals_format"
+    )
+
+    # Translation response attributes
+    GEN_AI_RESPONSE_TRANSLATE_SOURCE_LANGUAGE = (
+        "gen_ai.response.translate.source_language"
+    )
+
+    # Transliteration request attributes
+    GEN_AI_REQUEST_TRANSLITERATE_SOURCE_LANGUAGE = (
+        "gen_ai.request.transliterate.source_language"
+    )
+    GEN_AI_REQUEST_TRANSLITERATE_TARGET_LANGUAGE = (
+        "gen_ai.request.transliterate.target_language"
+    )
+    GEN_AI_REQUEST_TRANSLITERATE_NUMERALS_FORMAT = (
+        "gen_ai.request.transliterate.numerals_format"
+    )
+    GEN_AI_REQUEST_TRANSLITERATE_SPOKEN_FORM = (
+        "gen_ai.request.transliterate.spoken_form"
+    )
+    GEN_AI_REQUEST_TRANSLITERATE_SPOKEN_FORM_NUMERALS_LANGUAGE = (
+        "gen_ai.request.transliterate.spoken_form_numerals_language"
+    )
+
+    # Transliteration response attributes
+    GEN_AI_RESPONSE_TRANSLITERATE_SOURCE_LANGUAGE = (
+        "gen_ai.response.transliterate.source_language"
+    )
+
+    # Language identification response attributes
+    GEN_AI_RESPONSE_LANGUAGE_CODE = "gen_ai.response.language_code"
+    GEN_AI_RESPONSE_SCRIPT_CODE = "gen_ai.response.script_code"
+
+    # Speech-to-text request attributes
+    GEN_AI_REQUEST_SPEECH_LANGUAGE_CODE = "gen_ai.request.speech.language_code"
+    GEN_AI_REQUEST_SPEECH_PROMPT = "gen_ai.request.speech.prompt"
+    GEN_AI_REQUEST_SPEECH_WITH_TIMESTAMPS = "gen_ai.request.speech.with_timestamps"
+
+    # Speech-to-text response attributes
+    GEN_AI_RESPONSE_SPEECH_TIMESTAMPS = "gen_ai.response.speech.timestamps"
+    GEN_AI_RESPONSE_SPEECH_DIARIZED_TRANSCRIPT = (
+        "gen_ai.response.speech.diarized_transcript"
+    )
+    GEN_AI_RESPONSE_SPEECH_DETECTED_LANGUAGE = (
+        "gen_ai.response.speech.detected_language"
+    )
+
+    # Text-to-speech request attributes
+    GEN_AI_REQUEST_TTS_TARGET_LANGUAGE_CODE = "gen_ai.request.tts.target_language_code"
+    GEN_AI_REQUEST_TTS_SPEAKER = "gen_ai.request.tts.speaker"
+    GEN_AI_REQUEST_TTS_PITCH = "gen_ai.request.tts.pitch"
+    GEN_AI_REQUEST_TTS_PACE = "gen_ai.request.tts.pace"
+    GEN_AI_REQUEST_TTS_LOUDNESS = "gen_ai.request.tts.loudness"
+    GEN_AI_REQUEST_TTS_SPEECH_SAMPLE_RATE = "gen_ai.request.tts.speech_sample_rate"
+    GEN_AI_REQUEST_TTS_ENABLE_PREPROCESSING = "gen_ai.request.tts.enable_preprocessing"
+    GEN_AI_REQUEST_TTS_OUTPUT_AUDIO_CODEC = "gen_ai.request.tts.output_audio_codec"
+
+    # Provider-specific request attributes
+    GEN_AI_REQUEST_WIKI_GROUNDING = "gen_ai.request.wiki_grounding"
+    GEN_AI_REQUEST_N = "gen_ai.request.n"
     GEN_AI_REQUEST_IMAGE_SIZE = "gen_ai.request.image_size"
     GEN_AI_REQUEST_IMAGE_QUALITY = "gen_ai.request.image_quality"
     GEN_AI_REQUEST_IMAGE_STYLE = "gen_ai.request.image_style"
@@ -510,6 +598,18 @@ class SemanticConvention:
     # Standard Task Attributes (framework-agnostic)
     GEN_AI_TASK_DESCRIPTION = "gen_ai.task.description"
     GEN_AI_TASK_EXPECTED_OUTPUT = "gen_ai.task.expected_output"
+
+    # Julep-specific Task and Execution Attributes
+    GEN_AI_TASK_ID = "gen_ai.task.id"
+    GEN_AI_TASK_NAME = "gen_ai.task.name"
+    GEN_AI_TASK_TYPE = "gen_ai.task.type"
+    GEN_AI_TASK_TOOLS = "gen_ai.task.tools"
+    GEN_AI_TASK_AGENT_ID = "gen_ai.task.agent_id"
+    GEN_AI_EXECUTION_ID = "gen_ai.execution.id"
+    GEN_AI_EXECUTION_STATUS = "gen_ai.execution.status"
+    GEN_AI_EXECUTION_INPUT = "gen_ai.execution.input"
+    GEN_AI_EXECUTION_OUTPUT = "gen_ai.execution.output"
+    GEN_AI_EXECUTION_ERROR = "gen_ai.execution.error"
 
     GEN_AI_GROUPCHAT_PARTICIPANTS = "gen_ai.groupchat.participants"
     GEN_AI_GROUPCHAT_SPEAKER_SELECTION = "gen_ai.groupchat.speaker_selection"
