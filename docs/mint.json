@@ -138,6 +138,7 @@
             "latest/integrations/reka",
             "latest/integrations/krutrim",
             "latest/integrations/titan-ml",
+            "latest/integrations/sarvam",
             "latest/integrations/premai"
           ]
         },

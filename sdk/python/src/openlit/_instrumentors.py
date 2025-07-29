@@ -50,6 +50,7 @@ MODULE_NAME_MAP = {
     "together": "together",
     "openai-agents": "agents",
     "pydantic_ai": "pydantic_ai",
+    "sarvam": "sarvamai",
 }
 
 # Dictionary mapping instrumentor names to their full module paths
@@ -98,6 +99,7 @@ INSTRUMENTOR_MAP = {
     "together": "openlit.instrumentation.together.TogetherInstrumentor",
     "openai-agents": "openlit.instrumentation.openai_agents.OpenAIAgentsInstrumentor",
     "pydantic_ai": "openlit.instrumentation.pydantic_ai.PydanticAIInstrumentor",
+    "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
 }
 
 
