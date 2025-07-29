@@ -3,7 +3,6 @@
 import time
 from opentelemetry import context as context_api
 from opentelemetry.trace import SpanKind
-from opentelemetry.semconv.trace import SpanAttributes
 
 from openlit.__helpers import (
     handle_exception,

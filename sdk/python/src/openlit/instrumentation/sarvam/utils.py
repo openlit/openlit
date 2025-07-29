@@ -1060,7 +1060,10 @@ def process_language_identification_response(
             SemanticConvention.GEN_AI_CONTENT_PROMPT, kwargs.get("input", "")
         )
         # For language identification, the "completion" would be the detected language/script
-        detected_info = f"Language: {response_dict.get('language_code', 'unknown')}, Script: {response_dict.get('script_code', 'unknown')}"
+        detected_info = (
+            f"Language: {response_dict.get('language_code', 'unknown')}, "
+            f"Script: {response_dict.get('script_code', 'unknown')}"
+        )
         span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, detected_info)
 
     span.set_status(Status(StatusCode.OK))
