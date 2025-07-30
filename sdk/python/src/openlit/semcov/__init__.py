@@ -421,6 +421,107 @@ class SemanticConvention:
 
     GEN_AI_AGENT_TYPE_BROWSER = "browser"
 
+    # Crawl4AI Specific Attributes (0.7.x Support)
+    GEN_AI_CRAWL_URL_COUNT = "gen_ai.crawl.url_count"
+    GEN_AI_CRAWL_DEPTH = "gen_ai.crawl.depth"
+    GEN_AI_CRAWL_SESSION_ID = "gen_ai.crawl.session_id"
+    GEN_AI_CRAWL_CACHE_MODE = "gen_ai.crawl.cache_mode"
+    GEN_AI_CRAWL_EXTRACTION_STRATEGY = "gen_ai.crawl.extraction_strategy"
+    GEN_AI_CRAWL_SCRAPING_STRATEGY = "gen_ai.crawl.scraping_strategy"
+    GEN_AI_CRAWL_BROWSER_TYPE = "gen_ai.crawl.browser_type"
+    GEN_AI_CRAWL_HEADLESS = "gen_ai.crawl.headless"
+    GEN_AI_CRAWL_VIEWPORT_WIDTH = "gen_ai.crawl.viewport_width"
+    GEN_AI_CRAWL_VIEWPORT_HEIGHT = "gen_ai.crawl.viewport_height"
+    GEN_AI_CRAWL_USER_AGENT = "gen_ai.crawl.user_agent"
+    GEN_AI_CRAWL_WORD_COUNT_THRESHOLD = "gen_ai.crawl.word_count_threshold"
+    GEN_AI_CRAWL_CSS_SELECTOR = "gen_ai.crawl.css_selector"
+    GEN_AI_CRAWL_EXCLUDED_TAGS = "gen_ai.crawl.excluded_tags"
+    GEN_AI_CRAWL_SCREENSHOT = "gen_ai.crawl.screenshot"
+    GEN_AI_CRAWL_PDF = "gen_ai.crawl.pdf"
+    GEN_AI_CRAWL_WAIT_FOR = "gen_ai.crawl.wait_for"
+    GEN_AI_CRAWL_PAGE_TIMEOUT = "gen_ai.crawl.page_timeout"
+    GEN_AI_CRAWL_JS_CODE = "gen_ai.crawl.js_code"
+    GEN_AI_CRAWL_RESULT_SUCCESS = "gen_ai.crawl.result.success"
+    GEN_AI_CRAWL_RESULT_STATUS_CODE = "gen_ai.crawl.result.status_code"
+    GEN_AI_CRAWL_RESULT_HTML_LENGTH = "gen_ai.crawl.result.html_length"
+    GEN_AI_CRAWL_RESULT_MARKDOWN_LENGTH = "gen_ai.crawl.result.markdown_length"
+    GEN_AI_CRAWL_RESULT_LINKS_COUNT = "gen_ai.crawl.result.links_count"
+    GEN_AI_CRAWL_RESULT_IMAGES_COUNT = "gen_ai.crawl.result.images_count"
+    GEN_AI_CRAWL_RESULT_REDIRECTED_URL = "gen_ai.crawl.result.redirected_url"
+    GEN_AI_CRAWL_DEEP_STRATEGY = "gen_ai.crawl.deep_strategy"
+    GEN_AI_CRAWL_PROXY_CONFIG = "gen_ai.crawl.proxy_config"
+
+    # Crawl4AI LLM Extraction Attributes (0.7.x)
+    GEN_AI_EXTRACTION_STRATEGY_TYPE = "gen_ai.extraction.strategy.type"
+    GEN_AI_EXTRACTION_TYPE = "gen_ai.extraction.type"
+    GEN_AI_EXTRACTION_INSTRUCTION = "gen_ai.extraction.instruction"
+    GEN_AI_EXTRACTION_SCHEMA = "gen_ai.extraction.schema"
+    GEN_AI_EXTRACTION_INPUT_FORMAT = "gen_ai.extraction.input_format"
+    GEN_AI_EXTRACTION_CHUNK_COUNT = "gen_ai.extraction.chunk_count"
+    GEN_AI_EXTRACTION_CHUNK_TOKEN_THRESHOLD = "gen_ai.extraction.chunk_token_threshold"
+    GEN_AI_EXTRACTION_OVERLAP_RATE = "gen_ai.extraction.overlap_rate"
+    GEN_AI_EXTRACTION_APPLY_CHUNKING = "gen_ai.extraction.apply_chunking"
+    GEN_AI_EXTRACTION_SUCCESS = "gen_ai.extraction.success"
+    GEN_AI_EXTRACTION_ERROR = "gen_ai.extraction.error"
+
+    # LLM Provider and Model Information
+    GEN_AI_LLM_PROVIDER = "gen_ai.llm.provider"
+    GEN_AI_LLM_MODEL = "gen_ai.llm.model"
+    GEN_AI_LLM_BASE_URL = "gen_ai.llm.base_url"
+    GEN_AI_LLM_TEMPERATURE = "gen_ai.llm.temperature"
+    GEN_AI_LLM_MAX_TOKENS = "gen_ai.llm.max_tokens"
+    GEN_AI_LLM_TOP_P = "gen_ai.llm.top_p"
+
+    # Token Usage and Cost Tracking (Enhanced Business Intelligence)
+    GEN_AI_TOKEN_USAGE_INPUT = "gen_ai.token.usage.input"
+    GEN_AI_TOKEN_USAGE_OUTPUT = "gen_ai.token.usage.output"
+    GEN_AI_TOKEN_USAGE_TOTAL = "gen_ai.token.usage.total"
+    GEN_AI_TOKEN_COST_INPUT = "gen_ai.token.cost.input"
+    GEN_AI_TOKEN_COST_OUTPUT = "gen_ai.token.cost.output"
+    GEN_AI_TOKEN_COST_TOTAL = "gen_ai.token.cost.total"
+    GEN_AI_TOKEN_CHUNK_USAGE = "gen_ai.token.chunk_usage"
+    GEN_AI_TOKEN_CHUNK_COUNT = "gen_ai.token.chunk_count"
+
+    # CrawlerMonitor Integration Attributes
+    GEN_AI_MONITOR_TASK_ID = "gen_ai.monitor.task_id"
+    GEN_AI_MONITOR_TASK_STATUS = "gen_ai.monitor.task_status"
+    GEN_AI_MONITOR_MEMORY_USAGE = "gen_ai.monitor.memory_usage"
+    GEN_AI_MONITOR_PEAK_MEMORY = "gen_ai.monitor.peak_memory"
+    GEN_AI_MONITOR_RETRY_COUNT = "gen_ai.monitor.retry_count"
+    GEN_AI_MONITOR_WAIT_TIME = "gen_ai.monitor.wait_time"
+    GEN_AI_MONITOR_QUEUE_SIZE = "gen_ai.monitor.queue_size"
+    GEN_AI_MONITOR_COMPLETION_RATE = "gen_ai.monitor.completion_rate"
+
+    # Extraction Strategy Types
+    GEN_AI_EXTRACTION_STRATEGY_LLM = "llm"
+    GEN_AI_EXTRACTION_STRATEGY_CSS = "css"
+    GEN_AI_EXTRACTION_STRATEGY_XPATH = "xpath"
+    GEN_AI_EXTRACTION_STRATEGY_COSINE = "cosine"
+    GEN_AI_EXTRACTION_STRATEGY_REGEX = "regex"
+    GEN_AI_EXTRACTION_STRATEGY_LXML = "lxml"
+
+    # LLM Extraction Types
+    GEN_AI_EXTRACTION_TYPE_SCHEMA = "schema"
+    GEN_AI_EXTRACTION_TYPE_BLOCK = "block"
+
+    # Monitor Task Status Values
+    GEN_AI_MONITOR_STATUS_PENDING = "pending"
+    GEN_AI_MONITOR_STATUS_RUNNING = "running"
+    GEN_AI_MONITOR_STATUS_COMPLETED = "completed"
+    GEN_AI_MONITOR_STATUS_FAILED = "failed"
+    GEN_AI_MONITOR_STATUS_RETRYING = "retrying"
+
+    # Crawl4AI Operation Types (reusing existing pattern)
+    GEN_AI_OPERATION_TYPE_CRAWL = "crawl"
+    GEN_AI_OPERATION_TYPE_CRAWL_DEEP = "crawl_deep"
+    GEN_AI_OPERATION_TYPE_EXTRACT = "extract"
+    GEN_AI_OPERATION_TYPE_EXTRACT_LLM = "extract_llm"
+    GEN_AI_OPERATION_TYPE_EXTRACT_CSS = "extract_css"
+    GEN_AI_OPERATION_TYPE_EXTRACT_XPATH = "extract_xpath"
+    GEN_AI_OPERATION_TYPE_EXTRACT_COSINE = "extract_cosine"
+    GEN_AI_OPERATION_TYPE_EXTRACT_REGEX = "extract_regex"
+    GEN_AI_OPERATION_TYPE_SCRAPE = "scrape"
+
     # GPU
     GPU_INDEX = "gpu.index"
     GPU_UUID = "gpu.uuid"
