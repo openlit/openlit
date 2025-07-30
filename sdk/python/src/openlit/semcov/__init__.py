@@ -522,6 +522,14 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_EXTRACT_REGEX = "extract_regex"
     GEN_AI_OPERATION_TYPE_SCRAPE = "scrape"
 
+    # Firecrawl Operation Types
+    GEN_AI_OPERATION_TYPE_MAP = "map"
+    GEN_AI_OPERATION_TYPE_SEARCH = "search"
+    GEN_AI_OPERATION_TYPE_CRAWL_STATUS = "crawl_status"
+    GEN_AI_OPERATION_TYPE_SCRAPE_STATUS = "scrape_status"
+    GEN_AI_OPERATION_TYPE_EXTRACT_STATUS = "extract_status"
+    GEN_AI_OPERATION_TYPE_CANCEL = "cancel"
+
     # GPU
     GPU_INDEX = "gpu.index"
     GPU_UUID = "gpu.uuid"
