@@ -61,10 +61,13 @@ def async_agent_run_wrap(
         ) as span:
             start_time = time.time()
             # CRITICAL: Set the span context as current for nested calls
-            with context_api.attach(
+            token = context_api.attach(
                 context_api.set_value("current_span", span, current_context)
-            ):
+            )
+            try:
                 response = await wrapped(*args, **kwargs)
+            finally:
+                context_api.detach(token)
 
             try:
                 # Process request using utils function with ALL attributes from semcov
@@ -195,11 +198,13 @@ def async_model_run_function_call_wrap(
         ) as span:
             start_time = time.time()
             # CRITICAL: Set the span context as current for nested calls
-            with context_api.attach(
+            token = context_api.attach(
                 context_api.set_value("current_span", span, current_context)
-            ):
+            )
+            try:
                 result = await wrapped(*args, **kwargs)
-
+            finally:
+                context_api.detach(token)
             try:
                 # Process request using utils function with ALL attributes from semcov
                 process_tool_request(
@@ -266,10 +271,13 @@ def async_function_entrypoint_wrap(
         ) as span:
             start_time = time.time()
             # CRITICAL: Set the span context as current for nested calls
-            with context_api.attach(
+            token = context_api.attach(
                 context_api.set_value("current_span", span, current_context)
-            ):
+            )
+            try:
                 result = await wrapped(*args, **kwargs)
+            finally:
+                context_api.detach(token)
 
             try:
                 # Process request using utils function with ALL attributes from semcov
@@ -857,10 +865,13 @@ def async_function_execute_wrap(
             # Execute async tool with timing
             start_time = time.time()
             # CRITICAL: Set the span context as current for nested calls
-            with context_api.attach(
+            token = context_api.attach(
                 context_api.set_value("current_span", span, current_context)
-            ):
+            )
+            try:
                 result = await wrapped(*args, **kwargs)
+            finally:
+                context_api.detach(token)
 
             try:
                 # Process request using utils function with ALL attributes from semcov
