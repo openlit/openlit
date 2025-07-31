@@ -14,13 +14,7 @@ from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
 
-try:
-    # Test if browser_use is available by importing a core module
-    import browser_use.agent.service
-
-    AVAILABLE = True
-except ImportError:
-    AVAILABLE = False
+_instruments = ("browser-use >= 0.1.0",)
 
 
 class BrowserUseInstrumentor(BaseInstrumentor):
@@ -29,14 +23,10 @@ class BrowserUseInstrumentor(BaseInstrumentor):
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
-        return ("browser-use >= 0.1.0",)
+        return _instruments
 
     def _instrument(self, **kwargs):
         """Instrument Browser-Use operations"""
-
-        if not AVAILABLE:
-            logger.warning("Browser-use not available, skipping instrumentation")
-            return
 
         tracer = kwargs.get("tracer")
         meter = kwargs.get("meter")
