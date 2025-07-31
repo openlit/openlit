@@ -78,7 +78,7 @@ class OpenlitConfig:
         cls.disable_batch = False
         cls.capture_message_content = True
         cls.disable_metrics = False
-        cls.detailed_tracing = False
+        cls.detailed_tracing = True
 
     @classmethod
     def update_config(
@@ -187,7 +187,7 @@ def init(
     disable_metrics=False,
     pricing_json=None,
     collect_gpu_stats=False,
-    detailed_tracing=False,
+    detailed_tracing=True,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
