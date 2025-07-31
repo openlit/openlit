@@ -163,6 +163,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_OPENAI_AGENTS = "openai_agents"
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
     GEN_AI_SYSTEM_SARVAM = "sarvam"
+    GEN_AI_SYSTEM_BROWSER_USE = "browser_use"
 
     # GenAI Framework Component Attributes (Standard)
     GEN_AI_FRAMEWORK_COMPONENT_NAME = "gen_ai.framework.component.name"
@@ -546,6 +547,52 @@ class SemanticConvention:
     GPU_MEMORY_FREE = "gpu.memory.free"
     GPU_POWER_DRAW = "gpu.power.draw"
     GPU_POWER_LIMIT = "gpu.power.limit"
+
+    # Browser-Use Specific Attributes
+    GEN_AI_BROWSER_ACTION_TYPE = "gen_ai.browser.action.type"
+    GEN_AI_BROWSER_ACTION_TARGET = "gen_ai.browser.action.target"
+    GEN_AI_BROWSER_ACTION_VALUE = "gen_ai.browser.action.value"
+    GEN_AI_BROWSER_ACTION_SELECTOR = "gen_ai.browser.action.selector"
+    GEN_AI_BROWSER_PAGE_URL = "gen_ai.browser.page.url"
+    GEN_AI_BROWSER_PAGE_TITLE = "gen_ai.browser.page.title"
+    GEN_AI_BROWSER_VIEWPORT_WIDTH = "gen_ai.browser.viewport.width"
+    GEN_AI_BROWSER_VIEWPORT_HEIGHT = "gen_ai.browser.viewport.height"
+    GEN_AI_BROWSER_USER_AGENT = "gen_ai.browser.user_agent"
+    GEN_AI_BROWSER_TASK_DESCRIPTION = "gen_ai.browser.task.description"
+    GEN_AI_BROWSER_STEP_NUMBER = "gen_ai.browser.step.number"
+    GEN_AI_BROWSER_MAX_STEPS = "gen_ai.browser.max_steps"
+    GEN_AI_BROWSER_DOM_ELEMENTS_COUNT = "gen_ai.browser.dom.elements_count"
+    GEN_AI_BROWSER_SCREENSHOT_TAKEN = "gen_ai.browser.screenshot.taken"
+    GEN_AI_BROWSER_SESSION_ID = "gen_ai.browser.session.id"
+    GEN_AI_BROWSER_CONTROLLER_TYPE = "gen_ai.browser.controller.type"
+
+    # Browser-Use Operation Types
+    GEN_AI_OPERATION_TYPE_BROWSER_RUN = "browser_run"
+    GEN_AI_OPERATION_TYPE_BROWSER_STEP = "browser_step"
+    GEN_AI_OPERATION_TYPE_BROWSER_ACTION = "browser_action"
+    GEN_AI_OPERATION_TYPE_BROWSER_PAUSE = "browser_pause"
+    GEN_AI_OPERATION_TYPE_BROWSER_RESUME = "browser_resume"
+    GEN_AI_OPERATION_TYPE_BROWSER_STOP = "browser_stop"
+
+    # Enhanced Browser Session Attributes (Superior to Laminar)
+    GEN_AI_BROWSER_SESSION_DURATION = "gen_ai.browser.session.duration"
+    GEN_AI_BROWSER_SESSION_ACTIONS_COUNT = "gen_ai.browser.session.actions_count"
+    GEN_AI_BROWSER_SESSION_SUCCESS_RATE = "gen_ai.browser.session.success_rate"
+    GEN_AI_BROWSER_PAGE_LOAD_TIME = "gen_ai.browser.page.load_time"
+    GEN_AI_BROWSER_ACTION_SUCCESS = "gen_ai.browser.action.success"
+    GEN_AI_BROWSER_ACTION_RETRY_COUNT = "gen_ai.browser.action.retry_count"
+    GEN_AI_BROWSER_ERROR_TYPE = "gen_ai.browser.error.type"
+    GEN_AI_BROWSER_ERROR_MESSAGE = "gen_ai.browser.error.message"
+    GEN_AI_BROWSER_NETWORK_REQUESTS_COUNT = "gen_ai.browser.network.requests_count"
+    GEN_AI_BROWSER_NETWORK_FAILED_REQUESTS = "gen_ai.browser.network.failed_requests"
+    GEN_AI_BROWSER_MEMORY_USAGE = "gen_ai.browser.memory.usage"
+    GEN_AI_BROWSER_CPU_USAGE = "gen_ai.browser.cpu.usage"
+    GEN_AI_BROWSER_SCREENSHOT_CAPTURED = "gen_ai.browser.screenshot.captured"
+    GEN_AI_BROWSER_VIDEO_RECORDING = "gen_ai.browser.video.recording"
+    GEN_AI_BROWSER_DOM_CHANGES_COUNT = "gen_ai.browser.dom.changes_count"
+    GEN_AI_BROWSER_JAVASCRIPT_ERRORS = "gen_ai.browser.javascript.errors"
+    GEN_AI_BROWSER_CONSOLE_LOGS = "gen_ai.browser.console.logs"
+    GEN_AI_BROWSER_NETWORK_TIMING = "gen_ai.browser.network.timing"
 
     # Guard
     GUARD_REQUESTS = "guard.requests"

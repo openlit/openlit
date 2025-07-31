@@ -51,6 +51,7 @@ MODULE_NAME_MAP = {
     "openai-agents": "agents",
     "pydantic_ai": "pydantic_ai",
     "sarvam": "sarvamai",
+    "browser-use": "browser_use",
 }
 
 # Dictionary mapping instrumentor names to their full module paths
@@ -100,6 +101,7 @@ INSTRUMENTOR_MAP = {
     "openai-agents": "openlit.instrumentation.openai_agents.OpenAIAgentsInstrumentor",
     "pydantic_ai": "openlit.instrumentation.pydantic_ai.PydanticAIInstrumentor",
     "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
+    "browser-use": "openlit.instrumentation.browser_use.BrowserUseInstrumentor",
 }
 
 

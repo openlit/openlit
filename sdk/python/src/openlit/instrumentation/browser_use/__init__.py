@@ -1,0 +1,218 @@
+"""
+Module for monitoring Browser-Use browser automation framework.
+Supports comprehensive instrumentation of agent operations, browser actions, and task management.
+"""
+
+import logging
+import importlib.metadata
+from typing import Collection
+from wrapt import wrap_function_wrapper
+
+from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
+from opentelemetry.trace import get_tracer
+from opentelemetry.metrics import get_meter
+
+from openlit.semcov import SemanticConvention
+
+logger = logging.getLogger(__name__)
+
+try:
+    from browser_use.agent.service import Agent
+    from browser_use.browser.browser import Browser
+    from browser_use.controller.service import Controller
+
+    AVAILABLE = True
+except ImportError:
+    # Dummy classes for when browser_use is not available
+    class Agent:
+        """Dummy Agent class for when browser_use is not available"""
+
+        def run(self):
+            pass
+
+        def step(self):
+            pass
+
+        def pause(self):
+            pass
+
+        def resume(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def rerun_history(self):
+            pass
+
+        def load_and_rerun(self):
+            pass
+
+    class Browser:
+        """Dummy Browser class for when browser_use is not available"""
+
+        pass
+
+    class Controller:
+        """Dummy Controller class for when browser_use is not available"""
+
+        pass
+
+    AVAILABLE = False
+
+
+class BrowserUseInstrumentor(BaseInstrumentor):
+    """
+    Instrumentor for Browser-Use browser automation framework
+    """
+
+    def instrumentation_dependencies(self) -> Collection[str]:
+        return ("browser-use >= 0.1.0",)
+
+    def _instrument(self, **kwargs):
+        """Instrument Browser-Use operations"""
+
+        if not AVAILABLE:
+            logger.warning("Browser-use not available, skipping instrumentation")
+            return
+
+        tracer = get_tracer(__name__)
+        meter = get_meter(__name__)
+
+        # Get configuration
+        application_name = kwargs.get("application_name", "default_application")
+        environment = kwargs.get("environment", "default_environment")
+        pricing_info = kwargs.get("pricing_info", {})
+        capture_message_content = kwargs.get("capture_message_content", True)
+        metrics = kwargs.get("metrics", {})
+        disable_metrics = kwargs.get("disable_metrics", False)
+
+        try:
+            version = importlib.metadata.version("browser-use")
+        except Exception:
+            version = "1.0.0"
+
+        # Import the wrapper functions
+        from openlit.instrumentation.browser_use.browser_use import general_wrap
+        from openlit.instrumentation.browser_use.async_browser_use import (
+            async_general_wrap,
+        )
+
+        # Instrument Agent async operations
+        wrap_function_wrapper(
+            "browser_use.agent.service",
+            "Agent.run",
+            async_general_wrap(
+                "agent.run",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
+        )
+
+        wrap_function_wrapper(
+            "browser_use.agent.service",
+            "Agent.step",
+            async_general_wrap(
+                "agent.step",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
+        )
+
+        # Instrument task management operations
+        wrap_function_wrapper(
+            "browser_use.agent.service",
+            "Agent.pause",
+            general_wrap(
+                "agent.pause",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
+        )
+
+        wrap_function_wrapper(
+            "browser_use.agent.service",
+            "Agent.resume",
+            general_wrap(
+                "agent.resume",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
+        )
+
+        wrap_function_wrapper(
+            "browser_use.agent.service",
+            "Agent.stop",
+            general_wrap(
+                "agent.stop",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
+        )
+
+        # Instrument history operations
+        wrap_function_wrapper(
+            "browser_use.agent.service",
+            "Agent.rerun_history",
+            general_wrap(
+                "agent.rerun_history",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
+        )
+
+        wrap_function_wrapper(
+            "browser_use.agent.service",
+            "Agent.load_and_rerun",
+            general_wrap(
+                "agent.load_and_rerun",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
+        )
+
+    def _uninstrument(self, **kwargs):
+        """Uninstrument Browser-Use operations"""
+        pass
