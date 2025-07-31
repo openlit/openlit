@@ -28,10 +28,8 @@ class BrowserUseInstrumentor(BaseInstrumentor):
     def _instrument(self, **kwargs):
         """Instrument Browser-Use operations"""
 
-        tracer = kwargs.get("tracer")
-        meter = kwargs.get("meter")
-
         # Get configuration
+        tracer = kwargs.get("tracer")
         application_name = kwargs.get("application_name", "default_application")
         environment = kwargs.get("environment", "default_environment")
         pricing_info = kwargs.get("pricing_info", {})
