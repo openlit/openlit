@@ -256,8 +256,10 @@ def _add_browser_use_attributes(
         # Browser profile information
         if hasattr(instance, "browser_profile"):
             profile = instance.browser_profile
-            if hasattr(profile, "headless") and profile.headless is not None:
-                span.set_attribute("gen_ai.agent.headless", profile.headless)
+            if hasattr(profile, "headless"):
+                headless_value = profile.headless
+                if headless_value is not None:
+                    span.set_attribute("gen_ai.agent.headless", bool(headless_value))
             if hasattr(profile, "allowed_domains") and profile.allowed_domains:
                 span.set_attribute(
                     "gen_ai.agent.allowed_domains", json.dumps(profile.allowed_domains)
@@ -323,7 +325,9 @@ def _add_agent_configuration_attributes(
                     "gen_ai.agent.allowed_domains", json.dumps(profile.allowed_domains)
                 )
             if hasattr(profile, "headless"):
-                span.set_attribute("gen_ai.agent.headless", profile.headless)
+                headless_value = profile.headless
+                if headless_value is not None:
+                    span.set_attribute("gen_ai.agent.headless", bool(headless_value))
 
         # Task ID and session information
         if hasattr(agent_instance, "task_id"):

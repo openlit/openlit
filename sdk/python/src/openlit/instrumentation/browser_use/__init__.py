@@ -17,47 +17,11 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 try:
-    from browser_use.agent.service import Agent
-    from browser_use.browser.browser import Browser
-    from browser_use.controller.service import Controller
+    # Test if browser_use is available by importing a core module
+    import browser_use.agent.service
 
     AVAILABLE = True
 except ImportError:
-    # Dummy classes for when browser_use is not available
-    class Agent:
-        """Dummy Agent class for when browser_use is not available"""
-
-        def run(self):
-            pass
-
-        def step(self):
-            pass
-
-        def pause(self):
-            pass
-
-        def resume(self):
-            pass
-
-        def stop(self):
-            pass
-
-        def rerun_history(self):
-            pass
-
-        def load_and_rerun(self):
-            pass
-
-    class Browser:
-        """Dummy Browser class for when browser_use is not available"""
-
-        pass
-
-    class Controller:
-        """Dummy Controller class for when browser_use is not available"""
-
-        pass
-
     AVAILABLE = False
 
 
@@ -180,11 +144,11 @@ class BrowserUseInstrumentor(BaseInstrumentor):
             ),
         )
 
-        # Instrument history operations
+        # Instrument history operations (async methods)
         wrap_function_wrapper(
             "browser_use.agent.service",
             "Agent.rerun_history",
-            general_wrap(
+            async_general_wrap(
                 "agent.rerun_history",
                 version,
                 environment,
@@ -200,7 +164,7 @@ class BrowserUseInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "browser_use.agent.service",
             "Agent.load_and_rerun",
-            general_wrap(
+            async_general_wrap(
                 "agent.load_and_rerun",
                 version,
                 environment,

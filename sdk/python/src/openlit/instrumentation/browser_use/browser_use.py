@@ -1,14 +1,16 @@
 """
 Module for monitoring Browser-Use synchronous operations.
-Supports comprehensive agent operations with proper OpenLIT semantic conventions.
+Handles the few sync methods in browser-use (pause, resume, stop).
 """
 
+import json
 import logging
 import time
+from typing import Any, Dict, List, Optional
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
 
-from openlit.__helpers import handle_exception
+from openlit.__helpers import handle_exception, common_framework_span_attributes
 from openlit.instrumentation.browser_use.utils import (
     BrowserUseInstrumentationContext,
     get_operation_name,
@@ -16,7 +18,9 @@ from openlit.instrumentation.browser_use.utils import (
     set_span_attributes,
     process_response,
     capture_token_and_cost_metrics,
+    capture_agent_thoughts_and_state,
 )
+from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
 
@@ -33,77 +37,55 @@ def general_wrap(
     disable_metrics,
 ):
     """
-    Generates a telemetry wrapper for Browser-Use synchronous operations.
-
-    Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
-        version: Version of the Browser-Use package.
-        environment: Deployment environment (e.g., production, staging).
-        application_name: Name of the application using Browser-Use.
-        tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information used for calculating the cost of operations.
-        capture_message_content: Flag indicating whether to trace the actual content.
-        metrics: OpenLIT metrics dictionary for performance tracking.
-        disable_metrics: Flag to disable metrics collection.
-
-    Returns:
-        A function that wraps Browser-Use methods to add comprehensive telemetry.
+    Enhanced telemetry wrapper for Browser-Use sync operations with detailed spans.
+    Handles sync methods like pause, resume, stop.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
-        """
-        Wraps Browser-Use operations to add comprehensive telemetry.
-
-        This collects metrics such as execution time, agent operations, and browser actions,
-        while handling errors gracefully for enhanced observability.
-
-        Args:
-            wrapped: The original Browser-Use method to be wrapped.
-            instance: The instance of the class where the original method is defined.
-            args: Positional arguments for the Browser-Use method.
-            kwargs: Keyword arguments for the Browser-Use method.
-
-        Returns:
-            The response from the original Browser-Use method.
-        """
+        """Enhanced wrapper with detailed span creation."""
 
         # Check if instrumentation is suppressed
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
 
-        # Get operation name and create context
         operation_name = get_operation_name(gen_ai_endpoint)
         ctx = BrowserUseInstrumentationContext(
             instance, args, kwargs, version, environment, application_name
         )
 
-        # Create span name following the OpenLIT pattern
-        span_name = create_span_name(operation_name, ctx)
+        # Create enhanced span name
+        span_name = _create_enhanced_span_name(operation_name, ctx)
 
-        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as main_span:
             start_time = time.time()
 
             try:
-                # Set comprehensive span attributes using proper semantic conventions
-                set_span_attributes(span, operation_name, ctx)
+                # Set enhanced span attributes
+                _set_enhanced_span_attributes(
+                    main_span, operation_name, ctx, start_time, start_time
+                )
 
-                # Execute the original function
-                logger.debug("Executing Browser-Use operation: %s", operation_name)
+                # Execute the original sync function
+                logger.debug(
+                    "Executing enhanced Browser-Use sync operation: %s", operation_name
+                )
                 response = wrapped(*args, **kwargs)
 
                 # Calculate duration
                 end_time = time.time()
                 duration_ms = (end_time - start_time) * 1000
-                span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+                main_span.set_attribute("gen_ai.client.operation.duration", duration_ms)
 
-                # Process response based on operation type
-                process_response(span, response, ctx, capture_message_content)
+                # Process response with enhanced details
+                _process_enhanced_response(
+                    main_span, response, ctx, capture_message_content
+                )
 
-                # Capture token usage and cost metrics if available
+                # Capture token usage and cost metrics
                 model_name = ctx.model_name
                 if model_name != "unknown" and pricing_info:
                     capture_token_and_cost_metrics(
-                        span, response, model_name, pricing_info
+                        main_span, response, model_name, pricing_info
                     )
 
                 # Record metrics if enabled
@@ -118,11 +100,15 @@ def general_wrap(
                 # Calculate duration even for errors
                 end_time = time.time()
                 duration_ms = (end_time - start_time) * 1000
-                span.set_attribute("gen_ai.client.operation.duration", duration_ms)
+                main_span.set_attribute("gen_ai.client.operation.duration", duration_ms)
 
                 # Handle and log the exception
-                handle_exception(span, e)
-                logger.error("Error in Browser-Use operation %s: %s", operation_name, e)
+                handle_exception(main_span, e)
+                logger.error(
+                    "Error in enhanced Browser-Use sync operation %s: %s",
+                    operation_name,
+                    e,
+                )
 
                 # Record error metrics if enabled
                 if not disable_metrics and metrics:
@@ -134,6 +120,234 @@ def general_wrap(
                 raise
 
     return wrapper
+
+
+def _create_enhanced_span_name(
+    operation_name: str, ctx: BrowserUseInstrumentationContext
+) -> str:
+    """Create enhanced span names with more context."""
+
+    if operation_name == "run":
+        return f"invoke_agent {ctx.agent_name}"
+    elif operation_name == "step":
+        step_count = ctx.step_count
+        if step_count is not None:
+            return f"execute_task step {step_count}"
+        model_name = ctx.model_name if ctx.model_name != "unknown" else "llm"
+        return f"agent {model_name}"
+    else:
+        return f"browser {operation_name}"
+
+
+class SpanScope:
+    """Simple scope wrapper for common_framework_span_attributes."""
+
+    def __init__(self, span, start_time, end_time):
+        self._span = span
+        self._start_time = start_time
+        self._end_time = end_time
+
+
+def _set_enhanced_span_attributes(
+    span: Any,
+    operation_name: str,
+    ctx: BrowserUseInstrumentationContext,
+    start_time: float,
+    end_time: float,
+) -> None:
+    """Set enhanced span attributes with detailed information using common framework helpers."""
+
+    # Create scope for common_framework_span_attributes
+    scope = SpanScope(span, start_time, end_time)
+
+    # Use common framework span attributes like crewai does
+    common_framework_span_attributes(
+        scope,
+        SemanticConvention.GEN_AI_SYSTEM_BROWSER_USE,
+        "browser-use.com",  # server_address
+        443,  # server_port
+        ctx.environment,
+        ctx.application_name,
+        ctx.version,
+        operation_name,
+        ctx,  # instance for model extraction
+    )
+
+    # Add browser-use specific attributes
+    _add_browser_use_attributes(span, operation_name, ctx)
+
+
+def _add_browser_use_attributes(
+    span: Any, operation_name: str, ctx: BrowserUseInstrumentationContext
+) -> None:
+    """Add browser-use specific attributes based on SDK research."""
+
+    # Enhanced agent attributes
+    span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, ctx.agent_name)
+    span.set_attribute(
+        SemanticConvention.GEN_AI_AGENT_TYPE,
+        SemanticConvention.GEN_AI_AGENT_TYPE_BROWSER,
+    )
+
+    # Task description (agent description)
+    agent_desc = ctx.agent_description
+    if agent_desc != "browser_automation_task":
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_DESCRIPTION, agent_desc)
+
+    # Current URL if available
+    current_url = ctx.current_url
+    if current_url:
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_BROWSE_URL, current_url)
+
+    # Step information
+    step_count = ctx.step_count
+    if step_count is not None:
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_STEP_COUNT, step_count)
+
+    max_steps = ctx.max_steps
+    if max_steps is not None:
+        span.set_attribute("gen_ai.agent.max_steps", max_steps)
+
+    # Browser-use specific agent information
+    try:
+        instance = ctx.instance
+        if hasattr(instance, "id"):
+            span.set_attribute("gen_ai.agent.id", str(instance.id))
+        if hasattr(instance, "task_id"):
+            span.set_attribute("gen_ai.agent.task_id", str(instance.task_id))
+        if hasattr(instance, "session_id"):
+            span.set_attribute("gen_ai.agent.session_id", str(instance.session_id))
+
+        # Agent settings information
+        if hasattr(instance, "settings"):
+            settings = instance.settings
+            if hasattr(settings, "use_vision"):
+                span.set_attribute("gen_ai.agent.use_vision", settings.use_vision)
+            if hasattr(settings, "max_failures"):
+                span.set_attribute("gen_ai.agent.max_failures", settings.max_failures)
+            if hasattr(settings, "max_actions_per_step"):
+                span.set_attribute(
+                    "gen_ai.agent.max_actions_per_step", settings.max_actions_per_step
+                )
+
+        # Browser profile information
+        if hasattr(instance, "browser_profile"):
+            profile = instance.browser_profile
+            if hasattr(profile, "headless"):
+                headless_value = profile.headless
+                if headless_value is not None:
+                    span.set_attribute("gen_ai.agent.headless", bool(headless_value))
+            if hasattr(profile, "allowed_domains") and profile.allowed_domains:
+                span.set_attribute(
+                    "gen_ai.agent.allowed_domains", json.dumps(profile.allowed_domains)
+                )
+
+    except Exception as e:
+        logger.debug("Error capturing browser-use specific attributes: %s", e)
+
+    # Operation type mapping
+    operation_type_map = {
+        "run": SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+        "step": SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
+        "pause": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+        "resume": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+        "stop": SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
+    }
+
+    if operation_name in operation_type_map:
+        span.set_attribute("gen_ai.operation.type", operation_type_map[operation_name])
+
+
+def _process_enhanced_response(
+    span: Any,
+    response: Any,
+    ctx: BrowserUseInstrumentationContext,
+    capture_message_content: bool,
+) -> None:
+    """Process response with enhanced details and summary information."""
+
+    try:
+        # Handle AgentHistoryList (from agent.run())
+        if hasattr(response, "history") and hasattr(response, "usage"):
+            history_list = response
+
+            # Overall execution summary
+            total_steps = len(history_list.history)
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_STEP_COUNT, total_steps)
+
+            # Calculate success/failure stats
+            successful_steps = 0
+            failed_steps = 0
+            total_actions = 0
+
+            for step in history_list.history:
+                if step.result:
+                    step_success = True
+                    for result in step.result:
+                        total_actions += 1
+                        if hasattr(result, "is_success") and not result.is_success:
+                            step_success = False
+                        elif hasattr(result, "error") and result.error:
+                            step_success = False
+
+                    if step_success:
+                        successful_steps += 1
+                    else:
+                        failed_steps += 1
+
+            span.set_attribute("gen_ai.agent.total_actions", total_actions)
+            span.set_attribute("gen_ai.agent.successful_steps", successful_steps)
+            span.set_attribute("gen_ai.agent.failed_steps", failed_steps)
+
+            if total_steps > 0:
+                success_rate = (successful_steps / total_steps) * 100
+                span.set_attribute("gen_ai.agent.success_rate", success_rate)
+
+            # Final result
+            final_result = history_list.final_result()
+            if final_result and capture_message_content:
+                span.set_attribute(
+                    "gen_ai.agent.final_result", str(final_result)[:1000]
+                )
+
+            # Usage summary if available
+            if history_list.usage:
+                usage = history_list.usage
+                if hasattr(usage, "total_input_tokens") and usage.total_input_tokens:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+                        usage.total_input_tokens,
+                    )
+                if hasattr(usage, "total_output_tokens") and usage.total_output_tokens:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
+                        usage.total_output_tokens,
+                    )
+                if hasattr(usage, "total_cost") and usage.total_cost:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_COST, usage.total_cost
+                    )
+
+            # Total duration
+            if hasattr(history_list, "total_duration_seconds"):
+                duration = history_list.total_duration_seconds()
+                if duration:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_AGENT_EXECUTION_TIME, duration
+                    )
+
+        # Handle single action results
+        elif hasattr(response, "is_success") or hasattr(response, "error"):
+            if hasattr(response, "is_success"):
+                span.set_attribute("gen_ai.action.success", response.is_success)
+
+            if hasattr(response, "error") and response.error:
+                span.set_attribute(SemanticConvention.ERROR_TYPE, "action_failed")
+                if capture_message_content:
+                    span.set_attribute("gen_ai.action.error", str(response.error)[:200])
+
+    except Exception as e:
+        logger.debug("Error processing enhanced response: %s", e)
 
 
 def _record_operation_metrics(metrics, operation_name, duration_ms, is_success):
