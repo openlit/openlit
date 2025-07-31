@@ -24,14 +24,7 @@ class BrowserUseInstrumentationContext:
         "version",
         "environment",
         "application_name",
-        "_agent_name",
-        "_agent_description",
-        "_model_name",
-        "_current_url",
-        "_step_count",
-        "_max_steps",
-        "_agent_id",
-        "_task_id",
+        "_cache",
     )
 
     def __init__(
@@ -50,22 +43,15 @@ class BrowserUseInstrumentationContext:
         self.environment = environment
         self.application_name = application_name
 
-        # Cache expensive operations with lazy loading
-        self._agent_name = None
-        self._agent_description = None
-        self._model_name = None
-        self._current_url = None
-        self._step_count = None
-        self._max_steps = None
-        self._agent_id = None
-        self._task_id = None
+        # Cache for expensive operations with lazy loading
+        self._cache = {}
 
     @property
     def agent_name(self) -> str:
         """Get agent name with caching."""
-        if self._agent_name is None:
-            self._agent_name = self._extract_agent_name()
-        return self._agent_name
+        if "agent_name" not in self._cache:
+            self._cache["agent_name"] = self._extract_agent_name()
+        return self._cache["agent_name"]
 
     def _extract_agent_name(self) -> str:
         """Extract agent name from instance."""
@@ -73,19 +59,18 @@ class BrowserUseInstrumentationContext:
             # Check for agent name attribute
             if hasattr(self.instance, "name"):
                 return str(self.instance.name)
-            elif hasattr(self.instance, "agent_name"):
+            if hasattr(self.instance, "agent_name"):
                 return str(self.instance.agent_name)
-            else:
-                return "browser_use"
-        except Exception:
+            return "browser_use"
+        except (AttributeError, ValueError, TypeError):
             return "browser_use"
 
     @property
     def agent_description(self) -> str:
         """Get agent task description with caching."""
-        if self._agent_description is None:
-            self._agent_description = self._extract_agent_description()
-        return self._agent_description
+        if "agent_description" not in self._cache:
+            self._cache["agent_description"] = self._extract_agent_description()
+        return self._cache["agent_description"]
 
     def _extract_agent_description(self) -> str:
         """Extract agent task description from arguments or instance."""
@@ -108,15 +93,15 @@ class BrowserUseInstrumentationContext:
                 return str(self.instance.task)[:200]
 
             return "browser_automation_task"
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             return "browser_automation_task"
 
     @property
     def model_name(self) -> str:
         """Get model name with caching."""
-        if self._model_name is None:
-            self._model_name = self._extract_model_name()
-        return self._model_name
+        if "model_name" not in self._cache:
+            self._cache["model_name"] = self._extract_model_name()
+        return self._cache["model_name"]
 
     def _extract_model_name(self) -> str:
         """Extract model name from instance."""
@@ -126,9 +111,9 @@ class BrowserUseInstrumentationContext:
                 llm = self.instance.llm
                 if hasattr(llm, "model_name"):
                     return str(llm.model_name)
-                elif hasattr(llm, "model"):
+                if hasattr(llm, "model"):
                     return str(llm.model)
-                elif hasattr(llm, "name"):
+                if hasattr(llm, "name"):
                     return str(llm.name)
 
             # Check for model attribute directly
@@ -136,19 +121,19 @@ class BrowserUseInstrumentationContext:
                 model = self.instance.model
                 if isinstance(model, str):
                     return model
-                elif hasattr(model, "model_name"):
+                if hasattr(model, "model_name"):
                     return str(model.model_name)
 
             return "unknown"
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             return "unknown"
 
     @property
     def current_url(self) -> Optional[str]:
         """Get current browser URL."""
-        if self._current_url is None:
-            self._current_url = self._extract_current_url()
-        return self._current_url
+        if "current_url" not in self._cache:
+            self._cache["current_url"] = self._extract_current_url()
+        return self._cache["current_url"]
 
     def _extract_current_url(self) -> Optional[str]:
         """Extract current URL from browser session."""
@@ -168,33 +153,33 @@ class BrowserUseInstrumentationContext:
                     return str(page.url)
 
             return None
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             return None
 
     @property
     def step_count(self) -> Optional[int]:
         """Get current step count."""
-        if self._step_count is None:
-            self._step_count = self._extract_step_count()
-        return self._step_count
+        if "step_count" not in self._cache:
+            self._cache["step_count"] = self._extract_step_count()
+        return self._cache["step_count"]
 
     def _extract_step_count(self) -> Optional[int]:
         """Extract step count from instance."""
         try:
             if hasattr(self.instance, "step_count"):
                 return self.instance.step_count
-            elif hasattr(self.instance, "current_step"):
+            if hasattr(self.instance, "current_step"):
                 return self.instance.current_step
             return None
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             return None
 
     @property
     def max_steps(self) -> Optional[int]:
         """Get max steps with caching."""
-        if self._max_steps is None:
-            self._max_steps = self._extract_max_steps()
-        return self._max_steps
+        if "max_steps" not in self._cache:
+            self._cache["max_steps"] = self._extract_max_steps()
+        return self._cache["max_steps"]
 
     def _extract_max_steps(self) -> Optional[int]:
         """Extract max steps from kwargs or instance."""
@@ -208,7 +193,7 @@ class BrowserUseInstrumentationContext:
                 return self.instance.max_steps
 
             return None
-        except Exception:
+        except (AttributeError, ValueError, TypeError):
             return None
 
 
@@ -222,27 +207,31 @@ def get_operation_name(gen_ai_endpoint: str) -> str:
 def create_span_name(operation_name: str, ctx: BrowserUseInstrumentationContext) -> str:
     """Create span name following OpenLIT pattern."""
 
-    if operation_name in ["run"]:
-        # Main agent execution
-        return f"agent {ctx.agent_name}"
-    elif operation_name in ["step"]:
+    # Map operation types to span name patterns
+    operation_patterns = {
+        "run": f"agent {ctx.agent_name}",
+        "multi_act": "agent multi_act",
+        "act": "browser act",
+    }
+
+    if operation_name in operation_patterns:
+        return operation_patterns[operation_name]
+
+    if operation_name in ["step"]:
         # Individual step execution
         step_num = ctx.step_count
-        if step_num is not None:
-            return f"agent step_{step_num}"
-        return f"agent {ctx.agent_name}_step"
-    elif operation_name in ["multi_act"]:
-        # Multi-action execution
-        return f"agent multi_act"
-    elif operation_name == "act":
-        # Browser controller actions
-        return f"browser act"
-    elif operation_name in ["pause", "resume", "stop"]:
+        return (
+            f"agent step_{step_num}"
+            if step_num is not None
+            else f"agent {ctx.agent_name}_step"
+        )
+
+    if operation_name in ["pause", "resume", "stop"]:
         # Task management
         return f"agent {operation_name}"
-    else:
-        # Generic operations
-        return f"agent {operation_name}"
+
+    # Generic operations
+    return f"agent {operation_name}"
 
 
 def set_span_attributes(
@@ -321,7 +310,7 @@ def set_span_attributes(
 def process_response(
     span: Any,
     response: Any,
-    ctx: BrowserUseInstrumentationContext,
+    _ctx: BrowserUseInstrumentationContext,
     capture_message_content: bool = True,
 ) -> None:
     """Process and capture response data with proper semantic conventions."""
@@ -390,7 +379,7 @@ def process_response(
                 except (TypeError, ValueError):
                     pass
 
-    except Exception as e:
+    except (AttributeError, ValueError, TypeError, KeyError) as e:
         logger.debug("Error processing response: %s", e)
 
 
@@ -424,7 +413,7 @@ def capture_agent_thoughts_and_state(span: Any, agent_output: Any) -> None:
                 str(agent_output.evaluation_previous_goal)[:200],
             )
 
-    except Exception as e:
+    except (AttributeError, ValueError, TypeError) as e:
         logger.debug("Error capturing agent thoughts: %s", e)
 
 
@@ -467,8 +456,8 @@ def capture_token_and_cost_metrics(
                 )
                 if cost > 0:
                     span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-            except Exception as cost_error:
+            except (ValueError, TypeError, KeyError) as cost_error:
                 logger.debug("Error calculating cost: %s", cost_error)
 
-    except Exception as e:
+    except (AttributeError, ValueError, TypeError, KeyError) as e:
         logger.debug("Error capturing token and cost metrics: %s", e)

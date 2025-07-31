@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
 
@@ -15,11 +15,7 @@ from openlit.__helpers import handle_exception, common_framework_span_attributes
 from openlit.instrumentation.browser_use.utils import (
     BrowserUseInstrumentationContext,
     get_operation_name,
-    create_span_name,
-    set_span_attributes,
-    process_response,
     capture_token_and_cost_metrics,
-    capture_agent_thoughts_and_state,
 )
 from openlit.semcov import SemanticConvention
 
@@ -152,14 +148,13 @@ def _create_enhanced_span_name(
 
     if operation_name == "run":
         return f"invoke_agent {ctx.agent_name}"
-    elif operation_name == "step":
+    if operation_name == "step":
         step_count = ctx.step_count
         if step_count is not None:
             return f"execute_task step {step_count}"
         model_name = ctx.model_name if ctx.model_name != "unknown" else "llm"
         return f"{SemanticConvention.GEN_AI_SPAN_INVOKE_MODEL} {model_name}"
-    else:
-        return f"browser {operation_name}"
+    return f"browser {operation_name}"
 
 
 class SpanScope:
@@ -169,6 +164,16 @@ class SpanScope:
         self._span = span
         self._start_time = start_time
         self._end_time = end_time
+
+    @property
+    def span(self):
+        """Get the span."""
+        return self._span
+
+    @property
+    def start_time(self):
+        """Get the start time."""
+        return self._start_time
 
 
 def _set_enhanced_span_attributes(
@@ -296,7 +301,7 @@ def _add_browser_use_attributes(
 
 
 def _add_agent_configuration_attributes(
-    span: Any, agent_instance: Any, ctx: BrowserUseInstrumentationContext
+    span: Any, agent_instance: Any, _ctx: BrowserUseInstrumentationContext
 ) -> None:
     """Add agent configuration attributes to the main execution span."""
 
@@ -374,8 +379,8 @@ def _add_agent_configuration_attributes(
 
 def _install_step_hooks(
     tracer: Any,
-    parent_span: Any,
-    agent_instance: Any,
+    _parent_span: Any,
+    _agent_instance: Any,
     ctx: BrowserUseInstrumentationContext,
     capture_message_content: bool,
     run_kwargs: dict,
@@ -599,7 +604,7 @@ async def _create_detailed_step_span(
 
 async def _create_individual_action_spans(
     tracer: Any,
-    parent_span: Any,
+    _parent_span: Any,
     actions: List[Any],
     step: Any,
     ctx: BrowserUseInstrumentationContext,
@@ -729,10 +734,38 @@ async def _create_individual_action_spans(
         logger.debug("Error creating individual action spans: %s", e)
 
 
+def _calculate_step_stats(history):
+    """Calculate success/failure statistics for steps."""
+    successful_steps = 0
+    failed_steps = 0
+    total_actions = 0
+
+    for step in history:
+        if step.result:
+            step_success = True
+            for result in step.result:
+                total_actions += 1
+                if hasattr(result, "is_success") and not result.is_success:
+                    step_success = False
+                elif hasattr(result, "error") and result.error:
+                    step_success = False
+
+            if step_success:
+                successful_steps += 1
+            else:
+                failed_steps += 1
+
+    return {
+        "successful_steps": successful_steps,
+        "failed_steps": failed_steps,
+        "total_actions": total_actions,
+    }
+
+
 def _process_enhanced_response(
     span: Any,
     response: Any,
-    ctx: BrowserUseInstrumentationContext,
+    _ctx: BrowserUseInstrumentationContext,
     capture_message_content: bool,
 ) -> None:
     """Process response with enhanced details and summary information."""
@@ -747,24 +780,10 @@ def _process_enhanced_response(
             span.set_attribute(SemanticConvention.GEN_AI_AGENT_STEP_COUNT, total_steps)
 
             # Calculate success/failure stats
-            successful_steps = 0
-            failed_steps = 0
-            total_actions = 0
-
-            for step in history_list.history:
-                if step.result:
-                    step_success = True
-                    for result in step.result:
-                        total_actions += 1
-                        if hasattr(result, "is_success") and not result.is_success:
-                            step_success = False
-                        elif hasattr(result, "error") and result.error:
-                            step_success = False
-
-                    if step_success:
-                        successful_steps += 1
-                    else:
-                        failed_steps += 1
+            stats = _calculate_step_stats(history_list.history)
+            successful_steps = stats["successful_steps"]
+            failed_steps = stats["failed_steps"]
+            total_actions = stats["total_actions"]
 
             span.set_attribute(
                 SemanticConvention.GEN_AI_AGENT_TOTAL_ACTIONS, total_actions
