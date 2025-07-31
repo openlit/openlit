@@ -9,8 +9,6 @@ from typing import Collection
 from wrapt import wrap_function_wrapper
 
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
-from opentelemetry.trace import get_tracer
-from opentelemetry.metrics import get_meter
 
 from openlit.semcov import SemanticConvention
 
@@ -40,8 +38,8 @@ class BrowserUseInstrumentor(BaseInstrumentor):
             logger.warning("Browser-use not available, skipping instrumentation")
             return
 
-        tracer = get_tracer(__name__)
-        meter = get_meter(__name__)
+        tracer = kwargs.get("tracer")
+        meter = kwargs.get("meter")
 
         # Get configuration
         application_name = kwargs.get("application_name", "default_application")
