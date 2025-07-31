@@ -34,5 +34,6 @@ disable=
     no-else-return,
     import-outside-toplevel,
     too-many-return-statements,
-    too-many-function-args
+    too-many-function-args,
+    unnecessary-pass
     
