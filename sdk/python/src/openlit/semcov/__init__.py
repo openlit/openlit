@@ -574,7 +574,61 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_BROWSER_RESUME = "browser_resume"
     GEN_AI_OPERATION_TYPE_BROWSER_STOP = "browser_stop"
 
-    # Enhanced Browser Session Attributes (Superior to Laminar)
+    # Browser-Use Agent Specific Attributes
+    GEN_AI_AGENT_MAX_STEPS = "gen_ai.agent.max_steps"
+    GEN_AI_AGENT_ID = "gen_ai.agent.id"
+    GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task_id"
+    GEN_AI_AGENT_SESSION_ID = "gen_ai.agent.session_id"
+    GEN_AI_AGENT_USE_VISION = "gen_ai.agent.use_vision"
+    GEN_AI_AGENT_MAX_FAILURES = "gen_ai.agent.max_failures"
+    GEN_AI_AGENT_MAX_ACTIONS_PER_STEP = "gen_ai.agent.max_actions_per_step"
+    GEN_AI_AGENT_HEADLESS = "gen_ai.agent.headless"
+    GEN_AI_AGENT_ALLOWED_DOMAINS = "gen_ai.agent.allowed_domains"
+    GEN_AI_AGENT_VISION_DETAIL_LEVEL = "gen_ai.agent.vision_detail_level"
+    GEN_AI_AGENT_RETRY_DELAY = "gen_ai.agent.retry_delay"
+    GEN_AI_AGENT_VALIDATE_OUTPUT = "gen_ai.agent.validate_output"
+    GEN_AI_AGENT_LLM_TIMEOUT = "gen_ai.agent.llm_timeout"
+
+    # Browser-Use Action Specific Attributes
+    GEN_AI_ACTION_SUCCESS = "gen_ai.action.success"
+    GEN_AI_ACTION_ERROR = "gen_ai.action.error"
+    GEN_AI_ACTION_TYPE = "gen_ai.action.type"
+    GEN_AI_ACTION_INDEX = "gen_ai.action.index"
+    GEN_AI_ACTION_HAS_SENSITIVE_DATA = "gen_ai.action.has_sensitive_data"
+    GEN_AI_ACTION_FILE_PATH = "gen_ai.action.file_path"
+    GEN_AI_ACTION_EXTRACTED_CONTENT_LENGTH = "gen_ai.action.extracted_content_length"
+
+    # Browser-Use Browser Specific Attributes
+    GEN_AI_BROWSER_PAGE_TITLE = "gen_ai.browser.page_title"
+    GEN_AI_BROWSER_TABS_COUNT = "gen_ai.browser.tabs_count"
+
+    # Browser-Use Agent Execution Attributes
+    GEN_AI_AGENT_THINKING = "gen_ai.agent.thinking"
+    GEN_AI_AGENT_MEMORY = "gen_ai.agent.memory"
+    GEN_AI_AGENT_NEXT_GOAL = "gen_ai.agent.next_goal"
+    GEN_AI_AGENT_EVALUATION = "gen_ai.agent.evaluation"
+    GEN_AI_AGENT_ACTIONS = "gen_ai.agent.actions"
+    GEN_AI_AGENT_ACTIONS_COUNT = "gen_ai.agent.actions_count"
+    GEN_AI_AGENT_PAGE_TITLE = "gen_ai.agent.page_title"
+    GEN_AI_AGENT_TABS_COUNT = "gen_ai.agent.tabs_count"
+    GEN_AI_AGENT_INTERACTED_ELEMENTS_COUNT = "gen_ai.agent.interacted_elements_count"
+    GEN_AI_AGENT_ACTIONS_SUCCESS_COUNT = "gen_ai.agent.actions_success_count"
+    GEN_AI_AGENT_ACTIONS_ERROR_COUNT = "gen_ai.agent.actions_error_count"
+    GEN_AI_AGENT_ACTION_ERRORS = "gen_ai.agent.action_errors"
+    GEN_AI_AGENT_STEP_DURATION = "gen_ai.agent.step_duration"
+    GEN_AI_AGENT_TOTAL_ACTIONS = "gen_ai.agent.total_actions"
+    GEN_AI_AGENT_SUCCESSFUL_STEPS = "gen_ai.agent.successful_steps"
+    GEN_AI_AGENT_FAILED_STEPS = "gen_ai.agent.failed_steps"
+    GEN_AI_AGENT_SUCCESS_RATE = "gen_ai.agent.success_rate"
+    GEN_AI_AGENT_FINAL_RESULT = "gen_ai.agent.final_result"
+
+    # Browser-Use Operation Attributes
+    GEN_AI_OPERATION_TYPE = "gen_ai.operation.type"
+    GEN_AI_CLIENT_OPERATION_DURATION = "gen_ai.client.operation.duration"
+
+    # Browser-Use Span Name Components
+    GEN_AI_SPAN_INVOKE_MODEL = "invoke_model"
+
     GEN_AI_BROWSER_SESSION_DURATION = "gen_ai.browser.session.duration"
     GEN_AI_BROWSER_SESSION_ACTIONS_COUNT = "gen_ai.browser.session.actions_count"
     GEN_AI_BROWSER_SESSION_SUCCESS_RATE = "gen_ai.browser.session.success_rate"

@@ -288,7 +288,7 @@ def set_span_attributes(
 
     max_steps = ctx.max_steps
     if max_steps is not None:
-        span.set_attribute("gen_ai.agent.max_steps", max_steps)
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_MAX_STEPS, max_steps)
 
     # Current URL if available
     current_url = ctx.current_url
@@ -307,7 +307,9 @@ def set_span_attributes(
     }
 
     if operation_name in operation_type_map:
-        span.set_attribute("gen_ai.operation.type", operation_type_map[operation_name])
+        span.set_attribute(
+            SemanticConvention.GEN_AI_OPERATION_TYPE, operation_type_map[operation_name]
+        )
 
     # Set additional attributes if provided
     if additional_attrs:
@@ -365,7 +367,9 @@ def process_response(
 
             # Capture success/failure
             if hasattr(action_result, "is_success"):
-                span.set_attribute("gen_ai.action.success", action_result.is_success)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_ACTION_SUCCESS, action_result.is_success
+                )
 
             # Capture error information
             if hasattr(action_result, "error") and action_result.error:
@@ -374,11 +378,15 @@ def process_response(
         # Generic response capture
         if capture_message_content:
             if isinstance(response, str):
-                span.set_attribute("gen_ai.content.completion", response[:1000])
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, response[:1000]
+                )
             elif hasattr(response, "__dict__"):
                 try:
                     content = json.dumps(response.__dict__, default=str)[:1000]
-                    span.set_attribute("gen_ai.content.completion", content)
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CONTENT_COMPLETION, content
+                    )
                 except (TypeError, ValueError):
                     pass
 
@@ -392,15 +400,19 @@ def capture_agent_thoughts_and_state(span: Any, agent_output: Any) -> None:
     try:
         if hasattr(agent_output, "thinking") and agent_output.thinking:
             span.set_attribute(
-                "gen_ai.agent.thinking", str(agent_output.thinking)[:500]
+                SemanticConvention.GEN_AI_AGENT_THINKING,
+                str(agent_output.thinking)[:500],
             )
 
         if hasattr(agent_output, "memory") and agent_output.memory:
-            span.set_attribute("gen_ai.agent.memory", str(agent_output.memory)[:500])
+            span.set_attribute(
+                SemanticConvention.GEN_AI_AGENT_MEMORY, str(agent_output.memory)[:500]
+            )
 
         if hasattr(agent_output, "next_goal") and agent_output.next_goal:
             span.set_attribute(
-                "gen_ai.agent.next_goal", str(agent_output.next_goal)[:200]
+                SemanticConvention.GEN_AI_AGENT_NEXT_GOAL,
+                str(agent_output.next_goal)[:200],
             )
 
         if (
@@ -408,7 +420,7 @@ def capture_agent_thoughts_and_state(span: Any, agent_output: Any) -> None:
             and agent_output.evaluation_previous_goal
         ):
             span.set_attribute(
-                "gen_ai.agent.evaluation",
+                SemanticConvention.GEN_AI_AGENT_EVALUATION,
                 str(agent_output.evaluation_previous_goal)[:200],
             )
 

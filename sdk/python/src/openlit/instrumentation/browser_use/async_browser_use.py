@@ -92,7 +92,7 @@ def async_general_wrap(
                     end_time = time.time()
                     duration_ms = (end_time - start_time) * 1000
                     main_span.set_attribute(
-                        "gen_ai.client.operation.duration", duration_ms
+                        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration_ms
                     )
 
                     # Process response with enhanced details
@@ -120,7 +120,7 @@ def async_general_wrap(
                     end_time = time.time()
                     duration_ms = (end_time - start_time) * 1000
                     main_span.set_attribute(
-                        "gen_ai.client.operation.duration", duration_ms
+                        SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration_ms
                     )
 
                     # Handle and log the exception
@@ -157,7 +157,7 @@ def _create_enhanced_span_name(
         if step_count is not None:
             return f"execute_task step {step_count}"
         model_name = ctx.model_name if ctx.model_name != "unknown" else "llm"
-        return f"agent {model_name}"
+        return f"{SemanticConvention.GEN_AI_SPAN_INVOKE_MODEL} {model_name}"
     else:
         return f"browser {operation_name}"
 
@@ -229,28 +229,37 @@ def _add_browser_use_attributes(
 
     max_steps = ctx.max_steps
     if max_steps is not None:
-        span.set_attribute("gen_ai.agent.max_steps", max_steps)
+        span.set_attribute(SemanticConvention.GEN_AI_AGENT_MAX_STEPS, max_steps)
 
     # Browser-use specific agent information
     try:
         instance = ctx.instance
         if hasattr(instance, "id"):
-            span.set_attribute("gen_ai.agent.id", str(instance.id))
+            span.set_attribute(SemanticConvention.GEN_AI_AGENT_ID, str(instance.id))
         if hasattr(instance, "task_id"):
-            span.set_attribute("gen_ai.agent.task_id", str(instance.task_id))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_AGENT_TASK_ID, str(instance.task_id)
+            )
         if hasattr(instance, "session_id"):
-            span.set_attribute("gen_ai.agent.session_id", str(instance.session_id))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_AGENT_SESSION_ID, str(instance.session_id)
+            )
 
         # Agent settings information
         if hasattr(instance, "settings"):
             settings = instance.settings
             if hasattr(settings, "use_vision"):
-                span.set_attribute("gen_ai.agent.use_vision", settings.use_vision)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_USE_VISION, settings.use_vision
+                )
             if hasattr(settings, "max_failures"):
-                span.set_attribute("gen_ai.agent.max_failures", settings.max_failures)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_MAX_FAILURES, settings.max_failures
+                )
             if hasattr(settings, "max_actions_per_step"):
                 span.set_attribute(
-                    "gen_ai.agent.max_actions_per_step", settings.max_actions_per_step
+                    SemanticConvention.GEN_AI_AGENT_MAX_ACTIONS_PER_STEP,
+                    settings.max_actions_per_step,
                 )
 
         # Browser profile information
@@ -259,10 +268,13 @@ def _add_browser_use_attributes(
             if hasattr(profile, "headless"):
                 headless_value = profile.headless
                 if headless_value is not None:
-                    span.set_attribute("gen_ai.agent.headless", bool(headless_value))
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_AGENT_HEADLESS, bool(headless_value)
+                    )
             if hasattr(profile, "allowed_domains") and profile.allowed_domains:
                 span.set_attribute(
-                    "gen_ai.agent.allowed_domains", json.dumps(profile.allowed_domains)
+                    SemanticConvention.GEN_AI_AGENT_ALLOWED_DOMAINS,
+                    json.dumps(profile.allowed_domains),
                 )
 
     except Exception as e:
@@ -278,7 +290,9 @@ def _add_browser_use_attributes(
     }
 
     if operation_name in operation_type_map:
-        span.set_attribute("gen_ai.operation.type", operation_type_map[operation_name])
+        span.set_attribute(
+            SemanticConvention.GEN_AI_OPERATION_TYPE, operation_type_map[operation_name]
+        )
 
 
 def _add_agent_configuration_attributes(
@@ -293,48 +307,65 @@ def _add_agent_configuration_attributes(
 
             # Vision settings
             if hasattr(settings, "use_vision"):
-                span.set_attribute("gen_ai.agent.use_vision", settings.use_vision)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_USE_VISION, settings.use_vision
+                )
             if hasattr(settings, "vision_detail_level"):
                 span.set_attribute(
-                    "gen_ai.agent.vision_detail_level", settings.vision_detail_level
+                    SemanticConvention.GEN_AI_AGENT_VISION_DETAIL_LEVEL,
+                    settings.vision_detail_level,
                 )
 
             # Execution settings
             if hasattr(settings, "max_failures"):
-                span.set_attribute("gen_ai.agent.max_failures", settings.max_failures)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_MAX_FAILURES, settings.max_failures
+                )
             if hasattr(settings, "retry_delay"):
-                span.set_attribute("gen_ai.agent.retry_delay", settings.retry_delay)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_RETRY_DELAY, settings.retry_delay
+                )
             if hasattr(settings, "validate_output"):
                 span.set_attribute(
-                    "gen_ai.agent.validate_output", settings.validate_output
+                    SemanticConvention.GEN_AI_AGENT_VALIDATE_OUTPUT,
+                    settings.validate_output,
                 )
             if hasattr(settings, "max_actions_per_step"):
                 span.set_attribute(
-                    "gen_ai.agent.max_actions_per_step", settings.max_actions_per_step
+                    SemanticConvention.GEN_AI_AGENT_MAX_ACTIONS_PER_STEP,
+                    settings.max_actions_per_step,
                 )
 
             # LLM settings
             if hasattr(settings, "llm_timeout"):
-                span.set_attribute("gen_ai.agent.llm_timeout", settings.llm_timeout)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_LLM_TIMEOUT, settings.llm_timeout
+                )
 
         # Browser profile information
         if hasattr(agent_instance, "browser_profile"):
             profile = agent_instance.browser_profile
             if hasattr(profile, "allowed_domains") and profile.allowed_domains:
                 span.set_attribute(
-                    "gen_ai.agent.allowed_domains", json.dumps(profile.allowed_domains)
+                    SemanticConvention.GEN_AI_AGENT_ALLOWED_DOMAINS,
+                    json.dumps(profile.allowed_domains),
                 )
             if hasattr(profile, "headless"):
                 headless_value = profile.headless
                 if headless_value is not None:
-                    span.set_attribute("gen_ai.agent.headless", bool(headless_value))
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_AGENT_HEADLESS, bool(headless_value)
+                    )
 
         # Task ID and session information
         if hasattr(agent_instance, "task_id"):
-            span.set_attribute("gen_ai.agent.task_id", str(agent_instance.task_id))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_AGENT_TASK_ID, str(agent_instance.task_id)
+            )
         if hasattr(agent_instance, "session_id"):
             span.set_attribute(
-                "gen_ai.agent.session_id", str(agent_instance.session_id)
+                SemanticConvention.GEN_AI_AGENT_SESSION_ID,
+                str(agent_instance.session_id),
             )
 
     except Exception as e:
@@ -420,7 +451,7 @@ async def _create_detailed_step_span(
             )
             step_span.set_attribute(SemanticConvention.GEN_AI_OPERATION, "step")
             step_span.set_attribute(
-                "gen_ai.operation.type",
+                SemanticConvention.GEN_AI_OPERATION_TYPE,
                 SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
             )
             step_span.set_attribute(
@@ -437,17 +468,20 @@ async def _create_detailed_step_span(
                 # Agent thoughts and reasoning
                 if hasattr(model_output, "thinking") and model_output.thinking:
                     step_span.set_attribute(
-                        "gen_ai.agent.thinking", str(model_output.thinking)[:500]
+                        SemanticConvention.GEN_AI_AGENT_THINKING,
+                        str(model_output.thinking)[:500],
                     )
 
                 if hasattr(model_output, "memory") and model_output.memory:
                     step_span.set_attribute(
-                        "gen_ai.agent.memory", str(model_output.memory)[:500]
+                        SemanticConvention.GEN_AI_AGENT_MEMORY,
+                        str(model_output.memory)[:500],
                     )
 
                 if hasattr(model_output, "next_goal") and model_output.next_goal:
                     step_span.set_attribute(
-                        "gen_ai.agent.next_goal", str(model_output.next_goal)[:200]
+                        SemanticConvention.GEN_AI_AGENT_NEXT_GOAL,
+                        str(model_output.next_goal)[:200],
                     )
 
                 if (
@@ -455,7 +489,7 @@ async def _create_detailed_step_span(
                     and model_output.evaluation_previous_goal
                 ):
                     step_span.set_attribute(
-                        "gen_ai.agent.evaluation",
+                        SemanticConvention.GEN_AI_AGENT_EVALUATION,
                         str(model_output.evaluation_previous_goal)[:200],
                     )
 
@@ -482,10 +516,12 @@ async def _create_detailed_step_span(
                             actions_summary.append(f"{action_type}")
 
                     step_span.set_attribute(
-                        "gen_ai.agent.actions", json.dumps(actions_summary)
+                        SemanticConvention.GEN_AI_AGENT_ACTIONS,
+                        json.dumps(actions_summary),
                     )
                     step_span.set_attribute(
-                        "gen_ai.agent.actions_count", len(model_output.action)
+                        SemanticConvention.GEN_AI_AGENT_ACTIONS_COUNT,
+                        len(model_output.action),
                     )
 
             # Browser state information
@@ -500,12 +536,14 @@ async def _create_detailed_step_span(
 
                 if hasattr(state, "title") and state.title:
                     step_span.set_attribute(
-                        "gen_ai.agent.page_title", state.title[:100]
+                        SemanticConvention.GEN_AI_AGENT_PAGE_TITLE, state.title[:100]
                     )
 
                 # Tab information
                 if hasattr(state, "tabs") and state.tabs:
-                    step_span.set_attribute("gen_ai.agent.tabs_count", len(state.tabs))
+                    step_span.set_attribute(
+                        SemanticConvention.GEN_AI_AGENT_TABS_COUNT, len(state.tabs)
+                    )
 
                 # Elements interacted with
                 if hasattr(state, "interacted_element") and state.interacted_element:
@@ -513,7 +551,8 @@ async def _create_detailed_step_span(
                         1 for el in state.interacted_element if el is not None
                     )
                     step_span.set_attribute(
-                        "gen_ai.agent.interacted_elements_count", interacted_count
+                        SemanticConvention.GEN_AI_AGENT_INTERACTED_ELEMENTS_COUNT,
+                        interacted_count,
                     )
 
             # Action results summary
@@ -533,13 +572,16 @@ async def _create_detailed_step_span(
                         error_messages.append(str(result.error)[:100])
 
                 step_span.set_attribute(
-                    "gen_ai.agent.actions_success_count", success_count
+                    SemanticConvention.GEN_AI_AGENT_ACTIONS_SUCCESS_COUNT, success_count
                 )
-                step_span.set_attribute("gen_ai.agent.actions_error_count", error_count)
+                step_span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_ACTIONS_ERROR_COUNT, error_count
+                )
 
                 if error_messages and capture_message_content:
                     step_span.set_attribute(
-                        "gen_ai.agent.action_errors", json.dumps(error_messages)
+                        SemanticConvention.GEN_AI_AGENT_ACTION_ERRORS,
+                        json.dumps(error_messages),
                     )
 
             # Step metadata (timing, etc.)
@@ -547,7 +589,8 @@ async def _create_detailed_step_span(
                 metadata = latest_step.metadata
                 if hasattr(metadata, "duration_seconds"):
                     step_span.set_attribute(
-                        "gen_ai.agent.step_duration", metadata.duration_seconds
+                        SemanticConvention.GEN_AI_AGENT_STEP_DURATION,
+                        metadata.duration_seconds,
                     )
 
     except Exception as e:
@@ -586,14 +629,18 @@ async def _create_individual_action_spans(
                         SemanticConvention.GEN_AI_OPERATION, "invoke_agent"
                     )
                     action_span.set_attribute(
-                        "gen_ai.operation.type",
+                        SemanticConvention.GEN_AI_OPERATION_TYPE,
                         SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
                     )
                     action_span.set_attribute(
                         SemanticConvention.GEN_AI_AGENT_NAME, ctx.agent_name
                     )
-                    action_span.set_attribute("gen_ai.action.type", action_type)
-                    action_span.set_attribute("gen_ai.action.index", i + 1)
+                    action_span.set_attribute(
+                        SemanticConvention.GEN_AI_ACTION_TYPE, action_type
+                    )
+                    action_span.set_attribute(
+                        SemanticConvention.GEN_AI_ACTION_INDEX, i + 1
+                    )
 
                     # Enhanced action-specific parameters
                     if isinstance(action_data, dict):
@@ -618,7 +665,8 @@ async def _create_individual_action_spans(
                             "has_sensitive_data"
                         ):
                             action_span.set_attribute(
-                                "gen_ai.action.has_sensitive_data", True
+                                SemanticConvention.GEN_AI_ACTION_HAS_SENSITIVE_DATA,
+                                True,
                             )
 
                         # File operations
@@ -628,7 +676,8 @@ async def _create_individual_action_spans(
                                     "path", action_data.get("file_name", "")
                                 )
                                 action_span.set_attribute(
-                                    "gen_ai.action.file_path", str(file_path)[:100]
+                                    SemanticConvention.GEN_AI_ACTION_FILE_PATH,
+                                    str(file_path)[:100],
                                 )
 
                     # Enhanced action result tracking
@@ -636,7 +685,8 @@ async def _create_individual_action_spans(
                         result = step.result[i]
                         if hasattr(result, "is_success"):
                             action_span.set_attribute(
-                                "gen_ai.action.success", result.is_success
+                                SemanticConvention.GEN_AI_ACTION_SUCCESS,
+                                result.is_success,
                             )
                         if (
                             hasattr(result, "error")
@@ -644,7 +694,8 @@ async def _create_individual_action_spans(
                             and capture_message_content
                         ):
                             action_span.set_attribute(
-                                "gen_ai.action.error", str(result.error)[:200]
+                                SemanticConvention.GEN_AI_ACTION_ERROR,
+                                str(result.error)[:200],
                             )
                         if (
                             hasattr(result, "extracted_content")
@@ -652,7 +703,7 @@ async def _create_individual_action_spans(
                             and capture_message_content
                         ):
                             action_span.set_attribute(
-                                "gen_ai.action.extracted_content_length",
+                                SemanticConvention.GEN_AI_ACTION_EXTRACTED_CONTENT_LENGTH,
                                 len(str(result.extracted_content)),
                             )
 
@@ -665,11 +716,13 @@ async def _create_individual_action_spans(
                             )
                         if hasattr(step.state, "title") and step.state.title:
                             action_span.set_attribute(
-                                "gen_ai.browser.page_title", step.state.title[:100]
+                                SemanticConvention.GEN_AI_BROWSER_PAGE_TITLE,
+                                step.state.title[:100],
                             )
                         if hasattr(step.state, "tabs") and step.state.tabs:
                             action_span.set_attribute(
-                                "gen_ai.browser.tabs_count", len(step.state.tabs)
+                                SemanticConvention.GEN_AI_BROWSER_TABS_COUNT,
+                                len(step.state.tabs),
                             )
 
     except Exception as e:
@@ -713,19 +766,28 @@ def _process_enhanced_response(
                     else:
                         failed_steps += 1
 
-            span.set_attribute("gen_ai.agent.total_actions", total_actions)
-            span.set_attribute("gen_ai.agent.successful_steps", successful_steps)
-            span.set_attribute("gen_ai.agent.failed_steps", failed_steps)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_AGENT_TOTAL_ACTIONS, total_actions
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_AGENT_SUCCESSFUL_STEPS, successful_steps
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_AGENT_FAILED_STEPS, failed_steps
+            )
 
             if total_steps > 0:
                 success_rate = (successful_steps / total_steps) * 100
-                span.set_attribute("gen_ai.agent.success_rate", success_rate)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_SUCCESS_RATE, success_rate
+                )
 
             # Final result
             final_result = history_list.final_result()
             if final_result and capture_message_content:
                 span.set_attribute(
-                    "gen_ai.agent.final_result", str(final_result)[:1000]
+                    SemanticConvention.GEN_AI_AGENT_FINAL_RESULT,
+                    str(final_result)[:1000],
                 )
 
             # Usage summary if available
@@ -757,12 +819,17 @@ def _process_enhanced_response(
         # Handle single action results
         elif hasattr(response, "is_success") or hasattr(response, "error"):
             if hasattr(response, "is_success"):
-                span.set_attribute("gen_ai.action.success", response.is_success)
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_ACTION_SUCCESS, response.is_success
+                )
 
             if hasattr(response, "error") and response.error:
                 span.set_attribute(SemanticConvention.ERROR_TYPE, "action_failed")
                 if capture_message_content:
-                    span.set_attribute("gen_ai.action.error", str(response.error)[:200])
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_ACTION_ERROR,
+                        str(response.error)[:200],
+                    )
 
     except Exception as e:
         logger.debug("Error processing enhanced response: %s", e)
