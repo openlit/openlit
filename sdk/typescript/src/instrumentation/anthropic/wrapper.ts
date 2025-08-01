@@ -2,7 +2,7 @@ import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper from '../base-wrapper';
+import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
 export default class AnthropicWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC;
@@ -52,8 +52,15 @@ export default class AnthropicWrapper extends BaseWrapper {
     response: any;
     span: Span;
   }) {
+    let metricParams: BaseSpanAttributes = {
+      genAIEndpoint,
+      model: '',
+      user: '',
+      cost: 0,
+      aiSystem: AnthropicWrapper.aiSystem,
+    };
     try {
-      await AnthropicWrapper._messageCreateCommonSetter({
+      metricParams = await AnthropicWrapper._messageCreateCommonSetter({
         args,
         genAIEndpoint,
         result: response,
@@ -64,6 +71,7 @@ export default class AnthropicWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      BaseWrapper.recordMetrics(span, metricParams);
     }
   }
 
@@ -194,7 +202,10 @@ export default class AnthropicWrapper extends BaseWrapper {
     }
 
     const prompt = formattedMessages.join('\n');
-    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
+    span.setAttribute(
+      SemanticConvention.GEN_AI_OPERATION,
+      SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
+    );
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
     const model = result.model || 'claude-3-sonnet-20240229';
@@ -232,10 +243,7 @@ export default class AnthropicWrapper extends BaseWrapper {
     // Request Params attributes : End
 
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, result.usage.input_tokens);
-    span.setAttribute(
-      SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-      result.usage.output_tokens
-    );
+    span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, result.usage.output_tokens);
     span.setAttribute(
       SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
       result.usage.input_tokens + result.usage.output_tokens
@@ -251,5 +259,12 @@ export default class AnthropicWrapper extends BaseWrapper {
         result.content?.[0]?.text || ''
       );
     }
+    return {
+      genAIEndpoint,
+      model,
+      user,
+      cost,
+      aiSystem: AnthropicWrapper.aiSystem,
+    };
   }
 }
