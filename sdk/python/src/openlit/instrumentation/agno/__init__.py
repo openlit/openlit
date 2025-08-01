@@ -29,12 +29,14 @@ from openlit.instrumentation.agno.agno import (
 )
 from openlit.instrumentation.agno.async_agno import (
     async_agent_run_wrap,
+    async_agent_run_stream_wrap,
     async_agent_continue_run_wrap,
     async_function_execute_wrap,
     async_reasoning_wrap,
     async_workflow_run_wrap,
     async_team_run_wrap,
     async_model_run_function_call_wrap,
+    async_model_run_function_calls_wrap,
     async_function_entrypoint_wrap,
 )
 
@@ -93,9 +95,9 @@ class AgnoInstrumentor(BaseInstrumentor):
         # Workflow Operations (Always Instrumented)
         wrap_function_wrapper(
             "agno.agent.agent",
-            "Agent.run",
+            "Agent._run",
             agent_run_wrap(
-                "agent.run",
+                "agent._run",
                 version,
                 environment,
                 application_name,
@@ -143,9 +145,25 @@ class AgnoInstrumentor(BaseInstrumentor):
         # Async Operations
         wrap_function_wrapper(
             "agno.agent.agent",
-            "Agent.arun",
+            "Agent._arun",
             async_agent_run_wrap(
-                "agent.arun",
+                "agent._arun",
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
+        )
+
+        wrap_function_wrapper(
+            "agno.agent.agent",
+            "Agent._arun_stream",
+            async_agent_run_stream_wrap(
+                "agent._arun_stream",
                 version,
                 environment,
                 application_name,
@@ -209,38 +227,10 @@ class AgnoInstrumentor(BaseInstrumentor):
                 ),
             )
 
-            # CRITICAL: Also instrument the batch function calls method
-            wrap_function_wrapper(
-                "agno.models.base",
-                "Model.run_function_calls",
-                model_run_function_call_wrap(
-                    "model.run_function_calls",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-
-            wrap_function_wrapper(
-                "agno.models.base",
-                "Model.arun_function_calls",
-                async_model_run_function_call_wrap(
-                    "model.arun_function_calls",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+            # NOTE: Removed instrumentation for Model.run_function_calls and Model.arun_function_calls
+            # These methods are iterators/async iterators that call individual function calls
+            # Individual function calls are already instrumented through Model.run_function_call and Model.arun_function_call
+            # Instrumenting the batch methods causes span hierarchy issues and is redundant
 
             # CRITICAL: Memory operations that bypass model bridge
             wrap_function_wrapper(

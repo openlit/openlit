@@ -4,6 +4,7 @@ Module for monitoring Agno agent framework async operations.
 
 import logging
 import time
+import threading
 from opentelemetry.trace import Status, StatusCode, SpanKind
 from opentelemetry import context as context_api
 from openlit.__helpers import (
@@ -23,6 +24,7 @@ from openlit.semcov import SemanticConvention
 
 # Initialize logger for Agno async monitoring
 logger = logging.getLogger(__name__)
+
 
 
 def async_agent_run_wrap(
@@ -53,21 +55,9 @@ def async_agent_run_wrap(
         )
         span_name = f"agent {agent_name}"
 
-        # CRITICAL: Capture current OpenTelemetry context to ensure proper nesting
-        current_context = context_api.get_current()
-
-        with tracer.start_as_current_span(
-            span_name, kind=SpanKind.CLIENT, context=current_context
-        ) as span:
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            # CRITICAL: Set the span context as current for nested calls
-            token = context_api.attach(
-                context_api.set_value("current_span", span, current_context)
-            )
-            try:
-                response = await wrapped(*args, **kwargs)
-            finally:
-                context_api.detach(token)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 # Process request using utils function with ALL attributes from semcov
@@ -180,31 +170,28 @@ def async_model_run_function_call_wrap(
             return await wrapped(*args, **kwargs)
 
         # Extract function call information for span naming
-        function_call = args[0] if args else None
-        function_name = "unknown_function"
-        if function_call and hasattr(function_call, "function"):
-            if hasattr(function_call.function, "name"):
+        function_call = args[0] if args else kwargs.get("function_call", None)
+        function_name = None
+
+        if function_call:
+            # Extract function name from the FunctionCall object
+            if hasattr(function_call, "function") and hasattr(
+                function_call.function, "name"
+            ):
                 function_name = function_call.function.name
-            elif hasattr(function_call.function, "__name__"):
-                function_name = function_call.function.__name__
+            elif hasattr(function_call, "name"):
+                function_name = function_call.name
 
-        span_name = f"model run function {function_name}"
+        # Skip creating span if we can't identify the function
+        if not function_name or function_name == "unknown_function":
+            return await wrapped(*args, **kwargs)
 
-        # CRITICAL: Capture current OpenTelemetry context to ensure proper nesting
-        current_context = context_api.get_current()
+        span_name = f"tool {function_name}"
 
-        with tracer.start_as_current_span(
-            span_name, kind=SpanKind.INTERNAL, context=current_context
-        ) as span:
+        with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
             start_time = time.time()
-            # CRITICAL: Set the span context as current for nested calls
-            token = context_api.attach(
-                context_api.set_value("current_span", span, current_context)
-            )
-            try:
-                result = await wrapped(*args, **kwargs)
-            finally:
-                context_api.detach(token)
+            result = await wrapped(*args, **kwargs)
+
             try:
                 # Process request using utils function with ALL attributes from semcov
                 process_tool_request(
@@ -228,11 +215,182 @@ def async_model_run_function_call_wrap(
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error(
-                    "Error in async model.arun_function_call trace creation: %s", e
-                )
+                logger.error("Error in async model.arun_function_call trace creation: %s", e)
 
             return result
+
+    return wrapper
+
+
+def async_agent_run_stream_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """
+    Wrap Agno Agent._arun_stream async generator method.
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
+        # CRITICAL: Suppression check to prevent recursive instrumentation
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            async for response in wrapped(*args, **kwargs):
+                yield response
+            return
+
+        # Extract agent name for span naming with fallback to agent_id
+        agent_name = (
+            getattr(instance, "name", None)
+            or getattr(instance, "agent_id", None)
+            or "default_agent"
+        )
+        span_name = f"agent {agent_name}"
+
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+            
+            try:
+                async for response in wrapped(*args, **kwargs):
+                    yield response
+                
+                # Get the final response after iteration completes
+                final_response = getattr(instance, "run_response", None)
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in async agent._arun_stream: %s", e)
+                raise
+
+            try:
+                # Process request using utils function with ALL attributes from semcov
+                process_agent_request(
+                    span,
+                    instance,
+                    args,
+                    kwargs,
+                    final_response,
+                    start_time,
+                    pricing_info,
+                    environment,
+                    application_name,
+                    metrics,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+                )
+
+                # Mark span as successful
+                span.set_status(Status(StatusCode.OK))
+
+            except Exception as e:
+                # Handle instrumentation exceptions - log but don't raise
+                handle_exception(span, e)
+                logger.error("Error in async agent._arun_stream trace creation: %s", e)
+
+    return wrapper
+
+
+def async_model_run_function_calls_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """
+    Wrap Agno Model.arun_function_calls async method to bridge agent and tool span context.
+    This method returns an AsyncIterator and requires special handling to maintain span hierarchy.
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
+        # CRITICAL: Suppression check to prevent recursive instrumentation
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            async for item in wrapped(*args, **kwargs):
+                yield item
+            return
+
+        # Extract function calls information for span naming
+        function_calls = args[0] if args else []
+        function_names = []
+        if function_calls:
+            for fc in function_calls:
+                if hasattr(fc, "function"):
+                    if hasattr(fc.function, "name"):
+                        function_names.append(fc.function.name)
+                    elif hasattr(fc.function, "__name__"):
+                        function_names.append(fc.function.__name__)
+        
+        span_name = f"model run functions {', '.join(function_names[:3])}"  # Limit to first 3 names
+        if len(function_names) > 3:
+            span_name += f" (+{len(function_names) - 3} more)"
+
+        # CRITICAL: Capture current OpenTelemetry context to ensure proper nesting
+        current_context = context_api.get_current()
+
+        with tracer.start_as_current_span(
+            span_name, kind=SpanKind.INTERNAL, context=current_context
+        ) as span:
+            start_time = time.time()
+            # CRITICAL: Create the context with this span active for nested calls
+            span_context = context_api.set_value("current_span", span, current_context)
+            
+            try:
+                # CRITICAL: Maintain span context across async iteration
+                # We need to collect all items while maintaining context, then yield them
+                items = []
+                token = context_api.attach(span_context)
+                try:
+                    async for item in wrapped(*args, **kwargs):
+                        items.append(item)
+                finally:
+                    context_api.detach(token)
+                
+                # Now yield all collected items (span is still active in the with block)
+                for item in items:
+                    yield item
+                    
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in async model.arun_function_calls execution: %s", e)
+                raise
+            finally:
+                # Process the span after completion
+                try:
+                    # Process request using utils function with ALL attributes from semcov
+                    process_tool_request(
+                        span,
+                        function_calls,
+                        args,
+                        kwargs,
+                        "AsyncIterator completed",  # Result is the completion status
+                        start_time,
+                        pricing_info,
+                        environment,
+                        application_name,
+                        metrics,
+                        capture_message_content,
+                        disable_metrics,
+                        version,
+                        "batch_function_calls",
+                    )
+
+                    span.set_status(Status(StatusCode.OK))
+
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error(
+                        "Error in async model.arun_function_calls trace creation: %s", e
+                    )
 
     return wrapper
 
