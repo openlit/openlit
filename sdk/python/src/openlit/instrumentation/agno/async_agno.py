@@ -4,7 +4,6 @@ Module for monitoring Agno agent framework async operations.
 
 import logging
 import time
-import threading
 from opentelemetry.trace import Status, StatusCode, SpanKind
 from opentelemetry import context as context_api
 from openlit.__helpers import (
