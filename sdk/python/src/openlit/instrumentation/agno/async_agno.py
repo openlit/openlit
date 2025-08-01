@@ -26,7 +26,6 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 
-
 def async_agent_run_wrap(
     gen_ai_endpoint,
     version,
@@ -215,7 +214,9 @@ def async_model_run_function_call_wrap(
 
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in async model.arun_function_call trace creation: %s", e)
+                logger.error(
+                    "Error in async model.arun_function_call trace creation: %s", e
+                )
 
             return result
 
@@ -254,11 +255,11 @@ def async_agent_run_stream_wrap(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            
+
             try:
                 async for response in wrapped(*args, **kwargs):
                     yield response
-                
+
                 # Get the final response after iteration completes
                 final_response = getattr(instance, "run_response", None)
             except Exception as e:
@@ -329,7 +330,7 @@ def async_model_run_function_calls_wrap(
                         function_names.append(fc.function.name)
                     elif hasattr(fc.function, "__name__"):
                         function_names.append(fc.function.__name__)
-        
+
         span_name = f"model run functions {', '.join(function_names[:3])}"  # Limit to first 3 names
         if len(function_names) > 3:
             span_name += f" (+{len(function_names) - 3} more)"
@@ -343,7 +344,7 @@ def async_model_run_function_calls_wrap(
             start_time = time.time()
             # CRITICAL: Create the context with this span active for nested calls
             span_context = context_api.set_value("current_span", span, current_context)
-            
+
             try:
                 # CRITICAL: Maintain span context across async iteration
                 # We need to collect all items while maintaining context, then yield them
@@ -354,14 +355,16 @@ def async_model_run_function_calls_wrap(
                         items.append(item)
                 finally:
                     context_api.detach(token)
-                
+
                 # Now yield all collected items (span is still active in the with block)
                 for item in items:
                     yield item
-                    
+
             except Exception as e:
                 handle_exception(span, e)
-                logger.error("Error in async model.arun_function_calls execution: %s", e)
+                logger.error(
+                    "Error in async model.arun_function_calls execution: %s", e
+                )
                 raise
             finally:
                 # Process the span after completion

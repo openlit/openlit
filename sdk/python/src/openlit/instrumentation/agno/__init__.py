@@ -36,7 +36,6 @@ from openlit.instrumentation.agno.async_agno import (
     async_workflow_run_wrap,
     async_team_run_wrap,
     async_model_run_function_call_wrap,
-    async_model_run_function_calls_wrap,
     async_function_entrypoint_wrap,
 )
 
