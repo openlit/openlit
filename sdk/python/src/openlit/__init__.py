@@ -137,6 +137,15 @@ def module_exists(module_name):
     return True
 
 
+def is_opentelemetry_instrumentor(instrumentor_name):
+    """Check if the instrumentor is an official OpenTelemetry instrumentor."""
+    opentelemetry_instrumentors = {
+        "asgi", "django", "fastapi", "flask", "pyramid", "starlette", "falcon", "tornado",
+        "aiohttp-client", "httpx", "requests", "urllib", "urllib3"
+    }
+    return instrumentor_name in opentelemetry_instrumentors
+
+
 def instrument_if_available(
     instrumentor_name, instrumentor_instance, config, disabled_instrumentors
 ):
@@ -152,17 +161,23 @@ def instrument_if_available(
 
     try:
         if module_exists(module_name):
-            instrumentor_instance.instrument(
-                environment=config.environment,
-                application_name=config.application_name,
-                tracer=config.tracer,
-                event_provider=config.event_provider,
-                pricing_info=config.pricing_info,
-                capture_message_content=config.capture_message_content,
-                metrics_dict=config.metrics_dict,
-                disable_metrics=config.disable_metrics,
-                detailed_tracing=config.detailed_tracing,
-            )
+            if is_opentelemetry_instrumentor(instrumentor_name):
+                # OpenTelemetry instrumentations use the standard instrument() method
+                instrumentor_instance.instrument()
+                logger.info("OpenTelemetry instrumentor %s enabled", instrumentor_name)
+            else:
+                # OpenLIT custom instrumentations use extended parameters
+                instrumentor_instance.instrument(
+                    environment=config.environment,
+                    application_name=config.application_name,
+                    tracer=config.tracer,
+                    event_provider=config.event_provider,
+                    pricing_info=config.pricing_info,
+                    capture_message_content=config.capture_message_content,
+                    metrics_dict=config.metrics_dict,
+                    disable_metrics=config.disable_metrics,
+                    detailed_tracing=config.detailed_tracing,
+                )
         else:
             logger.info(
                 "Library for %s (%s) not found. Skipping instrumentation",
