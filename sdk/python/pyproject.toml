@@ -26,6 +26,9 @@ anthropic = ">=0.42.0,<1.0.0"
 openai-agents = ">=0.0.3"
 langchain = "^0.3.15"
 
+[tool.poetry.scripts]
+openlit-instrument = "openlit.cli.main:run"
+
 [build-system]
 requires = ["poetry-core>=1.1.0"]
 build-backend = "poetry.core.masonry.api"
