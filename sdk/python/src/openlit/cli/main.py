@@ -50,66 +50,24 @@ Environment Variables (take precedence over CLI arguments):
         """
     )
     
-    # Add common CLI arguments that match OpenTelemetry patterns
-    parser.add_argument(
-        "--service-name",
-        help="Service name for tracing (equivalent to OTEL_SERVICE_NAME)"
-    )
-    
-    parser.add_argument(
-        "--deployment-environment", 
-        help="Deployment environment (equivalent to OTEL_DEPLOYMENT_ENVIRONMENT)"
-    )
-    
-    parser.add_argument(
-        "--otlp-endpoint",
-        help="OTLP endpoint URL (equivalent to OTEL_EXPORTER_OTLP_ENDPOINT)"
-    )
-    
-    parser.add_argument(
-        "--otlp-headers",
-        help="OTLP headers as JSON string (equivalent to OTEL_EXPORTER_OTLP_HEADERS)"
-    )
-    
-    parser.add_argument(
-        "--disabled-instrumentors",
-        help="Comma-separated list of instrumentors to disable (equivalent to OPENLIT_DISABLED_INSTRUMENTORS)"
-    )
-    
-    parser.add_argument(
-        "--disable-batch",
-        action="store_true",
-        help="Disable batch span processing (equivalent to OPENLIT_DISABLE_BATCH=true)"
-    )
-    
-    parser.add_argument(
-        "--disable-metrics",
-        action="store_true", 
-        help="Disable metrics collection (equivalent to OPENLIT_DISABLE_METRICS=true)"
-    )
-    
-    parser.add_argument(
-        "--collect-gpu-stats",
-        action="store_true",
-        help="Enable GPU statistics collection (equivalent to OPENLIT_COLLECT_GPU_STATS=true)"
-    )
-    
-    parser.add_argument(
-        "--detailed-tracing",
-        action="store_true",
-        help="Enable detailed component-level tracing (equivalent to OPENLIT_DETAILED_TRACING=true)"
-    )
-    
-    parser.add_argument(
-        "--capture-message-content",
-        action="store_true",
-        help="Enable capture of message content (equivalent to OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true)"
-    )
-    
-    parser.add_argument(
-        "--pricing-json",
-        help="File path or URL to pricing JSON (equivalent to OPENLIT_PRICING_JSON)"
-    )
+    # Dynamically add CLI arguments from PARAMETER_CONFIG
+    cli_params = get_cli_parameters()
+    for param_name, config in cli_params.items():
+        cli_arg = f"--{param_name}"  # Use underscores like function parameters
+        cli_help = f"{config.get('cli_help', '')} (equivalent to {config.get('env_var', '')})"
+        cli_type = config.get('cli_type', str)
+        
+        if cli_type == bool:
+            parser.add_argument(
+                cli_arg,
+                action="store_true",
+                help=cli_help
+            )
+        else:
+            parser.add_argument(
+                cli_arg,
+                help=cli_help
+            )
     
     parser.add_argument(
         "--version", 
@@ -128,25 +86,17 @@ Environment Variables (take precedence over CLI arguments):
 
 def set_environment_from_cli_args(args) -> None:
     """Set environment variables from CLI arguments (only if env vars are not already set)."""
-    # Mapping from CLI argument names to environment variable names
-    cli_to_env_mapping = {
-        'service_name': 'OTEL_SERVICE_NAME',
-        'deployment_environment': 'OTEL_DEPLOYMENT_ENVIRONMENT', 
-        'otlp_endpoint': 'OTEL_EXPORTER_OTLP_ENDPOINT',
-        'otlp_headers': 'OTEL_EXPORTER_OTLP_HEADERS',
-        'disabled_instrumentors': 'OPENLIT_DISABLED_INSTRUMENTORS',
-        'disable_batch': 'OPENLIT_DISABLE_BATCH',
-        'disable_metrics': 'OPENLIT_DISABLE_METRICS',
-        'collect_gpu_stats': 'OPENLIT_COLLECT_GPU_STATS',
-        'detailed_tracing': 'OPENLIT_DETAILED_TRACING',
-        'capture_message_content': 'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT',
-        'pricing_json': 'OPENLIT_PRICING_JSON',
-    }
+    # Dynamically map CLI arguments to environment variables from PARAMETER_CONFIG
+    cli_params = get_cli_parameters()
     
-    for cli_arg, env_var in cli_to_env_mapping.items():
+    for param_name, config in cli_params.items():
+        env_var = config.get('env_var')
+        if not env_var:
+            continue
+            
         # Only set if environment variable is not already set (env vars take precedence)
         if env_var not in os.environ:
-            cli_value = getattr(args, cli_arg, None)
+            cli_value = getattr(args, param_name, None)
             if cli_value is not None:
                 # Handle boolean values
                 if isinstance(cli_value, bool):
