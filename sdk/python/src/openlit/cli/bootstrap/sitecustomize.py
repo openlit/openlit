@@ -8,7 +8,6 @@ This follows the same pattern as OpenTelemetry's auto-instrumentation.
 """
 
 import os
-import sys
 import logging
 
 # Import the centralized configuration
@@ -22,7 +21,7 @@ except ImportError:
     except ImportError:
         # Final fallback - build config manually from environment
         def build_config_from_environment():
-            import os
+            """Build configuration from environment variables as fallback."""
 
             config = {}
 

@@ -6,9 +6,12 @@ CLI arguments and environment variables in one place to ensure consistency.
 """
 
 import inspect
+import logging
 import os
+from typing import Dict, Any, Optional
 import openlit
-from typing import Dict, Any, Tuple, Optional
+
+logger = logging.getLogger(__name__)
 
 
 def get_openlit_init_signature() -> Dict[str, Any]:
@@ -229,27 +232,28 @@ def validate_parameters():
         # Check for parameters in init but not in config
         missing_in_config = init_param_names - config_params
         if missing_in_config:
-            print(
-                f"⚠️  Parameters in openlit.init() but not in PARAMETER_CONFIG: {missing_in_config}"
+            logger.warning(
+                "Parameters in openlit.init() but not in PARAMETER_CONFIG: %s. "
+                "Consider adding them to PARAMETER_CONFIG or marking as internal.",
+                missing_in_config,
             )
-            print("Consider adding them to PARAMETER_CONFIG or marking as internal.")
 
         # Check for parameters in config but not in init
         extra_in_config = config_params - init_param_names
         if extra_in_config:
-            print(
-                f"⚠️  Parameters in PARAMETER_CONFIG but not in openlit.init(): {extra_in_config}"
+            logger.warning(
+                "Parameters in PARAMETER_CONFIG but not in openlit.init(): %s. "
+                "The openlit.init() signature may need to be updated.",
+                extra_in_config,
             )
-            print("The openlit.init() signature may need to be updated.")
-            print("Suggested signature:")
-            print(generate_init_signature())
+            logger.debug("Suggested signature: %s", generate_init_signature())
 
         if not missing_in_config and not extra_in_config:
-            print("✅ Parameter configuration is in sync with openlit.init()")
+            logger.info("Parameter configuration is in sync with openlit.init()")
             return True
 
     except Exception as e:
-        print(f"❌ Parameter validation failed: {e}")
+        logger.error("Parameter validation failed: %s", e)
         return False
 
     return False
@@ -257,9 +261,8 @@ def validate_parameters():
 
 if __name__ == "__main__":
     # Run validation when module is executed directly
+    logging.basicConfig(level=logging.INFO)
     try:
         validate_parameters()
-        print("✅ Parameter configuration is in sync with openlit.init()")
     except ValueError as e:
-        print(f"❌ Parameter configuration validation failed: {e}")
-        exit(1)
+        logger.error("Parameter configuration validation failed: %s", e)

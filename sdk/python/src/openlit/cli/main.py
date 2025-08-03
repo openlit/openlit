@@ -12,9 +12,12 @@ Usage:
 import os
 import sys
 import argparse
+import logging
 from shutil import which
 
-from .config import get_cli_parameters, get_env_var_for_parameter, PARAMETER_CONFIG
+from openlit.cli.config import get_cli_parameters
+
+logger = logging.getLogger(__name__)
 
 
 def parse_arguments() -> tuple:
@@ -147,17 +150,31 @@ def run() -> None:
         # Execute target application using OpenTelemetry's approach
         executable = which(target_command[0])
         if not executable:
-            print(f"Command not found: {target_command[0]}", file=sys.stderr)
-            sys.exit(127)
-
-        os.execl(executable, executable, *target_command[1:])
+            logger.warning(
+                "Command not found: %s. Attempting direct execution as fallback.",
+                target_command[0],
+            )
+            # Fallback: try to execute directly (user's PATH might have it)
+            try:
+                os.execvpe(target_command[0], target_command, os.environ)
+            except (FileNotFoundError, OSError) as e:
+                logger.error("Failed to execute command %s: %s", target_command[0], e)
+                logger.error(
+                    "OpenLIT instrumentation failed, but this should not break your application"
+                )
+                return
+        else:
+            os.execl(executable, executable, *target_command[1:])
 
     except KeyboardInterrupt:
+        # Only acceptable exit - user explicitly interrupted
         sys.exit(130)
-    except FileNotFoundError:
-        sys.exit(127)
-    except Exception:
-        sys.exit(1)
+    except Exception as e:
+        logger.error("OpenLIT CLI failed: %s", e)
+        logger.error(
+            "This should not prevent your application from running. Consider running without openlit-instrument."
+        )
+        # Don't exit - let the process continue
 
 
 if __name__ == "__main__":

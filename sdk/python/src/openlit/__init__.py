@@ -268,12 +268,12 @@ def init(
 
         # Handle service name from environment (both service_name and application_name map to same env var)
         if final_service_name == "default":
-            if "service_name" in env_config:
-                final_service_name = env_config["service_name"]
-            elif (
-                "application_name" in env_config
-            ):  # Fallback for backward compatibility
-                final_service_name = env_config["application_name"]
+            final_service_name = env_config.get(
+                "service_name",
+                env_config.get(
+                    "application_name", "default"
+                ),  # Fallback for backward compatibility
+            )
         # Skip otlp_endpoint and otlp_headers - let existing code handle them
         if disable_batch is False and "disable_batch" in env_config:
             disable_batch = env_config["disable_batch"]
@@ -396,10 +396,12 @@ def init(
         # Handle OpenTelemetry System Metrics instrumentation
         if not disable_metrics and collect_system_metrics:
             try:
-                from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
+                from opentelemetry.instrumentation.system_metrics import (
+                    SystemMetricsInstrumentor,
+                )
+
                 SystemMetricsInstrumentor().instrument()
-                logger.info("OpenTelemetry system metrics instrumentation enabled")
-                
+
                 # Auto-enable GPU metrics if GPU is detected (comprehensive system monitoring)
                 gpu_instrumentor = GPUInstrumentor()
                 if gpu_instrumentor._get_gpu_type():
@@ -407,10 +409,7 @@ def init(
                         environment=config.environment,
                         application_name=config.application_name,
                     )
-                    logger.info("GPU detected, automatically enabling GPU metrics with system metrics")
-                else:
-                    logger.info("No GPU detected, system metrics enabled without GPU metrics")
-                    
+
             except ImportError:
                 logger.warning(
                     "OpenTelemetry system metrics not available. "
