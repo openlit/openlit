@@ -136,7 +136,7 @@ def parse_env_value(param_name: str, env_value: str) -> Any:
     cli_type = config.get("cli_type", str)
 
     if cli_type == bool:
-        return env_value.lower() in ("true", "1", "yes")
+        return env_value.lower() in {"true", "1", "yes"}
     elif parser == "json":
         try:
             import json
