@@ -162,8 +162,7 @@ def build_config_from_environment() -> Dict[str, Any]:
         if not env_var:
             continue
 
-        env_value = os.environ.get(env_var)
-        if env_value:
+        if env_value := os.environ.get(env_var):
             parsed_value = parse_env_value(param_name, env_value)
             if parsed_value is not None:
                 config[param_name] = parsed_value
