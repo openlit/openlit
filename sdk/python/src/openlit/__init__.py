@@ -215,6 +215,7 @@ def init(
     pricing_json=None,
     collect_gpu_stats=False,
     detailed_tracing=True,
+    collect_system_metrics=False,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -288,6 +289,8 @@ def init(
             collect_gpu_stats = env_config["collect_gpu_stats"]
         if detailed_tracing is True and "detailed_tracing" in env_config:
             detailed_tracing = env_config["detailed_tracing"]
+        if collect_system_metrics is False and "collect_system_metrics" in env_config:
+            collect_system_metrics = env_config["collect_system_metrics"]
 
     except ImportError:
         # Fallback if config module is not available - continue without env var support
@@ -379,12 +382,42 @@ def init(
         for name, instrumentor in instrumentor_instances.items():
             instrument_if_available(name, instrumentor, config, disabled_instrumentors)
 
-        # Handle GPU instrumentation separately
+        # Handle GPU instrumentation separately (only if GPU is found)
         if not disable_metrics and collect_gpu_stats:
-            GPUInstrumentor().instrument(
-                environment=config.environment,
-                application_name=config.application_name,  # This uses the stored value from config
-            )
+            gpu_instrumentor = GPUInstrumentor()
+            if gpu_instrumentor._get_gpu_type():  # Only instrument if GPU is detected
+                gpu_instrumentor.instrument(
+                    environment=config.environment,
+                    application_name=config.application_name,
+                )
+            else:
+                logger.info("No GPU detected, skipping GPU metrics collection")
+
+        # Handle OpenTelemetry System Metrics instrumentation
+        if not disable_metrics and collect_system_metrics:
+            try:
+                from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
+                SystemMetricsInstrumentor().instrument()
+                logger.info("OpenTelemetry system metrics instrumentation enabled")
+                
+                # Auto-enable GPU metrics if GPU is detected (comprehensive system monitoring)
+                gpu_instrumentor = GPUInstrumentor()
+                if gpu_instrumentor._get_gpu_type():
+                    gpu_instrumentor.instrument(
+                        environment=config.environment,
+                        application_name=config.application_name,
+                    )
+                    logger.info("GPU detected, automatically enabling GPU metrics with system metrics")
+                else:
+                    logger.info("No GPU detected, system metrics enabled without GPU metrics")
+                    
+            except ImportError:
+                logger.warning(
+                    "OpenTelemetry system metrics not available. "
+                    "Install with: pip install opentelemetry-instrumentation-system-metrics"
+                )
+            except Exception as e:
+                logger.error("Failed to enable system metrics: %s", e)
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)
 

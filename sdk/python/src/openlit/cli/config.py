@@ -112,6 +112,12 @@ PARAMETER_CONFIG = {
         "cli_type": bool,
         "has_negation": True,  # Supports --no_detailed_tracing
     },
+    "collect_system_metrics": {
+        "default": False,
+        "env_var": "OPENLIT_COLLECT_SYSTEM_METRICS",
+        "cli_help": "Enable comprehensive system metrics (CPU, memory, disk, network, GPU if detected)",
+        "cli_type": bool,
+    },
     # Parameters that are not exposed via CLI (internal use only)
     "tracer": {
         "default": None,

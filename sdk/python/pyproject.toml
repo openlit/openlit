@@ -36,6 +36,8 @@ opentelemetry-instrumentation-httpx = ">=0.52b0,<1.0.0"
 opentelemetry-instrumentation-requests = ">=0.52b0,<1.0.0"
 opentelemetry-instrumentation-urllib = ">=0.52b0,<1.0.0"
 opentelemetry-instrumentation-urllib3 = ">=0.52b0,<1.0.0"
+# Official OpenTelemetry System Metrics (optional)
+opentelemetry-instrumentation-system-metrics = {version = ">=0.52b0,<1.0.0", optional = true}
 openai = "^1.1.1"
 anthropic = ">=0.42.0,<1.0.0"
 openai-agents = ">=0.0.3"
