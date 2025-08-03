@@ -12,6 +12,7 @@ Usage:
 import os
 import sys
 import argparse
+from shutil import which
 
 from .config import get_cli_parameters, get_env_var_for_parameter, PARAMETER_CONFIG
 
@@ -66,15 +67,20 @@ Environment Variables (take precedence over CLI arguments):
 
     parser.add_argument("--version", action="version", version="%(prog)s 1.0.0")
 
-    # Parse known args, leave rest for target application
-    args, remaining = parser.parse_known_args()
+    # Use OpenTelemetry's approach: command and command_args with REMAINDER
+    parser.add_argument("command", help="Your Python application.")
+    parser.add_argument(
+        "command_args",
+        help="Arguments for your application.",  
+        nargs=argparse.REMAINDER,
+    )
 
-    if not remaining:
-        parser.error(
-            "No target command specified. Please provide the Python command to run."
-        )
+    args = parser.parse_args()
+    
+    # Reconstruct target command from OpenTelemetry's format
+    target_command = [args.command] + args.command_args
 
-    return args, remaining
+    return args, target_command
 
 
 def set_environment_from_cli_args(args) -> None:
@@ -98,28 +104,34 @@ def set_environment_from_cli_args(args) -> None:
                     os.environ[env_var] = str(cli_value)
 
 
-def setup_auto_instrumentation() -> None:
-    """Enable auto-instrumentation."""
-    os.environ["OPENLIT_AUTO_INSTRUMENT"] = "true"
 
 
 def setup_python_path() -> None:
-    """Ensure OpenLIT auto-initialization is available."""
-    # Get the directory containing this module
+    """Setup PYTHONPATH exactly like OpenTelemetry does."""
+    python_path = os.environ.get("PYTHONPATH")
+
+    if not python_path:
+        python_path = []
+    else:
+        python_path = python_path.split(os.pathsep)
+
+    # Add current working directory (like OpenTelemetry does)
+    cwd_path = os.getcwd()
+    if cwd_path not in python_path:
+        python_path.insert(0, cwd_path)
+
+    # Add bootstrap directory path
     current_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # Add the bootstrap directory to Python path
     bootstrap_path = os.path.join(current_dir, "bootstrap")
-
+    
     # Ensure the directory exists
     os.makedirs(bootstrap_path, exist_ok=True)
 
-    # Prepend to PYTHONPATH to ensure it's loaded first
-    current_pythonpath = os.environ.get("PYTHONPATH", "")
-    if current_pythonpath:
-        os.environ["PYTHONPATH"] = f"{bootstrap_path}:{current_pythonpath}"
-    else:
-        os.environ["PYTHONPATH"] = bootstrap_path
+    # Remove bootstrap path if it exists, then add at beginning
+    python_path = [path for path in python_path if path != bootstrap_path]
+    python_path.insert(0, bootstrap_path)
+
+    os.environ["PYTHONPATH"] = os.pathsep.join(python_path)
 
 
 def run() -> None:
@@ -131,14 +143,16 @@ def run() -> None:
         # Set environment variables from CLI arguments (env vars take precedence)
         set_environment_from_cli_args(args)
 
-        # Enable auto-instrumentation
-        setup_auto_instrumentation()
-
         # Setup Python path for auto-initialization
         setup_python_path()
 
-        # Execute target application with OpenLIT environment
-        os.execvpe(target_command[0], target_command, os.environ)
+        # Execute target application using OpenTelemetry's approach
+        executable = which(target_command[0])
+        if not executable:
+            print(f"Command not found: {target_command[0]}", file=sys.stderr)
+            sys.exit(127)
+        
+        os.execl(executable, executable, *target_command[1:])
 
     except KeyboardInterrupt:
         sys.exit(130)
