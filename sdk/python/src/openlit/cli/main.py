@@ -71,12 +71,12 @@ Environment Variables (take precedence over CLI arguments):
     parser.add_argument("command", help="Your Python application.")
     parser.add_argument(
         "command_args",
-        help="Arguments for your application.",  
+        help="Arguments for your application.",
         nargs=argparse.REMAINDER,
     )
 
     args = parser.parse_args()
-    
+
     # Reconstruct target command from OpenTelemetry's format
     target_command = [args.command] + args.command_args
 
@@ -104,8 +104,6 @@ def set_environment_from_cli_args(args) -> None:
                     os.environ[env_var] = str(cli_value)
 
 
-
-
 def setup_python_path() -> None:
     """Setup PYTHONPATH exactly like OpenTelemetry does."""
     python_path = os.environ.get("PYTHONPATH")
@@ -123,7 +121,7 @@ def setup_python_path() -> None:
     # Add bootstrap directory path
     current_dir = os.path.dirname(os.path.abspath(__file__))
     bootstrap_path = os.path.join(current_dir, "bootstrap")
-    
+
     # Ensure the directory exists
     os.makedirs(bootstrap_path, exist_ok=True)
 
@@ -151,7 +149,7 @@ def run() -> None:
         if not executable:
             print(f"Command not found: {target_command[0]}", file=sys.stderr)
             sys.exit(127)
-        
+
         os.execl(executable, executable, *target_command[1:])
 
     except KeyboardInterrupt:

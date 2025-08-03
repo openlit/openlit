@@ -82,7 +82,7 @@ def initialize(*, swallow_exceptions: bool = True) -> None:
     """
     Setup auto-instrumentation, called by the sitecustomize module
 
-    :param swallow_exceptions: Whether or not to propagate instrumentation exceptions to the caller. 
+    :param swallow_exceptions: Whether or not to propagate instrumentation exceptions to the caller.
                               Exceptions are logged and swallowed by default.
     """
     # Prevents auto-instrumentation of subprocesses if code execs another python process
@@ -92,7 +92,7 @@ def initialize(*, swallow_exceptions: bool = True) -> None:
         # Remove current directory from PYTHONPATH to prevent subprocess instrumentation
         python_path = [path for path in python_path if path != current_dir]
         os.environ["PYTHONPATH"] = os.pathsep.join(python_path)
-    
+
     try:
         # Import OpenLIT and initialize
         import openlit
