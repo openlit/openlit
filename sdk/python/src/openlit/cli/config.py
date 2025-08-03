@@ -5,34 +5,11 @@ This module defines all openlit.init() parameters and their corresponding
 CLI arguments and environment variables in one place to ensure consistency.
 """
 
-import inspect
 import logging
 import os
 from typing import Dict, Any, Optional
-import openlit
 
 logger = logging.getLogger(__name__)
-
-
-def get_openlit_init_signature() -> Dict[str, Any]:
-    """
-    Get the signature of openlit.init() function to automatically
-    extract parameter names, defaults, and types.
-    """
-    sig = inspect.signature(openlit.init)
-    params = {}
-
-    for name, param in sig.parameters.items():
-        params[name] = {
-            "default": param.default
-            if param.default != inspect.Parameter.empty
-            else None,
-            "annotation": param.annotation
-            if param.annotation != inspect.Parameter.empty
-            else None,
-        }
-
-    return params
 
 
 # Centralized parameter configuration - SINGLE SOURCE OF TRUTH
@@ -192,77 +169,3 @@ def build_config_from_environment() -> Dict[str, Any]:
                 config[param_name] = parsed_value
 
     return config
-
-
-def generate_init_signature() -> str:
-    """
-    Generate the openlit.init() function signature from PARAMETER_CONFIG.
-    This ensures the signature stays in sync with the config.
-    """
-    params = []
-    for param_name, config in PARAMETER_CONFIG.items():
-        default = config.get("default")
-        if default is None:
-            params.append(f"{param_name}=None")
-        elif isinstance(default, str):
-            params.append(f'{param_name}="{default}"')
-        elif isinstance(default, bool):
-            params.append(f"{param_name}={default}")
-        else:
-            params.append(f"{param_name}={default}")
-
-    return "def init(\n    " + ",\n    ".join(params) + "\n):"
-
-
-def get_init_defaults() -> Dict[str, Any]:
-    """Get default values for all openlit.init() parameters."""
-    return {param: config.get("default") for param, config in PARAMETER_CONFIG.items()}
-
-
-def validate_parameters():
-    """
-    Validate that PARAMETER_CONFIG is in sync with openlit.init() signature.
-    This should be called during development/testing to catch mismatches.
-    """
-    try:
-        init_params = get_openlit_init_signature()
-        config_params = set(PARAMETER_CONFIG.keys())
-        init_param_names = set(init_params.keys())
-
-        # Check for parameters in init but not in config
-        missing_in_config = init_param_names - config_params
-        if missing_in_config:
-            logger.warning(
-                "Parameters in openlit.init() but not in PARAMETER_CONFIG: %s. "
-                "Consider adding them to PARAMETER_CONFIG or marking as internal.",
-                missing_in_config,
-            )
-
-        # Check for parameters in config but not in init
-        extra_in_config = config_params - init_param_names
-        if extra_in_config:
-            logger.warning(
-                "Parameters in PARAMETER_CONFIG but not in openlit.init(): %s. "
-                "The openlit.init() signature may need to be updated.",
-                extra_in_config,
-            )
-            logger.debug("Suggested signature: %s", generate_init_signature())
-
-        if not missing_in_config and not extra_in_config:
-            logger.info("Parameter configuration is in sync with openlit.init()")
-            return True
-
-    except Exception as e:
-        logger.error("Parameter validation failed: %s", e)
-        return False
-
-    return False
-
-
-if __name__ == "__main__":
-    # Run validation when module is executed directly
-    logging.basicConfig(level=logging.INFO)
-    try:
-        validate_parameters()
-    except ValueError as e:
-        logger.error("Parameter configuration validation failed: %s", e)
