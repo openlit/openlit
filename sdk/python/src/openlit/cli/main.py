@@ -97,14 +97,9 @@ def set_environment_from_cli_args(args) -> None:
                 else:
                     os.environ[env_var] = str(cli_value)
 
-    # Special handling for service_name/application_name migration
-    # Both parameters work silently for backward compatibility
-    # service_name takes precedence if both are provided
-
 
 def setup_auto_instrumentation() -> None:
     """Enable auto-instrumentation."""
-    # Enable auto-instrumentation
     os.environ["OPENLIT_AUTO_INSTRUMENT"] = "true"
 
 
@@ -127,35 +122,6 @@ def setup_python_path() -> None:
         os.environ["PYTHONPATH"] = bootstrap_path
 
 
-def show_configuration() -> None:
-    """Show current OpenLIT configuration from environment variables (only if non-default values are set)."""
-    # Only show configuration if non-default values are set
-    config_items = [
-        ("Service Name", "OTEL_SERVICE_NAME"),
-        ("Environment", "OTEL_DEPLOYMENT_ENVIRONMENT"),
-        ("OTLP Endpoint", "OTEL_EXPORTER_OTLP_ENDPOINT"),
-        ("OTLP Headers", "OTEL_EXPORTER_OTLP_HEADERS"),
-        ("Capture Content", "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"),
-        ("Disabled Instrumentors", "OPENLIT_DISABLED_INSTRUMENTORS"),
-        ("Disable Batch", "OPENLIT_DISABLE_BATCH"),
-        ("Disable Metrics", "OPENLIT_DISABLE_METRICS"),
-        ("Collect GPU Stats", "OPENLIT_COLLECT_GPU_STATS"),
-        ("Detailed Tracing", "OPENLIT_DETAILED_TRACING"),
-        ("Pricing JSON", "OPENLIT_PRICING_JSON"),
-    ]
-
-    # Check if any non-default values are set
-    has_config = any(os.environ.get(env_var) for _, env_var in config_items)
-
-    if has_config:
-        print("🔧 OpenLIT Configuration:", file=sys.stderr)
-        for label, env_var in config_items:
-            value = os.environ.get(env_var)
-            if value:
-                print(f"   {label}: {value}", file=sys.stderr)
-        print("", file=sys.stderr)  # Empty line for spacing
-
-
 def run() -> None:
     """Main entry point for openlit-instrument CLI."""
     try:
@@ -175,13 +141,10 @@ def run() -> None:
         os.execvpe(target_command[0], target_command, os.environ)
 
     except KeyboardInterrupt:
-        print("\n⚠️  Interrupted by user", file=sys.stderr)
         sys.exit(130)
-    except FileNotFoundError as e:
-        print(f"❌ Command not found: {e}", file=sys.stderr)
+    except FileNotFoundError:
         sys.exit(127)
-    except Exception as e:
-        print(f"❌ Error: {e}", file=sys.stderr)
+    except Exception:
         sys.exit(1)
 
 

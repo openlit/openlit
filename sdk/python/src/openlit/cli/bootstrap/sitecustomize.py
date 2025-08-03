@@ -100,17 +100,9 @@ def auto_initialize_openlit():
 
     except ImportError as e:
         logger.error("OpenLIT not found. Please ensure openlit is installed: %s", e)
-        print(
-            "❌ OpenLIT auto-instrumentation failed: OpenLIT not installed",
-            file=sys.stderr,
-        )
     except Exception as e:
         # Log error but don't break the application
         logger.error("OpenLIT auto-instrumentation failed: %s", e)
-        print(f"❌ OpenLIT auto-instrumentation failed: {e}", file=sys.stderr)
-
-
-# The build_config_from_environment function is now imported from the centralized config
 
 
 # Auto-initialize when module is imported
