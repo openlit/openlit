@@ -41,8 +41,7 @@ except ImportError:
             }
 
             for env_var, param_name in env_mappings.items():
-                env_value = os.environ.get(env_var)
-                if env_value:
+                if env_value := os.environ.get(env_var):
                     # Handle boolean values
                     if env_var in [
                         "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",
