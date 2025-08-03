@@ -140,8 +140,19 @@ def module_exists(module_name):
 def is_opentelemetry_instrumentor(instrumentor_name):
     """Check if the instrumentor is an official OpenTelemetry instrumentor."""
     opentelemetry_instrumentors = {
-        "asgi", "django", "fastapi", "flask", "pyramid", "starlette", "falcon", "tornado",
-        "aiohttp-client", "httpx", "requests", "urllib", "urllib3"
+        "asgi",
+        "django",
+        "fastapi",
+        "flask",
+        "pyramid",
+        "starlette",
+        "falcon",
+        "tornado",
+        "aiohttp-client",
+        "httpx",
+        "requests",
+        "urllib",
+        "urllib3",
     }
     return instrumentor_name in opentelemetry_instrumentors
 
@@ -191,6 +202,7 @@ def instrument_if_available(
 def init(
     environment="default",
     application_name="default",
+    service_name="default",
     tracer=None,
     event_logger=None,
     otlp_endpoint=None,
@@ -230,6 +242,57 @@ def init(
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     logger.info("Starting openLIT initialization...")
 
+    # Handle service_name/application_name migration
+    # service_name takes precedence over application_name if both are provided
+    if service_name != "default":
+        # service_name explicitly provided, use it
+        final_service_name = service_name
+    elif application_name != "default":
+        # Only application_name provided, use it (silent for backward compatibility)
+        final_service_name = application_name
+    else:
+        # Both are default, will be handled by environment variables below
+        final_service_name = "default"
+
+    # Apply environment variables for parameters not explicitly provided
+    # Environment variables take precedence over default values but not over explicit parameters
+    try:
+        from openlit.cli.config import build_config_from_environment
+
+        env_config = build_config_from_environment()
+
+        # Apply env vars only if function parameters are at their default values
+        if environment == "default" and "environment" in env_config:
+            environment = env_config["environment"]
+
+        # Handle service name from environment (both service_name and application_name map to same env var)
+        if final_service_name == "default":
+            if "service_name" in env_config:
+                final_service_name = env_config["service_name"]
+            elif (
+                "application_name" in env_config
+            ):  # Fallback for backward compatibility
+                final_service_name = env_config["application_name"]
+        # Skip otlp_endpoint and otlp_headers - let existing code handle them
+        if disable_batch is False and "disable_batch" in env_config:
+            disable_batch = env_config["disable_batch"]
+        if capture_message_content is True and "capture_message_content" in env_config:
+            capture_message_content = env_config["capture_message_content"]
+        if not disabled_instrumentors and "disabled_instrumentors" in env_config:
+            disabled_instrumentors = env_config["disabled_instrumentors"]
+        if disable_metrics is False and "disable_metrics" in env_config:
+            disable_metrics = env_config["disable_metrics"]
+        if pricing_json is None and "pricing_json" in env_config:
+            pricing_json = env_config["pricing_json"]
+        if collect_gpu_stats is False and "collect_gpu_stats" in env_config:
+            collect_gpu_stats = env_config["collect_gpu_stats"]
+        if detailed_tracing is True and "detailed_tracing" in env_config:
+            detailed_tracing = env_config["detailed_tracing"]
+
+    except ImportError:
+        # Fallback if config module is not available - continue without env var support
+        pass
+
     # Validate disabled instrumentors
     invalid_instrumentors = [
         name for name in disabled_instrumentors if name not in MODULE_NAME_MAP
@@ -245,7 +308,7 @@ def init(
 
         # Setup tracing based on the provided or default configuration.
         tracer = setup_tracing(
-            application_name=application_name,
+            application_name=final_service_name,
             environment=environment,
             tracer=tracer,
             otlp_endpoint=otlp_endpoint,
@@ -259,7 +322,7 @@ def init(
 
         # Setup events based on the provided or default configuration.
         event_provider = setup_events(
-            application_name=application_name,
+            application_name=final_service_name,
             environment=environment,
             event_logger=event_logger,
             otlp_endpoint=None,
@@ -272,7 +335,7 @@ def init(
 
         # Setup meter and receive metrics_dict instead of meter.
         metrics_dict, err = setup_meter(
-            application_name=application_name,
+            application_name=final_service_name,
             environment=environment,
             meter=meter,
             otlp_endpoint=otlp_endpoint,
@@ -296,7 +359,7 @@ def init(
         # Update global configuration with the provided settings.
         config.update_config(
             environment,
-            application_name,
+            final_service_name,
             tracer,
             event_provider,
             otlp_endpoint,
@@ -320,7 +383,7 @@ def init(
         if not disable_metrics and collect_gpu_stats:
             GPUInstrumentor().instrument(
                 environment=config.environment,
-                application_name=config.application_name,
+                application_name=config.application_name,  # This uses the stored value from config
             )
     except Exception as e:
         logger.error("Error during openLIT initialization: %s", e)

@@ -9,7 +9,7 @@ OpenLIT provides flexible configuration options through both programmatic initia
 import openlit
 
 openlit.init(
-    application_name="my-app",
+    service_name="my-app",  # Recommended (replaces application_name)
     environment="production",
     otlp_endpoint="https://cloud.openlit.io",
     # ... other parameters
@@ -36,7 +36,8 @@ openlit-instrument uvicorn main:app --host 0.0.0.0 --port 8000
 
 | Parameter | CLI Argument | Environment Variable | Default | Description |
 |-----------|--------------|---------------------|---------|-------------|
-| `application_name` | `--service-name` | `OTEL_SERVICE_NAME` | `"default"` | Service name for tracing and metrics |
+| `service_name` | `--service_name` | `OTEL_SERVICE_NAME` | `"default"` | Service name for tracing and metrics |
+| `application_name` | `--application_name` | `OTEL_SERVICE_NAME` | `"default"` | **DEPRECATED** - Use `service_name` instead |
 | `environment` | `--deployment-environment` | `OTEL_DEPLOYMENT_ENVIRONMENT` | `"default"` | Deployment environment (dev/staging/production) |
 
 ### OTLP Export Configuration
@@ -245,3 +246,45 @@ Ensure environment variables are exported and available to the process:
 env | grep OTEL_  # Check OTEL variables
 env | grep OPENLIT_  # Check OpenLIT variables
 ```
+
+## 🔄 **Parameter Migration Guide**
+
+### `application_name` → `service_name` Migration
+
+The `application_name` parameter is **deprecated** and will be removed in a future version. Please migrate to using `service_name`:
+
+#### Migration Examples
+
+```python
+# OLD (deprecated) - will show warning
+openlit.init(application_name="my-app")
+
+# NEW (recommended)
+openlit.init(service_name="my-app")
+```
+
+```bash
+# OLD (deprecated) - will show warning
+openlit-instrument --application_name my-app python app.py
+
+# NEW (recommended)  
+openlit-instrument --service_name my-app python app.py
+```
+
+#### Migration Behavior
+
+- **Both parameters supported**: You can use either during migration period
+- **`service_name` takes precedence**: If both are provided, `service_name` is used
+- **Same environment variable**: Both map to `OTEL_SERVICE_NAME`
+- **Silent migration**: No warnings or breaking changes during transition
+- **Backward compatibility**: Existing code continues to work unchanged
+
+#### Migration Steps
+
+1. **Replace function calls**: Change `application_name=` to `service_name=`
+2. **Replace CLI arguments**: Change `--application_name` to `--service_name`
+3. **Environment variables unchanged**: `OTEL_SERVICE_NAME` works with both
+4. **Test thoroughly**: Verify your applications work with the new parameter
+5. **Remove old parameter**: After migration is complete
+
+The environment variable `OTEL_SERVICE_NAME` remains the same and works with both parameters.
