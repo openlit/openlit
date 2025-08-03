@@ -111,11 +111,7 @@ def setup_python_path() -> None:
     """Setup PYTHONPATH exactly like OpenTelemetry does."""
     python_path = os.environ.get("PYTHONPATH")
 
-    if not python_path:
-        python_path = []
-    else:
-        python_path = python_path.split(os.pathsep)
-
+    python_path = [] if not python_path else python_path.split(os.pathsep)
     # Add current working directory (like OpenTelemetry does)
     cwd_path = os.getcwd()
     if cwd_path not in python_path:
