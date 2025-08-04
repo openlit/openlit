@@ -55,7 +55,7 @@ export default function RequestDetails() {
 		if (request?.spanId) {
 			fetchData();
 		}
-	}, [fetchData, request]);
+	}, [request?.spanId, fetchData]);
 
 	useEffect(() => {
 		if (isOpen) {
@@ -114,7 +114,7 @@ export default function RequestDetails() {
 	return (
 		<Sheet open={isOpen}>
 			<SheetContent
-				className="max-w-none sm:max-w-none w-2/5 p-0 gap-0 flex flex-col border-l border-stone-200 dark:border-stone-800 top-[57px] h-auto"
+				className="max-w-none sm:max-w-none w-2/5 p-0 gap-0 flex flex-col border-l border-stone-200 dark:border-stone-800 top-[57px] h-auto focus-visible:outline-none"
 				displayOverlay={false}
 				displayClose={false}
 			>
