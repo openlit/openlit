@@ -6,6 +6,7 @@ import importlib
 
 # Mapping of instrumentor names to their required Python packages
 MODULE_NAME_MAP = {
+    # OpenLIT AI/ML instrumentations
     "openai": "openai",
     "anthropic": "anthropic",
     "cohere": "cohere",
@@ -52,10 +53,26 @@ MODULE_NAME_MAP = {
     "pydantic_ai": "pydantic_ai",
     "sarvam": "sarvamai",
     "browser-use": "browser_use",
+    # Official OpenTelemetry HTTP Framework instrumentations
+    "asgi": "asgiref",
+    "django": "django",
+    "fastapi": "fastapi",
+    "flask": "flask",
+    "pyramid": "pyramid",
+    "starlette": "starlette",
+    "falcon": "falcon",
+    "tornado": "tornado",
+    # Official OpenTelemetry HTTP Client instrumentations
+    "aiohttp-client": "aiohttp",
+    "httpx": "httpx",
+    "requests": "requests",
+    "urllib": "urllib",
+    "urllib3": "urllib3",
 }
 
 # Dictionary mapping instrumentor names to their full module paths
 INSTRUMENTOR_MAP = {
+    # OpenLIT AI/ML instrumentations
     "openai": "openlit.instrumentation.openai.OpenAIInstrumentor",
     "anthropic": "openlit.instrumentation.anthropic.AnthropicInstrumentor",
     "cohere": "openlit.instrumentation.cohere.CohereInstrumentor",
@@ -102,6 +119,21 @@ INSTRUMENTOR_MAP = {
     "pydantic_ai": "openlit.instrumentation.pydantic_ai.PydanticAIInstrumentor",
     "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
     "browser-use": "openlit.instrumentation.browser_use.BrowserUseInstrumentor",
+    # Official OpenTelemetry HTTP Framework instrumentations
+    "asgi": "opentelemetry.instrumentation.asgi.AsgiInstrumentor",
+    "django": "opentelemetry.instrumentation.django.DjangoInstrumentor",
+    "fastapi": "opentelemetry.instrumentation.fastapi.FastAPIInstrumentor",
+    "flask": "opentelemetry.instrumentation.flask.FlaskInstrumentor",
+    "pyramid": "opentelemetry.instrumentation.pyramid.PyramidInstrumentor",
+    "starlette": "opentelemetry.instrumentation.starlette.StarletteInstrumentor",
+    "falcon": "opentelemetry.instrumentation.falcon.FalconInstrumentor",
+    "tornado": "opentelemetry.instrumentation.tornado.TornadoInstrumentor",
+    # Official OpenTelemetry HTTP Client instrumentations
+    "aiohttp-client": "opentelemetry.instrumentation.aiohttp_client.AioHttpClientInstrumentor",
+    "httpx": "opentelemetry.instrumentation.httpx.HTTPXClientInstrumentor",
+    "requests": "opentelemetry.instrumentation.requests.RequestsInstrumentor",
+    "urllib": "opentelemetry.instrumentation.urllib.URLLibInstrumentor",
+    "urllib3": "opentelemetry.instrumentation.urllib3.URLLib3Instrumentor",
 }
 
 
