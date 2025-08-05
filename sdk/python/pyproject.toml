@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "openlit"
-version = "1.34.35"
+version = "1.35.0"
 description = "OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications and GPUs, facilitating the integration of observability into your GenAI-driven projects"
 authors = ["OpenLIT"]
 license = "Apache-2.0"
@@ -21,10 +21,30 @@ opentelemetry-api = "^1.30.0"
 opentelemetry-sdk = "^1.30.0"
 opentelemetry-exporter-otlp = "^1.30.0"
 opentelemetry-instrumentation = ">=0.52b0,<1.0.0"
+# Official OpenTelemetry HTTP Framework instrumentations
+opentelemetry-instrumentation-asgi = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-django = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-fastapi = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-flask = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-pyramid = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-starlette = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-falcon = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-tornado = ">=0.52b0,<1.0.0"
+# Official OpenTelemetry HTTP Client instrumentations
+opentelemetry-instrumentation-aiohttp-client = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-httpx = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-requests = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-urllib = ">=0.52b0,<1.0.0"
+opentelemetry-instrumentation-urllib3 = ">=0.52b0,<1.0.0"
+# Official OpenTelemetry System Metrics (optional)
+opentelemetry-instrumentation-system-metrics = {version = ">=0.52b0,<1.0.0", optional = true}
 openai = "^1.1.1"
 anthropic = ">=0.42.0,<1.0.0"
 openai-agents = ">=0.0.3"
 langchain = "^0.3.15"
+
+[tool.poetry.scripts]
+openlit-instrument = "openlit.cli.main:run"
 
 [build-system]
 requires = ["poetry-core>=1.1.0"]
