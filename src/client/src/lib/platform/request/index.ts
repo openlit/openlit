@@ -97,11 +97,11 @@ export async function getRequestsConfig(params: MetricParams) {
 	select.push(
 		`arrayConcat(
 			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
-				"provider"
-			)}'])),
+			"provider"
+		)}'])),
 			arrayFilter(x -> x != '', groupArray(DISTINCT SpanAttributes['${getTraceMappingKeyFullPath(
-				"system"
-			)}']))
+			"system"
+		)}']))
 		) AS providers`
 	);
 
@@ -160,14 +160,13 @@ export async function getRequests(params: MetricParams) {
 
 	const query = `SELECT *	FROM ${OTEL_TRACES_TABLE_NAME} 
 		WHERE ${getFilterWhereCondition(params, true)}
-		${
-			params.sorting
-				? params.sorting.type.includes("cost")
-					? `ORDER BY toFloat64OrZero(${params.sorting.type}) ${params.sorting.direction} `
-					: params.sorting.type.includes("tokens")
+		${params.sorting
+			? params.sorting.type.includes("cost")
+				? `ORDER BY toFloat64OrZero(${params.sorting.type}) ${params.sorting.direction} `
+				: params.sorting.type.includes("tokens")
 					? `ORDER BY toInt32OrZero(${params.sorting.type}) ${params.sorting.direction} `
 					: `ORDER BY ${params.sorting.type} ${params.sorting.direction} `
-				: `ORDER BY Timestamp desc `
+			: `ORDER BY Timestamp desc `
 		}
 		LIMIT ${limit}
 		OFFSET ${offset}`;
@@ -234,15 +233,14 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 						INNER JOIN
 								trace_hierarchy th
 						ON
-								${
-									dir === "upward"
-										? `ot.${getTraceMappingKeyFullPath(
-												"spanId"
-										  )} = th.${getTraceMappingKeyFullPath("parentSpanId")}`
-										: `ot.${getTraceMappingKeyFullPath(
-												"parentSpanId"
-										  )} = th.${getTraceMappingKeyFullPath("spanId")}`
-								}
+								${dir === "upward"
+			? `ot.${getTraceMappingKeyFullPath(
+				"spanId"
+			)} = th.${getTraceMappingKeyFullPath("parentSpanId")}`
+			: `ot.${getTraceMappingKeyFullPath(
+				"parentSpanId"
+			)} = th.${getTraceMappingKeyFullPath("spanId")}`
+		}
 				)
 				SELECT *
 				FROM trace_hierarchy
@@ -257,14 +255,16 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 			query: commonQuery("downward", (upwardData as any[])?.[0]?.SpanId),
 		});
 
+		const heirarchy = buildHierarchy(downwardData as any[]);
+
 		return {
-			err: upwardErr || downwardErr,
-			record: buildHierarchy(downwardData as any[]),
+			err: upwardErr || downwardErr || (heirarchy ? null : "Error in fetching heirarchy"),
+			record: heirarchy,
 		};
 	}
 
 	return {
 		err: "Error in fetching heirarchy",
-		record: [],
+		record: {},
 	};
 }

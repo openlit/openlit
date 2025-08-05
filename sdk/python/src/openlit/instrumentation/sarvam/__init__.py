@@ -1,51 +1,56 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
-"""
-Initializer of Auto Instrumentation of Crawl4AI Functions.
-Supports Crawl4AI 0.7.x with comprehensive operation coverage.
-"""
+"""Initializer of Auto Instrumentation of Sarvam AI Functions"""
 
 from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.crawl4ai.crawl4ai import general_wrap
-from openlit.instrumentation.crawl4ai.async_crawl4ai import async_general_wrap
+from openlit.instrumentation.sarvam.sarvam import (
+    chat_completions,
+    text_translate,
+    text_transliterate,
+    text_identify_language,
+    speech_to_text_transcribe,
+    speech_to_text_translate,
+    text_to_speech_convert,
+)
+from openlit.instrumentation.sarvam.async_sarvam import (
+    async_chat_completions,
+    async_text_translate,
+    async_text_transliterate,
+    async_text_identify_language,
+    async_speech_to_text_transcribe,
+    async_speech_to_text_translate,
+    async_text_to_speech_convert,
+)
 
-_instruments = ("crawl4ai >= 0.7.0",)
+_instruments = ("sarvamai >= 0.0.1",)
 
 
-class Crawl4AIInstrumentor(BaseInstrumentor):
+class SarvamInstrumentor(BaseInstrumentor):
     """
-    An instrumentor for Crawl4AI's client library.
-    Supports comprehensive 0.7.x operations including async crawling,
-    batch processing, deep crawling, and extraction strategies.
+    An instrumentor for Sarvam AI's client library.
     """
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name", "default_application")
-        environment = kwargs.get("environment", "default_environment")
+        version = importlib.metadata.version("sarvamai")
+        environment = kwargs.get("environment", "default")
+        application_name = kwargs.get("application_name", "default")
         tracer = kwargs.get("tracer")
-        metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
+        metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics")
 
-        try:
-            version = importlib.metadata.version("crawl4ai")
-        except importlib.metadata.PackageNotFoundError:
-            version = "unknown"
-
-        # Wrap AsyncWebCrawler.arun() - Primary single URL crawling
+        # Chat completions - sync
         try:
             wrap_function_wrapper(
-                "crawl4ai.async_webcrawler",
-                "AsyncWebCrawler.arun",
-                async_general_wrap(
-                    "crawl4ai.arun",
+                "sarvamai.chat.client",
+                "ChatClient.completions",
+                chat_completions(
                     version,
                     environment,
                     application_name,
@@ -59,13 +64,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
-        # Wrap AsyncWebCrawler.arun_many() - Batch/streaming crawling (0.7.x)
+        # Chat completions - async
         try:
             wrap_function_wrapper(
-                "crawl4ai.async_webcrawler",
-                "AsyncWebCrawler.arun_many",
-                async_general_wrap(
-                    "crawl4ai.arun_many",
+                "sarvamai.chat.client",
+                "AsyncChatClient.completions",
+                async_chat_completions(
                     version,
                     environment,
                     application_name,
@@ -79,13 +83,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
-        # Wrap legacy WebCrawler.run() for backward compatibility
+        # Text translate - sync
         try:
             wrap_function_wrapper(
-                "crawl4ai.web_crawler",
-                "WebCrawler.run",
-                general_wrap(
-                    "crawl4ai.run",
+                "sarvamai.text.client",
+                "TextClient.translate",
+                text_translate(
                     version,
                     environment,
                     application_name,
@@ -99,13 +102,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
-        # Wrap deep crawling operations (0.7.x)
+        # Text translate - async
         try:
             wrap_function_wrapper(
-                "crawl4ai.deep_crawling.strategies",
-                "BFSDeepCrawlStrategy.arun",
-                async_general_wrap(
-                    "crawl4ai.deep_crawl.bfs",
+                "sarvamai.text.client",
+                "AsyncTextClient.translate",
+                async_text_translate(
                     version,
                     environment,
                     application_name,
@@ -119,12 +121,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
+        # Text transliterate - sync
         try:
             wrap_function_wrapper(
-                "crawl4ai.deep_crawling.strategies",
-                "DFSDeepCrawlStrategy.arun",
-                async_general_wrap(
-                    "crawl4ai.deep_crawl.dfs",
+                "sarvamai.text.client",
+                "TextClient.transliterate",
+                text_transliterate(
                     version,
                     environment,
                     application_name,
@@ -138,12 +140,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
+        # Text transliterate - async
         try:
             wrap_function_wrapper(
-                "crawl4ai.deep_crawling.strategies",
-                "BestFirstCrawlingStrategy.arun",
-                async_general_wrap(
-                    "crawl4ai.deep_crawl.best_first",
+                "sarvamai.text.client",
+                "AsyncTextClient.transliterate",
+                async_text_transliterate(
                     version,
                     environment,
                     application_name,
@@ -157,13 +159,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
-        # Wrap LLM and Extraction Strategy Operations (0.7.x)
+        # Text identify language - sync
         try:
             wrap_function_wrapper(
-                "crawl4ai.extraction_strategy",
-                "LLMExtractionStrategy.extract",
-                general_wrap(
-                    "crawl4ai.extraction.llm.extract",
+                "sarvamai.text.client",
+                "TextClient.identify_language",
+                text_identify_language(
                     version,
                     environment,
                     application_name,
@@ -177,12 +178,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
+        # Text identify language - async
         try:
             wrap_function_wrapper(
-                "crawl4ai.extraction_strategy",
-                "LLMExtractionStrategy.run",
-                general_wrap(
-                    "crawl4ai.extraction.llm.run",
+                "sarvamai.text.client",
+                "AsyncTextClient.identify_language",
+                async_text_identify_language(
                     version,
                     environment,
                     application_name,
@@ -196,12 +197,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
+        # Speech to text - sync
         try:
             wrap_function_wrapper(
-                "crawl4ai.extraction_strategy",
-                "JsonCssExtractionStrategy.extract",
-                general_wrap(
-                    "crawl4ai.extraction.css.extract",
+                "sarvamai.speech_to_text.client",
+                "SpeechToTextClient.transcribe",
+                speech_to_text_transcribe(
                     version,
                     environment,
                     application_name,
@@ -215,12 +216,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
+        # Speech to text - async
         try:
             wrap_function_wrapper(
-                "crawl4ai.extraction_strategy",
-                "JsonXPathExtractionStrategy.extract",
-                general_wrap(
-                    "crawl4ai.extraction.xpath.extract",
+                "sarvamai.speech_to_text.client",
+                "AsyncSpeechToTextClient.transcribe",
+                async_speech_to_text_transcribe(
                     version,
                     environment,
                     application_name,
@@ -234,12 +235,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
+        # Speech to text translate - sync
         try:
             wrap_function_wrapper(
-                "crawl4ai.extraction_strategy",
-                "CosineStrategy.extract",
-                general_wrap(
-                    "crawl4ai.extraction.cosine.extract",
+                "sarvamai.speech_to_text.client",
+                "SpeechToTextClient.translate",
+                speech_to_text_translate(
                     version,
                     environment,
                     application_name,
@@ -253,12 +254,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
+        # Speech to text translate - async
         try:
             wrap_function_wrapper(
-                "crawl4ai.extraction_strategy",
-                "RegexExtractionStrategy.extract",
-                general_wrap(
-                    "crawl4ai.extraction.regex.extract",
+                "sarvamai.speech_to_text.client",
+                "AsyncSpeechToTextClient.translate",
+                async_speech_to_text_translate(
                     version,
                     environment,
                     application_name,
@@ -272,13 +273,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
-        # Wrap Core Processing Operations (0.7.x)
+        # Text to speech - sync
         try:
             wrap_function_wrapper(
-                "crawl4ai.async_webcrawler",
-                "AsyncWebCrawler.aprocess_html",
-                async_general_wrap(
-                    "crawl4ai.aprocess_html",
+                "sarvamai.text_to_speech.client",
+                "TextToSpeechClient.convert",
+                text_to_speech_convert(
                     version,
                     environment,
                     application_name,
@@ -292,51 +292,12 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
         except Exception:
             pass  # Module may not exist in all versions
 
+        # Text to speech - async
         try:
             wrap_function_wrapper(
-                "crawl4ai.async_webcrawler",
-                "AsyncWebCrawler.aseed_urls",
-                async_general_wrap(
-                    "crawl4ai.aseed_urls",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass  # Module may not exist in all versions
-
-        # Wrap Monitor Operations for Business Intelligence
-        try:
-            wrap_function_wrapper(
-                "crawl4ai.components.crawler_monitor",
-                "CrawlerMonitor.update_task",
-                general_wrap(
-                    "crawl4ai.monitor.update_task",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-        except Exception:
-            pass  # Module may not exist in all versions
-
-        try:
-            wrap_function_wrapper(
-                "crawl4ai.components.crawler_monitor",
-                "CrawlerMonitor.get_summary",
-                general_wrap(
-                    "crawl4ai.monitor.get_summary",
+                "sarvamai.text_to_speech.client",
+                "AsyncTextToSpeechClient.convert",
+                async_text_to_speech_convert(
                     version,
                     environment,
                     application_name,
@@ -351,11 +312,4 @@ class Crawl4AIInstrumentor(BaseInstrumentor):
             pass  # Module may not exist in all versions
 
     def _uninstrument(self, **kwargs):
-        """
-        Proper uninstrumentation logic to revert patched methods.
-
-        Note: wrapt automatically handles uninstrumentation for
-        wrap_function_wrapper calls when the instrumentor is disabled.
-        """
-        # Uninstrumentation is handled automatically by wrapt
-        return
+        pass

@@ -75,6 +75,12 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_EMBEDDING = "embeddings"
     GEN_AI_OPERATION_TYPE_IMAGE = "image"
     GEN_AI_OPERATION_TYPE_AUDIO = "audio"
+    GEN_AI_OPERATION_TYPE_TRANSLATE = "translate"
+    GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT = "speech_to_text"
+    GEN_AI_OPERATION_TYPE_TEXT_TO_SPEECH = "text_to_speech"
+    GEN_AI_OPERATION_TYPE_TRANSLITERATE = "transliterate"
+    GEN_AI_OPERATION_TYPE_LANGUAGE_IDENTIFICATION = "language_identification"
+    GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT_TRANSLATE = "speech_to_text_translate"
     GEN_AI_OPERATION_TYPE_VECTORDB = "vectordb"
     GEN_AI_OPERATION_TYPE_FRAMEWORK = "workflow"
     GEN_AI_OPERATION_TYPE_AGENT = "invoke_agent"
@@ -84,6 +90,11 @@ class SemanticConvention:
     GEN_AI_OPERATION_TYPE_USER_PROMPT_PROCESSING = "user_prompt_processing"
     GEN_AI_OPERATION_TYPE_MODEL_REQUEST = "model_request"
     GEN_AI_OPERATION_TYPE_TOOL_COORDINATION = "tool_coordination"
+
+    # Julep-specific Operation Types
+    GEN_AI_OPERATION_TYPE_AGENT_CREATE = "agent"
+    GEN_AI_OPERATION_TYPE_TASK_CREATE = "task"
+    GEN_AI_OPERATION_TYPE_EXECUTION_CREATE = "execution"
 
     # Model Request Types
     GEN_AI_MODEL_REQUEST_TYPE_INITIAL = "initial"
@@ -140,7 +151,7 @@ class SemanticConvention:
     GEN_AI_SYSTEM_AG2 = "ag2"
     GEN_AI_SYSTEM_MULTION = "multion"
     GEN_AI_SYSTEM_DYNAMIQ = "dynamiq"
-    GEN_AI_SYSTEM_PHIDATA = "phidata"
+    GEN_AI_SYSTEM_AGNO = "agno"
     GEN_AI_SYSTEM_JULEP = "julep"
     GEN_AI_SYSTEM_AI21 = "ai21"
     GEN_AI_SYSTEM_CONTROLFLOW = "controlflow"
@@ -151,6 +162,8 @@ class SemanticConvention:
     GEN_AI_SYSTEM_TOGETHER = "together"
     GEN_AI_SYSTEM_OPENAI_AGENTS = "openai_agents"
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
+    GEN_AI_SYSTEM_SARVAM = "sarvam"
+    GEN_AI_SYSTEM_BROWSER_USE = "browser_use"
 
     # GenAI Framework Component Attributes (Standard)
     GEN_AI_FRAMEWORK_COMPONENT_NAME = "gen_ai.framework.component.name"
@@ -189,6 +202,82 @@ class SemanticConvention:
     GEN_AI_REQUEST_AUDIO_SPEED = "gen_ai.request.audio_speed"
     GEN_AI_REQUEST_AUDIO_SETTINGS = "gen_ai.request.audio_settings"
     GEN_AI_REQUEST_AUDIO_DURATION = "gen_ai.request.audio_duration"
+
+    # Translation request attributes
+    GEN_AI_REQUEST_TRANSLATE_SOURCE_LANGUAGE = (
+        "gen_ai.request.translate.source_language"
+    )
+    GEN_AI_REQUEST_TRANSLATE_TARGET_LANGUAGE = (
+        "gen_ai.request.translate.target_language"
+    )
+    GEN_AI_REQUEST_TRANSLATE_SPEAKER_GENDER = "gen_ai.request.translate.speaker_gender"
+    GEN_AI_REQUEST_TRANSLATE_MODE = "gen_ai.request.translate.mode"
+    GEN_AI_REQUEST_TRANSLATE_ENABLE_PREPROCESSING = (
+        "gen_ai.request.translate.enable_preprocessing"
+    )
+    GEN_AI_REQUEST_TRANSLATE_OUTPUT_SCRIPT = "gen_ai.request.translate.output_script"
+    GEN_AI_REQUEST_TRANSLATE_NUMERALS_FORMAT = (
+        "gen_ai.request.translate.numerals_format"
+    )
+
+    # Translation response attributes
+    GEN_AI_RESPONSE_TRANSLATE_SOURCE_LANGUAGE = (
+        "gen_ai.response.translate.source_language"
+    )
+
+    # Transliteration request attributes
+    GEN_AI_REQUEST_TRANSLITERATE_SOURCE_LANGUAGE = (
+        "gen_ai.request.transliterate.source_language"
+    )
+    GEN_AI_REQUEST_TRANSLITERATE_TARGET_LANGUAGE = (
+        "gen_ai.request.transliterate.target_language"
+    )
+    GEN_AI_REQUEST_TRANSLITERATE_NUMERALS_FORMAT = (
+        "gen_ai.request.transliterate.numerals_format"
+    )
+    GEN_AI_REQUEST_TRANSLITERATE_SPOKEN_FORM = (
+        "gen_ai.request.transliterate.spoken_form"
+    )
+    GEN_AI_REQUEST_TRANSLITERATE_SPOKEN_FORM_NUMERALS_LANGUAGE = (
+        "gen_ai.request.transliterate.spoken_form_numerals_language"
+    )
+
+    # Transliteration response attributes
+    GEN_AI_RESPONSE_TRANSLITERATE_SOURCE_LANGUAGE = (
+        "gen_ai.response.transliterate.source_language"
+    )
+
+    # Language identification response attributes
+    GEN_AI_RESPONSE_LANGUAGE_CODE = "gen_ai.response.language_code"
+    GEN_AI_RESPONSE_SCRIPT_CODE = "gen_ai.response.script_code"
+
+    # Speech-to-text request attributes
+    GEN_AI_REQUEST_SPEECH_LANGUAGE_CODE = "gen_ai.request.speech.language_code"
+    GEN_AI_REQUEST_SPEECH_PROMPT = "gen_ai.request.speech.prompt"
+    GEN_AI_REQUEST_SPEECH_WITH_TIMESTAMPS = "gen_ai.request.speech.with_timestamps"
+
+    # Speech-to-text response attributes
+    GEN_AI_RESPONSE_SPEECH_TIMESTAMPS = "gen_ai.response.speech.timestamps"
+    GEN_AI_RESPONSE_SPEECH_DIARIZED_TRANSCRIPT = (
+        "gen_ai.response.speech.diarized_transcript"
+    )
+    GEN_AI_RESPONSE_SPEECH_DETECTED_LANGUAGE = (
+        "gen_ai.response.speech.detected_language"
+    )
+
+    # Text-to-speech request attributes
+    GEN_AI_REQUEST_TTS_TARGET_LANGUAGE_CODE = "gen_ai.request.tts.target_language_code"
+    GEN_AI_REQUEST_TTS_SPEAKER = "gen_ai.request.tts.speaker"
+    GEN_AI_REQUEST_TTS_PITCH = "gen_ai.request.tts.pitch"
+    GEN_AI_REQUEST_TTS_PACE = "gen_ai.request.tts.pace"
+    GEN_AI_REQUEST_TTS_LOUDNESS = "gen_ai.request.tts.loudness"
+    GEN_AI_REQUEST_TTS_SPEECH_SAMPLE_RATE = "gen_ai.request.tts.speech_sample_rate"
+    GEN_AI_REQUEST_TTS_ENABLE_PREPROCESSING = "gen_ai.request.tts.enable_preprocessing"
+    GEN_AI_REQUEST_TTS_OUTPUT_AUDIO_CODEC = "gen_ai.request.tts.output_audio_codec"
+
+    # Provider-specific request attributes
+    GEN_AI_REQUEST_WIKI_GROUNDING = "gen_ai.request.wiki_grounding"
+    GEN_AI_REQUEST_N = "gen_ai.request.n"
     GEN_AI_REQUEST_IMAGE_SIZE = "gen_ai.request.image_size"
     GEN_AI_REQUEST_IMAGE_QUALITY = "gen_ai.request.image_quality"
     GEN_AI_REQUEST_IMAGE_STYLE = "gen_ai.request.image_style"
@@ -333,6 +422,115 @@ class SemanticConvention:
 
     GEN_AI_AGENT_TYPE_BROWSER = "browser"
 
+    # Crawl4AI Specific Attributes (0.7.x Support)
+    GEN_AI_CRAWL_URL_COUNT = "gen_ai.crawl.url_count"
+    GEN_AI_CRAWL_DEPTH = "gen_ai.crawl.depth"
+    GEN_AI_CRAWL_SESSION_ID = "gen_ai.crawl.session_id"
+    GEN_AI_CRAWL_CACHE_MODE = "gen_ai.crawl.cache_mode"
+    GEN_AI_CRAWL_EXTRACTION_STRATEGY = "gen_ai.crawl.extraction_strategy"
+    GEN_AI_CRAWL_SCRAPING_STRATEGY = "gen_ai.crawl.scraping_strategy"
+    GEN_AI_CRAWL_BROWSER_TYPE = "gen_ai.crawl.browser_type"
+    GEN_AI_CRAWL_HEADLESS = "gen_ai.crawl.headless"
+    GEN_AI_CRAWL_VIEWPORT_WIDTH = "gen_ai.crawl.viewport_width"
+    GEN_AI_CRAWL_VIEWPORT_HEIGHT = "gen_ai.crawl.viewport_height"
+    GEN_AI_CRAWL_USER_AGENT = "gen_ai.crawl.user_agent"
+    GEN_AI_CRAWL_WORD_COUNT_THRESHOLD = "gen_ai.crawl.word_count_threshold"
+    GEN_AI_CRAWL_CSS_SELECTOR = "gen_ai.crawl.css_selector"
+    GEN_AI_CRAWL_EXCLUDED_TAGS = "gen_ai.crawl.excluded_tags"
+    GEN_AI_CRAWL_SCREENSHOT = "gen_ai.crawl.screenshot"
+    GEN_AI_CRAWL_PDF = "gen_ai.crawl.pdf"
+    GEN_AI_CRAWL_WAIT_FOR = "gen_ai.crawl.wait_for"
+    GEN_AI_CRAWL_PAGE_TIMEOUT = "gen_ai.crawl.page_timeout"
+    GEN_AI_CRAWL_JS_CODE = "gen_ai.crawl.js_code"
+    GEN_AI_CRAWL_RESULT_SUCCESS = "gen_ai.crawl.result.success"
+    GEN_AI_CRAWL_RESULT_STATUS_CODE = "gen_ai.crawl.result.status_code"
+    GEN_AI_CRAWL_RESULT_HTML_LENGTH = "gen_ai.crawl.result.html_length"
+    GEN_AI_CRAWL_RESULT_MARKDOWN_LENGTH = "gen_ai.crawl.result.markdown_length"
+    GEN_AI_CRAWL_RESULT_LINKS_COUNT = "gen_ai.crawl.result.links_count"
+    GEN_AI_CRAWL_RESULT_IMAGES_COUNT = "gen_ai.crawl.result.images_count"
+    GEN_AI_CRAWL_RESULT_REDIRECTED_URL = "gen_ai.crawl.result.redirected_url"
+    GEN_AI_CRAWL_DEEP_STRATEGY = "gen_ai.crawl.deep_strategy"
+    GEN_AI_CRAWL_PROXY_CONFIG = "gen_ai.crawl.proxy_config"
+
+    # Crawl4AI LLM Extraction Attributes (0.7.x)
+    GEN_AI_EXTRACTION_STRATEGY_TYPE = "gen_ai.extraction.strategy.type"
+    GEN_AI_EXTRACTION_TYPE = "gen_ai.extraction.type"
+    GEN_AI_EXTRACTION_INSTRUCTION = "gen_ai.extraction.instruction"
+    GEN_AI_EXTRACTION_SCHEMA = "gen_ai.extraction.schema"
+    GEN_AI_EXTRACTION_INPUT_FORMAT = "gen_ai.extraction.input_format"
+    GEN_AI_EXTRACTION_CHUNK_COUNT = "gen_ai.extraction.chunk_count"
+    GEN_AI_EXTRACTION_CHUNK_TOKEN_THRESHOLD = "gen_ai.extraction.chunk_token_threshold"
+    GEN_AI_EXTRACTION_OVERLAP_RATE = "gen_ai.extraction.overlap_rate"
+    GEN_AI_EXTRACTION_APPLY_CHUNKING = "gen_ai.extraction.apply_chunking"
+    GEN_AI_EXTRACTION_SUCCESS = "gen_ai.extraction.success"
+    GEN_AI_EXTRACTION_ERROR = "gen_ai.extraction.error"
+
+    # LLM Provider and Model Information
+    GEN_AI_LLM_PROVIDER = "gen_ai.llm.provider"
+    GEN_AI_LLM_MODEL = "gen_ai.llm.model"
+    GEN_AI_LLM_BASE_URL = "gen_ai.llm.base_url"
+    GEN_AI_LLM_TEMPERATURE = "gen_ai.llm.temperature"
+    GEN_AI_LLM_MAX_TOKENS = "gen_ai.llm.max_tokens"
+    GEN_AI_LLM_TOP_P = "gen_ai.llm.top_p"
+
+    # Token Usage and Cost Tracking (Enhanced Business Intelligence)
+    GEN_AI_TOKEN_USAGE_INPUT = "gen_ai.token.usage.input"
+    GEN_AI_TOKEN_USAGE_OUTPUT = "gen_ai.token.usage.output"
+    GEN_AI_TOKEN_USAGE_TOTAL = "gen_ai.token.usage.total"
+    GEN_AI_TOKEN_COST_INPUT = "gen_ai.token.cost.input"
+    GEN_AI_TOKEN_COST_OUTPUT = "gen_ai.token.cost.output"
+    GEN_AI_TOKEN_COST_TOTAL = "gen_ai.token.cost.total"
+    GEN_AI_TOKEN_CHUNK_USAGE = "gen_ai.token.chunk_usage"
+    GEN_AI_TOKEN_CHUNK_COUNT = "gen_ai.token.chunk_count"
+
+    # CrawlerMonitor Integration Attributes
+    GEN_AI_MONITOR_TASK_ID = "gen_ai.monitor.task_id"
+    GEN_AI_MONITOR_TASK_STATUS = "gen_ai.monitor.task_status"
+    GEN_AI_MONITOR_MEMORY_USAGE = "gen_ai.monitor.memory_usage"
+    GEN_AI_MONITOR_PEAK_MEMORY = "gen_ai.monitor.peak_memory"
+    GEN_AI_MONITOR_RETRY_COUNT = "gen_ai.monitor.retry_count"
+    GEN_AI_MONITOR_WAIT_TIME = "gen_ai.monitor.wait_time"
+    GEN_AI_MONITOR_QUEUE_SIZE = "gen_ai.monitor.queue_size"
+    GEN_AI_MONITOR_COMPLETION_RATE = "gen_ai.monitor.completion_rate"
+
+    # Extraction Strategy Types
+    GEN_AI_EXTRACTION_STRATEGY_LLM = "llm"
+    GEN_AI_EXTRACTION_STRATEGY_CSS = "css"
+    GEN_AI_EXTRACTION_STRATEGY_XPATH = "xpath"
+    GEN_AI_EXTRACTION_STRATEGY_COSINE = "cosine"
+    GEN_AI_EXTRACTION_STRATEGY_REGEX = "regex"
+    GEN_AI_EXTRACTION_STRATEGY_LXML = "lxml"
+
+    # LLM Extraction Types
+    GEN_AI_EXTRACTION_TYPE_SCHEMA = "schema"
+    GEN_AI_EXTRACTION_TYPE_BLOCK = "block"
+
+    # Monitor Task Status Values
+    GEN_AI_MONITOR_STATUS_PENDING = "pending"
+    GEN_AI_MONITOR_STATUS_RUNNING = "running"
+    GEN_AI_MONITOR_STATUS_COMPLETED = "completed"
+    GEN_AI_MONITOR_STATUS_FAILED = "failed"
+    GEN_AI_MONITOR_STATUS_RETRYING = "retrying"
+
+    # Crawl4AI Operation Types (reusing existing pattern)
+    GEN_AI_OPERATION_TYPE_CRAWL = "crawl"
+    GEN_AI_OPERATION_TYPE_CRAWL_DEEP = "crawl_deep"
+    GEN_AI_OPERATION_TYPE_EXTRACT = "extract"
+    GEN_AI_OPERATION_TYPE_EXTRACT_LLM = "extract_llm"
+    GEN_AI_OPERATION_TYPE_EXTRACT_CSS = "extract_css"
+    GEN_AI_OPERATION_TYPE_EXTRACT_XPATH = "extract_xpath"
+    GEN_AI_OPERATION_TYPE_EXTRACT_COSINE = "extract_cosine"
+    GEN_AI_OPERATION_TYPE_EXTRACT_REGEX = "extract_regex"
+    GEN_AI_OPERATION_TYPE_SCRAPE = "scrape"
+
+    # Firecrawl Operation Types
+    GEN_AI_OPERATION_TYPE_MAP = "map"
+    GEN_AI_OPERATION_TYPE_SEARCH = "search"
+    GEN_AI_OPERATION_TYPE_CRAWL_STATUS = "crawl_status"
+    GEN_AI_OPERATION_TYPE_SCRAPE_STATUS = "scrape_status"
+    GEN_AI_OPERATION_TYPE_EXTRACT_STATUS = "extract_status"
+    GEN_AI_OPERATION_TYPE_CANCEL = "cancel"
+
     # GPU
     GPU_INDEX = "gpu.index"
     GPU_UUID = "gpu.uuid"
@@ -349,6 +547,106 @@ class SemanticConvention:
     GPU_MEMORY_FREE = "gpu.memory.free"
     GPU_POWER_DRAW = "gpu.power.draw"
     GPU_POWER_LIMIT = "gpu.power.limit"
+
+    # Browser-Use Specific Attributes
+    GEN_AI_BROWSER_ACTION_TYPE = "gen_ai.browser.action.type"
+    GEN_AI_BROWSER_ACTION_TARGET = "gen_ai.browser.action.target"
+    GEN_AI_BROWSER_ACTION_VALUE = "gen_ai.browser.action.value"
+    GEN_AI_BROWSER_ACTION_SELECTOR = "gen_ai.browser.action.selector"
+    GEN_AI_BROWSER_PAGE_URL = "gen_ai.browser.page.url"
+    GEN_AI_BROWSER_PAGE_TITLE = "gen_ai.browser.page.title"
+    GEN_AI_BROWSER_VIEWPORT_WIDTH = "gen_ai.browser.viewport.width"
+    GEN_AI_BROWSER_VIEWPORT_HEIGHT = "gen_ai.browser.viewport.height"
+    GEN_AI_BROWSER_USER_AGENT = "gen_ai.browser.user_agent"
+    GEN_AI_BROWSER_TASK_DESCRIPTION = "gen_ai.browser.task.description"
+    GEN_AI_BROWSER_STEP_NUMBER = "gen_ai.browser.step.number"
+    GEN_AI_BROWSER_MAX_STEPS = "gen_ai.browser.max_steps"
+    GEN_AI_BROWSER_DOM_ELEMENTS_COUNT = "gen_ai.browser.dom.elements_count"
+    GEN_AI_BROWSER_SCREENSHOT_TAKEN = "gen_ai.browser.screenshot.taken"
+    GEN_AI_BROWSER_SESSION_ID = "gen_ai.browser.session.id"
+    GEN_AI_BROWSER_CONTROLLER_TYPE = "gen_ai.browser.controller.type"
+
+    # Browser-Use Operation Types
+    GEN_AI_OPERATION_TYPE_BROWSER_RUN = "browser_run"
+    GEN_AI_OPERATION_TYPE_BROWSER_STEP = "browser_step"
+    GEN_AI_OPERATION_TYPE_BROWSER_ACTION = "browser_action"
+    GEN_AI_OPERATION_TYPE_BROWSER_PAUSE = "browser_pause"
+    GEN_AI_OPERATION_TYPE_BROWSER_RESUME = "browser_resume"
+    GEN_AI_OPERATION_TYPE_BROWSER_STOP = "browser_stop"
+
+    # Browser-Use Agent Specific Attributes
+    GEN_AI_AGENT_MAX_STEPS = "gen_ai.agent.max_steps"
+    GEN_AI_AGENT_ID = "gen_ai.agent.id"
+    GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task_id"
+    GEN_AI_AGENT_SESSION_ID = "gen_ai.agent.session_id"
+    GEN_AI_AGENT_USE_VISION = "gen_ai.agent.use_vision"
+    GEN_AI_AGENT_MAX_FAILURES = "gen_ai.agent.max_failures"
+    GEN_AI_AGENT_MAX_ACTIONS_PER_STEP = "gen_ai.agent.max_actions_per_step"
+    GEN_AI_AGENT_HEADLESS = "gen_ai.agent.headless"
+    GEN_AI_AGENT_ALLOWED_DOMAINS = "gen_ai.agent.allowed_domains"
+    GEN_AI_AGENT_VISION_DETAIL_LEVEL = "gen_ai.agent.vision_detail_level"
+    GEN_AI_AGENT_RETRY_DELAY = "gen_ai.agent.retry_delay"
+    GEN_AI_AGENT_VALIDATE_OUTPUT = "gen_ai.agent.validate_output"
+    GEN_AI_AGENT_LLM_TIMEOUT = "gen_ai.agent.llm_timeout"
+
+    # Browser-Use Action Specific Attributes
+    GEN_AI_ACTION_SUCCESS = "gen_ai.action.success"
+    GEN_AI_ACTION_ERROR = "gen_ai.action.error"
+    GEN_AI_ACTION_TYPE = "gen_ai.action.type"
+    GEN_AI_ACTION_INDEX = "gen_ai.action.index"
+    GEN_AI_ACTION_HAS_SENSITIVE_DATA = "gen_ai.action.has_sensitive_data"
+    GEN_AI_ACTION_FILE_PATH = "gen_ai.action.file_path"
+    GEN_AI_ACTION_EXTRACTED_CONTENT_LENGTH = "gen_ai.action.extracted_content_length"
+
+    # Browser-Use Browser Specific Attributes
+    GEN_AI_BROWSER_PAGE_TITLE = "gen_ai.browser.page_title"
+    GEN_AI_BROWSER_TABS_COUNT = "gen_ai.browser.tabs_count"
+
+    # Browser-Use Agent Execution Attributes
+    GEN_AI_AGENT_THINKING = "gen_ai.agent.thinking"
+    GEN_AI_AGENT_MEMORY = "gen_ai.agent.memory"
+    GEN_AI_AGENT_NEXT_GOAL = "gen_ai.agent.next_goal"
+    GEN_AI_AGENT_EVALUATION = "gen_ai.agent.evaluation"
+    GEN_AI_AGENT_ACTIONS = "gen_ai.agent.actions"
+    GEN_AI_AGENT_ACTIONS_COUNT = "gen_ai.agent.actions_count"
+    GEN_AI_AGENT_PAGE_TITLE = "gen_ai.agent.page_title"
+    GEN_AI_AGENT_TABS_COUNT = "gen_ai.agent.tabs_count"
+    GEN_AI_AGENT_INTERACTED_ELEMENTS_COUNT = "gen_ai.agent.interacted_elements_count"
+    GEN_AI_AGENT_ACTIONS_SUCCESS_COUNT = "gen_ai.agent.actions_success_count"
+    GEN_AI_AGENT_ACTIONS_ERROR_COUNT = "gen_ai.agent.actions_error_count"
+    GEN_AI_AGENT_ACTION_ERRORS = "gen_ai.agent.action_errors"
+    GEN_AI_AGENT_STEP_DURATION = "gen_ai.agent.step_duration"
+    GEN_AI_AGENT_TOTAL_ACTIONS = "gen_ai.agent.total_actions"
+    GEN_AI_AGENT_SUCCESSFUL_STEPS = "gen_ai.agent.successful_steps"
+    GEN_AI_AGENT_FAILED_STEPS = "gen_ai.agent.failed_steps"
+    GEN_AI_AGENT_SUCCESS_RATE = "gen_ai.agent.success_rate"
+    GEN_AI_AGENT_FINAL_RESULT = "gen_ai.agent.final_result"
+
+    # Browser-Use Operation Attributes
+    GEN_AI_OPERATION_TYPE = "gen_ai.operation.type"
+    GEN_AI_CLIENT_OPERATION_DURATION = "gen_ai.client.operation.duration"
+
+    # Browser-Use Span Name Components
+    GEN_AI_SPAN_INVOKE_MODEL = "invoke_model"
+
+    GEN_AI_BROWSER_SESSION_DURATION = "gen_ai.browser.session.duration"
+    GEN_AI_BROWSER_SESSION_ACTIONS_COUNT = "gen_ai.browser.session.actions_count"
+    GEN_AI_BROWSER_SESSION_SUCCESS_RATE = "gen_ai.browser.session.success_rate"
+    GEN_AI_BROWSER_PAGE_LOAD_TIME = "gen_ai.browser.page.load_time"
+    GEN_AI_BROWSER_ACTION_SUCCESS = "gen_ai.browser.action.success"
+    GEN_AI_BROWSER_ACTION_RETRY_COUNT = "gen_ai.browser.action.retry_count"
+    GEN_AI_BROWSER_ERROR_TYPE = "gen_ai.browser.error.type"
+    GEN_AI_BROWSER_ERROR_MESSAGE = "gen_ai.browser.error.message"
+    GEN_AI_BROWSER_NETWORK_REQUESTS_COUNT = "gen_ai.browser.network.requests_count"
+    GEN_AI_BROWSER_NETWORK_FAILED_REQUESTS = "gen_ai.browser.network.failed_requests"
+    GEN_AI_BROWSER_MEMORY_USAGE = "gen_ai.browser.memory.usage"
+    GEN_AI_BROWSER_CPU_USAGE = "gen_ai.browser.cpu.usage"
+    GEN_AI_BROWSER_SCREENSHOT_CAPTURED = "gen_ai.browser.screenshot.captured"
+    GEN_AI_BROWSER_VIDEO_RECORDING = "gen_ai.browser.video.recording"
+    GEN_AI_BROWSER_DOM_CHANGES_COUNT = "gen_ai.browser.dom.changes_count"
+    GEN_AI_BROWSER_JAVASCRIPT_ERRORS = "gen_ai.browser.javascript.errors"
+    GEN_AI_BROWSER_CONSOLE_LOGS = "gen_ai.browser.console.logs"
+    GEN_AI_BROWSER_NETWORK_TIMING = "gen_ai.browser.network.timing"
 
     # Guard
     GUARD_REQUESTS = "guard.requests"
@@ -511,6 +809,18 @@ class SemanticConvention:
     GEN_AI_TASK_DESCRIPTION = "gen_ai.task.description"
     GEN_AI_TASK_EXPECTED_OUTPUT = "gen_ai.task.expected_output"
 
+    # Julep-specific Task and Execution Attributes
+    GEN_AI_TASK_ID = "gen_ai.task.id"
+    GEN_AI_TASK_NAME = "gen_ai.task.name"
+    GEN_AI_TASK_TYPE = "gen_ai.task.type"
+    GEN_AI_TASK_TOOLS = "gen_ai.task.tools"
+    GEN_AI_TASK_AGENT_ID = "gen_ai.task.agent_id"
+    GEN_AI_EXECUTION_ID = "gen_ai.execution.id"
+    GEN_AI_EXECUTION_STATUS = "gen_ai.execution.status"
+    GEN_AI_EXECUTION_INPUT = "gen_ai.execution.input"
+    GEN_AI_EXECUTION_OUTPUT = "gen_ai.execution.output"
+    GEN_AI_EXECUTION_ERROR = "gen_ai.execution.error"
+
     GEN_AI_GROUPCHAT_PARTICIPANTS = "gen_ai.groupchat.participants"
     GEN_AI_GROUPCHAT_SPEAKER_SELECTION = "gen_ai.groupchat.speaker_selection"
     GEN_AI_GROUPCHAT_MESSAGE_COUNT = "gen_ai.groupchat.message_count"
@@ -595,3 +905,82 @@ class SemanticConvention:
     # Streaming attributes (general, reusable)
     GEN_AI_STREAMING_CHUNK_COUNT = "gen_ai.streaming.chunk_count"
     GEN_AI_STREAMING_RESPONSE_COUNT = "gen_ai.streaming.response_count"
+
+    # Agent execution and performance attributes (only truly new ones)
+    GEN_AI_AGENT_INTRODUCTION = "gen_ai.agent.introduction"
+    GEN_AI_AGENT_MEMORY_ENABLED = "gen_ai.agent.memory_enabled"
+    GEN_AI_AGENT_EXECUTION_TIME = "gen_ai.agent.execution_time"
+    GEN_AI_AGENT_SHOW_REASONING = "gen_ai.agent.show_reasoning"
+    GEN_AI_AGENT_STREAM_INTERMEDIATE_STEPS = "gen_ai.agent.stream_intermediate_steps"
+    # Reuse existing: GEN_AI_REQUEST_USER, GEN_AI_SESSION_ID, GEN_AI_REQUEST_IS_STREAM
+
+    # Tool execution attributes (only truly new ones)
+    GEN_AI_TOOL_DESCRIPTION = "gen_ai.tool.description"
+    GEN_AI_TOOL_PARAMETERS = "gen_ai.tool.parameters"
+    GEN_AI_TOOL_INPUT_KWARGS = "gen_ai.tool.input_kwargs"
+    GEN_AI_TOOL_OUTPUT_TYPE = "gen_ai.tool.output_type"
+    GEN_AI_TOOL_ERROR = "gen_ai.tool.error"
+
+    # Toolkit attributes (new)
+    GEN_AI_TOOLKIT_NAME = "gen_ai.toolkit.name"
+    GEN_AI_TOOLKIT_FUNCTIONS = "gen_ai.toolkit.functions"
+    GEN_AI_TOOLKIT_FUNCTION_COUNT = "gen_ai.toolkit.function_count"
+    GEN_AI_TOOLKIT_EXECUTION_DURATION = "gen_ai.toolkit.execution.duration"
+
+    # Memory operation attributes (only truly new ones)
+    GEN_AI_MEMORY_OPERATION = "gen_ai.memory.operation"
+    GEN_AI_MEMORY_SESSION_ID = "gen_ai.memory.session_id"
+    GEN_AI_MEMORY_USER_ID = "gen_ai.memory.user_id"
+    GEN_AI_MEMORY_RESULTS_COUNT = "gen_ai.memory.results_count"
+    GEN_AI_MEMORY_DB_TYPE = "gen_ai.memory.db_type"
+    GEN_AI_MEMORY_TABLE_NAME = "gen_ai.memory.table_name"
+    GEN_AI_MEMORY_INPUT = "gen_ai.memory.input"
+    GEN_AI_MEMORY_AGENT_ID = "gen_ai.memory.agent_id"
+    GEN_AI_MEMORY_OPERATION_DURATION = "gen_ai.memory.operation.duration"
+    GEN_AI_MEMORY_OPERATION_SUCCESS = "gen_ai.memory.operation.success"
+    GEN_AI_MEMORY_RESULT_ID = "gen_ai.memory.result_id"
+    GEN_AI_MEMORY_SEARCH_RESULTS_COUNT = "gen_ai.memory.search.results_count"
+    GEN_AI_MEMORY_SEARCH_TOP_SCORES = "gen_ai.memory.search.top_scores"
+    # Reuse existing: GEN_AI_MEMORY_METADATA, GEN_AI_MEMORY_SEARCH_QUERY, GEN_AI_MEMORY_SEARCH_LIMIT
+
+    # VectorDB operation attributes (only truly new ones)
+    GEN_AI_VECTORDB_NAME = "gen_ai.vectordb.name"
+    GEN_AI_VECTORDB_DIMENSIONS = "gen_ai.vectordb.dimensions"
+    GEN_AI_VECTORDB_SEARCH_QUERY = "gen_ai.vectordb.search.query"
+    GEN_AI_VECTORDB_SEARCH_VECTOR_SIZE = "gen_ai.vectordb.search.vector_size"
+    GEN_AI_VECTORDB_SEARCH_LIMIT = "gen_ai.vectordb.search.limit"
+    GEN_AI_VECTORDB_SEARCH_RESULTS_COUNT = "gen_ai.vectordb.search.results_count"
+    GEN_AI_VECTORDB_SEARCH_TOP_SCORES = "gen_ai.vectordb.search.top_scores"
+    GEN_AI_VECTORDB_OPERATION_DURATION = "gen_ai.vectordb.operation.duration"
+    GEN_AI_VECTORDB_OPERATION_SUCCESS = "gen_ai.vectordb.operation.success"
+    GEN_AI_VECTORDB_UPSERT_DOCUMENT_COUNT = "gen_ai.vectordb.upsert.document_count"
+
+    # Knowledge base operation attributes (only truly new ones)
+    GEN_AI_KNOWLEDGE_SEARCH_QUERY = "gen_ai.knowledge.search.query"
+    GEN_AI_KNOWLEDGE_SEARCH_LIMIT = "gen_ai.knowledge.search.limit"
+    GEN_AI_KNOWLEDGE_SEARCH_RESULTS_COUNT = "gen_ai.knowledge.search.results_count"
+    GEN_AI_KNOWLEDGE_ADD_DOCUMENT_COUNT = "gen_ai.knowledge.add.document_count"
+    GEN_AI_KNOWLEDGE_ADD_CONTENT_LENGTH = "gen_ai.knowledge.add.content_length"
+    GEN_AI_KNOWLEDGE_OPERATION_DURATION = "gen_ai.knowledge.operation.duration"
+    GEN_AI_KNOWLEDGE_OPERATION_SUCCESS = "gen_ai.knowledge.operation.success"
+
+    # Workflow operation attributes (additional ones not already covered above)
+    GEN_AI_WORKFLOW_NAME = "gen_ai.workflow.name"
+    GEN_AI_WORKFLOW_DESCRIPTION = "gen_ai.workflow.description"
+    GEN_AI_WORKFLOW_EXECUTION_DURATION = "gen_ai.workflow.execution.duration"
+    GEN_AI_WORKFLOW_OPERATION_SUCCESS = "gen_ai.workflow.operation.success"
+
+    # Team operation attributes (additional ones not already covered above)
+    GEN_AI_TEAM_NAME = "gen_ai.team.name"
+    GEN_AI_TEAM_AGENTS = "gen_ai.team.agents"
+    GEN_AI_TEAM_AGENT_COUNT = "gen_ai.team.agent_count"
+    GEN_AI_TEAM_EXECUTION_DURATION = "gen_ai.team.execution.duration"
+    GEN_AI_TEAM_OPERATION_SUCCESS = "gen_ai.team.operation.success"
+
+    # Reasoning operation attributes (additional ones not already covered above)
+    GEN_AI_REASONING_MIN_STEPS = "gen_ai.reasoning.min_steps"
+    GEN_AI_REASONING_MAX_STEPS = "gen_ai.reasoning.max_steps"
+    GEN_AI_REASONING_MODEL = "gen_ai.reasoning.model"
+    GEN_AI_REASONING_EXECUTION_DURATION = "gen_ai.reasoning.execution_duration"
+
+    # Note: Most workflow and team attributes already exist above, only add truly new ones if needed

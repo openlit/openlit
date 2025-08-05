@@ -7,25 +7,35 @@ icon: 'file-code'
 <Tabs>
 <Tab title="Python">
 
-## Observability - `openlit.init()`
+## Observability - `openlit.init()` | `openlit-instrument`
 
 Below is a detailed overview of the configuration options available, allowing you to adjust OpenLIT's behavior and functionality to align with your specific observability needs:
 
+| Parameter | CLI Argument | Environment Variable | Description | Default | Required |
+|-----------|--------------|---------------------|-------------|---------|----------|
+| `environment` | `--environment` | `OTEL_DEPLOYMENT_ENVIRONMENT` | Deployment environment | `"default"` | No |
+| `service_name` | `--service_name` | `OTEL_SERVICE_NAME` | Service name for tracing | `"default"` | No |
+| `otlp_endpoint` | `--otlp_endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP endpoint for exporter | `None` | No |
+| `otlp_headers` | `--otlp_headers` | `OTEL_EXPORTER_OTLP_HEADERS` | OTLP headers as JSON string | `None` | No |
+| `disable_batch` | `--disable_batch` | `OPENLIT_DISABLE_BATCH` | Disable batch span processing | `False` | No |
+| `capture_message_content` | `--capture_message_content` | `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Enable capture of message content | `True` | No |
+| `disabled_instrumentors` | `--disabled_instrumentors` | `OPENLIT_DISABLED_INSTRUMENTORS` | Comma-separated list of instrumentors to disable | `None` | No |
+| `disable_metrics` | `--disable_metrics` | `OPENLIT_DISABLE_METRICS` | Disable metrics collection | `False` | No |
+| `pricing_json` | `--pricing_json` | `OPENLIT_PRICING_JSON` | File path or URL to pricing JSON | `None` | No |
+| `detailed_tracing` | `--detailed_tracing` | `OPENLIT_DETAILED_TRACING` | Enable detailed component-level tracing | `True` | No |
+| `collect_system_metrics` | `--collect_system_metrics` | `OPENLIT_COLLECT_SYSTEM_METRICS` | Enable comprehensive system metrics (CPU, memory, disk, network, GPU if detected) | `False` | No |
+| `tracer` | N/A | N/A | An instance of OpenTelemetry Tracer for tracing operations | `None` | No |
+| `event_logger` | N/A | N/A | EventLoggerProvider instance | `None` | No |
+| `meter` | N/A | N/A | OpenTelemetry Metrics instance | `None` | No |
 
-| Argument                | Description                                                                                   | Default Value  | Required |
-|-------------------------|-----------------------------------------------------------------------------------------------|----------------|----------|
-| `environment`           | The deployment environment of the application.                                                | `"default"`    |    Yes   |
-| `application_name`      | Identifies the name of your application.                                                      | `"default"`    |    Yes   |
-| `tracer`                | An instance of OpenTelemetry Tracer for tracing operations.                                   | `None`         |    No    |
-| `meter`                 | An OpenTelemetry Metrics instance for capturing metrics.                                      | `None`         |    No    |
-| `otlp_endpoint`         | Specifies the OTLP endpoint for transmitting telemetry data.                                  | `None`         |    No    |
-| `otlp_headers`          | Defines headers for the OTLP exporter, useful for backends requiring authentication.          | `None`         |    No    |
-| `disable_batch`         | A flag to disable batch span processing, favoring immediate dispatch.                         | `False`        |    No    |
-| `capture_message_content`         | Enables tracing of content for deeper insights.                                               | `True`         |    No    |
-| `disabled_instrumentors`| List of instrumentors to disable. | `None` |    No    |
-| `disable_metrics`       | If set, disables the collection of metrics.                                                   | `False`        |    No    |
-| `pricing_json`          | URL or file path of the pricing JSON file.                                             | `https://github.com/openlit/openlit/blob/main/assets/pricing.json`        |    No    |
-| `collect_gpu_stats`          | Flag to enable or disable GPU metrics collection.                                         | `False`        |    No    |
+### Deprecated Parameters
+
+| Parameter | CLI Argument | Environment Variable | Description | Default | Required |
+|-----------|--------------|---------------------|-------------|---------|----------|
+| `application_name` | `--application_name` | `OTEL_SERVICE_NAME` | Application name for tracing (**deprecated**, use `service_name`) | `"default"` | No |
+| `collect_gpu_stats` | `--collect_gpu_stats` | `OPENLIT_COLLECT_GPU_STATS` | Enable GPU statistics collection (**deprecated**, use `collect_system_metrics`) | `False` | No |
+
+**Note:** Environment variables take precedence over CLI arguments, which take precedence over function parameters.
 
 ## Prompt Hub - `openlit.get_prompt()`
 
