@@ -6,7 +6,7 @@ icon: 'sliders'
 
 This guide covers all the available environment variables to fine-tune OpenLIT according to your needs.
 
-## Environment Varibales
+## Environment Variables
 
 <ResponseField name="INIT_DB_HOST" required>
   Sets the host address of the ClickHouse server for OpenLIT to connect
@@ -62,24 +62,134 @@ This guide covers all the available environment variables to fine-tune OpenLIT a
   ```
 </ResponseField>
 
+## OAuth Authentication Variables
+
+<Note>
+For detailed OAuth setup instructions, see the [OAuth Authentication Setup](/latest/oauth-authentication) guide.
+</Note>
+
+<ResponseField name="NEXTAUTH_URL">
+  Sets the canonical URL of your site for NextAuth.js authentication
+
+  **Example**:
+  ```yaml
+  export NEXTAUTH_URL=http://localhost:3000
+  ```
+</ResponseField>
+
+<ResponseField name="NEXTAUTH_SECRET">
+  Used to encrypt the NextAuth.js JWT tokens and email verification hashes
+
+  **Example**:
+  ```yaml
+  export NEXTAUTH_SECRET=your-secret-here
+  ```
+  
+  **Generate with**: `openssl rand -base64 32`
+</ResponseField>
+
+<ResponseField name="GOOGLE_CLIENT_ID">
+  Google OAuth client ID for Google sign-in integration
+
+  **Example**:
+  ```yaml
+  export GOOGLE_CLIENT_ID=your-google-client-id
+  ```
+</ResponseField>
+
+<ResponseField name="GOOGLE_CLIENT_SECRET">
+  Google OAuth client secret for Google sign-in integration
+
+  **Example**:
+  ```yaml
+  export GOOGLE_CLIENT_SECRET=your-google-client-secret
+  ```
+</ResponseField>
+
+<ResponseField name="GITHUB_CLIENT_ID">
+  GitHub OAuth client ID for GitHub sign-in integration
+
+  **Example**:
+  ```yaml
+  export GITHUB_CLIENT_ID=your-github-client-id
+  ```
+</ResponseField>
+
+<ResponseField name="GITHUB_CLIENT_SECRET">
+  GitHub OAuth client secret for GitHub sign-in integration
+
+  **Example**:
+  ```yaml
+  export GITHUB_CLIENT_SECRET=your-github-client-secret
+  ```
+</ResponseField>
+
+## Environment File Placement
+
+Environment variables can be configured in multiple ways depending on your deployment method:
+
+### Development Setup
+
+<Steps>
+  <Step title="Client-side .env">
+    Create a `.env` file in the `src/client/` directory for development:
+    ```bash
+    src/client/.env
+    ```
+    This file is automatically loaded by Next.js during development.
+  </Step>
+  
+  <Step title="Docker Compose .env">
+    Create a `.env` file in the same directory as your `docker-compose.yml` file:
+    ```bash
+    # In the root directory with docker-compose.yml
+    .env
+    ```
+    This file is automatically loaded by Docker Compose.
+  </Step>
+  
+  <Step title="Development Docker Compose .env">
+    For development Docker setup, create a `.env` file alongside `src/dev-docker-compose.yml`:
+    ```bash
+    # In the src/ directory with dev-docker-compose.yml
+    src/.env
+    ```
+  </Step>
+</Steps>
+
+### Production Setup
+
+For production deployments, set environment variables directly in your hosting platform or container orchestration system (Kubernetes, Docker Swarm, etc.).
+
 ## Sample Environment File (.env)
 
 ```.env.example .env
+# Database Configuration
 INIT_DB_HOST="127.0.0.1"
 INIT_DB_PORT="8123"
 INIT_DB_DATABASE="default"
 INIT_DB_USERNAME="default"
 INIT_DB_PASSWORD="OPENLIT"
 SQLITE_DATABASE_URL="file:/app/client/data/data.db"
+
+# NextAuth Configuration (Optional)
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-secret-here"
+
+# OAuth Providers (Optional)
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+GITHUB_CLIENT_ID="your-github-client-id"
+GITHUB_CLIENT_SECRET="your-github-client-secret"
 ```
 
 ---
 
 <CardGroup cols={2}>
+<Card title="OAuth Authentication" href="/latest/oauth-authentication" icon='shield-check'>
+Setup Google and GitHub sign-in
+</Card>
 <Card title="Integrations" href="/latest/integrations/introduction" icon='circle-nodes'>
 Integrate your LLM Stack with OpenLIT 
-</Card>
-<Card title="Connections" href="/latest/connections/intro" icon='link'>
-Connect to your existing Observablity Stack
 </Card>
 </CardGroup>
