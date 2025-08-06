@@ -1,0 +1,26 @@
+# Demo AutoInstrumentation Configuration
+# This will instruct the operator to automatically instrument any pods
+# with the label "openlit.io/instrument: true"
+
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: demo-openlit
+  namespace: default
+spec:
+  # Simple selector - instrument all pods with this label
+  selector:
+    matchLabels:
+      openlit.io/instrument: "true"
+
+  # Required OTLP configuration - pointing to our OpenLIT backend
+  otlp:
+    endpoint: "http://openlit.openlit.svc.cluster.local:4318"
+  
+  # OpenLIT instrumentation settings
+  python:
+    instrumentation:
+      enabled: true
+      provider: "openlit"
+      version: "latest"
+      imagePullPolicy: "Never"  # Use locally built image

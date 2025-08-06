@@ -1,0 +1,4 @@
+✅ Generated CRD: deploy/openlit.io_autoinstrumentations.yaml
+📋 CRD Name: autoinstrumentations.openlit.io
+🔗 API Version: openlit.io/v1alpha1
+📦 Kind: AutoInstrumentation
