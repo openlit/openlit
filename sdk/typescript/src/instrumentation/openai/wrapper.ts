@@ -2,9 +2,9 @@ import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper from '../base-wrapper';
+import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
-export default class OpenAIWrapper extends BaseWrapper {
+class OpenAIWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_OPENAI;
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.chat.completions';
@@ -18,7 +18,7 @@ export default class OpenAIWrapper extends BaseWrapper {
           .then((response: any) => {
             const { stream = false } = args[0];
 
-            if (!!stream) {
+            if (stream) {
               return OpenLitHelper.createStreamProxy(
                 response,
                 OpenAIWrapper._chatCompletionGenerator({
@@ -51,8 +51,9 @@ export default class OpenAIWrapper extends BaseWrapper {
     response: any;
     span: Span;
   }): Promise<any> {
+    let metricParams;
     try {
-      await OpenAIWrapper._chatCompletionCommonSetter({
+      metricParams = await OpenAIWrapper._chatCompletionCommonSetter({
         args,
         genAIEndpoint,
         result: response,
@@ -63,6 +64,10 @@ export default class OpenAIWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      // Record metrics after span has ended if parameters are available
+      if (metricParams) {
+        BaseWrapper.recordMetrics(span, metricParams);
+      }
     }
   }
 
@@ -77,6 +82,7 @@ export default class OpenAIWrapper extends BaseWrapper {
     response: any;
     span: Span;
   }): AsyncGenerator<unknown, any, unknown> {
+    let metricParams;
     try {
       const { messages } = args[0];
       let { tools } = args[0];
@@ -139,7 +145,7 @@ export default class OpenAIWrapper extends BaseWrapper {
 
       args[0].tools = tools;
 
-      await OpenAIWrapper._chatCompletionCommonSetter({
+      metricParams = await OpenAIWrapper._chatCompletionCommonSetter({
         args,
         genAIEndpoint,
         result,
@@ -151,6 +157,10 @@ export default class OpenAIWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      // Record metrics after span has ended if parameters are available
+      if (metricParams) {
+        BaseWrapper.recordMetrics(span, metricParams);
+      }
     }
   }
 
@@ -219,7 +229,10 @@ export default class OpenAIWrapper extends BaseWrapper {
     }
     // Request Params attributes : End
 
-    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
+    span.setAttribute(
+      SemanticConvention.GEN_AI_OPERATION,
+      SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
+    );
 
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
@@ -276,6 +289,14 @@ export default class OpenAIWrapper extends BaseWrapper {
         }
       }
     }
+
+    return {
+      genAIEndpoint,
+      model,
+      user,
+      cost,
+      aiSystem: OpenAIWrapper.aiSystem,
+    };
   }
 
   static _patchEmbedding(tracer: Tracer): any {
@@ -286,6 +307,13 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams: BaseSpanAttributes = {
+            genAIEndpoint,
+            model: '',
+            user: '',
+            cost: 0,
+            aiSystem: OpenAIWrapper.aiSystem,
+          };
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -313,14 +341,13 @@ export default class OpenAIWrapper extends BaseWrapper {
             });
 
             // Request Params attributes : Start
-
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, encoding_format);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION, dimensions);
             if (traceContent) {
               span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, input);
             }
-            // Request Params attributes : End
 
+            // Request Params attributes : End
             span.setAttribute(
               SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
               response.usage.prompt_tokens
@@ -330,11 +357,20 @@ export default class OpenAIWrapper extends BaseWrapper {
               response.usage.total_tokens
             );
 
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              cost,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
+
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            BaseWrapper.recordMetrics(span, metricParams);
           }
         });
       };
@@ -348,6 +384,7 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -399,11 +436,23 @@ export default class OpenAIWrapper extends BaseWrapper {
             );
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_FINETUNE_STATUS, response.status);
 
+            // Store metric parameters for use after span ends
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
+
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            // Record metrics after span has ended if parameters are available
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
           }
         });
       };
@@ -417,6 +466,7 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -429,7 +479,10 @@ export default class OpenAIWrapper extends BaseWrapper {
               user,
             } = args[0];
 
-            span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE);
+            span.setAttribute(
+              SemanticConvention.GEN_AI_OPERATION,
+              SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE
+            );
 
             const model = response.model || 'dall-e-2';
 
@@ -474,11 +527,24 @@ export default class OpenAIWrapper extends BaseWrapper {
               }
             }
 
+            // Store metric parameters for use after span ends
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              cost,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
+
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            // Record metrics after span has ended if parameters are available
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
           }
         });
       };
@@ -492,6 +558,7 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
@@ -504,7 +571,10 @@ export default class OpenAIWrapper extends BaseWrapper {
               user,
             } = args[0];
 
-            span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE);
+            span.setAttribute(
+              SemanticConvention.GEN_AI_OPERATION,
+              SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE
+            );
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.created);
 
             const model = response.model || 'dall-e-2';
@@ -549,11 +619,24 @@ export default class OpenAIWrapper extends BaseWrapper {
               }
             }
 
+            // Store metric parameters for use after span ends
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              cost,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
+
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            // Record metrics after span has ended if parameters are available
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
           }
         });
       };
@@ -567,12 +650,16 @@ export default class OpenAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         return context.with(trace.setSpan(context.active(), span), async () => {
+          let metricParams;
           try {
             const response = await originalMethod.apply(this, args);
 
             const { input, user, voice, response_format = 'mp3', speed = 1 } = args[0];
 
-            span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO);
+            span.setAttribute(
+              SemanticConvention.GEN_AI_OPERATION,
+              SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO
+            );
 
             const model = response.model || 'tts-1';
 
@@ -602,14 +689,29 @@ export default class OpenAIWrapper extends BaseWrapper {
             }
             // Request Params attributes : End
 
+            // Store metric parameters for use after span ends
+            metricParams = {
+              genAIEndpoint,
+              model,
+              user,
+              cost,
+              aiSystem: OpenAIWrapper.aiSystem,
+            };
+
             return response;
           } catch (e: any) {
             OpenLitHelper.handleException(span, e);
           } finally {
             span.end();
+            // Record metrics after span has ended if parameters are available
+            if (metricParams) {
+              BaseWrapper.recordMetrics(span, metricParams);
+            }
           }
         });
       };
     };
   }
 }
+
+export default OpenAIWrapper;

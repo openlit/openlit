@@ -45,14 +45,12 @@ export default class CohereWrapper extends BaseWrapper {
             });
 
             // Request Params attributes : Start
-
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, encoding_format);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION, dimensions);
             if (traceContent) {
               span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, JSON.stringify(texts));
             }
             // Request Params attributes : End
-
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.id);
 
             span.setAttribute(
@@ -134,8 +132,9 @@ export default class CohereWrapper extends BaseWrapper {
     response: any;
     span: Span;
   }): Promise<any> {
+    let metricParams;
     try {
-      await CohereWrapper._chatCommonSetter({
+      metricParams = await CohereWrapper._chatCommonSetter({
         args,
         genAIEndpoint,
         result: response,
@@ -147,6 +146,9 @@ export default class CohereWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      if (metricParams) {
+        BaseWrapper.recordMetrics(span, metricParams);
+      }
     }
   }
 
@@ -161,6 +163,7 @@ export default class CohereWrapper extends BaseWrapper {
     response: any;
     span: Span;
   }): AsyncGenerator<unknown, any, unknown> {
+    let metricParams;
     try {
       let result = {
         response_id: '',
@@ -181,7 +184,7 @@ export default class CohereWrapper extends BaseWrapper {
         yield chunk;
       }
 
-      await CohereWrapper._chatCommonSetter({
+      metricParams = await CohereWrapper._chatCommonSetter({
         args,
         genAIEndpoint,
         result,
@@ -194,6 +197,10 @@ export default class CohereWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      // Record metrics after span has ended if parameters are available
+      if (metricParams) {
+        BaseWrapper.recordMetrics(span, metricParams);
+      }
     }
   }
 
@@ -282,5 +289,14 @@ export default class CohereWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, result.text);
       }
     }
+
+    // Return metric parameters instead of recording metrics directly
+    return {
+      genAIEndpoint,
+      model,
+      user,
+      cost,
+      aiSystem: CohereWrapper.aiSystem,
+    };
   }
 }
