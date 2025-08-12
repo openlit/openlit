@@ -18,7 +18,7 @@ export default class Tracing {
     if (options.tracer) return options.tracer;
     try {
       const consoleSpanExporter = new ConsoleSpanExporter();
-      const url = options.otlpEndpoint + "/v1/traces" || 'http://localhost:4318/v1/traces';
+      const url = options.otlpEndpoint + "/v1/traces";
       const otlpTraceExporter = new OTLPTraceExporter({
         url,
         headers: options.otlpHeaders as Record<string, string> | undefined,
@@ -51,6 +51,7 @@ export default class Tracing {
 
       this.traceProvider.register();
     } catch (e) {
+      console.error('[Traces] Failed to initialize traces:', e);
       return null;
     }
   }

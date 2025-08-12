@@ -148,7 +148,7 @@ export default class Metrics {
     try {
       let metricExporter: OTLPMetricExporter | ConsoleMetricExporter;
       try {
-        const url = options.otlpEndpoint + '/v1/metrics' || 'http://localhost:4318/v1/metrics';
+        const url = options.otlpEndpoint + '/v1/metrics';
         metricExporter = new OTLPMetricExporter({
           url,
           headers: options.otlpHeaders as Record<string, string> | undefined,

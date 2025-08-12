@@ -43,7 +43,8 @@ class Openlit extends BaseOpenlit {
         options || {};
 
       const otlpEndpoint =
-        options?.otlpEndpoint || process.env.OTEL_EXPORTER_OTLP_ENDPOINT || undefined;
+        (options?.otlpEndpoint || process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4318").replace(/\/v1\/traces$/, '');
+
       let otlpHeaders = options?.otlpHeaders;
       if (!otlpHeaders) {
         if (process.env.OTEL_EXPORTER_OTLP_HEADERS) {
