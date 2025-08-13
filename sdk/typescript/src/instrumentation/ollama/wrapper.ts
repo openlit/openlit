@@ -3,8 +3,9 @@ import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
 import { SDK_NAME, TELEMETRY_SDK_NAME } from '../../constant';
+import BaseWrapper from '../base-wrapper';
 
-export default class OllamaWrapper {
+export default class OllamaWrapper extends BaseWrapper {
   static setBaseSpanAttributes(
     span: any,
     { genAIEndpoint, model, user, cost, environment, applicationName }: any
@@ -114,7 +115,6 @@ export default class OllamaWrapper {
         },
       };
       for await (const chunk of response) {
-        console.log(chunk);
         switch (chunk.type) {
           case 'content_block_delta':
             result.content[0].text += chunk.delta?.text ?? '';
