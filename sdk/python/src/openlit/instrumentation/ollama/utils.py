@@ -278,7 +278,7 @@ def common_generate_logic(
     # Common Span Attributes
     common_span_attributes(
         scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_GENERATE,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION,
         SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
         scope._server_address,
         scope._server_port,
@@ -370,7 +370,7 @@ def common_generate_logic(
     if not disable_metrics:
         record_completion_metrics(
             metrics,
-            SemanticConvention.GEN_AI_OPERATION_TYPE_GENERATE,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION,
             SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
             scope._server_address,
             scope._server_port,

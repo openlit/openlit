@@ -265,7 +265,7 @@ def async_generate(
         json_body = kwargs.get("json", {}) or {}
         request_model = json_body.get("model") or kwargs.get("model")
 
-        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_GENERATE} {request_model}"
+        span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION} {request_model}"
 
         if streaming:
             awaited_wrapped = await wrapped(*args, **kwargs)
