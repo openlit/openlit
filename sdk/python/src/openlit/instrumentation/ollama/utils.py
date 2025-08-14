@@ -267,7 +267,7 @@ def common_generate_logic(
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
     json_body = scope._kwargs.get("json", {}) or {}
-    prompt = f"user: {json_body.get('prompt')}"
+    prompt = json_body.get('prompt')
     request_model = json_body.get("model") or scope._kwargs.get("model", "llama3.2")
     is_stream = scope._kwargs.get("stream", False)
 
