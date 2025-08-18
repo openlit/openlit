@@ -136,9 +136,9 @@ def async_chat(
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.monotonic()
 
-                try:
-                    response = await wrapped(*args, **kwargs)
+                response = await wrapped(*args, **kwargs)
 
+                try:
                     response = process_chat_response(
                         response=response,
                         gen_ai_endpoint="ollama.chat",
@@ -284,9 +284,9 @@ def async_generate(
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.monotonic()
 
-                try:
-                    response = await wrapped(*args, **kwargs)
+                response = await wrapped(*args, **kwargs)
 
+                try:
                     response = process_generate_response(
                         response=response,
                         gen_ai_endpoint="ollama.generate",
@@ -343,9 +343,9 @@ def async_embeddings(
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.monotonic()
 
-            try:
-                response = await wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
+            try:
                 response = process_embedding_response(
                     response=response,
                     gen_ai_endpoint="ollama.embeddings",

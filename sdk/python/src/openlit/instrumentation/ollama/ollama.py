@@ -137,8 +137,8 @@ def chat(
                 start_time = time.monotonic()
 
                 response = wrapped(*args, **kwargs)
-                try:
 
+                try:
                     response = process_chat_response(
                         response=response,
                         gen_ai_endpoint="ollama.chat",
@@ -285,8 +285,8 @@ def generate(
                 start_time = time.monotonic()
 
                 response = wrapped(*args, **kwargs)
-                try:
 
+                try:
                     response = process_generate_response(
                         response=response,
                         gen_ai_endpoint="ollama.generate",
@@ -343,9 +343,9 @@ def embeddings(
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.monotonic()
 
-            try:
-                response = wrapped(*args, **kwargs)
+            response = wrapped(*args, **kwargs)
 
+            try:
                 response = process_embedding_response(
                     response=response,
                     gen_ai_endpoint="ollama.embeddings",
