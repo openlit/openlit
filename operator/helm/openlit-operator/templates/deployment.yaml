@@ -1,0 +1,107 @@
+{{- include "openlit-operator.validateValues" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openlit-operator.fullname" . }}
+  namespace: {{ include "openlit-operator.namespace" . }}
+  labels:
+    {{- include "openlit-operator.labels" . | nindent 4 }}
+    component: controller
+  annotations:
+    {{- include "openlit-operator.annotations" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  {{- with .Values.deployment.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "openlit-operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "openlit-operator.podLabels" . | nindent 8 }}
+      annotations:
+        {{- include "openlit-operator.podAnnotations" . | nindent 8 }}
+        # Force restart when configuration changes
+        checksum/values: {{ .Values | toYaml | sha256sum }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "openlit-operator.serviceAccountName" . }}
+      {{- with .Values.deployment.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.deployment.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+      - name: operator
+        image: {{ include "openlit-operator.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        
+        # Environment variables for operator configuration
+        env:
+        {{- include "openlit-operator.env" . | nindent 8 }}
+        
+        # Container ports
+        ports:
+        - containerPort: {{ .Values.webhook.server.port }}
+          name: webhook-server
+          protocol: TCP
+        - containerPort: {{ .Values.healthcheck.port }}
+          name: health
+          protocol: TCP
+        
+        # Health checks
+        {{- with .Values.healthcheck.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        
+        {{- with .Values.healthcheck.readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        
+        # Resource limits and requests
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        
+        # Volume mounts
+        volumeMounts:
+        {{- include "openlit-operator.volumeMounts" . | nindent 8 }}
+        
+        # Security context for the container
+        {{- with .Values.deployment.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      
+      # Volumes
+      volumes:
+      {{- include "openlit-operator.volumes" . | nindent 6 }}
+      
+      # Node selector
+      {{- with .Values.deployment.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      # Tolerations
+      {{- with .Values.deployment.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      # Affinity
+      {{- with .Values.deployment.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

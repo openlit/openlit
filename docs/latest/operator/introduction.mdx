@@ -1,0 +1,126 @@
+---
+title: 'Introduction'
+description: 'Zero-Code AI Observability for Kubernetes'
+icon: 'robot'
+---
+
+The **OpenLIT Operator** brings zero-code AI observability to Kubernetes environments, automatically instrumenting your AI applications with OpenTelemetry without requiring any code changes. Built specifically for AI workloads, it provides seamless observability for LLMs, vector databases, and AI frameworks running in Kubernetes.
+
+## What is Zero-Code Instrumentation?
+
+Zero-code instrumentation means your AI applications get full observability automatically:
+
+- **No Code Changes**: Your existing applications work unchanged
+- **Automatic Detection**: The operator detects AI libraries and frameworks
+- **Seamless Integration**: Works with any OpenTelemetry-compatible backend
+- **Production Ready**: Designed for enterprise Kubernetes environments
+
+## ⚡ Key Features
+
+<CardGroup cols={2}>
+  <Card title="🎯 Automatic Injection" icon="magic-wand">
+    Automatically injects OpenLIT instrumentation into pods based on labels and selectors
+  </Card>
+  <Card title="🔧 Provider Support" icon="puzzle-piece">
+    Support for OpenLIT, OpenInference, and OpenLLMetry instrumentation providers
+  </Card>
+  <Card title="🛡️ Webhook Security" icon="shield-check">
+    Secure admission webhook with automatic TLS certificate management
+  </Card>
+  <Card title="📋 CRD Configuration" icon="file-lines">
+    Declarative configuration using AutoInstrumentation Custom Resources
+  </Card>
+  <Card title="🔍 Rich Telemetry" icon="chart-line">
+    Comprehensive tracing and metrics for AI applications
+  </Card>
+  <Card title="🏗️ Helm Deployment" icon="helm">
+    Easy installation and management using Helm charts
+  </Card>
+</CardGroup>
+
+## 🏗️ How It Works
+
+<Steps>
+  <Step title="Label Your Pods">
+    Add labels to your AI application pods to indicate they should be instrumented
+    ```yaml
+    labels:
+      openlit.io/instrument: "true"
+    ```
+  </Step>
+  
+  <Step title="Create AutoInstrumentation">
+    Define instrumentation configuration using the AutoInstrumentation Custom Resource
+    ```yaml
+    apiVersion: openlit.io/v1alpha1
+    kind: AutoInstrumentation
+    spec:
+      selector:
+        matchLabels:
+          openlit.io/instrument: "true"
+      otlp:
+        endpoint: "http://openlit:4318"
+    ```
+  </Step>
+  
+  <Step title="Automatic Injection">
+    The operator automatically injects an init container that sets up OpenLIT instrumentation
+  </Step>
+  
+  <Step title="Zero-Code Observability">
+    Your applications automatically emit traces and metrics without any code changes
+  </Step>
+</Steps>
+
+## 🎯 Supported Technologies
+
+The OpenLIT Operator automatically instruments:
+
+<CardGroup cols={3}>
+  <Card title="🤖 LLM Providers" icon="brain">
+    OpenAI, Anthropic, Google, Ollama, Groq, and 50+ more
+  </Card>
+  <Card title="🧠 AI Frameworks" icon="cube">
+    LangChain, LlamaIndex, CrewAI, Haystack, AG2, and more
+  </Card>
+  <Card title="🗄️ Vector Databases" icon="database">
+    ChromaDB, Pinecone, Qdrant, Milvus, and more
+  </Card>
+</CardGroup>
+
+## 🏢 Enterprise Ready
+
+- **RBAC Security**: Proper role-based access control
+- **TLS Encryption**: Automatic certificate management for webhooks
+- **Multi-Tenancy**: Namespace-based isolation and configuration
+- **Observability**: Built-in monitoring and logging
+- **High Availability**: Designed for production workloads
+
+## 🔗 Integration with OpenLIT Platform
+
+The operator seamlessly integrates with the full OpenLIT platform:
+
+- **Analytics Dashboard**: Monitor AI application performance
+- **Cost Tracking**: Track LLM usage and costs
+- **Exception Monitoring**: Detect and resolve AI application issues
+- **Prompt Management**: Version and manage prompts
+- **Guardrails**: Implement AI safety and compliance
+
+## Next Steps
+
+Ready to get started? Follow our guides:
+
+<CardGroup cols={2}>
+  <Card title="🛠️ Installation" href="/latest/operator/installation" icon="download">
+    Install the OpenLIT Operator using Helm
+  </Card>
+  <Card title="🏗️ Architecture" href="/latest/operator/architecture" icon="sitemap">
+    Understand how the operator works
+  </Card>
+  <Card title="⚙️ Configuration" href="/latest/operator/configuration" icon="gear">
+    Configure instrumentation for your applications
+  </Card>
+  <Card title="📖 Usage Examples" href="/latest/operator/usage" icon="code">
+    See real-world examples and patterns
+  </Card>
+</CardGroup>

@@ -1,0 +1,576 @@
+---
+title: 'OpenLLMetry'
+description: 'LLM-focused observability with OpenLLMetry instrumentation'
+---
+
+The OpenLLMetry provider offers specialized observability for Large Language Models, focusing on deep LLM insights and performance monitoring. Perfect for teams primarily working with language models and needing detailed LLM-specific telemetry.
+
+## 🤖 Overview
+
+OpenLLMetry provides LLM-focused observability with:
+
+- **LLM Specialization**: Deep insights into language model operations and performance
+- **Lightweight Design**: Focused on LLM observability without additional overhead
+- **Performance Monitoring**: Detailed LLM performance metrics and analytics
+- **OpenTelemetry Compatible**: Standard OTLP export with LLM-specific attributes
+
+<Note>
+OpenLLMetry is a specialized LLM observability framework. Learn more at [OpenLLMetry Documentation](https://github.com/openllmetry/openllmetry).
+</Note>
+
+## ✨ Key Features
+
+<CardGroup cols={2}>
+  <Card title="🎯 LLM-First Design" icon="target">
+    **Optimized for language models**
+    
+    Purpose-built for LLM monitoring with deep model insights
+  </Card>
+  
+  <Card title="⚡ Lightweight" icon="bolt">
+    **Minimal overhead**
+    
+    Focused feature set with low performance impact
+  </Card>
+  
+  <Card title="📊 Performance Focus" icon="chart-line">
+    **LLM performance metrics**
+    
+    Latency, throughput, and model-specific performance data
+  </Card>
+  
+  <Card title="🔧 Easy Integration" icon="puzzle-piece">
+    **Simple setup**
+    
+    Quick integration with existing LLM applications
+  </Card>
+</CardGroup>
+
+## 🎯 Supported Integrations
+
+### LLM Providers (30+)
+
+| Provider | Coverage | Streaming | Performance Metrics | Notes |
+|----------|----------|-----------|-------------------|-------|
+| **OpenAI** | ✅ Complete | ✅ Yes | ✅ Full | GPT models, embeddings |
+| **Anthropic** | ✅ Complete | ✅ Yes | ✅ Full | Claude family |
+| **Google** | ✅ Complete | ✅ Yes | ✅ Full | Gemini, PaLM |
+| **Azure OpenAI** | ✅ Complete | ✅ Yes | ✅ Full | All Azure services |
+| **AWS Bedrock** | ✅ Complete | ✅ Yes | ✅ Full | Bedrock models |
+| **Cohere** | ✅ Complete | ✅ Yes | ✅ Full | Command, Embed |
+| **Mistral AI** | ✅ Complete | ✅ Yes | ✅ Full | Mistral models |
+| **Ollama** | ✅ Complete | ✅ Yes | ✅ Full | Local inference |
+| **Together AI** | ✅ Complete | ✅ Yes | ✅ Full | Open-source hosting |
+| **Groq** | ✅ Complete | ✅ Yes | ✅ Full | High-speed inference |
+
+### AI Frameworks (10+)
+
+| Framework | Integration | LLM Focus | Auto-Detection |
+|-----------|-------------|-----------|----------------|
+| **LangChain** | ✅ Native | ✅ High | ✅ Yes |
+| **LlamaIndex** | ✅ Native | ✅ High | ✅ Yes |
+| **LiteLLM** | ✅ Native | ✅ High | ✅ Yes |
+| **Haystack** | ✅ Native | ✅ Medium | ✅ Yes |
+| **DSPy** | ✅ Native | ✅ High | ✅ Yes |
+| **AutoGen** | ✅ Native | ✅ High | ✅ Yes |
+| **CrewAI** | ✅ Native | ✅ High | ✅ Yes |
+
+### Vector Databases (5+)
+
+| Database | Operations | LLM Context | Performance |
+|----------|------------|-------------|-------------|
+| **ChromaDB** | Query, insert, update | ✅ High | ✅ Yes |
+| **Pinecone** | Query, upsert, delete | ✅ High | ✅ Yes |
+| **Qdrant** | Search, insert, update | ✅ High | ✅ Yes |
+| **Weaviate** | Query, insert, update | ✅ Medium | ✅ Yes |
+| **Milvus** | Query, insert, update | ✅ Medium | ✅ Yes |
+
+## ⚙️ Configuration
+
+### Basic Configuration
+
+```yaml
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: openllmetry-instrumentation
+spec:
+  selector:
+    matchLabels:
+      openlit.io/instrument: "true"
+  python:
+    instrumentation:
+      provider: "openllmetry"
+      version: "latest"
+  otlp:
+    endpoint: "http://otel-collector:4318"
+```
+
+### Advanced Configuration
+
+```yaml
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: openllmetry-advanced
+spec:
+  selector:
+    matchLabels:
+      provider: "openllmetry"
+  python:
+    instrumentation:
+      provider: "openllmetry"
+      version: "v1.1.0"
+      customPackages: "openai>=1.0.0,langchain>=0.1.0,traceloop-sdk>=0.10.0"
+      env:
+      # OpenLLMetry-specific configuration
+      - name: TRACELOOP_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: openllmetry-secret
+            key: api-key
+      - name: TRACELOOP_BASE_URL
+        value: "https://api.traceloop.com"
+      - name: TRACELOOP_DISABLE_BATCH
+        value: "false"
+      # Privacy and content control
+      - name: TRACELOOP_TRACE_CONTENT
+        value: "true"
+      - name: TRACELOOP_REDACT_PROMPTS
+        value: "false"
+      - name: TRACELOOP_REDACT_RESPONSES
+        value: "false"
+      # Performance tuning
+      - name: TRACELOOP_METRICS_ENABLED
+        value: "true"
+      - name: TRACELOOP_BATCH_SIZE
+        value: "100"
+      - name: TRACELOOP_EXPORT_TIMEOUT
+        value: "30"
+  otlp:
+    endpoint: "http://otel-collector:4318"
+    timeout: 30
+  resource:
+    environment: "production"
+    serviceName: "llm-service"
+    serviceNamespace: "ai-platform"
+```
+
+## 🔧 Environment Variables
+
+### Core Configuration
+
+| Variable | Description | Default | Example | Required |
+|----------|-------------|---------|---------|----------|
+| `TRACELOOP_API_KEY` | OpenLLMetry API key | `""` | `"tl_xxxxx"` | No |
+| `TRACELOOP_BASE_URL` | Base URL for OpenLLMetry | `"https://api.traceloop.com"` | Custom endpoint | No |
+| `TRACELOOP_DISABLE_BATCH` | Disable batch export | `false` | `"true"` | No |
+| `TRACELOOP_HEADERS` | Custom headers | `""` | `"x-api-key=value"` | No |
+
+### Content and Privacy
+
+| Variable | Description | Default | Example | Privacy Impact |
+|----------|-------------|---------|---------|----------------|
+| `TRACELOOP_TRACE_CONTENT` | Trace prompt/response content | `true` | `"false"` | High |
+| `TRACELOOP_REDACT_PROMPTS` | Redact prompt content | `false` | `"true"` | High |
+| `TRACELOOP_REDACT_RESPONSES` | Redact response content | `false` | `"true"` | High |
+| `TRACELOOP_REDACT_KEYS` | Keys to redact | `""` | `"password,api_key"` | Medium |
+
+### Performance Tuning
+
+| Variable | Description | Default | Example | Impact |
+|----------|-------------|---------|---------|---------|
+| `TRACELOOP_METRICS_ENABLED` | Enable custom metrics | `true` | `"false"` | Performance |
+| `TRACELOOP_BATCH_SIZE` | Batch size for export | `100` | `"50"` | Memory |
+| `TRACELOOP_EXPORT_TIMEOUT` | Export timeout (seconds) | `30` | `"60"` | Reliability |
+| `TRACELOOP_MAX_SPANS` | Maximum spans per trace | `1000` | `"500"` | Memory |
+
+### LLM-Specific Settings
+
+| Variable | Description | Default | Example | Use Case |
+|----------|-------------|---------|---------|----------|
+| `TRACELOOP_TRACE_EMBEDDINGS` | Trace embedding operations | `true` | `"false"` | Vector operations |
+| `TRACELOOP_TRACE_TOOLS` | Trace tool/function calls | `true` | `"false"` | Agent debugging |
+| `TRACELOOP_TRACE_WORKFLOWS` | Trace workflow operations | `true` | `"false"` | Complex flows |
+| `TRACELOOP_MODEL_COSTS` | Enable model cost tracking | `true` | `"false"` | Cost monitoring |
+
+## 📊 Telemetry Data
+
+### LLM-Specific Spans
+
+OpenLLMetry creates detailed spans focused on LLM operations:
+
+```
+🔍 HTTP Request
+├── 🤖 llm.completion (OpenAI GPT-4)
+│   ├── 📊 Performance Metrics
+│   │   ├── llm.response_time: 1.2s
+│   │   ├── llm.tokens_per_second: 45
+│   │   └── llm.cost: $0.0032
+│   ├── 📝 Model Parameters
+│   │   ├── llm.temperature: 0.7
+│   │   ├── llm.max_tokens: 1000
+│   │   └── llm.model: "gpt-4-0125-preview"
+│   └── 📄 Content (if enabled)
+│       ├── llm.prompt: "User question..."
+│       └── llm.response: "Assistant answer..."
+├── 🗄️ vector.query (ChromaDB)
+│   ├── vector.operation: "similarity_search"
+│   ├── vector.collection: "documents"
+│   └── vector.results_count: 5
+└── 🧠 workflow.execution
+    ├── workflow.type: "rag_pipeline"
+    └── workflow.status: "completed"
+```
+
+### Span Attributes
+
+| Attribute | Description | Example | Category |
+|-----------|-------------|---------|----------|
+| `llm.vendor` | LLM provider | `"openai"` | Provider |
+| `llm.request.model` | Model name | `"gpt-4-0125-preview"` | Model |
+| `llm.request.max_tokens` | Max tokens | `1000` | Parameters |
+| `llm.request.temperature` | Model temperature | `0.7` | Parameters |
+| `llm.response.model` | Actual model used | `"gpt-4-0125-preview"` | Response |
+| `llm.usage.prompt_tokens` | Input tokens | `150` | Usage |
+| `llm.usage.completion_tokens` | Output tokens | `75` | Usage |
+| `llm.usage.total_tokens` | Total tokens | `225` | Usage |
+
+### Performance Metrics
+
+| Metric | Type | Description | Labels |
+|--------|------|-------------|--------|
+| `llm_request_duration` | Histogram | Request duration | model, provider |
+| `llm_token_usage` | Counter | Token consumption | model, type (prompt/completion) |
+| `llm_request_count` | Counter | Total requests | model, provider, status |
+| `llm_cost_total` | Counter | Estimated costs | model, provider |
+| `llm_tokens_per_second` | Gauge | Throughput rate | model, provider |
+
+## 🔧 Framework-Specific Configurations
+
+### LangChain with OpenLLMetry
+
+```yaml
+spec:
+  python:
+    instrumentation:
+      provider: "openllmetry"
+      customPackages: "langchain>=0.1.0,traceloop-sdk>=0.10.0"
+      env:
+      - name: TRACELOOP_TRACE_CONTENT
+        value: "true"
+      - name: TRACELOOP_TRACE_TOOLS
+        value: "true"
+      - name: LANGCHAIN_TRACING_V2
+        value: "false"  # Disable LangSmith
+```
+
+### LlamaIndex with OpenLLMetry
+
+```yaml
+spec:
+  python:
+    instrumentation:
+      provider: "openllmetry"
+      customPackages: "llama-index>=0.9.0,traceloop-sdk>=0.10.0"
+      env:
+      - name: TRACELOOP_TRACE_EMBEDDINGS
+        value: "true"
+      - name: TRACELOOP_TRACE_WORKFLOWS
+        value: "true"
+```
+
+### LiteLLM with OpenLLMetry
+
+```yaml
+spec:
+  python:
+    instrumentation:
+      provider: "openllmetry"
+      customPackages: "litellm>=1.0.0,traceloop-sdk>=0.10.0"
+      env:
+      - name: TRACELOOP_MODEL_COSTS
+        value: "true"
+      - name: TRACELOOP_TRACE_CONTENT
+        value: "true"
+```
+
+## 🎯 LLM Performance Monitoring
+
+### Response Time Analysis
+
+Monitor LLM response times with detailed breakdowns:
+
+```yaml
+env:
+- name: TRACELOOP_METRICS_ENABLED
+  value: "true"
+- name: TRACELOOP_TRACE_PERFORMANCE
+  value: "true"
+```
+
+**Metrics collected:**
+- **Time to First Token (TTFT)**: Initial response latency
+- **Tokens per Second**: Streaming throughput
+- **Total Response Time**: End-to-end latency
+- **Queue Time**: Time waiting for model availability
+
+### Cost Tracking
+
+Track LLM costs with detailed attribution:
+
+```yaml
+env:
+- name: TRACELOOP_MODEL_COSTS
+  value: "true"
+- name: TRACELOOP_COST_CURRENCY
+  value: "USD"
+```
+
+**Cost features:**
+- Per-request cost calculation
+- Model-specific pricing
+- Token-based cost attribution
+- Daily/monthly cost aggregation
+
+### Model Performance Comparison
+
+Compare performance across different models:
+
+```yaml
+env:
+- name: TRACELOOP_MODEL_COMPARISON
+  value: "true"
+- name: TRACELOOP_BENCHMARK_MODE
+  value: "true"
+```
+
+## 🚨 Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="OpenLLMetry SDK not found">
+    **Symptoms:** Import errors for traceloop-sdk
+    
+    **Solutions:**
+    ```yaml
+    # Install OpenLLMetry SDK
+    spec:
+      python:
+        instrumentation:
+          customPackages: "traceloop-sdk>=0.10.0"
+    
+    # Or install with specific providers
+    spec:
+      python:
+        instrumentation:
+          customPackages: "traceloop-sdk[openai,langchain]>=0.10.0"
+    ```
+  </Accordion>
+  
+  <Accordion title="No LLM traces appearing">
+    **Symptoms:** Application runs but no LLM-specific traces
+    
+    **Solutions:**
+    ```bash
+    # Check OpenLLMetry initialization
+    kubectl logs pod-name | grep -i traceloop
+    
+    # Verify LLM packages are instrumented
+    kubectl exec pod-name -- python -c "import traceloop; print('OpenLLMetry loaded')"
+    
+    # Check configuration
+    kubectl exec pod-name -- env | grep TRACELOOP
+    ```
+  </Accordion>
+  
+  <Accordion title="Missing cost data">
+    **Symptoms:** Traces appear but no cost information
+    
+    **Solutions:**
+    ```yaml
+    # Enable cost tracking
+    env:
+    - name: TRACELOOP_MODEL_COSTS
+      value: "true"
+    - name: TRACELOOP_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: openllmetry-secret
+          key: api-key
+    ```
+  </Accordion>
+  
+  <Accordion title="High memory usage">
+    **Symptoms:** Application consuming excessive memory
+    
+    **Solutions:**
+    ```yaml
+    # Reduce batch size and limits
+    env:
+    - name: TRACELOOP_BATCH_SIZE
+      value: "25"
+    - name: TRACELOOP_MAX_SPANS
+      value: "100"
+    - name: TRACELOOP_TRACE_CONTENT
+      value: "false"  # Disable content tracing
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 📈 Performance Optimization
+
+### Memory Optimization
+
+```yaml
+env:
+# Reduce memory footprint
+- name: TRACELOOP_BATCH_SIZE
+  value: "25"
+- name: TRACELOOP_MAX_SPANS
+  value: "100"
+- name: TRACELOOP_TRACE_CONTENT
+  value: "false"
+
+# Enable compression
+- name: TRACELOOP_COMPRESS_PAYLOADS
+  value: "true"
+```
+
+### Network Optimization
+
+```yaml
+env:
+# Batch configuration
+- name: TRACELOOP_DISABLE_BATCH
+  value: "false"
+- name: TRACELOOP_BATCH_TIMEOUT
+  value: "5000"  # 5 seconds
+
+# Connection settings
+- name: TRACELOOP_EXPORT_TIMEOUT
+  value: "30"
+- name: TRACELOOP_RETRY_ENABLED
+  value: "true"
+```
+
+## 🏢 Production Considerations
+
+### Privacy and Security
+
+```yaml
+# High-security configuration
+env:
+- name: TRACELOOP_REDACT_PROMPTS
+  value: "true"
+- name: TRACELOOP_REDACT_RESPONSES
+  value: "true"
+- name: TRACELOOP_REDACT_KEYS
+  value: "password,api_key,secret,token"
+- name: TRACELOOP_TRACE_CONTENT
+  value: "false"
+```
+
+### Compliance Mode
+
+```yaml
+# Minimal data collection for compliance
+env:
+- name: TRACELOOP_TRACE_CONTENT
+  value: "false"
+- name: TRACELOOP_METRICS_ONLY
+  value: "true"
+- name: TRACELOOP_ANONYMIZE_USERS
+  value: "true"
+```
+
+## 🔄 Migration from Other Providers
+
+### From OpenLIT to OpenLLMetry
+
+```yaml
+# Before: OpenLIT
+spec:
+  python:
+    instrumentation:
+      provider: "openlit"
+      env:
+      - name: OPENLIT_CAPTURE_MESSAGE_CONTENT
+        value: "true"
+
+# After: OpenLLMetry
+spec:
+  python:
+    instrumentation:
+      provider: "openllmetry"
+      env:
+      - name: TRACELOOP_TRACE_CONTENT
+        value: "true"
+```
+
+### From OpenInference to OpenLLMetry
+
+```yaml
+# Before: OpenInference
+spec:
+  python:
+    instrumentation:
+      provider: "openinference"
+      env:
+      - name: OPENINFERENCE_HIDE_INPUTS
+        value: "false"
+
+# After: OpenLLMetry
+spec:
+  python:
+    instrumentation:
+      provider: "openllmetry"
+      env:
+      - name: TRACELOOP_REDACT_PROMPTS
+        value: "false"
+```
+
+## 📊 Integration with Observability Platforms
+
+### Grafana Integration
+
+```yaml
+# Configure for Grafana/Tempo
+otlp:
+  endpoint: "http://tempo:4317"
+  headers: "x-scope-orgid=tenant1"
+```
+
+### DataDog Integration
+
+```yaml
+# Configure for DataDog
+otlp:
+  endpoint: "https://trace.agent.datadoghq.com"
+  headers: "dd-api-key=${DD_API_KEY}"
+```
+
+### Custom Backend Integration
+
+```yaml
+# Configure for custom OTLP backend
+otlp:
+  endpoint: "http://custom-collector:4318"
+  headers: "authorization=Bearer ${AUTH_TOKEN}"
+```
+
+## 📖 Next Steps
+
+<CardGroup cols={2}>
+  <Card title="🚀 OpenLIT Provider" href="/latest/operator/instrumentations-openlit" icon="rocket">
+    Compare with full-featured OpenLIT instrumentation
+  </Card>
+  <Card title="📊 OpenInference Provider" href="/latest/operator/instrumentations-openinference" icon="chart-bar">
+    Explore OpenTelemetry standard compliance
+  </Card>
+  <Card title="🔧 Custom Provider" href="/latest/operator/instrumentations-custom" icon="gear">
+    Build custom instrumentation solutions
+  </Card>
+  <Card title="🌐 Destinations" href="/latest/operator/destinations-overview" icon="globe">
+    Configure trace destinations and backends
+  </Card>
+</CardGroup>

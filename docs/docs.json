@@ -1,0 +1,313 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "aspen",
+  "name": "OpenLIT",
+  "description": "OpenLIT is the leading open-source AI observability platform with zero-code instrumentation for LLMs, vector databases, and AI frameworks. Monitor OpenAI, Anthropic, LangChain, LlamaIndex with one line of code. Features include cost tracking, performance metrics, prompt management, and enterprise-grade security for production AI applications.",
+  "colors": {
+    "primary": "#FFA500",
+    "light": "#FFA500",
+    "dark": "#FFA500"
+  },
+  "favicon": "favicon.png",
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true
+  },
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/openlit/"
+    },
+    {
+      "name": "Slack",
+      "icon": "slack",
+      "url": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ"
+    },
+    {
+      "name": "Discord",
+      "icon": "discord",
+      "url": "https://discord.gg/CQnXwNT3"
+    }
+  ],
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Platform",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "latest/introduction",
+              "latest/quickstart-observability",
+              "latest/quickstart-evals",
+              "latest/quickstart-guard",
+              "latest/installation",
+              "latest/sdk-configuration",
+              "latest/ui-configuration",
+              "latest/oauth-authentication"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "latest/features/overview",
+              "latest/features/tracing",
+              "latest/features/metrics",
+              "latest/features/gpu",
+              "latest/features/pricing",
+              {
+                "group": "Dashboards",
+                "pages": [
+                  "latest/features/dashboards/introduction",
+                  "latest/features/dashboards/create-your-first-folder",
+                  "latest/features/dashboards/create-your-first-dashboard",
+                  "latest/features/dashboards/organize-your-dashboards",
+                  "latest/features/dashboards/pin-your-dashboard",
+                  "latest/features/dashboards/set-as-main-dashboard",
+                  {
+                    "group": "Widgets",
+                    "pages": [
+                      "latest/features/dashboards/widgets/introduction",
+                      "latest/features/dashboards/widgets/area-chart-widget",
+                      "latest/features/dashboards/widgets/bar-chart-widget",
+                      "latest/features/dashboards/widgets/line-chart-widget",
+                      "latest/features/dashboards/widgets/markdown-widget",
+                      "latest/features/dashboards/widgets/pie-chart-widget",
+                      "latest/features/dashboards/widgets/stat-widget",
+                      "latest/features/dashboards/widgets/table-widget"
+                    ]
+                  },
+                  "latest/features/dashboards/use-filters-and-dynamic-bindings",
+                  "latest/features/dashboards/auto-refresh-and-time-interval"
+                ]
+              },
+              "latest/features/prompt-hub",
+              "latest/features/vault",
+              "latest/features/guardrails",
+              "latest/features/evaluations",
+              "latest/features/exceptions",
+              "latest/features/openground",
+              "latest/features/multiple-db"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "latest/integrations/introduction",
+              {
+                "group": "LLMs",
+                "pages": [
+                  "latest/integrations/openai",
+                  "latest/integrations/ollama",
+                  "latest/integrations/anthropic",
+                  "latest/integrations/deepseek",
+                  "latest/integrations/gpt4all",
+                  "latest/integrations/cohere",
+                  "latest/integrations/mistral",
+                  "latest/integrations/github-models",
+                  "latest/integrations/vllm",
+                  "latest/integrations/azure-openai",
+                  "latest/integrations/azure-ai-inference",
+                  "latest/integrations/huggingface",
+                  "latest/integrations/bedrock",
+                  "latest/integrations/vertexai",
+                  "latest/integrations/google-ai-studio",
+                  "latest/integrations/groq",
+                  "latest/integrations/nvidia-nim",
+                  "latest/integrations/xai",
+                  "latest/integrations/elevenlabs",
+                  "latest/integrations/ai21",
+                  "latest/integrations/together",
+                  "latest/integrations/assemblyai",
+                  "latest/integrations/featherless",
+                  "latest/integrations/reka",
+                  "latest/integrations/krutrim",
+                  "latest/integrations/titan-ml",
+                  "latest/integrations/sarvam",
+                  "latest/integrations/premai"
+                ]
+              },
+              {
+                "group": "VectorDBs",
+                "pages": [
+                  "latest/integrations/chromadb",
+                  "latest/integrations/pinecone",
+                  "latest/integrations/qdrant",
+                  "latest/integrations/milvus",
+                  "latest/integrations/astradb"
+                ]
+              },
+              {
+                "group": "Frameworks",
+                "pages": [
+                  "latest/integrations/langchain",
+                  "latest/integrations/openai-agents",
+                  "latest/integrations/litellm",
+                  "latest/integrations/crewai",
+                  "latest/integrations/llama-index",
+                  "latest/integrations/browser-use",
+                  "latest/integrations/pydantic",
+                  "latest/integrations/dspy",
+                  "latest/integrations/ag2",
+                  "latest/integrations/haystack",
+                  "latest/integrations/mem0",
+                  "latest/integrations/guardrails",
+                  "latest/integrations/phidata",
+                  "latest/integrations/multion",
+                  "latest/integrations/julep-ai",
+                  "latest/integrations/letta",
+                  "latest/integrations/crawl4ai",
+                  "latest/integrations/firecrawl",
+                  "latest/integrations/dynamiq",
+                  "latest/integrations/controlflow",
+                  "latest/integrations/swarmzero"
+                ]
+              },
+              {
+                "group": "GPUs",
+                "pages": [
+                  "latest/integrations/nvidia-gpu",
+                  "latest/integrations/amd-gpu"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Connections",
+            "pages": [
+              "latest/connections/intro",
+              "latest/connections/otelcol",
+              "latest/connections/prometheus-tempo",
+              "latest/connections/prometheus-jaeger",
+              "latest/connections/grafanacloud",
+              "latest/connections/new-relic",
+              "latest/connections/elastic",
+              "latest/connections/hyperdx",
+              "latest/connections/datadog",
+              "latest/connections/signoz",
+              "latest/connections/oneuptime",
+              "latest/connections/dynatrace",
+              "latest/connections/openobserve",
+              "latest/connections/highlight",
+              "latest/connections/middleware",
+              "latest/connections/siglens",
+              "latest/connections/oodle",
+              "latest/connections/langfuse",
+              "latest/connections/murnitur"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "latest/api-reference/introduction",
+              {
+                "group": "Prompt Hub",
+                "pages": [
+                  "latest/api-reference/endpoint/prompt-hub/get"
+                ]
+              },
+              {
+                "group": "Vault",
+                "pages": [
+                  "latest/api-reference/endpoint/vault/get"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Privacy",
+            "pages": [
+              "latest/anonymous-telemetry"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Kubernetes Operator",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "latest/operator/overview",
+              "latest/operator/quickstart",
+              "latest/operator/installation",
+              "latest/operator/architecture"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "latest/operator/config-operator",
+              "latest/operator/config-autoinstrumentation"
+            ]
+          },
+          {
+            "group": "Instrumentations",
+            "pages": [
+              "latest/operator/instrumentations-overview",
+              "latest/operator/instrumentations-openlit",
+              "latest/operator/instrumentations-openinference",
+              "latest/operator/instrumentations-openllmetry",
+              "latest/operator/instrumentations-custom"
+            ]
+          },
+          {
+            "group": "Destinations",
+            "pages": [
+              "latest/operator/destinations-overview",
+              "latest/operator/destinations-supported"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "latest/operator/concepts-telemetry",
+              "latest/operator/concepts-custom-resources",
+              "latest/operator/concepts-permissions"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "latest/operator/troubleshooting",
+              "latest/operator/security",
+              "latest/operator/api-reference"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/images/rectangular-light-bg-logo.jpg",
+    "dark": "/images/rectangular-dark-bg-logo.jpg",
+    "href": "https://openlit.io"
+  },
+  "appearance": {
+    "default": "dark"
+  },
+  "styling": {
+    "eyebrows": "breadcrumbs"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/openlit/openlit"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/openlit/",
+      "slack": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ",
+      "discord": "https://discord.gg/CQnXwNT3",
+      "twitter": "https://twitter.com/openlit_io",
+      "linkedin": "https://www.linkedin.com/company/openlit/"
+    }
+  },
+  "integrations": {
+    "ga4": {
+      "measurementId": "G-2BMXWY88E6"
+    }
+  }
+}

@@ -515,15 +515,15 @@ func (h *Handler) createInjectorConfig(instrConfig *v1alpha1.AutoInstrumentation
 func (h *Handler) getProviderImage(provider string) string {
 	switch provider {
 	case "openlit":
-		return "openlit-instrumentation:latest"
+		return "ghcr.io/openlit/openlit-ai-instrumentation:latest"
 	case "openinference":
-		return "openinference-instrumentation:latest"
+		return "ghcr.io/openlit/openinference-ai-instrumentation:latest"
 	case "openllmetry":
-		return "openlit/openllmetry-instrumentation:latest"
+		return "ghcr.io/openlit/openllmetry-ai-instrumentation:latest"
 	case "custom", "base":
-		return "openlit/base-instrumentation:latest"
+		return "ghcr.io/openlit/openlit-ai-instrumentation:latest"
 	default:
-		return "openlit-instrumentation:latest"
+		return "ghcr.io/openlit/openlit-ai-instrumentation:latest"
 	}
 }
 

@@ -1,0 +1,178 @@
+---
+title: 'Overview'
+description: 'Zero-Code AI Observability for Kubernetes'
+---
+
+OpenLIT Operator is an open-source observability control plane for AI applications. OpenLIT leverages the power of OpenTelemetry to automatically instrument AI applications and produces distributed traces, metrics, and costs **without any code changes**. The operator automatically injects and configures instrumentation according to your application requirements.
+
+The name OpenLIT originates from "Open" observability for "LIT" (Language, Intelligence, Technology).
+
+## Goals
+
+* **Automatic instrumentation** - OpenLIT automatically instruments your AI applications and produces distributed traces, metrics, and costs **without any code changes**.
+* **Instrumentation management** - OpenLIT automatically injects and configures instrumentation according to your application requirements. No need to spend time manually instrumenting each application.
+* **Provider flexibility** - Support for multiple instrumentation providers (OpenLIT, OpenInference, OpenLLMetry) with easy switching capabilities.
+
+OpenLIT achieves its goals by deploying a set of components that work together to inject, configure, and manage telemetry collection from your AI applications.
+
+## Who is OpenLIT Operator for?
+
+* **AI/ML Engineers** - Building and deploying AI applications in Kubernetes
+* **Platform Engineers** - Managing observability infrastructure for AI workloads  
+* **DevOps Teams** - Operating AI applications in production environments
+* **Software Developers** - Building applications with LLMs and AI frameworks
+* **Anyone comfortable with Kubernetes** - Basic knowledge of pods, deployments, and kubectl
+
+OpenLIT Operator is designed to be easy to use and deploy. It's a great tool for anyone who wants to get started with AI observability without the hassle of manually instrumenting each application.
+
+## Features
+
+<CardGroup cols={2}>
+  <Card title="🎯 Zero-Code Instrumentation" icon="magic-wand">
+    Automatically instruments AI applications without any code changes or manual SDK integration
+  </Card>
+  <Card title="🔧 Multi-Provider Support" icon="puzzle-piece">
+    Support for OpenLIT, OpenInference, and OpenLLMetry instrumentation providers with easy switching
+  </Card>
+  <Card title="🤖 AI-Native Observability" icon="brain">
+    Purpose-built for LLMs, AI frameworks, and vector databases with specialized telemetry
+  </Card>
+  <Card title="🛡️ Production Ready" icon="shield-check">
+    Secure admission webhook with automatic TLS certificate management and RBAC
+  </Card>
+  <Card title="📋 Declarative Configuration" icon="file-lines">
+    Kubernetes-native configuration using AutoInstrumentation Custom Resources
+  </Card>
+  <Card title="🌐 Universal Backend Support" icon="globe">
+    Works with any OpenTelemetry-compatible backend - Jaeger, Grafana, DataDog, and more
+  </Card>
+  <Card title="💰 Cost Intelligence" icon="chart-line">
+    Automatic LLM cost tracking and budget monitoring with real-time token usage analytics
+  </Card>
+  <Card title="🏗️ Enterprise Grade" icon="building">
+    High availability, multi-tenancy, and production-hardened deployment options
+  </Card>
+</CardGroup>
+
+## Adopt OpenTelemetry for LLMs and Agents in minutes
+
+OpenLIT currently supports all the popular managed and open source destinations. By producing data in the OpenTelemetry format, OpenLIT can be used with any observability tool that supports OTLP and allows you to easily switch to another vendor in the future.
+
+### Supported Technologies
+
+The OpenLIT Operator automatically instruments:
+
+<CardGroup cols={3}>
+  <Card title="🤖 LLM Providers" icon="brain">
+    **50+ providers supported**
+    
+    OpenAI, Anthropic, Google, Azure OpenAI, AWS Bedrock, Ollama, Groq, Cohere, Mistral, and more
+  </Card>
+  <Card title="🧠 AI Frameworks" icon="cube">
+    **20+ frameworks supported**
+    
+    LangChain, LlamaIndex, CrewAI, Haystack, AG2, DSPy, Guardrails, and more
+  </Card>
+  <Card title="🗄️ Vector Databases" icon="database">
+    **10+ databases supported**
+    
+    ChromaDB, Pinecone, Qdrant, Milvus, Weaviate, and more
+  </Card>
+</CardGroup>
+
+### Supported Languages
+
+<CardGroup cols={3}>
+  <Card title="🐍 Python" icon="python">
+    **Full support**
+    
+    Complete instrumentation for all Python-based AI applications and frameworks
+  </Card>
+  <Card title="🚀 Node.js" icon="node-js">
+    **Coming soon**
+    
+    JavaScript/TypeScript support for Node.js AI applications
+  </Card>
+  <Card title="📋 More languages" icon="code">
+    **Roadmap**
+    
+    Java, Go, and other languages planned for future releases
+  </Card>
+</CardGroup>
+
+### Supported Destinations
+
+<CardGroup cols={3}>
+  <Card title="🏠 Self-Hosted" icon="server">
+    **Full control**
+    
+    OpenLIT, Jaeger, Grafana Stack, Elastic Stack, and custom solutions
+  </Card>
+  <Card title="☁️ Cloud Observability" icon="cloud">
+    **Managed services**
+    
+    DataDog, New Relic, Honeycomb, Grafana Cloud, and other SaaS platforms
+  </Card>
+  <Card title="🏢 Enterprise Platforms" icon="building">
+    **Enterprise ready**
+    
+    Splunk, Dynatrace, AppDynamics, and proprietary observability systems
+  </Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+  <Step title="Install the Operator">
+    Deploy OpenLIT Operator to your Kubernetes cluster using Helm
+    ```bash
+    helm install openlit-operator openlit/openlit-operator \
+      --create-namespace --namespace openlit
+    ```
+  </Step>
+  
+  <Step title="Create AutoInstrumentation">
+    Define which applications to instrument using Custom Resources
+    ```yaml
+    apiVersion: openlit.io/v1alpha1
+    kind: AutoInstrumentation
+    spec:
+      selector:
+        matchLabels:
+          openlit.io/instrument: "true"
+      otlp:
+        endpoint: "http://openlit:4318"
+    ```
+  </Step>
+  
+  <Step title="Label Your Applications">
+    Add labels to your AI application pods to enable instrumentation
+    ```yaml
+    labels:
+      openlit.io/instrument: "true"
+    ```
+  </Step>
+  
+  <Step title="Automatic Observability">
+    Your applications automatically emit traces, metrics, and costs without any code changes
+  </Step>
+</Steps>
+
+## Next Steps
+
+Ready to get started? Follow our guides:
+
+<CardGroup cols={2}>
+  <Card title="🚀 Quickstart" href="/latest/operator/quickstart" icon="rocket">
+    Get started in 5 minutes with Helm installation and test application
+  </Card>
+  <Card title="🛠️ Installation" href="/latest/operator/installation" icon="download">
+    Detailed Helm installation guide with prerequisites and configuration
+  </Card>
+  <Card title="🏗️ Architecture" href="/latest/operator/architecture" icon="sitemap">
+    Understand how the operator works under the hood
+  </Card>
+  <Card title="⚙️ Configuration" href="/latest/operator/config-operator" icon="gear">
+    Configure the operator and AutoInstrumentation resources
+  </Card>
+</CardGroup>

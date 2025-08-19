@@ -1,0 +1,495 @@
+---
+title: 'Operator'
+description: 'Configure the OpenLIT Operator using Helm values and environment variables'
+---
+
+Configure the OpenLIT Operator itself using Helm chart values and environment variables. This page covers all operator-level settings, resource management, and infrastructure configuration.
+
+## 📋 Overview
+
+The OpenLIT Operator can be configured at two levels:
+1. **Operator Configuration** (this page) - How the operator itself runs
+2. **AutoInstrumentation Configuration** - How applications get instrumented
+
+This page focuses on operator-level configuration through Helm values and environment variables.
+
+## 🔧 Helm Configuration
+
+### Image Configuration
+
+Configure the operator and provider images:
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `image.repository` | Operator image repository | `ghcr.io/openlit/openlit-operator` | `my-registry.com/openlit-operator` |
+| `image.tag` | Operator image tag | `""` (uses Chart.AppVersion) | `v1.0.0` |
+| `image.pullPolicy` | Image pull policy | `IfNotPresent` | `Always` |
+| `image.pullSecrets` | Image pull secrets | `[]` | `[{name: "regcred"}]` |
+
+**Example:**
+```yaml
+image:
+  repository: ghcr.io/openlit/openlit-operator
+  tag: "latest"
+  pullPolicy: IfNotPresent
+  pullSecrets:
+    - name: registry-secret
+```
+
+### Provider Images
+
+Configure instrumentation provider images with automatic version synchronization:
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `providerImages.openlit.repository` | OpenLIT provider image | `ghcr.io/openlit/openlit-ai-instrumentation` | `my-registry.com/openlit-provider` |
+| `providerImages.openlit.tag` | OpenLIT provider tag | `""` (inherits operator tag) | `v1.2.0` |
+| `providerImages.openinference.repository` | OpenInference provider image | `ghcr.io/openlit/openinference-ai-instrumentation` | Custom registry |
+| `providerImages.openinference.tag` | OpenInference provider tag | `""` (inherits operator tag) | `v0.5.0` |
+| `providerImages.openllmetry.repository` | OpenLLMetry provider image | `ghcr.io/openlit/openllmetry-ai-instrumentation` | Custom registry |
+| `providerImages.openllmetry.tag` | OpenLLMetry provider tag | `""` (inherits operator tag) | `v1.1.0` |
+
+**Example with version synchronization:**
+```yaml
+# All providers use the same version as operator
+image:
+  tag: "v1.0.0"
+
+providerImages:
+  openlit:
+    repository: ghcr.io/openlit/openlit-ai-instrumentation
+    tag: ""  # Will use v1.0.0
+  openinference:
+    repository: ghcr.io/openlit/openinference-ai-instrumentation  
+    tag: ""  # Will use v1.0.0
+  openllmetry:
+    repository: ghcr.io/openlit/openllmetry-ai-instrumentation
+    tag: "v0.9.0"  # Custom version override
+```
+
+### Resource Management
+
+Configure operator resource requests and limits:
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `resources.requests.cpu` | CPU request | `100m` | `200m` |
+| `resources.requests.memory` | Memory request | `128Mi` | `256Mi` |
+| `resources.limits.cpu` | CPU limit | `500m` | `1000m` |
+| `resources.limits.memory` | Memory limit | `512Mi` | `1Gi` |
+
+**Example:**
+```yaml
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+```
+
+### High Availability
+
+Configure HA settings for production deployments:
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `replicaCount` | Number of operator replicas | `1` | `3` |
+| `podDisruptionBudget.enabled` | Enable PDB | `false` | `true` |
+| `podDisruptionBudget.minAvailable` | Minimum available pods | `1` | `2` |
+| `affinity` | Pod affinity rules | `{}` | Anti-affinity config |
+| `tolerations` | Pod tolerations | `[]` | Control plane toleration |
+
+**Example HA configuration:**
+```yaml
+replicaCount: 3
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: openlit-operator
+        topologyKey: kubernetes.io/hostname
+
+tolerations:
+- key: node-role.kubernetes.io/control-plane
+  operator: Exists
+  effect: NoSchedule
+```
+
+### Webhook Configuration
+
+Configure the admission webhook settings:
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `webhook.port` | Webhook server port | `9443` | `8443` |
+| `webhook.failurePolicy` | Webhook failure policy | `Ignore` | `Fail` |
+| `webhook.reinvocationPolicy` | Webhook reinvocation policy | `Never` | `IfNeeded` |
+| `webhook.timeoutSeconds` | Webhook timeout | `10` | `30` |
+| `webhook.namespaceSelector` | Namespace selector | `{}` | Label selector |
+
+**Example:**
+```yaml
+webhook:
+  port: 9443
+  failurePolicy: Fail
+  reinvocationPolicy: Never
+  timeoutSeconds: 10
+  namespaceSelector:
+    matchLabels:
+      openlit.io/instrumentation: "enabled"
+```
+
+### RBAC and Security
+
+Configure role-based access control:
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `serviceAccount.create` | Create service account | `true` | `false` |
+| `serviceAccount.name` | Service account name | `""` (generated) | `custom-sa` |
+| `serviceAccount.annotations` | SA annotations | `{}` | OIDC annotations |
+| `rbac.create` | Create RBAC resources | `true` | `false` |
+| `securityContext.runAsNonRoot` | Run as non-root | `true` | `false` |
+
+**Example:**
+```yaml
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/openlit-operator
+
+rbac:
+  create: true
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+```
+
+## 🌍 Environment Variables
+
+The operator accepts configuration through environment variables, which can be set via Helm:
+
+### Core Configuration
+
+| Environment Variable | Description | Default | Example |
+|---------------------|-------------|---------|---------|
+| `OPENLIT_LOG_LEVEL` | Operator log level | `info` | `debug` |
+| `OPENLIT_METRICS_ADDR` | Metrics server address | `:8080` | `:9090` |
+| `OPENLIT_PROBE_ADDR` | Health probe address | `:8081` | `:9091` |
+| `OPENLIT_WEBHOOK_PORT` | Webhook server port | `9443` | `8443` |
+| `OPENLIT_CERT_DIR` | TLS certificate directory | `/tmp/k8s-webhook-server/serving-certs` | `/certs` |
+
+**Example Helm configuration:**
+```yaml
+operator:
+  env:
+    - name: OPENLIT_LOG_LEVEL
+      value: "debug"
+    - name: OPENLIT_METRICS_ADDR
+      value: ":9090"
+```
+
+### Instrumentation Defaults
+
+| Environment Variable | Description | Default | Example |
+|---------------------|-------------|---------|---------|
+| `OPENLIT_DEFAULT_PROVIDER` | Default instrumentation provider | `openlit` | `openinference` |
+| `OPENLIT_DEFAULT_INIT_IMAGE` | Default init container image | Auto-derived | `custom-registry.com/openlit:v1.0` |
+| `OPENLIT_DEFAULT_OTLP_ENDPOINT` | Default OTLP endpoint | `""` | `http://openlit:4318` |
+| `OPENLIT_DEFAULT_IMAGE_PULL_POLICY` | Default image pull policy | `IfNotPresent` | `Always` |
+
+**Example:**
+```yaml
+operator:
+  env:
+    - name: OPENLIT_DEFAULT_PROVIDER
+      value: "openinference"
+    - name: OPENLIT_DEFAULT_OTLP_ENDPOINT
+      value: "http://otlp-collector:4318"
+```
+
+### TLS and Security
+
+| Environment Variable | Description | Default | Example |
+|---------------------|-------------|---------|---------|
+| `OPENLIT_TLS_AUTO_GENERATE` | Auto-generate TLS certificates | `true` | `false` |
+| `OPENLIT_TLS_SECRET_NAME` | TLS secret name | `""` | `webhook-tls` |
+| `OPENLIT_TLS_MIN_VERSION` | Minimum TLS version | `1.2` | `1.3` |
+| `OPENLIT_WEBHOOK_CERT_REFRESH` | Certificate refresh interval | `24h` | `12h` |
+
+**Example:**
+```yaml
+operator:
+  env:
+    - name: OPENLIT_TLS_AUTO_GENERATE
+      value: "false"
+    - name: OPENLIT_TLS_SECRET_NAME
+      value: "custom-webhook-tls"
+```
+
+### Leader Election
+
+| Environment Variable | Description | Default | Example |
+|---------------------|-------------|---------|---------|
+| `OPENLIT_LEADER_ELECT` | Enable leader election | `true` | `false` |
+| `OPENLIT_LEADER_ELECT_ID` | Leader election ID | `openlit-operator` | `custom-id` |
+| `OPENLIT_LEASE_DURATION` | Lease duration | `15s` | `30s` |
+| `OPENLIT_RENEW_DEADLINE` | Renew deadline | `10s` | `20s` |
+| `OPENLIT_RETRY_PERIOD` | Retry period | `2s` | `5s` |
+
+**Example:**
+```yaml
+operator:
+  env:
+    - name: OPENLIT_LEADER_ELECT
+      value: "true"
+    - name: OPENLIT_LEASE_DURATION
+      value: "30s"
+```
+
+## 📊 Observability Configuration
+
+### Metrics and Monitoring
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `observability.enableMetrics` | Enable Prometheus metrics | `true` | `false` |
+| `observability.metricsPort` | Metrics server port | `8080` | `9090` |
+| `serviceMonitor.enabled` | Create ServiceMonitor | `false` | `true` |
+| `serviceMonitor.interval` | Scrape interval | `30s` | `15s` |
+| `serviceMonitor.labels` | ServiceMonitor labels | `{}` | `{release: "prometheus"}` |
+
+**Example:**
+```yaml
+observability:
+  enableMetrics: true
+  metricsPort: 8080
+  logLevel: info
+  logFormat: json
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  labels:
+    release: prometheus
+```
+
+### Logging Configuration
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `observability.logLevel` | Log level | `info` | `debug` |
+| `observability.logFormat` | Log format | `text` | `json` |
+| `observability.enableStackTrace` | Enable stack traces | `false` | `true` |
+| `observability.development` | Development mode | `false` | `true` |
+
+**Example:**
+```yaml
+observability:
+  logLevel: debug
+  logFormat: json
+  enableStackTrace: true
+  development: false
+```
+
+## 🔒 Security Configuration
+
+### Pod Security Context
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `securityContext.runAsNonRoot` | Run as non-root user | `true` | `false` |
+| `securityContext.runAsUser` | User ID | `65534` | `1000` |
+| `securityContext.runAsGroup` | Group ID | `65534` | `1000` |
+| `securityContext.fsGroup` | Filesystem group | `65534` | `1000` |
+| `securityContext.seccompProfile` | Seccomp profile | `{type: RuntimeDefault}` | Custom profile |
+
+**Example:**
+```yaml
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+```
+
+### Container Security Context
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `containerSecurityContext.allowPrivilegeEscalation` | Allow privilege escalation | `false` | `true` |
+| `containerSecurityContext.readOnlyRootFilesystem` | Read-only root filesystem | `true` | `false` |
+| `containerSecurityContext.capabilities.drop` | Dropped capabilities | `["ALL"]` | Custom list |
+
+**Example:**
+```yaml
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+    - ALL
+```
+
+## 🌐 Network Configuration
+
+### Service Configuration
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `service.type` | Service type | `ClusterIP` | `LoadBalancer` |
+| `service.port` | Service port | `443` | `8443` |
+| `service.annotations` | Service annotations | `{}` | Load balancer config |
+
+**Example:**
+```yaml
+service:
+  type: ClusterIP
+  port: 443
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+```
+
+### Network Policies
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `networkPolicy.enabled` | Enable network policies | `false` | `true` |
+| `networkPolicy.policyTypes` | Policy types | `["Ingress", "Egress"]` | Custom types |
+| `networkPolicy.ingress` | Ingress rules | `[]` | Custom rules |
+| `networkPolicy.egress` | Egress rules | `[]` | Custom rules |
+
+**Example:**
+```yaml
+networkPolicy:
+  enabled: true
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 9443
+```
+
+## 🔄 Complete Configuration Example
+
+Here's a comprehensive production configuration:
+
+```yaml
+# production-values.yaml
+# Image configuration
+image:
+  repository: ghcr.io/openlit/openlit-operator
+  tag: "v1.0.0"
+  pullPolicy: IfNotPresent
+
+# Provider images with version sync
+providerImages:
+  openlit:
+    repository: ghcr.io/openlit/openlit-ai-instrumentation
+    tag: ""  # Inherits v1.0.0
+  openinference:
+    repository: ghcr.io/openlit/openinference-ai-instrumentation
+    tag: ""  # Inherits v1.0.0
+  openllmetry:
+    repository: ghcr.io/openlit/openllmetry-ai-instrumentation
+    tag: "v0.9.0"  # Custom version
+
+# High availability
+replicaCount: 3
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Resource management
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Webhook configuration
+webhook:
+  port: 9443
+  failurePolicy: Fail
+  timeoutSeconds: 10
+
+# Security
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+
+# Observability
+observability:
+  enableMetrics: true
+  logLevel: info
+  logFormat: json
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  labels:
+    release: prometheus
+
+# Environment variables
+operator:
+  env:
+    - name: OPENLIT_DEFAULT_PROVIDER
+      value: "openlit"
+    - name: OPENLIT_DEFAULT_OTLP_ENDPOINT
+      value: "http://openlit:4318"
+    - name: OPENLIT_LOG_LEVEL
+      value: "info"
+
+# Affinity for HA
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: openlit-operator
+        topologyKey: kubernetes.io/hostname
+```
+
+## 📖 Next Steps
+
+<CardGroup cols={2}>
+  <Card title="⚙️ AutoInstrumentation Config" href="/latest/operator/config-autoinstrumentation" icon="settings">
+    Configure AutoInstrumentation Custom Resources
+  </Card>
+  <Card title="🎯 Instrumentations" href="/latest/operator/instrumentations-overview" icon="target">
+    Learn about different instrumentation providers
+  </Card>
+  <Card title="🔧 Troubleshooting" href="/latest/operator/troubleshooting" icon="wrench">
+    Debug operator configuration issues
+  </Card>
+  <Card title="🔒 Security" href="/latest/operator/security" icon="shield-check">
+    Security best practices and hardening
+  </Card>
+</CardGroup>

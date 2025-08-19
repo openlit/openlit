@@ -1,0 +1,647 @@
+---
+title: 'Custom'
+description: 'Build and deploy custom instrumentation solutions'
+---
+
+The Custom provider allows you to bring your own instrumentation image, enabling complete control over the observability implementation. Perfect for organizations with specific requirements, legacy integrations, or custom telemetry needs.
+
+## 🔧 Overview
+
+Custom instrumentation provides:
+
+- **Complete Control**: Full control over instrumentation logic and implementation
+- **Legacy Integration**: Support for existing observability tools and frameworks
+- **Custom Metrics**: Implement domain-specific metrics and telemetry
+- **Specialized Requirements**: Address unique business or technical requirements
+
+## ✨ Key Benefits
+
+<CardGroup cols={2}>
+  <Card title="🎯 Full Customization" icon="palette">
+    **Complete control**
+    
+    Implement any instrumentation logic, metrics, or telemetry collection
+  </Card>
+  
+  <Card title="🔧 Legacy Support" icon="wrench">
+    **Existing tool integration**
+    
+    Integrate with proprietary or legacy observability systems
+  </Card>
+  
+  <Card title="🏗️ Domain-Specific" icon="building">
+    **Business-specific metrics**
+    
+    Collect custom business metrics and domain-specific telemetry
+  </Card>
+  
+  <Card title="🚀 Innovation" icon="rocket">
+    **Cutting-edge features**
+    
+    Implement experimental or proprietary observability features
+  </Card>
+</CardGroup>
+
+## 🏗️ Custom Image Requirements
+
+### Image Structure
+
+Your custom instrumentation image must follow this structure:
+
+```dockerfile
+FROM python:3.11-slim
+
+# Install base requirements
+COPY requirements.txt /tmp/
+RUN pip install -r /tmp/requirements.txt
+
+# Copy instrumentation setup script
+COPY setup-instrumentation.py /opt/
+COPY sitecustomize.py /opt/
+
+# Set executable permissions
+RUN chmod +x /opt/setup-instrumentation.py
+
+# Default entrypoint
+ENTRYPOINT ["python", "/opt/setup-instrumentation.py"]
+```
+
+### Required Files
+
+| File | Purpose | Description |
+|------|---------|-------------|
+| `setup-instrumentation.py` | Setup script | Installs packages and configures instrumentation |
+| `sitecustomize.py` | Auto-import | Python module loaded automatically in target containers |
+| `requirements.txt` | Dependencies | Python packages required for instrumentation |
+
+## ⚙️ Configuration
+
+### Basic Custom Configuration
+
+```yaml
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: custom-instrumentation
+spec:
+  selector:
+    matchLabels:
+      openlit.io/instrument: "true"
+  python:
+    instrumentation:
+      provider: "custom"
+      customInitImage: "my-registry.com/custom-openlit:v1.0.0"
+      imagePullPolicy: "IfNotPresent"
+  otlp:
+    endpoint: "http://my-collector:4318"
+```
+
+### Advanced Custom Configuration
+
+```yaml
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: advanced-custom
+spec:
+  selector:
+    matchLabels:
+      custom-instrumentation: "enabled"
+  python:
+    instrumentation:
+      provider: "custom"
+      customInitImage: "my-registry.com/enterprise-instrumentation:v2.1.0"
+      imagePullPolicy: "Always"
+      customPackages: "my-custom-package>=1.0.0,proprietary-sdk>=2.0.0"
+      env:
+      # Custom instrumentation configuration
+      - name: CUSTOM_INSTRUMENTATION_MODE
+        value: "production"
+      - name: CUSTOM_API_ENDPOINT
+        value: "https://internal-observability.company.com"
+      - name: CUSTOM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: custom-instrumentation-secret
+            key: api-key
+      # Standard OpenTelemetry configuration
+      - name: OTEL_SERVICE_NAME
+        value: "enterprise-ai-service"
+      - name: OTEL_RESOURCE_ATTRIBUTES
+        value: "environment=production,team=ai-platform,cost-center=engineering"
+  otlp:
+    endpoint: "http://enterprise-collector:4318"
+    headers: "x-api-key=enterprise-key,x-tenant=production"
+    timeout: 60
+  resource:
+    environment: "production"
+    serviceName: "custom-ai-service"
+    serviceNamespace: "enterprise"
+```
+
+## 🐍 Implementation Examples
+
+### Example 1: Basic Custom Instrumentation
+
+#### setup-instrumentation.py
+```python
+#!/usr/bin/env python3
+"""
+Custom instrumentation setup script
+"""
+import os
+import sys
+import subprocess
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def install_packages():
+    """Install required packages"""
+    packages = [
+        "opentelemetry-api",
+        "opentelemetry-sdk", 
+        "opentelemetry-exporter-otlp",
+        "opentelemetry-instrumentation",
+        # Add your custom packages
+        "my-custom-observability-sdk>=1.0.0"
+    ]
+    
+    # Install custom packages from environment
+    custom_packages = os.getenv("CUSTOM_PACKAGES", "")
+    if custom_packages:
+        packages.extend(custom_packages.split(","))
+    
+    logger.info(f"Installing packages: {packages}")
+    subprocess.check_call([
+        sys.executable, "-m", "pip", "install"
+    ] + packages)
+
+def setup_instrumentation():
+    """Configure custom instrumentation"""
+    # Copy sitecustomize.py to target location
+    target_dir = "/usr/local/lib/python3.11/site-packages/"
+    subprocess.check_call([
+        "cp", "/opt/sitecustomize.py", target_dir
+    ])
+    
+    # Set environment variables for target container
+    env_vars = {
+        "CUSTOM_INSTRUMENTATION_ENABLED": "true",
+        "CUSTOM_API_ENDPOINT": os.getenv("CUSTOM_API_ENDPOINT", ""),
+        "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED": "true"
+    }
+    
+    with open("/shared/env", "w") as f:
+        for key, value in env_vars.items():
+            f.write(f"export {key}={value}\n")
+
+def main():
+    """Main setup function"""
+    logger.info("Starting custom instrumentation setup")
+    
+    try:
+        install_packages()
+        setup_instrumentation()
+        logger.info("Custom instrumentation setup completed successfully")
+    except Exception as e:
+        logger.error(f"Setup failed: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
+```
+
+#### sitecustomize.py
+```python
+"""
+Custom instrumentation auto-import module
+This module is automatically imported by Python
+"""
+import os
+import logging
+
+def setup_custom_instrumentation():
+    """Initialize custom instrumentation"""
+    if not os.getenv("CUSTOM_INSTRUMENTATION_ENABLED"):
+        return
+        
+    try:
+        # Import and configure OpenTelemetry
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        
+        # Set up tracer provider
+        trace.set_tracer_provider(TracerProvider())
+        tracer = trace.get_tracer(__name__)
+        
+        # Configure OTLP exporter
+        otlp_exporter = OTLPSpanExporter(
+            endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+            headers=parse_headers(os.getenv("OTEL_EXPORTER_OTLP_HEADERS", ""))
+        )
+        
+        # Add span processor
+        span_processor = BatchSpanProcessor(otlp_exporter)
+        trace.get_tracer_provider().add_span_processor(span_processor)
+        
+        # Initialize custom instrumentation
+        setup_custom_auto_instrumentation()
+        
+        print("Custom instrumentation initialized successfully")
+        
+    except Exception as e:
+        print(f"Failed to initialize custom instrumentation: {e}")
+
+def parse_headers(headers_str):
+    """Parse headers from environment variable"""
+    headers = {}
+    if headers_str:
+        for header in headers_str.split(","):
+            if "=" in header:
+                key, value = header.split("=", 1)
+                headers[key.strip()] = value.strip()
+    return headers
+
+def setup_custom_auto_instrumentation():
+    """Set up custom auto-instrumentation"""
+    # Import your custom instrumentation modules
+    try:
+        import my_custom_observability_sdk
+        my_custom_observability_sdk.auto_instrument()
+        
+        # Set up custom metrics
+        setup_custom_metrics()
+        
+        # Set up custom trace enrichment
+        setup_trace_enrichment()
+        
+    except ImportError as e:
+        print(f"Custom SDK not available: {e}")
+
+def setup_custom_metrics():
+    """Configure custom metrics collection"""
+    from opentelemetry import metrics
+    from opentelemetry.sdk.metrics import MeterProvider
+    
+    # Set up custom metrics
+    metrics.set_meter_provider(MeterProvider())
+    meter = metrics.get_meter(__name__)
+    
+    # Example: Custom business metrics
+    business_metric_counter = meter.create_counter(
+        "custom_business_operations_total",
+        description="Total custom business operations"
+    )
+
+def setup_trace_enrichment():
+    """Set up custom trace enrichment"""
+    # Add custom span processors, attributes, etc.
+    pass
+
+# Initialize when module is imported
+setup_custom_instrumentation()
+```
+
+### Example 2: Enterprise Integration
+
+#### Proprietary System Integration
+```python
+# sitecustomize.py for enterprise systems
+import os
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
+
+class EnterpriseSpanExporter(SpanExporter):
+    """Custom exporter for enterprise observability system"""
+    
+    def __init__(self):
+        self.endpoint = os.getenv("ENTERPRISE_OBSERVABILITY_ENDPOINT")
+        self.api_key = os.getenv("ENTERPRISE_API_KEY")
+        
+    def export(self, spans):
+        """Export spans to enterprise system"""
+        try:
+            # Convert OpenTelemetry spans to enterprise format
+            enterprise_data = self.convert_spans(spans)
+            
+            # Send to enterprise system
+            self.send_to_enterprise(enterprise_data)
+            
+            return SpanExportResult.SUCCESS
+        except Exception as e:
+            print(f"Failed to export to enterprise system: {e}")
+            return SpanExportResult.FAILURE
+    
+    def convert_spans(self, spans):
+        """Convert to enterprise format"""
+        # Implement conversion logic
+        pass
+    
+    def send_to_enterprise(self, data):
+        """Send data to enterprise observability system"""
+        # Implement API call to enterprise system
+        pass
+
+# Set up enterprise integration
+def setup_enterprise_instrumentation():
+    """Configure enterprise-specific instrumentation"""
+    if os.getenv("ENTERPRISE_MODE") == "true":
+        # Set up custom tracer with enterprise exporter
+        trace.set_tracer_provider(TracerProvider())
+        
+        enterprise_exporter = EnterpriseSpanExporter()
+        trace.get_tracer_provider().add_span_processor(
+            BatchSpanProcessor(enterprise_exporter)
+        )
+
+setup_enterprise_instrumentation()
+```
+
+## 🔧 Environment Variables
+
+### Custom Configuration Variables
+
+| Variable | Description | Default | Example | Purpose |
+|----------|-------------|---------|---------|---------|
+| `CUSTOM_PACKAGES` | Additional packages to install | `""` | `"my-sdk>=1.0.0"` | Package management |
+| `CUSTOM_INSTRUMENTATION_MODE` | Instrumentation mode | `"standard"` | `"enterprise"` | Behavior control |
+| `CUSTOM_API_ENDPOINT` | Custom API endpoint | `""` | `"https://internal.company.com"` | Integration |
+| `CUSTOM_API_KEY` | Authentication key | `""` | `"key123"` | Authentication |
+
+### Integration Variables
+
+| Variable | Description | Default | Example | Use Case |
+|----------|-------------|---------|---------|----------|
+| `ENTERPRISE_MODE` | Enable enterprise features | `"false"` | `"true"` | Enterprise integration |
+| `LEGACY_SYSTEM_ENDPOINT` | Legacy system endpoint | `""` | `"http://legacy:8080"` | Legacy integration |
+| `CUSTOM_METRICS_ENABLED` | Enable custom metrics | `"true"` | `"false"` | Metrics control |
+| `DEBUG_INSTRUMENTATION` | Debug instrumentation | `"false"` | `"true"` | Debugging |
+
+## 🏗️ Advanced Use Cases
+
+### Use Case 1: Multi-Backend Export
+
+```python
+# Export to multiple backends simultaneously
+class MultiBa​ckendExporter(SpanExporter):
+    def __init__(self, exporters):
+        self.exporters = exporters
+    
+    def export(self, spans):
+        results = []
+        for exporter in self.exporters:
+            try:
+                result = exporter.export(spans)
+                results.append(result)
+            except Exception as e:
+                results.append(SpanExportResult.FAILURE)
+        
+        # Return success if any exporter succeeded
+        return SpanExportResult.SUCCESS if any(
+            r == SpanExportResult.SUCCESS for r in results
+        ) else SpanExportResult.FAILURE
+```
+
+### Use Case 2: Custom Business Metrics
+
+```python
+# Collect domain-specific business metrics
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+
+def setup_business_metrics():
+    """Set up custom business metrics"""
+    # Customer satisfaction metric
+    customer_satisfaction = meter.create_histogram(
+        "ai_customer_satisfaction_score",
+        description="Customer satisfaction with AI responses",
+        unit="score"
+    )
+    
+    # Business revenue impact
+    revenue_impact = meter.create_counter(
+        "ai_revenue_impact_total",
+        description="Revenue impact from AI recommendations",
+        unit="USD"
+    )
+    
+    # Custom cost per interaction
+    cost_per_interaction = meter.create_histogram(
+        "ai_cost_per_interaction",
+        description="Cost per customer interaction",
+        unit="USD"
+    )
+```
+
+### Use Case 3: Custom Trace Enrichment
+
+```python
+# Add custom trace enrichment
+class CustomSpanProcessor(SpanProcessor):
+    def on_start(self, span, parent_context):
+        """Enrich spans on start"""
+        # Add custom attributes
+        span.set_attribute("custom.business_unit", get_business_unit())
+        span.set_attribute("custom.cost_center", get_cost_center())
+        span.set_attribute("custom.environment_tier", get_environment_tier())
+        
+    def on_end(self, span):
+        """Process spans on end"""
+        # Add computed attributes
+        duration = span.end_time - span.start_time
+        span.set_attribute("custom.duration_category", categorize_duration(duration))
+```
+
+## 🚨 Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Custom image not found">
+    **Symptoms:** Init container fails with image pull errors
+    
+    **Solutions:**
+    ```bash
+    # Verify image exists
+    docker pull my-registry.com/custom-openlit:v1.0.0
+    
+    # Check image pull secrets
+    kubectl get secrets
+    
+    # Verify AutoInstrumentation configuration
+    kubectl describe autoinstrumentation custom-instrumentation
+    ```
+  </Accordion>
+  
+  <Accordion title="Setup script fails">
+    **Symptoms:** Init container exits with error
+    
+    **Solutions:**
+    ```bash
+    # Check init container logs
+    kubectl logs pod-name -c openlit-instrumentation
+    
+    # Debug setup script
+    kubectl debug pod-name -it --image=my-registry.com/custom-openlit:v1.0.0
+    
+    # Test script manually
+    python /opt/setup-instrumentation.py
+    ```
+  </Accordion>
+  
+  <Accordion title="Instrumentation not loading">
+    **Symptoms:** Application starts but no telemetry
+    
+    **Solutions:**
+    ```bash
+    # Check sitecustomize.py location
+    kubectl exec pod-name -- python -c "import sitecustomize"
+    
+    # Verify environment variables
+    kubectl exec pod-name -- env | grep CUSTOM
+    
+    # Test instrumentation manually
+    kubectl exec pod-name -- python -c "import my_custom_sdk; print('OK')"
+    ```
+  </Accordion>
+  
+  <Accordion title="Package installation fails">
+    **Symptoms:** Custom packages not installing
+    
+    **Solutions:**
+    ```dockerfile
+    # Update requirements.txt
+    my-custom-package>=1.0.0
+    opentelemetry-api>=1.20.0
+    
+    # Check package availability
+    RUN pip install --dry-run my-custom-package
+    
+    # Use private package index
+    RUN pip install --index-url https://pypi.company.com/simple my-custom-package
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 📈 Performance Optimization
+
+### Memory Optimization
+
+```python
+# Optimize memory usage in custom instrumentation
+def setup_optimized_instrumentation():
+    """Memory-optimized setup"""
+    # Use smaller batch sizes
+    batch_processor = BatchSpanProcessor(
+        exporter,
+        max_queue_size=512,
+        max_export_batch_size=32,
+        export_timeout_millis=5000
+    )
+    
+    # Implement span filtering
+    class FilteringSpanProcessor(SpanProcessor):
+        def on_start(self, span, parent_context):
+            # Filter out noisy spans
+            if should_filter_span(span):
+                span.end()
+```
+
+### Network Optimization
+
+```python
+# Optimize network usage
+def setup_network_optimized_export():
+    """Network-optimized export"""
+    # Use compression
+    exporter = OTLPSpanExporter(
+        endpoint=endpoint,
+        compression=Compression.Gzip
+    )
+    
+    # Implement batching and retries
+    exporter_with_retry = RetryingExporter(exporter)
+```
+
+## 🔒 Security Considerations
+
+### Image Security
+
+```dockerfile
+# Security hardening for custom images
+FROM python:3.11-slim
+
+# Create non-root user
+RUN groupadd -r instrumentation && useradd -r -g instrumentation instrumentation
+
+# Install packages as root, then switch
+COPY requirements.txt /tmp/
+RUN pip install -r /tmp/requirements.txt
+
+# Copy files with correct permissions
+COPY --chown=instrumentation:instrumentation setup-instrumentation.py /opt/
+COPY --chown=instrumentation:instrumentation sitecustomize.py /opt/
+
+# Switch to non-root user
+USER instrumentation
+
+ENTRYPOINT ["python", "/opt/setup-instrumentation.py"]
+```
+
+### Secret Management
+
+```yaml
+# Secure secret handling
+spec:
+  python:
+    instrumentation:
+      env:
+      - name: CUSTOM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: custom-instrumentation-secret
+            key: api-key
+      - name: ENTERPRISE_CERT
+        valueFrom:
+          secretKeyRef:
+            name: enterprise-certs
+            key: client.crt
+```
+
+## 📖 Best Practices
+
+### Development Workflow
+
+1. **Local Development**: Test custom instrumentation locally first
+2. **Image Versioning**: Use semantic versioning for custom images
+3. **Documentation**: Document custom variables and behavior
+4. **Testing**: Implement automated testing for custom instrumentation
+5. **Monitoring**: Monitor custom instrumentation performance
+
+### Production Deployment
+
+1. **Image Security**: Scan images for vulnerabilities
+2. **Resource Limits**: Set appropriate resource limits
+3. **Rollback Strategy**: Plan for rollback scenarios
+4. **Monitoring**: Monitor custom instrumentation health
+5. **Support**: Establish support procedures for custom code
+
+## 📖 Next Steps
+
+<CardGroup cols={2}>
+  <Card title="🚀 OpenLIT Provider" href="/latest/operator/instrumentations-openlit" icon="rocket">
+    Compare with full-featured OpenLIT instrumentation
+  </Card>
+  <Card title="📊 OpenInference Provider" href="/latest/operator/instrumentations-openinference" icon="chart-bar">
+    Explore OpenTelemetry standard compliance
+  </Card>
+  <Card title="🌐 Destinations" href="/latest/operator/destinations-overview" icon="globe">
+    Configure trace destinations and backends
+  </Card>
+  <Card title="🔧 Troubleshooting" href="/latest/operator/troubleshooting" icon="wrench">
+    Debug custom instrumentation issues
+  </Card>
+</CardGroup>

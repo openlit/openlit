@@ -132,15 +132,15 @@ spec:
         fsGroup: 0
       containers:
       - name: operator
-        image: openlit-operator:latest    # Using locally built image
-        imagePullPolicy: Never   # Use locally built image
+        image: ghcr.io/openlit/openlit-operator:latest
+        imagePullPolicy: IfNotPresent
         
         # Environment variables for operator configuration
         env:
         # Operator Infrastructure Configuration
         # Essential environment variables for local deployment
         - name: OPENLIT_DEFAULT_INIT_IMAGE
-          value: "openlit-instrumentation:latest"
+          value: "ghcr.io/openlit/openlit-ai-instrumentation:latest"
         - name: LOG_LEVEL
           value: "debug"
         - name: WEBHOOK_FAILURE_POLICY

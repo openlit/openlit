@@ -1,0 +1,788 @@
+---
+title: 'Usage Examples'
+description: 'Real-world examples and patterns for the OpenLIT Operator'
+icon: 'code'
+---
+
+Learn how to use the OpenLIT Operator with practical examples, real-world scenarios, and proven patterns for AI application observability.
+
+## 🚀 Quick Start Example
+
+Let's start with a simple Python application using OpenAI:
+
+### 1. Deploy Your Application
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-chatbot
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-chatbot
+  template:
+    metadata:
+      labels:
+        app: ai-chatbot
+        openlit.io/instrument: "true"  # 🎯 Key label for instrumentation
+    spec:
+      containers:
+      - name: chatbot
+        image: python:3.11-slim
+        command: ["python", "-c"]
+        args:
+        - |
+          import openai
+          import time
+          
+          client = openai.OpenAI(api_key="your-api-key")
+          
+          while True:
+              response = client.chat.completions.create(
+                  model="gpt-3.5-turbo",
+                  messages=[{"role": "user", "content": "Hello!"}]
+              )
+              print(f"Response: {response.choices[0].message.content}")
+              time.sleep(30)
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-secret
+              key: api-key
+```
+
+### 2. Create AutoInstrumentation
+
+```yaml
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: chatbot-instrumentation
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      openlit.io/instrument: "true"
+  otlp:
+    endpoint: "http://openlit:4318"
+```
+
+### 3. Apply and Observe
+
+```bash
+kubectl apply -f chatbot-deployment.yaml
+kubectl apply -f instrumentation.yaml
+
+# Watch the magic happen! 🎉
+kubectl get pods -w
+kubectl logs -f deployment/ai-chatbot
+```
+
+The operator automatically:
+- Detects the labeled pod
+- Injects OpenLIT instrumentation
+- Enables zero-code observability for OpenAI calls
+
+## 🏗️ Framework-Specific Examples
+
+### LangChain Application
+
+```yaml
+# LangChain RAG application
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langchain-rag
+spec:
+  template:
+    metadata:
+      labels:
+        app: langchain-rag
+        ai-framework: langchain
+        openlit.io/instrument: "true"
+    spec:
+      containers:
+      - name: rag-service
+        image: my-registry/langchain-rag:latest
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-secret
+              key: api-key
+
+---
+# LangChain-specific instrumentation
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: langchain-instrumentation
+spec:
+  selector:
+    matchLabels:
+      ai-framework: langchain
+  python:
+    instrumentation:
+      provider: "openlit"
+      customPackages: "langchain>=0.1.0,chromadb>=0.4.0,faiss-cpu>=1.7.0"
+  otlp:
+    endpoint: "http://openlit:4318"
+  resource:
+    environment: "production"
+```
+
+### LlamaIndex Application
+
+```yaml
+# LlamaIndex document processing
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: document-indexing
+spec:
+  template:
+    metadata:
+      labels:
+        app: document-indexing
+        ai-framework: llamaindex
+        openlit.io/instrument: "true"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: indexer
+        image: my-registry/llamaindex-indexer:latest
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-secret
+              key: api-key
+
+---
+# LlamaIndex instrumentation
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: llamaindex-instrumentation
+spec:
+  selector:
+    matchLabels:
+      ai-framework: llamaindex
+  python:
+    instrumentation:
+      provider: "openlit"
+      customPackages: "llama-index>=0.9.0,pinecone-client>=2.2.0"
+  otlp:
+    endpoint: "http://openlit:4318"
+```
+
+### Multi-Agent CrewAI System
+
+```yaml
+# CrewAI multi-agent system
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crewai-agents
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: crewai-agents
+        ai-framework: crewai
+        openlit.io/instrument: "true"
+    spec:
+      containers:
+      - name: agent-system
+        image: my-registry/crewai-system:latest
+        env:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-secret
+              key: api-key
+
+---
+# CrewAI instrumentation with detailed tracing
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: crewai-instrumentation
+spec:
+  selector:
+    matchLabels:
+      ai-framework: crewai
+  python:
+    instrumentation:
+      provider: "openlit"
+      customPackages: "crewai>=0.1.0,langchain>=0.1.0"
+      env:
+      - name: OPENLIT_DETAILED_TRACING
+        value: "true"
+  otlp:
+    endpoint: "http://openlit:4318"
+  resource:
+    environment: "production"
+    serviceName: "crewai-agents"
+```
+
+## 🌍 Multi-Environment Patterns
+
+### Development Environment
+
+```yaml
+# Development namespace configuration
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: dev-instrumentation
+  namespace: development
+spec:
+  selector:
+    matchLabels:
+      environment: development
+  python:
+    instrumentation:
+      provider: "openlit"
+      version: "latest"
+      # Enable debug logging in development
+      env:
+      - name: OPENLIT_LOG_LEVEL
+        value: "DEBUG"
+  otlp:
+    endpoint: "http://openlit-dev:4318"
+    timeout: 10  # Shorter timeout for dev
+  resource:
+    environment: "development"
+```
+
+### Staging Environment
+
+```yaml
+# Staging namespace configuration
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: staging-instrumentation
+  namespace: staging
+spec:
+  selector:
+    matchLabels:
+      environment: staging
+  python:
+    instrumentation:
+      provider: "openlit"
+      version: "v1.2.0"  # Pinned version for staging
+  otlp:
+    endpoint: "http://openlit-staging:4318"
+    headers: "x-environment=staging"
+  resource:
+    environment: "staging"
+```
+
+### Production Environment
+
+```yaml
+# Production namespace configuration
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: production-instrumentation
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      environment: production
+    matchExpressions:
+    - key: "openlit.io/skip"
+      operator: DoesNotExist
+  python:
+    instrumentation:
+      provider: "openlit"
+      version: "v1.1.5"  # Stable version for production
+      imagePullPolicy: "IfNotPresent"
+      env:
+      - name: OPENLIT_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: openlit-prod-secret
+            key: api-key
+  otlp:
+    endpoint: "https://traces.company.com:4318"
+    headers: "authorization=Bearer prod-token"
+    timeout: 60
+  resource:
+    environment: "production"
+```
+
+## 👥 Team-Based Configuration
+
+### Data Science Team
+
+```yaml
+# Data science workloads
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: datascience-instrumentation
+  namespace: datascience
+spec:
+  selector:
+    matchLabels:
+      team: datascience
+  python:
+    instrumentation:
+      provider: "openlit"
+      customPackages: "pandas>=1.5.0,numpy>=1.21.0,scikit-learn>=1.0.0,jupyter>=1.0.0"
+  otlp:
+    endpoint: "http://openlit:4318"
+  resource:
+    environment: "research"
+    serviceNamespace: "datascience"
+
+---
+# Example data science pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ml-experiment
+  namespace: datascience
+  labels:
+    team: datascience
+    project: customer-churn
+spec:
+  containers:
+  - name: experiment
+    image: jupyter/datascience-notebook:latest
+    command: ["python", "train_model.py"]
+```
+
+### AI Platform Team
+
+```yaml
+# AI platform services
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: ai-platform-instrumentation
+  namespace: ai-platform
+spec:
+  selector:
+    matchLabels:
+      team: ai-platform
+  python:
+    instrumentation:
+      provider: "openlit"
+      customPackages: "openai>=1.0.0,anthropic>=0.8.0,langchain>=0.1.0"
+      env:
+      - name: OPENLIT_COST_TRACKING
+        value: "true"
+  otlp:
+    endpoint: "http://openlit:4318"
+  resource:
+    serviceNamespace: "ai-platform"
+
+---
+# Example AI platform service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-gateway
+  namespace: ai-platform
+spec:
+  template:
+    metadata:
+      labels:
+        app: ai-gateway
+        team: ai-platform
+    spec:
+      containers:
+      - name: gateway
+        image: my-registry/ai-gateway:latest
+```
+
+## 🔧 Advanced Patterns
+
+### Custom Provider Setup
+
+```yaml
+# Custom instrumentation provider
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: custom-instrumentation
+spec:
+  selector:
+    matchLabels:
+      custom-instrumentation: "true"
+  python:
+    instrumentation:
+      provider: "custom"
+      customInitImage: "my-registry.com/custom-openlit:v2.0.0"
+      imagePullPolicy: "Always"
+      customPackages: "my-custom-package>=1.0.0"
+  otlp:
+    endpoint: "http://custom-collector:4318"
+```
+
+### Selective Instrumentation
+
+```yaml
+# Instrument only specific application types
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: selective-instrumentation
+spec:
+  selector:
+    matchExpressions:
+    - key: "app.type"
+      operator: In
+      values: ["chatbot", "rag-service", "agent-system"]
+    - key: "version"
+      operator: NotIn
+      values: ["beta", "alpha"]
+  ignore:
+    matchLabels:
+      maintenance-mode: "true"
+      debug-pod: "true"
+  python:
+    instrumentation:
+      provider: "openlit"
+  otlp:
+    endpoint: "http://openlit:4318"
+```
+
+### Performance-Optimized Configuration
+
+```yaml
+# High-performance production setup
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: performance-instrumentation
+spec:
+  selector:
+    matchLabels:
+      performance-tier: "high"
+  python:
+    instrumentation:
+      provider: "openlit"
+      imagePullPolicy: "IfNotPresent"  # Faster pod startup
+      env:
+      - name: OPENLIT_BATCH_SIZE
+        value: "100"
+      - name: OPENLIT_EXPORT_INTERVAL
+        value: "5000"
+  otlp:
+    endpoint: "http://high-perf-collector:4318"
+    timeout: 30
+  resource:
+    environment: "production"
+```
+
+## 🔍 Monitoring and Debugging
+
+### Debug Configuration
+
+```yaml
+# Enhanced debugging setup
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: debug-instrumentation
+spec:
+  selector:
+    matchLabels:
+      debug-mode: "enabled"
+  python:
+    instrumentation:
+      provider: "openlit"
+      env:
+      - name: OPENLIT_LOG_LEVEL
+        value: "DEBUG"
+      - name: OPENLIT_CONSOLE_EXPORTER
+        value: "true"  # Export traces to console
+      - name: OPENLIT_DETAILED_TRACING
+        value: "true"
+  otlp:
+    endpoint: "http://openlit:4318"
+    timeout: 5  # Quick timeout for debugging
+```
+
+### Monitoring Setup
+
+```yaml
+# Application with monitoring labels
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitored-app
+spec:
+  template:
+    metadata:
+      labels:
+        app: monitored-app
+        openlit.io/instrument: "true"
+        monitor: "enabled"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+      - name: app
+        image: my-app:latest
+        ports:
+        - containerPort: 8080
+          name: metrics
+
+---
+# Monitoring-aware instrumentation
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: monitoring-instrumentation
+spec:
+  selector:
+    matchLabels:
+      monitor: "enabled"
+  python:
+    instrumentation:
+      provider: "openlit"
+      env:
+      - name: OPENLIT_METRICS_ENABLED
+        value: "true"
+      - name: OPENLIT_METRICS_PORT
+        value: "8080"
+  otlp:
+    endpoint: "http://openlit:4318"
+```
+
+## 🧪 Testing Patterns
+
+### Integration Testing
+
+```yaml
+# Test environment setup
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: test-instrumentation
+  namespace: testing
+spec:
+  selector:
+    matchLabels:
+      test-run: "integration"
+  python:
+    instrumentation:
+      provider: "openlit"
+      env:
+      - name: OPENLIT_TEST_MODE
+        value: "true"
+      - name: OPENLIT_EXPORT_INTERVAL
+        value: "1000"  # Fast export for testing
+  otlp:
+    endpoint: "http://test-collector:4318"
+    timeout: 5
+
+---
+# Test job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: integration-test
+  namespace: testing
+spec:
+  template:
+    metadata:
+      labels:
+        test-run: integration
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: test
+        image: my-test-suite:latest
+        command: ["pytest", "tests/integration/"]
+```
+
+### A/B Testing
+
+```yaml
+# Version A instrumentation
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: version-a-instrumentation
+spec:
+  selector:
+    matchLabels:
+      version: "a"
+      experiment: "feature-test"
+  python:
+    instrumentation:
+      provider: "openlit"
+      env:
+      - name: OPENLIT_EXPERIMENT_VERSION
+        value: "a"
+  otlp:
+    endpoint: "http://openlit:4318"
+    headers: "x-experiment=version-a"
+
+---
+# Version B instrumentation  
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: version-b-instrumentation
+spec:
+  selector:
+    matchLabels:
+      version: "b"
+      experiment: "feature-test"
+  python:
+    instrumentation:
+      provider: "openlit"
+      env:
+      - name: OPENLIT_EXPERIMENT_VERSION
+        value: "b"
+  otlp:
+    endpoint: "http://openlit:4318"
+    headers: "x-experiment=version-b"
+```
+
+## 🚀 Production Best Practices
+
+### Resource Management
+
+```yaml
+# Production-ready configuration
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: production-best-practices
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      tier: production
+  python:
+    instrumentation:
+      provider: "openlit"
+      version: "v1.2.0"  # Pinned stable version
+      imagePullPolicy: "IfNotPresent"
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "128Mi"
+        limits:
+          cpu: "200m"
+          memory: "256Mi"
+      env:
+      - name: OPENLIT_SAMPLING_RATE
+        value: "0.1"  # 10% sampling for high-volume apps
+  otlp:
+    endpoint: "https://prod-traces.company.com:4318"
+    headers: "authorization=Bearer ${PROD_TOKEN}"
+    timeout: 60
+  resource:
+    environment: "production"
+```
+
+### Security Hardened
+
+```yaml
+# Security-focused configuration
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: secure-instrumentation
+  namespace: secure-apps
+spec:
+  selector:
+    matchLabels:
+      security-level: "high"
+  python:
+    instrumentation:
+      provider: "openlit"
+      imagePullPolicy: "Always"  # Always pull latest security updates
+      env:
+      - name: OPENLIT_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: secure-secret
+            key: api-key
+      - name: OPENLIT_DISABLE_CONSOLE_LOGS
+        value: "true"  # Prevent log exposure
+  otlp:
+    endpoint: "https://secure-traces.company.com:4318"
+    headers: "authorization=Bearer ${SECURE_TOKEN}"
+  resource:
+    environment: "production"
+    serviceName: "secure-service"
+```
+
+## 📊 Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="🤖 Chatbot Applications">
+    Perfect for monitoring conversational AI applications with OpenAI, Anthropic, or local models.
+    ```yaml
+    labels:
+      app.type: "chatbot"
+      ai-provider: "openai"
+      openlit.io/instrument: "true"
+    ```
+  </Accordion>
+  
+  <Accordion title="📚 RAG Systems">
+    Ideal for Retrieval-Augmented Generation pipelines with vector databases.
+    ```yaml
+    labels:
+      app.type: "rag-service"
+      vector-db: "chromadb"
+      openlit.io/instrument: "true"
+    ```
+  </Accordion>
+  
+  <Accordion title="🔍 Document Processing">
+    Monitor document analysis and processing workflows.
+    ```yaml
+    labels:
+      app.type: "document-processor"
+      framework: "llamaindex"
+      openlit.io/instrument: "true"
+    ```
+  </Accordion>
+  
+  <Accordion title="🧠 Multi-Agent Systems">
+    Observe complex multi-agent AI systems and their interactions.
+    ```yaml
+    labels:
+      app.type: "agent-system"
+      framework: "crewai"
+      openlit.io/instrument: "true"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 📖 Next Steps
+
+<CardGroup cols={2}>
+  <Card title="🔧 Troubleshooting" href="/latest/operator/troubleshooting" icon="wrench">
+    Debug common issues and problems
+  </Card>
+  <Card title="🔒 Security" href="/latest/operator/security" icon="shield-check">
+    Implement security best practices
+  </Card>
+  <Card title="🏗️ Architecture" href="/latest/operator/architecture" icon="sitemap">
+    Understand the technical details
+  </Card>
+  <Card title="📚 API Reference" href="/latest/operator/api-reference" icon="book">
+    Complete API documentation
+  </Card>
+</CardGroup>

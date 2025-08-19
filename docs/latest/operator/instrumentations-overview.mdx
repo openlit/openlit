@@ -1,0 +1,415 @@
+---
+title: 'Instrumentations Overview'
+description: 'Understanding OpenLIT Operator instrumentation providers and capabilities'
+---
+
+The OpenLIT Operator supports multiple instrumentation providers, each offering different capabilities and approaches to AI observability. This overview helps you choose the right provider for your use case.
+
+## 🎯 What is Instrumentation?
+
+Instrumentation is the process of adding observability code to your applications to collect telemetry data such as:
+
+- **Traces**: Detailed execution flows showing request paths
+- **Metrics**: Quantitative measurements of performance and usage  
+- **Logs**: Structured event records for debugging and monitoring
+- **Costs**: Token usage and estimated API costs
+
+The OpenLIT Operator automatically injects instrumentation code into your applications without requiring code changes.
+
+## 🔧 How Instrumentation Works
+
+<Steps>
+  <Step title="Webhook Interception">
+    The operator intercepts pod creation requests via an admission webhook
+  </Step>
+  
+  <Step title="Label Matching">
+    Checks if the pod matches any AutoInstrumentation selector labels
+  </Step>
+  
+  <Step title="Init Container Injection">
+    Injects an init container with the selected instrumentation provider
+  </Step>
+  
+  <Step title="Environment Setup">
+    The init container installs instrumentation packages and sets up environment variables
+  </Step>
+  
+  <Step title="Application Start">
+    Your application starts with instrumentation automatically enabled
+  </Step>
+  
+  <Step title="Telemetry Collection">
+    Traces, metrics, and costs are automatically collected and sent to your OTLP endpoint
+  </Step>
+</Steps>
+
+## 🏗️ Supported Providers
+
+The operator supports four instrumentation providers:
+
+<CardGroup cols={2}>
+  <Card title="🚀 OpenLIT" href="/latest/operator/instrumentations-openlit" icon="rocket">
+    **Full-featured provider**
+    
+    Complete AI observability with cost tracking, performance metrics, and business intelligence
+  </Card>
+  
+  <Card title="📊 OpenInference" href="/latest/operator/instrumentations-openinference" icon="chart-bar">
+    **Standard-compliant provider**
+    
+    OpenTelemetry standard compliance with broad compatibility and vendor neutrality
+  </Card>
+  
+  <Card title="🤖 OpenLLMetry" href="/latest/operator/instrumentations-openllmetry" icon="brain">
+    **LLM-focused provider**
+    
+    Specialized LLM observability with deep language model insights
+  </Card>
+  
+  <Card title="🔧 Custom" href="/latest/operator/instrumentations-custom" icon="gear">
+    **Custom provider**
+    
+    Bring your own instrumentation image with custom implementations
+  </Card>
+</CardGroup>
+
+## 📊 Provider Comparison
+
+| Feature | OpenLIT | OpenInference | OpenLLMetry | Custom |
+|---------|---------|---------------|-------------|--------|
+| **LLM Providers** | 50+ | 40+ | 30+ | Depends |
+| **AI Frameworks** | 20+ | 15+ | 10+ | Depends |
+| **Vector DBs** | 10+ | 8+ | 5+ | Depends |
+| **Cost Tracking** | ✅ Advanced | ✅ Basic | ✅ Basic | Depends |
+| **Performance Metrics** | ✅ Comprehensive | ✅ Standard | ✅ Standard | Depends |
+| **Business Intelligence** | ✅ Built-in | ❌ | ❌ | Depends |
+| **Prompt Management** | ✅ | ❌ | ❌ | Depends |
+| **Guardrails** | ✅ | ❌ | ❌ | Depends |
+| **OpenTelemetry Compatible** | ✅ | ✅ | ✅ | Depends |
+| **Vendor Lock-in** | Low | None | Low | None |
+
+## 🎯 Choosing the Right Provider
+
+### Use OpenLIT When:
+
+- **Business Intelligence**: You need cost tracking, performance analytics, and business metrics
+- **Complete Solution**: You want an all-in-one AI observability platform
+- **Rapid Development**: You need quick setup with comprehensive features
+- **Team Collaboration**: You need prompt management and team features
+- **Production Ready**: You require enterprise-grade features and support
+
+### Use OpenInference When:
+
+- **Standard Compliance**: You prioritize OpenTelemetry standard compliance
+- **Vendor Neutrality**: You want to avoid any vendor lock-in
+- **Multi-Backend**: You send data to multiple observability backends
+- **Compliance Requirements**: You need strict adherence to open standards
+- **Future Flexibility**: You want maximum portability between tools
+
+### Use OpenLLMetry When:
+
+- **LLM Focus**: Your primary concern is language model observability
+- **Lightweight**: You prefer a focused, lightweight solution
+- **Specific Needs**: You have specific LLM monitoring requirements
+- **Integration**: You're already using OpenLLMetry in other environments
+
+### Use Custom When:
+
+- **Unique Requirements**: You have specific instrumentation needs
+- **Legacy Systems**: You need to integrate with existing observability tools
+- **Custom Metrics**: You require custom telemetry collection
+- **Full Control**: You want complete control over instrumentation logic
+
+## 🏗️ Architecture Patterns
+
+### Single Provider Setup
+
+Most common pattern - use one provider across all applications:
+
+```yaml
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: global-instrumentation
+spec:
+  selector:
+    matchLabels:
+      openlit.io/instrument: "true"
+  python:
+    instrumentation:
+      provider: "openlit"  # Single provider for all apps
+  otlp:
+    endpoint: "http://openlit:4318"
+```
+
+### Multi-Provider Setup
+
+Different providers for different application types:
+
+```yaml
+# Production apps use OpenLIT
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: production-instrumentation
+spec:
+  selector:
+    matchLabels:
+      environment: "production"
+  python:
+    instrumentation:
+      provider: "openlit"
+  otlp:
+    endpoint: "http://openlit:4318"
+
+---
+# Research apps use OpenInference
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: research-instrumentation
+spec:
+  selector:
+    matchLabels:
+      team: "research"
+  python:
+    instrumentation:
+      provider: "openinference"
+  otlp:
+    endpoint: "http://research-collector:4318"
+```
+
+### Framework-Specific Setup
+
+Different providers optimized for specific frameworks:
+
+```yaml
+# LangChain apps use OpenLIT for business features
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: langchain-instrumentation
+spec:
+  selector:
+    matchLabels:
+      ai-framework: "langchain"
+  python:
+    instrumentation:
+      provider: "openlit"
+      customPackages: "langchain>=0.1.0"
+
+---
+# Experimental frameworks use OpenInference for flexibility
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: experimental-instrumentation
+spec:
+  selector:
+    matchLabels:
+      experimental: "true"
+  python:
+    instrumentation:
+      provider: "openinference"
+```
+
+## 🚀 Getting Started
+
+### Quick Start with OpenLIT
+
+For most users, OpenLIT provides the best starting experience:
+
+```yaml
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: quickstart-openlit
+spec:
+  selector:
+    matchLabels:
+      openlit.io/instrument: "true"
+  python:
+    instrumentation:
+      provider: "openlit"
+      version: "latest"
+  otlp:
+    endpoint: "http://openlit:4318"
+```
+
+### Standard Compliance with OpenInference
+
+For standards-focused deployments:
+
+```yaml
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: standards-openinference
+spec:
+  selector:
+    matchLabels:
+      openlit.io/instrument: "true"
+  python:
+    instrumentation:
+      provider: "openinference"
+      version: "latest"
+  otlp:
+    endpoint: "http://otel-collector:4318"
+```
+
+## 📦 Package Management
+
+### Automatic Package Installation
+
+All providers automatically install required packages:
+
+| Provider | Core Packages | Auto-Installed |
+|----------|---------------|----------------|
+| **OpenLIT** | `openlit`, `opentelemetry-*` | ✅ |
+| **OpenInference** | `openinference-*`, `opentelemetry-*` | ✅ |
+| **OpenLLMetry** | `openllmetry`, `opentelemetry-*` | ✅ |
+| **Custom** | User-defined | Depends |
+
+### Custom Package Installation
+
+Add framework-specific packages:
+
+```yaml
+spec:
+  python:
+    instrumentation:
+      provider: "openlit"
+      customPackages: "langchain>=0.1.0,chromadb>=0.4.0,pinecone-client>=2.0.0"
+```
+
+**Supported package formats:**
+- Simple names: `langchain`, `chromadb`
+- Version constraints: `langchain>=0.1.0`, `chromadb==0.4.0`
+- Complex specifications: `langchain>=0.1.0,<0.2.0`
+
+## 🔄 Migration Between Providers
+
+### Switching Providers
+
+Change providers by updating the AutoInstrumentation:
+
+```yaml
+# Before: OpenInference
+spec:
+  python:
+    instrumentation:
+      provider: "openinference"
+
+# After: OpenLIT
+spec:
+  python:
+    instrumentation:
+      provider: "openlit"
+```
+
+### Data Compatibility
+
+| Migration Path | Compatibility | Notes |
+|----------------|---------------|-------|
+| OpenInference → OpenLIT | ✅ High | Similar trace structure |
+| OpenLLMetry → OpenLIT | ✅ High | Similar LLM focus |
+| OpenLIT → OpenInference | ⚠️ Partial | Some features may be lost |
+| Any → Custom | 🔧 Depends | Requires custom implementation |
+
+### Migration Best Practices
+
+1. **Test in Staging**: Always test provider changes in non-production environments
+2. **Gradual Rollout**: Migrate applications incrementally
+3. **Monitor Metrics**: Watch for changes in telemetry data structure
+4. **Backup Configuration**: Keep previous AutoInstrumentation configs
+5. **Update Dashboards**: Adjust monitoring dashboards for new data structures
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Provider image not found">
+    **Symptoms:** Init container fails with image pull errors
+    
+    **Solutions:**
+    ```bash
+    # Check image exists
+    docker pull ghcr.io/openlit/openlit-ai-instrumentation:latest
+    
+    # Verify AutoInstrumentation config
+    kubectl get autoinstrumentation -o yaml
+    
+    # Check operator logs
+    kubectl logs -n openlit deployment/openlit-operator
+    ```
+  </Accordion>
+  
+  <Accordion title="Instrumentation packages conflict">
+    **Symptoms:** Application fails to start with package conflicts
+    
+    **Solutions:**
+    ```yaml
+    # Use specific versions
+    spec:
+      python:
+        instrumentation:
+          customPackages: "langchain==0.1.0,openai==1.0.0"
+    ```
+  </Accordion>
+  
+  <Accordion title="No telemetry data">
+    **Symptoms:** Applications start but no traces appear
+    
+    **Solutions:**
+    ```bash
+    # Check environment variables
+    kubectl exec pod-name -- env | grep OTEL
+    
+    # Verify OTLP endpoint
+    kubectl exec pod-name -- curl http://openlit:4318/v1/traces
+    
+    # Check application logs
+    kubectl logs pod-name | grep -i opentelemetry
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 📈 Performance Considerations
+
+### Resource Usage by Provider
+
+| Provider | Init Time | Memory Overhead | Package Size | Startup Impact |
+|----------|-----------|-----------------|--------------|----------------|
+| **OpenLIT** | ~30s | ~50MB | ~100MB | Low |
+| **OpenInference** | ~25s | ~40MB | ~80MB | Low |
+| **OpenLLMetry** | ~20s | ~35MB | ~60MB | Minimal |
+| **Custom** | Varies | Varies | Varies | Depends |
+
+### Optimization Tips
+
+1. **Pin Versions**: Use specific provider versions for predictable performance
+2. **Minimal Packages**: Only install required custom packages
+3. **Resource Limits**: Set appropriate resource limits for init containers
+4. **Image Caching**: Use consistent base images for better caching
+5. **Parallel Installation**: Enable parallel package installation where possible
+
+## 📖 Next Steps
+
+Explore specific provider documentation:
+
+<CardGroup cols={2}>
+  <Card title="🚀 OpenLIT Provider" href="/latest/operator/instrumentations-openlit" icon="rocket">
+    Complete AI observability with business intelligence
+  </Card>
+  <Card title="📊 OpenInference Provider" href="/latest/operator/instrumentations-openinference" icon="chart-bar">
+    OpenTelemetry standard compliance and compatibility
+  </Card>
+  <Card title="🤖 OpenLLMetry Provider" href="/latest/operator/instrumentations-openllmetry" icon="brain">
+    Specialized LLM observability and monitoring
+  </Card>
+  <Card title="🔧 Custom Provider" href="/latest/operator/instrumentations-custom" icon="gear">
+    Build your own instrumentation solutions
+  </Card>
+</CardGroup>

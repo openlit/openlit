@@ -1,0 +1,624 @@
+---
+title: 'Installation'
+description: 'Production-ready installation guide for OpenLIT Operator'
+---
+
+This comprehensive installation guide covers everything you need to deploy the OpenLIT Operator in production Kubernetes environments, from cluster setup to advanced configuration options.
+
+## 🏗️ Kubernetes Setup
+
+### Cluster Requirements
+
+Before installing the OpenLIT Operator, ensure your Kubernetes cluster meets these requirements:
+
+| Requirement | Minimum | Recommended | Notes |
+|-------------|---------|-------------|-------|
+| **Kubernetes Version** | 1.19+ | 1.25+ | Stable API support |
+| **RBAC** | Enabled | Enabled | Required for operator permissions |
+| **Admission Controllers** | MutatingAdmissionWebhook | ValidatingAdmissionWebhook + MutatingAdmissionWebhook | Webhook functionality |
+| **DNS** | CoreDNS/kube-dns | CoreDNS | Service discovery |
+| **Container Runtime** | containerd/docker | containerd | OCI compatibility |
+
+### Resource Requirements
+
+| Component | CPU | Memory | Storage | Notes |
+|-----------|-----|---------|---------|-------|
+| **Operator** | 100m | 128Mi | - | Per replica |
+| **Webhook** | 50m | 64Mi | - | Included in operator |
+| **Init Containers** | 100m | 256Mi | - | Per instrumented pod |
+
+### Network Requirements
+
+| Port | Protocol | Source | Destination | Purpose |
+|------|----------|--------|-------------|---------|
+| 443/9443 | HTTPS | API Server | Operator Webhook | Admission webhook |
+| 8080 | HTTP | Prometheus | Operator | Metrics scraping |
+| 4317/4318 | gRPC/HTTP | Instrumented Apps | OTLP Collector | Telemetry export |
+
+## 🔧 Prerequisites
+
+### 1. Kubernetes Cluster Access
+
+Verify you have proper cluster access:
+
+```bash
+# Check cluster connection
+kubectl cluster-info
+
+# Verify RBAC is enabled
+kubectl api-resources | grep rbac
+
+# Check admission controllers
+kubectl get validatingwebhookconfigurations
+kubectl get mutatingwebhookconfigurations
+
+# Verify you have admin permissions
+kubectl auth can-i create customresourcedefinitions
+kubectl auth can-i create clusterroles
+kubectl auth can-i create clusterrolebindings
+```
+
+### 2. Helm Installation
+
+Install Helm 3.0+ if not already available:
+
+<Tabs>
+  <Tab title="macOS">
+    ```bash
+    # Using Homebrew
+    brew install helm
+    
+    # Using installer script
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    ```
+  </Tab>
+  
+  <Tab title="Linux">
+    ```bash
+    # Using package manager (Ubuntu/Debian)
+    curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+    sudo apt-get update
+    sudo apt-get install helm
+    
+    # Using installer script
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    ```powershell
+    # Using Chocolatey
+    choco install kubernetes-helm
+    
+    # Using Scoop
+    scoop install helm
+    
+    # Using installer script
+    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    bash get_helm.sh
+    ```
+  </Tab>
+</Tabs>
+
+Verify Helm installation:
+
+```bash
+helm version
+helm repo list
+```
+
+### 3. Container Registry Access
+
+Ensure your cluster can pull images from GitHub Container Registry:
+
+```bash
+# Test image pull (optional)
+kubectl run test-pull --image=ghcr.io/openlit/openlit-operator:latest --rm -it --restart=Never -- echo "Image pull successful"
+```
+
+For private registries, create image pull secrets:
+
+```bash
+# Create image pull secret
+kubectl create secret docker-registry openlit-registry \
+  --docker-server=your-registry.com \
+  --docker-username=your-username \
+  --docker-password=your-password \
+  --docker-email=your-email@company.com
+```
+
+## 🚀 OpenLIT Platform Installation
+
+### 1. Install OpenLIT Observability Platform
+
+Before installing the operator, deploy the OpenLIT platform to collect telemetry:
+
+```bash
+# Add OpenLIT Helm repository
+helm repo add openlit https://openlit.github.io/helm/
+helm repo update
+```
+
+### Basic OpenLIT Installation
+
+```bash
+# Install with default configuration
+helm install openlit openlit/openlit \
+  --create-namespace \
+  --namespace openlit \
+  --set postgresql.enabled=true \
+  --set clickhouse.enabled=true
+```
+
+### Production OpenLIT Installation
+
+For production environments, use external databases:
+
+```bash
+# Production installation with external databases
+helm install openlit openlit/openlit \
+  --create-namespace \
+  --namespace openlit \
+  --set postgresql.enabled=false \
+  --set clickhouse.enabled=false \
+  --set externalPostgresql.host=postgres.company.com \
+  --set externalPostgresql.port=5432 \
+  --set externalPostgresql.database=openlit \
+  --set externalPostgresql.username=openlit \
+  --set externalPostgresql.password=secure-password \
+  --set externalClickhouse.host=clickhouse.company.com \
+  --set externalClickhouse.port=8123 \
+  --set externalClickhouse.database=openlit \
+  --set externalClickhouse.username=openlit \
+  --set externalClickhouse.password=secure-password
+```
+
+### Verify OpenLIT Installation
+
+```bash
+# Wait for OpenLIT to be ready
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=openlit -n openlit --timeout=300s
+
+# Check all pods are running
+kubectl get pods -n openlit
+
+# Verify services
+kubectl get services -n openlit
+
+# Check OpenLIT logs
+kubectl logs -n openlit deployment/openlit
+```
+
+## 🔧 Operator Installation
+
+### 1. Add Helm Repository
+
+```bash
+# Add the OpenLIT Helm repository (if not already added)
+helm repo add openlit https://openlit.github.io/helm/
+helm repo update
+
+# Verify chart availability
+helm search repo openlit/openlit-operator
+```
+
+### 2. Basic Installation
+
+```bash
+# Install with default configuration
+helm install openlit-operator openlit/openlit-operator \
+  --namespace openlit
+```
+
+### 3. Production Installation
+
+Create a production values file:
+
+```yaml
+# production-values.yaml
+# High Availability Configuration
+replicaCount: 3
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Resource Management
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Security Configuration
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  runAsGroup: 65534
+  fsGroup: 65534
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+    - ALL
+
+# Image Configuration
+image:
+  repository: ghcr.io/openlit/openlit-operator
+  tag: "v1.0.0"  # Pin to specific version in production
+  pullPolicy: IfNotPresent
+
+# Provider Images
+providerImages:
+  openlit:
+    repository: ghcr.io/openlit/openlit-ai-instrumentation
+    tag: ""  # Inherits operator version
+  openinference:
+    repository: ghcr.io/openlit/openinference-ai-instrumentation
+    tag: ""
+  openllmetry:
+    repository: ghcr.io/openlit/openllmetry-ai-instrumentation
+    tag: ""
+
+# Webhook Configuration
+webhook:
+  port: 9443
+  failurePolicy: Fail
+  timeoutSeconds: 10
+
+# Observability
+observability:
+  enableMetrics: true
+  logLevel: info
+  logFormat: json
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  labels:
+    release: prometheus
+
+# Affinity for HA
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: openlit-operator
+        topologyKey: kubernetes.io/hostname
+
+# Tolerations for control plane nodes
+tolerations:
+- key: node-role.kubernetes.io/control-plane
+  operator: Exists
+  effect: NoSchedule
+
+# Node selection
+nodeSelector:
+  kubernetes.io/os: linux
+```
+
+Install with production configuration:
+
+```bash
+# Install with production values
+helm install openlit-operator openlit/openlit-operator \
+  --namespace openlit \
+  --values production-values.yaml
+```
+
+### 4. Air-Gapped Installation
+
+For environments without internet access:
+
+```bash
+# Download and save images
+docker pull ghcr.io/openlit/openlit-operator:latest
+docker pull ghcr.io/openlit/openlit-ai-instrumentation:latest
+docker pull ghcr.io/openlit/openinference-ai-instrumentation:latest
+docker pull ghcr.io/openlit/openllmetry-ai-instrumentation:latest
+
+# Tag for private registry
+docker tag ghcr.io/openlit/openlit-operator:latest your-registry.com/openlit-operator:latest
+docker tag ghcr.io/openlit/openlit-ai-instrumentation:latest your-registry.com/openlit-ai-instrumentation:latest
+
+# Push to private registry
+docker push your-registry.com/openlit-operator:latest
+docker push your-registry.com/openlit-ai-instrumentation:latest
+
+# Install with private registry
+helm install openlit-operator openlit/openlit-operator \
+  --namespace openlit \
+  --set image.repository=your-registry.com/openlit-operator \
+  --set providerImages.openlit.repository=your-registry.com/openlit-ai-instrumentation \
+  --set image.pullSecrets[0].name=registry-secret
+```
+
+## 🔍 Installation Verification
+
+### 1. Check Operator Status
+
+```bash
+# Verify operator pods
+kubectl get pods -n openlit -l app.kubernetes.io/name=openlit-operator
+
+# Check operator logs
+kubectl logs -n openlit deployment/openlit-operator
+
+# Verify webhook is ready
+kubectl get mutatingwebhookconfigurations openlit-operator
+
+# Check CRD installation
+kubectl get crds | grep autoinstrumentations.openlit.io
+```
+
+### 2. Validate Webhook Functionality
+
+```bash
+# Test webhook endpoint (should return 404, which is expected)
+kubectl get endpoints -n openlit openlit-operator
+
+# Check webhook certificates
+kubectl get secrets -n openlit | grep webhook
+
+# Verify webhook configuration
+kubectl describe mutatingwebhookconfigurations openlit-operator
+```
+
+### 3. Test Basic Functionality
+
+Create a test AutoInstrumentation resource:
+
+```bash
+# Create test AutoInstrumentation
+cat <<EOF | kubectl apply -f -
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: test-instrumentation
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      test: "instrumentation"
+  otlp:
+    endpoint: "http://openlit.openlit.svc.cluster.local:4318"
+EOF
+
+# Verify it's processed correctly
+kubectl get autoinstrumentations
+kubectl describe autoinstrumentation test-instrumentation
+
+# Clean up
+kubectl delete autoinstrumentation test-instrumentation
+```
+
+## ⚙️ Advanced Configuration
+
+### Multi-Tenancy Setup
+
+Deploy separate operator instances for different tenants:
+
+```bash
+# Tenant A
+helm install openlit-operator-tenant-a openlit/openlit-operator \
+  --namespace tenant-a \
+  --create-namespace \
+  --set nameOverride=openlit-operator-tenant-a \
+  --set webhook.port=9444  # Different port
+
+# Tenant B
+helm install openlit-operator-tenant-b openlit/openlit-operator \
+  --namespace tenant-b \
+  --create-namespace \
+  --set nameOverride=openlit-operator-tenant-b \
+  --set webhook.port=9445  # Different port
+```
+
+### Custom Certificate Management
+
+Use cert-manager for TLS certificates:
+
+```yaml
+# cert-manager configuration
+webhook:
+  tls:
+    autoGenerate: false
+    secretName: openlit-webhook-tls
+    certManager:
+      enabled: true
+      issuerRef:
+        name: ca-issuer
+        kind: ClusterIssuer
+```
+
+### Resource Limits and Quotas
+
+Configure resource quotas for the operator namespace:
+
+```yaml
+# resource-quota.yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: openlit-operator-quota
+  namespace: openlit
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    persistentvolumeclaims: "0"
+    pods: "10"
+```
+
+## 🔄 Upgrade and Maintenance
+
+### Upgrading the Operator
+
+```bash
+# Update Helm repository
+helm repo update
+
+# Check available versions
+helm search repo openlit/openlit-operator --versions
+
+# Upgrade to latest version
+helm upgrade openlit-operator openlit/openlit-operator \
+  --namespace openlit \
+  --values production-values.yaml
+
+# Upgrade to specific version
+helm upgrade openlit-operator openlit/openlit-operator \
+  --namespace openlit \
+  --version 1.2.0 \
+  --values production-values.yaml
+```
+
+### Rollback Strategy
+
+```bash
+# List releases
+helm history openlit-operator -n openlit
+
+# Rollback to previous version
+helm rollback openlit-operator 1 -n openlit
+
+# Rollback to specific revision
+helm rollback openlit-operator 2 -n openlit
+```
+
+### Backup and Restore
+
+```bash
+# Backup AutoInstrumentation resources
+kubectl get autoinstrumentations --all-namespaces -o yaml > autoinstrumentations-backup.yaml
+
+# Backup operator configuration
+helm get values openlit-operator -n openlit > operator-values-backup.yaml
+
+# Restore AutoInstrumentation resources
+kubectl apply -f autoinstrumentations-backup.yaml
+```
+
+## 🗑️ Uninstallation
+
+### Complete Removal
+
+```bash
+# Remove operator
+helm uninstall openlit-operator -n openlit
+
+# Remove CRDs (this will delete all AutoInstrumentation resources)
+kubectl delete crd autoinstrumentations.openlit.io
+
+# Remove namespace (optional)
+kubectl delete namespace openlit
+```
+
+### Selective Removal
+
+```bash
+# Remove only operator, keep CRDs and AutoInstrumentation resources
+helm uninstall openlit-operator -n openlit
+
+# Verify AutoInstrumentation resources are preserved
+kubectl get autoinstrumentations --all-namespaces
+```
+
+## 🚨 Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="CRD installation failures">
+    **Symptoms:** Error creating CustomResourceDefinitions
+    
+    **Solutions:**
+    ```bash
+    # Check RBAC permissions
+    kubectl auth can-i create customresourcedefinitions
+    
+    # Manually install CRDs if needed
+    kubectl apply -f https://raw.githubusercontent.com/openlit/openlit/main/operator/deploy/openlit.io_autoinstrumentations.yaml
+    
+    # Check cluster version compatibility
+    kubectl version
+    ```
+  </Accordion>
+  
+  <Accordion title="Webhook certificate errors">
+    **Symptoms:** Webhook registration fails or returns certificate errors
+    
+    **Solutions:**
+    ```bash
+    # Check certificate secret
+    kubectl get secrets -n openlit | grep webhook
+    
+    # Restart operator to regenerate certificates
+    kubectl rollout restart deployment/openlit-operator -n openlit
+    
+    # Check webhook configuration
+    kubectl describe mutatingwebhookconfigurations openlit-operator
+    ```
+  </Accordion>
+  
+  <Accordion title="Image pull failures">
+    **Symptoms:** Operator pods stuck in ImagePullBackOff
+    
+    **Solutions:**
+    ```bash
+    # Check image availability
+    docker pull ghcr.io/openlit/openlit-operator:latest
+    
+    # Verify image pull secrets
+    kubectl get secrets -n openlit
+    
+    # Check pod events
+    kubectl describe pod -n openlit -l app.kubernetes.io/name=openlit-operator
+    ```
+  </Accordion>
+  
+  <Accordion title="High availability issues">
+    **Symptoms:** Operator unavailable during updates
+    
+    **Solutions:**
+    ```yaml
+    # Ensure proper HA configuration
+    replicaCount: 3
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 2
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: openlit-operator
+          topologyKey: kubernetes.io/hostname
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 📖 Next Steps
+
+<CardGroup cols={2}>
+  <Card title="🚀 Quickstart" href="/latest/operator/quickstart" icon="rocket">
+    Quick setup with test application and trace viewing
+  </Card>
+  <Card title="⚙️ Configuration" href="/latest/operator/config-operator" icon="gear">
+    Configure operator settings and AutoInstrumentation resources
+  </Card>
+  <Card title="🏗️ Architecture" href="/latest/operator/architecture" icon="sitemap">
+    Understand the technical architecture and components
+  </Card>
+  <Card title="🎯 Instrumentations" href="/latest/operator/instrumentations-overview" icon="target">
+    Learn about different instrumentation providers
+  </Card>
+</CardGroup>

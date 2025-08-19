@@ -35,7 +35,7 @@ func (suite *InjectorTestSuite) SetupTest() {
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
 			Provider: "openlit",
-			Image:    "openlit-instrumentation:latest",
+			Image:    "ghcr.io/openlit/openlit-ai-instrumentation:latest",
 			Environment: map[string]string{
 				"OTEL_EXPORTER_OTLP_ENDPOINT": "http://openlit.default.svc.cluster.local:4318",
 				"OPENLIT_APPLICATION_NAME":    "test-app",

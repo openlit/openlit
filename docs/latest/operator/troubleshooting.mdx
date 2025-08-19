@@ -1,0 +1,566 @@
+---
+title: 'Troubleshooting'
+description: 'Debug common issues with the OpenLIT Operator'
+icon: 'wrench'
+---
+
+Troubleshoot common issues with the OpenLIT Operator and resolve problems quickly using our comprehensive debugging guide.
+
+## 🔍 Quick Diagnosis
+
+### Health Check Commands
+
+Start your troubleshooting with these essential commands:
+
+```bash
+# Check operator status
+kubectl get pods -n openlit
+kubectl get autoinstrumentations -A
+kubectl get mutatingwebhookconfigurations
+
+# View operator logs
+kubectl logs -n openlit deployment/openlit-operator
+
+# Check webhook certificate
+kubectl get secrets -n openlit
+kubectl describe mutatingwebhookconfigurations openlit-operator-mutating-webhook-configuration
+```
+
+### Common Status Indicators
+
+<CardGroup cols={2}>
+  <Card title="✅ Healthy Operator" icon="check-circle">
+    - Pod status: `Running`
+    - Ready: `1/1`
+    - Webhook configuration exists
+    - Valid TLS certificates
+  </Card>
+  <Card title="❌ Unhealthy Operator" icon="x-circle">
+    - Pod status: `CrashLoopBackOff`
+    - Ready: `0/1` 
+    - Missing webhook configuration
+    - Certificate errors
+  </Card>
+</CardGroup>
+
+## 🚨 Common Issues
+
+### 1. Operator Pod Not Starting
+
+<AccordionGroup>
+  <Accordion title="Image Pull Errors">
+    **Symptoms:**
+    ```bash
+    kubectl describe pod -n openlit
+    # Events: Failed to pull image "ghcr.io/openlit/openlit-operator:latest"
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Check image availability
+    docker pull ghcr.io/openlit/openlit-operator:latest
+    
+    # Verify image pull secrets
+    kubectl get secrets -n openlit
+    
+    # Update Helm values for custom registry
+    helm upgrade openlit-operator openlit/openlit-operator \
+      --set image.repository=your-registry.com/openlit-operator \
+      --set image.pullSecrets[0].name=regcred
+    ```
+  </Accordion>
+  
+  <Accordion title="RBAC Permission Issues">
+    **Symptoms:**
+    ```bash
+    kubectl logs -n openlit deployment/openlit-operator
+    # Error: forbidden: User "system:serviceaccount:openlit:openlit-operator" cannot...
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Check ServiceAccount and RBAC
+    kubectl get serviceaccount -n openlit
+    kubectl get clusterrole openlit-operator
+    kubectl get clusterrolebinding openlit-operator
+    
+    # Verify permissions
+    kubectl auth can-i create pods --as=system:serviceaccount:openlit:openlit-operator
+    kubectl auth can-i get autoinstrumentations --as=system:serviceaccount:openlit:openlit-operator
+    
+    # Reinstall with proper RBAC
+    helm upgrade openlit-operator openlit/openlit-operator \
+      --set serviceAccount.create=true
+    ```
+  </Accordion>
+  
+  <Accordion title="Resource Constraints">
+    **Symptoms:**
+    ```bash
+    kubectl describe pod -n openlit
+    # Events: 0/3 nodes are available: 3 Insufficient memory
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Check node resources
+    kubectl top nodes
+    kubectl describe nodes
+    
+    # Reduce resource requests
+    helm upgrade openlit-operator openlit/openlit-operator \
+      --set resources.requests.memory=128Mi \
+      --set resources.requests.cpu=100m
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### 2. Webhook Certificate Issues
+
+<AccordionGroup>
+  <Accordion title="Certificate Generation Failed">
+    **Symptoms:**
+    ```bash
+    kubectl logs -n openlit deployment/openlit-operator
+    # Error: failed to generate TLS certificate
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Check certificate secret
+    kubectl get secret -n openlit webhook-tls-secret
+    
+    # Delete and regenerate certificates
+    kubectl delete secret -n openlit webhook-tls-secret
+    kubectl rollout restart deployment/openlit-operator -n openlit
+    
+    # Check certificate validity
+    kubectl get secret -n openlit webhook-tls-secret -o jsonpath='{.data.tls\.crt}' | base64 -d | openssl x509 -text -noout
+    ```
+  </Accordion>
+  
+  <Accordion title="Webhook Configuration Mismatch">
+    **Symptoms:**
+    ```bash
+    kubectl describe mutatingwebhookconfigurations
+    # caBundle field is empty or incorrect
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Check webhook configuration
+    kubectl get mutatingwebhookconfigurations openlit-operator-mutating-webhook-configuration -o yaml
+    
+    # Force webhook reconfiguration
+    kubectl patch mutatingwebhookconfigurations openlit-operator-mutating-webhook-configuration \
+      --type='merge' -p='{"metadata":{"annotations":{"openlit.io/force-update":"'$(date +%s)'"}}}'
+    
+    # Restart operator to refresh configuration
+    kubectl rollout restart deployment/openlit-operator -n openlit
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### 3. Pod Instrumentation Not Working
+
+<AccordionGroup>
+  <Accordion title="Pod Not Being Selected">
+    **Symptoms:**
+    - Pods deploy normally but without init containers
+    - No instrumentation environment variables
+    
+    **Debugging:**
+    ```bash
+    # Check AutoInstrumentation resources
+    kubectl get autoinstrumentations -A
+    kubectl describe autoinstrumentation <name>
+    
+    # Verify pod labels match selectors
+    kubectl get pod <pod-name> --show-labels
+    
+    # Check if pod is being ignored
+    kubectl describe pod <pod-name> | grep -A5 -B5 "Labels"
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Ensure correct labels on pods
+    kubectl label pod <pod-name> openlit.io/instrument=true
+    
+    # Check selector syntax in AutoInstrumentation
+    kubectl edit autoinstrumentation <name>
+    
+    # Verify namespace scope
+    kubectl get autoinstrumentation -n <target-namespace>
+    ```
+  </Accordion>
+  
+  <Accordion title="Init Container Failures">
+    **Symptoms:**
+    ```bash
+    kubectl get pods
+    # NAME    READY   STATUS      RESTARTS   AGE
+    # app     0/1     Init:Error  0          1m
+    ```
+    
+    **Debugging:**
+    ```bash
+    # Check init container logs
+    kubectl logs <pod-name> -c auto-instrumentation-openlit
+    
+    # Describe pod for events
+    kubectl describe pod <pod-name>
+    
+    # Check init container image
+    kubectl get pod <pod-name> -o jsonpath='{.spec.initContainers[0].image}'
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Common fixes for init container issues:
+    
+    # 1. Package installation failures
+    kubectl logs <pod-name> -c auto-instrumentation-openlit
+    # Look for pip install errors
+    
+    # 2. Custom package conflicts
+    # Update AutoInstrumentation with compatible versions
+    kubectl patch autoinstrumentation <name> --type='merge' -p='
+    spec:
+      python:
+        instrumentation:
+          customPackages: "langchain>=0.1.0"  # Remove conflicting packages
+    '
+    
+    # 3. Network issues
+    # Check if init container can reach external repositories
+    kubectl exec -it <pod-name> -c auto-instrumentation-openlit -- wget -q --spider pypi.org
+    ```
+  </Accordion>
+  
+  <Accordion title="Environment Variables Missing">
+    **Symptoms:**
+    - Init container succeeds but application doesn't have OpenTelemetry variables
+    
+    **Debugging:**
+    ```bash
+    # Check environment variables in main container
+    kubectl exec -it <pod-name> -- env | grep -E "(OTEL_|OPENLIT_|PYTHONPATH)"
+    
+    # Verify instrumentation packages are mounted
+    kubectl exec -it <pod-name> -- ls -la /instrumentation-packages/
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Check AutoInstrumentation OTLP configuration
+    kubectl get autoinstrumentation <name> -o yaml
+    
+    # Verify volume mounts
+    kubectl describe pod <pod-name> | grep -A10 -B10 "instrumentation-packages"
+    
+    # Force pod recreation
+    kubectl delete pod <pod-name>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### 4. OTLP Connection Issues
+
+<AccordionGroup>
+  <Accordion title="Connection Refused">
+    **Symptoms:**
+    ```bash
+    kubectl logs <instrumented-pod>
+    # ConnectionError: HTTPConnectionPool(host='openlit', port=4318): Connection refused
+    ```
+    
+    **Debugging:**
+    ```bash
+    # Check OTLP endpoint configuration
+    kubectl get autoinstrumentation <name> -o jsonpath='{.spec.otlp.endpoint}'
+    
+    # Test connectivity from pod
+    kubectl exec -it <pod-name> -- curl -v http://openlit:4318/v1/traces
+    
+    # Check OpenLIT service
+    kubectl get svc openlit
+    kubectl get pods -l app=openlit
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Update OTLP endpoint to correct service
+    kubectl patch autoinstrumentation <name> --type='merge' -p='
+    spec:
+      otlp:
+        endpoint: "http://openlit.openlit.svc.cluster.local:4318"
+    '
+    
+    # Check DNS resolution
+    kubectl exec -it <pod-name> -- nslookup openlit
+    
+    # Port forward for local testing
+    kubectl port-forward svc/openlit 4318:4318
+    ```
+  </Accordion>
+  
+  <Accordion title="Authentication Failures">
+    **Symptoms:**
+    ```bash
+    kubectl logs <instrumented-pod>
+    # 401 Unauthorized or 403 Forbidden
+    ```
+    
+    **Solutions:**
+    ```bash
+    # Check OTLP headers configuration
+    kubectl get autoinstrumentation <name> -o jsonpath='{.spec.otlp.headers}'
+    
+    # Update authentication headers
+    kubectl patch autoinstrumentation <name> --type='merge' -p='
+    spec:
+      otlp:
+        headers: "authorization=Bearer your-token"
+    '
+    
+    # Use secret for sensitive headers
+    kubectl create secret generic otlp-auth --from-literal=token=your-secret-token
+    kubectl patch autoinstrumentation <name> --type='merge' -p='
+    spec:
+      python:
+        instrumentation:
+          env:
+          - name: OTEL_EXPORTER_OTLP_HEADERS
+            valueFrom:
+              secretKeyRef:
+                name: otlp-auth
+                key: token
+    '
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 🔧 Advanced Debugging
+
+### Enable Debug Logging
+
+```yaml
+# Enable comprehensive debug logging
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: debug-instrumentation
+spec:
+  selector:
+    matchLabels:
+      debug: "true"
+  python:
+    instrumentation:
+      env:
+      - name: OPENLIT_LOG_LEVEL
+        value: "DEBUG"
+      - name: OTEL_LOG_LEVEL
+        value: "DEBUG"
+      - name: OPENLIT_CONSOLE_EXPORTER
+        value: "true"  # Export traces to console for debugging
+  otlp:
+    endpoint: "http://openlit:4318"
+```
+
+### Webhook Debugging
+
+```bash
+# Enable webhook debug logging
+kubectl patch deployment openlit-operator -n openlit -p='
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "operator",
+            "env": [
+              {
+                "name": "LOG_LEVEL",
+                "value": "debug"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}'
+
+# Monitor webhook requests
+kubectl logs -n openlit deployment/openlit-operator -f | grep -i webhook
+```
+
+### Manual Testing
+
+```bash
+# Test webhook manually
+kubectl create -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-instrumentation
+  labels:
+    openlit.io/instrument: "true"
+spec:
+  containers:
+  - name: test
+    image: python:3.11-slim
+    command: ["sleep", "3600"]
+EOF
+
+# Check if instrumentation was injected
+kubectl describe pod test-instrumentation
+kubectl delete pod test-instrumentation
+```
+
+## 📊 Monitoring and Alerting
+
+### Operator Metrics
+
+```bash
+# Enable metrics endpoint
+kubectl port-forward -n openlit svc/openlit-operator 8080:8080
+
+# Query metrics
+curl http://localhost:8080/metrics | grep openlit
+```
+
+### Health Monitoring
+
+```yaml
+# Prometheus alert rules
+groups:
+- name: openlit-operator
+  rules:
+  - alert: OperatorDown
+    expr: up{job="openlit-operator"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "OpenLIT Operator is down"
+      
+  - alert: WebhookCertificateExpiring
+    expr: openlit_webhook_certificate_expiry_seconds < 7 * 24 * 3600
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Webhook certificate expiring in less than 7 days"
+      
+  - alert: InstrumentationFailures
+    expr: rate(openlit_instrumentation_failures_total[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High rate of instrumentation failures"
+```
+
+## 🆘 Getting Help
+
+### Collecting Debug Information
+
+When reporting issues, collect this information:
+
+```bash
+#!/bin/bash
+# Debug information collection script
+
+echo "=== OpenLIT Operator Debug Info ==="
+echo "Date: $(date)"
+echo "Kubernetes Version: $(kubectl version --short)"
+echo
+
+echo "=== Operator Status ==="
+kubectl get pods -n openlit
+echo
+
+echo "=== AutoInstrumentation Resources ==="
+kubectl get autoinstrumentations -A
+echo
+
+echo "=== Webhook Configuration ==="
+kubectl get mutatingwebhookconfigurations | grep openlit
+echo
+
+echo "=== Operator Logs (last 50 lines) ==="
+kubectl logs -n openlit deployment/openlit-operator --tail=50
+echo
+
+echo "=== Certificate Status ==="
+kubectl get secrets -n openlit | grep tls
+echo
+
+echo "=== Sample Instrumented Pod ==="
+kubectl get pods -l openlit.io/instrument=true --all-namespaces | head -5
+```
+
+### Support Channels
+
+<CardGroup cols={2}>
+  <Card title="🐛 GitHub Issues" icon="github">
+    Report bugs and feature requests
+    [GitHub Repository](https://github.com/openlit/openlit/issues)
+  </Card>
+  <Card title="💬 Community Discord" icon="discord">
+    Get help from the community
+    [Join Discord](https://discord.gg/CQnXwNT3)
+  </Card>
+  <Card title="📧 Slack Support" icon="slack">
+    Official support channel
+    [Join Slack](https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ)
+  </Card>
+  <Card title="📚 Documentation" icon="book">
+    Comprehensive guides and tutorials
+    [Documentation](https://docs.openlit.io)
+  </Card>
+</CardGroup>
+
+### Issue Templates
+
+When reporting issues, include:
+
+1. **Environment Information**
+   - Kubernetes version and distribution
+   - Helm chart version
+   - Operator image version
+
+2. **Problem Description**
+   - Expected behavior
+   - Actual behavior
+   - Steps to reproduce
+
+3. **Configuration**
+   - AutoInstrumentation YAML
+   - Helm values.yaml
+   - Application deployment YAML
+
+4. **Logs and Output**
+   - Operator logs
+   - Pod logs
+   - kubectl describe output
+
+## 📖 Next Steps
+
+<CardGroup cols={2}>
+  <Card title="🔒 Security" href="/latest/operator/security" icon="shield-check">
+    Implement security best practices
+  </Card>
+  <Card title="📚 API Reference" href="/latest/operator/api-reference" icon="book">
+    Complete API documentation
+  </Card>
+  <Card title="🏗️ Architecture" href="/latest/operator/architecture" icon="sitemap">
+    Understand the technical details
+  </Card>
+  <Card title="⚙️ Configuration" href="/latest/operator/configuration" icon="gear">
+    Advanced configuration options
+  </Card>
+</CardGroup>

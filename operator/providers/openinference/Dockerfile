@@ -4,11 +4,11 @@ WORKDIR /instrumentation
 
 # Copy requirements and install comprehensive OpenInference packages
 # Using pure OpenTelemetry approach - works with OpenLIT!
-COPY openinference/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt --target packages
 
 # Copy the sitecustomize.py for OpenInference
-COPY openinference/sitecustomize.py packages/sitecustomize.py
+COPY sitecustomize.py packages/sitecustomize.py
 
 # Create final OpenInference image
 FROM python:3.11-slim

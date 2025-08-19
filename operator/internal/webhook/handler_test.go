@@ -169,7 +169,7 @@ func (suite *WebhookHandlerTestSuite) TestHandleAdmissionRequest() {
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
 			Provider: "openlit",
-			Image:    "openlit-instrumentation:latest",
+			Image:    "ghcr.io/openlit/openlit-ai-instrumentation:latest",
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"app": "python-app",
@@ -185,7 +185,7 @@ func (suite *WebhookHandlerTestSuite) TestHandleAdmissionRequest() {
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
 			Provider: "openlit",
-			Image:    "openlit-instrumentation:latest",
+			Image:    "ghcr.io/openlit/openlit-ai-instrumentation:latest",
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"app": "python-app",

@@ -1,0 +1,320 @@
+{{- if .Values.crd.install }}
+{{- include "openlit-operator.validateValues" . }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: autoinstrumentations.openlit.io
+  labels:
+    {{- include "openlit-operator.labels" . | nindent 4 }}
+  annotations:
+    {{- include "openlit-operator.annotations" . | nindent 4 }}
+    controller-gen.kubebuilder.io/version: generated-by-openlit-operator
+    {{- with .Values.crd.annotations }}
+    {{ toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  group: openlit.io
+  names:
+    kind: AutoInstrumentation
+    plural: autoinstrumentations
+    shortNames:
+    - ai
+    singular: autoinstrumentation
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: Python instrumentation enabled
+      jsonPath: .spec.python.instrumentation.enabled
+      name: Python-Enabled
+      type: boolean
+    - description: Instrumentation provider
+      jsonPath: .spec.python.instrumentation.provider
+      name: Provider
+      type: string
+    - description: OTLP endpoint
+      jsonPath: .spec.otlp.endpoint
+      name: OTLP-Endpoint
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AutoInstrumentation defines the configuration for automatic instrumentation
+          of applications
+        properties:
+          spec:
+            properties:
+              ignore:
+                description: Ignore defines which pods should be skipped for instrumentation
+                properties:
+                  matchExpressions:
+                    description: MatchExpressions is a list of label selector requirements
+                    items:
+                      properties:
+                        key:
+                          description: Key is the label key that the selector applies to
+                          type: string
+                        operator:
+                          description: Operator represents a key's relationship to a set of values
+                          type: string
+                        values:
+                          description: Values is an array of string values
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: MatchLabels is a map of {key,value} pairs
+                    type: object
+                type: object
+              otlp:
+                description: OTLP defines OpenTelemetry Protocol configuration
+                properties:
+                  endpoint:
+                    description: Endpoint specifies the OTLP endpoint URL
+                    pattern: ^https?://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$
+                    type: string
+                  headers:
+                    description: Headers specifies additional headers (key=value format, comma-separated)
+                    pattern: ^[a-zA-Z0-9_\-]+=.*(,[a-zA-Z0-9_\-]+=.*)*$
+                    type: string
+                  timeout:
+                    default: 30
+                    description: Timeout specifies the timeout in seconds
+                    maximum: 300
+                    minimum: 1
+                    type: integer
+                required:
+                - endpoint
+                type: object
+              python:
+                description: Python defines Python-specific instrumentation configuration
+                properties:
+                  instrumentation:
+                    description: Instrumentation defines instrumentation configuration
+                    properties:
+                      customInitImage:
+                        description: CustomInitImage specifies a custom init container image
+                        pattern: ^[a-z0-9.-]+(/[a-z0-9._-]+)*:[a-zA-Z0-9._-]+$
+                        type: string
+                      customPackages:
+                        description: CustomPackages specifies additional packages to install (comma-separated)
+                        pattern: ^[a-zA-Z0-9_\-\.,=<>!\s]*$
+                        type: string
+                      enabled:
+                        default: true
+                        description: Enabled controls whether instrumentation is enabled
+                        type: boolean
+                      env:
+                        description: Env defines environment variables to be injected into instrumented containers
+                        items:
+                          properties:
+                            name:
+                              description: Name is the environment variable name
+                              pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                              type: string
+                            value:
+                              description: Value is the environment variable value
+                              type: string
+                            valueFrom:
+                              description: ValueFrom specifies a source for the environment variable's value
+                              properties:
+                                configMapKeyRef:
+                                  description: ConfigMapKeyRef selects a key of a ConfigMap
+                                  properties:
+                                    key:
+                                      description: Key of the ConfigMap to select from
+                                      type: string
+                                    name:
+                                      description: Name of the ConfigMap in the pod's namespace to select from
+                                      type: string
+                                    optional:
+                                      description: Optional specifies whether the ConfigMap or its key must be defined
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - key
+                                  type: object
+                                fieldRef:
+                                  description: FieldRef selects a field of the pod
+                                  properties:
+                                    apiVersion:
+                                      description: Version of the schema the FieldPath is written in terms of
+                                      type: string
+                                    fieldPath:
+                                      description: Path of the field to select in the specified API version
+                                      type: string
+                                  required:
+                                  - fieldPath
+                                  type: object
+                                secretKeyRef:
+                                  description: SecretKeyRef selects a key of a Secret
+                                  properties:
+                                    key:
+                                      description: Key of the secret to select from
+                                      type: string
+                                    name:
+                                      description: Name of the secret in the pod's namespace to select from
+                                      type: string
+                                    optional:
+                                      description: Optional specifies whether the Secret or its key must be defined
+                                      type: boolean
+                                  required:
+                                  - name
+                                  - key
+                                  type: object
+                              type: object
+                          required:
+                          - name
+                          type: object
+                        type: array
+                      imagePullPolicy:
+                        default: IfNotPresent
+                        description: ImagePullPolicy defines the image pull policy for init containers
+                        enum:
+                        - Always
+                        - IfNotPresent
+                        - Never
+                        type: string
+                      provider:
+                        default: {{ .Values.instrumentation.defaultProvider }}
+                        description: Provider specifies the instrumentation provider
+                        enum:
+                        - openlit
+                        - openinference
+                        - openllmetry
+                        - custom
+                        type: string
+                      version:
+                        default: {{ .Values.instrumentation.defaultVersion }}
+                        description: Version specifies the instrumentation version
+                        pattern: ^(latest|[0-9]+\.[0-9]+\.[0-9]+.*)$
+                        type: string
+                    type: object
+                type: object
+              resource:
+                description: Resource defines resource attributes for telemetry
+                properties:
+                  environment:
+                    description: Environment specifies the deployment environment
+                    pattern: ^[a-zA-Z0-9_\-]+$
+                    type: string
+                type: object
+              selector:
+                description: Selector defines which pods should be instrumented
+                properties:
+                  matchExpressions:
+                    description: MatchExpressions is a list of label selector requirements
+                    items:
+                      properties:
+                        key:
+                          description: Key is the label key that the selector applies to
+                          type: string
+                        operator:
+                          description: Operator represents a key's relationship to a set of values
+                          type: string
+                        values:
+                          description: Values is an array of string values
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: MatchLabels is a map of {key,value} pairs
+                    type: object
+                type: object
+            required:
+            - selector
+            - otlp
+            type: object
+          status:
+            description: AutoInstrumentationStatus defines the observed state of AutoInstrumentation
+            properties:
+              conditions:
+                description: Conditions represent the latest available observations of the resource's state
+                items:
+                  properties:
+                    lastTransitionTime:
+                      description: LastTransitionTime is the last time the condition transitioned
+                      format: date-time
+                      type: string
+                    message:
+                      description: Message is a human readable message indicating details about the transition
+                      type: string
+                    observedGeneration:
+                      description: ObservedGeneration represents the .metadata.generation that the condition was set based upon
+                      format: int64
+                      type: integer
+                    reason:
+                      description: Reason contains a programmatic identifier indicating the reason for the condition's last transition
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown
+                      type: string
+                    type:
+                      description: Type of condition
+                      type: string
+                  required:
+                  - type
+                  - status
+                  - lastTransitionTime
+                  - reason
+                  - message
+                  type: object
+                type: array
+              instrumentedPods:
+                description: InstrumentedPods tracks which pods have been instrumented
+                items:
+                  properties:
+                    instrumentedAt:
+                      description: InstrumentedAt is when the pod was instrumented
+                      format: date-time
+                      type: string
+                    name:
+                      description: Name is the pod name
+                      type: string
+                    namespace:
+                      description: Namespace is the pod namespace
+                      type: string
+                    provider:
+                      description: Provider is the instrumentation provider used
+                      type: string
+                  required:
+                  - name
+                  - namespace
+                  - instrumentedAt
+                  - provider
+                  type: object
+                type: array
+              lastProcessed:
+                description: LastProcessed tracks the last time this config was processed
+                format: date-time
+                type: string
+              validationErrors:
+                description: ValidationErrors tracks validation errors
+                items:
+                  type: string
+                type: array
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end }}

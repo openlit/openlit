@@ -3,11 +3,11 @@ FROM python:3.11-slim AS openllmetry-builder
 WORKDIR /instrumentation
 
 # Copy requirements and install OpenLLMetry packages
-COPY openllmetry/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt --target packages
 
 # Copy the sitecustomize.py for OpenLLMetry
-COPY openllmetry/sitecustomize.py packages/sitecustomize.py
+COPY sitecustomize.py packages/sitecustomize.py
 
 # Create final OpenLLMetry image
 FROM python:3.11-slim

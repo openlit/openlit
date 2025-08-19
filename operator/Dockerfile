@@ -15,7 +15,7 @@
 #   docker build -t openlit-operator:latest .
 #   docker run openlit-operator:latest
 #
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install git for go mod download
 RUN apk add --no-cache git
