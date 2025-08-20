@@ -1,27 +1,57 @@
 ---
 title: 'Architecture'
-description: 'How the OpenLIT Operator Works'
+description: 'For the geeks and nerds looking to learn how the operator works'
 icon: 'sitemap'
 ---
 
 The OpenLIT Operator is built on Kubernetes controller patterns and admission webhooks to provide seamless, zero-code AI observability. This page explains the technical architecture and how components work together.
 
-## 🏗️ Architecture Overview
+## Core Components
 
-<Frame>
-  <img src="/images/docs-operator-architecture.png" />
-</Frame>
+```mermaid
+graph TB
+    subgraph "Kubernetes Cluster"
+        subgraph "OpenLIT Operator"
+            OC[Operator Controller]
+            WH[Admission Webhook]
+            CM[Certificate Manager]
+            SEC[TLS Secret]
+        end
+        
+        subgraph "Application Workloads"  
+            CR[AutoInstrumentation CR]
+            POD[Application Pods]
+        end
+        
+        subgraph "Provider Images"
+            OL[OpenLIT]
+            OI[OpenInference] 
+            OM[OpenLLMetry]
+            CU[Custom]
+        end
+    end
+    
+    K8S[Kubernetes API] --> WH
+    OC --> CR
+    OC --> WH
+    CM --> SEC
+    SEC --> WH
+    CR --> POD
+    OL --> POD
+    OI --> POD
+    OM --> POD
+    CU --> POD
+    POD --> OTLP[OTLP Endpoint]
+```
 
-## 🧩 Core Components
-
-### 1. **Operator Controller**
+### Operator Controller
 The main controller watches for `AutoInstrumentation` Custom Resources and manages their lifecycle:
 
 - **Resource Validation**: Validates AutoInstrumentation specifications
 - **Status Management**: Updates resource status based on instrumentation state
 - **Configuration Propagation**: Ensures webhook configurations are up-to-date
 
-### 2. **Admission Webhook**
+### Admission Webhook
 A mutating admission webhook that intercepts pod creation requests:
 
 - **Pod Selection**: Uses label selectors to identify pods for instrumentation
@@ -29,28 +59,52 @@ A mutating admission webhook that intercepts pod creation requests:
 - **Environment Variables**: Injects OpenTelemetry configuration
 - **Volume Mounts**: Sets up shared volumes for instrumentation packages
 
-### 3. **TLS Certificate Manager**
+### TLS Certificate Manager
 Automatic TLS certificate management for secure webhook communication:
 
 - **Certificate Generation**: Creates and rotates TLS certificates
 - **Kubernetes Secret Storage**: Stores certificates in Kubernetes secrets
 - **Multi-Operator Support**: Handles certificate sharing across operator instances
 
-### 4. **Init Container Images**
+### Init Container Images
 Pre-built container images containing instrumentation packages:
 
 - **OpenLIT Image**: `ghcr.io/openlit/openlit-ai-instrumentation`
 - **OpenInference Image**: `ghcr.io/openlit/openinference-ai-instrumentation`  
 - **OpenLLMetry Image**: `ghcr.io/openlit/openllmetry-ai-instrumentation`
 
-## 🔄 Instrumentation Flow
+## Instrumentation Flow
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant K8s as Kubernetes API
+    participant WH as Admission Webhook
+    participant CR as AutoInstrumentation CR
+    participant Pod as Application Pod
+    participant Init as Init Container
+    participant App as App Container
+    participant OTLP as OTLP Endpoint
+    
+    Dev->>K8s: Deploy AI application
+    K8s->>WH: Pod creation request
+    WH->>CR: Query matching config
+    CR->>WH: Return instrumentation spec
+    WH->>K8s: Return mutated pod
+    K8s->>Pod: Schedule pod
+    Pod->>Init: Start init container
+    Init->>Init: Install packages
+    Init->>App: Copy to shared volume
+    App->>App: Start with instrumentation
+    App->>OTLP: Send telemetry data
+```
 
 <Steps>
   <Step title="Pod Creation Request">
     Developer deploys an application pod with instrumentation labels
     ```yaml
     labels:
-      openlit.io/instrument: "true"
+      app: ai-chatbot-app
     ```
   </Step>
   
@@ -99,7 +153,7 @@ Pre-built container images containing instrumentation packages:
   </Step>
 </Steps>
 
-## 📋 Custom Resource Definitions
+## Custom Resource Definitions
 
 ### AutoInstrumentation CRD
 
@@ -140,7 +194,7 @@ spec:
     environment: "production"
 ```
 
-## 🔒 Security Architecture
+## Security Architecture
 
 ### RBAC Permissions
 
@@ -159,6 +213,32 @@ The operator requires specific permissions to function:
 
 ### TLS Certificate Security
 
+```mermaid
+sequenceDiagram
+    participant CM as Certificate Manager
+    participant K8s as Kubernetes API
+    participant Secret as TLS Secret
+    participant Webhook as Admission Webhook
+    participant Pod as Application Pod
+    
+    Note over CM: Certificate Lifecycle
+    CM->>K8s: Generate CA & Server Cert
+    CM->>Secret: Store Private Key
+    CM->>K8s: Update Webhook Config with CA Bundle
+    K8s->>Webhook: Validate Certificate
+    
+    Note over CM: Certificate Rotation
+    CM->>CM: Check Expiration (daily)
+    CM->>K8s: Generate New Certificate
+    CM->>Secret: Update Private Key
+    CM->>K8s: Update CA Bundle
+    
+    Note over Pod,Webhook: Secure Communication
+    Pod->>K8s: Create Pod Request
+    K8s->>Webhook: HTTPS Request (TLS)
+    Webhook->>K8s: Mutated Pod Response
+```
+
 - **Automatic Rotation**: Certificates rotate before expiration
 - **Secure Storage**: Private keys stored in Kubernetes secrets
 - **CA Bundle Injection**: Webhook configuration updated with CA bundle
@@ -171,9 +251,20 @@ The operator requires specific permissions to function:
 - **Failure Policy**: Configurable behavior when webhook is unavailable
 - **Admission Review**: Only processes valid admission review requests
 
-## 🎯 Pod Selection Logic
+## Pod Selection Logic
 
-The operator uses a sophisticated matching system:
+The operator uses a sophisticated matching system to determine which pods to instrument:
+
+```mermaid
+flowchart LR
+    A[Pod Creation Request] --> B{Same Namespace?}
+    B -->|No| C[Skip Pod]
+    B -->|Yes| D{Matches Selector?}
+    D -->|No| C
+    D -->|Yes| E{Ignore Rules?}
+    E -->|Yes| C
+    E -->|No| F[Instrument Pod]
+```
 
 ### 1. **Primary Selection**
 ```yaml
@@ -198,7 +289,50 @@ ignore:
 - AutoInstrumentation resources only affect pods in the same namespace
 - Cross-namespace instrumentation requires separate AutoInstrumentation resources
 
-## 🔄 State Management
+## State Management
+
+The operator maintains various states and ensures consistent operation across multiple instances:
+
+```mermaid
+graph TB
+    subgraph "Operator Instances"
+        OP1[Operator Instance 1]
+        OP2[Operator Instance 2]
+        OP3[Operator Instance 3]
+    end
+    
+    subgraph "Leader Election"
+        LE[Leader Election Lock]
+        LEADER[Active Leader]
+    end
+    
+    subgraph "Resource Management"
+        CACHE[Resource Cache<br/>Informers]
+        QUEUE[Event Queue]
+        STATUS[Resource Status<br/>Updates]
+    end
+    
+    subgraph "Kubernetes API"
+        API[kube-apiserver]
+        CR[AutoInstrumentation CRs]
+        PODS[Application Pods]
+    end
+    
+    OP1 --> LE
+    OP2 --> LE
+    OP3 --> LE
+    LE --> LEADER
+    
+    LEADER --> CACHE
+    LEADER --> QUEUE
+    LEADER --> STATUS
+    
+    API --> CACHE
+    CACHE --> QUEUE
+    QUEUE --> STATUS
+    STATUS --> CR
+    STATUS --> PODS
+```
 
 ### Operator State
 - **Leader Election**: Ensures only one active operator instance
@@ -218,13 +352,7 @@ status:
   managedPods: 5
 ```
 
-## 🔍 Observability and Monitoring
-
-### Operator Metrics
-- Pod instrumentation success/failure rates
-- Webhook response times
-- Certificate rotation events
-- Resource reconciliation metrics
+## Observability and Monitoring
 
 ### Operator Logs
 Structured JSON logging with configurable levels:
@@ -233,24 +361,14 @@ Structured JSON logging with configurable levels:
 - **Warn**: Non-critical issues and recoverable errors
 - **Error**: Critical failures requiring attention
 
+**Note**: The operator currently uses OpenTelemetry logging for observability. These logs can also be directly sent to an OpenTelemetry endpoint.
+
 ### Health Checks
 - **Readiness Probe**: Webhook server is ready to accept requests
 - **Liveness Probe**: Operator is healthy and responsive
 - **Webhook Health**: Certificate validity and webhook availability
 
-## 🚀 Performance Considerations
-
-### Scalability
-- **Horizontal Scaling**: Multiple operator replicas with leader election
-- **Webhook Performance**: Optimized for low-latency pod mutations
-- **Resource Efficiency**: Minimal CPU and memory footprint
-
-### Resource Management
-- **Init Container Resources**: Configurable CPU and memory limits
-- **Shared Volumes**: Efficient package sharing between containers
-- **Image Caching**: Instrumentation images cached on nodes
-
-## 🔧 Extensibility
+## Extensibility
 
 ### Custom Instrumentation Providers
 Support for custom instrumentation through:
@@ -263,14 +381,3 @@ Support for custom instrumentation through:
 - **OpenTelemetry Collectors**: Send telemetry to any OTLP endpoint
 - **Observability Platforms**: Compatible with Jaeger, Prometheus, Grafana, etc.
 - **Service Meshes**: Works alongside Istio, Linkerd, and other meshes
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card title="🛠️ Installation" href="/latest/operator/installation" icon="download">
-    Install the operator in your cluster
-  </Card>
-  <Card title="⚙️ Configuration" href="/latest/operator/configuration" icon="gear">
-    Configure AutoInstrumentation resources
-  </Card>
-</CardGroup>

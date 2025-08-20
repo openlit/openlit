@@ -422,15 +422,20 @@ kubectl delete pod test-instrumentation
 
 ## 📊 Monitoring and Alerting
 
-### Operator Metrics
+### Operator Logs
 
 ```bash
-# Enable metrics endpoint
-kubectl port-forward -n openlit svc/openlit-operator 8080:8080
+# Check operator logs for issues
+kubectl logs -n openlit deployment/openlit-operator
 
-# Query metrics
-curl http://localhost:8080/metrics | grep openlit
+# Follow logs in real-time
+kubectl logs -n openlit deployment/openlit-operator -f
+
+# Get logs with timestamps
+kubectl logs -n openlit deployment/openlit-operator --timestamps=true
 ```
+
+**Note**: The operator currently uses structured logging for observability. Prometheus metrics endpoint is not yet available.
 
 ### Health Monitoring
 

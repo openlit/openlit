@@ -262,32 +262,7 @@ operator:
 
 ## 📊 Observability Configuration
 
-### Metrics and Monitoring
-
-| Parameter | Description | Default | Example |
-|-----------|-------------|---------|---------|
-| `observability.enableMetrics` | Enable Prometheus metrics | `true` | `false` |
-| `observability.metricsPort` | Metrics server port | `8080` | `9090` |
-| `serviceMonitor.enabled` | Create ServiceMonitor | `false` | `true` |
-| `serviceMonitor.interval` | Scrape interval | `30s` | `15s` |
-| `serviceMonitor.labels` | ServiceMonitor labels | `{}` | `{release: "prometheus"}` |
-
-**Example:**
-```yaml
-observability:
-  enableMetrics: true
-  metricsPort: 8080
-  logLevel: info
-  logFormat: json
-
-serviceMonitor:
-  enabled: true
-  interval: 30s
-  labels:
-    release: prometheus
-```
-
-### Logging Configuration
+### Logging and Monitoring
 
 | Parameter | Description | Default | Example |
 |-----------|-------------|---------|---------|
@@ -299,11 +274,13 @@ serviceMonitor:
 **Example:**
 ```yaml
 observability:
-  logLevel: debug
+  logLevel: info
   logFormat: json
-  enableStackTrace: true
+  enableStackTrace: false
   development: false
 ```
+
+**Note**: Prometheus metrics and ServiceMonitor support are not yet implemented. The operator currently provides observability through structured logging.
 
 ## 🔒 Security Configuration
 

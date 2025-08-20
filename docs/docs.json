@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "aspen",
   "name": "OpenLIT",
-  "description": "OpenLIT is the leading open-source AI observability platform with zero-code instrumentation for LLMs, vector databases, and AI frameworks. Monitor OpenAI, Anthropic, LangChain, LlamaIndex with one line of code. Features include cost tracking, performance metrics, prompt management, and enterprise-grade security for production AI applications.",
+  "description": "OpenLIT is the leading open-source AI observability platform with zero-code instrumentation for LLMs, vector databases, and AI frameworks. Monitor OpenAI, Anthropic, LangChain, LlamaIndex with OpenTelemetry. Features include cost tracking, performance metrics, prompt management, and enterprise-grade security for production AI applications.",
   "colors": {
     "primary": "#FFA500",
     "light": "#FFA500",

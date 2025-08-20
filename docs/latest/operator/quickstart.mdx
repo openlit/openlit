@@ -1,375 +1,135 @@
 ---
 title: 'Quickstart'
 description: 'Get started with OpenLIT Operator in 5 minutes'
+icon: "bolt"
 ---
 
-Get zero-code AI observability running in your Kubernetes cluster in just 5 minutes. This guide will have you monitoring your AI applications with OpenLIT in no time.
+import HelmRepoSetup from '/snippets/helm-repo-setup.mdx';
+import PlatformInstall from '/snippets/openlit-platform-install.mdx';
+import OperatorInstall from '/snippets/openlit-operator-install.mdx';
+
+In this 5-minute tutorial, you'll deploy an example AI Agent in Kubernetes and automatically get complete observability with zero code changes. 
+
+Using OpenLIT Operator, you'll capture distributed traces showing LLM costs, token usage, and agent performance metrics - then visualize everything in the OpenLIT dashboard.
 
 ## 📋 Prerequisites
 
-<CardGroup cols={2}>
-  <Card title="🎯 Kubernetes Cluster" icon="dharmachakra">
-    Kubernetes 1.19+ with RBAC enabled
-  </Card>
-  <Card title="📦 Helm 3.0+" icon="helm">
-    Helm package manager installed
-  </Card>
-  <Card title="🔧 kubectl Access" icon="terminal">
-    kubectl configured for your cluster
-  </Card>
-  <Card title="🛡️ Admin Permissions" icon="shield-check">
-    Cluster admin access for CRD installation
-  </Card>
-</CardGroup>
-
-## 🚀 Step 1: Install OpenLIT Platform
-
-First, install the OpenLIT observability platform to collect and visualize your AI telemetry:
-
-```bash
-# Add the OpenLIT Helm repository
-helm repo add openlit https://openlit.github.io/helm/
-helm repo update
-
-# Install OpenLIT platform
-helm install openlit openlit/openlit \
-  --create-namespace \
-  --namespace openlit \
-  --set postgresql.enabled=true \
-  --set clickhouse.enabled=true
-```
-
-Wait for OpenLIT to be ready:
-
-```bash
-# Wait for all pods to be running
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance=openlit -n openlit --timeout=300s
-
-# Check status
-kubectl get pods -n openlit
-```
-
-## 🔧 Step 2: Install OpenLIT Operator
-
-Install the OpenLIT Operator to enable zero-code instrumentation:
-
-```bash
-# Install the operator
-helm install openlit-operator openlit/openlit-operator \
-  --namespace openlit
-```
-
-Verify the operator is running:
-
-```bash
-# Check operator pod status
-kubectl get pods -n openlit -l app.kubernetes.io/name=openlit-operator
-
-# Verify the Custom Resource Definition is installed
-kubectl get crds | grep autoinstrumentations
-
-# Check operator logs
-kubectl logs -n openlit deployment/openlit-operator
-```
-
-Expected output:
-```bash
-NAME                                READY   STATUS    RESTARTS   AGE
-openlit-operator-7b9c8d5f7b-xyz12   1/1     Running   0          30s
-```
-
-## 🎯 Step 3: Create AutoInstrumentation
-
-Create an AutoInstrumentation resource to define how your apps should be instrumented:
-
-```yaml
-# Create autoinstrumentation.yaml
-cat <<EOF | kubectl apply -f -
-apiVersion: openlit.io/v1alpha1
-kind: AutoInstrumentation
-metadata:
-  name: quickstart-instrumentation
-  namespace: default
-spec:
-  selector:
-    matchLabels:
-      openlit.io/instrument: "true"
-  otlp:
-    endpoint: "http://openlit.openlit.svc.cluster.local:4318"
-EOF
-```
-
-Verify the AutoInstrumentation is ready:
-
-```bash
-kubectl get autoinstrumentations
-kubectl describe autoinstrumentation quickstart-instrumentation
-```
-
-## 🧪 Step 4: Deploy Test Application
-
-Deploy a sample AI application to test the instrumentation:
-
-```yaml
-# Create test-app.yaml
-cat <<EOF | kubectl apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ai-chatbot-test
-  namespace: default
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: ai-chatbot-test
-  template:
-    metadata:
-      labels:
-        app: ai-chatbot-test
-        openlit.io/instrument: "true"  # This label enables instrumentation
-    spec:
-      containers:
-      - name: chatbot
-        image: python:3.11-slim
-        command: ["python", "-c"]
-        args:
-          - |
-            import time
-            import sys
-            import subprocess
-            
-            # Install required packages
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "openai>=1.0.0", "requests"])
-            
-            # Simple AI application simulation
-            import openai
-            import random
-            
-            print("🤖 AI Chatbot Test Application Starting...")
-            
-            # Configure OpenAI client (will be instrumented automatically)
-            client = openai.OpenAI(
-                api_key="sk-test-key-for-demo",  # Demo key - won't make real calls
-                base_url="https://api.openai.com/v1"
-            )
-            
-            # Simulate AI interactions
-            conversations = [
-                "Hello, how can I help you today?",
-                "What's the weather like?", 
-                "Tell me about AI observability",
-                "How does OpenLIT work?",
-                "What are the benefits of zero-code instrumentation?"
-            ]
-            
-            for i, prompt in enumerate(conversations):
-                try:
-                    print(f"📝 Processing conversation {i+1}: {prompt}")
-                    
-                    # This will be automatically instrumented by OpenLIT
-                    # Note: This will fail with the demo key, but the instrumentation will still work
-                    try:
-                        response = client.chat.completions.create(
-                            model="gpt-3.5-turbo",
-                            messages=[{"role": "user", "content": prompt}],
-                            max_tokens=100
-                        )
-                        print(f"✅ Response generated: {response.choices[0].message.content[:50]}...")
-                    except Exception as e:
-                        print(f"⚠️  API call failed (expected with demo key): {str(e)[:100]}...")
-                        print("🔍 But the instrumentation trace was still captured!")
-                    
-                    # Wait between requests
-                    time.sleep(10)
-                    
-                except Exception as e:
-                    print(f"❌ Error in conversation {i+1}: {e}")
-                
-            print("🎉 Test application completed. Check OpenLIT dashboard for traces!")
-            
-            # Keep container running
-            while True:
-                print("💤 Sleeping... (check traces in OpenLIT dashboard)")
-                time.sleep(60)
-        env:
-        - name: OPENAI_API_KEY
-          value: "sk-test-key-for-demo"  # Demo key for testing
-EOF
-```
-
-Check that your application was automatically instrumented:
-
-```bash
-# Check if the pod was modified by the operator
-kubectl describe pod -l app=ai-chatbot-test
-
-# Look for the init container injection
-kubectl get pod -l app=ai-chatbot-test -o jsonpath='{.items[0].spec.initContainers[*].name}'
-
-# Check application logs for instrumentation
-kubectl logs -l app=ai-chatbot-test -c chatbot -f
-```
-
-You should see:
-- An init container named `openlit-instrumentation`
-- Environment variables injected for OpenTelemetry
-- Application logs showing API calls being processed
-
-## 📊 Step 5: View Traces in OpenLIT
-
-Access the OpenLIT dashboard to view your AI application traces:
-
-### Port Forward to OpenLIT
-
-```bash
-# Forward the OpenLIT dashboard port
-kubectl port-forward -n openlit svc/openlit 3000:3000
-```
-
-### Access Dashboard
-
-1. **Open your browser** and navigate to `http://localhost:3000`
-2. **Login** with default credentials (or set up authentication if configured)
-3. **Navigate to Traces** section in the dashboard
-4. **Filter by service** name: `ai-chatbot-test`
-
-### What You'll See
-
-In the OpenLIT dashboard, you'll see:
-
-- **Service Overview**: Your `ai-chatbot-test` service with health metrics
-- **Trace Timeline**: Individual traces for each simulated AI conversation
-- **LLM Operations**: Detailed spans showing OpenAI API calls (even failed ones)
-- **Performance Metrics**: Response times, error rates, and throughput
-- **Cost Tracking**: Token usage estimates (even for failed calls)
-
-### Example Trace Structure
-
-```
-🔍 HTTP Request (ai-chatbot-test)
-├── 🤖 openai.chat.completions
-│   ├── Model: gpt-3.5-turbo
-│   ├── Input Tokens: 15
-│   ├── Status: error (expected with demo key)
-│   └── Duration: 1.2s
-└── 📊 Application Metrics
-    ├── Request Count: 5
-    ├── Error Rate: 100% (expected)
-    └── Average Duration: 1.1s
-```
-
-## 🎉 Success!
-
-Congratulations! You now have:
-
-✅ **OpenLIT Platform** deployed and running  
-✅ **OpenLIT Operator** installed and configured  
-✅ **Zero-code instrumentation** automatically injecting telemetry  
-✅ **AI application traces** visible in the OpenLIT dashboard  
-✅ **Automatic cost tracking** for LLM operations  
-
-## 🔧 Next Steps
-
-### Add Real AI Applications
-
-Replace the test application with your real AI workloads:
-
-```yaml
-# Add to your existing deployments
-metadata:
-  labels:
-    openlit.io/instrument: "true"
-```
-
-### Configure Different Providers
-
-Try different instrumentation providers:
-
-```yaml
-# Use OpenInference for standards compliance
-spec:
-  python:
-    instrumentation:
-      provider: "openinference"
-
-# Use OpenLLMetry for LLM focus
-spec:
-  python:
-    instrumentation:
-      provider: "openllmetry"
-```
-
-### Production Configuration
-
-For production deployments:
-
-```yaml
-# Production-ready configuration
-spec:
-  otlp:
-    endpoint: "https://your-production-openlit.company.com:4318"
-    headers: "authorization=Bearer your-production-token"
-    timeout: 60
-  python:
-    instrumentation:
-      provider: "openlit"
-      env:
-      - name: OPENLIT_ENVIRONMENT
-        value: "production"
-      - name: OPENLIT_REDACT_PII
-        value: "true"
-```
-
-## 📖 Learn More
-
-<CardGroup cols={2}>
-  <Card title="🛠️ Detailed Installation" href="/latest/operator/installation" icon="download">
-    Production-ready installation with security and HA configuration
-  </Card>
-  <Card title="⚙️ Configuration" href="/latest/operator/config-operator" icon="gear">
-    Configure operator settings and AutoInstrumentation resources
-  </Card>
-  <Card title="🎯 Instrumentations" href="/latest/operator/instrumentations-overview" icon="target">
-    Learn about different instrumentation providers and their capabilities
-  </Card>
-  <Card title="🌐 Destinations" href="/latest/operator/destinations-overview" icon="globe">
-    Configure trace destinations and integrate with other observability tools
-  </Card>
-</CardGroup>
-
-## 🚨 Troubleshooting
+- **Kubernetes cluster+** with cluster admin access
+- **Helm** package manager
+- **kubectl** configured for your cluster
 
 <AccordionGroup>
-  <Accordion title="Operator pod not starting">
-    Check RBAC permissions and CRD installation:
-    ```bash
-    kubectl auth can-i create customresourcedefinitions
-    kubectl get crds | grep autoinstrumentations
-    kubectl describe pod -n openlit -l app.kubernetes.io/name=openlit-operator
-    ```
-  </Accordion>
-  
-  <Accordion title="Application not instrumented">
-    Verify label selector and AutoInstrumentation:
-    ```bash
-    kubectl get autoinstrumentations -o yaml
-    kubectl describe pod ai-chatbot-test
-    kubectl logs -n openlit deployment/openlit-operator
-    ```
-  </Accordion>
-  
-  <Accordion title="No traces in OpenLIT dashboard">
-    Check OTLP connectivity and application logs:
-    ```bash
-    # Test OTLP endpoint
-    kubectl exec ai-chatbot-test-xxx -- curl http://openlit.openlit.svc.cluster.local:4318/v1/traces
-    
-    # Check instrumentation logs
-    kubectl logs ai-chatbot-test-xxx -c chatbot | grep -i opentelemetry
-    
-    # Verify OpenLIT is receiving data
-    kubectl logs -n openlit deployment/openlit
-    ```
+  <Accordion title="☸️ Don't have a Kubernetes cluster? Create one locally">
+    We recommend using K3d or minikube for trying OpenLIT Operator out in a local environment.
+
+    <Tabs>
+      <Tab title="k3d">
+        1. [Install k3d](https://k3d.io/stable/#installation) following their official guide
+        2. Create cluster:
+        ```bash
+        k3d cluster create openlit-demo
+        ```
+      </Tab>
+
+      <Tab title="minikube">
+        1. [Install minikube](https://minikube.sigs.k8s.io/docs/start/) following their official guide
+        2. Start cluster:
+        ```bash
+        minikube start --cpus=2 --memory=4096mb --driver=docker
+        ```
+      </Tab>
+    </Tabs>
   </Accordion>
 </AccordionGroup>
+
+<Steps titleSize="h3">
+  <Step title="Deploy OpenLIT Platform">
+    Install the OpenLIT observability platform to collect and monitor your LLM App and AI Agent performance:
+
+    <HelmRepoSetup />
+
+    <PlatformInstall />
+  </Step>
+
+  <Step title="Deploy OpenLIT Operator">
+    Install the OpenLIT Operator to enable zero-code instrumentation:
+
+    <OperatorInstall />
+
+    **Verify the operator is running**
+
+    ```bash
+    # Check operator pod status
+    kubectl get pods -n openlit -l app.kubernetes.io/name=openlit-operator
+    ```
+
+    Expected output:
+    ```bash
+    NAME                                READY   STATUS    RESTARTS   AGE
+    openlit-operator-7b9c8d5f7b-xyz12   1/1     Running   0          30s
+    ```
+  </Step>
+
+  <Step title="Create AutoInstrumentation Custom Resource">
+    Create an AutoInstrumentation resource to define how your AI apps should be instrumented:
+
+    ```bash
+    kubectl apply -f - <<EOF
+    apiVersion: openlit.io/v1alpha1
+    kind: AutoInstrumentation
+    metadata:
+      name: quickstart-instrumentation
+      namespace: default
+    spec:
+      selector:
+        matchLabels:
+          instrumentation: openlit
+      otlp:
+        endpoint: "http://openlit.openlit.svc.cluster.local:4318"
+    EOF
+    ```
+
+    <Warning>
+    **Already have AI applications running?** You'll need to restart them to enable instrumentation:
+    ```bash
+    kubectl rollout restart deployment <your-deployment-name>
+    ```
+    </Warning>
+  </Step>
+
+  <Step title="Deploy the example AI Agent">
+    Deploy the example AI agent built using CrewAI:
+
+    ```bash
+    kubectl apply -f https://raw.githubusercontent.com/openlit/openlit/main/operator/examples/test-application-deployment.yaml
+    ```
+
+  </Step>
+
+  <Step title="View Traces and metrics in OpenLIT">
+    Access the OpenLIT dashboard to view your AI application traces:
+
+    **Port Forward to OpenLIT**
+
+    ```bash
+    # Forward the OpenLIT dashboard port
+    kubectl port-forward -n openlit svc/openlit 3000:3000
+    ```
+
+    **Access Dashboard**
+
+    1. Open your browser and navigate to `http://localhost:3000`
+    2. Navigate to **Traces** section in the dashboard
+
+    **What You'll See**
+
+    In the OpenLIT dashboard, you'll see:
+
+    - **Service Overview**: Your `openlit-test-app` service with health metrics
+    - **Trace Timeline**: Individual traces for HTTP requests and OpenAI API calls
+    - **LLM Operations**: Detailed spans showing OpenAI API calls with token usage
+    - **Performance Metrics**: Response times, error rates, and throughput
+    - **Cost Tracking**: Token usage and estimated costs
+
+  </Step>
+</Steps>
