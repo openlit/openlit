@@ -13,24 +13,26 @@
     "thumbsRating": true,
     "suggestEdit": true
   },
-  "anchors": [
-    {
-      "name": "GitHub",
-      "icon": "github",
-      "url": "https://github.com/openlit/"
-    },
-    {
-      "name": "Slack",
-      "icon": "slack",
-      "url": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ"
-    },
-    {
-      "name": "Discord",
-      "icon": "discord",
-      "url": "https://discord.gg/CQnXwNT3"
-    }
-  ],
   "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/openlit/openlit",
+          "icon": "github"
+        },
+        {
+          "anchor": "Community",
+          "href": "https://join.slack.com/t/openlit/shared_invite/zt-2etnfttwg-TjP_7BZXfYg84oAukY8QRQ",
+          "icon": "slack"
+        },
+        {
+          "anchor": "Blog",
+          "href": "https://openlit.io/blogs",
+          "icon": "newspaper"
+        }
+      ]
+    },
     "tabs": [
       {
         "tab": "Platform",
@@ -329,6 +331,12 @@
   "integrations": {
     "ga4": {
       "measurementId": "G-2BMXWY88E6"
+    },
+    "telemetry": {
+      "enabled": true
     }
+  },
+  "contextual": {
+    "options": ["copy", "chatgpt", "claude"]
   }
 }
