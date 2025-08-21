@@ -174,27 +174,34 @@
             ]
           },
           {
-            "group": "Connections",
+            "group": "Destinations",
             "pages": [
-              "latest/connections/intro",
-              "latest/connections/otelcol",
-              "latest/connections/prometheus-tempo",
-              "latest/connections/prometheus-jaeger",
-              "latest/connections/grafanacloud",
-              "latest/connections/new-relic",
-              "latest/connections/elastic",
-              "latest/connections/hyperdx",
-              "latest/connections/datadog",
-              "latest/connections/signoz",
-              "latest/connections/oneuptime",
-              "latest/connections/dynatrace",
-              "latest/connections/openobserve",
-              "latest/connections/highlight",
-              "latest/connections/middleware",
-              "latest/connections/siglens",
-              "latest/connections/oodle",
-              "latest/connections/langfuse",
-              "latest/connections/murnitur"
+              "latest/destinations/intro",
+              {
+                "group": "Supported Destinations",
+                "icon": "paper-plane",
+                "pages": [
+                  "latest/destinations/openlit",
+                  "latest/destinations/otelcol",
+                  "latest/destinations/grafanacloud",
+                  "latest/destinations/prometheus-tempo",
+                  "latest/destinations/prometheus-jaeger",
+                  "latest/destinations/datadog",
+                  "latest/destinations/signoz",
+                  "latest/destinations/new-relic",
+                  "latest/destinations/dynatrace",
+                  "latest/destinations/elastic",
+                  "latest/destinations/hyperdx",
+                  "latest/destinations/oneuptime",
+                  "latest/destinations/openobserve",
+                  "latest/destinations/highlight",
+                  "latest/destinations/middleware",
+                  "latest/destinations/siglens",
+                  "latest/destinations/oodle",
+                  "latest/destinations/langfuse",
+                  "latest/destinations/murnitur"
+                ]
+              }
             ]
           },
           {
@@ -238,41 +245,55 @@
           {
             "group": "Configuration",
             "pages": [
-              "latest/operator/config-operator",
-              "latest/operator/config-autoinstrumentation"
+              "latest/operator/configuration/operator",
+              "latest/operator/configuration/autoinstrumentation"
             ]
           },
           {
             "group": "Instrumentations",
             "pages": [
-              "latest/operator/instrumentations-overview",
-              "latest/operator/instrumentations-openlit",
-              "latest/operator/instrumentations-openinference",
-              "latest/operator/instrumentations-openllmetry",
-              "latest/operator/instrumentations-custom"
+              "latest/operator/instrumentations/overview",
+              {
+                "group": "Python",
+                "icon": "python",
+                "pages": [
+                  "latest/operator/instrumentations/python/openlit",
+                  "latest/operator/instrumentations/python/openllmetry",
+                  "latest/operator/instrumentations/python/openinference",
+                  "latest/operator/instrumentations/python/custom"
+                ]
+              }
             ]
           },
           {
             "group": "Destinations",
             "pages": [
-              "latest/operator/destinations-overview",
-              "latest/operator/destinations-supported"
-            ]
-          },
-          {
-            "group": "Concepts",
-            "pages": [
-              "latest/operator/concepts-telemetry",
-              "latest/operator/concepts-custom-resources",
-              "latest/operator/concepts-permissions"
-            ]
-          },
-          {
-            "group": "Advanced",
-            "pages": [
-              "latest/operator/troubleshooting",
-              "latest/operator/security",
-              "latest/operator/api-reference"
+              "latest/operator/destinations/overview",
+              {
+                "group": "Supported Destinations",
+                "icon": "paper-plane",
+                "pages": [
+                  "latest/operator/destinations/openlit",
+                  "latest/operator/destinations/otelcol",
+                  "latest/operator/destinations/grafanacloud",
+                  "latest/operator/destinations/prometheus-tempo",
+                  "latest/operator/destinations/prometheus-jaeger",
+                  "latest/operator/destinations/datadog",
+                  "latest/operator/destinations/signoz", 
+                  "latest/operator/destinations/newrelic",
+                  "latest/operator/destinations/dynatrace",
+                  "latest/operator/destinations/elastic",
+                  "latest/operator/destinations/hyperdx",
+                  "latest/operator/destinations/oneuptime",
+                  "latest/operator/destinations/openobserve",
+                  "latest/operator/destinations/highlight",
+                  "latest/operator/destinations/middleware",
+                  "latest/operator/destinations/siglens",
+                  "latest/operator/destinations/oodle",
+                  "latest/operator/destinations/langfuse",
+                  "latest/operator/destinations/murnitur"
+                ]
+              }
             ]
           }
         ]
