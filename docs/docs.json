@@ -35,142 +35,207 @@
     },
     "tabs": [
       {
-        "tab": "Platform",
+        "tab": "OpenLIT",
         "groups": [
           {
             "group": "Getting Started",
             "pages": [
               "latest/introduction",
-              "latest/quickstart-observability",
-              "latest/quickstart-evals",
-              "latest/quickstart-guard",
               "latest/installation",
-              "latest/sdk-configuration",
-              "latest/ui-configuration",
-              "latest/oauth-authentication"
+              {
+                "group": "Quickstarts",
+                "icon": "bolt",
+                "pages": [
+                  "latest/quickstart-observability",
+                  "latest/quickstart-evals",
+                  "latest/quickstart-guard"
+                ]
+              },
+              "latest/configuration",
+              "latest/oauth"
             ]
           },
           {
-            "group": "Features",
+            "group": "Observability and Evaluations",
             "pages": [
-              "latest/features/overview",
-              "latest/features/tracing",
-              "latest/features/metrics",
-              "latest/features/gpu",
-              "latest/features/pricing",
+              "latest/openlit/observability/tracing",
+              "latest/openlit/observability/metrics",
+              "latest/openlit/observability/exceptions"
+            ]
+          },
+          {
+            "group": "Dashboards",
+            "pages": [
+              "latest/openlit/dashboards/overview",
+              "latest/openlit/dashboards/create-your-first-folder",
+              "latest/openlit/dashboards/create-your-first-dashboard",
+              "latest/openlit/dashboards/organize-your-dashboards",
+              "latest/openlit/dashboards/pin-your-dashboard",
+              "latest/openlit/dashboards/set-as-main-dashboard",
               {
-                "group": "Dashboards",
+                "group": "Widgets",
                 "pages": [
-                  "latest/features/dashboards/introduction",
-                  "latest/features/dashboards/create-your-first-folder",
-                  "latest/features/dashboards/create-your-first-dashboard",
-                  "latest/features/dashboards/organize-your-dashboards",
-                  "latest/features/dashboards/pin-your-dashboard",
-                  "latest/features/dashboards/set-as-main-dashboard",
-                  {
-                    "group": "Widgets",
-                    "pages": [
-                      "latest/features/dashboards/widgets/introduction",
-                      "latest/features/dashboards/widgets/area-chart-widget",
-                      "latest/features/dashboards/widgets/bar-chart-widget",
-                      "latest/features/dashboards/widgets/line-chart-widget",
-                      "latest/features/dashboards/widgets/markdown-widget",
-                      "latest/features/dashboards/widgets/pie-chart-widget",
-                      "latest/features/dashboards/widgets/stat-widget",
-                      "latest/features/dashboards/widgets/table-widget"
-                    ]
-                  },
-                  "latest/features/dashboards/use-filters-and-dynamic-bindings",
-                  "latest/features/dashboards/auto-refresh-and-time-interval"
+                  "latest/openlit/dashboards/widgets/overview",
+                  "latest/openlit/dashboards/widgets/area-chart-widget",
+                  "latest/openlit/dashboards/widgets/bar-chart-widget",
+                  "latest/openlit/dashboards/widgets/line-chart-widget",
+                  "latest/openlit/dashboards/widgets/markdown-widget",
+                  "latest/openlit/dashboards/widgets/pie-chart-widget",
+                  "latest/openlit/dashboards/widgets/stat-widget",
+                  "latest/openlit/dashboards/widgets/table-widget"
                 ]
               },
-              "latest/features/prompt-hub",
-              "latest/features/vault",
-              "latest/features/guardrails",
-              "latest/features/evaluations",
-              "latest/features/exceptions",
-              "latest/features/openground",
-              "latest/features/multiple-db"
+              "latest/openlit/dashboards/use-filters-and-dynamic-bindings",
+              "latest/openlit/dashboards/auto-refresh-and-time-interval"
+            ]
+          },
+          {
+            "group": "Prompts and Experiments",
+            "pages": [
+              "latest/openlit/prompts-experiments/prompt-hub",
+              "latest/openlit/prompts-experiments/openground"
+            ]
+          },
+          {
+            "group": "Developer Resources",
+            "pages": [
+              "latest/openlit/developer-resources/vault",
+              "latest/openlit/developer-resources/multiple-db",
+              "latest/openlit/developer-resources/anonymous-telemetry",
+              {
+                "group": "API Reference",
+                "pages": [
+                  "latest/openlit/developer-resources/api-reference/introduction",
+                  {
+                    "group": "Prompt Hub",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/prompt-hub/get"
+                    ]
+                  },
+                  {
+                    "group": "Vault",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/vault/get"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDK",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "latest/sdk/overview",
+              {
+                "group": "Quickstarts",
+                "icon": "bolt",
+                "pages": [
+                  "latest/quickstart-observability",
+                  "latest/quickstart-evals",
+                  "latest/quickstart-guard"
+                ]
+              },
+              "latest/sdk/configuration"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "latest/sdk/features/tracing",
+              "latest/sdk/features/metrics",
+              "latest/sdk/features/gpu",
+              "latest/sdk/features/pricing",
+              "latest/sdk/features/evaluations",
+              "latest/sdk/features/guardrails"
             ]
           },
           {
             "group": "Integrations",
             "pages": [
-              "latest/integrations/introduction",
+              "latest/sdk/integrations/introduction",
               {
                 "group": "LLMs",
+                "icon": "robot",
                 "pages": [
-                  "latest/integrations/openai",
-                  "latest/integrations/ollama",
-                  "latest/integrations/anthropic",
-                  "latest/integrations/deepseek",
-                  "latest/integrations/gpt4all",
-                  "latest/integrations/cohere",
-                  "latest/integrations/mistral",
-                  "latest/integrations/github-models",
-                  "latest/integrations/vllm",
-                  "latest/integrations/azure-openai",
-                  "latest/integrations/azure-ai-inference",
-                  "latest/integrations/huggingface",
-                  "latest/integrations/bedrock",
-                  "latest/integrations/vertexai",
-                  "latest/integrations/google-ai-studio",
-                  "latest/integrations/groq",
-                  "latest/integrations/nvidia-nim",
-                  "latest/integrations/xai",
-                  "latest/integrations/elevenlabs",
-                  "latest/integrations/ai21",
-                  "latest/integrations/together",
-                  "latest/integrations/assemblyai",
-                  "latest/integrations/featherless",
-                  "latest/integrations/reka",
-                  "latest/integrations/krutrim",
-                  "latest/integrations/titan-ml",
-                  "latest/integrations/sarvam",
-                  "latest/integrations/premai"
+                  "latest/sdk/integrations/openai",
+                  "latest/sdk/integrations/ollama",
+                  "latest/sdk/integrations/anthropic",
+                  "latest/sdk/integrations/deepseek",
+                  "latest/sdk/integrations/gpt4all",
+                  "latest/sdk/integrations/cohere",
+                  "latest/sdk/integrations/mistral",
+                  "latest/sdk/integrations/github-models",
+                  "latest/sdk/integrations/vllm",
+                  "latest/sdk/integrations/azure-openai",
+                  "latest/sdk/integrations/azure-ai-inference",
+                  "latest/sdk/integrations/huggingface",
+                  "latest/sdk/integrations/bedrock",
+                  "latest/sdk/integrations/vertexai",
+                  "latest/sdk/integrations/google-ai-studio",
+                  "latest/sdk/integrations/groq",
+                  "latest/sdk/integrations/nvidia-nim",
+                  "latest/sdk/integrations/xai",
+                  "latest/sdk/integrations/elevenlabs",
+                  "latest/sdk/integrations/ai21",
+                  "latest/sdk/integrations/together",
+                  "latest/sdk/integrations/assemblyai",
+                  "latest/sdk/integrations/featherless",
+                  "latest/sdk/integrations/reka",
+                  "latest/sdk/integrations/krutrim",
+                  "latest/sdk/integrations/titan-ml",
+                  "latest/sdk/integrations/sarvam",
+                  "latest/sdk/integrations/premai"
                 ]
               },
               {
                 "group": "VectorDBs",
+                "icon": "database",
                 "pages": [
-                  "latest/integrations/chromadb",
-                  "latest/integrations/pinecone",
-                  "latest/integrations/qdrant",
-                  "latest/integrations/milvus",
-                  "latest/integrations/astradb"
+                  "latest/sdk/integrations/chromadb",
+                  "latest/sdk/integrations/pinecone",
+                  "latest/sdk/integrations/qdrant",
+                  "latest/sdk/integrations/milvus",
+                  "latest/sdk/integrations/astradb"
                 ]
               },
               {
                 "group": "Frameworks",
+                "icon": "circle-nodes",
                 "pages": [
-                  "latest/integrations/langchain",
-                  "latest/integrations/openai-agents",
-                  "latest/integrations/litellm",
-                  "latest/integrations/crewai",
-                  "latest/integrations/llama-index",
-                  "latest/integrations/browser-use",
-                  "latest/integrations/pydantic",
-                  "latest/integrations/dspy",
-                  "latest/integrations/ag2",
-                  "latest/integrations/haystack",
-                  "latest/integrations/mem0",
-                  "latest/integrations/guardrails",
-                  "latest/integrations/phidata",
-                  "latest/integrations/multion",
-                  "latest/integrations/julep-ai",
-                  "latest/integrations/letta",
-                  "latest/integrations/crawl4ai",
-                  "latest/integrations/firecrawl",
-                  "latest/integrations/dynamiq",
-                  "latest/integrations/controlflow",
-                  "latest/integrations/swarmzero"
+                  "latest/sdk/integrations/langchain",
+                  "latest/sdk/integrations/openai-agents",
+                  "latest/sdk/integrations/litellm",
+                  "latest/sdk/integrations/crewai",
+                  "latest/sdk/integrations/llama-index",
+                  "latest/sdk/integrations/browser-use",
+                  "latest/sdk/integrations/pydantic",
+                  "latest/sdk/integrations/dspy",
+                  "latest/sdk/integrations/ag2",
+                  "latest/sdk/integrations/haystack",
+                  "latest/sdk/integrations/mem0",
+                  "latest/sdk/integrations/guardrails",
+                  "latest/sdk/integrations/phidata",
+                  "latest/sdk/integrations/multion",
+                  "latest/sdk/integrations/julep-ai",
+                  "latest/sdk/integrations/letta",
+                  "latest/sdk/integrations/crawl4ai",
+                  "latest/sdk/integrations/firecrawl",
+                  "latest/sdk/integrations/dynamiq",
+                  "latest/sdk/integrations/controlflow",
+                  "latest/sdk/integrations/swarmzero"
                 ]
               },
               {
                 "group": "GPUs",
+                "icon": "server",
                 "pages": [
-                  "latest/integrations/nvidia-gpu",
-                  "latest/integrations/amd-gpu"
+                  "latest/sdk/integrations/nvidia-gpu",
+                  "latest/sdk/integrations/amd-gpu"
                 ]
               }
             ]
@@ -178,56 +243,32 @@
           {
             "group": "Destinations",
             "pages": [
-              "latest/destinations/intro",
+              "latest/sdk/destinations/overview",
               {
                 "group": "Supported Destinations",
                 "icon": "paper-plane",
                 "pages": [
-                  "latest/destinations/openlit",
-                  "latest/destinations/otelcol",
-                  "latest/destinations/grafanacloud",
-                  "latest/destinations/prometheus-tempo",
-                  "latest/destinations/prometheus-jaeger",
-                  "latest/destinations/datadog",
-                  "latest/destinations/signoz",
-                  "latest/destinations/new-relic",
-                  "latest/destinations/dynatrace",
-                  "latest/destinations/elastic",
-                  "latest/destinations/hyperdx",
-                  "latest/destinations/oneuptime",
-                  "latest/destinations/openobserve",
-                  "latest/destinations/highlight",
-                  "latest/destinations/middleware",
-                  "latest/destinations/siglens",
-                  "latest/destinations/oodle",
-                  "latest/destinations/langfuse",
-                  "latest/destinations/murnitur"
+                  "latest/sdk/destinations/openlit",
+                  "latest/sdk/destinations/otelcol",
+                  "latest/sdk/destinations/grafanacloud",
+                  "latest/sdk/destinations/prometheus-tempo",
+                  "latest/sdk/destinations/prometheus-jaeger",
+                  "latest/sdk/destinations/datadog",
+                  "latest/sdk/destinations/signoz",
+                  "latest/sdk/destinations/new-relic",
+                  "latest/sdk/destinations/dynatrace",
+                  "latest/sdk/destinations/elastic",
+                  "latest/sdk/destinations/hyperdx",
+                  "latest/sdk/destinations/oneuptime",
+                  "latest/sdk/destinations/openobserve",
+                  "latest/sdk/destinations/highlight",
+                  "latest/sdk/destinations/middleware",
+                  "latest/sdk/destinations/siglens",
+                  "latest/sdk/destinations/oodle",
+                  "latest/sdk/destinations/langfuse",
+                  "latest/sdk/destinations/murnitur"
                 ]
               }
-            ]
-          },
-          {
-            "group": "API Reference",
-            "pages": [
-              "latest/api-reference/introduction",
-              {
-                "group": "Prompt Hub",
-                "pages": [
-                  "latest/api-reference/endpoint/prompt-hub/get"
-                ]
-              },
-              {
-                "group": "Vault",
-                "pages": [
-                  "latest/api-reference/endpoint/vault/get"
-                ]
-              }
-            ]
-          },
-          {
-            "group": "Privacy",
-            "pages": [
-              "latest/anonymous-telemetry"
             ]
           }
         ]

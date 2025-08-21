@@ -1,0 +1,47 @@
+---
+title: 'Track Cost for Custom Models'
+description: 'Use your own Pricing File to calculate LLM usage costs'
+---
+
+OpenLIT provides built-in pricing information through a default pricing JSON file accessible from [this URL](https://raw.githubusercontent.com/openlit/openlit/main/assets/pricing.json). This default file, which is regularly updated to reflect the latest pricing from various LLM providers, covers a range of standard LLM usage scenarios and provides detailed pricing information.
+
+To support personalized pricing schemes for specialized needs, such as fine-tuned or custom models, OpenLIT allows users to specify their own pricing structure through a custom JSON file. This flexibility ensures that pricing calculations for LLM operations are accurately aligned with business and application requirements.
+
+## Using the Default Pricing File
+
+The [default pricing file](https://raw.githubusercontent.com/openlit/openlit/main/assets/pricing.json) is recommended for general use as it is consistently updated to stay current with the pricing models of different LLM providers. Users should consider using a custom pricing file primarily when dealing with custom or fine-tuned models not covered by the default settings.
+
+## Using a Custom Pricing File
+
+Users can provide their own `pricing_json` variable, which can either be a file path or a URL pointing to a custom JSON file. This file should contain pricing details such as the model names and their associated costs in USD per 1000 tokens for chat-based models.
+
+**Example Usage:**
+
+- To load pricing details from an external URL:
+
+  ```python
+  openlit.init(pricing_json="https://example.com/path/to/your/pricing.json")
+  ```
+
+- To load pricing details from a local file path:
+
+  ```python
+  openlit.init(pricing_json="/path/to/your/local/pricing.json")
+  ```
+
+### Important Considerations
+
+1. **JSON Structure**: The custom pricing JSON must follow the same structure as the [default pricing file](https://raw.githubusercontent.com/openlit/openlit/main/assets/pricing.json) provided by OpenLIT. If the structure does not match, OpenLIT will not be able to accurately calculate costs based on the custom pricing file.
+
+2. **Initialization**: OpenLIT SDK initializes by pulling data from the provided or default JSON source. It's essential to ensure that the path or URL is accessible during initialization to fetch the necessary pricing data.
+
+3. **Updates**: If pricing details change, users need to update their custom JSON file accordingly. If using a URL, ensure that the file at the URL is updated; if using a local file, update the file directly on your system.
+
+<CardGroup cols={2}>
+<Card title="Integrations" href="/latest/sdk/integrations/introduction" icon='circle-nodes'>
+Integrate your AI Stack with OpenLIT 
+</Card>
+<Card title="Connections" href="/latest/sdk/destinations/intro" icon='link'>
+Connect to your existing Observablity Stack
+</Card>
+</CardGroup>

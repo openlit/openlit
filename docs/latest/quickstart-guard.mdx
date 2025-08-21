@@ -1,8 +1,7 @@
 ---
-title: "Get started with Guardrails"
-sidebarTitle: "Quickstart: Guardrails"
+title: "Secure your AI app against risks"
+sidebarTitle: "Guardrails"
 description: "Quickly secure your app from Prompt Injection, Sensitive Topics, and Topic Restriction"
-icon: "bolt"
 ---
 
 This guide will help you set up guardrails to secure your applications from bad prompts. With OpenLIT Guardrails, you can detect and manage Prompt Injection, Sensitive Topics, and restrict prompts to certain topics. 
@@ -46,7 +45,7 @@ We'll demonstrate how to use the `All` guardrail, which checks for all three asp
     </Tabs>
     The "All" guardrail is useful for simultaneously checking against Prompt Injection, Sensitive Topics, and Topic Restriction. For more efficient, targeted protection from harmful prompts, you can use specific guardrails like `openlit.guard.PromptInjection()`, `openlit.guard.SensitiveTopics()`, or `openlit.guard.TopicRestriction()`.
 
-    For details on how it works, and to see the supported providers, models, and parameters to pass, check our [Guardrails Guide](/latest/features/guardrails).
+    For details on how it works, and to see the supported providers, models, and parameters to pass, check our [Guardrails Guide](/latest/sdk/features/guardrails).
     </Step>
     <Step title="Collecting Guardrail Metrics">
         The `openlit.guard` module integrates with OpenTelemetry to track guardrail metrics as a counter, including score details and validation metadata. To enable metric collection, initialize OpenLIT with metrics tracking:
@@ -61,7 +60,7 @@ We'll demonstrate how to use the `All` guardrail, which checks for all three asp
         guards = openlit.guard.All(provider="openai", collect_metrics=True)
         ```
 
-        These metrics can be sent to any OpenTelemetry-compatible backend. For configuration details, check out our [Connections Guide](/latest/destinations/intro) to choose your preferred destination for these metrics.
+        These metrics can be sent to any OpenTelemetry-compatible backend. For configuration details, check out our [Connections Guide](/latest/sdk/destinations/intro) to choose your preferred destination for these metrics.
     </Step>
 
 </Steps>
@@ -75,12 +74,12 @@ If you have any questions or need support, reach out to our [community](https://
 <CardGroup cols={2}>
 	<Card
 		title="Integrations"
-		href="/latest/integrations/introduction"
+		href="/latest/sdk/integrations/introduction"
 		icon="circle-nodes"
 	>
 		Integrate your AI Stack with OpenLIT
 	</Card>
-	<Card title="Connections" href="/latest/destinations/intro" icon="link">
+	<Card title="Connections" href="/latest/sdk/destinations/intro" icon="link">
 		Connect to your existing Observablity Stack
 	</Card>
 </CardGroup>

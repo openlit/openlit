@@ -1,8 +1,7 @@
 ---
-title: "Get started with Evaluations"
-sidebarTitle: "Quickstart: Evaluations"
+title: "Evaluate LLMs and AI Agents"
+sidebarTitle: "Programmatic Evaluations"
 description: "Quickly evaluate your model responses for Hallucination, Bias, and Toxicity"
-icon: "bolt"
 ---
 
 This guide will help you set up evaluations to assess your model's responses. With OpenLIT, you can evaluate and score text for Hallucination, Bias, and Toxicity. 
@@ -75,7 +74,7 @@ We'll demonstrate how to use the `All` evaluator, which checks for all three asp
     </Tabs>
     The "All" evaluator is great for checking text for Hallucination, Bias, and Toxicity simultaneously. For more efficient, targeted evaluations, you can use specific evaluators like `openlit.evals.Hallucination()`, `openlit.evals.Bias()`, or `openlit.evals.Toxicity()`.
 
-    For details on how it works, and to see the supported providers, models and parameters to pass, check our [Evaluations Guide](/latest/features/evaluations).
+    For details on how it works, and to see the supported providers, models and parameters to pass, check our [Evaluations Guide](/latest/sdk/features/evaluations).
     </Step>
     <Step title="Collecting Evaluation metrics">
         The `openlit.evals` module integrates with OpenTelemetry to track evaluation metrics as a counter, including score details and evaluation metadata. To enable metric collection, initialize OpenLIT for metrics tracking:
@@ -107,7 +106,7 @@ We'll demonstrate how to use the `All` evaluator, which checks for all three asp
             ```
           </Tab>
         </Tabs>
-        These metrics can be sent to any OpenTelemetry-compatible backend. For configuration details, check out our [Connections Guide](/latest/destinations/intro) to choose your preferred destination for these metrics.
+        These metrics can be sent to any OpenTelemetry-compatible backend. For configuration details, check out our [Connections Guide](/latest/sdk/destinations/intro) to choose your preferred destination for these metrics.
     </Step>
 
 </Steps>
@@ -121,12 +120,12 @@ If you have any questions or need support, reach out to our [community](https://
 <CardGroup cols={2}>
 	<Card
 		title="Integrations"
-		href="/latest/integrations/introduction"
+		href="/latest/sdk/integrations/introduction"
 		icon="circle-nodes"
 	>
 		Integrate your AI Stack with OpenLIT
 	</Card>
-	<Card title="Connections" href="/latest/destinations/intro" icon="link">
+	<Card title="Connections" href="/latest/sdk/destinations/intro" icon="link">
 		Connect to your existing Observablity Stack
 	</Card>
 </CardGroup>

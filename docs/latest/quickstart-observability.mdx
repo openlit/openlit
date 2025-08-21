@@ -1,8 +1,7 @@
 ---
 title: "Get started with AI Observability"
-sidebarTitle: "Quickstart: AI Observability"
+sidebarTitle: "LLM Observability"
 description: "Quickly start monitoring your AI Applications in just a single line of code"
-icon: "bolt"
 ---
 
 This guide will walk you through setting up OpenTelemetry Auto Instrumentation for monitoring your LLM Application using OpenLIT. In just a few steps, you'll be able to track and analyze the performance and usage of your LLM Applications.
@@ -470,7 +469,7 @@ flowchart TB;
     end
 ```
 
-If you wish to send telemetry directly from the SDK to another backend, you can stop the current Docker services by using the command below. For more details on sending the data to your existing OpenTelemetry backends, refer to our [Connections](/latest/destinations/intro) guide.
+If you wish to send telemetry directly from the SDK to another backend, you can stop the current Docker services by using the command below. For more details on sending the data to your existing OpenTelemetry backends, refer to our [Connections](/latest/sdk/destinations/intro) guide.
 
 ```sh
 docker compose down
@@ -483,12 +482,12 @@ If you have any questions or need support, reach out to our [community](https://
 <CardGroup cols={2}>
 	<Card
 		title="Integrations"
-		href="/latest/integrations/introduction"
+		href="/latest/sdk/integrations/introduction"
 		icon="circle-nodes"
 	>
 		Integrate your AI Stack with OpenLIT
 	</Card>
-	<Card title="Connections" href="/latest/destinations/intro" icon="link">
+	<Card title="Connections" href="/latest/sdk/destinations/intro" icon="link">
 		Connect to your existing Observablity Stack
 	</Card>
 </CardGroup>
