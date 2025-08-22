@@ -14,10 +14,8 @@ from openlit.instrumentation.mcp.utils import create_jsonrpc_wrapper
 
 _instruments = ("mcp >= 0.1.0",)
 
-# CRITICAL: Following OpenLLMetry's superior approach - wrap at JSONRPC level
 # This ensures proper async handling and response capture
 CORE_JSONRPC_METHODS = [
-    # === CORE JSONRPC COMMUNICATION (OpenLLMetry-inspired) ===
     {
         "package": "mcp.shared.session",
         "object": "BaseSession.send_request",
@@ -189,7 +187,6 @@ class MCPInstrumentor(BaseInstrumentor):
             disable_metrics,
         )
 
-        # PRIORITY 1: Instrument JSONRPC level (OpenLLMetry approach)
         try:
             wrap_function_wrapper(
                 "mcp.shared.session",

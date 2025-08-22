@@ -75,7 +75,6 @@ def mcp_wrap(
                     endpoint_parts[0] if endpoint_parts else "unknown"
                 )
 
-        # Create enhanced span name following OpenLLMetry patterns (e.g., "tools/list.mcp")
         operation_type = gen_ai_endpoint.split()[0] if " " in gen_ai_endpoint else "mcp"
         span_name = ctx.get_enhanced_span_name(operation_type)
 

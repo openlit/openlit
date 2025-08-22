@@ -63,7 +63,6 @@ def async_mcp_wrap(
             )
 
             # Create span name following OpenLIT convention: "{operation_type} {operation_name}"
-            # Create enhanced span name following OpenLLMetry patterns (e.g., "tools/list.mcp")
             operation_type = (
                 gen_ai_endpoint.split()[0] if " " in gen_ai_endpoint else "mcp"
             )

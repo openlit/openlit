@@ -316,9 +316,8 @@ class MCPInstrumentationContext:
             return {}
 
     def _extract_request_payload(self) -> Optional[str]:
-        """Extract request payload from args/kwargs in JSON format like OpenLLMetry."""
+        """Extract request payload from args/kwargs in JSON format."""
         try:
-            # Build request payload similar to OpenLLMetry's traceloop.entity.input
             payload = {}
 
             # Try to get method name
@@ -430,7 +429,6 @@ def set_mcp_span_attributes(
     # Set MCP-specific attributes
     span.set_attribute(SemanticConvention.MCP_METHOD, ctx.method_name)
 
-    # Capture request payload (OpenLLMetry-style enhancement)
     if ctx.request_payload and ctx.capture_message_content:
         span.set_attribute(SemanticConvention.MCP_REQUEST_PAYLOAD, ctx.request_payload)
 
@@ -535,7 +533,6 @@ def process_mcp_response(
         duration = end_time - start_time
         span.set_attribute(SemanticConvention.MCP_CLIENT_OPERATION_DURATION, duration)
 
-        # Capture response payload (OpenLLMetry-style enhancement)
         try:
             if response and ctx.capture_message_content:
                 # Handle different response types intelligently
@@ -639,9 +636,9 @@ def create_mcp_scope(
     return scope
 
 
-def serialize_openllmetry_style(request, depth=0, max_depth=4):
+def serialize_mcp_input(request, depth=0, max_depth=4):
     """
-    Serialize input args to MCP server into JSON (OpenLLMetry-inspired).
+    Serialize input args to MCP server into JSON.
     The function accepts input object and converts into JSON
     keeping depth in mind to prevent creating large nested JSON.
     """
@@ -676,7 +673,7 @@ def serialize_openllmetry_style(request, depth=0, max_depth=4):
             if type(attr_value) in [bool, str, int, float, type(None)]:
                 result[str(attrib)] = attr_value
             else:
-                result[str(attrib)] = serialize_openllmetry_style(attr_value, depth)
+                result[str(attrib)] = serialize_mcp_input(attr_value, depth)
     except Exception:
         pass
     return json.dumps(result)
@@ -694,13 +691,12 @@ def create_jsonrpc_wrapper(
     disable_metrics,
 ):
     """
-    Create OpenLLMetry-style JSONRPC wrapper that captures actual response data.
     This wraps BaseSession.send_request to get proper async handling.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
         async def async_wrapper(*args, **kwargs):
-            # Extract method and params from JSONRPC request (OpenLLMetry approach)
+            # Extract method and params from JSONRPC request
             method = None
             params = None
             if (
@@ -723,9 +719,8 @@ def create_jsonrpc_wrapper(
             span_name = f"mcp {method}" if method else "mcp send_request"
 
             with tracer.start_as_current_span(span_name) as span:
-                # Set input attributes (OpenLLMetry approach)
                 if capture_message_content and len(args) > 0:
-                    input_serialized = serialize_openllmetry_style(args[0])
+                    input_serialized = serialize_mcp_input(args[0])
                     span.set_attribute(
                         SemanticConvention.MCP_REQUEST_PAYLOAD, input_serialized
                     )
@@ -745,12 +740,11 @@ def create_jsonrpc_wrapper(
                 start_time = time.time()
 
                 try:
-                    # CRITICAL: Properly await the response (OpenLLMetry approach)
+                    # CRITICAL: Properly await the response
                     result = await wrapped(*args, **kwargs)
 
-                    # Capture response with OpenLLMetry approach
                     if result and capture_message_content:
-                        output_serialized = serialize_openllmetry_style(result)
+                        output_serialized = serialize_mcp_input(result)
                         span.set_attribute(
                             SemanticConvention.MCP_RESPONSE_PAYLOAD, output_serialized
                         )
@@ -797,12 +791,10 @@ def create_jsonrpc_wrapper(
 
                         # Calculate payload sizes
                         request_size = (
-                            len(serialize_openllmetry_style(args[0]))
-                            if len(args) > 0
-                            else None
+                            len(serialize_mcp_input(args[0])) if len(args) > 0 else None
                         )
                         response_size = (
-                            len(serialize_openllmetry_style(result)) if result else None
+                            len(serialize_mcp_input(result)) if result else None
                         )
 
                         record_mcp_metrics(
@@ -856,9 +848,7 @@ def create_jsonrpc_wrapper(
                             )
 
                         request_size = (
-                            len(serialize_openllmetry_style(args[0]))
-                            if len(args) > 0
-                            else None
+                            len(serialize_mcp_input(args[0])) if len(args) > 0 else None
                         )
 
                         record_mcp_metrics(

@@ -1029,7 +1029,7 @@ class SemanticConvention:
     MCP_TRANSPORT_SSE = "sse"
     MCP_TRANSPORT_WEBSOCKET = "websocket"
 
-    # MCP Request/Response Payload Attributes (inspired by OpenLLMetry)
+    # MCP Request/Response Payload Attributes
     MCP_REQUEST_PAYLOAD = "mcp.request.payload"
     MCP_RESPONSE_PAYLOAD = "mcp.response.payload"
 
