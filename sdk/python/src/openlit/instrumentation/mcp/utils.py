@@ -158,28 +158,26 @@ class MCPInstrumentationContext:
                 return str(self.kwargs["method"])
 
             # Try to get from args - check for tool name in call_tool
-            if self.args:
-                # For call_tool, the first arg is usually the tool name
-                if len(self.args) >= 1 and isinstance(self.args[0], str):
-                    # Check if it's a known MCP tool name pattern
-                    first_arg = self.args[0]
-                    if first_arg in [
-                        "calculator",
-                        "text_analyzer",
-                        "data_processor",
-                        "add",
-                        "analyze",
-                    ]:
-                        return first_arg
-                    elif first_arg in [
-                        "list_tools",
-                        "call_tool",
-                        "list_resources",
-                        "read_resource",
-                        "list_prompts",
-                        "get_prompt",
-                    ]:
-                        return first_arg
+            if self.args and (len(self.args) >= 1 and isinstance(self.args[0], str)):
+                first_arg = self.args[0]
+                if first_arg in [
+                    "calculator",
+                    "text_analyzer",
+                    "data_processor",
+                    "add",
+                    "analyze",
+                ]:
+                    return first_arg
+                elif first_arg in [
+                    "list_tools",
+                    "call_tool",
+                    "list_resources",
+                    "read_resource",
+                    "list_prompts",
+                    "get_prompt",
+                ]:
+                    return first_arg
+
 
             # Try to get from instance method name
             if hasattr(self.instance, "__name__"):
