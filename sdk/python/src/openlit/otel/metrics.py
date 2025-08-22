@@ -105,27 +105,27 @@ _GEN_AI_CLIENT_TOKEN_USAGE_BUCKETS = [
 _MCP_CLIENT_OPERATION_DURATION_BUCKETS = [
     0.001,  # 1ms
     0.005,  # 5ms
-    0.01,   # 10ms
-    0.05,   # 50ms
-    0.1,    # 100ms
-    0.5,    # 500ms
-    1.0,    # 1s
-    2.0,    # 2s
-    5.0,    # 5s
-    10.0,   # 10s
+    0.01,  # 10ms
+    0.05,  # 50ms
+    0.1,  # 100ms
+    0.5,  # 500ms
+    1.0,  # 1s
+    2.0,  # 2s
+    5.0,  # 5s
+    10.0,  # 10s
 ]
 
 _MCP_PAYLOAD_SIZE_BUCKETS = [
-    100,     # 100 bytes
-    500,     # 500 bytes
-    1024,    # 1KB
-    5120,    # 5KB
-    10240,   # 10KB
-    51200,   # 50KB
+    100,  # 100 bytes
+    500,  # 500 bytes
+    1024,  # 1KB
+    5120,  # 5KB
+    10240,  # 10KB
+    51200,  # 50KB
     102400,  # 100KB
     512000,  # 500KB
-    1048576, # 1MB
-    5242880, # 5MB
+    1048576,  # 1MB
+    5242880,  # 5MB
 ]
 
 

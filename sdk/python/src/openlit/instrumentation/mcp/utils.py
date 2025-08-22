@@ -152,7 +152,7 @@ class MCPInstrumentationContext:
                 tool_name = self.kwargs["name"]
                 if isinstance(tool_name, str):
                     return tool_name
-            
+
             # Try to get from method parameter in kwargs
             if "method" in self.kwargs:
                 return str(self.kwargs["method"])
@@ -163,25 +163,43 @@ class MCPInstrumentationContext:
                 if len(self.args) >= 1 and isinstance(self.args[0], str):
                     # Check if it's a known MCP tool name pattern
                     first_arg = self.args[0]
-                    if first_arg in ['calculator', 'text_analyzer', 'data_processor', 'add', 'analyze']:
+                    if first_arg in [
+                        "calculator",
+                        "text_analyzer",
+                        "data_processor",
+                        "add",
+                        "analyze",
+                    ]:
                         return first_arg
-                    elif first_arg in ['list_tools', 'call_tool', 'list_resources', 'read_resource', 
-                                     'list_prompts', 'get_prompt']:
+                    elif first_arg in [
+                        "list_tools",
+                        "call_tool",
+                        "list_resources",
+                        "read_resource",
+                        "list_prompts",
+                        "get_prompt",
+                    ]:
                         return first_arg
 
             # Try to get from instance method name
             if hasattr(self.instance, "__name__"):
                 return self.instance.__name__
-            
+
             # Try to detect from endpoint method
-            if hasattr(self, '_endpoint_method'):
+            if hasattr(self, "_endpoint_method"):
                 return self._endpoint_method
-            
+
             # Try to detect from function being wrapped
-            if hasattr(self, '_wrapped_function_name'):
+            if hasattr(self, "_wrapped_function_name"):
                 func_name = self._wrapped_function_name
-                if func_name in ['list_tools', 'call_tool', 'list_resources', 'read_resource',
-                               'list_prompts', 'get_prompt']:
+                if func_name in [
+                    "list_tools",
+                    "call_tool",
+                    "list_resources",
+                    "read_resource",
+                    "list_prompts",
+                    "get_prompt",
+                ]:
                     return func_name
 
             return "unknown"
@@ -243,11 +261,16 @@ class MCPInstrumentationContext:
             # Check instance class name for transport type
             if self.instance:
                 instance_class = self.instance.__class__.__name__.lower()
-                instance_module = getattr(self.instance.__class__, '__module__', '').lower()
-                
+                instance_module = getattr(
+                    self.instance.__class__, "__module__", ""
+                ).lower()
+
                 # Check for stdio transport patterns
-                if ("stdio" in instance_class or "stdio" in instance_module or
-                    "clientsession" in instance_class):
+                if (
+                    "stdio" in instance_class
+                    or "stdio" in instance_module
+                    or "clientsession" in instance_class
+                ):
                     return SemanticConvention.MCP_TRANSPORT_STDIO
                 # Check for SSE transport
                 elif "sse" in instance_class or "sse" in instance_module:
@@ -255,17 +278,19 @@ class MCPInstrumentationContext:
                 # Check for WebSocket transport
                 elif "websocket" in instance_class or "ws" in instance_class:
                     return SemanticConvention.MCP_TRANSPORT_WEBSOCKET
-            
+
             # Check kwargs for transport hints
             if self.kwargs:
                 # Look for transport-related parameters
-                if any(key in self.kwargs for key in ['command', 'args', 'stdio']):
+                if any(key in self.kwargs for key in ["command", "args", "stdio"]):
                     return SemanticConvention.MCP_TRANSPORT_STDIO
-                elif any(key in self.kwargs for key in ['url', 'endpoint']) and 'sse' in str(self.kwargs):
+                elif any(
+                    key in self.kwargs for key in ["url", "endpoint"]
+                ) and "sse" in str(self.kwargs):
                     return SemanticConvention.MCP_TRANSPORT_SSE
-                elif any(key in self.kwargs for key in ['ws_url', 'websocket']):
+                elif any(key in self.kwargs for key in ["ws_url", "websocket"]):
                     return SemanticConvention.MCP_TRANSPORT_WEBSOCKET
-            
+
             # Default to stdio for most MCP implementations
             return SemanticConvention.MCP_TRANSPORT_STDIO
         except Exception:
@@ -293,19 +318,17 @@ class MCPInstrumentationContext:
     def _extract_request_payload(self) -> Optional[str]:
         """Extract request payload from args/kwargs in JSON format like OpenLLMetry."""
         try:
-            import json
-            
             # Build request payload similar to OpenLLMetry's traceloop.entity.input
             payload = {}
-            
+
             # Try to get method name
             method = self.method_name if self.method_name != "unknown" else None
             if method:
                 payload["method"] = method
-            
+
             # Extract parameters from kwargs and args
             params = {}
-            
+
             # Get common MCP parameters
             if "name" in self.kwargs:
                 params["name"] = self.kwargs["name"]
@@ -313,44 +336,65 @@ class MCPInstrumentationContext:
                 params["arguments"] = self.kwargs["arguments"]
             if "uri" in self.kwargs:
                 params["uri"] = self.kwargs["uri"]
-                
+
             # Add other kwargs that look like MCP parameters
             for key, value in self.kwargs.items():
-                if key in ["topic", "meta", "protocolVersion", "capabilities", "clientInfo"]:
+                if key in [
+                    "topic",
+                    "meta",
+                    "protocolVersion",
+                    "capabilities",
+                    "clientInfo",
+                ]:
                     params[key] = value
-            
+
             # If we have args and no specific params, include args
             if not params and self.args:
                 if len(self.args) == 1:
-                    params = self.args[0] if isinstance(self.args[0], dict) else {"value": self.args[0]}
+                    params = (
+                        self.args[0]
+                        if isinstance(self.args[0], dict)
+                        else {"value": self.args[0]}
+                    )
                 else:
                     params = {"args": list(self.args)}
-            
+
             if params:
                 payload["params"] = params
             elif not payload:
                 # Fallback if no clear structure
                 return None
-                
+
             return json.dumps(payload, default=str)
-            
+
         except Exception:
             return None
 
     def get_enhanced_span_name(self, operation_type: str) -> str:
         """Generate span names following operation_type operation_name convention (e.g., 'mcp tools/list', 'mcp resources/read')."""
         method = self.method_name
-        
+
         # Map operations to operation_type operation_name convention
         if "list_tools" in method or (operation_type == "tool" and "list" in method):
             return "mcp tools/list"
-        elif "call_tool" in method or (operation_type == "tool" and any(x in method for x in ["calculator", "text_analyzer", "data_processor"])):
+        elif "call_tool" in method or (
+            operation_type == "tool"
+            and any(
+                x in method for x in ["calculator", "text_analyzer", "data_processor"]
+            )
+        ):
             return "mcp tools/call"
-        elif "list_resources" in method or (operation_type == "resource" and "list" in method):
+        elif "list_resources" in method or (
+            operation_type == "resource" and "list" in method
+        ):
             return "mcp resources/list"
-        elif "read_resource" in method or (operation_type == "resource" and "read" in method):
+        elif "read_resource" in method or (
+            operation_type == "resource" and "read" in method
+        ):
             return "mcp resources/read"
-        elif "list_prompts" in method or (operation_type == "prompt" and "list" in method):
+        elif "list_prompts" in method or (
+            operation_type == "prompt" and "list" in method
+        ):
             return "mcp prompts/list"
         elif "get_prompt" in method or (operation_type == "prompt" and "get" in method):
             return "mcp prompts/get"
@@ -406,9 +450,7 @@ def set_mcp_span_attributes(
     # Set server information
     server_info = ctx.server_info
     if server_info.get("name"):
-        span.set_attribute(
-            SemanticConvention.MCP_SERVER_NAME, server_info["name"]
-        )
+        span.set_attribute(SemanticConvention.MCP_SERVER_NAME, server_info["name"])
     if server_info.get("version"):
         span.set_attribute(
             SemanticConvention.MCP_SERVER_VERSION, server_info["version"]
@@ -458,9 +500,7 @@ def _capture_mcp_error(span, error: Exception):
 
         # Try to extract MCP-specific error details
         if hasattr(error, "code"):
-            span.set_attribute(
-                SemanticConvention.MCP_ERROR_CODE, str(error.code)
-            )
+            span.set_attribute(SemanticConvention.MCP_ERROR_CODE, str(error.code))
 
         if hasattr(error, "data"):
             error_data = json.dumps(error.data, default=str)
@@ -493,41 +533,44 @@ def process_mcp_response(
 
         # Calculate performance metrics (OpenLIT business intelligence)
         duration = end_time - start_time
-        span.set_attribute(
-            SemanticConvention.MCP_CLIENT_OPERATION_DURATION, duration
-        )
+        span.set_attribute(SemanticConvention.MCP_CLIENT_OPERATION_DURATION, duration)
 
         # Capture response payload (OpenLLMetry-style enhancement)
         try:
             if response and ctx.capture_message_content:
                 # Handle different response types intelligently
-                if hasattr(response, '__await__'):
+                if hasattr(response, "__await__"):
                     # It's a coroutine - extract meaningful info without awaiting
-                    coroutine_name = getattr(response, '__name__', 'unknown')
-                    if hasattr(response, 'cr_code'):
+                    if hasattr(response, "cr_code"):
                         func_name = response.cr_code.co_name
                     else:
-                        func_name = str(response).split('.')[-1].split(' ')[0]
-                    
+                        func_name = (
+                            str(response).rsplit(".", maxsplit=1)[-1].split(" ")[0]
+                        )
+
                     response_info = {
                         "type": "mcp_coroutine",
                         "function": func_name,
                         "awaitable": True,
-                        "note": "Response data available after await"
+                        "note": "Response data available after await",
                     }
                     response_json = json.dumps(response_info)
-                elif hasattr(response, '__dict__'):
+                elif hasattr(response, "__dict__"):
                     # It's a structured object - capture its content
                     try:
                         response_json = json.dumps(response.__dict__, default=str)
                     except:
-                        response_json = json.dumps({"type": type(response).__name__, "value": str(response)})
+                        response_json = json.dumps(
+                            {"type": type(response).__name__, "value": str(response)}
+                        )
                 else:
                     # Regular response
                     response_json = json.dumps(response, default=str)
-                
+
                 ctx.set_response_payload(response_json)
-                span.set_attribute(SemanticConvention.MCP_RESPONSE_PAYLOAD, response_json)
+                span.set_attribute(
+                    SemanticConvention.MCP_RESPONSE_PAYLOAD, response_json
+                )
         except Exception:
             pass
 
@@ -535,9 +578,7 @@ def process_mcp_response(
         try:
             if response:
                 response_size = len(json.dumps(response, default=str))
-                span.set_attribute(
-                    SemanticConvention.MCP_RESPONSE_SIZE, response_size
-                )
+                span.set_attribute(SemanticConvention.MCP_RESPONSE_SIZE, response_size)
         except Exception:
             pass
 
@@ -617,63 +658,82 @@ def serialize_openllmetry_style(request, depth=0, max_depth=4):
 
     if is_serializable(request):
         return json.dumps(request)
-    else:
-        result = {}
-        try:
-            if hasattr(request, "model_dump_json"):
-                return request.model_dump_json()
-            if hasattr(request, "__dict__"):
-                for attrib in request.__dict__:
-                    if not attrib.startswith("_"):
-                        if type(request.__dict__[attrib]) in [
-                            bool,
-                            str,
-                            int,
-                            float,
-                            type(None),
-                        ]:
-                            result[str(attrib)] = request.__dict__[attrib]
-                        else:
-                            result[str(attrib)] = serialize_openllmetry_style(
-                                request.__dict__[attrib], depth
-                            )
-        except Exception:
-            pass
-        return json.dumps(result)
+
+    # Handle complex objects
+    if hasattr(request, "model_dump_json"):
+        return request.model_dump_json()
+
+    if not hasattr(request, "__dict__"):
+        return json.dumps({})
+
+    result = {}
+    try:
+        for attrib in request.__dict__:
+            if attrib.startswith("_"):
+                continue
+
+            attr_value = request.__dict__[attrib]
+            if type(attr_value) in [bool, str, int, float, type(None)]:
+                result[str(attrib)] = attr_value
+            else:
+                result[str(attrib)] = serialize_openllmetry_style(attr_value, depth)
+    except Exception:
+        pass
+    return json.dumps(result)
 
 
-def create_jsonrpc_wrapper(endpoint, version, environment, application_name, tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def create_jsonrpc_wrapper(
+    endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Create OpenLLMetry-style JSONRPC wrapper that captures actual response data.
     This wraps BaseSession.send_request to get proper async handling.
     """
+
     def wrapper(wrapped, instance, args, kwargs):
         async def async_wrapper(*args, **kwargs):
             # Extract method and params from JSONRPC request (OpenLLMetry approach)
-            meta = None
             method = None
             params = None
-            if len(args) > 0 and hasattr(args[0], "root") and hasattr(args[0].root, "method"):
+            if (
+                len(args) > 0
+                and hasattr(args[0], "root")
+                and hasattr(args[0].root, "method")
+            ):
                 method = args[0].root.method
-            if len(args) > 0 and hasattr(args[0], "root") and hasattr(args[0].root, "params"):
+            if (
+                len(args) > 0
+                and hasattr(args[0], "root")
+                and hasattr(args[0].root, "params")
+            ):
                 params = args[0].root.params
             if params:
                 if hasattr(params, "meta"):
-                    meta = params.meta
+                    pass  # Meta available but not currently used
 
             # Create span name following operation_type operation_name convention
             span_name = f"mcp {method}" if method else "mcp send_request"
-            
+
             with tracer.start_as_current_span(span_name) as span:
                 # Set input attributes (OpenLLMetry approach)
                 if capture_message_content and len(args) > 0:
                     input_serialized = serialize_openllmetry_style(args[0])
-                    span.set_attribute(SemanticConvention.MCP_REQUEST_PAYLOAD, input_serialized)
-                
+                    span.set_attribute(
+                        SemanticConvention.MCP_REQUEST_PAYLOAD, input_serialized
+                    )
+
                 # Set method attribute
                 if method:
                     span.set_attribute(SemanticConvention.MCP_METHOD, method)
-                
+
                 # Set OpenLIT business intelligence attributes
                 span.set_attribute(SemanticConvention.MCP_SYSTEM, "mcp")
                 span.set_attribute(SemanticConvention.MCP_SDK_VERSION, version)
@@ -681,46 +741,70 @@ def create_jsonrpc_wrapper(endpoint, version, environment, application_name, tra
                     span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
                 if application_name:
                     span.set_attribute(SERVICE_NAME, application_name)
-                
+
                 start_time = time.time()
-                
+
                 try:
                     # CRITICAL: Properly await the response (OpenLLMetry approach)
                     result = await wrapped(*args, **kwargs)
-                    
+
                     # Capture response with OpenLLMetry approach
                     if result and capture_message_content:
                         output_serialized = serialize_openllmetry_style(result)
-                        span.set_attribute(SemanticConvention.MCP_RESPONSE_PAYLOAD, output_serialized)
-                    
+                        span.set_attribute(
+                            SemanticConvention.MCP_RESPONSE_PAYLOAD, output_serialized
+                        )
+
                     # Set success status
                     if hasattr(result, "isError") and result.isError:
                         if hasattr(result, "content") and len(result.content) > 0:
-                            span.set_status(Status(StatusCode.ERROR, f"{result.content[0].text}"))
-                    
+                            span.set_status(
+                                Status(StatusCode.ERROR, f"{result.content[0].text}")
+                            )
+
                     # OpenLIT business intelligence
                     end_time = time.time()
                     duration = end_time - start_time
-                    span.set_attribute(SemanticConvention.MCP_CLIENT_OPERATION_DURATION, duration)
-                    
+                    span.set_attribute(
+                        SemanticConvention.MCP_CLIENT_OPERATION_DURATION, duration
+                    )
+
                     # Record MCP-specific metrics for business intelligence
                     if not disable_metrics and metrics:
                         # Extract tool, resource, and prompt info from method and params
                         tool_name = None
                         resource_uri = None
                         prompt_name = None
-                        
+
                         if method and method.startswith("tools/call") and params:
-                            tool_name = str(getattr(params, 'name', None)) if getattr(params, 'name', None) else None
+                            tool_name = (
+                                str(getattr(params, "name", None))
+                                if getattr(params, "name", None)
+                                else None
+                            )
                         elif method and method.startswith("resources/read") and params:
-                            resource_uri = str(getattr(params, 'uri', None)) if getattr(params, 'uri', None) else None
+                            resource_uri = (
+                                str(getattr(params, "uri", None))
+                                if getattr(params, "uri", None)
+                                else None
+                            )
                         elif method and method.startswith("prompts/get") and params:
-                            prompt_name = str(getattr(params, 'name', None)) if getattr(params, 'name', None) else None
-                        
+                            prompt_name = (
+                                str(getattr(params, "name", None))
+                                if getattr(params, "name", None)
+                                else None
+                            )
+
                         # Calculate payload sizes
-                        request_size = len(serialize_openllmetry_style(args[0])) if len(args) > 0 else None
-                        response_size = len(serialize_openllmetry_style(result)) if result else None
-                        
+                        request_size = (
+                            len(serialize_openllmetry_style(args[0]))
+                            if len(args) > 0
+                            else None
+                        )
+                        response_size = (
+                            len(serialize_openllmetry_style(result)) if result else None
+                        )
+
                         record_mcp_metrics(
                             metrics=metrics,
                             mcp_operation=method or "send_request",
@@ -737,30 +821,46 @@ def create_jsonrpc_wrapper(endpoint, version, environment, application_name, tra
                             response_size=response_size,
                             is_error=False,
                         )
-                    
+
                     return result
-                    
+
                 except Exception as e:
                     handle_exception(span, e)
-                    
+
                     # Record error metrics
                     if not disable_metrics and metrics:
                         end_time = time.time()
-                        
+
                         # Extract method info for error metrics
                         tool_name = None
                         resource_uri = None
                         prompt_name = None
-                        
+
                         if method and method.startswith("tools/call") and params:
-                            tool_name = str(getattr(params, 'name', None)) if getattr(params, 'name', None) else None
+                            tool_name = (
+                                str(getattr(params, "name", None))
+                                if getattr(params, "name", None)
+                                else None
+                            )
                         elif method and method.startswith("resources/read") and params:
-                            resource_uri = str(getattr(params, 'uri', None)) if getattr(params, 'uri', None) else None
+                            resource_uri = (
+                                str(getattr(params, "uri", None))
+                                if getattr(params, "uri", None)
+                                else None
+                            )
                         elif method and method.startswith("prompts/get") and params:
-                            prompt_name = str(getattr(params, 'name', None)) if getattr(params, 'name', None) else None
-                        
-                        request_size = len(serialize_openllmetry_style(args[0])) if len(args) > 0 else None
-                        
+                            prompt_name = (
+                                str(getattr(params, "name", None))
+                                if getattr(params, "name", None)
+                                else None
+                            )
+
+                        request_size = (
+                            len(serialize_openllmetry_style(args[0]))
+                            if len(args) > 0
+                            else None
+                        )
+
                         record_mcp_metrics(
                             metrics=metrics,
                             mcp_operation=method or "send_request",
@@ -777,21 +877,22 @@ def create_jsonrpc_wrapper(endpoint, version, environment, application_name, tra
                             response_size=None,
                             is_error=True,
                         )
-                    
+
                     raise
-        
+
         # Handle both sync and async contexts
         if inspect.iscoroutinefunction(wrapped):
             return async_wrapper(*args, **kwargs)
         else:
             # For sync calls, create an async wrapper and run it
             import asyncio
+
             try:
-                loop = asyncio.get_running_loop()
+                asyncio.get_running_loop()
                 # We're in an async context
                 return asyncio.create_task(async_wrapper(*args, **kwargs))
             except RuntimeError:
                 # No running loop
                 return asyncio.run(async_wrapper(*args, **kwargs))
-    
+
     return wrapper

@@ -1039,7 +1039,7 @@ class SemanticConvention:
     MCP_SDK_VERSION = "mcp.sdk.version"
     MCP_CLIENT_OPERATION_DURATION = "mcp.client.operation.duration"
 
-    # MCP Prompt Attributes  
+    # MCP Prompt Attributes
     MCP_PROMPT_NAME = "mcp.prompt.name"
     MCP_PROMPT_DESCRIPTION = "mcp.prompt.description"
 
@@ -1060,7 +1060,3 @@ class SemanticConvention:
     MCP_TRANSPORT_USAGE = "mcp.transport.usage"
     MCP_ERRORS = "mcp.errors"
     MCP_OPERATION_SUCCESS_RATE = "mcp.operation.success_rate"
-
-
-
-

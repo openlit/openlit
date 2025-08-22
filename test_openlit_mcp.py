@@ -22,6 +22,7 @@ try:
     import mcp.types as types
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
+
     REAL_MCP = True
 except ImportError as e:
     print(f"❌ MCP SDK not available: {e}")
@@ -32,11 +33,13 @@ async def run_mcp_operations():
     """Run comprehensive MCP operations"""
     if not REAL_MCP:
         return False
-    
+
     try:
         server_params = StdioServerParameters(
             command="python",
-            args=["-c", """
+            args=[
+                "-c",
+                """
 import asyncio
 from mcp.server import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
@@ -119,90 +122,119 @@ async def main():
         ))
 
 asyncio.run(main())
-            """]
+            """,
+            ],
         )
-        
+
         print("🚀 Starting OpenLIT MCP Operations Test")
-        
+
         async with stdio_client(server_params) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                
+
                 # Test 1: List Tools
                 print("  📋 1. Listing tools...")
                 tools = await session.list_tools()
-                print(f"    ✅ Found {len(tools.tools)} tools: {[t.name for t in tools.tools]}")
-                
+                print(
+                    f"    ✅ Found {len(tools.tools)} tools: {[t.name for t in tools.tools]}"
+                )
+
                 # Test 2: Call Calculator Tool
                 print("  🔢 2. Calling calculator tool...")
                 calc_result = await session.call_tool("calculator", {"a": 42, "b": 58})
                 print(f"    ✅ Calculator result received")
-                
+
                 # Test 3: Call Text Analyzer Tool
                 print("  📝 3. Calling text analyzer tool...")
-                text_result = await session.call_tool("text_analyzer", {
-                    "text": "OpenLIT provides superior MCP instrumentation with comprehensive business intelligence, performance metrics, and advanced observability capabilities."
-                })
+                text_result = await session.call_tool(
+                    "text_analyzer",
+                    {
+                        "text": "OpenLIT provides superior MCP instrumentation with comprehensive business intelligence, performance metrics, and advanced observability capabilities."
+                    },
+                )
                 print(f"    ✅ Text analyzer result received")
-                
+
                 # Test 4: Call Data Processor Tool
                 print("  📊 4. Calling data processor tool...")
-                data_result = await session.call_tool("data_processor", {
-                    "data": [10, 25, 33, 47, 52, 68, 75, 82, 91, 100]
-                })
+                data_result = await session.call_tool(
+                    "data_processor",
+                    {"data": [10, 25, 33, 47, 52, 68, 75, 82, 91, 100]},
+                )
                 print(f"    ✅ Data processor result received")
-                
+
                 # Test 5: List Resources
                 print("  📚 5. Listing resources...")
                 resources = await session.list_resources()
-                print(f"    ✅ Found {len(resources.resources)} resources: {[r.name for r in resources.resources]}")
-                
+                print(
+                    f"    ✅ Found {len(resources.resources)} resources: {[r.name for r in resources.resources]}"
+                )
+
                 # Test 6: Read Text Resource
                 print("  📖 6. Reading text resource...")
                 try:
-                    text_response = await session.read_resource("file://openlit_test.txt")
+                    text_response = await session.read_resource(
+                        "file://openlit_test.txt"
+                    )
                     # Extract text content from response.contents[0].text
-                    text_content = text_response.contents[0].text if text_response.contents else "No content"
+                    text_content = (
+                        text_response.contents[0].text
+                        if text_response.contents
+                        else "No content"
+                    )
                     print(f"    ✅ Text resource read: {len(text_content)} characters")
                 except Exception as e:
                     print(f"    ⚠️ Text resource read failed: {e}")
-                
+
                 # Test 7: Read JSON Resource
                 print("  🗂️  7. Reading JSON resource...")
                 try:
-                    json_response = await session.read_resource("file://openlit_data.json")
+                    json_response = await session.read_resource(
+                        "file://openlit_data.json"
+                    )
                     # Extract text content from response.contents[0].text
-                    json_content = json_response.contents[0].text if json_response.contents else "No content"
+                    json_content = (
+                        json_response.contents[0].text
+                        if json_response.contents
+                        else "No content"
+                    )
                     print(f"    ✅ JSON resource read: {len(json_content)} characters")
                 except Exception as e:
                     print(f"    ⚠️ JSON resource read failed: {e}")
-                
+
                 # Test 8: List Prompts
                 print("  💬 8. Listing prompts...")
                 prompts = await session.list_prompts()
-                print(f"    ✅ Found {len(prompts.prompts)} prompts: {[p.name for p in prompts.prompts]}")
-                
+                print(
+                    f"    ✅ Found {len(prompts.prompts)} prompts: {[p.name for p in prompts.prompts]}"
+                )
+
                 # Test 9: Get Analysis Prompt
                 print("  📋 9. Getting analysis prompt...")
                 try:
-                    analysis_prompt = await session.get_prompt("openlit_analysis", {"topic": "MCP_performance"})
-                    description = getattr(analysis_prompt, 'description', 'No description')
+                    analysis_prompt = await session.get_prompt(
+                        "openlit_analysis", {"topic": "MCP_performance"}
+                    )
+                    description = getattr(
+                        analysis_prompt, "description", "No description"
+                    )
                     print(f"    ✅ Analysis prompt retrieved: {description}")
                 except Exception as e:
                     print(f"    ⚠️ Analysis prompt failed: {e}")
-                
+
                 # Test 10: Get Summary Prompt
                 print("  📄 10. Getting summary prompt...")
                 try:
                     summary_prompt = await session.get_prompt("openlit_summary", {})
-                    description = getattr(summary_prompt, 'description', 'No description')
+                    description = getattr(
+                        summary_prompt, "description", "No description"
+                    )
                     print(f"    ✅ Summary prompt retrieved: {description}")
                 except Exception as e:
                     print(f"    ⚠️ Summary prompt failed: {e}")
-                
+
         print("✅ All OpenLIT MCP operations completed successfully!")
         return True
-        
+
     except Exception as e:
         print(f"❌ OpenLIT MCP operations failed: {e}")
         return False
@@ -212,24 +244,26 @@ async def main():
     """Main test function for OpenLIT MCP instrumentation"""
     print("🧠 OPENLIT MCP INSTRUMENTATION TEST")
     print("=" * 50)
-    
+
     if not REAL_MCP:
         print("❌ MCP SDK not available")
         return
-    
+
     # Initialize OpenLIT with console exporter disabled for cleaner output
     print("✅ Initializing OpenLIT with detailed tracing...")
     openlit.init(detailed_tracing=True)
-    
+
     # Run comprehensive MCP operations
     success = await run_mcp_operations()
-    
+
     # Results
     print(f"\n📊 OpenLIT MCP Test Results:")
     print(f"  Status: {'✅ SUCCESS' if success else '❌ FAILED'}")
-    print(f"  Operations: {'10/10 completed' if success else 'Failed during execution'}")
+    print(
+        f"  Operations: {'10/10 completed' if success else 'Failed during execution'}"
+    )
     print(f"  Instrumentation: {'✅ Active' if success else '❌ Inactive'}")
-    
+
     if success:
         print(f"\n🏆 OpenLIT MCP Advantages Demonstrated:")
         print(f"  ✅ Comprehensive span generation")
@@ -238,7 +272,7 @@ async def main():
         print(f"  ✅ Performance metrics tracking")
         print(f"  ✅ Tool/resource/prompt observability")
         print(f"  ✅ Superior observability vs competitors")
-        
+
         print(f"\n💡 Expected Spans Generated:")
         print(f"  • tool list_tools")
         print(f"  • tool call_tool (calculator)")

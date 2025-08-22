@@ -637,7 +637,7 @@ def record_mcp_metrics(
 ):
     """
     Records MCP-specific metrics for business intelligence and operational insights.
-    
+
     Args:
         metrics: Dictionary of meter instruments
         mcp_operation: The MCP operation type (tools/list, tools/call, etc.)
@@ -660,7 +660,7 @@ def record_mcp_metrics(
     try:
         # Calculate operation duration
         duration = end_time - start_time
-        
+
         # Common attributes for all MCP metrics
         common_attributes = {
             TELEMETRY_SDK_NAME: "openlit",
@@ -670,10 +670,12 @@ def record_mcp_metrics(
             SemanticConvention.MCP_METHOD: mcp_method,
             SemanticConvention.MCP_SYSTEM: "mcp",
         }
-        
+
         # Add transport type if available
         if mcp_transport_type:
-            common_attributes[SemanticConvention.MCP_TRANSPORT_TYPE] = str(mcp_transport_type)
+            common_attributes[SemanticConvention.MCP_TRANSPORT_TYPE] = str(
+                mcp_transport_type
+            )
 
         # Record general MCP request count
         if "mcp_requests" in metrics:
@@ -708,7 +710,9 @@ def record_mcp_metrics(
         if mcp_resource_uri and "mcp_resource_reads" in metrics:
             resource_attributes = {
                 **common_attributes,
-                SemanticConvention.MCP_RESOURCE_URI: str(mcp_resource_uri),  # Convert to string
+                SemanticConvention.MCP_RESOURCE_URI: str(
+                    mcp_resource_uri
+                ),  # Convert to string
             }
             metrics["mcp_resource_reads"].add(1, resource_attributes)
 
@@ -731,7 +735,9 @@ def record_mcp_metrics(
         # Record success rate (1.0 for success, 0.0 for error)
         if "mcp_operation_success_rate" in metrics:
             success_rate = 0.0 if is_error else 1.0
-            metrics["mcp_operation_success_rate"].record(success_rate, common_attributes)
+            metrics["mcp_operation_success_rate"].record(
+                success_rate, common_attributes
+            )
 
     except Exception:
         # Silently ignore metrics recording errors

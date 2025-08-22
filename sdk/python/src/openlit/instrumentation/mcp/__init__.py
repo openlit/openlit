@@ -27,10 +27,9 @@ CORE_JSONRPC_METHODS = [
     },
 ]
 
-# Legacy method configuration (for fallback support)
+# Optimized legacy method configuration (for fallback support)
 SYNC_METHODS = [
-    # === WORKFLOW OPERATIONS (Always enabled) - High priority ===
-    # Client Operations
+    # === CRITICAL WORKFLOW OPERATIONS ===
     {
         "package": "mcp.client.session",
         "object": "ClientSession.call_tool",
@@ -55,7 +54,6 @@ SYNC_METHODS = [
         "endpoint": "resource list_resources",
         "priority": "high",
     },
-    # Server Operations
     {
         "package": "mcp.server.session",
         "object": "ServerSession.send_result",
@@ -74,8 +72,7 @@ SYNC_METHODS = [
         "endpoint": "server process_request",
         "priority": "critical",
     },
-    # === COMPONENT OPERATIONS (Detailed tracing only) - Medium priority ===
-    # Transport Operations
+    # === COMPONENT OPERATIONS (Detailed tracing only) ===
     {
         "package": "mcp.server.stdio",
         "object": "StdioServerTransport.start",
@@ -88,36 +85,10 @@ SYNC_METHODS = [
         "endpoint": "transport stdio_send",
         "priority": "medium",
     },
-    {
-        "package": "mcp.server.sse",
-        "object": "SSEServerTransport.start",
-        "endpoint": "transport sse_start",
-        "priority": "medium",
-    },
-    {
-        "package": "mcp.server.sse",
-        "object": "SSEServerTransport.send_message",
-        "endpoint": "transport sse_send",
-        "priority": "medium",
-    },
-    # Message Processing
-    {
-        "package": "mcp.types",
-        "object": "JSONRPCMessage.serialize",
-        "endpoint": "message serialize",
-        "priority": "low",
-    },
-    {
-        "package": "mcp.types",
-        "object": "JSONRPCMessage.deserialize",
-        "endpoint": "message deserialize",
-        "priority": "low",
-    },
 ]
 
 ASYNC_METHODS = [
-    # === ASYNC WORKFLOW OPERATIONS (Always enabled) ===
-    # Async Client Operations
+    # === CRITICAL ASYNC WORKFLOW OPERATIONS ===
     {
         "package": "mcp.client.session",
         "object": "ClientSession.acall_tool",
@@ -148,7 +119,6 @@ ASYNC_METHODS = [
         "endpoint": "request mcp_request",
         "priority": "critical",
     },
-    # Async Server Operations
     {
         "package": "mcp.server.session",
         "object": "ServerSession.asend_result",
@@ -168,7 +138,6 @@ ASYNC_METHODS = [
         "priority": "critical",
     },
     # === ASYNC COMPONENT OPERATIONS (Detailed tracing only) ===
-    # Async Transport Operations
     {
         "package": "mcp.server.stdio",
         "object": "StdioServerTransport.astart",
@@ -179,18 +148,6 @@ ASYNC_METHODS = [
         "package": "mcp.server.stdio",
         "object": "StdioServerTransport.asend_message",
         "endpoint": "transport stdio_send",
-        "priority": "medium",
-    },
-    {
-        "package": "mcp.server.sse",
-        "object": "SSEServerTransport.astart",
-        "endpoint": "transport sse_start",
-        "priority": "medium",
-    },
-    {
-        "package": "mcp.server.sse",
-        "object": "SSEServerTransport.asend_message",
-        "endpoint": "transport sse_send",
         "priority": "medium",
     },
 ]
@@ -236,11 +193,11 @@ class MCPInstrumentor(BaseInstrumentor):
         try:
             wrap_function_wrapper(
                 "mcp.shared.session",
-                "BaseSession.send_request", 
+                "BaseSession.send_request",
                 create_jsonrpc_wrapper(
                     "jsonrpc send_request",  # endpoint
-                    *wrapper_args
-                )
+                    *wrapper_args,
+                ),
             )
         except (ImportError, AttributeError):
             # Fallback to legacy approach if JSONRPC wrapping fails
@@ -280,7 +237,6 @@ class MCPInstrumentor(BaseInstrumentor):
                 # Gracefully handle missing methods in different MCP versions
                 pass
 
-    @staticmethod
     def _uninstrument(self, **kwargs):
         """Uninstrument MCP."""
         # Currently no cleanup needed

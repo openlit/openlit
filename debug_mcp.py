@@ -17,6 +17,7 @@ try:
     import mcp.types as types
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
+
     REAL_MCP = True
     print("✅ MCP SDK imported successfully")
 except ImportError as e:
@@ -28,9 +29,9 @@ async def debug_simple_server():
     """Test the simplest possible MCP server"""
     if not REAL_MCP:
         return False
-    
+
     print("🔧 Testing simple MCP server creation...")
-    
+
     try:
         # Create a very simple server script
         simple_server = """
@@ -65,30 +66,32 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 """
-        
+
         server_params = StdioServerParameters(
-            command="python",
-            args=["-c", simple_server]
+            command="python", args=["-c", simple_server]
         )
-        
+
         print("🚀 Starting simple server...")
-        
+
         async with stdio_client(server_params) as (read, write):
             print("✅ Client connected")
             async with ClientSession(read, write) as session:
                 print("✅ Session created")
                 await session.initialize()
                 print("✅ Session initialized")
-                
+
                 tools = await session.list_tools()
-                print(f"✅ Tools retrieved: {len(tools.tools) if hasattr(tools, 'tools') else 1}")
-                
+                print(
+                    f"✅ Tools retrieved: {len(tools.tools) if hasattr(tools, 'tools') else 1}"
+                )
+
         print("✅ Simple MCP server test successful!")
         return True
-        
+
     except Exception as e:
         print(f"❌ Simple MCP server test failed: {type(e).__name__}: {e}")
         import traceback
+
         print("Full traceback:")
         traceback.print_exc()
         return False
@@ -98,13 +101,13 @@ async def main():
     """Debug MCP setup"""
     print("🔧 DEBUG MCP SETUP")
     print("=" * 30)
-    
+
     # Initialize OpenLIT
     openlit.init()
-    
+
     # Test simple server
     success = await debug_simple_server()
-    
+
     print(f"\n📊 Debug Results:")
     print(f"  Simple Server: {'✅ Working' if success else '❌ Failed'}")
 

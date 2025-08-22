@@ -7,6 +7,7 @@ import time
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
 
+from openlit.semcov import SemanticConvention
 from openlit.__helpers import handle_exception
 from openlit.instrumentation.mcp.utils import (
     MCPInstrumentationContext,
@@ -63,7 +64,9 @@ def async_mcp_wrap(
 
             # Create span name following OpenLIT convention: "{operation_type} {operation_name}"
             # Create enhanced span name following OpenLLMetry patterns (e.g., "tools/list.mcp")
-            operation_type = gen_ai_endpoint.split()[0] if " " in gen_ai_endpoint else "mcp"
+            operation_type = (
+                gen_ai_endpoint.split()[0] if " " in gen_ai_endpoint else "mcp"
+            )
             span_name = ctx.get_enhanced_span_name(operation_type)
 
             with tracer.start_as_current_span(span_name, kind=span_kind) as span:
@@ -183,7 +186,6 @@ def async_mcp_tool_call_wrap(
             )
 
             # Enhanced span name for tool calls
-            tool_name = ctx.tool_name or "unknown_tool"
             span_name = ctx.get_enhanced_span_name("tool")
 
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -201,7 +203,9 @@ def async_mcp_tool_call_wrap(
 
                     # Additional tool-specific attributes
                     if ctx.tool_name:
-                        span.set_attribute(SemanticConvention.MCP_TOOL_NAME, ctx.tool_name)
+                        span.set_attribute(
+                            SemanticConvention.MCP_TOOL_NAME, ctx.tool_name
+                        )
 
                 except Exception as e:
                     handle_exception(span, e)
@@ -216,10 +220,13 @@ def async_mcp_tool_call_wrap(
                         try:
                             if hasattr(response, "content"):
                                 span.set_attribute(
-                                    SemanticConvention.MCP_TOOL_RESULT, str(response.content)
+                                    SemanticConvention.MCP_TOOL_RESULT,
+                                    str(response.content),
                                 )
                             elif isinstance(response, (str, dict, list)):
-                                span.set_attribute(SemanticConvention.MCP_TOOL_RESULT, str(response))
+                                span.set_attribute(
+                                    SemanticConvention.MCP_TOOL_RESULT, str(response)
+                                )
                         except Exception:
                             pass
 
@@ -289,7 +296,6 @@ def async_mcp_resource_wrap(
             )
 
             # Enhanced span name for resource operations
-            resource_uri = ctx.resource_uri or "unknown_resource"
             span_name = ctx.get_enhanced_span_name("resource")
 
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -326,7 +332,8 @@ def async_mcp_resource_wrap(
 
                             if hasattr(response, "mimeType"):
                                 span.set_attribute(
-                                    SemanticConvention.MCP_RESOURCE_MIME_TYPE, response.mimeType
+                                    SemanticConvention.MCP_RESOURCE_MIME_TYPE,
+                                    response.mimeType,
                                 )
 
                         except Exception:
