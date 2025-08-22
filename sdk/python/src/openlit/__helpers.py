@@ -619,6 +619,125 @@ def common_framework_span_attributes(
     )
 
 
+def record_mcp_metrics(
+    metrics,
+    mcp_operation,
+    mcp_method,
+    mcp_transport_type,
+    mcp_tool_name,
+    mcp_resource_uri,
+    mcp_prompt_name,
+    environment,
+    application_name,
+    start_time,
+    end_time,
+    request_size=None,
+    response_size=None,
+    is_error=False,
+):
+    """
+    Records MCP-specific metrics for business intelligence and operational insights.
+    
+    Args:
+        metrics: Dictionary of meter instruments
+        mcp_operation: The MCP operation type (tools/list, tools/call, etc.)
+        mcp_method: The specific MCP method name
+        mcp_transport_type: Transport type (stdio, sse, websocket)
+        mcp_tool_name: Tool name for tool operations
+        mcp_resource_uri: Resource URI for resource operations
+        mcp_prompt_name: Prompt name for prompt operations
+        environment: Deployment environment
+        application_name: Application name
+        start_time: Operation start time
+        end_time: Operation end time
+        request_size: Request payload size in bytes
+        response_size: Response payload size in bytes
+        is_error: Whether the operation resulted in an error
+    """
+    if not metrics:
+        return
+
+    try:
+        # Calculate operation duration
+        duration = end_time - start_time
+        
+        # Common attributes for all MCP metrics
+        common_attributes = {
+            TELEMETRY_SDK_NAME: "openlit",
+            SERVICE_NAME: application_name,
+            DEPLOYMENT_ENVIRONMENT: environment,
+            SemanticConvention.MCP_OPERATION: mcp_operation,
+            SemanticConvention.MCP_METHOD: mcp_method,
+            SemanticConvention.MCP_SYSTEM: "mcp",
+        }
+        
+        # Add transport type if available
+        if mcp_transport_type:
+            common_attributes[SemanticConvention.MCP_TRANSPORT_TYPE] = str(mcp_transport_type)
+
+        # Record general MCP request count
+        if "mcp_requests" in metrics:
+            metrics["mcp_requests"].add(1, common_attributes)
+
+        # Record operation duration
+        if "mcp_client_operation_duration" in metrics:
+            metrics["mcp_client_operation_duration"].record(duration, common_attributes)
+
+        # Record request size
+        if request_size and "mcp_request_size" in metrics:
+            metrics["mcp_request_size"].record(request_size, common_attributes)
+
+        # Record response size
+        if response_size and "mcp_response_size" in metrics:
+            metrics["mcp_response_size"].record(response_size, common_attributes)
+
+        # Record transport usage
+        if "mcp_transport_usage" in metrics and mcp_transport_type:
+            transport_attributes = {**common_attributes}
+            metrics["mcp_transport_usage"].add(1, transport_attributes)
+
+        # Record tool-specific metrics
+        if mcp_tool_name and "mcp_tool_calls" in metrics:
+            tool_attributes = {
+                **common_attributes,
+                SemanticConvention.MCP_TOOL_NAME: str(mcp_tool_name),
+            }
+            metrics["mcp_tool_calls"].add(1, tool_attributes)
+
+        # Record resource-specific metrics
+        if mcp_resource_uri and "mcp_resource_reads" in metrics:
+            resource_attributes = {
+                **common_attributes,
+                SemanticConvention.MCP_RESOURCE_URI: str(mcp_resource_uri),  # Convert to string
+            }
+            metrics["mcp_resource_reads"].add(1, resource_attributes)
+
+        # Record prompt-specific metrics
+        if mcp_prompt_name and "mcp_prompt_gets" in metrics:
+            prompt_attributes = {
+                **common_attributes,
+                SemanticConvention.MCP_PROMPT_NAME: str(mcp_prompt_name),
+            }
+            metrics["mcp_prompt_gets"].add(1, prompt_attributes)
+
+        # Record error metrics
+        if is_error and "mcp_errors" in metrics:
+            error_attributes = {
+                **common_attributes,
+                "mcp.error": True,
+            }
+            metrics["mcp_errors"].add(1, error_attributes)
+
+        # Record success rate (1.0 for success, 0.0 for error)
+        if "mcp_operation_success_rate" in metrics:
+            success_rate = 0.0 if is_error else 1.0
+            metrics["mcp_operation_success_rate"].record(success_rate, common_attributes)
+
+    except Exception:
+        # Silently ignore metrics recording errors
+        pass
+
+
 def record_framework_metrics(
     metrics,
     gen_ai_operation,

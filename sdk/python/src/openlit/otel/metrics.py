@@ -101,6 +101,33 @@ _GEN_AI_CLIENT_TOKEN_USAGE_BUCKETS = [
     67108864,
 ]
 
+# MCP-specific bucket boundaries for performance and size metrics
+_MCP_CLIENT_OPERATION_DURATION_BUCKETS = [
+    0.001,  # 1ms
+    0.005,  # 5ms
+    0.01,   # 10ms
+    0.05,   # 50ms
+    0.1,    # 100ms
+    0.5,    # 500ms
+    1.0,    # 1s
+    2.0,    # 2s
+    5.0,    # 5s
+    10.0,   # 10s
+]
+
+_MCP_PAYLOAD_SIZE_BUCKETS = [
+    100,     # 100 bytes
+    500,     # 500 bytes
+    1024,    # 1KB
+    5120,    # 5KB
+    10240,   # 10KB
+    51200,   # 50KB
+    102400,  # 100KB
+    512000,  # 500KB
+    1048576, # 1MB
+    5242880, # 5MB
+]
+
 
 def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_headers):
     """
@@ -223,6 +250,60 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
             "db_requests": meter.create_counter(
                 name=SemanticConvention.DB_REQUESTS,
                 description="Number of requests to VectorDBs",
+                unit="1",
+            ),
+            # MCP-specific metrics for business intelligence and operational insights
+            "mcp_requests": meter.create_counter(
+                name=SemanticConvention.MCP_REQUESTS,
+                description="Number of requests to MCP servers by operation type",
+                unit="1",
+            ),
+            "mcp_client_operation_duration": meter.create_histogram(
+                name=SemanticConvention.MCP_CLIENT_OPERATION_DURATION_METRIC,
+                description="MCP client operation duration",
+                unit="s",
+                explicit_bucket_boundaries_advisory=_MCP_CLIENT_OPERATION_DURATION_BUCKETS,
+            ),
+            "mcp_request_size": meter.create_histogram(
+                name=SemanticConvention.MCP_REQUEST_SIZE,
+                description="Size of MCP request payloads",
+                unit="By",
+                explicit_bucket_boundaries_advisory=_MCP_PAYLOAD_SIZE_BUCKETS,
+            ),
+            "mcp_response_size": meter.create_histogram(
+                name=SemanticConvention.MCP_RESPONSE_SIZE_METRIC,
+                description="Size of MCP response payloads",
+                unit="By",
+                explicit_bucket_boundaries_advisory=_MCP_PAYLOAD_SIZE_BUCKETS,
+            ),
+            "mcp_tool_calls": meter.create_counter(
+                name=SemanticConvention.MCP_TOOL_CALLS,
+                description="Number of MCP tool calls by tool name",
+                unit="1",
+            ),
+            "mcp_resource_reads": meter.create_counter(
+                name=SemanticConvention.MCP_RESOURCE_READS,
+                description="Number of MCP resource reads by resource type",
+                unit="1",
+            ),
+            "mcp_prompt_gets": meter.create_counter(
+                name=SemanticConvention.MCP_PROMPT_GETS,
+                description="Number of MCP prompt retrievals by prompt name",
+                unit="1",
+            ),
+            "mcp_transport_usage": meter.create_counter(
+                name=SemanticConvention.MCP_TRANSPORT_USAGE,
+                description="MCP transport type usage (stdio, sse, websocket)",
+                unit="1",
+            ),
+            "mcp_errors": meter.create_counter(
+                name=SemanticConvention.MCP_ERRORS,
+                description="Number of MCP operation errors by operation type",
+                unit="1",
+            ),
+            "mcp_operation_success_rate": meter.create_histogram(
+                name=SemanticConvention.MCP_OPERATION_SUCCESS_RATE,
+                description="MCP operation success rate by operation type",
                 unit="1",
             ),
         }

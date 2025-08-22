@@ -53,6 +53,7 @@ MODULE_NAME_MAP = {
     "pydantic_ai": "pydantic_ai",
     "sarvam": "sarvamai",
     "browser-use": "browser_use",
+    "mcp": "mcp",
     # Official OpenTelemetry HTTP Framework instrumentations
     "asgi": "asgiref",
     "django": "django",
@@ -119,6 +120,7 @@ INSTRUMENTOR_MAP = {
     "pydantic_ai": "openlit.instrumentation.pydantic_ai.PydanticAIInstrumentor",
     "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
     "browser-use": "openlit.instrumentation.browser_use.BrowserUseInstrumentor",
+    "mcp": "openlit.instrumentation.mcp.MCPInstrumentor",
     # Official OpenTelemetry HTTP Framework instrumentations
     "asgi": "opentelemetry.instrumentation.asgi.AsgiInstrumentor",
     "django": "opentelemetry.instrumentation.django.DjangoInstrumentor",

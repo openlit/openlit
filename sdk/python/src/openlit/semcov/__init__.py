@@ -984,3 +984,83 @@ class SemanticConvention:
     GEN_AI_REASONING_EXECUTION_DURATION = "gen_ai.reasoning.execution_duration"
 
     # Note: Most workflow and team attributes already exist above, only add truly new ones if needed
+
+    # === MCP (Model Context Protocol) SEMANTIC CONVENTIONS ===
+
+    # MCP System
+    GEN_AI_SYSTEM_MCP = "mcp"
+
+    # MCP Operation Types
+    GEN_AI_OPERATION_TYPE_MCP_TOOL_CALL = "mcp_tool_call"
+    GEN_AI_OPERATION_TYPE_MCP_TOOL_LIST = "mcp_tool_list"
+    GEN_AI_OPERATION_TYPE_MCP_RESOURCE_READ = "mcp_resource_read"
+    GEN_AI_OPERATION_TYPE_MCP_RESOURCE_LIST = "mcp_resource_list"
+    GEN_AI_OPERATION_TYPE_MCP_REQUEST = "mcp_request"
+    GEN_AI_OPERATION_TYPE_MCP_RESPONSE = "mcp_response"
+    GEN_AI_OPERATION_TYPE_MCP_SERVER = "mcp_server"
+    GEN_AI_OPERATION_TYPE_MCP_CLIENT = "mcp_client"
+
+    # MCP Request/Response Attributes (using mcp.* namespace)
+    MCP_METHOD = "mcp.method"
+    MCP_MESSAGE_ID = "mcp.message_id"
+    MCP_JSONRPC_VERSION = "mcp.jsonrpc_version"
+    MCP_PARAMS = "mcp.params"
+    MCP_RESULT = "mcp.result"
+    MCP_ERROR_CODE = "mcp.error.code"
+    MCP_ERROR_MESSAGE = "mcp.error.message"
+    MCP_ERROR_DATA = "mcp.error.data"
+
+    # MCP Tool Attributes
+    MCP_TOOL_NAME = "mcp.tool.name"
+    MCP_TOOL_DESCRIPTION = "mcp.tool.description"
+    MCP_TOOL_ARGUMENTS = "mcp.tool.arguments"
+    MCP_TOOL_RESULT = "mcp.tool.result"
+
+    # MCP Resource Attributes
+    MCP_RESOURCE_URI = "mcp.resource.uri"
+    MCP_RESOURCE_NAME = "mcp.resource.name"
+    MCP_RESOURCE_DESCRIPTION = "mcp.resource.description"
+    MCP_RESOURCE_MIME_TYPE = "mcp.resource.mime_type"
+    MCP_RESOURCE_SIZE = "mcp.resource.size"
+
+    # MCP Transport Attributes
+    MCP_TRANSPORT_TYPE = "mcp.transport.type"
+    MCP_TRANSPORT_STDIO = "stdio"
+    MCP_TRANSPORT_SSE = "sse"
+    MCP_TRANSPORT_WEBSOCKET = "websocket"
+
+    # MCP Request/Response Payload Attributes (inspired by OpenLLMetry)
+    MCP_REQUEST_PAYLOAD = "mcp.request.payload"
+    MCP_RESPONSE_PAYLOAD = "mcp.response.payload"
+
+    # MCP Core Attributes
+    MCP_OPERATION = "mcp.operation.name"
+    MCP_SYSTEM = "mcp.system"
+    MCP_SDK_VERSION = "mcp.sdk.version"
+    MCP_CLIENT_OPERATION_DURATION = "mcp.client.operation.duration"
+
+    # MCP Prompt Attributes  
+    MCP_PROMPT_NAME = "mcp.prompt.name"
+    MCP_PROMPT_DESCRIPTION = "mcp.prompt.description"
+
+    # MCP Server/Client Attributes
+    MCP_SERVER_NAME = "mcp.server.name"
+    MCP_SERVER_VERSION = "mcp.server.version"
+    MCP_CLIENT_VERSION = "mcp.client.version"
+    MCP_RESPONSE_SIZE = "mcp.response.size"
+
+    # MCP Metrics (for business intelligence and operational insights)
+    MCP_REQUESTS = "mcp.requests"
+    MCP_CLIENT_OPERATION_DURATION_METRIC = "mcp.client.operation.duration"
+    MCP_REQUEST_SIZE = "mcp.request.size"
+    MCP_RESPONSE_SIZE_METRIC = "mcp.response.size"
+    MCP_TOOL_CALLS = "mcp.tool.calls"
+    MCP_RESOURCE_READS = "mcp.resource.reads"
+    MCP_PROMPT_GETS = "mcp.prompt.gets"
+    MCP_TRANSPORT_USAGE = "mcp.transport.usage"
+    MCP_ERRORS = "mcp.errors"
+    MCP_OPERATION_SUCCESS_RATE = "mcp.operation.success_rate"
+
+
+
+
