@@ -711,9 +711,9 @@ def create_jsonrpc_wrapper(
                 and hasattr(args[0].root, "params")
             ):
                 params = args[0].root.params
-            if params:
-                if hasattr(params, "meta"):
-                    pass  # Meta available but not currently used
+            if params and hasattr(params, "meta"):
+                pass  # Meta available but not currently used
+
 
             # Create span name following operation_type operation_name convention
             span_name = f"mcp {method}" if method else "mcp send_request"
