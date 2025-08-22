@@ -750,11 +750,11 @@ def create_jsonrpc_wrapper(
                         )
 
                     # Set success status
-                    if hasattr(result, "isError") and result.isError:
-                        if hasattr(result, "content") and len(result.content) > 0:
-                            span.set_status(
-                                Status(StatusCode.ERROR, f"{result.content[0].text}")
-                            )
+                    if hasattr(result, "isError") and result.isError and (hasattr(result, "content") and len(result.content) > 0):
+                        span.set_status(
+                            Status(StatusCode.ERROR, f"{result.content[0].text}")
+                        )
+
 
                     # OpenLIT business intelligence
                     end_time = time.time()
