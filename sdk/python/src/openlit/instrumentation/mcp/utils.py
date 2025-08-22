@@ -556,7 +556,7 @@ def process_mcp_response(
                     # It's a structured object - capture its content
                     try:
                         response_json = json.dumps(response.__dict__, default=str)
-                    except:
+                    except Exception:
                         response_json = json.dumps(
                             {"type": type(response).__name__, "value": str(response)}
                         )
