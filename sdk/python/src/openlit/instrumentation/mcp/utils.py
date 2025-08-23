@@ -151,8 +151,15 @@ class MCPInstrumentationContext:
             if hasattr(self, "_wrapped_function_name"):
                 func_name = self._wrapped_function_name
                 if func_name in [
-                    "run", "list_tools", "call_tool", "list_resources", "read_resource", 
-                    "list_prompts", "get_prompt", "initialize", "send_request"
+                    "run",
+                    "list_tools",
+                    "call_tool",
+                    "list_resources",
+                    "read_resource",
+                    "list_prompts",
+                    "get_prompt",
+                    "initialize",
+                    "send_request",
                 ]:
                     return func_name
 
@@ -175,9 +182,19 @@ class MCPInstrumentationContext:
             if self.args and (len(self.args) >= 1 and isinstance(self.args[0], str)):
                 first_arg = self.args[0]
                 if first_arg in [
-                    "calculator", "text_analyzer", "data_processor", "add", "analyze",
-                    "list_tools", "call_tool", "list_resources", "read_resource",
-                    "list_prompts", "get_prompt", "run", "initialize"
+                    "calculator",
+                    "text_analyzer",
+                    "data_processor",
+                    "add",
+                    "analyze",
+                    "list_tools",
+                    "call_tool",
+                    "list_resources",
+                    "read_resource",
+                    "list_prompts",
+                    "get_prompt",
+                    "run",
+                    "initialize",
                 ]:
                     return first_arg
 
@@ -488,15 +505,19 @@ def _simplify_operation_name(operation_name: str) -> str:
     """Simplify operation names for span attributes (e.g., 'server call_tool' -> 'tools_call')."""
     # Remove server/client prefixes
     simplified = operation_name.replace("server ", "").replace("client ", "")
-    simplified = simplified.replace("fastmcp ", "").replace("manager ", "").replace("transport ", "")
-    
+    simplified = (
+        simplified.replace("fastmcp ", "")
+        .replace("manager ", "")
+        .replace("transport ", "")
+    )
+
     # Map to standard operation names
     if "call_tool" in simplified:
         return "tools_call"
     elif "list_tools" in simplified:
         return "tools_list"
     elif "list_resources" in simplified:
-        return "resources_list"  
+        return "resources_list"
     elif "read_resource" in simplified:
         return "resources_read"
     elif "list_prompts" in simplified:
@@ -835,36 +856,38 @@ def serialize_mcp_input(request, depth=0, max_depth=4):
 def inject_context_into_jsonrpc_request(request_data):
     """Inject OpenTelemetry context into JSONRPC request _meta field."""
     try:
-        if hasattr(request_data, 'params'):
+        if hasattr(request_data, "params"):
             if not request_data.params:
                 request_data.params = {}
             meta = request_data.params.setdefault("_meta", {})
             propagate.get_global_textmap().inject(meta)
     except Exception:
         pass  # Silently fail to avoid breaking requests
-    
+
     return request_data
 
 
 def extract_context_from_jsonrpc_request(request_data):
     """Extract OpenTelemetry context from JSONRPC request _meta field."""
     try:
-        if (hasattr(request_data, 'params') and 
-            request_data.params and 
-            isinstance(request_data.params, dict)):
+        if (
+            hasattr(request_data, "params")
+            and request_data.params
+            and isinstance(request_data.params, dict)
+        ):
             meta = request_data.params.get("_meta")
             if meta:
                 return propagate.extract(meta)
     except Exception:
         pass
-    
+
     return None
 
 
 def create_context_propagating_wrapper(
     gen_ai_endpoint,
     version,
-    environment, 
+    environment,
     application_name,
     tracer,
     pricing_info,
@@ -873,27 +896,27 @@ def create_context_propagating_wrapper(
     disable_metrics,
 ):
     """Create a wrapper that handles context propagation for transport methods."""
-    
+
     def wrapper(wrapped, instance, args, kwargs):
         """Wrapper that injects/extracts context for MCP transport operations."""
-        
+
         # For outgoing requests (client side), inject context
         if "client" in gen_ai_endpoint.lower():
             try:
                 # Look for JSONRPC request objects in args/kwargs and inject context
                 for arg in args:
-                    if hasattr(arg, 'root') and hasattr(arg.root, 'method'):
+                    if hasattr(arg, "root") and hasattr(arg.root, "method"):
                         inject_context_into_jsonrpc_request(arg.root)
                         break
             except Exception:
                 pass
-        
-        # For incoming requests (server side), extract and attach context  
+
+        # For incoming requests (server side), extract and attach context
         elif "server" in gen_ai_endpoint.lower():
             try:
                 # Look for JSONRPC request objects and extract context
                 for arg in args:
-                    if hasattr(arg, 'root') and hasattr(arg.root, 'method'):
+                    if hasattr(arg, "root") and hasattr(arg.root, "method"):
                         extracted_ctx = extract_context_from_jsonrpc_request(arg.root)
                         if extracted_ctx:
                             token = context.attach(extracted_ctx)
@@ -904,10 +927,10 @@ def create_context_propagating_wrapper(
                         break
             except Exception:
                 pass
-        
+
         # Default execution without context manipulation
         return wrapped(*args, **kwargs)
-    
+
     return wrapper
 
 
@@ -946,7 +969,6 @@ def create_jsonrpc_wrapper(
             if params and hasattr(params, "meta"):
                 pass  # Meta available but not currently used
 
-
             # Create span name following operation_type operation_name convention
             span_name = f"mcp {method}" if method else "mcp send_request"
 
@@ -982,11 +1004,14 @@ def create_jsonrpc_wrapper(
                         )
 
                     # Set success status
-                    if hasattr(result, "isError") and result.isError and (hasattr(result, "content") and len(result.content) > 0):
+                    if (
+                        hasattr(result, "isError")
+                        and result.isError
+                        and (hasattr(result, "content") and len(result.content) > 0)
+                    ):
                         span.set_status(
                             Status(StatusCode.ERROR, f"{result.content[0].text}")
                         )
-
 
                     # OpenLIT business intelligence
                     end_time = time.time()
@@ -1120,42 +1145,46 @@ def create_jsonrpc_wrapper(
     return wrapper
 
 
-def _extract_enhanced_mcp_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, response: Any = None, **kwargs):
+def _extract_enhanced_mcp_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, response: Any = None, **kwargs
+):
     """Extract all new enhanced MCP attributes based on endpoint and context data."""
     try:
         # Extract FastMCP Framework Attributes
         _extract_fastmcp_attributes(span, ctx, endpoint, **kwargs)
-        
+
         # Extract Authentication & Security Attributes
         _extract_auth_security_attributes(span, ctx, endpoint, **kwargs)
-        
+
         # Extract Advanced Session Attributes
         _extract_session_attributes(span, ctx, endpoint, **kwargs)
-        
+
         # Extract WebSocket Attributes
         _extract_websocket_attributes(span, ctx, endpoint, **kwargs)
-        
+
         # Extract Performance & Reliability Attributes
         _extract_performance_attributes(span, ctx, endpoint, response, **kwargs)
-        
+
         # Extract Manager-Level Attributes
         _extract_manager_attributes(span, ctx, endpoint, **kwargs)
-        
+
         # Extract Memory & Progress Attributes
         _extract_memory_progress_attributes(span, ctx, endpoint, **kwargs)
-        
+
         # Extract Completion Attributes
         _extract_completion_attributes(span, ctx, endpoint, response, **kwargs)
-        
+
         # Extract Advanced Operation Attributes
         _extract_advanced_operation_attributes(span, ctx, endpoint, response, **kwargs)
-        
+
     except Exception:
         # Silently ignore attribute extraction errors to prevent breaking instrumentation
         pass
 
 
-def _extract_fastmcp_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs):
+def _extract_fastmcp_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs
+):
     """Extract FastMCP framework-specific attributes."""
     try:
         if "fastmcp" in endpoint:
@@ -1163,47 +1192,85 @@ def _extract_fastmcp_attributes(span, ctx: MCPInstrumentationContext, endpoint: 
             instance = kwargs.get("instance")
             if instance and hasattr(instance, "settings"):
                 settings = instance.settings
-                span.set_attribute(SemanticConvention.MCP_FASTMCP_SERVER_DEBUG_MODE, str(getattr(settings, "debug", False)))
-                span.set_attribute(SemanticConvention.MCP_FASTMCP_SERVER_LOG_LEVEL, str(getattr(settings, "log_level", "INFO")))
-                span.set_attribute(SemanticConvention.MCP_FASTMCP_SERVER_HOST, str(getattr(settings, "host", "127.0.0.1")))
-                span.set_attribute(SemanticConvention.MCP_FASTMCP_SERVER_PORT, str(getattr(settings, "port", 8000)))
-                span.set_attribute(SemanticConvention.MCP_FASTMCP_SERVER_TRANSPORT, str(getattr(settings, "transport", "stdio")))
-                
+                span.set_attribute(
+                    SemanticConvention.MCP_FASTMCP_SERVER_DEBUG_MODE,
+                    str(getattr(settings, "debug", False)),
+                )
+                span.set_attribute(
+                    SemanticConvention.MCP_FASTMCP_SERVER_LOG_LEVEL,
+                    str(getattr(settings, "log_level", "INFO")),
+                )
+                span.set_attribute(
+                    SemanticConvention.MCP_FASTMCP_SERVER_HOST,
+                    str(getattr(settings, "host", "127.0.0.1")),
+                )
+                span.set_attribute(
+                    SemanticConvention.MCP_FASTMCP_SERVER_PORT,
+                    str(getattr(settings, "port", 8000)),
+                )
+                span.set_attribute(
+                    SemanticConvention.MCP_FASTMCP_SERVER_TRANSPORT,
+                    str(getattr(settings, "transport", "stdio")),
+                )
+
                 # Additional FastMCP settings
                 if hasattr(settings, "json_response"):
-                    span.set_attribute(SemanticConvention.MCP_FASTMCP_JSON_RESPONSE, str(settings.json_response))
+                    span.set_attribute(
+                        SemanticConvention.MCP_FASTMCP_JSON_RESPONSE,
+                        str(settings.json_response),
+                    )
                 if hasattr(settings, "stateless_http"):
-                    span.set_attribute(SemanticConvention.MCP_FASTMCP_STATELESS_HTTP, str(settings.stateless_http))
+                    span.set_attribute(
+                        SemanticConvention.MCP_FASTMCP_STATELESS_HTTP,
+                        str(settings.stateless_http),
+                    )
                 if hasattr(settings, "mount_path"):
-                    span.set_attribute(SemanticConvention.MCP_FASTMCP_MOUNT_PATH, str(settings.mount_path))
-            
+                    span.set_attribute(
+                        SemanticConvention.MCP_FASTMCP_MOUNT_PATH,
+                        str(settings.mount_path),
+                    )
+
             # Extract tool annotations if available
             if "add_tool" in endpoint or "call_tool" in endpoint:
                 annotations = kwargs.get("annotations")
                 if annotations:
-                    span.set_attribute(SemanticConvention.MCP_FASTMCP_TOOL_ANNOTATIONS, json.dumps(annotations, default=str))
-                
+                    span.set_attribute(
+                        SemanticConvention.MCP_FASTMCP_TOOL_ANNOTATIONS,
+                        json.dumps(annotations, default=str),
+                    )
+
                 structured_output = kwargs.get("structured_output")
                 if structured_output is not None:
-                    span.set_attribute(SemanticConvention.MCP_FASTMCP_TOOL_STRUCTURED_OUTPUT, str(structured_output))
-            
+                    span.set_attribute(
+                        SemanticConvention.MCP_FASTMCP_TOOL_STRUCTURED_OUTPUT,
+                        str(structured_output),
+                    )
+
             # Extract resource MIME type
             if "add_resource" in endpoint or "read_resource" in endpoint:
                 mime_type = kwargs.get("mime_type")
                 if mime_type:
-                    span.set_attribute(SemanticConvention.MCP_FASTMCP_RESOURCE_MIME_TYPE, str(mime_type))
-            
+                    span.set_attribute(
+                        SemanticConvention.MCP_FASTMCP_RESOURCE_MIME_TYPE,
+                        str(mime_type),
+                    )
+
             # Extract prompt arguments
             if "add_prompt" in endpoint or "get_prompt" in endpoint:
                 arguments = kwargs.get("arguments")
                 if arguments:
-                    span.set_attribute(SemanticConvention.MCP_FASTMCP_PROMPT_ARGUMENTS, json.dumps(arguments, default=str))
-                    
+                    span.set_attribute(
+                        SemanticConvention.MCP_FASTMCP_PROMPT_ARGUMENTS,
+                        json.dumps(arguments, default=str),
+                    )
+
     except Exception:
         pass
 
 
-def _extract_auth_security_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs):
+def _extract_auth_security_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs
+):
     """Extract authentication and security-related attributes."""
     try:
         if "auth" in endpoint:
@@ -1211,42 +1278,70 @@ def _extract_auth_security_attributes(span, ctx: MCPInstrumentationContext, endp
             client = kwargs.get("client")
             if client:
                 if hasattr(client, "client_id"):
-                    span.set_attribute(SemanticConvention.MCP_AUTH_CLIENT_ID, str(client.client_id))
+                    span.set_attribute(
+                        SemanticConvention.MCP_AUTH_CLIENT_ID, str(client.client_id)
+                    )
                 if hasattr(client, "grant_types"):
-                    span.set_attribute(SemanticConvention.MCP_AUTH_GRANT_TYPE, json.dumps(client.grant_types, default=str))
-            
+                    span.set_attribute(
+                        SemanticConvention.MCP_AUTH_GRANT_TYPE,
+                        json.dumps(client.grant_types, default=str),
+                    )
+
             # Extract authorization parameters
             params = kwargs.get("params")
             if params and hasattr(params, "scopes"):
-                span.set_attribute(SemanticConvention.MCP_AUTH_SCOPES, json.dumps(params.scopes, default=str))
+                span.set_attribute(
+                    SemanticConvention.MCP_AUTH_SCOPES,
+                    json.dumps(params.scopes, default=str),
+                )
             if params and hasattr(params, "state"):
                 span.set_attribute(SemanticConvention.MCP_AUTH_STATE, str(params.state))
             if params and hasattr(params, "code_challenge"):
-                span.set_attribute(SemanticConvention.MCP_AUTH_CODE_CHALLENGE, str(params.code_challenge))
+                span.set_attribute(
+                    SemanticConvention.MCP_AUTH_CODE_CHALLENGE,
+                    str(params.code_challenge),
+                )
             if params and hasattr(params, "redirect_uri"):
-                span.set_attribute(SemanticConvention.MCP_AUTH_REDIRECT_URI, str(params.redirect_uri))
-                
+                span.set_attribute(
+                    SemanticConvention.MCP_AUTH_REDIRECT_URI, str(params.redirect_uri)
+                )
+
             # Extract token information
-            token = kwargs.get("token") or kwargs.get("access_token") or kwargs.get("refresh_token")
+            token = (
+                kwargs.get("token")
+                or kwargs.get("access_token")
+                or kwargs.get("refresh_token")
+            )
             if token:
                 if hasattr(token, "token_type"):
-                    span.set_attribute(SemanticConvention.MCP_AUTH_TOKEN_TYPE, str(token.token_type))
+                    span.set_attribute(
+                        SemanticConvention.MCP_AUTH_TOKEN_TYPE, str(token.token_type)
+                    )
                 if hasattr(token, "expires_at"):
-                    span.set_attribute(SemanticConvention.MCP_AUTH_EXPIRES_AT, str(token.expires_at))
+                    span.set_attribute(
+                        SemanticConvention.MCP_AUTH_EXPIRES_AT, str(token.expires_at)
+                    )
                 if hasattr(token, "scopes"):
-                    span.set_attribute(SemanticConvention.MCP_AUTH_SCOPES, json.dumps(token.scopes, default=str))
-                    
+                    span.set_attribute(
+                        SemanticConvention.MCP_AUTH_SCOPES,
+                        json.dumps(token.scopes, default=str),
+                    )
+
         # Extract transport security settings
         if "transport" in endpoint:
             instance = kwargs.get("instance")
             if instance and hasattr(instance, "security_settings"):
-                span.set_attribute(SemanticConvention.MCP_SECURITY_TRANSPORT_SECURITY, "enabled")
-                
+                span.set_attribute(
+                    SemanticConvention.MCP_SECURITY_TRANSPORT_SECURITY, "enabled"
+                )
+
     except Exception:
         pass
 
 
-def _extract_session_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs):
+def _extract_session_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs
+):
     """Extract advanced session-related attributes."""
     try:
         # Extract session configuration
@@ -1254,49 +1349,81 @@ def _extract_session_attributes(span, ctx: MCPInstrumentationContext, endpoint: 
             # Extract timeout settings
             read_timeout = kwargs.get("read_timeout_seconds")
             if read_timeout:
-                span.set_attribute(SemanticConvention.MCP_SESSION_READ_TIMEOUT, str(read_timeout.total_seconds()))
-                
-            request_timeout = kwargs.get("request_read_timeout_seconds") 
+                span.set_attribute(
+                    SemanticConvention.MCP_SESSION_READ_TIMEOUT,
+                    str(read_timeout.total_seconds()),
+                )
+
+            request_timeout = kwargs.get("request_read_timeout_seconds")
             if request_timeout:
-                span.set_attribute(SemanticConvention.MCP_SESSION_REQUEST_TIMEOUT, str(request_timeout.total_seconds()))
-            
+                span.set_attribute(
+                    SemanticConvention.MCP_SESSION_REQUEST_TIMEOUT,
+                    str(request_timeout.total_seconds()),
+                )
+
             # Extract capabilities
             capabilities = kwargs.get("capabilities")
             if capabilities:
                 if hasattr(capabilities, "sampling"):
-                    span.set_attribute(SemanticConvention.MCP_SESSION_SAMPLING_SUPPORT, str(capabilities.sampling is not None))
+                    span.set_attribute(
+                        SemanticConvention.MCP_SESSION_SAMPLING_SUPPORT,
+                        str(capabilities.sampling is not None),
+                    )
                 if hasattr(capabilities, "elicitation"):
-                    span.set_attribute(SemanticConvention.MCP_SESSION_ELICITATION_SUPPORT, str(capabilities.elicitation is not None))
+                    span.set_attribute(
+                        SemanticConvention.MCP_SESSION_ELICITATION_SUPPORT,
+                        str(capabilities.elicitation is not None),
+                    )
                 if hasattr(capabilities, "roots"):
-                    span.set_attribute(SemanticConvention.MCP_SESSION_ROOTS_SUPPORT, str(capabilities.roots is not None))
-            
+                    span.set_attribute(
+                        SemanticConvention.MCP_SESSION_ROOTS_SUPPORT,
+                        str(capabilities.roots is not None),
+                    )
+
             # Extract client info
             client_info = kwargs.get("clientInfo") or kwargs.get("client_info")
             if client_info:
                 if hasattr(client_info, "name"):
-                    span.set_attribute(SemanticConvention.MCP_SESSION_CLIENT_INFO_NAME, str(client_info.name))
+                    span.set_attribute(
+                        SemanticConvention.MCP_SESSION_CLIENT_INFO_NAME,
+                        str(client_info.name),
+                    )
                 if hasattr(client_info, "version"):
-                    span.set_attribute(SemanticConvention.MCP_SESSION_CLIENT_INFO_VERSION, str(client_info.version))
-            
+                    span.set_attribute(
+                        SemanticConvention.MCP_SESSION_CLIENT_INFO_VERSION,
+                        str(client_info.version),
+                    )
+
             # Extract server configuration flags
             stateless = kwargs.get("stateless")
             if stateless is not None:
-                span.set_attribute(SemanticConvention.MCP_SESSION_STATELESS, str(stateless))
-                
+                span.set_attribute(
+                    SemanticConvention.MCP_SESSION_STATELESS, str(stateless)
+                )
+
             raise_exceptions = kwargs.get("raise_exceptions")
             if raise_exceptions is not None:
-                span.set_attribute(SemanticConvention.MCP_SESSION_RAISE_EXCEPTIONS, str(raise_exceptions))
-                
+                span.set_attribute(
+                    SemanticConvention.MCP_SESSION_RAISE_EXCEPTIONS,
+                    str(raise_exceptions),
+                )
+
         # Extract progress token
-        progress_token = kwargs.get("progress_token") or (kwargs.get("params", {}).get("_meta", {}).get("progressToken"))
+        progress_token = kwargs.get("progress_token") or (
+            kwargs.get("params", {}).get("_meta", {}).get("progressToken")
+        )
         if progress_token:
-            span.set_attribute(SemanticConvention.MCP_SESSION_PROGRESS_TOKEN, str(progress_token))
-            
+            span.set_attribute(
+                SemanticConvention.MCP_SESSION_PROGRESS_TOKEN, str(progress_token)
+            )
+
     except Exception:
         pass
 
 
-def _extract_websocket_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs):
+def _extract_websocket_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs
+):
     """Extract WebSocket-specific attributes."""
     try:
         if "websocket" in endpoint:
@@ -1304,69 +1431,94 @@ def _extract_websocket_attributes(span, ctx: MCPInstrumentationContext, endpoint
             url = kwargs.get("url")
             if url:
                 span.set_attribute(SemanticConvention.MCP_WEBSOCKET_URL, str(url))
-            
+
             # Extract subprotocol (typically "mcp")
             subprotocols = kwargs.get("subprotocols")
             if subprotocols:
-                span.set_attribute(SemanticConvention.MCP_WEBSOCKET_SUBPROTOCOL, json.dumps(subprotocols, default=str))
+                span.set_attribute(
+                    SemanticConvention.MCP_WEBSOCKET_SUBPROTOCOL,
+                    json.dumps(subprotocols, default=str),
+                )
             elif "websocket" in endpoint:
                 # Default MCP WebSocket subprotocol
                 span.set_attribute(SemanticConvention.MCP_WEBSOCKET_SUBPROTOCOL, "mcp")
-                
+
     except Exception:
         pass
 
 
-def _extract_performance_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, response: Any = None, **kwargs):
+def _extract_performance_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, response: Any = None, **kwargs
+):
     """Extract performance and reliability metrics."""
     try:
         # Calculate execution time if we have timing data
         if hasattr(ctx, "_start_time") and hasattr(ctx, "_end_time"):
             execution_time = ctx._end_time - ctx._start_time
-            
+
             if "call_tool" in endpoint:
-                span.set_attribute(SemanticConvention.MCP_TOOL_EXECUTION_TIME, execution_time)
+                span.set_attribute(
+                    SemanticConvention.MCP_TOOL_EXECUTION_TIME, execution_time
+                )
             elif "read_resource" in endpoint:
-                span.set_attribute(SemanticConvention.MCP_RESOURCE_READ_TIME, execution_time)
+                span.set_attribute(
+                    SemanticConvention.MCP_RESOURCE_READ_TIME, execution_time
+                )
             elif "render_prompt" in endpoint or "get_prompt" in endpoint:
-                span.set_attribute(SemanticConvention.MCP_PROMPT_RENDER_TIME, execution_time)
+                span.set_attribute(
+                    SemanticConvention.MCP_PROMPT_RENDER_TIME, execution_time
+                )
             elif "transport" in endpoint:
-                span.set_attribute(SemanticConvention.MCP_TRANSPORT_CONNECTION_TIME, execution_time)
-        
+                span.set_attribute(
+                    SemanticConvention.MCP_TRANSPORT_CONNECTION_TIME, execution_time
+                )
+
         # Extract progress information
         if "progress" in endpoint:
             progress = kwargs.get("progress")
             if progress is not None:
-                span.set_attribute(SemanticConvention.MCP_PROGRESS_COMPLETION_PERCENTAGE, str(progress))
-            
+                span.set_attribute(
+                    SemanticConvention.MCP_PROGRESS_COMPLETION_PERCENTAGE, str(progress)
+                )
+
             total = kwargs.get("total")
             if total is not None:
                 span.set_attribute(SemanticConvention.MCP_PROGRESS_TOTAL, str(total))
-                
+
             message = kwargs.get("message")
             if message:
-                span.set_attribute(SemanticConvention.MCP_PROGRESS_MESSAGE, str(message))
-        
+                span.set_attribute(
+                    SemanticConvention.MCP_PROGRESS_MESSAGE, str(message)
+                )
+
         # Extract elicitation action
         if "elicit" in endpoint and response:
             if hasattr(response, "action"):
-                span.set_attribute(SemanticConvention.MCP_ELICITATION_ACTION, str(response.action))
-        
+                span.set_attribute(
+                    SemanticConvention.MCP_ELICITATION_ACTION, str(response.action)
+                )
+
         # Extract sampling parameters
         if "sampling" in endpoint or "create_message" in endpoint:
             max_tokens = kwargs.get("max_tokens")
             if max_tokens:
-                span.set_attribute(SemanticConvention.MCP_SAMPLING_MAX_TOKENS, str(max_tokens))
-                
+                span.set_attribute(
+                    SemanticConvention.MCP_SAMPLING_MAX_TOKENS, str(max_tokens)
+                )
+
             messages = kwargs.get("messages")
             if messages:
-                span.set_attribute(SemanticConvention.MCP_SAMPLING_MESSAGES, str(len(messages)))
-        
+                span.set_attribute(
+                    SemanticConvention.MCP_SAMPLING_MESSAGES, str(len(messages))
+                )
+
     except Exception:
         pass
 
 
-def _extract_manager_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs):
+def _extract_manager_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs
+):
     """Extract manager-level attributes for business intelligence."""
     try:
         if "manager" in endpoint:
@@ -1376,51 +1528,83 @@ def _extract_manager_attributes(span, ctx: MCPInstrumentationContext, endpoint: 
                 if "tool_manager" in endpoint:
                     span.set_attribute(SemanticConvention.MCP_MANAGER_TYPE, "tool")
                     if hasattr(instance, "_tools"):
-                        span.set_attribute(SemanticConvention.MCP_TOOL_MANAGER_TOOL_COUNT, str(len(instance._tools)))
+                        span.set_attribute(
+                            SemanticConvention.MCP_TOOL_MANAGER_TOOL_COUNT,
+                            str(len(instance._tools)),
+                        )
                     if hasattr(instance, "warn_on_duplicate_tools"):
-                        span.set_attribute(SemanticConvention.MCP_TOOL_MANAGER_WARN_DUPLICATES, str(instance.warn_on_duplicate_tools))
-                        
+                        span.set_attribute(
+                            SemanticConvention.MCP_TOOL_MANAGER_WARN_DUPLICATES,
+                            str(instance.warn_on_duplicate_tools),
+                        )
+
                 elif "resource_manager" in endpoint:
                     span.set_attribute(SemanticConvention.MCP_MANAGER_TYPE, "resource")
                     if hasattr(instance, "_resources"):
-                        span.set_attribute(SemanticConvention.MCP_RESOURCE_MANAGER_RESOURCE_COUNT, str(len(instance._resources)))
+                        span.set_attribute(
+                            SemanticConvention.MCP_RESOURCE_MANAGER_RESOURCE_COUNT,
+                            str(len(instance._resources)),
+                        )
                     if hasattr(instance, "warn_on_duplicate_resources"):
-                        span.set_attribute(SemanticConvention.MCP_RESOURCE_MANAGER_WARN_DUPLICATES, str(instance.warn_on_duplicate_resources))
-                        
+                        span.set_attribute(
+                            SemanticConvention.MCP_RESOURCE_MANAGER_WARN_DUPLICATES,
+                            str(instance.warn_on_duplicate_resources),
+                        )
+
                 elif "prompt_manager" in endpoint:
                     span.set_attribute(SemanticConvention.MCP_MANAGER_TYPE, "prompt")
                     if hasattr(instance, "_prompts"):
-                        span.set_attribute(SemanticConvention.MCP_PROMPT_MANAGER_PROMPT_COUNT, str(len(instance._prompts)))
+                        span.set_attribute(
+                            SemanticConvention.MCP_PROMPT_MANAGER_PROMPT_COUNT,
+                            str(len(instance._prompts)),
+                        )
                     if hasattr(instance, "warn_on_duplicate_prompts"):
-                        span.set_attribute(SemanticConvention.MCP_PROMPT_MANAGER_WARN_DUPLICATES, str(instance.warn_on_duplicate_prompts))
-                        
+                        span.set_attribute(
+                            SemanticConvention.MCP_PROMPT_MANAGER_WARN_DUPLICATES,
+                            str(instance.warn_on_duplicate_prompts),
+                        )
+
     except Exception:
         pass
 
 
-def _extract_memory_progress_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs):
+def _extract_memory_progress_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, **kwargs
+):
     """Extract memory transport and progress context attributes."""
     try:
         if "memory" in endpoint:
             span.set_attribute(SemanticConvention.MCP_MEMORY_TRANSPORT_TYPE, "memory")
-            
+
             # Extract connection session info
             if "connect" in endpoint:
-                span.set_attribute(SemanticConvention.MCP_MEMORY_CLIENT_SERVER_SESSION, "created")
-        
-        if "progress_context" in endpoint or "ProgressContext" in str(type(kwargs.get("instance", ""))):
+                span.set_attribute(
+                    SemanticConvention.MCP_MEMORY_CLIENT_SERVER_SESSION, "created"
+                )
+
+        if "progress_context" in endpoint or "ProgressContext" in str(
+            type(kwargs.get("instance", ""))
+        ):
             instance = kwargs.get("instance")
             if instance:
                 if hasattr(instance, "current"):
-                    span.set_attribute(SemanticConvention.MCP_PROGRESS_CONTEXT_CURRENT, str(instance.current))
+                    span.set_attribute(
+                        SemanticConvention.MCP_PROGRESS_CONTEXT_CURRENT,
+                        str(instance.current),
+                    )
                 if hasattr(instance, "total"):
-                    span.set_attribute(SemanticConvention.MCP_PROGRESS_CONTEXT_TOTAL, str(instance.total))
-                    
+                    span.set_attribute(
+                        SemanticConvention.MCP_PROGRESS_CONTEXT_TOTAL,
+                        str(instance.total),
+                    )
+
     except Exception:
         pass
 
 
-def _extract_completion_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, response: Any = None, **kwargs):
+def _extract_completion_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, response: Any = None, **kwargs
+):
     """Extract completion-related attributes."""
     try:
         if "complete" in endpoint:
@@ -1428,56 +1612,84 @@ def _extract_completion_attributes(span, ctx: MCPInstrumentationContext, endpoin
             ref = kwargs.get("ref")
             if ref:
                 if hasattr(ref, "type"):
-                    span.set_attribute(SemanticConvention.MCP_COMPLETION_REF_TYPE, str(ref.type))
-            
+                    span.set_attribute(
+                        SemanticConvention.MCP_COMPLETION_REF_TYPE, str(ref.type)
+                    )
+
             argument = kwargs.get("argument")
             if argument:
                 if hasattr(argument, "name"):
-                    span.set_attribute(SemanticConvention.MCP_COMPLETION_ARGUMENT_NAME, str(argument.name))
+                    span.set_attribute(
+                        SemanticConvention.MCP_COMPLETION_ARGUMENT_NAME,
+                        str(argument.name),
+                    )
                 if hasattr(argument, "value"):
-                    span.set_attribute(SemanticConvention.MCP_COMPLETION_ARGUMENT_VALUE, str(argument.value))
-            
+                    span.set_attribute(
+                        SemanticConvention.MCP_COMPLETION_ARGUMENT_VALUE,
+                        str(argument.value),
+                    )
+
             context_args = kwargs.get("context_arguments")
             if context_args:
-                span.set_attribute(SemanticConvention.MCP_COMPLETION_CONTEXT_ARGUMENTS, json.dumps(context_args, default=str))
-            
+                span.set_attribute(
+                    SemanticConvention.MCP_COMPLETION_CONTEXT_ARGUMENTS,
+                    json.dumps(context_args, default=str),
+                )
+
             # Extract completion response
             if response and hasattr(response, "completion"):
                 completion = response.completion
                 if hasattr(completion, "values"):
-                    span.set_attribute(SemanticConvention.MCP_COMPLETION_VALUES, str(len(completion.values)))
+                    span.set_attribute(
+                        SemanticConvention.MCP_COMPLETION_VALUES,
+                        str(len(completion.values)),
+                    )
                 if hasattr(completion, "total"):
-                    span.set_attribute(SemanticConvention.MCP_COMPLETION_TOTAL, str(completion.total))
+                    span.set_attribute(
+                        SemanticConvention.MCP_COMPLETION_TOTAL, str(completion.total)
+                    )
                 if hasattr(completion, "hasMore"):
-                    span.set_attribute(SemanticConvention.MCP_COMPLETION_HAS_MORE, str(completion.hasMore))
-                    
+                    span.set_attribute(
+                        SemanticConvention.MCP_COMPLETION_HAS_MORE,
+                        str(completion.hasMore),
+                    )
+
     except Exception:
         pass
 
 
-def _extract_advanced_operation_attributes(span, ctx: MCPInstrumentationContext, endpoint: str, response: Any = None, **kwargs):
+def _extract_advanced_operation_attributes(
+    span, ctx: MCPInstrumentationContext, endpoint: str, response: Any = None, **kwargs
+):
     """Extract advanced operation-specific attributes."""
     try:
         # Extract ping response time
         if "ping" in endpoint:
             if hasattr(ctx, "_start_time") and hasattr(ctx, "_end_time"):
                 response_time = ctx._end_time - ctx._start_time
-                span.set_attribute(SemanticConvention.MCP_PING_RESPONSE_TIME, response_time)
-        
+                span.set_attribute(
+                    SemanticConvention.MCP_PING_RESPONSE_TIME, response_time
+                )
+
         # Extract logging level changes
         if "set_logging" in endpoint:
             level = kwargs.get("level")
             if level:
                 span.set_attribute(SemanticConvention.MCP_LOGGING_LEVEL_SET, str(level))
-        
+
         # Extract notification details
         if "notification" in endpoint:
             notification_type = "progress" if "progress" in endpoint else "general"
-            span.set_attribute(SemanticConvention.MCP_NOTIFICATION_TYPE, notification_type)
-            
+            span.set_attribute(
+                SemanticConvention.MCP_NOTIFICATION_TYPE, notification_type
+            )
+
             related_request_id = kwargs.get("related_request_id")
             if related_request_id:
-                span.set_attribute(SemanticConvention.MCP_NOTIFICATION_RELATED_REQUEST_ID, str(related_request_id))
-                
+                span.set_attribute(
+                    SemanticConvention.MCP_NOTIFICATION_RELATED_REQUEST_ID,
+                    str(related_request_id),
+                )
+
     except Exception:
         pass

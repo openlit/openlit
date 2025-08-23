@@ -10,7 +10,10 @@ from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.mcp.mcp import mcp_wrap
 from openlit.instrumentation.mcp.async_mcp import async_mcp_wrap
-from openlit.instrumentation.mcp.utils import create_jsonrpc_wrapper, create_context_propagating_wrapper
+from openlit.instrumentation.mcp.utils import (
+    create_jsonrpc_wrapper,
+    create_context_propagating_wrapper,
+)
 
 _instruments = ("mcp >= 0.1.0",)
 
@@ -49,7 +52,7 @@ SYNC_METHODS = [
     {
         "package": "mcp.server",
         "object": "Server.read_resource",
-        "endpoint": "server read_resource", 
+        "endpoint": "server read_resource",
         "priority": "high",
     },
     {
@@ -97,7 +100,7 @@ SYNC_METHODS = [
         "priority": "high",
     },
     {
-        "package": "mcp.server.stdio", 
+        "package": "mcp.server.stdio",
         "object": "stdio_server",
         "endpoint": "transport stdio_server",
         "priority": "high",
@@ -105,7 +108,7 @@ SYNC_METHODS = [
     {
         "package": "mcp.client.sse",
         "object": "sse_client",
-        "endpoint": "transport sse_client", 
+        "endpoint": "transport sse_client",
         "priority": "high",
     },
     {
@@ -221,7 +224,7 @@ SYNC_METHODS = [
         "priority": "high",
     },
     {
-        "package": "mcp.server.websocket", 
+        "package": "mcp.server.websocket",
         "object": "websocket_server",
         "endpoint": "transport websocket_server",
         "priority": "high",
@@ -331,7 +334,7 @@ ASYNC_METHODS = [
         "priority": "high",
     },
     {
-        "package": "mcp.server.stdio", 
+        "package": "mcp.server.stdio",
         "object": "stdio_server",
         "endpoint": "transport stdio_server",
         "priority": "high",
@@ -339,7 +342,7 @@ ASYNC_METHODS = [
     {
         "package": "mcp.client.sse",
         "object": "sse_client",
-        "endpoint": "transport sse_client", 
+        "endpoint": "transport sse_client",
         "priority": "high",
     },
     {
@@ -432,7 +435,7 @@ ASYNC_METHODS = [
         "priority": "high",
     },
     {
-        "package": "mcp.server.websocket", 
+        "package": "mcp.server.websocket",
         "object": "websocket_server",
         "endpoint": "transport websocket_server",
         "priority": "high",
@@ -534,13 +537,11 @@ class MCPInstrumentor(BaseInstrumentor):
         )
 
         # Always instrument critical server/client methods first
-        critical_methods = [
-            m for m in SYNC_METHODS if m["priority"] == "critical"
-        ]
+        critical_methods = [m for m in SYNC_METHODS if m["priority"] == "critical"]
         async_critical_methods = [
             m for m in ASYNC_METHODS if m["priority"] == "critical"
         ]
-        
+
         self._wrap_methods(critical_methods, mcp_wrap, wrapper_args)
         self._wrap_methods(async_critical_methods, async_mcp_wrap, wrapper_args)
 
@@ -559,25 +560,33 @@ class MCPInstrumentor(BaseInstrumentor):
 
         # Separate transport methods for context propagation
         transport_methods = [
-            m for m in SYNC_METHODS if m["priority"] == "high" and "transport" in m["endpoint"]
+            m
+            for m in SYNC_METHODS
+            if m["priority"] == "high" and "transport" in m["endpoint"]
         ]
         async_transport_methods = [
-            m for m in ASYNC_METHODS if m["priority"] == "high" and "transport" in m["endpoint"]
+            m
+            for m in ASYNC_METHODS
+            if m["priority"] == "high" and "transport" in m["endpoint"]
         ]
-        
+
         # Regular high-priority methods (non-transport)
         high_priority_methods = [
-            m for m in SYNC_METHODS if m["priority"] == "high" and "transport" not in m["endpoint"]
+            m
+            for m in SYNC_METHODS
+            if m["priority"] == "high" and "transport" not in m["endpoint"]
         ]
         async_high_priority_methods = [
-            m for m in ASYNC_METHODS if m["priority"] == "high" and "transport" not in m["endpoint"]
+            m
+            for m in ASYNC_METHODS
+            if m["priority"] == "high" and "transport" not in m["endpoint"]
         ]
 
         # Instrument transport methods with context propagation
         self._wrap_transport_methods(transport_methods, wrapper_args)
         self._wrap_transport_methods(async_transport_methods, wrapper_args)
-        
-        # Instrument regular methods with standard wrappers  
+
+        # Instrument regular methods with standard wrappers
         self._wrap_methods(high_priority_methods, mcp_wrap, wrapper_args)
         self._wrap_methods(async_high_priority_methods, async_mcp_wrap, wrapper_args)
 
@@ -613,7 +622,9 @@ class MCPInstrumentor(BaseInstrumentor):
                 wrap_function_wrapper(
                     method_config["package"],
                     method_config["object"],
-                    create_context_propagating_wrapper(method_config["endpoint"], *wrapper_args),
+                    create_context_propagating_wrapper(
+                        method_config["endpoint"], *wrapper_args
+                    ),
                 )
             except (ImportError, AttributeError):
                 # Gracefully handle missing transport methods in different MCP versions
@@ -622,4 +633,3 @@ class MCPInstrumentor(BaseInstrumentor):
     def _uninstrument(self, **kwargs):
         """Uninstrument MCP."""
         # Currently no cleanup needed
-
