@@ -353,7 +353,7 @@ class SemanticConvention:
     DB_OPERATION_UPSERT = "UPSERT"
     DB_OPERATION_GET = "GET"
     DB_OPERATION_ADD = "ADD"
-    DB_OPERATION_PEEK = "peePEEKk"
+    DB_OPERATION_PEEK = "PEEK"
     DB_ID_COUNT = "db.ids_count"
     DB_VECTOR_COUNT = "db.vector.count"
     DB_METADATA = "db.metadata"

@@ -209,6 +209,29 @@ def create_metrics_attributes(
     }
 
 
+def create_db_metrics_attributes(
+    service_name: str,
+    deployment_environment: str,
+    db_system: str,
+    db_operation: str,
+    server_address: str,
+    server_port: int,
+) -> Dict[Any, Any]:
+    """
+    Returns OTel metrics attributes for database operations
+    """
+
+    return {
+        TELEMETRY_SDK_NAME: "openlit",
+        SERVICE_NAME: service_name,
+        DEPLOYMENT_ENVIRONMENT: deployment_environment,
+        SemanticConvention.DB_SYSTEM_NAME: db_system,
+        SemanticConvention.DB_OPERATION_NAME: db_operation,
+        SemanticConvention.SERVER_ADDRESS: server_address,
+        SemanticConvention.SERVER_PORT: server_port,
+    }
+
+
 def set_server_address_and_port(
     client_instance: Any, default_server_address: str, default_server_port: int
 ) -> Tuple[str, int]:
@@ -802,20 +825,19 @@ def record_db_metrics(
     application_name,
     start_time,
     end_time,
+    db_operation,
 ):
     """
     Record database-specific metrics for the operation.
     """
 
-    attributes = create_metrics_attributes(
-        operation=SemanticConvention.GEN_AI_OPERATION_TYPE_VECTORDB,
-        system=db_system,
-        request_model=db_system,
-        server_address=server_address,
-        server_port=server_port,
-        response_model=db_system,
+    attributes = create_db_metrics_attributes(
         service_name=application_name,
         deployment_environment=environment,
+        db_system=db_system,
+        db_operation=db_operation,
+        server_address=server_address,
+        server_port=server_port,
     )
     metrics["db_requests"].add(1, attributes)
     metrics["db_client_operation_duration"].record(end_time - start_time, attributes)
