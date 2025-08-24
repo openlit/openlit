@@ -1047,6 +1047,7 @@ class SemanticConvention:
     MCP_SERVER_NAME = "mcp.server.name"
     MCP_SERVER_VERSION = "mcp.server.version"
     MCP_CLIENT_VERSION = "mcp.client.version"
+    MCP_CLIENT_TYPE = "mcp.client.type"
     MCP_RESPONSE_SIZE = "mcp.response.size"
 
     # MCP Metrics (for business intelligence and operational insights)

@@ -8,12 +8,13 @@ from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
 
 from openlit.semcov import SemanticConvention
-from openlit.__helpers import handle_exception
+from openlit.__helpers import handle_exception, record_mcp_metrics
 from openlit.instrumentation.mcp.utils import (
     MCPInstrumentationContext,
     set_mcp_span_attributes,
     process_mcp_response,
     create_mcp_scope,
+    _simplify_operation_name,
 )
 
 
@@ -127,6 +128,41 @@ def mcp_wrap(
             except Exception as e:
                 error = e
                 handle_exception(span, e)
+
+                # Record error metrics
+                if metrics and not disable_metrics:
+                    end_time = time.time()
+                    mcp_operation = _simplify_operation_name(gen_ai_endpoint)
+                    mcp_method = (
+                        ctx.method_name or gen_ai_endpoint.split()[-1]
+                        if " " in gen_ai_endpoint
+                        else gen_ai_endpoint
+                    )
+
+                    record_mcp_metrics(
+                        metrics=metrics,
+                        mcp_operation=mcp_operation,
+                        mcp_method=mcp_method,
+                        mcp_transport_type="stdio",
+                        mcp_tool_name=kwargs.get("tool_name") or kwargs.get("name")
+                        if "tool" in gen_ai_endpoint.lower()
+                        else None,
+                        mcp_resource_uri=kwargs.get("resource_uri") or kwargs.get("uri")
+                        if "resource" in gen_ai_endpoint.lower()
+                        else None,
+                        mcp_resource_name=kwargs.get("resource_name")
+                        or kwargs.get("name")
+                        if "resource" in gen_ai_endpoint.lower()
+                        else None,
+                        mcp_prompt_name=kwargs.get("prompt_name") or kwargs.get("name")
+                        if "prompt" in gen_ai_endpoint.lower()
+                        else None,
+                        environment=environment,
+                        application_name=application_name,
+                        start_time=start_time,
+                        end_time=end_time,
+                        is_error=True,
+                    )
                 raise
             finally:
                 # Process response and capture telemetry

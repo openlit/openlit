@@ -7,16 +7,16 @@ import json
 import time
 import inspect
 from typing import Dict, Any, Optional
+
+from opentelemetry import context, propagate
 from opentelemetry.sdk.resources import SERVICE_NAME, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.trace.status import Status, StatusCode
 
 from openlit.semcov import SemanticConvention
 from openlit.__helpers import (
     handle_exception,
-    record_framework_metrics,
     record_mcp_metrics,
 )
-from opentelemetry import context, propagate
 
 
 class MCPInstrumentationContext:
@@ -753,18 +753,109 @@ def process_mcp_response(
         except Exception:
             pass
 
-        # Record metrics (OpenLIT business intelligence)
+        # Record MCP-specific metrics for business intelligence
         if metrics and not disable_metrics:
-            record_framework_metrics(
+            # Extract MCP-specific information for enhanced metrics
+            mcp_operation = _simplify_operation_name(endpoint)
+            mcp_method = (
+                ctx.method_name or endpoint.split()[-1] if " " in endpoint else endpoint
+            )
+
+            # Extract tool, resource, and prompt names from context
+            tool_name = None
+            resource_uri = None
+            prompt_name = None
+
+            # Enhanced extraction logic for MCP operations
+            # Try to extract tool name from various sources
+            if "tool_name" in kwargs:
+                tool_name = kwargs["tool_name"]
+            elif "name" in kwargs and (
+                "tool" in endpoint.lower() or "call" in endpoint.lower()
+            ):
+                tool_name = kwargs["name"]
+            elif len(ctx.args) > 0:
+                # For MCP tool calls, tool name is typically the first argument
+                if isinstance(ctx.args[0], str) and (
+                    "tool" in endpoint.lower() or "call" in endpoint.lower()
+                ):
+                    tool_name = ctx.args[0]
+                elif hasattr(ctx.args[0], "name"):
+                    tool_name = ctx.args[0].name
+                elif isinstance(ctx.args[0], dict) and "name" in ctx.args[0]:
+                    tool_name = ctx.args[0]["name"]
+
+            # Try to extract resource URI and name from various sources
+            resource_name = None
+            if "resource_uri" in kwargs:
+                resource_uri = kwargs["resource_uri"]
+            elif "uri" in kwargs:
+                resource_uri = kwargs["uri"]
+            elif len(ctx.args) > 0 and "resource" in endpoint.lower():
+                # For MCP resource operations, URI is typically the first argument
+                if isinstance(ctx.args[0], str):
+                    resource_uri = ctx.args[0]
+                elif hasattr(ctx.args[0], "uri"):
+                    resource_uri = ctx.args[0].uri
+                elif isinstance(ctx.args[0], dict) and "uri" in ctx.args[0]:
+                    resource_uri = ctx.args[0]["uri"]
+
+            # Extract resource name from kwargs, response, or derive from URI
+            if "resource_name" in kwargs:
+                resource_name = kwargs["resource_name"]
+            elif "name" in kwargs and "resource" in endpoint.lower():
+                resource_name = kwargs["name"]
+            elif hasattr(response, "name"):
+                resource_name = response.name
+            elif resource_uri:
+                # Derive resource name from URI (e.g., "resource://config" -> "config")
+                resource_name = (
+                    resource_uri.split("://")[-1].split("/")[-1]
+                    if "://" in resource_uri
+                    else resource_uri
+                )
+
+            # Try to extract prompt name from various sources
+            if "prompt_name" in kwargs:
+                prompt_name = kwargs["prompt_name"]
+            elif "name" in kwargs and "prompt" in endpoint.lower():
+                prompt_name = kwargs["name"]
+            elif len(ctx.args) > 0 and "prompt" in endpoint.lower():
+                # For MCP prompt operations, name is typically the first argument
+                if isinstance(ctx.args[0], str):
+                    prompt_name = ctx.args[0]
+                elif hasattr(ctx.args[0], "name"):
+                    prompt_name = ctx.args[0].name
+                elif isinstance(ctx.args[0], dict) and "name" in ctx.args[0]:
+                    prompt_name = ctx.args[0]["name"]
+
+            # Calculate request/response sizes
+            request_size = None
+            response_size = None
+            try:
+                if len(ctx.args) > 0:
+                    request_size = len(serialize_mcp_input(ctx.args[0]))
+                if response:
+                    response_size = len(serialize_mcp_input(response))
+            except Exception:
+                pass
+
+            record_mcp_metrics(
                 metrics=metrics,
-                gen_ai_operation=endpoint,
-                gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_MCP,
-                server_address="localhost",
-                server_port=0,
+                mcp_operation=mcp_operation,
+                mcp_method=mcp_method,
+                mcp_transport_type="stdio",  # Default transport
+                mcp_tool_name=tool_name,
+                mcp_resource_uri=resource_uri,
+                mcp_resource_name=resource_name,  # Add resource name for enhanced BI
+                mcp_prompt_name=prompt_name,
                 environment=ctx.environment,
                 application_name=ctx.application_name,
                 start_time=start_time,
                 end_time=end_time,
+                request_size=request_size,
+                response_size=response_size,
+                is_error=False,
             )
 
     except Exception as e:
@@ -884,6 +975,20 @@ def extract_context_from_jsonrpc_request(request_data):
     return None
 
 
+def _extract_server_context(args):
+    """Extract context from JSONRPC request objects in server-side operations."""
+    try:
+        # Look for JSONRPC request objects and extract context
+        for arg in args:
+            if hasattr(arg, "root") and hasattr(arg.root, "method"):
+                extracted_ctx = extract_context_from_jsonrpc_request(arg.root)
+                if extracted_ctx:
+                    return extracted_ctx
+    except Exception:
+        pass
+    return None
+
+
 def create_context_propagating_wrapper(
     gen_ai_endpoint,
     version,
@@ -913,20 +1018,13 @@ def create_context_propagating_wrapper(
 
         # For incoming requests (server side), extract and attach context
         elif "server" in gen_ai_endpoint.lower():
-            try:
-                # Look for JSONRPC request objects and extract context
-                for arg in args:
-                    if hasattr(arg, "root") and hasattr(arg.root, "method"):
-                        extracted_ctx = extract_context_from_jsonrpc_request(arg.root)
-                        if extracted_ctx:
-                            token = context.attach(extracted_ctx)
-                            try:
-                                return wrapped(*args, **kwargs)
-                            finally:
-                                context.detach(token)
-                        break
-            except Exception:
-                pass
+            extracted_ctx = _extract_server_context(args)
+            if extracted_ctx:
+                token = context.attach(extracted_ctx)
+                try:
+                    return wrapped(*args, **kwargs)
+                finally:
+                    context.detach(token)
 
         # Default execution without context manipulation
         return wrapped(*args, **kwargs)
@@ -1061,6 +1159,7 @@ def create_jsonrpc_wrapper(
                             mcp_transport_type="stdio",  # Default, could be extracted from context
                             mcp_tool_name=tool_name,
                             mcp_resource_uri=resource_uri,
+                            mcp_resource_name=None,  # Not extracted in JSONRPC wrapper context
                             mcp_prompt_name=prompt_name,
                             environment=environment,
                             application_name=application_name,
@@ -1115,6 +1214,7 @@ def create_jsonrpc_wrapper(
                             mcp_transport_type="stdio",
                             mcp_tool_name=tool_name,
                             mcp_resource_uri=resource_uri,
+                            mcp_resource_name=None,  # Not extracted in JSONRPC wrapper context
                             mcp_prompt_name=prompt_name,
                             environment=environment,
                             application_name=application_name,

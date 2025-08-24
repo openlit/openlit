@@ -626,6 +626,7 @@ def record_mcp_metrics(
     mcp_transport_type,
     mcp_tool_name,
     mcp_resource_uri,
+    mcp_resource_name,
     mcp_prompt_name,
     environment,
     application_name,
@@ -645,6 +646,7 @@ def record_mcp_metrics(
         mcp_transport_type: Transport type (stdio, sse, websocket)
         mcp_tool_name: Tool name for tool operations
         mcp_resource_uri: Resource URI for resource operations
+        mcp_resource_name: Resource name for resource operations
         mcp_prompt_name: Prompt name for prompt operations
         environment: Deployment environment
         application_name: Application name
@@ -661,10 +663,10 @@ def record_mcp_metrics(
         # Calculate operation duration
         duration = end_time - start_time
 
-        # Common attributes for all MCP metrics
-        common_attributes = {
+        # Enhanced attributes for all MCP metrics with full business intelligence
+        enhanced_attributes = {
             TELEMETRY_SDK_NAME: "openlit",
-            SERVICE_NAME: application_name,
+            SERVICE_NAME: application_name,  # Server application name
             DEPLOYMENT_ENVIRONMENT: environment,
             SemanticConvention.MCP_OPERATION: mcp_operation,
             SemanticConvention.MCP_METHOD: mcp_method,
@@ -673,70 +675,88 @@ def record_mcp_metrics(
 
         # Add transport type if available
         if mcp_transport_type:
-            common_attributes[SemanticConvention.MCP_TRANSPORT_TYPE] = str(
+            enhanced_attributes[SemanticConvention.MCP_TRANSPORT_TYPE] = str(
                 mcp_transport_type
             )
 
-        # Record general MCP request count
+        # Add tool name to ALL metrics for complete business intelligence
+        if mcp_tool_name:
+            enhanced_attributes[SemanticConvention.MCP_TOOL_NAME] = str(mcp_tool_name)
+
+        # Add resource URI and name to ALL metrics when available
+        if mcp_resource_uri:
+            enhanced_attributes[SemanticConvention.MCP_RESOURCE_URI] = str(
+                mcp_resource_uri
+            )
+        if mcp_resource_name:
+            enhanced_attributes[SemanticConvention.MCP_RESOURCE_NAME] = str(
+                mcp_resource_name
+            )
+
+        # Add prompt name to ALL metrics when available
+        if mcp_prompt_name:
+            enhanced_attributes[SemanticConvention.MCP_PROMPT_NAME] = str(
+                mcp_prompt_name
+            )
+
+        # Add client identification when possible
+        # Note: In MCP, the "server" generates metrics but serves "clients"
+        # We can try to identify the client from transport or add explicit client tracking
+        if mcp_transport_type == "stdio":
+            # For stdio transport, client spawns server as subprocess
+            enhanced_attributes[SemanticConvention.MCP_CLIENT_TYPE] = "external_spawn"
+        elif mcp_transport_type in ["websocket", "sse"]:
+            # For network transports, client connects to running server
+            enhanced_attributes[SemanticConvention.MCP_CLIENT_TYPE] = "network_client"
+
+        # Record general MCP request count (now with tool name when available)
         if "mcp_requests" in metrics:
-            metrics["mcp_requests"].add(1, common_attributes)
+            metrics["mcp_requests"].add(1, enhanced_attributes)
 
-        # Record operation duration
+        # Record operation duration (now with tool name for tool-specific performance analysis)
         if "mcp_client_operation_duration" in metrics:
-            metrics["mcp_client_operation_duration"].record(duration, common_attributes)
+            metrics["mcp_client_operation_duration"].record(
+                duration, enhanced_attributes
+            )
 
-        # Record request size
+        # Record request size (now with tool name for payload analysis by tool)
         if request_size and "mcp_request_size" in metrics:
-            metrics["mcp_request_size"].record(request_size, common_attributes)
+            metrics["mcp_request_size"].record(request_size, enhanced_attributes)
 
-        # Record response size
+        # Record response size (now with tool name for response size analysis by tool)
         if response_size and "mcp_response_size" in metrics:
-            metrics["mcp_response_size"].record(response_size, common_attributes)
+            metrics["mcp_response_size"].record(response_size, enhanced_attributes)
 
-        # Record transport usage
+        # Record transport usage (now with enhanced context)
         if "mcp_transport_usage" in metrics and mcp_transport_type:
-            transport_attributes = {**common_attributes}
-            metrics["mcp_transport_usage"].add(1, transport_attributes)
+            metrics["mcp_transport_usage"].add(1, enhanced_attributes)
 
-        # Record tool-specific metrics
+        # Record tool-specific metrics (tool name already in enhanced_attributes)
         if mcp_tool_name and "mcp_tool_calls" in metrics:
-            tool_attributes = {
-                **common_attributes,
-                SemanticConvention.MCP_TOOL_NAME: str(mcp_tool_name),
-            }
-            metrics["mcp_tool_calls"].add(1, tool_attributes)
+            metrics["mcp_tool_calls"].add(1, enhanced_attributes)
 
-        # Record resource-specific metrics
+        # Record resource-specific metrics (resource URI already in enhanced_attributes)
         if mcp_resource_uri and "mcp_resource_reads" in metrics:
-            resource_attributes = {
-                **common_attributes,
-                SemanticConvention.MCP_RESOURCE_URI: str(
-                    mcp_resource_uri
-                ),  # Convert to string
-            }
-            metrics["mcp_resource_reads"].add(1, resource_attributes)
+            metrics["mcp_resource_reads"].add(1, enhanced_attributes)
 
-        # Record prompt-specific metrics
+        # Record prompt-specific metrics (prompt name already in enhanced_attributes)
         if mcp_prompt_name and "mcp_prompt_gets" in metrics:
-            prompt_attributes = {
-                **common_attributes,
-                SemanticConvention.MCP_PROMPT_NAME: str(mcp_prompt_name),
-            }
-            metrics["mcp_prompt_gets"].add(1, prompt_attributes)
+            metrics["mcp_prompt_gets"].add(1, enhanced_attributes)
 
-        # Record error metrics
-        if is_error and "mcp_errors" in metrics:
+        # Record error metrics for ALL operations (1 for error, 0 for success)
+        if "mcp_errors" in metrics:
+            error_count = 1 if is_error else 0
             error_attributes = {
-                **common_attributes,
-                "mcp.error": True,
+                **enhanced_attributes,
+                "mcp.error": is_error,
             }
-            metrics["mcp_errors"].add(1, error_attributes)
+            metrics["mcp_errors"].add(error_count, error_attributes)
 
-        # Record success rate (1.0 for success, 0.0 for error)
+        # Record success rate (now with tool name for tool-specific success rate analysis)
         if "mcp_operation_success_rate" in metrics:
             success_rate = 0.0 if is_error else 1.0
             metrics["mcp_operation_success_rate"].record(
-                success_rate, common_attributes
+                success_rate, enhanced_attributes
             )
 
     except Exception:
