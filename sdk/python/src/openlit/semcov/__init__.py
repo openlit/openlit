@@ -984,3 +984,178 @@ class SemanticConvention:
     GEN_AI_REASONING_EXECUTION_DURATION = "gen_ai.reasoning.execution_duration"
 
     # Note: Most workflow and team attributes already exist above, only add truly new ones if needed
+
+    # === MCP (Model Context Protocol) SEMANTIC CONVENTIONS ===
+
+    # MCP System
+    GEN_AI_SYSTEM_MCP = "mcp"
+
+    # MCP Operation Types
+    GEN_AI_OPERATION_TYPE_MCP_TOOL_CALL = "mcp_tool_call"
+    GEN_AI_OPERATION_TYPE_MCP_TOOL_LIST = "mcp_tool_list"
+    GEN_AI_OPERATION_TYPE_MCP_RESOURCE_READ = "mcp_resource_read"
+    GEN_AI_OPERATION_TYPE_MCP_RESOURCE_LIST = "mcp_resource_list"
+    GEN_AI_OPERATION_TYPE_MCP_REQUEST = "mcp_request"
+    GEN_AI_OPERATION_TYPE_MCP_RESPONSE = "mcp_response"
+    GEN_AI_OPERATION_TYPE_MCP_SERVER = "mcp_server"
+    GEN_AI_OPERATION_TYPE_MCP_CLIENT = "mcp_client"
+
+    # MCP Request/Response Attributes (using mcp.* namespace)
+    MCP_METHOD = "mcp.method"
+    MCP_MESSAGE_ID = "mcp.message_id"
+    MCP_JSONRPC_VERSION = "mcp.jsonrpc_version"
+    MCP_PARAMS = "mcp.params"
+    MCP_RESULT = "mcp.result"
+    MCP_ERROR_CODE = "mcp.error.code"
+    MCP_ERROR_MESSAGE = "mcp.error.message"
+    MCP_ERROR_DATA = "mcp.error.data"
+
+    # MCP Tool Attributes
+    MCP_TOOL_NAME = "mcp.tool.name"
+    MCP_TOOL_DESCRIPTION = "mcp.tool.description"
+    MCP_TOOL_ARGUMENTS = "mcp.tool.arguments"
+    MCP_TOOL_RESULT = "mcp.tool.result"
+
+    # MCP Resource Attributes
+    MCP_RESOURCE_URI = "mcp.resource.uri"
+    MCP_RESOURCE_NAME = "mcp.resource.name"
+    MCP_RESOURCE_DESCRIPTION = "mcp.resource.description"
+    MCP_RESOURCE_MIME_TYPE = "mcp.resource.mime_type"
+    MCP_RESOURCE_SIZE = "mcp.resource.size"
+
+    # MCP Transport Attributes
+    MCP_TRANSPORT_TYPE = "mcp.transport.type"
+    MCP_TRANSPORT_STDIO = "stdio"
+    MCP_TRANSPORT_SSE = "sse"
+    MCP_TRANSPORT_WEBSOCKET = "websocket"
+
+    # MCP Request/Response Payload Attributes
+    MCP_REQUEST_PAYLOAD = "mcp.request.payload"
+    MCP_RESPONSE_PAYLOAD = "mcp.response.payload"
+
+    # MCP Core Attributes
+    MCP_OPERATION = "mcp.operation.name"
+    MCP_SYSTEM = "mcp.system"
+    MCP_SDK_VERSION = "mcp.sdk.version"
+    MCP_CLIENT_OPERATION_DURATION = "mcp.client.operation.duration"
+
+    # MCP Prompt Attributes
+    MCP_PROMPT_NAME = "mcp.prompt.name"
+    MCP_PROMPT_DESCRIPTION = "mcp.prompt.description"
+
+    # MCP Server/Client Attributes
+    MCP_SERVER_NAME = "mcp.server.name"
+    MCP_SERVER_VERSION = "mcp.server.version"
+    MCP_CLIENT_VERSION = "mcp.client.version"
+    MCP_CLIENT_TYPE = "mcp.client.type"
+    MCP_RESPONSE_SIZE = "mcp.response.size"
+
+    # MCP Metrics (for business intelligence and operational insights)
+    MCP_REQUESTS = "mcp.requests"
+    MCP_CLIENT_OPERATION_DURATION_METRIC = "mcp.client.operation.duration"
+    MCP_REQUEST_SIZE = "mcp.request.size"
+    MCP_RESPONSE_SIZE_METRIC = "mcp.response.size"
+    MCP_TOOL_CALLS = "mcp.tool.calls"
+    MCP_RESOURCE_READS = "mcp.resource.reads"
+    MCP_PROMPT_GETS = "mcp.prompt.gets"
+    MCP_TRANSPORT_USAGE = "mcp.transport.usage"
+    MCP_ERRORS = "mcp.errors"
+    MCP_OPERATION_SUCCESS_RATE = "mcp.operation.success_rate"
+
+    # === NEW FASTMCP FRAMEWORK ATTRIBUTES ===
+    MCP_FASTMCP_SERVER_DEBUG_MODE = "mcp.fastmcp.server.debug_mode"
+    MCP_FASTMCP_SERVER_LOG_LEVEL = "mcp.fastmcp.server.log_level"
+    MCP_FASTMCP_SERVER_HOST = "mcp.fastmcp.server.host"
+    MCP_FASTMCP_SERVER_PORT = "mcp.fastmcp.server.port"
+    MCP_FASTMCP_SERVER_TRANSPORT = "mcp.fastmcp.server.transport"
+    MCP_FASTMCP_TOOL_ANNOTATIONS = "mcp.fastmcp.tool.annotations"
+    MCP_FASTMCP_RESOURCE_MIME_TYPE = "mcp.fastmcp.resource.mime_type"
+    MCP_FASTMCP_PROMPT_ARGUMENTS = "mcp.fastmcp.prompt.arguments"
+    MCP_FASTMCP_TOOL_STRUCTURED_OUTPUT = "mcp.fastmcp.tool.structured_output"
+    MCP_FASTMCP_SERVER_INSTRUCTIONS = "mcp.fastmcp.server.instructions"
+    MCP_FASTMCP_SERVER_LIFESPAN = "mcp.fastmcp.server.lifespan"
+    MCP_FASTMCP_MOUNT_PATH = "mcp.fastmcp.mount_path"
+    MCP_FASTMCP_SSE_PATH = "mcp.fastmcp.sse_path"
+    MCP_FASTMCP_MESSAGE_PATH = "mcp.fastmcp.message_path"
+    MCP_FASTMCP_STREAMABLE_HTTP_PATH = "mcp.fastmcp.streamable_http_path"
+    MCP_FASTMCP_JSON_RESPONSE = "mcp.fastmcp.json_response"
+    MCP_FASTMCP_STATELESS_HTTP = "mcp.fastmcp.stateless_http"
+
+    # === NEW AUTHENTICATION & SECURITY ATTRIBUTES ===
+    MCP_AUTH_CLIENT_ID = "mcp.auth.client_id"
+    MCP_AUTH_SCOPES = "mcp.auth.scopes"
+    MCP_AUTH_GRANT_TYPE = "mcp.auth.grant_type"
+    MCP_AUTH_TOKEN_TYPE = "mcp.auth.token_type"
+    MCP_AUTH_EXPIRES_AT = "mcp.auth.expires_at"
+    MCP_AUTH_AUTHORIZATION_CODE = "mcp.auth.authorization_code"
+    MCP_AUTH_REDIRECT_URI = "mcp.auth.redirect_uri"
+    MCP_AUTH_STATE = "mcp.auth.state"
+    MCP_AUTH_CODE_CHALLENGE = "mcp.auth.code_challenge"
+    MCP_AUTH_RESOURCE_INDICATOR = "mcp.auth.resource_indicator"
+    MCP_SECURITY_TRANSPORT_SECURITY = "mcp.security.transport_security"
+    MCP_SECURITY_DNS_REBINDING_PROTECTION = "mcp.security.dns_rebinding_protection"
+    MCP_AUTH_TOKEN_VERIFICATION_SUCCESS = "mcp.auth.token_verification_success"
+    MCP_AUTH_CLIENT_REGISTRATION_TYPE = "mcp.auth.client_registration_type"
+
+    # === NEW ADVANCED SESSION ATTRIBUTES ===
+    MCP_SESSION_REQUEST_TIMEOUT = "mcp.session.request_timeout"
+    MCP_SESSION_PROGRESS_TOKEN = "mcp.session.progress_token"
+    MCP_SESSION_ELICITATION_SUPPORT = "mcp.session.elicitation_support"
+    MCP_SESSION_SAMPLING_SUPPORT = "mcp.session.sampling_support"
+    MCP_SESSION_ROOTS_SUPPORT = "mcp.session.roots_support"
+    MCP_SESSION_READ_TIMEOUT = "mcp.session.read_timeout"
+    MCP_SESSION_STATELESS = "mcp.session.stateless"
+    MCP_SESSION_RAISE_EXCEPTIONS = "mcp.session.raise_exceptions"
+    MCP_SESSION_CLIENT_INFO_NAME = "mcp.session.client_info.name"
+    MCP_SESSION_CLIENT_INFO_VERSION = "mcp.session.client_info.version"
+    MCP_SESSION_COMPLETION_SUPPORT = "mcp.session.completion_support"
+    MCP_SESSION_LOGGING_SUPPORT = "mcp.session.logging_support"
+
+    # === NEW WEBSOCKET SPECIFIC ATTRIBUTES ===
+    MCP_WEBSOCKET_SUBPROTOCOL = "mcp.websocket.subprotocol"
+    MCP_WEBSOCKET_URL = "mcp.websocket.url"
+    MCP_WEBSOCKET_CONNECTION_STATE = "mcp.websocket.connection_state"
+
+    # === NEW PERFORMANCE & RELIABILITY ATTRIBUTES ===
+    MCP_TOOL_EXECUTION_TIME = "mcp.tool.execution_time"
+    MCP_RESOURCE_READ_TIME = "mcp.resource.read_time"
+    MCP_PROMPT_RENDER_TIME = "mcp.prompt.render_time"
+    MCP_TRANSPORT_CONNECTION_TIME = "mcp.transport.connection_time"
+    MCP_PROGRESS_COMPLETION_PERCENTAGE = "mcp.progress.completion_percentage"
+    MCP_PROGRESS_TOTAL = "mcp.progress.total"
+    MCP_PROGRESS_MESSAGE = "mcp.progress.message"
+    MCP_ELICITATION_ACTION = "mcp.elicitation.action"
+    MCP_ELICITATION_SCHEMA = "mcp.elicitation.schema"
+    MCP_SAMPLING_MAX_TOKENS = "mcp.sampling.max_tokens"
+    MCP_SAMPLING_MESSAGES = "mcp.sampling.messages"
+
+    # === NEW MANAGER-LEVEL ATTRIBUTES ===
+    MCP_MANAGER_TYPE = "mcp.manager.type"
+    MCP_MANAGER_OPERATION = "mcp.manager.operation"
+    MCP_TOOL_MANAGER_TOOL_COUNT = "mcp.tool_manager.tool_count"
+    MCP_RESOURCE_MANAGER_RESOURCE_COUNT = "mcp.resource_manager.resource_count"
+    MCP_PROMPT_MANAGER_PROMPT_COUNT = "mcp.prompt_manager.prompt_count"
+    MCP_TOOL_MANAGER_WARN_DUPLICATES = "mcp.tool_manager.warn_duplicates"
+    MCP_RESOURCE_MANAGER_WARN_DUPLICATES = "mcp.resource_manager.warn_duplicates"
+    MCP_PROMPT_MANAGER_WARN_DUPLICATES = "mcp.prompt_manager.warn_duplicates"
+
+    # === NEW MEMORY & PROGRESS SPECIFIC ATTRIBUTES ===
+    MCP_MEMORY_TRANSPORT_TYPE = "mcp.memory.transport_type"
+    MCP_MEMORY_CLIENT_SERVER_SESSION = "mcp.memory.client_server_session"
+    MCP_PROGRESS_CONTEXT_CURRENT = "mcp.progress_context.current"
+    MCP_PROGRESS_CONTEXT_TOTAL = "mcp.progress_context.total"
+
+    # === NEW COMPLETION ATTRIBUTES ===
+    MCP_COMPLETION_REF_TYPE = "mcp.completion.ref.type"
+    MCP_COMPLETION_ARGUMENT_NAME = "mcp.completion.argument.name"
+    MCP_COMPLETION_ARGUMENT_VALUE = "mcp.completion.argument.value"
+    MCP_COMPLETION_CONTEXT_ARGUMENTS = "mcp.completion.context.arguments"
+    MCP_COMPLETION_VALUES = "mcp.completion.values"
+    MCP_COMPLETION_TOTAL = "mcp.completion.total"
+    MCP_COMPLETION_HAS_MORE = "mcp.completion.has_more"
+
+    # === NEW ADVANCED OPERATION ATTRIBUTES ===
+    MCP_PING_RESPONSE_TIME = "mcp.ping.response_time"
+    MCP_LOGGING_LEVEL_SET = "mcp.logging.level_set"
+    MCP_NOTIFICATION_TYPE = "mcp.notification.type"
+    MCP_NOTIFICATION_RELATED_REQUEST_ID = "mcp.notification.related_request_id"
