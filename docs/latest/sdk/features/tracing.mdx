@@ -5,7 +5,47 @@ description: "Automatically track your AI apps with OpenTelemetry to gain insigh
 
 OpenLIT provides OpenTelemetry Auto instrumentation for various LLM providers, frameworks, and VectorDBs, providing you with insights into the behavior and performance of your LLM applications.
 
-This documentation covers tracing settings, understanding semantic conventions, and interpreting span attributes to enhance the monitoring and observability of your LLM applications.
+You can enable tracing with **zero code changes** using the CLI or by adding 2 lines of code with the SDK. This documentation covers tracing settings, understanding semantic conventions, and interpreting span attributes to enhance the monitoring and observability of your LLM applications.
+
+## Getting Started
+
+<Tabs>
+  <Tab title="Zero Code Changes (CLI)">
+    Perfect for existing applications where you cannot or don't want to modify code:
+    
+    ```bash
+    # Install and run with zero code changes
+    pip install openlit
+    openlit-instrument python your_existing_app.py
+    
+    # Configure tracing options via CLI
+    openlit-instrument \
+      --service-name my-ai-service \
+      --environment production \
+      --disable-batch \
+      --no-capture-message-content \
+      python your_app.py
+    ```
+  </Tab>
+  
+  <Tab title="SDK Integration">
+    For applications where you can modify code:
+    
+    ```python
+    import openlit
+    
+    # Initialize with custom tracing settings
+    openlit.init(
+        service_name="my-ai-service",
+        environment="production",
+        disable_batch=True,
+        capture_message_content=False
+    )
+    
+    # Your existing AI code works without changes
+    ```
+  </Tab>
+</Tabs>
 
 <CardGroup cols={2}>
   <Card title="Quickstart" href="/latest/quickstart" icon="bolt">
@@ -54,31 +94,70 @@ By default, OpenLIT adds the prompts and completions to Trace span attributes.
 
 However, you may want to disable this logging for privacy reasons, as they may contain highly sensitive data from your users. You may also simply want to reduce the size of your traces.
 
-Example:
-
-```python
-openlit.init(capture_message_content=False)
-```
+<Tabs>
+  <Tab title="CLI">
+    ```bash
+    # Disable content capture with CLI
+    openlit-instrument --no-capture-message-content python your_app.py
+    
+    # Or via environment variable
+    export OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=false
+    openlit-instrument python your_app.py
+    ```
+  </Tab>
+  
+  <Tab title="SDK">
+    ```python
+    openlit.init(capture_message_content=False)
+    ```
+  </Tab>
+</Tabs>
 
 ## Disable Batch
 
 By default, the SDK batches spans using the OpenTelemetry batch span processor. When working locally, sometimes you may wish to disable this behavior. You can do that with this flag.
 
-Example:
-
-```python
-openlit.init(disable_batch=True)
-```
+<Tabs>
+  <Tab title="CLI">
+    ```bash
+    # Disable batching with CLI
+    openlit-instrument --disable-batch python your_app.py
+    
+    # Or via environment variable
+    export OPENLIT_DISABLE_BATCH=true
+    openlit-instrument python your_app.py
+    ```
+  </Tab>
+  
+  <Tab title="SDK">
+    ```python
+    openlit.init(disable_batch=True)
+    ```
+  </Tab>
+</Tabs>
 
 ## Disable Instrumentations
 
 By default, OpenLIT automatically detects which models and frameworks you are using and instruments them for you. You can override this and disable instrumentation for specific frameworks and models.
 
-Example:
-
-```python
-openlit.init(disabled_instrumentors=["anthropic", "langchain"])
-```
+<Tabs>
+  <Tab title="CLI">
+    ```bash
+    # Disable specific instrumentations with CLI
+    openlit-instrument --disabled-instrumentors anthropic,langchain python your_app.py
+    
+    # Or via environment variable
+    export OPENLIT_DISABLED_INSTRUMENTORS=anthropic,langchain
+    openlit-instrument python your_app.py
+    ```
+  </Tab>
+  
+  <Tab title="SDK">
+    ```python
+    openlit.init(disabled_instrumentors=["anthropic", "langchain"])
+    ```
+  </Tab>
+</Tabs>
 
 ## Manual Tracing
 
@@ -141,130 +220,6 @@ def guess_one_liner(one_liner: str):
 ## Semantic Convention
 
 This section outlines the OpenTelemetry traces collected by **OpenLIT** from applications utilizing Large Language Models (LLMs) and Vector Databases. The span attributes adhere to the [GenAI Semantic Conventions](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) established by the OpenTelemetry community, ensuring standardized data collection that enhances monitoring and debugging capabilities.
-
-### Span Definitions
-
-This section outlines fundamental definitions related to span types and names used within the OpenTelemetry traces to identify the nature and source of requests.
-
-| Attribute     | Description                                                                             | Examples                  |
-| ------------- | --------------------------------------------------------------------------------------- | ------------------------- |
-| **Span kind** | Will always be `CLIENT` when the trace is generated successfully.                       | `CLIENT`                  |
-| **Span name** | Is set to the LLM endpoint which follows the convention `provider_name.operation_name`. | `openai.chat.completions` |
-
-### General Span Attributes
-
-General span attributes encapsulate the environmental and operational context of AI applications, offering insights into where and how the spans are generated.
-
-| Attribute                 | Type   | Description                                                            | Examples                                                                                                                                                   |
-| ------------------------- | ------ | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gen_ai.endpoint`         | string | The API endpoint used for the LLM request.                             | `cohere.chat`                                                                                                                                              |
-| `gen_ai.system`           | string | The Generative AI product as identified by the client instrumentation. | `openai`, `cohere`, `anthropic`, `groq`, `huggingface`, `azure_openai`, `mistral`, `bedrock`, `vertexai`, `ollama`, `langchain`, `llama_index`, `haystack` |
-| `gen_ai.environment`      | string | Deployment environment of the LLM.                                     | `production`                                                                                                                                               |
-| `gen_ai.application_name` | string | The name of the application using the LLM.                             | `chatbot_app`                                                                                                                                              |
-| `gen_ai.operation.name`   | string | The type of LLM operation performed.                                   | `chat`, `embedding`, `audio`, `image`, `fine_tuning`, `vectordb`, `framework`                                                                              |
-| `gen_ai.hub.owner`        | string | The owner of the prompt hub where the prompt is hosted.                | `openai`                                                                                                                                                   |
-| `gen_ai.hub.repo`         | string | The repository within the hub from which the model is used.            | `gpt-4`                                                                                                                                                    |
-| `gen_ai.retrieval.source` | string | Source from which the model was retrieved.                             | `slack`                                                                                                                                                    |
-| `telemetry.sdk.name`      | string | Source of the generated traces                                         | `openlit`                                                                                                                                                  |
-
-### GenAI/LLM Span Attributes
-
-#### Request Attributes
-
-These attributes detail the specifics of requests sent to LLMs, including configurations and parameters that define the behavior and responses of the LLM.
-
-| Attribute                                 | Type    | Description                                                       | Examples          |
-| ----------------------------------------- | ------- | ----------------------------------------------------------------- | ----------------- |
-| `gen_ai.request.model`                    | string  | The name of the LLM a request is being made to.                   | `gpt-4`           |
-| `gen_ai.request.temperature`              | double  | The temperature setting for the LLM request.                      | `0.0`             |
-| `gen_ai.request.top_p`                    | double  | The top_p sampling setting for the LLM request.                   | `1.0`             |
-| `gen_ai.request.top_k`                    | double  | The top_k sampling setting for the LLM request.                   | `1.0`             |
-| `gen_ai.request.max_tokens`               | int     | The maximum number of tokens the LLM generates for a request.     | `100`             |
-| `gen_ai.request.is_stream`                | boolean | Indicates if the request to LLM is a stream.                      | `true`            |
-| `gen_ai.request.user`                     | string  | Username or identifier for the user making the request.           | `user123`         |
-| `gen_ai.request.seed`                     | int     | Seed used to generate deterministic results from the LLM.         | `42`              |
-| `gen_ai.request.frequency_penalty`        | double  | Frequency penalty parameter in the LLM request.                   | `0.5`             |
-| `gen_ai.request.presence_penalty`         | double  | Presence penalty parameter in the LLM request.                    | `0.5`             |
-| `gen_ai.request.embedding_format`         | string  | Format of embeddings requested from the LLM.                      | `json`            |
-| `gen_ai.request.embedding_dimension`      | int     | Dimensionality of the generated embeddings.                       | `512`             |
-| `gen_ai.request.tool_choice`              | string  | Tool or library chosen for processing the LLM request.            | `PyTorch`         |
-| `gen_ai.request.audio_voice`              | string  | Voice setting for audio generated by LLM.                         | `alto`            |
-| `gen_ai.request.audio_response_format`    | string  | The format of the audio response from the LLM.                    | `mp3`             |
-| `gen_ai.request.audio_speed`              | double  | Speed setting for audio responses generated by the LLM.           | `1.0`             |
-| `gen_ai.request.fine_tune_status`         | string  | Status or mode of finetuning the model.                           | `active`          |
-| `gen_ai.request.fine_tune_model_suffix`   | string  | Suffix describing specifics of the finetuned model version.       | `v2`              |
-| `gen_ai.request.fine_tune_n_epochs`       | int     | Number of epochs used in training the finetuned model.            | `4`               |
-| `gen_ai.request.learning_rate_multiplier` | double  | Learning rate multiplier used in finetuning.                      | `0.7`             |
-| `gen_ai.request.fine_tune_batch_size`     | int     | Batch size used in the finetuning process.                        | `16`              |
-| `gen_ai.request.validation_file`          | string  | Location or type of validation file used in the training process. | `val_data.json`   |
-| `gen_ai.request.training_file`            | string  | Location or type of training file used for the LLM.               | `train_data.json` |
-| `gen_ai.request.image_size`               | string  | Size specifications for the generated image.                      | `1024x768`        |
-| `gen_ai.request.image_quality`            | int     | Quality parameter for the generated image, usually a percentage.  | `90`              |
-| `gen_ai.request.image_style`              | string  | Style or theme of the generated image.                            | `van_gogh`        |
-
-#### Response Attributes
-
-Attributes in this category help trace and understand responses from LLMs, encapsulating data relevant to outcomes and any content generated as a result.
-
-| Attribute                        | Type   | Description                                                      | Examples                       |
-| -------------------------------- | ------ | ---------------------------------------------------------------- | ------------------------------ |
-| `gen_ai.response.id`             | string | The unique identifier for the response.                          | `resp-456`                     |
-| `gen_ai.response.finish_reasons` | string | Reasons the model stopped generating tokens.                     | `stop`                         |
-| `gen_ai.response.image`          | string | The image content generated by the LLM.                          | `<image URL or base64 string>` |
-
-#### Usage Attributes
-
-These attributes track the consumption and costs associated with LLM requests, facilitating operational analysis and resource management.
-
-| Attribute                        | Type    | Description                                                        | Examples |
-| -------------------------------- | ------- | ------------------------------------------------------------------ | -------- |
-| `gen_ai.usage.input_tokens`      | int     | The number of tokens used in the LLM input.                        | `100`    |
-| `gen_ai.usage.output_tokens`     | int     | The number of tokens used in the LLM output.                       | `180`    |
-| `gen_ai.usage.total_tokens`      | int     | The total number of tokens used in both the prompt and completion. | `280`    |
-| `gen_ai.usage.cost`              | decimal | The cost (in USD) associated with the LLM request                  | `0.05`   |
-
-#### Content Attributes
-
-Content attributes specifically relate to the data exchanged with LLMs during requests and responses, including initial prompts and resulting outputs.
-
-| Attribute                       | Type   | Description                                | Example Value                          |
-| ------------------------------- | ------ | ------------------------------------------ | -------------------------------------- |
-| `gen_ai.prompt`                 | string | The full prompt sent to the LLM.           | `"What is the capital of France?"`     |
-| `gen_ai.completion`             | string | The full response received from the LLM.   | `"The capital of France is Paris."`    |
-| `gen_ai.content.revised_prompt` | string | Revised or modified prompt, if applicable. | `"What's the capital city of France?"` |
-
-### VectorDB Span Attributes
-
-This section addresses attributes related to interactions with Vector Databases supporting the LLM operations, providing insights into database operations and related parameters.
-
-| Attribute                 | Type    | Description                                                        | Example Value                                                                                                                      |
-| ------------------------- | ------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `db.system`               | string  | System type of the database.                                       | `pinecone`, `chroma`, `qdrant`, `milvus`                                                                                           |
-| `db.collection.name`      | string  | Name of the collection within the database.                        | `user_profiles`                                                                                                                    |
-| `db.operation`            | string  | Type of database operation performed.                              | `query`, `delete`, `update`, `upsert`,`add`, `peek`, `create_index`, `create_collection`, `update_collection`, `delete_collection` |
-| `db.operation.status`     | string  | Status result of the operation (e.g., success, error).             | `completed`                                                                                                                        |
-| `db.operation.cost`       | decimal | Cost associated with the operation, if applicable.                 | `0.0`                                                                                                                              |
-| `db.ids_count`            | int     | Count of ids processed or retrieved in an operation.               | `150`                                                                                                                              |
-| `db.vector_count`         | int     | Number of vectors involved in the operation.                       | `320`                                                                                                                              |
-| `db.metadatas_count`      | int     | Count of metadata entries retrieved or modified.                   | `120`                                                                                                                              |
-| `db.documents_count`      | int     | The number of documents involved in the database operation.        | `85`                                                                                                                               |
-| `db.payload_count`        | int     | Payload count associated with the operation.                       | `45`                                                                                                                               |
-| `db.limit`                | int     | Limit number for query results.                                    | `50`                                                                                                                               |
-| `db.offset`               | int     | The offset for the starting point of the query results.            | `10`                                                                                                                               |
-| `db.where_document`       | string  | Filter document condition used in operations like query or update. | `"age > 30"`                                                                                                                       |
-| `db.filter`               | string  | Applied filters on database query.                                 | `"{ 'status': 'active' }"`                                                                                                         |
-| `db.statement`            | string  | Raw database query statement.                                      | `[0.1, 0.3]`                                                                                                                       |
-| `db.n_results`            | int     | Number of results returned from a query operation.                 | `15`                                                                                                                               |
-| `db.delete_all`           | boolean | Indicates if all records are to be deleted in the operation.       | `false`                                                                                                                            |
-| `db.index.name`           | string  | Name of the index used or modified.                                | `user_index`                                                                                                                       |
-| `db.index.dimension`      | int     | Dimension of the index involved in the database operation.         | `128`                                                                                                                              |
-| `db.collection.dimension` | int     | Dimensionality configuration of the collection.                    | `128`                                                                                                                              |
-| `db.create_index.metric`  | string  | Metric type used for creating indexes.                             | `"euclidean"`                                                                                                                      |
-| `db.create_index.spec`    | string  | Specifications of the index created.                               | `"type: kd-tree; leaf_size: 40"`                                                                                                   |
-| `db.query.namespace`      | string  | Namespace used for structuring database queries.                   | `"product_catalog"`                                                                                                                |
-| `db.update.metadata`      | string  | Metadata being updated as part of the operation.                   | `"category: electronics"`                                                                                                          |
-| `db.update.values`        | string  | Specifies the new values being applied in an update operation.     | `"{ 'price': '99.99' }"`                                                                                                           |
-| `db.update.id`            | string  | Unique identifier for the entry being updated.                     | `"product123"`                                                                                                                     |
 
 <CardGroup cols={2}>
   <Card

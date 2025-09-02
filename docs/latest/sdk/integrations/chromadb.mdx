@@ -3,9 +3,7 @@ title: 'Monitor ChromaDB using OpenTelemetry'
 sidebarTitle: 'ChromaDB'
 ---
 
-<Frame>
-  <img src="/images/docs-chromadb-banner.gif" />
-</Frame>
+import IntegrationMethods from '/snippets/integration-methods.mdx';
 
 OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications using ChromaDB as the vector store. This includes tracking performance, operation stats and more.
 
@@ -17,53 +15,13 @@ The integration is compatible with
 ## Get Started 
 
 <Steps>
-    <Step title="Install OpenLIT">
-      Open your command line or terminal and run:
-      ```shell
-      pip install openlit
-      ```
-    </Step>
-    <Step title="Initialize OpenLIT in your Application">
-    You can set up OpenLIT in your application using either function arguments directly in your code or by using environment variables.
-    <Tabs>
-      <Tab title="Setup using function arguments">
-
-      Add the following two lines to your application code:
-
-      ```python
-      import openlit
-
-      openlit.init(
-        otlp_endpoint="YOUR_OTEL_ENDPOINT", 
-      )
-      ```
-
-      Replace:
-      1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector.
-      </Tab>
-      <Tab title="Setup using Environment Variables">
-      
-      Add the following two lines to your application code:
-
-      ```python
-      import openlit
-
-      openlit.init()
-      ```
-
-      Then, configure the your OTLP endpoint using environment variable:
-      ```shell
-      export OTEL_EXPORTER_OTLP_ENDPOINT = "YOUR_OTEL_ENDPOINT"
-      ```
-
-      Replace:
-      1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector. 
-      </Tab>
-    </Tabs>
-    To send metrics and traces to other Observability tools, refer to the [Connections Guide](/latest/sdk/destinations/intro).
-
-    For more advanced configurations and application use cases, visit the [OpenLIT Python repository](https://github.com/openlit/openlit/tree/main/sdk/python).
+  <Step title="Install OpenLIT">
+    Open your command line or terminal and run:
+    ```shell
+    pip install openlit
+    ```
   </Step>
+  <IntegrationMethods />
 </Steps>
 
 ---

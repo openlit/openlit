@@ -7,7 +7,41 @@ icon: 'sliders'
 <Tabs>
 <Tab title="Python">
 
-## Observability - `openlit.init()` | `openlit-instrument`
+## Observability Configuration
+
+Configure OpenLIT using either the SDK (`openlit.init()`) or CLI (`openlit-instrument`) approach:
+
+### SDK Integration (`openlit.init()`)
+
+For applications where you can modify code, use the SDK approach:
+
+```python
+import openlit
+openlit.init(
+    service_name="my-ai-app",
+    environment="production",
+    otlp_endpoint="https://your-endpoint.com"
+)
+```
+
+### Zero Code Changes (`openlit-instrument`)
+
+For existing applications without code modifications:
+
+```bash
+# Basic usage
+openlit-instrument python your_app.py
+
+# With configuration
+openlit-instrument --service-name my-ai-app --environment production python your_app.py
+
+# Using environment variables
+export OTEL_SERVICE_NAME=my-ai-app
+export OTEL_DEPLOYMENT_ENVIRONMENT=production
+openlit-instrument python your_app.py
+```
+
+### Configuration Parameters
 
 Below is a detailed overview of the configuration options available, allowing you to adjust OpenLIT's behavior and functionality to align with your specific observability needs:
 

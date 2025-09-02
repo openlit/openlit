@@ -46,9 +46,9 @@
                 "group": "Quickstarts",
                 "icon": "bolt",
                 "pages": [
-                  "latest/quickstart-observability",
-                  "latest/quickstart-evals",
-                  "latest/quickstart-guard"
+                  "latest/openlit/quickstart-observability",
+                  "latest/openlit/quickstart-programmatic-evals",
+                  "latest/openlit/quickstart-guard"
                 ]
               },
               "latest/configuration",
@@ -135,9 +135,9 @@
                 "group": "Quickstarts",
                 "icon": "bolt",
                 "pages": [
-                  "latest/quickstart-observability",
-                  "latest/quickstart-evals",
-                  "latest/quickstart-guard"
+                  "latest/sdk/quickstart-observability",
+                  "latest/sdk/quickstart-programmatic-evals",
+                  "latest/sdk/quickstart-guard"
                 ]
               },
               "latest/sdk/configuration"
