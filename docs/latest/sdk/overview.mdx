@@ -1,33 +1,32 @@
 ---
 title: 'Overview'
-description: 'Zero-code AI Observability, Evaluations and Guardrails'
+description: 'Production-ready AI observability with zero code changes. Monitor LLM applications, track token usage, detect hallucinations, and optimize costs with OpenTelemetry-native instrumentation.'
 ---
 
-The OpenLIT SDK is an **open-source**, **OpenTelemetry-native** framework 
-that enables complete AI application and agent observability **without any zero code changes**. 
+The OpenLIT SDK is an **open-source**, **OpenTelemetry-native** LLM observability platform 
+that enables production-ready AI application and agent monitoring **without any code changes**. 
 
-OpenLIT also includes upstream OpenTelemetry instrumentations for HTTP frameworks, clients,
-and system components, providing **end-to-end visibility for your entire AI stack**.
+OpenLIT provides comprehensive model performance tracking, real-time cost monitoring, hallucination detection, and AI evaluations. It includes upstream OpenTelemetry instrumentations for HTTP frameworks, clients, and system components, delivering **complete visibility across your entire AI infrastructure**.
 
 ## Goals
 
-- **Zero Code Instrumentation** - Enable complete observability for your AI applications **without any code changes**.
+- **Zero Code AI Observability** - Enable production-ready LLM monitoring for your AI applications **without any code changes**.
 
-- **OpenTelemetry Native** - Built on OpenTelemetry standards for seamless integration with existing observability stacks like Grafana.
+- **OpenTelemetry Native** - Built on OpenTelemetry standards for seamless integration with existing observability stacks like Grafana, Datadog, and New Relic.
 
-- **Drop-in Replacement** - If you are already using `opentelemetry-instrument`, simply replace with `openlit-instrument` to get the same functionality plus AI Observability capabilities.
+- **Drop-in Replacement** - Simply replace `opentelemetry-instrument` with `openlit-instrument` to get the same functionality plus comprehensive AI capabilities.
 
-- **Complete Stack Coverage** - AI instrumentations + upstream OpenTelemetry instrumentations.
+- **Complete Stack Coverage** - AI instrumentations + upstream OpenTelemetry instrumentations for full-stack observability.
 
-- **End-to-End Distributed Tracing** - Complete visibility: HTTP requests → framework routing → database queries → LLM calls → tool usage → responses
+- **End-to-End Distributed Tracing** - Complete visibility: HTTP requests → framework routing → database queries → LLM calls → agent workflows → tool usage → responses
 
-- **AI-Specific Features** - Real-time cost tracking, token usage monitoring, AI evaluations (hallucination, bias, toxicity).
+- **Advanced LLM Monitoring** - Real-time cost tracking, token usage optimization, performance monitoring, and AI evaluations (hallucination detection, bias detection, toxicity screening).
 
-## Adopt OpenTelemetry for AI applications in minutes​
+## OTel-native AI observability in minutes
 
-Get complete visibility into your LLM applications and AI Agents. 
-Track token usage, monitor agent workflows, measure response times, and
-debug AI framework interactions - all without touching your code.
+Get complete visibility into your production LLM applications and agentic AI systems. 
+Monitor model performance, track token costs, detect hallucinations, optimize latency, and
+debug AI framework interactions with zero code changes. Perfect for enterprise AI reliability and compliance.
 
 ### Supported instrumentations
 
@@ -55,12 +54,12 @@ The OpenLIT Operator automatically instruments:
 
 <CardGroup cols={2}>
   <Card title="Python" icon="python">    
-    Complete auto-instrumentation with automatic dependency detection. CLI supports all Python AI applications without code changes.
+    Complete AI observability with automatic dependency detection. Zero-code CLI instrumentation for production Python LLM applications with real-time performance monitoring.
   </Card>
   <Card title="TypeScript/JavaScript" icon="node-js">
     **✅ SDK Integration**
     
-    Full SDK support for Node.js applications with TypeScript and JavaScript.
+    Full LLM monitoring support for Node.js applications with comprehensive token usage tracking and cost optimization.
   </Card>
 </CardGroup>
 
@@ -86,23 +85,23 @@ import openlit
 openlit.init()  # Enables Automatic instrumentation for AI apps and agents
 ```
 
-Both approaches provide identical observability: **distributed tracing**, **cost monitoring**, **performance metrics**, and **AI evaluations**.
+Both approaches provide enterprise-grade observability: **distributed tracing**, **real-time cost tracking**, **latency monitoring**, **token usage optimization**, and **AI evaluations** (hallucination detection, bias screening, toxicity analysis).
 
 ## Getting started
-Select from the following guides to learn more about how to use OpenLIT:
+Select from the following guides to learn more about production AI monitoring:
 
 <CardGroup cols={2}>
-  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart" icon='bolt'>
-    Get Started with monitoring your LLM Applications in 2 simple steps
+  <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-observability" icon='bolt'>
+    Production-ready AI monitoring setup in 2 simple steps with zero code changes
   </Card>
   <Card title="Integrations" href="/latest/sdk/integrations/introduction" icon='circle-nodes'>
-    Integrate your AI Stack with OpenLIT 
+    60+ AI integrations with automatic instrumentation and performance tracking
   </Card>
-  <Card title="Installation" href="/latest/installation" icon='circle-down'>
-    Deploy OpenLIT in your preferred environment 
+  <Card title="Deploy OpenLIT Platform" href="/latest/installation" icon='circle-down'>
+    Deployment options for scalable LLM monitoring infrastructure
   </Card>
-  <Card title="Destinations" href="/latest/sdk/destinations/intro" icon='link'>
-    Send telemetry to your existing Observablity Stack
+  <Card title="Observability Destinations" href="/latest/sdk/destinations/overview" icon='link'>
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
   </Card>
 </CardGroup>
 <Card

@@ -1,17 +1,7 @@
----
-title: 'GPU Performance Monitoring'
-sidebarTitle: 'GPU Monitoring'
-description: "Monitor NVIDIA and AMD GPUs with key metrics like usage, temperature, and power using OpenTelemetry for AI workloads"
----
-
-OpenLIT uses OpenTelemetry to help you monitor NVIDIA and AMD GPUs for AI applications. Track GPU metrics like utilization, temperature, memory usage, and power consumption during AI training and inference workloads.
-
-## Choose your method
-
-GPU monitoring can be implemented in two ways depending on your setup and requirements:
+## Get Started 
 
 <CardGroup cols={2}>
-  <Card title="OpenLIT SDK"
+  <Card title="OpenLIT SDK" href="#using-the-sdk" 
   icon={
     <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
     <path d="M0 0 C3 1 3 1 4.08740234 2.58789062 C4.41691895 3.27044922 4.74643555 3.95300781 5.0859375 4.65625 C5.45710693 5.42324219 5.82827637 6.19023437 6.21069336 6.98046875 C6.59491455 7.81191406 6.97913574 8.64335937 7.375 9.5 C7.77275635 10.35207031 8.1705127 11.20414063 8.58032227 12.08203125 C22.46135214 42.65823412 23.66936921 77.60953263 12.21386719 109.16552734 C7.69637021 120.77847017 1.77281789 131.92419421 -5.5625 142 C-19.59028713 161.71559148 -23.82218724 184.66442954 -20.66601562 208.52490234 C-19.84714145 213.16352495 -18.55850652 217.55005374 -17 222 C-16.649375 223.03640625 -16.29875 224.0728125 -15.9375 225.140625 C-7.75872327 246.83710216 9.08112677 264.34505875 29.96923828 274.12744141 C39.74625261 278.32833696 49.95334681 281.22965412 60.6171875 280.95703125 C62.12759047 280.93460465 63.63800818 280.91315354 65.1484375 280.89257812 C67.49586263 280.85588442 69.84250562 280.81333293 72.18945312 280.75317383 C94.82425605 280.2017515 112.58069249 287.00300851 129.125 302.75 C142.57589518 316.576269 148.43546789 333.9686872 148.36645508 352.97875977 C147.74041052 376.94909019 134.1276686 398.81320938 118.0390625 415.83984375 C116.14010674 417.85157275 114.38578319 419.9303668 112.625 422.0625 C108.29366055 427.02258227 103.19760221 430.98719721 98 435 C97.12214844 435.68191406 96.24429688 436.36382812 95.33984375 437.06640625 C62.01189038 462.14826806 20.12413718 472.44067076 -21.1887207 467.17993164 C-38.14197142 464.62309806 -53.62378264 459.52101412 -69 452 C-70.01586182 451.5064502 -70.01586182 451.5064502 -71.05224609 451.00292969 C-80.10532401 446.54855777 -88.15784157 441.39887831 -96 435 C-96.56605957 434.54077148 -97.13211914 434.08154297 -97.71533203 433.60839844 C-130.00202047 407.25371691 -150.64903751 369.56694426 -155 328 C-155.30590475 322.66321144 -155.3910867 317.34327068 -155.375 312 C-155.37412384 311.28211304 -155.37324768 310.56422607 -155.37234497 309.82458496 C-155.21792238 271.22641679 -139.95438247 240.07796513 -118.82714844 208.72949219 C-107.68630212 192.17018281 -97.41280352 175.02126205 -87 158 C-86.46962128 157.13353851 -86.46962128 157.13353851 -85.92852783 156.24957275 C-71.1484922 132.10055157 -56.82179894 107.71181912 -43 83 C-42.38930664 81.91154785 -41.77861328 80.8230957 -41.14941406 79.70166016 C-26.52867806 53.60487159 -12.57175173 27.15127707 0 0 Z " fill="#F97905" transform="translate(248,16)"/>
@@ -94,11 +84,9 @@ GPU monitoring can be implemented in two ways depending on your setup and requir
     </svg>
   }
   >
-    It is useful if you already have an AI application running on GPU that's instrumented with OpenLIT.
-    
-    It extends your existing observability to include GPU metrics alongside your LLM traces.
+    Collect and send GPU performance metrics directly from your application to an OpenTelemetry endpoint.
   </Card>
-  <Card title="OpenTelemetry GPU Collector"
+  <Card title="OpenTelemetry GPU Collector" href="#using-the-collector" 
   icon={
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
       <path fill="#f5a800" d="M67.648 69.797c-5.246 5.25-5.246 13.758 0 19.008 5.25 5.246 13.758 5.246 19.004 0 5.25-5.25 5.25-13.758 0-19.008-5.246-5.246-13.754-5.246-19.004 0Zm14.207 14.219a6.649 6.649 0 0 1-9.41 0 6.65 6.65 0 0 1 0-9.407 6.649 6.649 0 0 1 9.41 0c2.598 2.586 2.598 6.809 0 9.407ZM86.43 3.672l-8.235 8.234a4.17 4.17 0 0 0 0 5.875l32.149 32.149a4.17 4.17 0 0 0 5.875 0l8.234-8.235c1.61-1.61 1.61-4.261 0-5.87L92.29 3.671a4.159 4.159 0 0 0-5.86 0ZM28.738 108.895a3.763 3.763 0 0 0 0-5.31l-4.183-4.187a3.768 3.768 0 0 0-5.313 0l-8.644 8.649-.016.012-2.371-2.375c-1.313-1.313-3.45-1.313-4.75 0-1.313 1.312-1.313 3.449 0 4.75l14.246 14.242a3.353 3.353 0 0 0 4.746 0c1.3-1.313 1.313-3.45 0-4.746l-2.375-2.375.016-.012Zm0 0"/>
@@ -106,29 +94,185 @@ GPU monitoring can be implemented in two ways depending on your setup and requir
     </svg>
   }
   >
-    It is useful for remote GPUs with only LLM models hosted, containerized deployments.
-    
-    This approach allows you to get GPU metrics without modifying application code.
+    Install the OpenTelemetry GPU Collector as a Docker container to collect and send GPU performance metrics to an OpenTelemetry endpoint.
   </Card>
 </CardGroup>
 
-## Supported Parameters
+<AccordionGroup>
+  <Accordion title="Using the SDK">
+    <Steps>
+        <Step title="Deploy OpenLIT">
+          <Steps>
+            <Step title="Git clone OpenLIT repository">
+            ```shell
+            git clone git@github.com:openlit/openlit.git
+            ```
+            </Step>
+            <Step title="Start Docker Compose">
+            From the root directory of the [OpenLIT Repo](https://github.com/openlit/openlit), Run the below command:
+            ```shell
+            docker compose up -d
+            ```
+            </Step>
+          </Steps>
+        </Step>
+        <Step title="Install OpenLIT">
+          Open your command line or terminal and run:
+          ```shell
+          pip install openlit
+          ```
+        </Step>
+        <Step title="Initialize OpenLIT in your Application">
+        <Tabs>
+          <Tab title="Zero-code instrumentation">
+            <Tabs>
+              <Tab title="Via CLI arguments">
+              ```bash
+              # Start GPU monitoring instantly
+              openlit-instrument --collect-system-metrics python your_app.py
+              
+              # With custom settings
+              openlit-instrument \
+                --otlp-endpoint http://127.0.0.1:4318 \
+                --service-name my-gpu-app \
+                --environment production \
+                --collect-system-metrics \
+                python your_app.py
+              ```
+              </Tab>
+              <Tab title="Via Environment Variables">
+              Set environment variables:
+              ```bash
+              export OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:4318"
+              export OPENLIT_COLLECT_SYSTEM_METRICS=true
+              export OTEL_SERVICE_NAME=my-gpu-app
+              
+              # Run your application
+              openlit-instrument python your_app.py
+              ```
+              </Tab>
+            </Tabs>
+          </Tab>
+          <Tab title="Manual instrumentation">
+          You can set up OpenLIT in your application using either function arguments directly in your code or by using environment variables.
+            <Tabs>
+              <Tab title="Parameters">
 
-### SDK Configuration Options
+              Add the following two lines to your application code:
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `collect_system_metrics` | boolean | `False` | Enable GPU and system metrics collection |
-| `otlp_endpoint` | string | None | OpenTelemetry OTLP endpoint URL |
-| `otlp_headers` | string | None | Authentication headers for OTLP endpoint |
-| `service_name` | string | `"unknown_service"` | Name of your AI application |
-| `environment` | string | None | Deployment environment (dev, staging, prod) |
+              ```python
+              import openlit
 
-### Environment Variables
+              openlit.init(
+                otlp_endpoint="http:127.0.0.1:4318", 
+                collect_system_metrics=True  # This enables GPU monitoring
+              )
+              ```
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `OPENLIT_COLLECT_SYSTEM_METRICS` | Enable GPU monitoring | `true` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP endpoint URL | `http://127.0.0.1:4318` |
-| `OTEL_SERVICE_NAME` | Service name for telemetry | `my-gpu-app` |
-| `OTEL_DEPLOYMENT_ENVIRONMENT` | Deployment environment | `production` |
+              Replace:
+              1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector.
+
+              **Note:** `collect_system_metrics=True` replaces the deprecated `collect_gpu_stats=True`
+              </Tab>
+              <Tab title="Environment Variables">
+              Configure your OTLP endpoint using environment variables:
+              ```shell
+              export OTEL_EXPORTER_OTLP_ENDPOINT=""http://127.0.0.1:4318"
+              export OPENLIT_COLLECT_SYSTEM_METRICS=true
+              ```
+              
+              Add the following two lines to your application code:
+
+              ```python
+              import openlit
+
+              openlit.init(collect_system_metrics=True)
+              ```
+
+              Replace:
+              1. `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` if you are using OpenLIT and a local OTel Collector.
+              </Tab>
+            </Tabs>
+          </Tab>
+        </Tabs>
+        To send metrics to other Observability tools, refer to the [Connections Guide](/latest/connections/intro).
+
+        For more advanced configurations and application use cases, visit the [OpenLIT Python repository](https://github.com/openlit/openlit/tree/main/sdk/python).
+      </Step>
+    </Steps>
+  </Accordion>
+  <Accordion title="Using the Collector">
+  <Steps>
+    <Step title="Deploy OpenLIT">
+      <Steps>
+        <Step title="Git clone OpenLIT repository">
+        ```shell
+        git clone git@github.com:openlit/openlit.git
+        ```
+        </Step>
+        <Step title="Start Docker Compose">
+        From the root directory of the [OpenLIT Repo](https://github.com/openlit/openlit), Run the below command:
+        ```shell
+        docker compose up -d
+        ```
+        </Step>
+      </Steps>
+    </Step>
+    <Step title="Pull `otel-gpu-collector` Docker Image">
+
+        You can quickly start using the OTel GPU Collector by pulling the Docker image:
+
+        ```sh
+        docker pull ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+     </Step>
+     <Step title="Run `otel-gpu-collector` Docker container">
+
+        You can quickly start using the OTel GPU Collector by pulling the Docker image:
+        Here's a quick example showing how to run the container with the required environment variables:
+
+        ```sh
+        docker run --gpus all \
+            -e GPU_APPLICATION_NAME='chatbot' \
+            -e GPU_ENVIRONMENT='staging' \
+            -e OTEL_EXPORTER_OTLP_ENDPOINT="http://127.0.0.1:4318" \
+            ghcr.io/openlit/otel-gpu-collector:latest
+        ```
+
+        For more advanced configurations of the collector, visit the [OTel GPU Collector repository](https://github.com/openlit/openlit/tree/main/otel-gpu-collector/).
+
+        **Note:** If you've deployed **OpenLIT** using [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml), make sure to use the host's IP address or add OTel GPU Collector to the [Docker Compose](https://github.com/openlit/openlit/blob/main/docker-compose.yml):
+
+        <AccordionGroup>
+          <Accordion title="Docker Compose: Add the following config under `services`">
+
+          ```yaml
+          otel-gpu-collector:
+            image: ghcr.io/openlit/otel-gpu-collector:latest
+            environment:
+              GPU_APPLICATION_NAME: 'chatbot'
+              GPU_ENVIRONMENT: 'staging'
+              OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+            device_requests:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+            depends_on:
+            - otel-collector
+            restart: always
+          ```
+
+          </Accordion>
+          <Accordion title="Host IP: Use the Host IP to connect to OTel Collector">
+
+          ```sh
+          OTEL_EXPORTER_OTLP_ENDPOINT="http://192.168.10.15:4318"
+          ```
+
+          </Accordion>
+        </AccordionGroup>
+      </Step>
+    </Steps>
+  </Accordion>
+</AccordionGroup>
+

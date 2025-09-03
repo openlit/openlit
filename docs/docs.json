@@ -137,7 +137,8 @@
                 "pages": [
                   "latest/sdk/quickstart-observability",
                   "latest/sdk/quickstart-programmatic-evals",
-                  "latest/sdk/quickstart-guard"
+                  "latest/sdk/quickstart-guard",
+                  "latest/sdk/quickstart-gpu"
                 ]
               },
               "latest/sdk/configuration"

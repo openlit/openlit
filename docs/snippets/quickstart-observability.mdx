@@ -1,5 +1,6 @@
-This guide will walk you through setting up OpenTelemetry Auto Instrumentation for monitoring your LLM Application using OpenLIT. You can get started with **zero code changes** using the CLI or with just 2 lines of code using the SDK.
-In this guide, we'll show how you can send OpenTelemetry traces and metrics from your LLM Applications to OpenLIT.
+This guide demonstrates production-ready LLM observability setup with OpenTelemetry-native auto-instrumentations. Get enterprise-grade AI monitoring with **zero code changes** using our CLI or minimal SDK integration for complete LLM performance tracking.
+
+Learn how to implement real-time cost tracking, token usage monitoring, hallucination detection, and latency optimization for your AI applications with OpenTelemetry traces and metrics.
 
 ```mermaid
 flowchart TB;
@@ -20,7 +21,7 @@ flowchart TB;
 <Steps>
     <Step title="Deploy OpenLIT">
       <Steps>
-        <Step title="Git Clone OpenLIT Repository">
+        <Step title="Git clone OpenLIT repository">
         ```shell
         git clone git@github.com:openlit/openlit.git
         ```
@@ -48,15 +49,13 @@ flowchart TB;
         </Tabs>
 
     </Step>
-    <Step title="Initialize OpenLIT in Your Application">
+    <Step title="Instrument your AI application">
       <Tabs>
         <Tab title="Python">
           <Tabs>
-            <Tab title="Zero Code Changes (CLI)">
-              Perfect for existing applications - no code modifications needed:
-              
+            <Tab title="Zero-Code AI Observability">              
               <Tabs>
-                <Tab title="Via CLI Arguments">
+                <Tab title="Via CLI arguments">
                 ```bash
                 # Install OpenLIT
                 pip install openlit
@@ -69,7 +68,7 @@ flowchart TB;
                   python your_app.py
                 ```
                 </Tab>
-                <Tab title="Via Environment Variables">
+                <Tab title="Via environment variables">
                 ```bash
                 # Configure via environment variables
                 export OTEL_SERVICE_NAME=my-ai-app
@@ -81,14 +80,10 @@ flowchart TB;
                 ```
                 </Tab>
               </Tabs>
-              
-              <Info>
-              **Perfect for**: Legacy applications, production systems where code changes need approval, quick testing, or when you want to add observability without touching existing code.
-              </Info>
             </Tab>
-            <Tab title="One-Line Instrumentation (SDK)">
+            <Tab title="SDK Integration">
               <Tabs>
-                <Tab title="Via Function Parameters">
+                <Tab title="Via function parameters">
                   ```python
                   import openlit
 
@@ -211,7 +206,7 @@ flowchart TB;
 
                   </CodeGroup>
                 </Tab>
-                <Tab title="Via Environment Variables">
+                <Tab title="Via environment variables">
                   Add the following two lines to your application code:
                   ```python
                   import openlit
@@ -346,9 +341,9 @@ flowchart TB;
         </Tab>
         <Tab title="Typescript">
           <Tabs>
-            <Tab title="One-Line Instrumentation (SDK)">
+            <Tab title="SDK Integration">
               <Tabs>
-                <Tab title="Via Function Parameters">
+                <Tab title="Via function parameters">
                    ```typescript
                   import Openlit from "openlit"
 
@@ -404,7 +399,7 @@ flowchart TB;
                     main();
                   ```
                 </Tab>
-                <Tab title="Via Environment Variables">
+                <Tab title="Via environment variables">
                    Add the following two lines to your application code:
               ```typescript
               import openlit from "openlit"
@@ -472,8 +467,8 @@ flowchart TB;
       </Tabs>
       Refer to OpenLIT [Python SDK repository](https://github.com/openlit/openlit/tree/main/sdk/python) or [Typescript SDK repository](https://github.com/openlit/openlit/tree/main/sdk/typescript) for more advanced configurations and use cases.
     </Step>
-    <Step title="Visualize and Analyze">
-    With the LLM Observability data now being collected and sent to OpenLIT, the next step is to visualize and analyze this data to get insights into your LLM application's performance, behavior, and identify areas of improvement.
+    <Step title="Monitor, debug and test the quality of your AI applications">
+    With real-time LLM observability data now flowing to OpenLIT, visualize comprehensive AI performance metrics including token costs, latency patterns, hallucination rates, and model accuracy to optimize your production AI applications.
 
     Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring. You can login using the default credentials
     - **Email**: `user@openlit.io`
@@ -486,7 +481,7 @@ flowchart TB;
 
 </Steps>
 
-You're all set! Following these steps should have you on your way to effectively monitoring your LLM applications with OpenTelemetry. 
+You're all set! Your AI applications now have observability with real-time performance monitoring, cost tracking, and AI safety evaluations. 
 
 **Send Observability telemetry to other OpenTelemetry backends**
 
@@ -499,7 +494,7 @@ flowchart TB;
     end
 ```
 
-If you wish to send telemetry directly from the SDK to another backend, you can stop the current Docker services by using the command below. For more details on sending the data to your existing OpenTelemetry backends, refer to our [Connections](/latest/sdk/destinations/intro) guide.
+If you wish to send telemetry directly from the SDK to another backend, you can stop the current Docker services by using the command below. For more details on sending the data to your existing OpenTelemetry backends, checkout our [Supported Destinations](/latest/sdk/destinations/overview) guide.
 
 ```sh
 docker compose down
