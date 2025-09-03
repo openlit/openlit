@@ -1,0 +1,53 @@
+---
+title: "Instrumentation Methods"
+sidebarTitle: "Instrumentation Methods"
+description: "Choose between zero-code CLI or manual SDK integration for AI observability"
+---
+
+OpenLIT offers two ways to add observability to your AI applications:
+
+<CardGroup cols={2}>
+  <Card title="Zero-Code" icon="terminal">
+    No code changes needed
+    
+    ```bash
+    openlit-instrument python app.py
+    ```
+    
+    **Use for:** Existing apps, quick testing
+  </Card>
+  <Card title="Manual" icon="code">
+    Add 2 lines to your code
+    
+    ```python
+    import openlit
+    openlit.init()
+    ```
+    
+    **Use for:** New apps, custom features
+  </Card>
+</CardGroup>
+
+## Quick Comparison
+
+| | Zero-Code | Manual |
+|---|---|---|
+| **Code changes** | None | 2 lines |
+| **Advanced features** | Basic configuration | Full access to custom spans, metadata |
+| **Setup time** | Instant | 1 minute |
+| **Best for** | Existing/legacy apps | New development |
+
+## Both Are Automatic
+
+No matter which method you choose:
+- ✅ Automatically detects AI libraries (OpenAI, Anthropic, LangChain, etc.)
+- ✅ Automatically traces LLM calls and vector operations  
+- ✅ Automatically collects costs and performance metrics
+
+The choice is about **how** you want to set it up, not **what** gets instrumented.
+
+---
+
+<Card title="Get Started" href="/latest/sdk/quickstart-observability" icon="bolt">
+Try zero-code first - easiest way to start monitoring your AI apps
+</Card>

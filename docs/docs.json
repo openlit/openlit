@@ -143,7 +143,8 @@
                   "latest/sdk/quickstart-vectordb-observability"
                 ]
               },
-              "latest/sdk/configuration"
+              "latest/sdk/configuration",
+              "latest/sdk/instrumentation-methods"
             ]
           },
           {

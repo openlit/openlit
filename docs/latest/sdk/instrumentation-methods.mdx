@@ -1,92 +1,49 @@
 ---
-title: 'Overview'
-description: 'Production-ready AI observability with zero code changes. Monitor LLM applications, track token usage, detect hallucinations, and optimize costs with OpenTelemetry-native instrumentation.'
+title: "Instrumentation Methods"
+sidebarTitle: "Instrumentation Methods"
+description: "Choose between zero-code CLI or manual SDK integration for AI observability"
 ---
 
-The OpenLIT SDK is an **open-source**, **OpenTelemetry-native** LLM observability platform 
-that enables production-ready AI application and agent monitoring **without any code changes**. 
-
-It includes upstream OpenTelemetry instrumentations for HTTP frameworks, clients, and system components, delivering **complete visibility across your entire AI infrastructure**.
-
-## Goals
-
-- **Zero Code AI Observability** - Enable production-ready LLM monitoring for your AI applications **without any code changes**.
-
-- **OpenTelemetry Native** - Built on OpenTelemetry standards for seamless integration with existing observability stacks like Grafana, Datadog, and New Relic.
-
-- **Drop-in Replacement** - Simply replace `opentelemetry-instrument` with `openlit-instrument` to get the same functionality plus comprehensive AI capabilities.
-
-- **Complete Stack Coverage** - AI instrumentations + upstream OpenTelemetry instrumentations for full-stack observability.
-
-- **End-to-End Distributed Tracing** - Complete visibility: HTTP requests → framework routing → database queries → LLM calls → agent workflows → tool usage → responses
-
-- **Advanced LLM Monitoring** - Real-time cost tracking, token usage optimization, performance monitoring, and evaluations scoring.
-
-## OTel-native AI observability in minutes
-
-Get complete visibility into your production LLM applications and agentic AI systems. 
-Monitor model performance, track token costs, detect hallucinations, optimize latency, and
-debug AI framework interactions with zero code changes. Perfect for enterprise AI reliability and compliance.
-
-### Supported instrumentations
-
-The OpenLIT SDK automatically instruments:
+OpenLIT SDK offers two ways to add opentelemetry-native observability to your AI applications:
 
 <CardGroup cols={2}>
-  <Card title="LLM Providers" icon="brain">    
-    OpenAI, Anthropic, Google, Azure OpenAI, AWS Bedrock, Ollama, Groq, Cohere, Mistral, and more
+  <Card title="Zero-code instrumentation" icon="terminal">
+    Runtime wrapper, no code changes needed
+    
+    ```bash terminal
+    openlit-instrument \
+      python app.py
+    ```
+    
+    **Use when:**
+    - Working with existing/production apps
+    - Code changes are restricted or risky
   </Card>
-  <Card title="AI/Agentic Frameworks" icon="cube">    
-    LangChain, LlamaIndex, CrewAI, mem0, AG2, DSPy, Agno, and more
-  </Card>
-  <Card title="Vector Databases" icon="database">    
-    ChromaDB, Pinecone, Qdrant, Milvus, Weaviate, and more
-  </Card>
-  <Card title="GPUs" icon="server">
-    NVIDIA and AMD
-  </Card>
-  <Card title="HTTP Frameworks and Clients" icon="globe">    
-     FastAPI, Flask, Django, Requests, HTTPX, aiohttp, urllib and more
+  <Card title="Manual instrumentation" icon="code">
+    Add 2 lines to your code for auto instrumentation
+    
+    ```python example.py
+    import openlit
+    openlit.init()
+    ```
+    
+    **Use when:**
+    - Building new applications
+    - Need custom spans or metadata
+    - Want advanced configuration options
   </Card>
 </CardGroup>
 
-### Supported languages
+## Comparison
 
-<CardGroup cols={2}>
-  <Card title="Python" icon="python">    
-    Complete AI observability with automatic dependency detection. Zero-code instrumentation for production Python LLM applications with real-time performance monitoring.
-  </Card>
-  <Card title="TypeScript/JavaScript" icon="node-js">    
-    Full LLM monitoring support for TypeScript / JavaScript applications with distributed tracing, metrics and cost optimization.
-  </Card>
-</CardGroup>
+| | Zero-code instrumentation | Manual instrumentation |
+|---|---|---|
+| **Code changes** | None | 2 lines |
+| **Advanced features** | Basic configuration | Full access to custom spans, metadata |
+| **Setup time** | Instant | 1 minute |
+| **Best for** | Production apps, Existing Apps | New apps, custom needs |
 
-## How it works
-
-```mermaid
-flowchart LR
-    A[Install OpenLIT] --> B[Instrument your application]
-    B --> C[Generates Distributed Traces and metrics]
-    C --> D[OpenTelemetry Export]
-    D --> E[Observability Dashboard]
-```
-
-**Option 1: Zero code instrumentation**
-```bash
-openlit-instrument python your_app.py
-```
-
-**Option 2: Manual instrumentation**
-```python
-import openlit
-
-openlit.init()  # Enables Automatic instrumentation for AI apps and agents
-```
-
-Both approaches provide production-ready observability: **distributed tracing**, **real-time cost tracking**, **latency monitoring**, **token usage optimization**, and **evaluation scoring**.
-
-## Getting started
-Select from the following guides to learn more about production AI monitoring:
+---
 
 <CardGroup cols={2}>
   <Card title="Quickstart: LLM Observability" href="/latest/sdk/quickstart-ai-observability" icon='bolt'>

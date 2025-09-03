@@ -1,6 +1,4 @@
-This guide demonstrates production-ready LLM observability setup with OpenTelemetry-native auto-instrumentations. Get enterprise-grade AI monitoring with **zero code changes** using our CLI or minimal SDK integration for complete LLM performance tracking.
-
-Learn how to implement real-time cost tracking, token usage monitoring, hallucination detection, and latency optimization for your AI applications with OpenTelemetry traces and metrics.
+This guide demonstrates how to implement real-time cost tracking, token usage monitoring, hallucination detection, and latency optimization for your AI applications with OpenTelemetry traces and metrics.
 
 ```mermaid
 flowchart TB;
@@ -52,8 +50,11 @@ flowchart TB;
     <Step title="Instrument your AI application">
       <Tabs>
         <Tab title="Python">
+          <Tip>
+          Not sure which method to choose? Check out [Instrumentation Methods](/latest/sdk/instrumentation-methods) to understand the differences.
+          </Tip>
           <Tabs>
-            <Tab title="Zero-Code AI Observability">              
+            <Tab title="Zero-code instrumentation">              
               <Tabs>
                 <Tab title="Via CLI arguments">
                 ```bash
@@ -81,7 +82,7 @@ flowchart TB;
                 </Tab>
               </Tabs>
             </Tab>
-            <Tab title="SDK Integration">
+            <Tab title="Manual instrumentation">
               <Tabs>
                 <Tab title="Via function parameters">
                   ```python
