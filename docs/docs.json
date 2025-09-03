@@ -46,9 +46,12 @@
                 "group": "Quickstarts",
                 "icon": "bolt",
                 "pages": [
-                  "latest/openlit/quickstart-observability",
+                  "latest/openlit/quickstart-ai-observability",
                   "latest/openlit/quickstart-programmatic-evals",
-                  "latest/openlit/quickstart-guard"
+                  "latest/openlit/quickstart-guard",
+                  "latest/openlit/quickstart-gpu",
+                  "latest/openlit/quickstart-vectordb-observability",
+                  "latest/openlit/quickstart-mcp-observability"
                 ]
               },
               "latest/configuration",
@@ -161,7 +164,7 @@
           {
             "group": "Integrations",
             "pages": [
-              "latest/sdk/integrations/introduction",
+              "latest/sdk/integrations/overview",
               {
                 "group": "LLMs",
                 "icon": "robot",
