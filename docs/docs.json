@@ -63,7 +63,8 @@
             "pages": [
               "latest/openlit/observability/tracing",
               "latest/openlit/observability/metrics",
-              "latest/openlit/observability/exceptions"
+              "latest/openlit/observability/exceptions",
+              "latest/openlit/observability/evaluations"
             ]
           },
           {
