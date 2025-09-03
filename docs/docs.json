@@ -135,10 +135,12 @@
                 "group": "Quickstarts",
                 "icon": "bolt",
                 "pages": [
-                  "latest/sdk/quickstart-observability",
+                  "latest/sdk/quickstart-ai-observability",
                   "latest/sdk/quickstart-programmatic-evals",
                   "latest/sdk/quickstart-guard",
-                  "latest/sdk/quickstart-gpu"
+                  "latest/sdk/quickstart-gpu",
+                  "latest/sdk/quickstart-mcp-observability",
+                  "latest/sdk/quickstart-vectordb-observability"
                 ]
               },
               "latest/sdk/configuration"
