@@ -41,7 +41,7 @@
             "group": "Getting Started",
             "pages": [
               "latest/introduction",
-              "latest/installation",
+              "latest/openlit/installation",
               {
                 "group": "Quickstarts",
                 "icon": "bolt",
@@ -54,8 +54,8 @@
                   "latest/openlit/quickstart-mcp-observability"
                 ]
               },
-              "latest/configuration",
-              "latest/oauth"
+              "latest/openlit/configuration",
+              "latest/openlit/oauth"
             ]
           },
           {
@@ -136,6 +136,7 @@
               "latest/openlit/developer-resources/anonymous-telemetry",
               {
                 "group": "API Reference",
+                "icon": "code",
                 "pages": [
                   "latest/openlit/developer-resources/api-reference/introduction",
                   {
