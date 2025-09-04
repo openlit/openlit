@@ -5,17 +5,13 @@ description: Learn how to use the Bar Chart Widget in OpenLIT to compare grouped
 
 The **Bar Chart Widget** in OpenLIT is great for comparing categorical or grouped data—like errors by type, usage by region, or revenue by plan. You can customize the chart direction, stack behavior, and bind dynamic filters directly into your ClickHouse queries.
 
----
-
-## 📌 Use Cases
+## Use Cases
 
 - Comparing usage across different platforms or regions  
 - Visualizing grouped data like plan types, error categories, or product segments  
 - Monitoring metrics over categories with filter support  
 
----
-
-## 🛠️ How to Add a Bar Chart
+## How to Add a Bar Chart
 
 <iframe className="w-full aspect-video" src="https://www.youtube.com/embed/7Y94KEZI2hM?list=PLgErWFh-dyiGp9yUDnnx67wHEeNqzzMXZ" title="How to Use the Bar Chart Widget in OpenLIT – Visualize Trends Over Time" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -43,9 +39,7 @@ WITH
 	LIMIT 3
 ````
 
----
-
-## ⚙️ Configuration Options
+## Configuration Options
 
 * **Color palette**
 * **X/Y label & value paths**
@@ -54,21 +48,8 @@ WITH
 Use dynamic bindings like `{{filter.timeLimit.start}}`, `{{filter.timeLimit.end}}` to make your chart respond to dashboard time filters.
 </Tip>
 
----
-
-## ✅ Best Practices
+## Best Practices
 
 * Sort bars by descending value for clearer insights
 * Limit category count (e.g., top 10) to avoid clutter
-
----
-
-## 🔗 Related Guides
-
-* [Area Chart Widget →](/latest/openlit/dashboards/widgets/area-chart-widget)
-* [Line Chart Widget →](/latest/openlit/dashboards/widgets/line-chart-widget)
-* [Markdown Widget →](/latest/openlit/dashboards/widgets/markdown-widget)
-* [Pie Chart Widget →](/latest/openlit/dashboards/widgets/pie-chart-widget)
-* [Stat Widget →](/latest/openlit/dashboards/widgets/stat-widget)
-* [Table Widget →](/latest/openlit/dashboards/widgets/table-widget)
 

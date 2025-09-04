@@ -1,21 +1,17 @@
 ---
-title: Statistics Widget
+title: Stats Widget
 description: Learn how to use the Statistics Widget in OpenLIT to display key metrics, KPIs, and summary values with real-time ClickHouse data.
 ---
 
 The **Statistics Widget** (or stat card) is designed to highlight your most important metrics in a clean, bold format. It’s ideal for surfacing KPIs, real-time values, or summary statistics at a glance.
 
----
-
-## 📌 Use Cases
+## Use Cases
 
 - Display total signups, revenue, or active users  
 - Show conversion rates, success percentages, or API error counts  
 - Track live values on operational dashboards  
 
----
-
-## 🛠️ How to Add a Stat Card
+## How to Add a Stat Card
 
 <iframe className="w-full aspect-video" src="https://www.youtube.com/embed/_XY28a192Io?list=PLgErWFh-dyiGp9yUDnnx67wHEeNqzzMXZ" title="How to Use the Stat Widget in OpenLIT – Visualize Trends Over Time" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -55,9 +51,7 @@ WITH
 	AND Timestamp >= prev_start_time AND Timestamp <= end_time\n
 ````
 
----
-
-## ⚙️ Configuration Options
+## Configuration Options
 
 * Set **prefix/suffix** (e.g. `$`, `%`, `ms`)
 * Choose **colors**
@@ -66,22 +60,9 @@ WITH
 <Tip>
 Use dynamic filters like `{{filter.timeLimit.start}}`, `{{filter.timeLimit.end}}` to make the stat card responsive to dashboard-level controls.
 </Tip>
-
----
-
-## ✅ Best Practices
+ 
+## Best Practices
 
 * Combine stat cards with charts for more context
 * Use consistent units (e.g., %, \$, MB)
 * Avoid overloading the dashboard with too many KPIs—focus on what matters
-
----
-
-## 🔗 Related Guides
-
-* [Area Chart Widget →](/latest/openlit/dashboards/widgets/area-chart-widget)
-* [Bar Chart Widget →](/latest/openlit/dashboards/widgets/bar-chart-widget)
-* [Line Chart Widget →](/latest/openlit/dashboards/widgets/line-chart-widget)
-* [Markdown Widget →](/latest/openlit/dashboards/widgets/markdown-widget)
-* [Pie Chart Widget →](/latest/openlit/dashboards/widgets/pie-chart-widget)
-* [Table Widget →](/latest/openlit/dashboards/widgets/table-widget)

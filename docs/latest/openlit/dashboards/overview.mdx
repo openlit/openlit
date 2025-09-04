@@ -1,19 +1,32 @@
 ---
-title: Overview
-description: Learn how to build powerful, customizable dashboards using OpenLIT. Explore widgets, folder structure, dynamic bindings, and data visualization powered by ClickHouse.
+title: "Overview"
+description: "Create powerful, interactive dashboards to monitor AI application performance, visualize telemetry data, and gain insights into your LLM operations with real-time analytics."
 ---
 
 <iframe className="w-full aspect-video rounded-xl" src="https://www.youtube.com/embed/XOvhKAo9XG8?si=IDssTOxW-hmF62P2" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-OpenLIT lets you build real-time, interactive dashboards backed by **ClickHouse**—designed for speed, flexibility, and developer control. Whether you're monitoring system performance, visualizing product analytics, or creating internal tools, OpenLIT makes it easy to create beautiful, custom dashboards with minimal setup.
+## How it works
 
-## 🔧 What You Can Do
+OpenLIT dashboards transform your telemetry data into actionable insights through a streamlined process:
 
-- Create, organize, and manage dashboards across folders and dashboards
-- Visualize data using a wide range of **widgets** like:
-  - Area, Bar, Line, and Pie Charts
-  - Statistics and Tables
-  - Markdown blocks for rich text
-- Connect to your ClickHouse database with **direct SQL queries**
-- Use **dynamic bindings** to build responsive, filterable dashboards
-- Pin important dashboards or set a **main dashboard** as your home view
+1. **Data Collection**: AI telemetry flows through OpenTelemetry instrumentation into ClickHouse
+2. **Query Execution**: Widgets execute optimized SQL queries against your telemetry data
+3. **Visualization**: Results can be displayed as charts, tables, statistics, and custom visualizations
+4. **Interactive Analysis**: Filter, drill down, and explore data with dynamic controls and time ranges
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card title="Create Your First Dashboard" href="/latest/openlit/dashboards/create-dashboard" icon="plus">
+    Learn the basics of creating and configuring dashboards
+  </Card>
+  <Card title="Build Widgets" href="/latest/openlit/dashboards/widgets/overview" icon="chart-line">
+    Add visualizations with various chart types and data displays
+  </Card>
+  <Card title="Use Filters & Variables" href="/latest/openlit/dashboards/use-filters-and-dynamic-bindings" icon="filter">
+    Make dashboards interactive with dynamic filters and parameters
+  </Card>
+  <Card title="Dashboard Management" href="/latest/openlit/dashboards/organize-your-dashboards" icon="folder">
+    Organize, share, and manage your dashboard collection
+  </Card>
+</CardGroup>

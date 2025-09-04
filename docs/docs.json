@@ -59,38 +59,66 @@
             ]
           },
           {
-            "group": "Observability and Evaluations",
+            "group": "Observability",
             "pages": [
               "latest/openlit/observability/tracing",
               "latest/openlit/observability/metrics",
-              "latest/openlit/observability/exceptions",
-              "latest/openlit/observability/evaluations"
+              "latest/openlit/observability/error"
+            ]
+          },
+          {
+            "group": "Evaluations",
+            "pages": [
+              "latest/openlit/evaluations/overview",
+              {
+                "group": "Evaluation Methods",
+                "icon": "ruler",
+                "pages": [
+                  "latest/openlit/evaluations/llm-as-a-judge",
+                  "latest/openlit/evaluations/programmatic-evals"
+                ]
+              }
             ]
           },
           {
             "group": "Dashboards",
             "pages": [
               "latest/openlit/dashboards/overview",
-              "latest/openlit/dashboards/create-your-first-folder",
-              "latest/openlit/dashboards/create-your-first-dashboard",
-              "latest/openlit/dashboards/organize-your-dashboards",
-              "latest/openlit/dashboards/pin-your-dashboard",
-              "latest/openlit/dashboards/set-as-main-dashboard",
+              {
+                "group": "Get Started",
+                "icon": "bolt",
+                "pages": [
+                  "latest/openlit/dashboards/create-dashboard",
+                  "latest/openlit/dashboards/create-folder",
+                  "latest/openlit/dashboards/import-dashboard"
+                ]
+              },
               {
                 "group": "Widgets",
+                "icon": "grip",
                 "pages": [
                   "latest/openlit/dashboards/widgets/overview",
                   "latest/openlit/dashboards/widgets/area-chart-widget",
-                  "latest/openlit/dashboards/widgets/bar-chart-widget",
+                  "latest/openlit/dashboards/widgets/bar-chart-widget", 
                   "latest/openlit/dashboards/widgets/line-chart-widget",
-                  "latest/openlit/dashboards/widgets/markdown-widget",
                   "latest/openlit/dashboards/widgets/pie-chart-widget",
                   "latest/openlit/dashboards/widgets/stat-widget",
-                  "latest/openlit/dashboards/widgets/table-widget"
+                  "latest/openlit/dashboards/widgets/table-widget",
+                  "latest/openlit/dashboards/widgets/markdown-widget"
                 ]
               },
-              "latest/openlit/dashboards/use-filters-and-dynamic-bindings",
-              "latest/openlit/dashboards/auto-refresh-and-time-interval"
+              {
+                "group": "Manage Dashboards",
+                "icon": "square-poll-vertical",
+                "pages": [
+                  "latest/openlit/dashboards/organize-dashboards",
+                  "latest/openlit/dashboards/export-dashboard",
+                  "latest/openlit/dashboards/filters-and-dynamic-bindings",
+                  "latest/openlit/dashboards/auto-refresh-and-time-interval",
+                  "latest/openlit/dashboards/pin-dashboard",
+                  "latest/openlit/dashboards/set-main-dashboard"
+                ]
+              }
             ]
           },
           {
