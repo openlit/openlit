@@ -85,7 +85,7 @@
             "pages": [
               "latest/openlit/dashboards/overview",
               {
-                "group": "Get Started",
+                "group": "Get started",
                 "icon": "bolt",
                 "pages": [
                   "latest/openlit/dashboards/create-dashboard",
