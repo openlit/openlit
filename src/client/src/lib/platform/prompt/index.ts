@@ -99,11 +99,11 @@ export async function getPrompts() {
 			p.id AS promptId,
 			p.name AS name,
 			p.created_by AS createdBy,
-			COUNT(DISTINCT v.version) AS totalVersions,         -- Total number of versions for each prompt
+			CAST(COUNT(DISTINCT v.version) AS INTEGER) AS totalVersions,         -- Total number of versions for each prompt
 			MAX(v.version) AS latestVersion,                    -- Latest version by version number
 			any(v.updated_at) AS latestVersionDate,             -- The date when the latest version was updated
 			any(v.status) AS latestVersionStatus,               -- Status of the latest version in PUBLISHED state
-    	countDistinctIf(d.download_id, d.download_id != '00000000-0000-0000-0000-000000000000') AS totalDownloads
+    	CAST(countDistinctIf(d.download_id, d.download_id != '00000000-0000-0000-0000-000000000000') AS INTEGER) AS totalDownloads
 		FROM
 				${OPENLIT_PROMPTS_TABLE_NAME} p
 		LEFT JOIN
@@ -220,7 +220,7 @@ ORDER BY
     v.tags AS tags,                             -- Tags for the version
     v.updated_by AS updatedBy,                  -- Who updated the version
     v.updated_at AS updatedAt,                   -- When the version was last updated
-		countDistinctIf(d.download_id, d.download_id != '00000000-0000-0000-0000-000000000000') AS totalDownloads      -- Total downloads for the prompt
+		CAST(countDistinctIf(d.download_id, d.download_id != '00000000-0000-0000-0000-000000000000') AS INTEGER) AS totalDownloads      -- Total downloads for the prompt
 FROM
     ${OPENLIT_PROMPT_VERSIONS_TABLE_NAME} v
 LEFT JOIN

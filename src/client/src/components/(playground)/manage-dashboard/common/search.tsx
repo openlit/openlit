@@ -10,6 +10,6 @@ export default function Search() {
 		placeholder="Search"
 		value={pageSearch}
 		onChange={(e) => setPageSearch(e.target.value)}
-		className="w-[400px]"
+		className="w-[400px] bg-stone-100/50 dark:bg-stone-900/70"
 	/>;
 }

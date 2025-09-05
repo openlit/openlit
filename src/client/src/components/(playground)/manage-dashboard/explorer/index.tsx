@@ -681,7 +681,7 @@ export default function DashboardExplorer() {
 			<Header title="Explorer">
 				<RootActions openAddDialog={openAddDialog} importBoardLayout={importBoardLayout} />
 			</Header>
-			<div className="grow bg-stone-100 dark:bg-stone-900 rounded-sm p-2 overflow-y-auto">
+			<div className="grow bg-stone-100/50 dark:bg-stone-900/70 border border-stone-200 dark:border-stone-800 rounded-sm p-2 overflow-y-auto">
 				{isLoading ? (
 					<div className="flex justify-center items-center py-8 h-full">
 						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

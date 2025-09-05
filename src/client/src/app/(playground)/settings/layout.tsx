@@ -49,7 +49,7 @@ export default function SettingsLayout({
 					</TabsTrigger>
 				))}
 			</TabsList>
-			<div className="flex w-full border dark:border-stone-800 grow overflow-hidden">
+			<div className="flex w-full border border-stone-200 dark:border-stone-800 rounded-lg grow overflow-hidden">
 				{children}
 			</div>
 		</Tabs>

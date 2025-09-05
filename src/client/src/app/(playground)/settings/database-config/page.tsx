@@ -96,6 +96,7 @@ function ModifyDatabaseConfig({
 
 	return (
 		<FormBuilder
+			cardClassName="bg-stone-100/50 dark:bg-stone-900/70 py-4 px-6 rounded-none"
 			fields={[
 				{
 					label: "Config Name",
@@ -290,7 +291,7 @@ function DatabaseList({
 				onClickItemChangeActive={onClickSetCurrent}
 				onClickItemDelete={onClickDelete}
 			/>
-			<div className="flex flex-1 w-full h-full overflow-hidden py-4 px-6">
+			<div className="flex flex-1 w-full h-full overflow-hidden">
 				{selectedDBConfigId ? (
 					<ModifyDatabaseConfig dbConfig={dbConfigByKey[selectedDBConfigId]} />
 				) : (
@@ -301,7 +302,7 @@ function DatabaseList({
 									? "You have not created any database config"
 									: "You have not selected any database config"}
 							</h3>
-							<p className="text-sm text-stone-700 dark:text-stone-400">
+							<p className="text-sm text-stone-700 dark:text-stone-300">
 								{dbConfigs.length === 0
 									? "You can have multiple database config to manage your different environments"
 									: "You can have multiple database config to manage your different environments. Select database config to update the details"}
