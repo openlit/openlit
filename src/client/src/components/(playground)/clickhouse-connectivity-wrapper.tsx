@@ -58,7 +58,7 @@ export default function ClickhouseConnectivityWrapper({ children }: { children: 
 
 	if (pingDetails.status === "pending") {
 		return (
-			<div className="flex items-center justify-center h-full w-full bg-white dark:bg-black">
+			<div className="flex items-center justify-center h-full w-full">
 				<Loader />
 			</div>
 		);

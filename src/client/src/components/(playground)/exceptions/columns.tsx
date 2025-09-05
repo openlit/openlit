@@ -10,7 +10,7 @@ export const columns: Columns<TraceMappingKeyType, TransformedTraceRow> = {
 		cell: ({ row }) => (
 			<Badge
 				variant="outline"
-				className="rounded-md text-stone-700 dark:text-stone-300 block overflow-hidden text-ellipsis"
+				className="rounded-md group-hover:text-stone-100 text-stone-700 dark:text-stone-300 block overflow-hidden text-ellipsis"
 				title={row.id}
 			>
 				{row.id}
