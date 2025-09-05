@@ -33,6 +33,15 @@ services:
       SQLITE_DATABASE_URL: file:/app/client/data/data.db
       PORT: ${PORT:-3000}
       DOCKER_PORT: ${DOCKER_PORT:-3000}
+      # OAuth Environment Variables
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+
+    env_file:
+      - path: .env
+        required: false
     ports:
       - "${PORT:-3000}:${DOCKER_PORT:-3000}"
       - "4317:4317"  # OTLP gRPC receiver

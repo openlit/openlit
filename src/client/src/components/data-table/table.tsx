@@ -90,6 +90,7 @@ export default function Table({
 
 	const onClickHandler = (rowItem: any) =>
 		typeof onClick === "function" ? onClick(rowItem) : noop();
+
 	return (
 		<div className="flex flex-col w-full overflow-auto border dark:border-stone-800 rounded-md">
 			<RowWrapper className={`sticky top-0 z-10`} style={style}>
@@ -110,17 +111,17 @@ export default function Table({
 				{(!isFetched || (isLoading && !data?.length)) && (
 					<RenderLoader columns={visibleColumns} style={style} />
 				)}
-				{data?.map((rowItem) => {
+				{data?.map((rowItem, index) => {
 					return (
 						<RowWrapper
-							key={rowItem.id}
+							key={`row-${index}`}
 							className={`group text-sm text-stone-700 dark:text-stone-300`}
 							onClick={() => onClickHandler(rowItem)}
 							style={style}
 						>
-							{visibleColumns.map((column) => (
+							{visibleColumns.map((column, cIdx) => (
 								<ColumnRowItem
-									key={`${column}-${rowItem.id}`}
+									key={`row-${index}-column-${cIdx}`}
 									className={`group-last-of-type:border-b-0 group-hover:bg-stone-100  dark:group-hover:bg-stone-800 cursor-pointer`}
 								>
 									{columns[column]?.cell({

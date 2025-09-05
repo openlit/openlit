@@ -1,4 +1,4 @@
-import { SetupTracerOptions } from './types';
+import { SetupTracerOptions } from '../types';
 import {
   NodeTracerProvider,
   BatchSpanProcessor,
@@ -8,8 +8,8 @@ import {
 } from '@opentelemetry/sdk-trace-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 
-import Instrumentations from './instrumentation';
-import OpenlitConfig from './config';
+import Instrumentations from '../instrumentation';
+import OpenlitConfig from '../config';
 
 export default class Tracing {
   static traceProvider: NodeTracerProvider;
@@ -17,8 +17,23 @@ export default class Tracing {
   static async setup(options: SetupTracerOptions) {
     if (options.tracer) return options.tracer;
     try {
+      const consoleSpanExporter = new ConsoleSpanExporter();
+      const url = options.otlpEndpoint + "/v1/traces";
+      const otlpTraceExporter = new OTLPTraceExporter({
+        url,
+        headers: options.otlpHeaders as Record<string, string> | undefined,
+      });
+
+      const spanProcessors = [
+        new SimpleSpanProcessor(consoleSpanExporter),
+        options.disableBatch
+          ? new SimpleSpanProcessor(otlpTraceExporter as SpanExporter)
+          : new BatchSpanProcessor(otlpTraceExporter as SpanExporter),
+      ];
+
       this.traceProvider = new NodeTracerProvider({
         resource: options.resource,
+        spanProcessors,
       });
 
       OpenlitConfig.updateConfig({
@@ -32,27 +47,11 @@ export default class Tracing {
         options?.instrumentations
       );
 
-      const consoleSpanExporter = new ConsoleSpanExporter();
-
-      // Adding span to console
-      this.traceProvider.addSpanProcessor(new SimpleSpanProcessor(consoleSpanExporter));
-
-      this.traceExporter = new OTLPTraceExporter({
-        url: options.otlpEndpoint,
-        headers: options.otlpHeaders as Record<string, unknown> | undefined,
-      });
-      if (options.disableBatch) {
-        this.traceProvider.addSpanProcessor(
-          new SimpleSpanProcessor(this.traceExporter as SpanExporter)
-        );
-      } else {
-        this.traceProvider.addSpanProcessor(
-          new BatchSpanProcessor(this.traceExporter as SpanExporter)
-        );
-      }
+      this.traceExporter = otlpTraceExporter;
 
       this.traceProvider.register();
     } catch (e) {
+      console.error('[Traces] Failed to initialize traces:', e);
       return null;
     }
   }

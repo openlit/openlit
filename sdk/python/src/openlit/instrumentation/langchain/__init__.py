@@ -85,14 +85,6 @@ class LangChainInstrumentor(BaseInstrumentor):
             # Graceful degradation if callback system unavailable
             pass
 
-        # === COMPETITIVE ADVANTAGE SUMMARY ===
-        # Callback-based approach provides:
-        # 1. ✅ Proper span hierarchy (like OpenLLMetry/OpenInference)
-        # 2. ✅ Comprehensive business intelligence (cost, tokens, performance)
-        # 3. ✅ Automatic operation coverage (no manual function wrapping)
-        # 4. ✅ Native LangChain integration (uses built-in callback system)
-        # 5. ✅ Superior observability depth and quality
-
         # Result: Best of both worlds - hierarchy + business intelligence
 
     def _uninstrument(self, **kwargs):

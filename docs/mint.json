@@ -54,7 +54,8 @@
         "latest/quickstart-guard",
         "latest/installation",
         "latest/sdk-configuration",
-        "latest/ui-configuration"
+        "latest/ui-configuration",
+        "latest/oauth-authentication"
       ],
       "version": "latest"
     },
@@ -138,6 +139,7 @@
             "latest/integrations/reka",
             "latest/integrations/krutrim",
             "latest/integrations/titan-ml",
+            "latest/integrations/sarvam",
             "latest/integrations/premai"
           ]
         },
@@ -161,6 +163,7 @@
             "latest/integrations/litellm",
             "latest/integrations/crewai",
             "latest/integrations/llama-index",
+            "latest/integrations/browser-use",
             "latest/integrations/pydantic",
             "latest/integrations/dspy",
             "latest/integrations/ag2",
