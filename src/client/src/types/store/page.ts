@@ -31,7 +31,8 @@ export type PageStore = {
 		description?: string;
 		breadcrumbs: {
 			title: string;
-			href: string;
+			href?: string;
+			onClick?: () => void;
 		}[];
 	},
 	setHeader: (header: {
@@ -39,7 +40,8 @@ export type PageStore = {
 		description?: string;
 		breadcrumbs: {
 			title: string;
-			href: string;
+			href?: string;
+			onClick?: () => void;
 		}[];
 	}) => void;
 };

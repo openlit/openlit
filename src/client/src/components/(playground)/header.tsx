@@ -10,7 +10,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, User } from "lucide-react";
+import { ChevronRight, Moon, Sun, User } from "lucide-react";
 import { useRootStore } from "@/store";
 import { getUserDetails, resetUser } from "@/selectors/user";
 import useTheme from "@/utils/hooks/useTheme";
@@ -59,7 +59,7 @@ export default function Header() {
 
 	const { header, setHeader } = usePageHeader();
 
-	
+
 	useEffect(() => {
 		const titleKey = pathname.substring(1).replaceAll("-", " ").split("/")[0];
 		setHeader({
@@ -69,35 +69,55 @@ export default function Header() {
 	}, [pathname, setHeader]);
 
 	return (
-		<header className="flex h-[57px] items-center gap-1 border-b dark:border-stone-800 px-4 sm:px-6">
-			<div className="flex items-center gap-2 grow">
-				<h1 className="text-xl font-semibold capitalize dark:text-white">{header.title}</h1>
-				{header.description && (
-					<DescriptionTooltip description={header.description} className="ml-2 h-4 w-4 text-stone-900 dark:text-stone-300" />
-				)}
-			</div>
-			<DatabaseConfigSwitch />
-			<RefreshRate />
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="p-0.5 size-8 overflow-hidden rounded-full"
-					>
-						<User className="overflow-hidden rounded-full dark:text-white" />
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end">
-					<DropdownMenuItem disabled>{user?.email}</DropdownMenuItem>
-					<DropdownMenuSeparator />
-					<DropdownMenuItem asChild>
-						<Link href="/settings/profile">Edit details</Link>
-					</DropdownMenuItem>
-					<DropdownMenuItem onClick={onClickSignout}>Logout</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
-			<ThemeToggleSwitch />
-		</header>
+		<>
+			<header className="flex h-[57px] items-center gap-1 border-b dark:border-stone-800 px-4 sm:px-6">
+				<div className="flex items-center gap-2 grow">
+					<h1 className="text-xl font-semibold capitalize dark:text-white">{header.title}</h1>
+					{header.description && (
+						<DescriptionTooltip description={header.description} className="ml-2 h-4 w-4 text-stone-900 dark:text-stone-300" />
+					)}
+				</div>
+				<DatabaseConfigSwitch />
+				<RefreshRate />
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="p-0.5 size-8 overflow-hidden rounded-full"
+						>
+							<User className="overflow-hidden rounded-full dark:text-white" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem disabled>{user?.email}</DropdownMenuItem>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem asChild>
+							<Link href="/settings/profile">Edit details</Link>
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={onClickSignout}>Logout</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+				<ThemeToggleSwitch />
+			</header>
+			{
+				header.breadcrumbs.length > 0 ? (
+					<nav aria-label="Breadcrumb" className="flex gap-2 w-full px-8 py-2">
+						<ol className="flex gap-2 w-full items-center">
+							{
+								header.breadcrumbs.map((breadcrumb, index) => (
+									<li key={index} className="flex gap-2 items-center">
+										<a href={breadcrumb.href} onClick={breadcrumb.onClick} className="text-sm text-stone-600 dark:text-stone-300 hover:text-primary dark:hover:text-primary hover:underline cursor-pointer">{breadcrumb.title}</a>
+										{index < header.breadcrumbs.length - 1 && (
+											<ChevronRight className="w-4 text-stone-600 dark:text-stone-300" />
+										)}
+									</li>
+								))
+							}
+						</ol>
+					</nav>
+				) : null
+			}
+		</>
 	);
 }

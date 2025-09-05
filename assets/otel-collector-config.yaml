@@ -5,6 +5,7 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+
 processors:
   batch:
   memory_limiter:
@@ -13,11 +14,7 @@ processors:
     # 25% of limit up to 2G
     spike_limit_mib: 512
     check_interval: 5s
-extensions:
-  zpages:
-    endpoint: 0.0.0.0:55679
-  health_check:
-    endpoint: 0.0.0.0:13133
+
 exporters:
   clickhouse:
     endpoint: tcp://${env:INIT_DB_HOST}:${env:INIT_DB_PORT}?dial_timeout=10s
@@ -34,18 +31,21 @@ exporters:
       initial_interval: 5s
       max_interval: 30s
       max_elapsed_time: 300s
+
 service:
-  extensions: [zpages, health_check]
   pipelines:
     logs:
-      receivers: [ otlp ]
-      processors: [ batch ]
-      exporters: [ clickhouse ]
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [clickhouse]
     traces:
-      receivers: [ otlp ]
+      receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [ clickhouse ]
+      exporters: [clickhouse]
     metrics:
-      receivers: [ otlp ]
+      receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [ clickhouse ]
+      exporters: [clickhouse]
+  # telemetry:
+  #   metrics:
+  #     address: localhost:8888

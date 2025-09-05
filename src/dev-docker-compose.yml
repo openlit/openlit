@@ -16,8 +16,12 @@ services:
   openlit:
     image: openlit
     build:
-      context: ./client
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./Dockerfile.opamp
+      args:
+        OTEL_VERSION: ${OTEL_VERSION:-v0.132.4}
+        OPAMP_SUPERVISOR_VERSION: ${OPAMP_SUPERVISOR_VERSION:-v0.132.4}
+        TARGETARCH: ${TARGETARCH:-arm64}
     container_name: openlit
     environment:
       TELEMETRY_ENABLED: "true"
@@ -34,14 +38,14 @@ services:
       - "4317:4317"  # OTLP gRPC receiver
       - "4318:4318"  # OTLP HTTP receiver
       - "4320:4320"  # OpAMP server
-      - 13133:13133 # health_check extension
-      - 55679:55679 # zpages extension
+      - "4321:4321"  # OpAMP server
+      - 8080:8080 #Opamp Api Server
     depends_on:
       - clickhouse
     volumes:
       - openlit-data:/app/client/data
-      - ../assets/otel-collector-config.yaml:/etc/otel/config.yaml
       - ../assets/supervisor.yaml:/etc/otel/supervisor.yaml
+      - ../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
     restart: always
 
   # otel-collector:
