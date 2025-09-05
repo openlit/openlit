@@ -5,15 +5,15 @@ description: 'Store and access sensitive information like LLM API keys securely'
 
 Vault is designed to securely store and access sensitive information, such as API keys (e.g., `OPENAI_API_TOKEN`), eliminating the need to directly embed them in your code or environment variables. This centralized approach ensures that all developers can securely share and use the same API key without the necessity of distributing individual keys.
 
-## Key Features
+## Key features
 
 - **Secrets Management**: Seamlessly create, edit, and monitor the secrets associated with your applications.
 - **Secure Access**: Retrieve secrets based on keys or tags, and safely integrate them into your Node.js or Python environments.
 
-## Get Started
+## Get started
 
 <Steps>
-  <Step title="List of Secrets">
+  <Step title="List of secrets">
     Get a quick overview of all secrets created.
       1. Navigate to the Vault in OpenLIT.
       2. Explore the available secrets listed.
@@ -21,7 +21,7 @@ Vault is designed to securely store and access sensitive information, such as AP
       <img src="/images/docs-vault-list.png" />
     </Frame>
   </Step>
-  <Step title="Create or Edit a secret">
+  <Step title="Create or edit a secret">
     Build new secret with ease.
       1. Click on **+ New** to create a new secret
       2. In the secret form, add the secret key, secret value and add tags to easily manage and access the secrets via sdk.
@@ -29,7 +29,7 @@ Vault is designed to securely store and access sensitive information, such as AP
       <img src="/images/docs-vault-create.png" />
     </Frame>
   </Step>
-  <Step title="Retrieve the secret(s)">
+  <Step title="Retrieve the secrets">
     <Steps>
       <Step title="Create an API Key">
       To authenticate your requests, you need an API key. Here's how you can create one:
@@ -40,7 +40,7 @@ Vault is designed to securely store and access sensitive information, such as AP
       - Enter a name for your API key.
       - Save the API key displayed. Ensure you store it securely as it will be used for authentication in the SDK.
       </Step>
-      <Step title="Get secret(s) using the SDK">
+      <Step title="Get secrets using the SDK">
         <Tabs>
             <Tab title="Python">
               Here's how you can fetch and set environment secret(s) in Python:
@@ -63,7 +63,7 @@ Vault is designed to securely store and access sensitive information, such as AP
                 res: { ANTHROPIC_API_KEY: 'ANTHROPIC_API_VALUE', OPENAI_API_KEY: 'OPENAI_API_VALUE' }
               }
               ```
-              ### SDK Parameters
+              ### SDK parameters
 
               Below are the parameters for use with the SDK, formatted to indicate whether each is required or optional:
 
@@ -95,7 +95,7 @@ Vault is designed to securely store and access sensitive information, such as AP
                 res: { ANTHROPIC_API_KEY: 'ANTHROPIC_API_VALUE', OPENAI_API_KEY: 'OPENAI_API_VALUE' }
               }
               ```
-              ### SDK Parameters
+              ### SDK parameters
 
               Below are the parameters for use with the SDK, formatted to indicate whether each is required or optional:
 
@@ -116,3 +116,17 @@ Vault is designed to securely store and access sensitive information, such as AP
     </Steps>
   </Step>
 </Steps>
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
+    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+  </Card>
+  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
+    Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground" icon='flask'>
+    Compare cost, duration, and response tokens across different LLMs to find the most efficient model
+  </Card>
+</CardGroup>

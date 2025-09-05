@@ -5,7 +5,7 @@ description: Learn how to use the Line Chart Widget in OpenLIT to plot precise t
 
 The **Line Chart Widget** in OpenLIT helps you visualize changes in your metrics over time with sharp, precise lines. It’s ideal for tracking KPIs like API latency, CPU usage, conversion rate, or funnel performance.
 
-## When to Use
+## When to use
 
 Use a Line Chart when you want to:
 
@@ -13,7 +13,7 @@ Use a Line Chart when you want to:
 - Display sharp, distinct movements in your data  
 - Compare multiple metrics on the same time scale  
 
-## How to Add a Line Chart
+## How to add a line chart
 
 <iframe className="w-full aspect-video" src="https://www.youtube.com/embed/O8vrdaGb8bw?list=PLgErWFh-dyiGp9yUDnnx67wHEeNqzzMXZ" title="How to Use the Line Chart Widget in OpenLIT – Visualize Trends Over Time" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -42,7 +42,7 @@ WITH
 	ORDER BY request_time
 ````
 
-## Customization Options
+## Customization options
 
 * **Custom line colors
 * **X/Y label and value paths**
@@ -51,7 +51,7 @@ WITH
 Use dynamic bindings like `{{filter.timeLimit.start}}`, `{{filter.timeLimit.end}}` to make your chart respond to dashboard time filters.
 </Tip>
 
-## Best Practices
+## Best practices
 
 * Use `GROUP BY` with consistent time buckets (e.g., minute, hour)
 * Order your results by time to ensure correct rendering

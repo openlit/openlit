@@ -5,11 +5,11 @@ description: Learn how to make OpenLIT dashboards interactive by using filters a
 
 OpenLIT makes dashboards interactive by letting you add filters and dynamically bind their values to ClickHouse queries. This enables you to create reusable dashboards that respond to user inputs like time range, environment, region, and more.
 
-## What Are Filters?
+## What are filters?
 
 **Filters** are interactive controls (e.g. date ranges) placed at the top of a dashboard. You can bind these filters to your widgets so their values get passed into SQL queries in real time.
 
-## What Are Dynamic Bindings?
+## What are dynamic bindings?
 
 OpenLIT uses **mustache-style bindings** to inject filter values into your queries.
 
@@ -20,15 +20,15 @@ OpenLIT uses **mustache-style bindings** to inject filter values into your queri
 
 At runtime, OpenLIT replaces each binding with the user-provided filter value.
 
-### Common Examples:
+### Common examples:
 
 * `{{filter.timeLimit.start}}` and `{{filter.timeLimit.end}}` — for date range filters
 
-## How to Add and Use Filters
+## How to add and use filters
 
 <iframe className="w-full aspect-video" src="https://www.youtube.com/embed/J9TFEWmVczI?list=PLgErWFh-dyiGp9yUDnnx67wHEeNqzzMXZ" title="How to use filters &amp; dynamic bindings in OpenLIT – Create Interactive Dashboards with ClickHouse" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
-## SQL Example with Mustache Bindings
+## SQL example with mustache bindings
 
 ```sql
 SELECT
@@ -44,12 +44,12 @@ In this example:
 
 * `{{filter.timeLimit.start}}` & `{{filter.timeLimit.end}}` are bound to a date range filter
 
-## Supported Filter Types
+## Supported filter types
 
 * **Date Range** → `{{filter.timeLimit.start}}`, `{{filter.timeLimit.end}}`
 * **(Coming soon)**: Dynamic filters etc
 
-## Best Practices
+## Best practices
 
 * Always use meaningful keys like `team_id`, `env`, or `region`
 * Use `coalesce({{param}}, 'default')` to provide fallback values in ClickHouse

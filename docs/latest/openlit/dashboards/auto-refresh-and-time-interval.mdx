@@ -5,20 +5,20 @@ description: Learn how to enable auto-refresh and set time intervals in OpenLIT 
 
 You can configure OpenLIT dashboards to automatically refresh data at set intervals. This feature is essential for live monitoring dashboards, status boards, and any view that requires up-to-date metrics from ClickHouse.
 
-## Why Use Refresh Intervals?
+## Why use refresh intervals?
 
 Refresh intervals allow you to:
 - Keep data fresh without manual reloads and automatically re-run queries behind the scenes  
 - Power live dashboards for operations and support teams  
 - Monitor real-time metrics
 
-## How to Enable Auto-Refresh
+## How to enable auto-refresh
 
 <iframe className="w-full aspect-video" src="https://www.youtube.com/embed/YCplfvm6_W0?list=PLgErWFh-dyiGp9yUDnnx67wHEeNqzzMXZ" title="How to Auto Refresh &amp; Select Time Interval in OpenLIT – Real-Time Dashboards with ClickHouse" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
 Once set, the dashboard will automatically re-fetch data from ClickHouse at the selected interval.
 
-## Available Refresh Rate
+## Available refresh rate
 
 | Interval   | Use Case                          |
 |------------|-----------------------------------|
@@ -29,7 +29,7 @@ Once set, the dashboard will automatically re-fetch data from ClickHouse at the 
 | 10 minutes | Less load on db			             |
 
 
-## Available Time Intervals
+## Available time intervals
 
 | Range  | Description                            | Example Use Case                          |
 | ------ | -------------------------------------- | ----------------------------------------- |
@@ -50,7 +50,7 @@ WHERE event_time BETWEEN {{filter.timeLimit.start}} AND {{filter.timeLimit.end}}
 Use shorter intervals only for optimized queries. Long-running queries + high refresh rates can overload your ClickHouse backend.
 </Tip>
 
-## Best Practices
+## Best practices
 
 - Use dynamic bindings like `{{filter.timeLimit.start}}`, `{{filter.timeLimit.end}}` to make your chart respond to dashboard time filters. 
 - Avoid using `LIMIT 1000` or wide result sets on high-frequency updates  

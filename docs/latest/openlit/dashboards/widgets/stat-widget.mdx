@@ -5,13 +5,13 @@ description: Learn how to use the Statistics Widget in OpenLIT to display key me
 
 The **Statistics Widget** (or stat card) is designed to highlight your most important metrics in a clean, bold format. It’s ideal for surfacing KPIs, real-time values, or summary statistics at a glance.
 
-## Use Cases
+## When to use
 
 - Display total signups, revenue, or active users  
 - Show conversion rates, success percentages, or API error counts  
 - Track live values on operational dashboards  
 
-## How to Add a Stat Card
+## How to add a stat card
 
 <iframe className="w-full aspect-video" src="https://www.youtube.com/embed/_XY28a192Io?list=PLgErWFh-dyiGp9yUDnnx67wHEeNqzzMXZ" title="How to Use the Stat Widget in OpenLIT – Visualize Trends Over Time" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 
@@ -51,7 +51,7 @@ WITH
 	AND Timestamp >= prev_start_time AND Timestamp <= end_time\n
 ````
 
-## Configuration Options
+## Configuration options
 
 * Set **prefix/suffix** (e.g. `$`, `%`, `ms`)
 * Choose **colors**
@@ -61,7 +61,7 @@ WITH
 Use dynamic filters like `{{filter.timeLimit.start}}`, `{{filter.timeLimit.end}}` to make the stat card responsive to dashboard-level controls.
 </Tip>
  
-## Best Practices
+## Best practices
 
 * Combine stat cards with charts for more context
 * Use consistent units (e.g., %, \$, MB)

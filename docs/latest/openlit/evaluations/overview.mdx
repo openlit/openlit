@@ -3,10 +3,19 @@ title: "Overview"
 description: "Automated Eval scoring, hallucination detection, bias monitoring for LLMs apps"
 ---
 
-
 OpenLIT provides automated evaluation that helps you assess and monitor the quality, safety, and performance of your LLM outputs across development and production environments.
 
-## Why Evaluations?
+<video
+      autoPlay
+      muted
+      loop
+      controls
+      className="w-full aspect-video rounded-xl"
+      src="/images/evaluations.mp4"
+    >
+    </video>
+
+## Why evaluations?
 
 Evaluation is crucial for improving the accuracy and robustness of language models, ultimately enhancing user experience and trust in your AI applications. Here are the key benefits:
 
@@ -16,7 +25,7 @@ Evaluation is crucial for improving the accuracy and robustness of language mode
 - **Cost Optimization**: Monitor cost-effectiveness and ROI of different AI configurations and model choices
 - **Continuous Improvement**: Build data-driven insights for A/B testing, optimization, and iterative development
 
-## AI Evaluation Methods
+## AI evaluation methods
 
 OpenLIT provides automated LLM evaluation and testing capabilities for production AI applications:
 
@@ -28,7 +37,7 @@ Zero-setup AI quality monitoring that automatically evaluates your LLM responses
 - **Smart Scheduling**: Configure evaluation frequency and sampling for cost optimization
 - **Real-time Scoring**: Instant evaluation results visible in trace details and dashboards
 
-### SDK-Based Evaluations  
+### Programmatic evaluations  
 
 Programmatic AI evaluation tools for custom testing workflows and development pipelines:
 
@@ -37,17 +46,14 @@ Programmatic AI evaluation tools for custom testing workflows and development pi
 
 ---
 
-<CardGroup cols={2}>
-  <Card title="LLM-as-a-Judge" href="/latest/openlit/observability/evaluations/evaluation-methods/llm-as-a-judge" icon='gavel'>
+<CardGroup cols={3}>
+  <Card title="LLM-as-a-Judge" href="/latest/openlit/evaluations/llm-as-a-judge" icon='gavel'>
     Use advanced LLMs to evaluate AI application quality with automated scoring
   </Card>
-  <Card title="SDK Evaluations" href="/latest/sdk/features/evaluations" icon='code'>
-    Implement evaluations programmatically with hallucination, bias, and toxicity detection
-  </Card>
-  <Card title="Programmatic Evaluations" href="/latest/sdk/quickstart-programmatic-evals" icon='bolt'>
+  <Card title="Programmatic evaluations" href="/latest/sdk/quickstart-programmatic-evals" icon='bolt'>
     Quick start guide for implementing custom evaluations in your code
   </Card>
-  <Card title="Metrics Dashboard" href="/latest/openlit/observability/metrics" icon='chart-line'>
-    View evaluation metrics and trends through comprehensive dashboards
+  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
+    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
   </Card>
 </CardGroup>

@@ -40,14 +40,14 @@
           {
             "group": "Getting Started",
             "pages": [
-              "latest/introduction",
+              "latest/overview",
               "latest/openlit/installation",
               {
                 "group": "Quickstarts",
                 "icon": "bolt",
                 "pages": [
                   "latest/openlit/quickstart-ai-observability",
-                  "latest/openlit/quickstart-programmatic-evals",
+                  "latest/openlit/quickstart-evals",
                   "latest/openlit/quickstart-guard",
                   "latest/openlit/quickstart-gpu",
                   "latest/openlit/quickstart-vectordb-observability",

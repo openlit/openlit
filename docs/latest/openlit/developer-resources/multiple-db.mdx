@@ -5,7 +5,8 @@ sidebarTitle: 'Connect Multiple Databases'
 ---
 
 OpenLIT allows you to add and switch between multiple ClickHouse databases, which helps manage observability data, prompts, and secrets separately for various environments. This feature enables users to maintain distinct databases tailored to specific environments or tenants, all while using a single OpenLIT deployment for efficient data analysis. The active database you select will power the data displayed across different sections of the application.
-## When to Use This Feature
+
+## When to use this feature
 
 This feature is particularly useful in the following scenarios:
 
@@ -28,3 +29,17 @@ This feature is particularly useful in the following scenarios:
 5. Click **Save** to confirm.
 6. Simply **enable** the desired database to view its data. 
 7. The selected active database will power data shown on the dashboards, requests page, Prompt Hub, and Vault secrets.
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Create a dashboard" href="/latest/openlit/dashboards/overview" icon='grid'>
+    Create custom visualizations with flexible widgets, queries, and real-time AI monitoring
+  </Card>
+  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
+    Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+  <Card title="LLM playground" href="/latest/openlit/prompts-experiments/openground" icon='flask'>
+    Compare cost, duration, and response tokens across different LLMs to find the most efficient model
+  </Card>
+</CardGroup>
