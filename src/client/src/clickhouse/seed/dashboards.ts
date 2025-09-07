@@ -18,7 +18,7 @@ export default async function CreateCustomDashboardsSeed(databaseConfigId?: stri
 		return;
 	}
 
-	if (isBoardTableEmptyData) {
+	if (!isBoardTableEmptyData) {
 		console.log(
 			`********* Board Table is not empty hence skipping seeding *********`
 		);
