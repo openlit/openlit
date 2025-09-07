@@ -44,7 +44,4 @@ WORKDIR /root/
 # Copy the operator binary
 COPY --from=builder /workspace/operator .
 
-# Create SDK directory (SDK will be mounted from host)
-RUN mkdir -p /openlit-sdk/python
-
 ENTRYPOINT ["./operator"]
