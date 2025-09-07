@@ -1,0 +1,95 @@
+# Advanced OpenLIT AutoInstrumentation Example
+# This demonstrates advanced configuration options including custom packages,
+# environment variables, and complex pod selection
+
+apiVersion: openlit.io/v1alpha1
+kind: AutoInstrumentation
+metadata:
+  name: advanced-openlit-instrumentation
+  namespace: production
+spec:
+  # Advanced pod selection with labels and expressions
+  selector:
+    matchLabels:
+      app.type: "ai-application"
+      team: "ml-platform"
+    matchExpressions:
+    - key: "environment"
+      operator: In
+      values: ["production", "staging"]
+    - key: "framework"
+      operator: In
+      values: ["django", "fastapi", "flask"]
+  
+  # Ignore certain pods even if they match the selector
+  ignore:
+    matchLabels:
+      skip-instrumentation: "true"
+      openlit.ignore: "true"
+  
+  # OTLP configuration with headers and timeout
+  otlp:
+    endpoint: "https://otel-collector.monitoring.svc.cluster.local:4318"
+    headers: "authorization=Bearer <your-token>,x-tenant-id=production"
+    timeout: 30
+  
+  # Advanced Python instrumentation configuration
+  python:
+    instrumentation:
+      enabled: true
+      provider: openlit
+      version: "1.0.0"
+      imagePullPolicy: IfNotPresent
+      
+      # Custom packages to install alongside instrumentation
+      customPackages: "my-custom-tracer==2.1.0,prometheus-client>=0.15.0,redis>=4.0.0"
+      
+      # Custom init container image (optional)
+      # customInitImage: "ghcr.io/openlit/openlit-ai-instrumentation:v1.0.0"
+      
+      # Environment variables to inject into instrumented containers
+      env:
+      - name: OPENLIT_APPLICATION_NAME
+        value: "ml-inference-service"
+      - name: OPENLIT_VERSION
+        value: "v2.1.0"
+      - name: CUSTOM_TRACE_CONFIG
+        value: "high-verbosity"
+      
+      # Environment variables from secrets
+      - name: OPENAI_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: ai-service-secrets
+            key: openai-api-key
+      - name: ANTHROPIC_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: ai-service-secrets
+            key: anthropic-api-key
+            optional: true
+      
+      # Environment variables from configmaps
+      - name: MODEL_CONFIG
+        valueFrom:
+          configMapKeyRef:
+            name: ml-model-config
+            key: default-model
+      
+      # Environment variables from pod fields
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: NODE_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: spec.nodeName
+  
+  # Resource attributes for telemetry
+  resource:
+    environment: production

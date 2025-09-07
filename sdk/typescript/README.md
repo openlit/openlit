@@ -161,7 +161,7 @@ Now that your LLM observability data is being collected and sent to configured O
 
 If you want to use OpenLIT's Observability Dashboard to monitor LLM usage—like cost, tokens, and user interactions—please check out our [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
 
-If you're sending metrics and traces to other observability tools, take a look at our [Connections Guide](https://docs.openlit.io/latest/connections/intro) to start using a pre-built dashboard we have created for these tools.
+If you're sending metrics and traces to other observability tools, take a look at our [Connections Guide](https://docs.openlit.io/latest/destinations/intro) to start using a pre-built dashboard we have created for these tools.
 
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
 
