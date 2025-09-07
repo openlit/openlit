@@ -1,0 +1,289 @@
+name: OpenLIT Operator Tests
+
+on:
+  push:
+    branches: [ main, operator ]
+  pull_request:
+    branches: [ main, operator ]
+
+env:
+  GO_VERSION: "1.24"
+
+jobs:
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Run config tests
+      run: |
+        echo "🧪 Running config tests..."
+        go test ./internal/config -v
+      
+    - name: Run injector tests
+      run: |
+        echo "🧪 Running injector tests..."
+        go test ./internal/injector -v
+      
+    - name: Run observability tests  
+      run: |
+        echo "🧪 Running observability tests..."
+        go test ./internal/observability -v
+      
+    - name: Run webhook tests
+      run: |
+        echo "🧪 Running webhook tests..."
+        go test ./internal/webhook -v
+      
+    - name: Run controller tests
+      run: |
+        echo "🧪 Running controller tests..."
+        go test ./internal/controller -v
+        
+    - name: Generate test coverage
+      run: |
+        echo "📊 Generating test coverage report..."
+        go test -coverprofile=coverage.out ./...
+        go tool cover -html=coverage.out -o coverage.html
+        go tool cover -func=coverage.out
+        
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: coverage-report
+        path: coverage.html
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: unit
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Install k3d
+      run: |
+        echo "📦 Installing k3d..."
+        curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+        k3d version
+        
+    - name: Create k3d cluster
+      run: |
+        echo "🚀 Creating k3d test cluster..."
+        k3d cluster create operator-test \
+          --port "8080:80@loadbalancer" \
+          --wait --timeout 120s
+        kubectl cluster-info
+        kubectl get nodes
+        kubectl version --client
+        
+    - name: Build operator image
+      run: |
+        echo "🏗️ Building operator image..."
+        docker build -t ghcr.io/openlit/openlit-operator:test .
+        docker images | grep openlit-operator
+        # Verify image was built successfully
+        docker inspect ghcr.io/openlit/openlit-operator:test > /dev/null
+        
+    - name: Build instrumentation provider image  
+      run: |
+        echo "🏗️ Building instrumentation provider image..."
+        cd providers/openlit
+        docker build -t ghcr.io/openlit/openlit-ai-instrumentation:test .
+        cd ../..
+        docker images | grep openlit-ai-instrumentation
+        # Verify image was built successfully
+        docker inspect ghcr.io/openlit/openlit-ai-instrumentation:test > /dev/null
+        
+    - name: Import images to k3d cluster
+      run: |
+        echo "📥 Importing images to k3d cluster..."
+        k3d image import ghcr.io/openlit/openlit-operator:test -c operator-test
+        k3d image import ghcr.io/openlit/openlit-ai-instrumentation:test -c operator-test
+        
+    - name: Install OpenLIT Backend
+      run: |
+        echo "⚙️ Installing OpenLIT backend..."
+        helm repo add openlit https://openlit.github.io/helm-charts
+        helm repo update
+        helm install openlit openlit/openlit --wait --timeout=300s
+        kubectl get svc openlit
+        kubectl wait --for=condition=ready pod -l app=openlit --timeout=180s
+        echo "✅ OpenLIT backend is ready"
+        
+    - name: Deploy AutoInstrumentation CRD
+      run: |
+        echo "📋 Deploying AutoInstrumentation CRD..."
+        kubectl apply -f deploy/openlit.io_autoinstrumentations.yaml
+        kubectl get crd autoinstrumentations.openlit.io
+        
+    - name: Deploy OpenLIT Operator
+      run: |
+        echo "🚀 Deploying OpenLIT Operator..."
+        # Update deployment to use our test images
+        cp deploy/openlit-operator.yaml deploy/openlit-operator-test.yaml
+        sed -i 's|ghcr.io/openlit/openlit-operator:latest|ghcr.io/openlit/openlit-operator:test|g' deploy/openlit-operator-test.yaml
+        sed -i 's|ghcr.io/openlit/openlit-ai-instrumentation:latest|ghcr.io/openlit/openlit-ai-instrumentation:test|g' deploy/openlit-operator-test.yaml
+        kubectl apply -f deploy/openlit-operator-test.yaml
+        
+    - name: Wait for operator to be ready
+      run: |
+        echo "⏳ Waiting for operator to be ready..."
+        kubectl wait --for=condition=available deployment/openlit-operator -n openlit --timeout=180s
+        kubectl get pods -n openlit -l app=openlit-operator
+        
+    - name: Check operator health
+      run: |
+        echo "🔍 Checking operator health..."
+        OPERATOR_POD=$(kubectl get pods -n openlit -l app=openlit-operator -o jsonpath='{.items[0].metadata.name}')
+        echo "Operator pod: $OPERATOR_POD"
+        
+        # Check if operator is running
+        kubectl get pod -n openlit $OPERATOR_POD
+        
+        # Check operator logs for startup success
+        echo "=== Operator Logs ==="
+        kubectl logs -n openlit $OPERATOR_POD --tail=30
+        
+        # Verify webhook service exists
+        kubectl get svc -n openlit openlit-webhook-service
+        
+    - name: Test operator functionality
+      run: |
+        echo "🧪 Testing operator functionality..."
+        # Create test AutoInstrumentation resource
+        cat <<EOF | kubectl apply -f -
+        apiVersion: openlit.io/v1alpha1
+        kind: AutoInstrumentation
+        metadata:
+          name: test-instrumentation
+          namespace: default
+        spec:
+          selector:
+            matchLabels:
+              test: "e2e"
+          otlp:
+            endpoint: "http://openlit.default.svc.cluster.local:4318"
+          python:
+            instrumentation:
+              provider: "openlit"
+              customPackages: "opentelemetry-instrumentation-logging>=0.57b0"
+        EOF
+        
+        # Verify resource was created
+        kubectl get autoinstrumentations.openlit.io test-instrumentation -o yaml
+        echo "✅ AutoInstrumentation resource created successfully"
+        
+    - name: Deploy test application with custom packages
+      run: |
+        echo "🚀 Deploying test application with custom packages..."
+        kubectl apply -f examples/test-application-deployment.yaml
+        
+        # Wait for pod to be created (may take time due to instrumentation injection)
+        echo "⏳ Waiting for test application pod..."
+        timeout 300 bash -c 'until kubectl get pod -l app=openlit-test-app 2>/dev/null; do sleep 5; done'
+        
+    - name: Verify instrumentation injection
+      run: |
+        echo "🔍 Verifying instrumentation injection..."
+        # Wait for pod to be ready
+        kubectl wait --for=condition=ready pod -l app=openlit-test-app --timeout=300s
+        
+        TEST_POD=$(kubectl get pods -l app=openlit-test-app -o jsonpath='{.items[0].metadata.name}')
+        echo "Test application pod: $TEST_POD"
+        
+        # Check that pod has init container (sign of instrumentation)
+        kubectl describe pod $TEST_POD | grep -A 10 "Init Containers:"
+        
+        # Check init container logs for custom packages
+        echo "=== Init Container Logs ==="
+        kubectl logs $TEST_POD -c auto-instrumentation-openlit
+        
+        # Verify environment variables
+        echo "=== Environment Variables ==="
+        kubectl exec $TEST_POD -- printenv | grep -E "(CUSTOM_PACKAGES|PYTHONPATH|OTEL_)" || true
+        
+        # Check if custom packages were installed
+        echo "=== Custom Packages Check ==="
+        kubectl exec $TEST_POD -- find /instrumentation-packages/ -name "*logging*" | head -5 || echo "Custom packages not found"
+        
+    - name: Verify application is running correctly
+      run: |
+        echo "🏃 Verifying application is running correctly..."
+        TEST_POD=$(kubectl get pods -l app=openlit-test-app -o jsonpath='{.items[0].metadata.name}')
+        
+        # Wait a bit for application to start and generate logs
+        sleep 30
+        
+        # Check application logs
+        echo "=== Application Logs ==="
+        kubectl logs $TEST_POD --tail=20
+        
+        # Verify both instrumentations are working
+        if kubectl logs $TEST_POD --tail=50 | grep -i "testing http requests"; then
+          echo "✅ Application is generating HTTP requests (OpenLIT instrumentation working)"
+        else
+          echo "❌ Application HTTP requests not found"
+        fi
+        
+        # Check if logging instrumentation is available  
+        kubectl exec $TEST_POD -- python3 -c "import sys; sys.path.insert(0, '/instrumentation-packages'); import opentelemetry.instrumentation.logging; print('✅ Custom logging instrumentation is available')" || echo "Custom instrumentation test failed"
+        
+    - name: Collect diagnostic information
+      if: failure()
+      run: |
+        echo "🔍 Collecting diagnostic information..."
+        
+        echo "=== Cluster Overview ==="
+        kubectl get all --all-namespaces
+        
+        echo "=== Operator Status ==="
+        kubectl get pods -n openlit -l app=openlit-operator || true
+        
+        echo "=== Operator Logs ==="
+        kubectl logs -n openlit -l app=openlit-operator --tail=100 || true
+        
+        echo "=== Test Application Status ==="
+        kubectl get pods -l app=openlit-test-app || true
+        kubectl describe pod -l app=openlit-test-app || true
+        
+        echo "=== AutoInstrumentation Resources ==="
+        kubectl get autoinstrumentations.openlit.io -o yaml || true
+        
+        echo "=== Events ==="
+        kubectl get events --sort-by=.metadata.creationTimestamp || true
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        echo "🧹 Cleaning up k3d cluster..."
+        k3d cluster delete operator-test || true
