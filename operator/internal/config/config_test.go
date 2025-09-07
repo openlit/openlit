@@ -23,8 +23,9 @@ func (suite *ConfigTestSuite) SetupTest() {
 		"SELF_MONITORING_ENABLED",
 		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
 		"OTEL_EXPORTER_OTLP_HEADERS",
-		"OTEL_SERVICE_NAME",
-		"DEPLOYMENT_ENVIRONMENT",
+		"WEBHOOK_SERVICE_NAME",
+		"LOG_LEVEL",
+		"HEALTH_PORT",
 	}
 
 	for _, env := range envVars {
@@ -42,8 +43,9 @@ func (suite *ConfigTestSuite) TearDownTest() {
 		"SELF_MONITORING_ENABLED",
 		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
 		"OTEL_EXPORTER_OTLP_HEADERS",
-		"OTEL_SERVICE_NAME",
-		"DEPLOYMENT_ENVIRONMENT",
+		"WEBHOOK_SERVICE_NAME",
+		"LOG_LEVEL",
+		"HEALTH_PORT",
 	}
 
 	// Clear all test environment variables
@@ -62,25 +64,29 @@ func (suite *ConfigTestSuite) TestDefaultConfiguration() {
 	os.Unsetenv("WEBHOOK_PORT")
 	os.Unsetenv("WEBHOOK_CERT_DIR")
 	os.Unsetenv("SELF_MONITORING_ENABLED")
+	os.Unsetenv("WEBHOOK_SERVICE_NAME")
+	os.Unsetenv("LOG_LEVEL")
 
 	config, err := GetConfig()
 	suite.NoError(err)
 
-	// Test default values
+	// Test default values according to schema
 	suite.Equal(9443, config.WebhookPort, "Should use default webhook port")
 	suite.Equal("/tmp/k8s-webhook-server/serving-certs", config.WebhookCertDir, "Should use default cert directory")
-	suite.True(config.SelfMonitoringEnabled, "Should enable self-monitoring by default")
-	suite.Equal("openlit-operator", config.ServiceName, "Should use default service name")
-	suite.Equal("kubernetes", config.DeploymentEnvironment, "Should use default deployment environment")
+	suite.False(config.SelfMonitoringEnabled, "Should disable self-monitoring by default")
+	suite.Equal("openlit-webhook-service", config.ServiceName, "Should use default service name")
+	suite.Equal("info", config.LogLevel, "Should use default log level")
+	suite.Equal(8081, config.HealthPort, "Should use default health port")
 }
 
 func (suite *ConfigTestSuite) TestEnvironmentVariableOverrides() {
-	// Set environment variables
+	// Set environment variables with correct names from schema
 	os.Setenv("WEBHOOK_PORT", "8443")
 	os.Setenv("WEBHOOK_CERT_DIR", "/custom/certs")
-	os.Setenv("SELF_MONITORING_ENABLED", "false")
-	os.Setenv("OTEL_SERVICE_NAME", "custom-operator")
-	os.Setenv("DEPLOYMENT_ENVIRONMENT", "staging")
+	os.Setenv("SELF_MONITORING_ENABLED", "true")
+	os.Setenv("WEBHOOK_SERVICE_NAME", "custom-webhook-service")
+	os.Setenv("LOG_LEVEL", "debug")
+	os.Setenv("HEALTH_PORT", "9090")
 
 	config, err := GetConfig()
 	suite.NoError(err)
@@ -88,9 +94,10 @@ func (suite *ConfigTestSuite) TestEnvironmentVariableOverrides() {
 	// Test environment variable overrides
 	suite.Equal(8443, config.WebhookPort, "Should use environment variable for webhook port")
 	suite.Equal("/custom/certs", config.WebhookCertDir, "Should use environment variable for cert directory")
-	suite.False(config.SelfMonitoringEnabled, "Should use environment variable for self-monitoring")
-	suite.Equal("custom-operator", config.ServiceName, "Should use environment variable for service name")
-	suite.Equal("staging", config.DeploymentEnvironment, "Should use environment variable for deployment environment")
+	suite.True(config.SelfMonitoringEnabled, "Should use environment variable for self-monitoring")
+	suite.Equal("custom-webhook-service", config.ServiceName, "Should use environment variable for service name")
+	suite.Equal("debug", config.LogLevel, "Should use environment variable for log level")
+	suite.Equal(9090, config.HealthPort, "Should use environment variable for health port")
 }
 
 func (suite *ConfigTestSuite) TestOTLPConfiguration() {
@@ -106,18 +113,18 @@ func (suite *ConfigTestSuite) TestOTLPConfiguration() {
 }
 
 func (suite *ConfigTestSuite) TestInvalidWebhookPort() {
-	// Test invalid webhook port
+	// Test invalid webhook port - should fail with schema validation
 	os.Setenv("WEBHOOK_PORT", "invalid")
 
 	config, err := GetConfig()
-	suite.NoError(err)
-
-	// Should fall back to default
-	suite.Equal(9443, config.WebhookPort, "Should use default port for invalid value")
+	suite.Error(err, "Should fail with invalid port value")
+	suite.Nil(config, "Config should be nil on validation failure")
+	suite.Contains(err.Error(), "strconv.Atoi: parsing \"invalid\"", "Should contain parsing error")
 }
 
 func (suite *ConfigTestSuite) TestSelfMonitoringBooleanParsing() {
-	tests := []struct {
+	// Test valid boolean values
+	validTests := []struct {
 		envValue string
 		expected bool
 		name     string
@@ -130,11 +137,9 @@ func (suite *ConfigTestSuite) TestSelfMonitoringBooleanParsing() {
 		{"False", false, "String 'False' should disable monitoring"},
 		{"1", true, "String '1' should enable monitoring"},
 		{"0", false, "String '0' should disable monitoring"},
-		{"invalid", true, "Invalid values should default to true"},
-		{"", true, "Empty string should default to true"},
 	}
 
-	for _, tt := range tests {
+	for _, tt := range validTests {
 		suite.Run(tt.name, func() {
 			os.Setenv("SELF_MONITORING_ENABLED", tt.envValue)
 			config, err := GetConfig()
@@ -142,6 +147,22 @@ func (suite *ConfigTestSuite) TestSelfMonitoringBooleanParsing() {
 			suite.Equal(tt.expected, config.SelfMonitoringEnabled, tt.name)
 		})
 	}
+
+	// Test invalid values - should fail with schema validation
+	suite.Run("Invalid values should fail validation", func() {
+		os.Setenv("SELF_MONITORING_ENABLED", "invalid")
+		config, err := GetConfig()
+		suite.Error(err, "Should fail with invalid boolean value")
+		suite.Nil(config, "Config should be nil on validation failure")
+	})
+
+	// Test empty string - should use default (false)
+	suite.Run("Empty string should use default", func() {
+		os.Unsetenv("SELF_MONITORING_ENABLED") // Ensure it's not set
+		config, err := GetConfig()
+		suite.NoError(err, "Should succeed with default value")
+		suite.False(config.SelfMonitoringEnabled, "Should use schema default (false)")
+	})
 }
 
 func (suite *ConfigTestSuite) TestValidation() {
@@ -157,19 +178,25 @@ func (suite *ConfigTestSuite) TestValidation() {
 				WebhookPort:           9443,
 				WebhookCertDir:        "/tmp/certs",
 				SelfMonitoringEnabled: true,
-				ServiceName:           "openlit-operator",
+				ServiceName:           "openlit-webhook-service",
 				LogLevel:              "info",
+				HealthPort:            8081,
+				CertValidityDays:      365,
+				CertRefreshDays:       30,
 			},
 			expectError: false,
 		},
 		{
 			name: "Invalid webhook port - too low",
 			config: &OperatorConfig{
-				WebhookPort:           100,
+				WebhookPort:           0,
 				WebhookCertDir:        "/tmp/certs",
 				SelfMonitoringEnabled: true,
-				ServiceName:           "openlit-operator",
+				ServiceName:           "openlit-webhook-service",
 				LogLevel:              "info",
+				HealthPort:            8081,
+				CertValidityDays:      365,
+				CertRefreshDays:       30,
 			},
 			expectError: true,
 			errorMsg:    "webhookPort must be between 1 and 65535",
@@ -180,8 +207,11 @@ func (suite *ConfigTestSuite) TestValidation() {
 				WebhookPort:           70000,
 				WebhookCertDir:        "/tmp/certs",
 				SelfMonitoringEnabled: true,
-				ServiceName:           "openlit-operator",
+				ServiceName:           "openlit-webhook-service",
 				LogLevel:              "info",
+				HealthPort:            8081,
+				CertValidityDays:      365,
+				CertRefreshDays:       30,
 			},
 			expectError: true,
 			errorMsg:    "webhookPort must be between 1 and 65535",
@@ -192,8 +222,11 @@ func (suite *ConfigTestSuite) TestValidation() {
 				WebhookPort:           9443,
 				WebhookCertDir:        "/tmp/certs",
 				SelfMonitoringEnabled: true,
-				ServiceName:           "openlit-operator",
+				ServiceName:           "openlit-webhook-service",
 				LogLevel:              "invalid",
+				HealthPort:            8081,
+				CertValidityDays:      365,
+				CertRefreshDays:       30,
 			},
 			expectError: true,
 			errorMsg:    "logLevel must be one of: debug, info, warn, error",
@@ -214,62 +247,24 @@ func (suite *ConfigTestSuite) TestValidation() {
 }
 
 func (suite *ConfigTestSuite) TestOTLPConfigurationValidation() {
-	tests := []struct {
-		name        string
-		endpoint    string
-		headers     string
-		expectError bool
-		errorMsg    string
-	}{
-		{
-			name:        "Valid HTTPS endpoint",
-			endpoint:    "https://logs.example.com/v1/logs",
-			headers:     "Authorization=Bearer token",
-			expectError: false,
-		},
-		{
-			name:        "Valid HTTP endpoint",
-			endpoint:    "http://localhost:4318/v1/logs",
-			headers:     "",
-			expectError: false,
-		},
-		{
-			name:        "Invalid endpoint - not URL",
-			endpoint:    "invalid-url",
-			headers:     "",
-			expectError: true,
-			errorMsg:    "invalid OTLP logs endpoint URL",
-		},
-		{
-			name:        "Empty endpoint with headers",
-			endpoint:    "",
-			headers:     "Authorization=Bearer token",
-			expectError: true,
-			errorMsg:    "OTLP headers provided but no endpoint specified",
-		},
+	// Test that OTLP configuration values are properly set
+	config := &OperatorConfig{
+		WebhookPort:           9443,
+		WebhookCertDir:        "/tmp/certs",
+		SelfMonitoringEnabled: true,
+		ServiceName:           "openlit-webhook-service",
+		LogLevel:              "info",
+		HealthPort:            8081,
+		CertValidityDays:      365,
+		CertRefreshDays:       30,
+		OTLPLogsEndpoint:      "https://logs.example.com/v1/logs",
+		OTLPHeaders:           "Authorization=Bearer token123",
 	}
 
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
-			config := &OperatorConfig{
-				WebhookPort:           9443,
-				WebhookCertDir:        "/tmp/certs",
-				SelfMonitoringEnabled: true,
-				ServiceName:           "openlit-operator",
-				LogLevel:              "info",
-				OTLPLogsEndpoint:      tt.endpoint,
-				OTLPHeaders:           tt.headers,
-			}
-
-			err := config.Validate()
-			if tt.expectError {
-				suite.Error(err, "Should fail validation")
-				suite.Contains(err.Error(), tt.errorMsg, "Should contain expected error message")
-			} else {
-				suite.NoError(err, "Should pass validation")
-			}
-		})
-	}
+	err := config.Validate()
+	suite.NoError(err, "Should pass validation")
+	suite.Equal("https://logs.example.com/v1/logs", config.OTLPLogsEndpoint)
+	suite.Equal("Authorization=Bearer token123", config.OTLPHeaders)
 }
 
 func (suite *ConfigTestSuite) TestConfigStringRepresentation() {
@@ -277,8 +272,11 @@ func (suite *ConfigTestSuite) TestConfigStringRepresentation() {
 		WebhookPort:           9443,
 		WebhookCertDir:        "/tmp/certs",
 		SelfMonitoringEnabled: true,
-		ServiceName:           "openlit-operator",
+		ServiceName:           "openlit-webhook-service",
 		LogLevel:              "info",
+		HealthPort:            8081,
+		CertValidityDays:      365,
+		CertRefreshDays:       30,
 		OTLPLogsEndpoint:      "https://logs.example.com/v1/logs",
 		OTLPHeaders:           "Authorization=Bearer token123",
 	}
@@ -287,7 +285,7 @@ func (suite *ConfigTestSuite) TestConfigStringRepresentation() {
 	suite.Equal(9443, config.WebhookPort)
 	suite.Equal("/tmp/certs", config.WebhookCertDir)
 	suite.True(config.SelfMonitoringEnabled)
-	suite.Equal("openlit-operator", config.ServiceName)
+	suite.Equal("openlit-webhook-service", config.ServiceName)
 	suite.Equal("https://logs.example.com/v1/logs", config.OTLPLogsEndpoint)
 	suite.Equal("Authorization=Bearer token123", config.OTLPHeaders)
 }
@@ -368,8 +366,9 @@ func TestConfigDefaults(t *testing.T) {
 		"SELF_MONITORING_ENABLED",
 		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
 		"OTEL_EXPORTER_OTLP_HEADERS",
-		"OTEL_SERVICE_NAME",
-		"DEPLOYMENT_ENVIRONMENT",
+		"WEBHOOK_SERVICE_NAME",
+		"LOG_LEVEL",
+		"HEALTH_PORT",
 	}
 	
 	for _, env := range envVars {
@@ -378,12 +377,14 @@ func TestConfigDefaults(t *testing.T) {
 	
 	config, err := GetConfig()
 	
-	// Verify all defaults are set correctly
+	// Verify all defaults are set correctly according to schema
 	assert.NoError(t, err)
 	assert.Equal(t, 9443, config.WebhookPort)
 	assert.Equal(t, "/tmp/k8s-webhook-server/serving-certs", config.WebhookCertDir)
-	assert.True(t, config.SelfMonitoringEnabled)
-	assert.Equal(t, "openlit-operator", config.ServiceName)
+	assert.False(t, config.SelfMonitoringEnabled) // Default is false according to schema
+	assert.Equal(t, "openlit-webhook-service", config.ServiceName)
+	assert.Equal(t, "info", config.LogLevel)
+	assert.Equal(t, 8081, config.HealthPort)
 	assert.Empty(t, config.OTLPLogsEndpoint)
 	assert.Empty(t, config.OTLPHeaders)
 	

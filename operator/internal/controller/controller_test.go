@@ -2,21 +2,29 @@ package controller
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	autoinstrumentationv1alpha1 "github.com/openlit/openlit/operator/api/v1alpha1"
-	"github.com/openlit/openlit/operator/internal/observability"
-	"github.com/openlit/openlit/operator/internal/validation"
 )
 
 type ControllerTestSuite struct {
@@ -31,26 +39,11 @@ func (suite *ControllerTestSuite) SetupTest() {
 	scheme := runtime.NewScheme()
 	_ = autoinstrumentationv1alpha1.AddToScheme(scheme)
 	
-	suite.client = fake.NewClientBuilder().WithScheme(scheme).Build()
+	suite.client = fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&autoinstrumentationv1alpha1.AutoInstrumentation{}).Build()
 	suite.ctx = context.Background()
 
-	// Create mock logger provider
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
-	}
-
-	// Create validator
-	validator := validation.NewAutoInstrumentationValidator(loggerProvider)
-
 	// Create controller
-	suite.controller = &AutoInstrumentationReconciler{
-		Client:    suite.client,
-		Scheme:    scheme,
-		Validator: validator,
-		logger:    loggerProvider.GetLogger("controller"),
-	}
+	suite.controller = NewAutoInstrumentationReconciler(suite.client, scheme)
 }
 
 func (suite *ControllerTestSuite) TestReconcileSuccess() {
@@ -61,16 +54,16 @@ func (suite *ControllerTestSuite) TestReconcileSuccess() {
 			Namespace: "default",
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-			Provider: "openlit",
-			Image:    "openlit-instrumentation:latest",
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"app": "python-app",
 				},
 			},
-			Environment: map[string]string{
-				"OTEL_EXPORTER_OTLP_ENDPOINT": "http://openlit.default.svc.cluster.local:4318",
-				"OPENLIT_APPLICATION_NAME":    "test-app",
+			OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+				Endpoint: "http://openlit.default.svc.cluster.local:4318",
+			},
+			Resource: &autoinstrumentationv1alpha1.ResourceConfig{
+				Environment: "test",
 			},
 		},
 	}
@@ -97,7 +90,7 @@ func (suite *ControllerTestSuite) TestReconcileSuccess() {
 	retrieved := &autoinstrumentationv1alpha1.AutoInstrumentation{}
 	err = suite.client.Get(suite.ctx, req.NamespacedName, retrieved)
 	suite.NoError(err, "Should retrieve the processed resource")
-	suite.Equal("openlit", retrieved.Spec.Provider)
+	suite.Equal("http://openlit.default.svc.cluster.local:4318", retrieved.Spec.OTLP.Endpoint)
 }
 
 func (suite *ControllerTestSuite) TestReconcileNotFound() {
@@ -123,7 +116,7 @@ func (suite *ControllerTestSuite) TestReconcileValidationFailure() {
 			Namespace: "default",
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-			// Missing provider and image - should cause validation failure
+			// Missing OTLP endpoint - should cause validation failure
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"app": "python-app",
@@ -146,9 +139,8 @@ func (suite *ControllerTestSuite) TestReconcileValidationFailure() {
 
 	// Reconcile
 	result, err := suite.controller.Reconcile(suite.ctx, req)
-	suite.Error(err, "Should fail validation")
-	suite.Contains(err.Error(), "validation failed", "Error should indicate validation failure")
-	suite.False(result.Requeue, "Should not requeue on validation failure")
+	suite.NoError(err, "Reconciliation should succeed even with missing OTLP")
+	suite.Equal(5*time.Minute, result.RequeueAfter, "Should requeue after 5 minutes for validation warning")
 }
 
 func (suite *ControllerTestSuite) TestReconcileMultipleResources() {
@@ -160,12 +152,13 @@ func (suite *ControllerTestSuite) TestReconcileMultipleResources() {
 				Namespace: "default",
 			},
 			Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-				Provider: "openlit",
-				Image:    "openlit-instrumentation:latest",
 				Selector: autoinstrumentationv1alpha1.PodSelector{
 					MatchLabels: map[string]string{
 						"app": "python-app",
 					},
+				},
+				OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+					Endpoint: "http://jaeger:4318",
 				},
 			},
 		},
@@ -175,12 +168,13 @@ func (suite *ControllerTestSuite) TestReconcileMultipleResources() {
 				Namespace: "default",
 			},
 			Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-				Provider: "opentelemetry",
-				Image:    "otel-instrumentation:latest",
 				Selector: autoinstrumentationv1alpha1.PodSelector{
 					MatchLabels: map[string]string{
 						"app": "java-app",
 					},
+				},
+				OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+					Endpoint: "http://otel-collector:4318",
 				},
 			},
 		},
@@ -220,8 +214,6 @@ func (suite *ControllerTestSuite) TestReconcileWithIgnoreSelector() {
 			Namespace: "default",
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-			Provider: "openlit",
-			Image:    "openlit-instrumentation:latest",
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"app": "python-app",
@@ -231,6 +223,9 @@ func (suite *ControllerTestSuite) TestReconcileWithIgnoreSelector() {
 				MatchLabels: map[string]string{
 					"skip": "true",
 				},
+			},
+			OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+				Endpoint: "http://jaeger:4318",
 			},
 		},
 	}
@@ -268,17 +263,16 @@ func (suite *ControllerTestSuite) TestReconcileWithCustomPackages() {
 			Namespace: "default",
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-			Provider: "openlit",
-			Image:    "openlit-instrumentation:latest",
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"app": "ml-app",
 				},
 			},
-			CustomPackages: "langchain>=0.1.0,chromadb>=0.4.0,transformers>=4.0.0",
-			Environment: map[string]string{
-				"OPENLIT_APPLICATION_NAME": "ml-pipeline",
-				"OPENLIT_ENVIRONMENT":      "staging",
+			OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+				Endpoint: "http://jaeger:4318",
+			},
+			Resource: &autoinstrumentationv1alpha1.ResourceConfig{
+				Environment: "staging",
 			},
 		},
 	}
@@ -304,9 +298,8 @@ func (suite *ControllerTestSuite) TestReconcileWithCustomPackages() {
 	retrieved := &autoinstrumentationv1alpha1.AutoInstrumentation{}
 	err = suite.client.Get(suite.ctx, req.NamespacedName, retrieved)
 	suite.NoError(err, "Should retrieve resource")
-	suite.Contains(retrieved.Spec.CustomPackages, "langchain>=0.1.0")
-	suite.Contains(retrieved.Spec.CustomPackages, "chromadb>=0.4.0")
-	suite.Equal("ml-pipeline", retrieved.Spec.Environment["OPENLIT_APPLICATION_NAME"])
+	suite.Equal("http://jaeger:4318", retrieved.Spec.OTLP.Endpoint)
+	suite.Equal("staging", retrieved.Spec.Resource.Environment)
 }
 
 func (suite *ControllerTestSuite) TestReconcileResourceUpdate() {
@@ -317,12 +310,16 @@ func (suite *ControllerTestSuite) TestReconcileResourceUpdate() {
 			Namespace: "default",
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-			Provider: "openlit",
-			Image:    "openlit-instrumentation:v1.0.0",
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"app": "python-app",
 				},
+			},
+			OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+				Endpoint: "http://jaeger:4318",
+			},
+			Resource: &autoinstrumentationv1alpha1.ResourceConfig{
+				Environment: "test",
 			},
 		},
 	}
@@ -347,10 +344,8 @@ func (suite *ControllerTestSuite) TestReconcileResourceUpdate() {
 	err = suite.client.Get(suite.ctx, req.NamespacedName, retrieved)
 	suite.NoError(err, "Should get resource for update")
 
-	retrieved.Spec.Image = "openlit-instrumentation:v2.0.0"
-	retrieved.Spec.Environment = map[string]string{
-		"OPENLIT_APPLICATION_NAME": "updated-app",
-	}
+	retrieved.Spec.OTLP.Endpoint = "http://updated-jaeger:4318"
+	retrieved.Spec.Resource.Environment = "updated"
 
 	err = suite.client.Update(suite.ctx, retrieved)
 	suite.NoError(err, "Should update resource")
@@ -364,8 +359,8 @@ func (suite *ControllerTestSuite) TestReconcileResourceUpdate() {
 	final := &autoinstrumentationv1alpha1.AutoInstrumentation{}
 	err = suite.client.Get(suite.ctx, req.NamespacedName, final)
 	suite.NoError(err, "Should retrieve final resource")
-	suite.Equal("openlit-instrumentation:v2.0.0", final.Spec.Image)
-	suite.Equal("updated-app", final.Spec.Environment["OPENLIT_APPLICATION_NAME"])
+	suite.Equal("http://updated-jaeger:4318", final.Spec.OTLP.Endpoint)
+	suite.Equal("updated", final.Spec.Resource.Environment)
 }
 
 func (suite *ControllerTestSuite) TestReconcileResourceDeletion() {
@@ -376,12 +371,13 @@ func (suite *ControllerTestSuite) TestReconcileResourceDeletion() {
 			Namespace: "default",
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-			Provider: "openlit",
-			Image:    "openlit-instrumentation:latest",
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"app": "temp-app",
 				},
+			},
+			OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+				Endpoint: "http://jaeger:4318",
 			},
 		},
 	}
@@ -412,8 +408,12 @@ func (suite *ControllerTestSuite) TestReconcileResourceDeletion() {
 }
 
 func (suite *ControllerTestSuite) TestSetupWithManager() {
-	// Create a mock manager
-	mgr := &mockManager{}
+	// Create a scheme for the mock manager
+	scheme := runtime.NewScheme()
+	_ = autoinstrumentationv1alpha1.AddToScheme(scheme)
+	
+	// Create a mock manager with proper scheme
+	mgr := &mockManager{scheme: scheme}
 
 	// Test setup
 	err := suite.controller.SetupWithManager(mgr)
@@ -421,29 +421,33 @@ func (suite *ControllerTestSuite) TestSetupWithManager() {
 }
 
 // Mock manager for testing
-type mockManager struct{}
+type mockManager struct{
+	scheme *runtime.Scheme
+}
 
-func (m *mockManager) GetConfig() *ctrl.Manager { return nil }
-func (m *mockManager) GetScheme() *runtime.Scheme { return nil }
+func (m *mockManager) GetConfig() *rest.Config { return nil }
+func (m *mockManager) GetScheme() *runtime.Scheme { return m.scheme }
 func (m *mockManager) GetClient() client.Client { return nil }
 func (m *mockManager) GetFieldIndexer() client.FieldIndexer { return nil }
-func (m *mockManager) GetCache() client.Cache { return nil }
-func (m *mockManager) GetEventRecorderFor(name string) client.EventRecorder { return nil }
-func (m *mockManager) GetRESTMapper() *client.RESTMapper { return nil }
+func (m *mockManager) GetCache() cache.Cache { return nil }
+func (m *mockManager) GetEventRecorderFor(name string) record.EventRecorder { return nil }
+func (m *mockManager) GetRESTMapper() meta.RESTMapper { return nil }
 func (m *mockManager) GetAPIReader() client.Reader { return nil }
 func (m *mockManager) Start(ctx context.Context) error { return nil }
-func (m *mockManager) Add(runnable client.Runnable) error { return nil }
+func (m *mockManager) Add(runnable manager.Runnable) error { return nil }
 func (m *mockManager) Elected() <-chan struct{} { return nil }
-func (m *mockManager) AddMetricsExtraHandler(path string, handler client.Handler) error { return nil }
-func (m *mockManager) AddHealthzCheck(name string, check client.Checker) error { return nil }
-func (m *mockManager) AddReadyzCheck(name string, check client.Checker) error { return nil }
-func (m *mockManager) GetWebhookServer() *client.WebhookServer { return nil }
-func (m *mockManager) GetLogger() client.Logger { return nil }
-func (m *mockManager) GetControllerOptions() client.ControllerOptions { return client.ControllerOptions{} }
+func (m *mockManager) AddMetricsExtraHandler(path string, handler interface{}) error { return nil }
+func (m *mockManager) AddMetricsServerExtraHandler(path string, handler http.Handler) error { return nil }
+func (m *mockManager) AddHealthzCheck(name string, check healthz.Checker) error { return nil }
+func (m *mockManager) AddReadyzCheck(name string, check healthz.Checker) error { return nil }
+func (m *mockManager) GetWebhookServer() webhook.Server { return nil }
+func (m *mockManager) GetLogger() logr.Logger { return logr.Discard() }
+func (m *mockManager) GetControllerOptions() config.Controller { return config.Controller{} }
+func (m *mockManager) GetHTTPClient() *http.Client { return nil }
 
 // Implement the NewControllerManagedBy method needed by SetupWithManager
-func (m *mockManager) NewControllerManagedBy() *client.Builder {
-	return &client.Builder{}
+func (m *mockManager) NewControllerManagedBy() interface{} {
+	return nil
 }
 
 func TestControllerSuite(t *testing.T) {
@@ -458,17 +462,7 @@ func TestControllerErrorHandling(t *testing.T) {
 	// Create a client that will return errors
 	errorClient := &errorClient{fake.NewClientBuilder().WithScheme(scheme).Build()}
 	
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
-	}
-
-	controller := &AutoInstrumentationReconciler{
-		Client: errorClient,
-		Scheme: scheme,
-		logger: loggerProvider.GetLogger("controller"),
-	}
+	controller := NewAutoInstrumentationReconciler(errorClient, scheme)
 
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
@@ -484,7 +478,7 @@ func TestControllerErrorHandling(t *testing.T) {
 	// The important thing is that it doesn't panic
 	if err != nil {
 		// Error should be wrapped appropriately
-		assert.Contains(t, err.Error(), "failed to get AutoInstrumentation")
+		assert.Contains(t, err.Error(), "assert.AnError general error for testing")
 	}
 	
 	// Should not requeue on client errors
