@@ -703,6 +703,7 @@ func TestCircuitBreakerEdgeCases(t *testing.T) {
 	// Test circuit breaker under extreme conditions
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
+	_ = autoinstrumentationv1alpha1.AddToScheme(scheme)
 
 	// Create mock config and dynamic client
 	cfg := &config.OperatorConfig{

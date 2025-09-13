@@ -445,10 +445,10 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateOTLPConfig() {
 		{
 			name: "Invalid endpoint URL",
 			otlp: autoinstrumentationv1alpha1.OTLPConfig{
-				Endpoint: "not-a-valid-url",
+				Endpoint: "http://invalid url with spaces",
 			},
 			expectedErrors: []string{
-				"invalid OTLP endpoint URL: parse \"not-a-valid-url\": invalid URI for request",
+				"invalid OTLP endpoint URL:",
 			},
 			description: "Should fail with invalid URL",
 		},
@@ -521,6 +521,12 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateOTLPConfig() {
 			suite.Equal(len(tt.expectedErrors), len(result.Errors), "Error count mismatch for %s", tt.description)
 			if len(tt.expectedErrors) > 0 {
 				suite.NotEmpty(result.Errors, tt.description)
+				// Check if the actual error contains the expected substring
+				for i, expectedError := range tt.expectedErrors {
+					if i < len(result.Errors) {
+						suite.Contains(result.Errors[i], expectedError, "Error message should contain expected substring")
+					}
+				}
 			}
 
 			// Check warnings
