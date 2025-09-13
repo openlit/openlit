@@ -1,4 +1,4 @@
-name: OpenLIT Operator Tests
+name: Operator Tests
 
 on:
   push:

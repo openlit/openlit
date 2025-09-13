@@ -1,4 +1,4 @@
-name: Release OpenLIT Operator
+name: Release Operator
 
 on:
   push:
