@@ -337,6 +337,7 @@ def common_vectordb_logic(
             application_name,
             scope._start_time,
             scope._end_time,
+            scope._db_operation,
         )
 
 

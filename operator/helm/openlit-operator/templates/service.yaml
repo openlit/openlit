@@ -1,0 +1,23 @@
+{{- include "openlit-operator.validateValues" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openlit-operator.webhookServiceName" . }}
+  namespace: {{ include "openlit-operator.namespace" . }}
+  labels:
+    {{- include "openlit-operator.labels" . | nindent 4 }}
+    component: webhook
+  annotations:
+    {{- include "openlit-operator.annotations" . | nindent 4 }}
+    {{- with .Values.webhook.service.annotations }}
+    {{ toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.webhook.service.type }}
+  ports:
+  - name: webhook
+    port: {{ .Values.webhook.service.port }}
+    protocol: TCP
+    targetPort: {{ .Values.webhook.service.targetPort }}
+  selector:
+    {{- include "openlit-operator.selectorLabels" . | nindent 4 }}
