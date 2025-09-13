@@ -12,15 +12,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	autoinstrumentationv1alpha1 "github.com/openlit/openlit/operator/api/v1alpha1"
+	"github.com/openlit/openlit/operator/internal/config"
 	"github.com/openlit/openlit/operator/internal/controller"
-	"github.com/openlit/openlit/operator/internal/injector"
-	"github.com/openlit/openlit/operator/internal/observability"
-	"github.com/openlit/openlit/operator/internal/validation"
 	"github.com/openlit/openlit/operator/internal/webhook"
 )
 
@@ -36,21 +34,15 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 		testSuite = SetupTestSuite()
 		ctx = testSuite.Ctx
 
-		// Create mock logger provider
-		loggerProvider := MockLoggerProvider()
-
-		// Create validator
-		validator := validation.NewAutoInstrumentationValidator()
-
-		// Create controller
-		reconciler = &controller.AutoInstrumentationReconciler{
-			Client:    testSuite.Client,
-			Scheme:    testSuite.Client.Scheme(),
-			Validator: validator,
-		}
+		// Create controller - use the proper constructor
+		reconciler = controller.NewAutoInstrumentationReconciler(testSuite.Client, testSuite.Client.Scheme())
 
 		// Create webhook handler
-		webhookHandler = webhook.NewHandler(testSuite.Client, loggerProvider)
+		cfg := &config.OperatorConfig{
+			Namespace: "test-namespace",
+		}
+		dynamicClient := dynamicfake.NewSimpleDynamicClient(testSuite.Client.Scheme())
+		webhookHandler = webhook.NewHandler(cfg, testSuite.Client.Scheme(), dynamicClient)
 	})
 
 	AfterEach(func() {
@@ -66,16 +58,22 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"app": "python-web-app",
 						},
 					},
-					Environment: map[string]string{
-						"OTEL_EXPORTER_OTLP_ENDPOINT": "http://openlit.default.svc.cluster.local:4318",
-						"OPENLIT_APPLICATION_NAME":    "e2e-test-app",
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://openlit.default.svc.cluster.local:4318",
+					},
+					Resource: &autoinstrumentationv1alpha1.ResourceConfig{
+						Environment: "e2e-test",
 					},
 				},
 			}
@@ -99,7 +97,7 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 			retrieved := &autoinstrumentationv1alpha1.AutoInstrumentation{}
 			err = testSuite.Client.Get(ctx, req.NamespacedName, retrieved)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(retrieved.Spec.Provider).To(Equal("openlit"))
+			Expect(retrieved.Spec.Python.Instrumentation.Provider).To(Equal("openlit"))
 
 			By("Creating a pod that matches the selector")
 			pod := &corev1.Pod{
@@ -180,12 +178,19 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"app": "python-app",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 					Ignore: &autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
@@ -263,12 +268,19 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"language": "python",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			}
@@ -279,12 +291,19 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"type": "web-app",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			}
@@ -362,12 +381,19 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:v1.0.0",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"app": "test-app",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:v1.0.0",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			}
@@ -390,10 +416,11 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 			err = testSuite.Client.Get(ctx, req.NamespacedName, retrieved)
 			Expect(err).NotTo(HaveOccurred())
 
-			retrieved.Spec.Image = "openlit-instrumentation:v2.0.0"
-			retrieved.Spec.Environment = map[string]string{
-				"NEW_CONFIG": "updated-value",
+			retrieved.Spec.Python.Instrumentation.CustomInitImage = "openlit-instrumentation:v2.0.0"
+			if retrieved.Spec.Resource == nil {
+				retrieved.Spec.Resource = &autoinstrumentationv1alpha1.ResourceConfig{}
 			}
+			retrieved.Spec.Resource.Environment = "updated-env"
 
 			err = testSuite.Client.Update(ctx, retrieved)
 			Expect(err).NotTo(HaveOccurred())
@@ -406,8 +433,8 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 			final := &autoinstrumentationv1alpha1.AutoInstrumentation{}
 			err = testSuite.Client.Get(ctx, req.NamespacedName, final)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(final.Spec.Image).To(Equal("openlit-instrumentation:v2.0.0"))
-			Expect(final.Spec.Environment["NEW_CONFIG"]).To(Equal("updated-value"))
+			Expect(final.Spec.Python.Instrumentation.CustomInitImage).To(Equal("openlit-instrumentation:v2.0.0"))
+			Expect(final.Spec.Resource.Environment).To(Equal("updated-env"))
 		})
 
 		It("should handle AutoInstrumentation deletion", func() {
@@ -418,12 +445,19 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"app": "temp-app",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			}
@@ -466,9 +500,16 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
-					// Missing selector
+					// Missing selector - this should cause validation errors
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
+					},
 				},
 			}
 
@@ -571,12 +612,19 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"app": "multi-container-app",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			}
@@ -655,12 +703,19 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"app": "secure-app",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			}
@@ -737,12 +792,19 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"test": "concurrent",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			}
@@ -823,12 +885,19 @@ var _ = Describe("OpenLIT Operator Integration Tests", func() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"perf": "test",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			}

@@ -1,4 +1,4 @@
-name: Operator Tests
+name: Test Operator
 
 on:
   push:

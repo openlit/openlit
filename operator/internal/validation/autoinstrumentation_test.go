@@ -8,7 +8,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	autoinstrumentationv1alpha1 "github.com/openlit/openlit/operator/api/v1alpha1"
-	"github.com/openlit/openlit/operator/internal/observability"
 )
 
 type AutoInstrumentationValidatorTestSuite struct {
@@ -17,16 +16,8 @@ type AutoInstrumentationValidatorTestSuite struct {
 }
 
 func (suite *AutoInstrumentationValidatorTestSuite) SetupTest() {
-	// Create mock logger provider
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
-	}
-
-	suite.validator = &AutoInstrumentationValidator{
-		logger: loggerProvider.GetLogger("validation"),
-	}
+	// Create validator using the proper constructor
+	suite.validator = NewAutoInstrumentationValidator()
 }
 
 func (suite *AutoInstrumentationValidatorTestSuite) TestValidateValidConfiguration() {
@@ -36,16 +27,22 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateValidConfigurati
 			Namespace: "default",
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-			Provider: "openlit",
-			Image:    "openlit-instrumentation:latest",
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"app": "python-app",
 				},
 			},
-			Environment: map[string]string{
-				"OTEL_EXPORTER_OTLP_ENDPOINT": "http://openlit.default.svc.cluster.local:4318",
-				"OPENLIT_APPLICATION_NAME":    "test-app",
+			Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+				Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+					Provider:        "openlit",
+					CustomInitImage: "openlit-instrumentation:latest",
+				},
+			},
+			OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+				Endpoint: "http://openlit.default.svc.cluster.local:4318",
+			},
+			Resource: &autoinstrumentationv1alpha1.ResourceConfig{
+				Environment: "test",
 			},
 		},
 	}
@@ -72,10 +69,17 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateRequiredFields()
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						// Empty selector
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			},
@@ -92,12 +96,19 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateRequiredFields()
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"app": "python-app",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			},
@@ -112,8 +123,6 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateRequiredFields()
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchExpressions: []metav1.LabelSelectorRequirement{
 							{
@@ -122,6 +131,15 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateRequiredFields()
 								Values:   []string{"python-app", "web-app"},
 							},
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			},
@@ -332,10 +350,8 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateEnvironmentVaria
 					Value: "direct-value",
 					ValueFrom: &autoinstrumentationv1alpha1.EnvVarSource{
 						SecretKeyRef: &autoinstrumentationv1alpha1.SecretKeySelector{
-							LocalObjectReference: autoinstrumentationv1alpha1.LocalObjectReference{
-								Name: "secret",
-							},
-							Key: "key",
+							Name: "secret",
+							Key:  "key",
 						},
 					},
 				},
@@ -366,10 +382,8 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateEnvironmentVaria
 					Name: "DB_PASSWORD",
 					ValueFrom: &autoinstrumentationv1alpha1.EnvVarSource{
 						SecretKeyRef: &autoinstrumentationv1alpha1.SecretKeySelector{
-							LocalObjectReference: autoinstrumentationv1alpha1.LocalObjectReference{
-								Name: "db-secret",
-							},
-							Key: "password",
+							Name: "db-secret",
+							Key:  "password",
 						},
 					},
 				},
@@ -474,10 +488,8 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestValidateOTLPConfig() {
 			name: "Valid OTLP configuration",
 			otlp: autoinstrumentationv1alpha1.OTLPConfig{
 				Endpoint: "http://openlit.default.svc.cluster.local:4318",
-				Headers: map[string]string{
-					"Authorization": "Bearer token123",
-				},
-				Timeout: &[]int32{30}[0],
+				Headers:  "Authorization=Bearer token123",
+				Timeout:  &[]int32{30}[0],
 			},
 			expectedErrors:   []string{},
 			expectedWarnings: []string{},
@@ -616,10 +628,17 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestComplexValidationScenari
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						// Empty selector - error
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 					Ignore: &autoinstrumentationv1alpha1.PodSelector{
 						// Empty ignore - warning
@@ -639,8 +658,6 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestComplexValidationScenari
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"app": "python-app",
@@ -653,15 +670,22 @@ func (suite *AutoInstrumentationValidatorTestSuite) TestComplexValidationScenari
 							},
 						},
 					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "https://otlp.example.com",
+					},
+					Resource: &autoinstrumentationv1alpha1.ResourceConfig{
+						Environment: "production",
+					},
 					Ignore: &autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"skip-instrumentation": "true",
 						},
-					},
-					Environment: map[string]string{
-						"OPENLIT_APPLICATION_NAME": "complex-app",
-						"OPENLIT_ENVIRONMENT":      "production",
-						"OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com",
 					},
 				},
 			},
@@ -699,13 +723,11 @@ func TestGetValidationAttributes(t *testing.T) {
 	assert.NotNil(t, resource)
 	
 	attrs := resource.Attributes()
-	iterator := attrs.Iter()
 	
 	foundServiceName := false
 	foundServiceVersion := false
 	
-	for iterator.Next() {
-		kv := iterator.Attribute()
+	for _, kv := range attrs {
 		switch kv.Key {
 		case "service.name":
 			assert.Equal(t, "openlit-operator-validation", kv.Value.AsString())
@@ -734,15 +756,8 @@ func TestValidationResultInitialization(t *testing.T) {
 
 func TestValidationErrorHandling(t *testing.T) {
 	// Test that validator handles nil configurations gracefully
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
-	}
-
-	validator := &AutoInstrumentationValidator{
-		logger: loggerProvider.GetLogger("validation"),
-	}
+	// Create validator using the proper constructor
+	validator := NewAutoInstrumentationValidator()
 
 	// This should not panic even with a minimal configuration
 	autoInstr := &autoinstrumentationv1alpha1.AutoInstrumentation{
