@@ -34,31 +34,37 @@ jobs:
           
     - name: Download dependencies
       run: go mod download
+      working-directory: ./operator
       
     - name: Run config tests
       run: |
         echo "🧪 Running config tests..."
         go test ./internal/config -v
+      working-directory: ./operator
       
     - name: Run injector tests
       run: |
         echo "🧪 Running injector tests..."
         go test ./internal/injector -v
+      working-directory: ./operator
       
     - name: Run observability tests  
       run: |
         echo "🧪 Running observability tests..."
         go test ./internal/observability -v
+      working-directory: ./operator
       
     - name: Run webhook tests
       run: |
         echo "🧪 Running webhook tests..."
         go test ./internal/webhook -v
+      working-directory: ./operator
       
     - name: Run controller tests
       run: |
         echo "🧪 Running controller tests..."
         go test ./internal/controller -v
+      working-directory: ./operator
         
     - name: Generate test coverage
       run: |
@@ -66,6 +72,7 @@ jobs:
         go test -coverprofile=coverage.out ./...
         go tool cover -html=coverage.out -o coverage.html
         go tool cover -func=coverage.out
+      working-directory: ./operator
 
   e2e:
     name: E2E Tests
@@ -106,16 +113,16 @@ jobs:
         docker images | grep openlit-operator
         # Verify image was built successfully
         docker inspect ghcr.io/openlit/openlit-operator:test > /dev/null
+      working-directory: ./operator
         
     - name: Build instrumentation provider image  
       run: |
         echo "🏗️ Building instrumentation provider image..."
-        cd providers/openlit
         docker build -t ghcr.io/openlit/openlit-ai-instrumentation:test .
-        cd ../..
         docker images | grep openlit-ai-instrumentation
         # Verify image was built successfully
         docker inspect ghcr.io/openlit/openlit-ai-instrumentation:test > /dev/null
+      working-directory: ./operator/providers/openlit
         
     - name: Import images to k3d cluster
       run: |
@@ -136,17 +143,17 @@ jobs:
     - name: Deploy AutoInstrumentation CRD
       run: |
         echo "📋 Deploying AutoInstrumentation CRD..."
-        kubectl apply -f deploy/openlit.io_autoinstrumentations.yaml
+        kubectl apply -f operator/deploy/openlit.io_autoinstrumentations.yaml
         kubectl get crd autoinstrumentations.openlit.io
         
     - name: Deploy OpenLIT Operator
       run: |
         echo "🚀 Deploying OpenLIT Operator..."
         # Update deployment to use our test images
-        cp deploy/openlit-operator.yaml deploy/openlit-operator-test.yaml
-        sed -i 's|ghcr.io/openlit/openlit-operator:latest|ghcr.io/openlit/openlit-operator:test|g' deploy/openlit-operator-test.yaml
-        sed -i 's|ghcr.io/openlit/openlit-ai-instrumentation:latest|ghcr.io/openlit/openlit-ai-instrumentation:test|g' deploy/openlit-operator-test.yaml
-        kubectl apply -f deploy/openlit-operator-test.yaml
+        cp operator/deploy/openlit-operator.yaml operator/deploy/openlit-operator-test.yaml
+        sed -i 's|ghcr.io/openlit/openlit-operator:latest|ghcr.io/openlit/openlit-operator:test|g' operator/deploy/openlit-operator-test.yaml
+        sed -i 's|ghcr.io/openlit/openlit-ai-instrumentation:latest|ghcr.io/openlit/openlit-ai-instrumentation:test|g' operator/deploy/openlit-operator-test.yaml
+        kubectl apply -f operator/deploy/openlit-operator-test.yaml
         
     - name: Wait for operator to be ready
       run: |
@@ -199,7 +206,7 @@ jobs:
     - name: Deploy test application with custom packages
       run: |
         echo "🚀 Deploying test application with custom packages..."
-        kubectl apply -f examples/test-application-deployment.yaml
+        kubectl apply -f operator/examples/test-application-deployment.yaml
         
         # Wait for pod to be created (may take time due to instrumentation injection)
         echo "⏳ Waiting for test application pod..."
