@@ -133,7 +133,7 @@ jobs:
     - name: Install OpenLIT Backend
       run: |
         echo "⚙️ Installing OpenLIT backend..."
-        helm repo add openlit https://openlit.github.io/helm-charts
+        helm repo add openlit https://openlit.github.io/helm/
         helm repo update
         helm install openlit openlit/openlit --wait --timeout=300s
         kubectl get svc openlit
