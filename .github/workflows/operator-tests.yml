@@ -66,13 +66,6 @@ jobs:
         go test -coverprofile=coverage.out ./...
         go tool cover -html=coverage.out -o coverage.html
         go tool cover -func=coverage.out
-        
-    - name: Upload coverage report
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: coverage-report
-        path: coverage.html
 
   e2e:
     name: E2E Tests
