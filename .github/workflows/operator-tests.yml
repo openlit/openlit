@@ -212,6 +212,11 @@ jobs:
         echo "⏳ Waiting for test application pod..."
         timeout 300 bash -c 'until kubectl get pod -l app=openlit-test-app 2>/dev/null; do sleep 5; done'
         
+    - name: Wait for application to stabilize
+      run: |
+        echo "⏳ Waiting 45 seconds for application to stabilize..."
+        sleep 45
+        
     - name: Verify instrumentation injection
       run: |
         echo "🔍 Verifying instrumentation injection..."
