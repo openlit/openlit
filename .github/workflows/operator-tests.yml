@@ -77,7 +77,6 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: unit
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -180,28 +179,12 @@ jobs:
     - name: Test operator functionality
       run: |
         echo "🧪 Testing operator functionality..."
-        # Create test AutoInstrumentation resource
-        cat <<EOF | kubectl apply -f -
-        apiVersion: openlit.io/v1alpha1
-        kind: AutoInstrumentation
-        metadata:
-          name: test-instrumentation
-          namespace: default
-        spec:
-          selector:
-            matchLabels:
-              test: "e2e"
-          otlp:
-            endpoint: "http://openlit.default.svc.cluster.local:4318"
-          python:
-            instrumentation:
-              provider: "openlit"
-              customPackages: "opentelemetry-instrumentation-logging>=0.57b0"
-        EOF
+        # Create test AutoInstrumentation resource from example file
+        kubectl apply -f operator/examples/complete-openlit-instrumentation.yaml
         
-        # Verify resource was created
-        kubectl get autoinstrumentations.openlit.io test-instrumentation -o yaml
-        echo "✅ AutoInstrumentation resource created successfully"
+        # Verify resources were created
+        kubectl get autoinstrumentations.openlit.io -o yaml
+        echo "✅ AutoInstrumentation resources created successfully"
         
     - name: Deploy test application with custom packages
       run: |
