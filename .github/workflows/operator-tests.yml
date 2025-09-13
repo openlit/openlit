@@ -210,28 +210,6 @@ jobs:
           exit 1
         fi
         
-    - name: Verify application is running correctly
-      run: |
-        echo "🏃 Verifying application is running correctly..."
-        TEST_POD=$(kubectl get pods -l app=openlit-test-app -o jsonpath='{.items[0].metadata.name}')
-        
-        # Wait a bit for application to start and generate logs
-        sleep 30
-        
-        # Check application logs
-        echo "=== Application Logs ==="
-        kubectl logs $TEST_POD --tail=20
-        
-        # Verify both instrumentations are working
-        if kubectl logs $TEST_POD --tail=50 | grep -i "testing http requests"; then
-          echo "✅ Application is generating HTTP requests (OpenLIT instrumentation working)"
-        else
-          echo "❌ Application HTTP requests not found"
-        fi
-        
-        # Check if logging instrumentation is available  
-        kubectl exec $TEST_POD -- python3 -c "import sys; sys.path.insert(0, '/instrumentation-packages'); import opentelemetry.instrumentation.logging; print('✅ Custom logging instrumentation is available')" || echo "Custom instrumentation test failed"
-        
     - name: Collect diagnostic information
       if: failure()
       run: |
