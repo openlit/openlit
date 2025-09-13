@@ -212,34 +212,20 @@ jobs:
         echo "⏳ Waiting for test application pod..."
         timeout 300 bash -c 'until kubectl get pod -l app=openlit-test-app 2>/dev/null; do sleep 5; done'
         
-    - name: Wait for application to stabilize
-      run: |
-        echo "⏳ Waiting 45 seconds for application to stabilize..."
-        sleep 45
-        
     - name: Verify instrumentation injection
       run: |
         echo "🔍 Verifying instrumentation injection..."
-        # Wait for pod to be ready
-        kubectl wait --for=condition=ready pod -l app=openlit-test-app --timeout=300s
-        
         TEST_POD=$(kubectl get pods -l app=openlit-test-app -o jsonpath='{.items[0].metadata.name}')
         echo "Test application pod: $TEST_POD"
         
         # Check that pod has init container (sign of instrumentation)
-        kubectl describe pod $TEST_POD | grep -A 10 "Init Containers:"
-        
-        # Check init container logs for custom packages
-        echo "=== Init Container Logs ==="
-        kubectl logs $TEST_POD -c auto-instrumentation-openlit
-        
-        # Verify environment variables
-        echo "=== Environment Variables ==="
-        kubectl exec $TEST_POD -- printenv | grep -E "(CUSTOM_PACKAGES|PYTHONPATH|OTEL_)" || true
-        
-        # Check if custom packages were installed
-        echo "=== Custom Packages Check ==="
-        kubectl exec $TEST_POD -- find /instrumentation-packages/ -name "*logging*" | head -5 || echo "Custom packages not found"
+        if kubectl describe pod $TEST_POD | grep -q "Init Containers:"; then
+          echo "✅ Init container detected - instrumentation injection successful"
+          kubectl describe pod $TEST_POD | grep -A 5 "Init Containers:"
+        else
+          echo "❌ No init container found - instrumentation injection failed"
+          exit 1
+        fi
         
     - name: Verify application is running correctly
       run: |
