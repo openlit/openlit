@@ -3,8 +3,12 @@ name: Test Operator
 on:
   push:
     branches: [ main, operator ]
+    paths:
+      - 'operator/**'
   pull_request:
     branches: [ main, operator ]
+    paths:
+      - 'operator/**'
 
 env:
   GO_VERSION: "1.24"
