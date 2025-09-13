@@ -81,9 +81,45 @@ jobs:
           DIGEST: ${{ steps.build-and-push-operator.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
 
-      # Build and Push AI Instrumentation Provider Image
-      - name: Extract provider metadata
-        id: provider-meta
+      # Build and Push All Provider Images
+      - name: Extract base provider metadata
+        id: base-provider-meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        with:
+          images: ${{ env.REGISTRY }}/openlit/base-ai-instrumentation
+          tags: |
+            type=semver,pattern={{version}},value=${{ env.version }}
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+
+      - name: Build and push base provider image
+        id: build-and-push-base-provider
+        uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
+        with:
+          context: ./operator/providers/base/
+          provenance: false
+          file: ./operator/providers/base/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.base-provider-meta.outputs.tags }}
+          labels: ${{ steps.base-provider-meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64/v8
+          annotations: |
+            ${{ steps.base-provider-meta.outputs.annotations }},
+            io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
+            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/openlit/openlit/main/operator/README.md,
+            io.artifacthub.package.license=Apache-2.0,
+            org.opencontainers.image.vendor=OpenLIT,
+            io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
+            io.artifacthub.package.keywords='Base, Python, Instrumentation, OpenTelemetry, LLM, AI, Zero-code'
+      
+      - name: Sign the base provider image
+        env:
+          TAGS: ${{ steps.base-provider-meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push-base-provider.outputs.digest }}
+        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
+      - name: Extract OpenLIT provider metadata
+        id: openlit-provider-meta
         uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
         with:
           images: ${{ env.REGISTRY }}/openlit/openlit-ai-instrumentation
@@ -92,19 +128,19 @@ jobs:
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
-      - name: Build and push AI instrumentation provider image
-        id: build-and-push-provider
+      - name: Build and push OpenLIT provider image
+        id: build-and-push-openlit-provider
         uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
         with:
           context: ./operator/providers/openlit/
           provenance: false
           file: ./operator/providers/openlit/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.provider-meta.outputs.tags }}
-          labels: ${{ steps.provider-meta.outputs.labels }}
+          tags: ${{ steps.openlit-provider-meta.outputs.tags }}
+          labels: ${{ steps.openlit-provider-meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64/v8
           annotations: |
-            ${{ steps.provider-meta.outputs.annotations }},
+            ${{ steps.openlit-provider-meta.outputs.annotations }},
             io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
             io.artifacthub.package.readme-url=https://raw.githubusercontent.com/openlit/openlit/main/operator/README.md,
             io.artifacthub.package.license=Apache-2.0,
@@ -112,8 +148,80 @@ jobs:
             io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
             io.artifacthub.package.keywords='OpenLIT, Python, Instrumentation, OpenTelemetry, LLM, AI, Zero-code'
       
-      - name: Sign the AI instrumentation provider image
+      - name: Sign the OpenLIT provider image
         env:
-          TAGS: ${{ steps.provider-meta.outputs.tags }}
-          DIGEST: ${{ steps.build-and-push-provider.outputs.digest }}
+          TAGS: ${{ steps.openlit-provider-meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push-openlit-provider.outputs.digest }}
+        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
+      - name: Extract OpenInference provider metadata
+        id: openinference-provider-meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        with:
+          images: ${{ env.REGISTRY }}/openlit/openinference-ai-instrumentation
+          tags: |
+            type=semver,pattern={{version}},value=${{ env.version }}
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+
+      - name: Build and push OpenInference provider image
+        id: build-and-push-openinference-provider
+        uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
+        with:
+          context: ./operator/providers/openinference/
+          provenance: false
+          file: ./operator/providers/openinference/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.openinference-provider-meta.outputs.tags }}
+          labels: ${{ steps.openinference-provider-meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64/v8
+          annotations: |
+            ${{ steps.openinference-provider-meta.outputs.annotations }},
+            io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
+            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/openlit/openlit/main/operator/README.md,
+            io.artifacthub.package.license=Apache-2.0,
+            org.opencontainers.image.vendor=OpenLIT,
+            io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
+            io.artifacthub.package.keywords='OpenInference, Python, Instrumentation, OpenTelemetry, LLM, AI, Zero-code'
+      
+      - name: Sign the OpenInference provider image
+        env:
+          TAGS: ${{ steps.openinference-provider-meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push-openinference-provider.outputs.digest }}
+        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
+      - name: Extract OpenLLMetry provider metadata
+        id: openllmetry-provider-meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        with:
+          images: ${{ env.REGISTRY }}/openlit/openllmetry-ai-instrumentation
+          tags: |
+            type=semver,pattern={{version}},value=${{ env.version }}
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+
+      - name: Build and push OpenLLMetry provider image
+        id: build-and-push-openllmetry-provider
+        uses: docker/build-push-action@1a162644f9a7e87d8f4b053101d1d9a712edc18c # v6.3.0
+        with:
+          context: ./operator/providers/openllmetry/
+          provenance: false
+          file: ./operator/providers/openllmetry/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.openllmetry-provider-meta.outputs.tags }}
+          labels: ${{ steps.openllmetry-provider-meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64/v8
+          annotations: |
+            ${{ steps.openllmetry-provider-meta.outputs.annotations }},
+            io.artifacthub.package.logo-url=https://github.com/openlit/.github/blob/main/profile/assets/favicon.png?raw=true,
+            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/openlit/openlit/main/operator/README.md,
+            io.artifacthub.package.license=Apache-2.0,
+            org.opencontainers.image.vendor=OpenLIT,
+            io.artifacthub.package.maintainers=[{'name':'OpenLIT','email':'developers@openlit.io'}],
+            io.artifacthub.package.keywords='OpenLLMetry, Python, Instrumentation, OpenTelemetry, LLM, AI, Zero-code'
+      
+      - name: Sign the OpenLLMetry provider image
+        env:
+          TAGS: ${{ steps.openllmetry-provider-meta.outputs.tags }}
+          DIGEST: ${{ steps.build-and-push-openllmetry-provider.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
