@@ -19,10 +19,10 @@ const EvaluationVaultCreate = ({
 	successCallback: () => void;
 }) => {
 	return (
-		<div className="flex flex-wrap items-center gap-1 w-full h-full text-stone-400 dark:text-stone-500 ml-3">
+		<div className="flex flex-wrap items-center gap-1 w-full h-full text-stone-700 dark:text-stone-300 ml-3">
 			Unable to find the vault key.
 			<SecretForm successCallback={successCallback}>
-				<Button variant="ghost" className="py-0 text-link h-auto px-0 text-xs">
+				<Button variant="ghost" className="py-0 text-link hover:bg-transparent dark:hover:bg-transaparent h-auto px-0 text-xs text-primary">
 					Create new!
 				</Button>
 			</SecretForm>
@@ -154,6 +154,7 @@ function ModifyEvaluationSettings({
 
 	return (
 		<FormBuilder
+			cardClassName="bg-stone-100/50 dark:bg-stone-900/70 py-4 px-6"
 			formName={EVALUATION_CONFIG_FORM}
 			fields={[
 				{
@@ -252,7 +253,7 @@ export default function Evaluation() {
 	}, []);
 
 	return (
-		<div className="flex flex-1 h-full w-full relative py-4  px-6 ">
+		<div className="flex flex-1 h-full w-full relative">
 			{!isLoading && (
 				<ModifyEvaluationSettings
 					evaluation={data}

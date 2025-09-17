@@ -17,6 +17,7 @@ const FormBuilder = ({
 	isAllowedToSubmit = true,
 	alignment = "horizontal",
 	formName = "builder-form",
+	cardClassName = ""
 }: {
 	fields: FieldProps[];
 	heading?: string;
@@ -28,6 +29,7 @@ const FormBuilder = ({
 	isAllowedToSubmit?: boolean;
 	alignment?: "horizontal" | "vertical";
 	formName?: string;
+	cardClassName?: string
 }) => {
 	const getFormData = (e: FormEvent) => {
 		const formElement = e.target as HTMLFormElement;
@@ -94,7 +96,7 @@ const FormBuilder = ({
 			onKeyDown={(e) => !(e.key === "Enter")}
 			name={formName}
 		>
-			<Card className="w-full border-0 flex flex-col h-full shadow-none">
+			<Card className={`w-full border-0 flex flex-col h-full shadow-none ${cardClassName}`}>
 				{heading && (
 					<CardHeader className="shrink-0 px-0 pt-0 pb-4">
 						<CardTitle className="text-2xl">{heading}</CardTitle>

@@ -72,7 +72,7 @@ export default function BoardList() {
 						{filteredBoards.map((board) => (
 							<Card
 								key={board.id}
-								className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700"
+								className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700 bg-stone-100/50 dark:bg-stone-900/70"
 								onClick={() => navigateToBoard(board.id)}
 							>
 								<CardHeader className="pb-3">
@@ -94,7 +94,7 @@ export default function BoardList() {
 									</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									<p className="text-sm text-gray-600 line-clamp-2 shrink-0 h-[40px]">
+									<p className="text-sm text-stone-700 dark:text-stone-400 line-clamp-2 shrink-0 h-[40px]">
 										{board.description}
 									</p>
 									<div className="flex items-center gap-2">
@@ -102,8 +102,8 @@ export default function BoardList() {
 											<Badge key={tag}>{tag}</Badge>
 										))}
 									</div>
-									<div className="flex items-center justify-between text-sm text-gray-500">
-										<div className="flex items-center gap-1 text-xs text-gray-400">
+									<div className="flex items-center justify-between text-sm text-stone-500 dark:text-stone-300">
+										<div className="flex items-center gap-1 text-xs">
 											<Clock className="h-3 w-3" />
 											<span>Updated {formatDate(board.updatedAt)}</span>
 										</div>

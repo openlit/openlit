@@ -69,6 +69,7 @@ function ModifyProfileDetails({
 
 	return (
 		<FormBuilder
+			cardClassName="bg-stone-100/50 dark:bg-stone-900/70 py-4 px-6"
 			fields={[
 				{
 					label: "Email",
@@ -154,7 +155,7 @@ export default function Profile() {
 	};
 
 	return (
-		<div className="flex flex-1 h-full w-full relative py-4  px-6 ">
+		<div className="flex flex-1 h-full w-full relative">
 			<ModifyProfileDetails user={userDetails as User} fetchUser={fetchUser} />
 		</div>
 	);
