@@ -29,7 +29,7 @@ openlit.init(environment="openlit-testing", application_name="openlit-python-tes
 
 def test_sync_groq_chat():
     """
-    Tests synchronous Chat Completions with the 'llama3-8b-8192' model.
+    Tests synchronous Chat Completions.
 
     Raises:
         AssertionError: If the Chat Completions response object is not as expected.
@@ -43,7 +43,7 @@ def test_sync_groq_chat():
                     "content": "Monitor LLM Applications",
                 }
             ],
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             max_tokens=1,
             stream=False,
         )
@@ -74,7 +74,7 @@ async def test_async_groq_chat():
                     "content": "What is LLM Observability?",
                 }
             ],
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             max_tokens=1,
             stream=False,
         )
