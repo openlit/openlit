@@ -23,17 +23,26 @@ EMBEDDING_MODEL_NAME = 'nomic-embed-text'
 LLM_MODEL_NAME = 'gemma2:2b'
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 
-sync_client = Client(host=os.getenv("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST)
-async_client = AsyncClient(host=os.getenv("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST)
-
-sync_client.pull(EMBEDDING_MODEL_NAME)
-sync_client.pull(LLM_MODEL_NAME)
-
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-ollama-test")
 
+@pytest.fixture(scope="function")
+def sync_client():
+    "Sync Ollama client fixture with models pulling."
+    sync_client = Client(host=os.getenv("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST)
+    sync_client.pull(EMBEDDING_MODEL_NAME)
+    sync_client.pull(LLM_MODEL_NAME)
 
-def test_sync_ollama_embeddings():
+    return sync_client
+
+@pytest.fixture(scope="function")
+def async_client():
+    "Async Ollama client fixture."
+
+    return AsyncClient(host=os.getenv("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST)
+
+
+def test_sync_ollama_embeddings(sync_client):
     """
     Tests synchronous embedding creation with the 'nomic-embed-text' model.
 
@@ -50,7 +59,7 @@ def test_sync_ollama_embeddings():
 
 
 @pytest.mark.asyncio
-async def test_async_ollama_embeddings():
+async def test_async_ollama_embeddings(async_client):
     """
     Tests asynchronous embedding creation with the 'nomic-embed-text' model.
 
@@ -66,7 +75,7 @@ async def test_async_ollama_embeddings():
     assert isinstance(response.embeddings, list)
 
 
-def test_sync_ollama_chat():
+def test_sync_ollama_chat(sync_client):
     """
     Tests synchronous Chat Completions with the 'gemma2:2b' model.
 
@@ -96,7 +105,7 @@ def test_sync_ollama_chat():
 
 
 @pytest.mark.asyncio
-async def test_async_ollama_chat():
+async def test_async_ollama_chat(async_client):
     """
     Tests asynchronous Chat Completions with the 'gemma2:2b' model.
 
@@ -126,7 +135,7 @@ async def test_async_ollama_chat():
             raise
 
 
-def test_sync_ollama_generate():
+def test_sync_ollama_generate(sync_client):
     """
     Tests synchronous Text Completions with the 'gemma2:2b' model.
 
@@ -151,7 +160,7 @@ def test_sync_ollama_generate():
 
 
 @pytest.mark.asyncio
-async def test_async_ollama_generate():
+async def test_async_ollama_generate(async_client):
     """
     Tests asynchronous Text Completions with the 'gemma2:2b' model.
 
