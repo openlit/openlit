@@ -26,6 +26,7 @@ together
 transformers
 groq
 elevenlabs
+ollama
 
 # Vector DBs
 chromadb
