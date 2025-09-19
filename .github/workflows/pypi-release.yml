@@ -28,7 +28,15 @@ jobs:
     
     - name: Build package
       working-directory: sdk/python
-      run: poetry build
+      run: |
+        rm -rf dist/
+        poetry build
+    
+    - name: Validate package
+      working-directory: sdk/python
+      run: |
+        pip install twine
+        twine check dist/*
     
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0

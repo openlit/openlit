@@ -10,7 +10,7 @@ homepage = "https://github.com/openlit/openlit/tree/main/openlit/python"
 keywords = ["OpenTelemetry", "otel", "otlp","llm", "tracing", "openai", "anthropic", "claude", "cohere", "llm monitoring", "observability", "monitoring", "gpt", "Generative AI", "chatGPT", "gpu"]
 
 packages = [
-  { include = "openlit" }
+  { include = "openlit", from = "src" }
 ]
 
 [tool.poetry.dependencies]
