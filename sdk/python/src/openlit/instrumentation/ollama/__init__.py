@@ -36,7 +36,7 @@ def _dispatch_async(async_chat_wrap, async_generate_wrap, async_emb_wrap):
             if op == "chat":
                 return await async_chat_wrap(wrapped, instance, args, kwargs)
             if op == "generate":
-                return async_generate_wrap(wrapped, instance, args, kwargs)
+                return await async_generate_wrap(wrapped, instance, args, kwargs)
             if op == "embeddings":
                 return await async_emb_wrap(wrapped, instance, args, kwargs)
         return await wrapped(*args, **kwargs)
