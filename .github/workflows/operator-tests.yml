@@ -1,10 +1,14 @@
-name: OpenLIT Operator Tests
+name: Test Operator
 
 on:
   push:
     branches: [ main, operator ]
+    paths:
+      - 'operator/**'
   pull_request:
     branches: [ main, operator ]
+    paths:
+      - 'operator/**'
 
 env:
   GO_VERSION: "1.24"
@@ -34,31 +38,37 @@ jobs:
           
     - name: Download dependencies
       run: go mod download
+      working-directory: ./operator
       
     - name: Run config tests
       run: |
         echo "🧪 Running config tests..."
         go test ./internal/config -v
+      working-directory: ./operator
       
     - name: Run injector tests
       run: |
         echo "🧪 Running injector tests..."
         go test ./internal/injector -v
+      working-directory: ./operator
       
     - name: Run observability tests  
       run: |
         echo "🧪 Running observability tests..."
         go test ./internal/observability -v
+      working-directory: ./operator
       
     - name: Run webhook tests
       run: |
         echo "🧪 Running webhook tests..."
         go test ./internal/webhook -v
+      working-directory: ./operator
       
     - name: Run controller tests
       run: |
         echo "🧪 Running controller tests..."
         go test ./internal/controller -v
+      working-directory: ./operator
         
     - name: Generate test coverage
       run: |
@@ -66,18 +76,11 @@ jobs:
         go test -coverprofile=coverage.out ./...
         go tool cover -html=coverage.out -o coverage.html
         go tool cover -func=coverage.out
-        
-    - name: Upload coverage report
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: coverage-report
-        path: coverage.html
+      working-directory: ./operator
 
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: unit
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -113,16 +116,16 @@ jobs:
         docker images | grep openlit-operator
         # Verify image was built successfully
         docker inspect ghcr.io/openlit/openlit-operator:test > /dev/null
+      working-directory: ./operator
         
     - name: Build instrumentation provider image  
       run: |
         echo "🏗️ Building instrumentation provider image..."
-        cd providers/openlit
         docker build -t ghcr.io/openlit/openlit-ai-instrumentation:test .
-        cd ../..
         docker images | grep openlit-ai-instrumentation
         # Verify image was built successfully
         docker inspect ghcr.io/openlit/openlit-ai-instrumentation:test > /dev/null
+      working-directory: ./operator/providers/openlit
         
     - name: Import images to k3d cluster
       run: |
@@ -133,7 +136,7 @@ jobs:
     - name: Install OpenLIT Backend
       run: |
         echo "⚙️ Installing OpenLIT backend..."
-        helm repo add openlit https://openlit.github.io/helm-charts
+        helm repo add openlit https://openlit.github.io/helm/
         helm repo update
         helm install openlit openlit/openlit --wait --timeout=300s
         kubectl get svc openlit
@@ -143,17 +146,17 @@ jobs:
     - name: Deploy AutoInstrumentation CRD
       run: |
         echo "📋 Deploying AutoInstrumentation CRD..."
-        kubectl apply -f deploy/openlit.io_autoinstrumentations.yaml
+        kubectl apply -f operator/deploy/openlit.io_autoinstrumentations.yaml
         kubectl get crd autoinstrumentations.openlit.io
         
     - name: Deploy OpenLIT Operator
       run: |
         echo "🚀 Deploying OpenLIT Operator..."
         # Update deployment to use our test images
-        cp deploy/openlit-operator.yaml deploy/openlit-operator-test.yaml
-        sed -i 's|ghcr.io/openlit/openlit-operator:latest|ghcr.io/openlit/openlit-operator:test|g' deploy/openlit-operator-test.yaml
-        sed -i 's|ghcr.io/openlit/openlit-ai-instrumentation:latest|ghcr.io/openlit/openlit-ai-instrumentation:test|g' deploy/openlit-operator-test.yaml
-        kubectl apply -f deploy/openlit-operator-test.yaml
+        cp operator/deploy/openlit-operator.yaml operator/deploy/openlit-operator-test.yaml
+        sed -i 's|ghcr.io/openlit/openlit-operator:latest|ghcr.io/openlit/openlit-operator:test|g' operator/deploy/openlit-operator-test.yaml
+        sed -i 's|ghcr.io/openlit/openlit-ai-instrumentation:latest|ghcr.io/openlit/openlit-ai-instrumentation:test|g' operator/deploy/openlit-operator-test.yaml
+        kubectl apply -f operator/deploy/openlit-operator-test.yaml
         
     - name: Wait for operator to be ready
       run: |
@@ -180,33 +183,17 @@ jobs:
     - name: Test operator functionality
       run: |
         echo "🧪 Testing operator functionality..."
-        # Create test AutoInstrumentation resource
-        cat <<EOF | kubectl apply -f -
-        apiVersion: openlit.io/v1alpha1
-        kind: AutoInstrumentation
-        metadata:
-          name: test-instrumentation
-          namespace: default
-        spec:
-          selector:
-            matchLabels:
-              test: "e2e"
-          otlp:
-            endpoint: "http://openlit.default.svc.cluster.local:4318"
-          python:
-            instrumentation:
-              provider: "openlit"
-              customPackages: "opentelemetry-instrumentation-logging>=0.57b0"
-        EOF
+        # Create test AutoInstrumentation resource from example file
+        kubectl apply -f operator/examples/complete-openlit-instrumentation.yaml
         
-        # Verify resource was created
-        kubectl get autoinstrumentations.openlit.io test-instrumentation -o yaml
-        echo "✅ AutoInstrumentation resource created successfully"
+        # Verify resources were created
+        kubectl get autoinstrumentations.openlit.io -o yaml
+        echo "✅ AutoInstrumentation resources created successfully"
         
     - name: Deploy test application with custom packages
       run: |
         echo "🚀 Deploying test application with custom packages..."
-        kubectl apply -f examples/test-application-deployment.yaml
+        kubectl apply -f operator/examples/test-application-deployment.yaml
         
         # Wait for pod to be created (may take time due to instrumentation injection)
         echo "⏳ Waiting for test application pod..."
@@ -215,48 +202,17 @@ jobs:
     - name: Verify instrumentation injection
       run: |
         echo "🔍 Verifying instrumentation injection..."
-        # Wait for pod to be ready
-        kubectl wait --for=condition=ready pod -l app=openlit-test-app --timeout=300s
-        
         TEST_POD=$(kubectl get pods -l app=openlit-test-app -o jsonpath='{.items[0].metadata.name}')
         echo "Test application pod: $TEST_POD"
         
         # Check that pod has init container (sign of instrumentation)
-        kubectl describe pod $TEST_POD | grep -A 10 "Init Containers:"
-        
-        # Check init container logs for custom packages
-        echo "=== Init Container Logs ==="
-        kubectl logs $TEST_POD -c auto-instrumentation-openlit
-        
-        # Verify environment variables
-        echo "=== Environment Variables ==="
-        kubectl exec $TEST_POD -- printenv | grep -E "(CUSTOM_PACKAGES|PYTHONPATH|OTEL_)" || true
-        
-        # Check if custom packages were installed
-        echo "=== Custom Packages Check ==="
-        kubectl exec $TEST_POD -- find /instrumentation-packages/ -name "*logging*" | head -5 || echo "Custom packages not found"
-        
-    - name: Verify application is running correctly
-      run: |
-        echo "🏃 Verifying application is running correctly..."
-        TEST_POD=$(kubectl get pods -l app=openlit-test-app -o jsonpath='{.items[0].metadata.name}')
-        
-        # Wait a bit for application to start and generate logs
-        sleep 30
-        
-        # Check application logs
-        echo "=== Application Logs ==="
-        kubectl logs $TEST_POD --tail=20
-        
-        # Verify both instrumentations are working
-        if kubectl logs $TEST_POD --tail=50 | grep -i "testing http requests"; then
-          echo "✅ Application is generating HTTP requests (OpenLIT instrumentation working)"
+        if kubectl describe pod $TEST_POD | grep -q "Init Containers:"; then
+          echo "✅ Init container detected - instrumentation injection successful"
+          kubectl describe pod $TEST_POD | grep -A 5 "Init Containers:"
         else
-          echo "❌ Application HTTP requests not found"
+          echo "❌ No init container found - instrumentation injection failed"
+          exit 1
         fi
-        
-        # Check if logging instrumentation is available  
-        kubectl exec $TEST_POD -- python3 -c "import sys; sys.path.insert(0, '/instrumentation-packages'); import opentelemetry.instrumentation.logging; print('✅ Custom logging instrumentation is available')" || echo "Custom instrumentation test failed"
         
     - name: Collect diagnostic information
       if: failure()

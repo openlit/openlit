@@ -11,15 +11,17 @@ import (
 	"github.com/stretchr/testify/suite"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	autoinstrumentationv1alpha1 "github.com/openlit/openlit/operator/api/v1alpha1"
+	"github.com/openlit/openlit/operator/internal/config"
 	"github.com/openlit/openlit/operator/internal/injector"
-	"github.com/openlit/openlit/operator/internal/observability"
 	"github.com/openlit/openlit/operator/internal/webhook"
 )
 
@@ -47,14 +49,20 @@ func (suite *EdgeCasesTestSuite) TestExtremeConfigurationValues() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{"app": "test"},
 					},
-					Environment: map[string]string{
-						"VERY_LONG_VARIABLE": string(make([]byte, 10000)), // 10KB value
-						"NORMAL_VARIABLE":    "normal-value",
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
+					},
+					Resource: &autoinstrumentationv1alpha1.ResourceConfig{
+						Environment: "test",
 					},
 				},
 			},
@@ -69,10 +77,17 @@ func (suite *EdgeCasesTestSuite) TestExtremeConfigurationValues() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: generateManyLabels(100), // 100 label selectors
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			},
@@ -87,14 +102,21 @@ func (suite *EdgeCasesTestSuite) TestExtremeConfigurationValues() {
 					Namespace: "default",
 				},
 				Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-					Provider: "openlit",
-					Image:    "openlit-instrumentation:latest",
 					Selector: autoinstrumentationv1alpha1.PodSelector{
 						MatchLabels: map[string]string{
 							"app.kubernetes.io/name":      "my-app",
 							"app.kubernetes.io/version":   "1.0.0-alpha.beta+gamma",
 							"custom.domain.com/component": "web-server",
 						},
+					},
+					Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+						Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+							Provider:        "openlit",
+							CustomInitImage: "openlit-instrumentation:latest",
+						},
+					},
+					OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+						Endpoint: "http://test:4318",
 					},
 				},
 			},
@@ -126,15 +148,14 @@ func (suite *EdgeCasesTestSuite) TestPodResourceExtremes() {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	_ = autoinstrumentationv1alpha1.AddToScheme(scheme)
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
+	// Create mock config and dynamic client
+	cfg := &config.OperatorConfig{
+		Namespace: "test-namespace",
 	}
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 
-	handler := webhook.NewHandler(fakeClient, loggerProvider)
+	handler := webhook.NewHandler(cfg, scheme, dynamicClient)
 
 	tests := []struct {
 		name           string
@@ -271,20 +292,18 @@ func (suite *EdgeCasesTestSuite) TestPodResourceExtremes() {
 }
 
 func (suite *EdgeCasesTestSuite) TestInjectorEdgeCases() {
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
-	}
-
 	config := &injector.InjectorConfig{
+		Provider:           "openlit",
+		OTLPEndpoint:       "http://test:4318",
+		InitContainerImage: "ghcr.io/openlit/openlit-ai-instrumentation:latest",
+		ImagePullPolicy:    "IfNotPresent",
 		ServiceName:        "test-service",
 		ServiceNamespace:   "default",
 		SharedVolumeName:   "test-volume",
 		SharedVolumePath:   "/test/path",
 	}
 
-	inj := injector.NewOpenLitInjector(config, loggerProvider)
+	inj := injector.New(config)
 
 	tests := []struct {
 		name        string
@@ -409,13 +428,13 @@ func (suite *EdgeCasesTestSuite) TestConcurrencyAndRaceConditions() {
 	_ = autoinstrumentationv1alpha1.AddToScheme(scheme)
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
+	// Create mock config and dynamic client
+	cfg := &config.OperatorConfig{
+		Namespace: "test-namespace",
 	}
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
 
-	handler := webhook.NewHandler(fakeClient, loggerProvider)
+	handler := webhook.NewHandler(cfg, scheme, dynamicClient)
 
 	// Create AutoInstrumentation for concurrent tests
 	autoInstr := &autoinstrumentationv1alpha1.AutoInstrumentation{
@@ -424,12 +443,19 @@ func (suite *EdgeCasesTestSuite) TestConcurrencyAndRaceConditions() {
 			Namespace: "default",
 		},
 		Spec: autoinstrumentationv1alpha1.AutoInstrumentationSpec{
-			Provider: "openlit",
-			Image:    "openlit-instrumentation:latest",
 			Selector: autoinstrumentationv1alpha1.PodSelector{
 				MatchLabels: map[string]string{
 					"test": "concurrent",
 				},
+			},
+			Python: &autoinstrumentationv1alpha1.PythonInstrumentation{
+				Instrumentation: &autoinstrumentationv1alpha1.InstrumentationSettings{
+					Provider:        "openlit",
+					CustomInitImage: "openlit-instrumentation:latest",
+				},
+			},
+			OTLP: autoinstrumentationv1alpha1.OTLPConfig{
+				Endpoint: "http://test:4318",
 			},
 		},
 	}
@@ -509,11 +535,6 @@ func (suite *EdgeCasesTestSuite) TestConcurrencyAndRaceConditions() {
 
 func (suite *EdgeCasesTestSuite) TestMemoryAndResourceUsage() {
 	// Test operations under resource constraints
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
-	}
 
 	suite.Run("Large object processing", func() {
 		// Create very large pod specification
@@ -536,7 +557,7 @@ func (suite *EdgeCasesTestSuite) TestMemoryAndResourceUsage() {
 			SharedVolumePath:   "/test/path",
 		}
 
-		inj := injector.NewOpenLitInjector(config, loggerProvider)
+		inj := injector.New(config)
 
 		// This should not cause memory issues or crashes
 		err := inj.InjectOpenLIT(largePod)
@@ -572,7 +593,7 @@ func (suite *EdgeCasesTestSuite) TestMemoryAndResourceUsage() {
 				SharedVolumePath:   "/test/path",
 			}
 
-			inj := injector.NewOpenLitInjector(config, loggerProvider)
+			inj := injector.New(config)
 
 			// Should fail due to security constraints but not leak memory
 			err := inj.InjectOpenLIT(pod)
@@ -592,12 +613,7 @@ func (suite *EdgeCasesTestSuite) TestBoundaryConditions() {
 
 		// Should handle empty configuration gracefully
 		suite.NotPanics(func() {
-			loggerProvider := &observability.LoggerProvider{
-				OTLPEnabled:   false,
-				OTLPEndpoint:  "",
-				ErrorMessage:  "",
-			}
-			_ = injector.NewOpenLitInjector(config, loggerProvider)
+			_ = injector.New(config)
 		})
 	})
 
@@ -621,19 +637,17 @@ func (suite *EdgeCasesTestSuite) TestBoundaryConditions() {
 			}
 
 			config := &injector.InjectorConfig{
+				Provider:           "openlit",
+				OTLPEndpoint:       "http://test:4318",
+				InitContainerImage: "ghcr.io/openlit/openlit-ai-instrumentation:latest",
+				ImagePullPolicy:    "IfNotPresent",
 				ServiceName:        "test-service",
 				ServiceNamespace:   "default",
 				SharedVolumeName:   "test-volume",
 				SharedVolumePath:   "/test/path",
 			}
 
-			loggerProvider := &observability.LoggerProvider{
-				OTLPEnabled:   false,
-				OTLPEndpoint:  "",
-				ErrorMessage:  "",
-			}
-
-			inj := injector.NewOpenLitInjector(config, loggerProvider)
+			inj := injector.New(config)
 			_ = inj.InjectOpenLIT(pod)
 		})
 	})
@@ -676,34 +690,28 @@ func generateManyEnvVars(count int) []corev1.EnvVar {
 	return envVars
 }
 
-func mustParseQuantity(s string) *metav1.Quantity {
-	q := &metav1.Quantity{}
-	*q = *mustParseQuantityHelper(s)
-	return q
-}
-
-func mustParseQuantityHelper(s string) *metav1.Quantity {
-	q, err := metav1.ParseQuantity(s)
+func mustParseQuantity(s string) resource.Quantity {
+	q, err := resource.ParseQuantity(s)
 	if err != nil {
 		panic(err)
 	}
-	return &q
+	return q
 }
 
 // Additional edge case tests for specific scenarios
 func TestCircuitBreakerEdgeCases(t *testing.T) {
 	// Test circuit breaker under extreme conditions
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
-	}
-
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	_ = autoinstrumentationv1alpha1.AddToScheme(scheme)
 
-	handler := webhook.NewHandler(fakeClient, loggerProvider)
+	// Create mock config and dynamic client
+	cfg := &config.OperatorConfig{
+		Namespace: "test-namespace",
+	}
+	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme)
+
+	handler := webhook.NewHandler(cfg, scheme, dynamicClient)
 
 	// Test rapid failure recovery
 	for i := 0; i < 100; i++ {
@@ -747,22 +755,20 @@ func TestCircuitBreakerEdgeCases(t *testing.T) {
 
 func TestContextCancellationHandling(t *testing.T) {
 	// Test behavior when context is cancelled during operations
-	ctx, cancel := context.WithCancel(context.Background())
-
-	loggerProvider := &observability.LoggerProvider{
-		OTLPEnabled:   false,
-		OTLPEndpoint:  "",
-		ErrorMessage:  "",
-	}
+	_, cancel := context.WithCancel(context.Background())
 
 	config := &injector.InjectorConfig{
+		Provider:           "openlit",
+		OTLPEndpoint:       "http://test:4318",
+		InitContainerImage: "ghcr.io/openlit/openlit-ai-instrumentation:latest",
+		ImagePullPolicy:    "IfNotPresent",
 		ServiceName:        "test-service",
 		ServiceNamespace:   "default",
 		SharedVolumeName:   "test-volume",
 		SharedVolumePath:   "/test/path",
 	}
 
-	inj := injector.NewOpenLitInjector(config, loggerProvider)
+	inj := injector.New(config)
 
 	// Cancel context before injection
 	cancel()

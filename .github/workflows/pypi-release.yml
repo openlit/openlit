@@ -24,11 +24,52 @@ jobs:
       working-directory: sdk/python
       run: |
         python -m pip install --upgrade pip
-        pip install build
+        pip install poetry
     
     - name: Build package
       working-directory: sdk/python
-      run: python -m build
+      run: |
+        rm -rf dist/
+        echo "=== Current directory ==="
+        pwd
+        echo "=== Directory contents ==="
+        ls -la
+        echo "=== Checking if src/openlit exists ==="
+        if [ -d "src/openlit" ]; then
+          echo "✅ src/openlit directory exists"
+          ls -la src/openlit/
+        else
+          echo "❌ src/openlit directory NOT found"
+          echo "Available directories:"
+          find . -type d -name "*openlit*"
+        fi
+        echo "=== pyproject.toml content ==="
+        cat pyproject.toml
+        echo "=== Source directory structure ==="
+        find . -name "*.py" | head -20
+        echo "=== Poetry check ==="
+        poetry check
+        echo "=== Building with verbose output ==="
+        poetry build -vvv
+    
+    - name: Validate package
+      working-directory: sdk/python
+      run: |
+        pip install twine
+        echo "=== Built files ==="
+        ls -la dist/
+        echo "=== Wheel contents ==="
+        python -m zipfile -l dist/*.whl
+        echo "=== Extracting wheel ==="
+        python -m zipfile -e dist/*.whl temp_extract/
+        echo "=== Searching for metadata ==="
+        find temp_extract/ -type f -name "*" | sort
+        echo "=== METADATA file content ==="
+        find temp_extract/ -name "METADATA" -exec cat {} \;
+        echo "=== PKG-INFO content (if exists) ==="
+        find temp_extract/ -name "PKG-INFO" -exec cat {} \;
+        echo "=== Running twine check ==="
+        twine check dist/* --verbose
     
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0

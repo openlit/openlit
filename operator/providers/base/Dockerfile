@@ -5,11 +5,11 @@ FROM python:3.11-slim AS base-builder
 WORKDIR /instrumentation
 
 # Copy requirements and install minimal core packages
-COPY base/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt --target packages
 
 # Copy the sitecustomize.py for base setup
-COPY base/sitecustomize.py packages/sitecustomize.py
+COPY sitecustomize.py packages/sitecustomize.py
 
 # Create the final minimal base image
 FROM python:3.11-slim
