@@ -9,6 +9,11 @@ readme = "README.md"
 homepage = "https://github.com/openlit/openlit/tree/main/openlit/python"
 keywords = ["OpenTelemetry", "otel", "otlp","llm", "tracing", "openai", "anthropic", "claude", "cohere", "llm monitoring", "observability", "monitoring", "gpt", "Generative AI", "chatGPT", "gpu"]
 
+[tool.poetry.packages]
+packages = [
+  { include = "openlit" }
+]
+
 [tool.poetry.dependencies]
 python = "^3.8.0"
 requests = "^2.26.0"
