@@ -15,7 +15,7 @@ prior to running these tests.
 import os
 
 import pytest
-from ollama import Client, AsyncClient, EmbedResponse, ChatResponse, GenerateResponse, Message, pull
+from ollama import Client, AsyncClient, EmbedResponse, ChatResponse, GenerateResponse, Message
 import openlit
 
 # Initialize Ollama
