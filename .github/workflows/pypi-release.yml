@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -24,23 +25,36 @@ jobs:
       working-directory: sdk/python
       run: |
         python -m pip install --upgrade pip
-        pip install poetry
+        pip install poetry==1.8.3
+        poetry --version
+        poetry config --list
     
     - name: Build package
       working-directory: sdk/python
       run: |
         rm -rf dist/
-        poetry build
+        echo "=== Poetry configuration ==="
+        cat pyproject.toml | head -20
+        echo "=== Source directory structure ==="
+        find src/ -name "*.py" | head -10
+        echo "=== Building package ==="
+        poetry build -vvv
     
     - name: Validate package
       working-directory: sdk/python
       run: |
         pip install twine
+        echo "=== Listing built files ==="
+        ls -la dist/
+        echo "=== Checking wheel contents ==="
+        python -m zipfile -l dist/*.whl | head -20
+        echo "=== Extracting and checking metadata ==="
+        python -m zipfile -e dist/*.whl temp_extract/
+        find temp_extract/ -name "METADATA" -exec cat {} \; | head -20
+        echo "=== Running twine check ==="
         twine check dist/*
     
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0
       with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
         packages-dir: sdk/python/dist
