@@ -62,7 +62,7 @@ export default function BoardList({ dashboardId }: { dashboardId: string | null 
 								return null;
 							}
 							return (
-								<DropdownMenuItem className={"text-xs gap-2"}>
+								<DropdownMenuItem className={"text-xs gap-2"} key={board.id}>
 									<Link key={board.id} href={`?dashboardId=${board.id}`}>
 										{board.title}
 									</Link>

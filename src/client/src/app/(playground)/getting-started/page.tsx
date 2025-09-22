@@ -272,11 +272,11 @@ openlit.init();`}
 				<p className="mb-5 text-stone-950 dark:text-stone-100 text-sm">
 					This guide will walk you through setting up{" "}
 					<span className="text-primary">OpenTelemetry</span> Auto Instrumentation
-					for monitoring your LLM Application using OpenLIT. In just a few steps, you'll be able
+					for monitoring your LLM Application using OpenLIT. In just a few steps, you&apos;ll be able
 					to track and analyze the performance and usage of your{" "}
 					<span className="text-primary">GenAI</span> and{" "}
 					<span className="text-primary">LLM Applications</span>. In this guide,
-					we'll show how you can send OpenTelemetry traces and metrics from your
+					we&apos;ll show how you can send OpenTelemetry traces and metrics from your
 					LLM Applications to OpenLIT.
 				</p>
 			</div>
