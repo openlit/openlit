@@ -3,21 +3,11 @@ import { useRootStore } from "@/store";
 import { useCallback, useEffect, useRef } from "react";
 import { REFRESH_RATE_TYPE, getTimeLimitObject } from "@/store/filter";
 import { usePathname } from "next/navigation";
-import { TimerReset } from "lucide-react";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
+import { ChevronsUpDown, TimerReset } from "lucide-react";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 const REFRESH_RATE_EVENT = "refresh-rate";
 
@@ -96,35 +86,32 @@ const RefreshRate = () => {
 	if (!isRefreshRateEnabled) return null;
 
 	return (
-		<div className="flex items-center mr-3">
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<TimerReset className="dark:text-white mr-3" />
-				</TooltipTrigger>
-				<TooltipContent side="bottom" sideOffset={5} className="w-64">
-					Sets refresh rate. Low values may impact database performance.
-				</TooltipContent>
-			</Tooltip>
-			<Select onValueChange={handleChange} value={filter.refreshRate}>
-				<SelectTrigger
-					id="model"
-					className={`items-center [&_[data-description]]:hidden w-28 dark:text-white`}
-				>
-					<SelectValue />
-				</SelectTrigger>
-				<SelectContent>
-					{REFRESH_RATE_TABS.map(({ label, key }) => (
-						<SelectItem key={key} value={key}>
-							<div className={`flex items-start text-muted-foreground`}>
-								<div className="grid">
-									<span className="font-medium text-foreground">{label}</span>
-								</div>
-							</div>
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-		</div>
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button variant="outline" className="flex gap-4 shrink-0 justify-start group-data-[state=close]:justify-center p-1 overflow-hidden text-stone-500 dark:text-stone-100 hover:bg-stone-600 dark:hover:bg-stone-600 hover:text-stone-100 font-normal h-full w-auto ml-auto">
+					<TimerReset className={`size-3 shrink-0`} />
+					<span className="block text-ellipsis overflow-hidden whitespace-nowrap grow text-xs">{filter.refreshRate}</span>
+					<ChevronsUpDown className={`size-3 block shrink-0`} />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent className="w-56" side="right" align="start">
+				<DropdownMenuLabel>Refresh Rate</DropdownMenuLabel>
+				<DropdownMenuSeparator />
+				{REFRESH_RATE_TABS.map(({ label, key }) => (
+					<DropdownMenuCheckboxItem
+						key={key}
+						checked={key === filter.refreshRate}
+						onCheckedChange={() => handleChange(key)}
+					>
+						<div className="flex items-start text-muted-foreground ">
+							<span className="font-medium text-foreground">
+								{label}
+							</span>
+						</div>
+					</DropdownMenuCheckboxItem>
+				))}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 };
 

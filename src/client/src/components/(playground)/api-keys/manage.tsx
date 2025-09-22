@@ -1,56 +1,51 @@
 "use client";
 import ConfirmationModal from "@/components/common/confirmation-modal";
-import TableData from "@/components/common/table-data";
 import { Badge } from "@/components/ui/badge";
 import { getPingStatus } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import copy from "copy-to-clipboard";
 import { format } from "date-fns";
-import { get } from "lodash";
 import { CopyIcon, TrashIcon } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import Generate from "./generate";
+import { ApiKey } from "@/types/api-key";
+import { Columns } from "@/components/data-table/columns";
+import DataTable from "@/components/data-table/table";
 
-const columns = [
-	{
-		className: "col-span-3",
-		header: "Name",
-		key: "name",
+const columns: Columns<string, ApiKey> = {
+	name: {
+		header: () => "Name",
+		cell: ({ row }) => row.name,
 	},
-	{
-		className: "col-span-2",
-		header: "Api key",
-		render: (data: any) => {
-			const apiKey = get(data, "apiKey");
+	apiKey: {
+		header: () => "Api Key",
+		cell: ({ row }) => {
 			return (
 				<Badge variant="outline" className="rounded-md">
-					{apiKey.replace(/(openlit-.{4}).*(.{6})$/, "$1...$2")}
+					{row.apiKey?.replace(/(openlit-.{4}).*(.{6})$/, "$1...$2")}
 				</Badge>
 			);
 		},
 	},
-	{
-		key: "createdByUser.email",
-		className: "col-span-3",
-		header: "Created By",
-	},
-	{
-		className: "col-span-2",
-		header: "Created At",
-		render: (data: any) => {
-			const createdAt = get(data, "createdAt");
-			return format(createdAt, "MMM do, y");
+	createdBy: {
+		header: () => "Created By",
+		cell: ({ row }) => {
+			return row.createdByUser.email;
 		},
 	},
-	{
-		header: "Actions",
-		className: "col-span-2 text-center",
-		render: (data: any, extraFunction?: any) => {
-			const apiKey = get(data, "apiKey");
+	createdAt: {
+		header: () => "Created At",
+		cell: ({ row }) => {
+			return format(row.createdAt, "MMM do, y");
+		},
+	},
+	actions: {
+		header: () => "Actions",
+		cell: ({ row, extraFunctions }) => {
 			const copyAPIKey = () => {
-				copy(apiKey);
+				copy(row.apiKey);
 				toast.success("Copied!", {
 					id: "api-key",
 				});
@@ -58,27 +53,27 @@ const columns = [
 			return (
 				<div className="flex gap-4 justify-center">
 					<ConfirmationModal
-						handleYes={extraFunction?.handleYes}
+						handleYes={extraFunctions?.handleYes}
 						title="Are you sure you want to delete?"
 						subtitle="Deleting API keys might result in breaking application if they are getting used. Please confirm before deleting it."
 						params={{
-							id: data.id,
+							id: row.id,
 						}}
 					>
-						<TrashIcon className="w-4 cursor-pointer hover:text-primary" />
+						<TrashIcon className="w-4 cursor-pointer" />
 					</ConfirmationModal>
 					<CopyIcon
-						className="w-4 cursor-pointer hover:text-primary"
+						className="w-4 cursor-pointer"
 						onClick={copyAPIKey}
 					/>
 				</div>
 			);
 		},
 	},
-];
+}
 
 export default function ManageKeys() {
-	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<ApiKey[]>();
 	const { fireRequest: fireDeleteRequest } = useFetchWrapper();
 	const pingStatus = useRootStore(getPingStatus);
 	const fetchData = useCallback(async () => {
@@ -120,12 +115,19 @@ export default function ManageKeys() {
 	return (
 		<div className="flex flex-col grow w-full gap-3 overflow-hidden">
 			<Generate refresh={fetchData} />
-			<TableData
+			<DataTable
 				columns={columns}
-				data={(data || []) as any[]}
-				isFetched={isFetched}
-				isLoading={isLoading}
-				extraFunction={{
+				data={data || []}
+				isFetched={isFetched || pingStatus !== "pending"}
+				isLoading={isLoading || pingStatus === "pending"}
+				visibilityColumns={{
+					name: true,
+					apiKey: true,
+					createdBy: true,
+					createdAt: true,
+					actions: true,
+				}}
+				extraFunctions={{
 					handleYes,
 				}}
 			/>

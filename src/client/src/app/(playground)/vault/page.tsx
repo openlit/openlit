@@ -38,7 +38,7 @@ const columns: Columns<string, Secret> = {
 						secretData={row}
 						successCallback={extraFunctions.successCallback}
 					>
-						<EditIcon className="w-4 cursor-pointer hover:text-stone-900 dark:hover:text-stone-800" />
+						<EditIcon className="w-4 cursor-pointer" />
 					</SecretForm>
 					<ConfirmationModal
 						handleYes={extraFunctions?.handleDelete}
@@ -48,7 +48,7 @@ const columns: Columns<string, Secret> = {
 							id: row.id,
 						}}
 					>
-						<TrashIcon className="w-4 cursor-pointer hover:text-stone-900 dark:hover:text-stone-800" />
+						<TrashIcon className="w-4 cursor-pointer" />
 					</ConfirmationModal>
 				</div>
 			);

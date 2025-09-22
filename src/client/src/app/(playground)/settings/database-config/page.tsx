@@ -22,6 +22,7 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { DatabaseConfigTabItemProps } from "@/types/database-config";
 import { FormBuilderEvent } from "@/types/form";
+import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
 function ModifyDatabaseConfig({
 	dbConfig,
@@ -96,7 +97,7 @@ function ModifyDatabaseConfig({
 
 	return (
 		<FormBuilder
-			cardClassName="bg-stone-100/50 dark:bg-stone-900/70 py-4 px-6 rounded-none"
+			cardClassName={`${PRIMARY_BACKGROUND} py-4 px-6 rounded-none`}
 			fields={[
 				{
 					label: "Config Name",

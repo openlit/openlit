@@ -96,7 +96,7 @@ const FormBuilder = ({
 			onKeyDown={(e) => !(e.key === "Enter")}
 			name={formName}
 		>
-			<Card className={`w-full border-0 flex flex-col h-full shadow-none ${cardClassName}`}>
+			<Card className={`w-full border-0 flex flex-col h-full shadow-none  ${cardClassName} bg-transparent dark:bg-transparent`}>
 				{heading && (
 					<CardHeader className="shrink-0 px-0 pt-0 pb-4">
 						<CardTitle className="text-2xl">{heading}</CardTitle>
@@ -108,18 +108,21 @@ const FormBuilder = ({
 					</CardHeader>
 				)}
 				<CardContent className="flex gap-4 flex-col overflow-hidden p-0">
-					<div className="grid gap-6 relative flex-1 overflow-y-auto overflow-x-hidden">
-						{fields.map((field, index) => (
-							<FormField
-								key={index}
-								{...field}
-								boundaryClass={
-									alignment === "horizontal"
-										? "grid grid-cols-3 flex-1 items-center"
-										: "grid grid-cols-1 flex-1 items-center gap-2"
-								}
-							/>
-						))}
+					<div className="grid gap-6 relative flex-1 overflow-y-auto overflow-x-hidden scrollbar-hidden">
+						{fields.map((field, index) => {
+							field.fieldTypeProps.id = field.id || field.fieldTypeProps.name || field.inputKey || `field-${index}`;
+							return (
+								<FormField
+									key={index}
+									{...field}
+									boundaryClass={
+										alignment === "horizontal"
+											? "grid grid-cols-3 flex-1 items-center"
+											: "grid grid-cols-1 flex-1 items-center gap-2"
+									}
+								/>
+							);
+						})}
 					</div>
 					<div className="flex items-center justify-end w-full gap-3">
 						{isAllowedToSubmit && (

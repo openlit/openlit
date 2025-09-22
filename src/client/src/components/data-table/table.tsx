@@ -4,6 +4,7 @@ import { fill } from "lodash";
 import { objectEntries } from "@/utils/object";
 import { Columns } from "./columns";
 import { noop } from "@/utils/noop";
+import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
 const RowWrapper = ({
 	children,
@@ -94,12 +95,12 @@ export default function DataTable({
 		typeof onClick === "function" ? onClick(rowItem) : noop();
 
 	return (
-		<div className="flex flex-col w-full overflow-auto border dark:border-stone-800 rounded-md">
+		<div className={`flex flex-col w-full overflow-auto scrollbar-hidden border dark:border-stone-800 rounded-md grow ${PRIMARY_BACKGROUND}`}>
 			<RowWrapper className={`sticky top-0 z-10`} style={style}>
 				{visibleColumns.map((column) => (
 					<ColumnRowItem
 						key={column}
-						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-400 text-sm`}
+						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-400 text-sm overflow-hidden text-ellipsis whitespace-nowrap`}
 					>
 						{columns[column]?.header()}
 					</ColumnRowItem>
@@ -124,7 +125,7 @@ export default function DataTable({
 							{visibleColumns.map((column, cIdx) => (
 								<ColumnRowItem
 									key={`row-${index}-column-${cIdx}`}
-									className={`group-last-of-type:border-b-0 group-hover:text-stone-100 group-hover:bg-primary/60  dark:group-hover:bg-primary/60 cursor-pointer`}
+									className={`group-hover:text-stone-700 group-hover:bg-stone-100 dark:group-hover:text-stone-300  dark:group-hover:bg-stone-800 cursor-pointer hover:[&_svg]:text-stone-950 dark:hover:[&_svg]:text-stone-100`}
 								>
 									{columns[column]?.cell({
 										row: rowItem,

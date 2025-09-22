@@ -54,7 +54,7 @@ const columns: Columns<string, PromptList> = {
 						href={`/prompt-hub/${row.promptId}`}
 						className="inline-block "
 					>
-						<BookOpenText className="w-4 hover:text-stone-900 dark:hover:text-stone-800" />
+						<BookOpenText className="w-4" />
 					</Link>
 					<ConfirmationModal
 						handleYes={extraFunctions?.handleDelete}
@@ -64,7 +64,7 @@ const columns: Columns<string, PromptList> = {
 							id: row.promptId,
 						}}
 					>
-						<TrashIcon className="w-4 cursor-pointer hover:text-stone-900 dark:hover:text-stone-800" />
+						<TrashIcon className="w-4 cursor-pointer" />
 					</ConfirmationModal>
 				</div>
 			);

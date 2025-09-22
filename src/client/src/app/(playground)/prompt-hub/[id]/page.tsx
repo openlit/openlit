@@ -2,6 +2,7 @@
 import PromptForm from "@/components/(playground)/prompt-hub/form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
 	Table,
 	TableBody,
@@ -115,9 +116,11 @@ export default function PromptHub() {
 	);
 
 	return (
-		<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-6">
-			<div className="flex flex-col space-y-1 col-span-2 gap-6 overflow-auto p-4 bg-stone-100/50 dark:bg-stone-900/50 border border-stone-200 dark:border-stone-800">
-				<div className="flex w-full">
+		<div className="grid grid-cols-3 w-full h-full overflow-hidden gap-4">
+			<Card className="grow col-span-2 overflow-hidden flex flex-col border border-stone-200 dark:border-stone-800">
+				<CardHeader className="p-4">
+					<CardTitle>
+					<div className="flex w-full">
 					<div className="flex flex-col grow">
 						<div className="flex items-center text-2xl font-semibold text-stone-900 dark:text-stone-100 gap-4">
 							<h1>{data.name}</h1>
@@ -175,6 +178,9 @@ export default function PromptHub() {
 						) : null}
 					</div>
 				</div>
+					</CardTitle>
+				</CardHeader>
+				<CardContent className="flex flex-col w-full p-4 pt-0 gap-4 overflow-auto scrollbar-hidden">
 				{tags.length > 0 ? (
 					<div className="flex gap-2">
 						{tags.map((tag: string) => (
@@ -227,10 +233,46 @@ export default function PromptHub() {
 						</div>
 					</div>
 				) : null}
-			</div>
-			<div className="flex flex-col w-full space-y-1 p-4 bg-stone-100/50 dark:bg-stone-900/50 gap-4 overflow-hidden border border-stone-200 dark:border-stone-800">
-				<h2 className="text-stone-700 dark:text-stone-300">Version</h2>
-				<div className="flex flex-col w-full gap-4 overflow-auto">
+				{metaPropertiesMap.length > 0 ? (
+					<div className="flex flex-col gap-2">
+						<h3 className="text-sm text-stone-500 dark:text-stone-400">
+							Meta Properties
+						</h3>
+						<div className="rounded-sm border border-stone-200 dark:border-stone-700">
+							<Table>
+								<TableHeader className="bg-stone-100 dark:bg-stone-800">
+									<TableRow>
+										<TableHead className="h-8 text-stone-400">Key</TableHead>
+										<TableHead className="h-8 text-stone-400">Value</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{metaPropertiesMap.map(([itemKey, value]: string[]) => (
+										<TableRow
+											key={itemKey}
+											className="bg-stone-50 dark:bg-stone-900 data-[state=selected]:bg-stone-50 dark:data-[state=selected]:bg-stone-900 text-stone-600 dark:text-stone-300"
+										>
+											<TableCell className="p-0 px-4 align-middle font-medium h-10">
+												{itemKey}
+											</TableCell>
+											<TableCell className="p-0 px-4 align-middle h-10">
+												{value}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
+					</div>
+				) : null}
+				</CardContent>
+			</Card>
+			<Card className="border border-stone-200 dark:border-stone-800">
+				<CardHeader className="p-4">
+					<CardTitle className="text-md">Versions</CardTitle>
+				</CardHeader>
+				<CardContent className="p-4 pt-0">
+				<div className="flex flex-col w-full gap-4 overflow-auto scrollbar-hidden">
 					{data.versions.map((versionItem) => (
 						<Link
 							href={`/prompt-hub/${params.id}${
@@ -279,7 +321,8 @@ export default function PromptHub() {
 						</Link>
 					))}
 				</div>
-			</div>
+				</CardContent>
+			</Card>
 		</div>
 	);
 }

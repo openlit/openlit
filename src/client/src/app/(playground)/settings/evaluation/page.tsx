@@ -154,7 +154,7 @@ function ModifyEvaluationSettings({
 
 	return (
 		<FormBuilder
-			cardClassName="bg-stone-100/50 dark:bg-stone-900/70 py-4 px-6"
+			cardClassName="py-4 px-6"
 			formName={EVALUATION_CONFIG_FORM}
 			fields={[
 				{

@@ -72,7 +72,7 @@ export default function BoardList() {
 						{filteredBoards.map((board) => (
 							<Card
 								key={board.id}
-								className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700 bg-stone-100/50 dark:bg-stone-900/70"
+								className="group hover:shadow-lg transition-all duration-200 cursor-pointer border border-stone-200 dark:border-stone-800 hover:border-stone-300 dark:hover:border-stone-700"
 								onClick={() => navigateToBoard(board.id)}
 							>
 								<CardHeader className="pb-3">

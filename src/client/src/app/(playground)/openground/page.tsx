@@ -55,7 +55,7 @@ const columns: Columns<string, OpengroundRequest> = {
 		cell: ({ row }) => {
 			return (
 				<Link href={`/openground/${row.id}`}>
-					<EyeIcon className="hover:text-stone-900 dark:hover:text-stone-800" />
+					<EyeIcon />
 				</Link>
 			);
 		},

@@ -153,7 +153,7 @@ export default function PromptUsage() {
 			<DialogTrigger asChild>
 				<Button
 					variant="outline"
-					className="px-8 h-auto py-1 rounded-sm mr-6 dark:text-stone-300"
+					className="px-8 h-auto py-1 rounded-sm rounded-md font-normal"
 				>
 					How to use prompts ?
 				</Button>
