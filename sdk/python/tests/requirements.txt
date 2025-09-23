@@ -24,6 +24,7 @@ assemblyai
 firecrawl-py
 together
 transformers
+huggingface-hub
 groq
 elevenlabs
 

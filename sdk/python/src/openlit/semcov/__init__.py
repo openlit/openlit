@@ -135,6 +135,7 @@ class SemanticConvention:
 
     # GenAI System Names (Extra)
     GEN_AI_SYSTEM_HUGGING_FACE = "huggingface"
+    GEN_AI_SYSTEM_HUGGINGFACE_HUB = "huggingface_hub"
     GEN_AI_SYSTEM_OLLAMA = "ollama"
     GEN_AI_SYSTEM_GPT4ALL = "gpt4all"
     GEN_AI_SYSTEM_ELEVENLABS = "elevenlabs"
