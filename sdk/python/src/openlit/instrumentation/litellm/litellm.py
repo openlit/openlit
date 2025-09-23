@@ -85,22 +85,23 @@ def completion(
                 return chunk
             except StopIteration:
                 try:
-                    with tracer.start_as_current_span(
-                        self._span_name, kind=SpanKind.CLIENT
-                    ) as self._span:
-                        process_streaming_chat_response(
-                            self,
-                            pricing_info=pricing_info,
-                            environment=environment,
-                            application_name=application_name,
-                            metrics=metrics,
-                            capture_message_content=capture_message_content,
-                            disable_metrics=disable_metrics,
-                            version=version,
-                        )
+                    # Use the existing span that was started when the stream began
+                    process_streaming_chat_response(
+                        self,
+                        pricing_info=pricing_info,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                    )
+                    # End the span after processing
+                    self._span.end()
 
                 except Exception as e:
                     handle_exception(self._span, e)
+                    self._span.end()
 
                 raise
 
