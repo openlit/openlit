@@ -202,6 +202,20 @@ def common_chat_logic(
             SemanticConvention.GEN_AI_TOOL_ARGS,
             str(scope._tools.get("function", "").get("arguments", "")),
         )
+    elif isinstance(scope._tools, list) and len(scope._tools) > 0:
+            for tool in scope._tools:
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_TOOL_NAME,
+                    tool.get("function", {}).get("name", "")
+                )
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_TOOL_CALL_ID,
+                    str(tool.get("id", ""))
+                )
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_TOOL_ARGS,
+                    str(tool.get("function", {}).get("arguments", ""))
+                )
 
     # Span Attributes for Content
     if capture_message_content:
@@ -342,6 +356,20 @@ def common_generate_logic(
             SemanticConvention.GEN_AI_TOOL_ARGS,
             str(scope._tools.get("function", "").get("arguments", "")),
         )
+    elif isinstance(scope._tools, list) and len(scope._tools) > 0:
+            for tool in scope._tools:
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_TOOL_NAME,
+                    tool.get("function", {}).get("name", "")
+                )
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_TOOL_CALL_ID,
+                    str(tool.get("id", ""))
+                )
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_TOOL_ARGS,
+                    str(tool.get("function", {}).get("arguments", ""))
+                )
 
     # Span Attributes for Content
     if capture_message_content:
