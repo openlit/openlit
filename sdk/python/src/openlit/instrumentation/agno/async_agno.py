@@ -876,7 +876,6 @@ def async_team_run_wrap(
                     capture_message_content,
                     disable_metrics,
                     version,
-                    SemanticConvention.GEN_AI_OPERATION_TYPE_TEAM,
                 )
 
                 span.set_status(Status(StatusCode.OK))
