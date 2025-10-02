@@ -1,6 +1,6 @@
-import { SERVER_EVENTS } from "@/constants/events";
+// import { SERVER_EVENTS } from "@/constants/events";
 import { runWidgetQuery } from "@/lib/platform/manage-dashboard/widget";
-import PostHogServer from "@/lib/posthog";
+// import PostHogServer from "@/lib/posthog";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -14,9 +14,10 @@ export async function POST(request: NextRequest) {
 		userQuery,
 		filter,
 	});
-	PostHogServer.fireEvent({
-		event: res.err ? SERVER_EVENTS.DASHBOARD_QUERY_RUN_FAILURE : SERVER_EVENTS.DASHBOARD_QUERY_RUN_SUCCESS,
-		startTimestamp,
-	});
+	// Commenting out PostHogServer.fireEvent to avoid sending events to PostHog
+	// PostHogServer.fireEvent({
+	// 	event: res.err ? SERVER_EVENTS.DASHBOARD_QUERY_RUN_FAILURE : SERVER_EVENTS.DASHBOARD_QUERY_RUN_SUCCESS,
+	// 	startTimestamp,
+	// });
 	return Response.json(res);
 }

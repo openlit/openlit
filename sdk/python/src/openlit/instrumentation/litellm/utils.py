@@ -100,7 +100,10 @@ def process_chunk(scope, chunk):
         scope._output_tokens = chunked.get("usage").get("completion_tokens", 0)
         scope._response_id = chunked.get("id")
         scope._response_model = chunked.get("model")
-        scope._finish_reason = chunked.get("choices", [{}])[0].get("finish_reason")
+        finish_reason = chunked.get("choices", [{}])[0].get("finish_reason")
+        # Only update finish_reason if it's not None (preserve previous valid value)
+        if finish_reason is not None:
+            scope._finish_reason = finish_reason
         scope._response_service_tier = str(chunked.get("system_fingerprint", ""))
         scope._end_time = time.time()
 
@@ -189,7 +192,7 @@ def common_chat_logic(
     # Span Attributes for Response parameters
     scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
     scope._span.set_attribute(
-        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
+        SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason or ""]
     )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_RESPONSE_SERVICE_TIER, scope._response_service_tier
