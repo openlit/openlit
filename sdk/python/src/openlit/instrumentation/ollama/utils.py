@@ -192,17 +192,18 @@ def common_chat_logic(
 
     # Span Attributes for Tools
     if scope._tools is not None:
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function", "")
-        ).get("name", "")
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
-        )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS,
-            str(scope._tools.get("function", "").get("arguments", "")),
-        )
-    elif isinstance(scope._tools, list) and len(scope._tools) > 0:
+        if isinstance(scope._tools, dict):
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function", "")
+            ).get("name", "")
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
+            )
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_ARGS,
+                str(scope._tools.get("function", "").get("arguments", "")),
+            )
+        elif isinstance(scope._tools, list) and len(scope._tools) > 0:
             for tool in scope._tools:
                 scope._span.set_attribute(
                     SemanticConvention.GEN_AI_TOOL_NAME,
@@ -346,17 +347,18 @@ def common_generate_logic(
 
     # Span Attributes for Tools
     if scope._tools is not None:
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function", "")
-        ).get("name", "")
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
-        )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS,
-            str(scope._tools.get("function", "").get("arguments", "")),
-        )
-    elif isinstance(scope._tools, list) and len(scope._tools) > 0:
+        if isinstance(scope._tools, dict):
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("function", "")
+            ).get("name", "")
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
+            )
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_TOOL_ARGS,
+                str(scope._tools.get("function", "").get("arguments", "")),
+            )
+        elif isinstance(scope._tools, list) and len(scope._tools) > 0:
             for tool in scope._tools:
                 scope._span.set_attribute(
                     SemanticConvention.GEN_AI_TOOL_NAME,
