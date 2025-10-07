@@ -6,7 +6,7 @@ server:
 
 agent:
   # The path to the OpenTelemetry Collector binary managed by this supervisor
-  executable: ./otelcontribcol
+  executable: /app/opamp/otelcontribcol
 
   # Reference to external configuration file
   config_files: 

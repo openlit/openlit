@@ -14,19 +14,19 @@ services:
     restart: always
 
   openlit:
-    image: openlit
+    image: openlit-2
     build:
       context: .
-      dockerfile: ./Dockerfile.opamp
+      dockerfile: ./Dockerfile
       args:
         OTEL_VERSION: ${OTEL_VERSION:-v0.132.4}
         OPAMP_SUPERVISOR_VERSION: ${OPAMP_SUPERVISOR_VERSION:-v0.132.4}
         TARGETARCH: ${TARGETARCH:-arm64}
-    container_name: openlit
+    container_name: openlit-2
     environment:
       TELEMETRY_ENABLED: "true"
       INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: 9000
+      INIT_DB_PORT: 8123
       INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
       INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
       INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
@@ -48,35 +48,15 @@ services:
       - "4318:4318"  # OTLP HTTP receiver
       - "4320:4320"  # OpAMP server
       - "4321:4321"  # OpAMP server
-      - 8080:8080 #Opamp Api Server
+      - "8080:8080" #Opamp Api Server
     depends_on:
       - clickhouse
     volumes:
-      - openlit-data:/app/client/data
+      - openlit-data-2:/app/client/data
       - ../assets/supervisor.yaml:/etc/otel/supervisor.yaml
       - ../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
     restart: always
 
-  # otel-collector:
-  #   image: otel/opentelemetry-collector-contrib:0.94.0
-  #   container_name: otel-collector
-  #   environment:
-  #     INIT_DB_HOST: clickhouse
-  #     INIT_DB_PORT: 9000
-  #     INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
-  #     INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
-  #     INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
-  #   ports:
-  #     - "4317:4317"
-  #     - "4318:4318"
-  #     - "8888:8888"
-  #     - "55679:55679"
-  #   depends_on:
-  #     - clickhouse
-  #   volumes:
-  #     - ../assets/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
-  #   restart: always
-
 volumes:
   clickhouse-data:
-  openlit-data:
+  openlit-data-2:

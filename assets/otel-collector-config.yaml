@@ -17,7 +17,7 @@ processors:
 
 exporters:
   clickhouse:
-    endpoint: tcp://${env:INIT_DB_HOST}:${env:INIT_DB_PORT}?dial_timeout=10s
+    endpoint: tcp://${env:INIT_DB_HOST}:9000?dial_timeout=10s
     database: ${env:INIT_DB_DATABASE}
     username: ${env:INIT_DB_USERNAME}
     password: ${env:INIT_DB_PASSWORD}

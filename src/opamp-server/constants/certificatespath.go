@@ -1,7 +1,6 @@
 package constants
 
 import (
-	"os"
 	"path/filepath"
 )
 
@@ -9,7 +8,7 @@ import (
 // Get present working directory
 
 var (
-	CertificatesDirectory = filepath.Join(os.Getenv("GOPATH"), "openlit-opamp", "certs")
+	CertificatesDirectory = filepath.Join("/app/opamp", "certs")
 	CaCertPath            = CertificatesDirectory + "/cert/ca.cert.pem"
 	ServerCertPath        = CertificatesDirectory + "/server/server.cert.pem"
 	ServerCertKeyPath     = CertificatesDirectory + "/server/server.key.pem"
