@@ -81,7 +81,7 @@ flowchart TB;
    docker compose up -d
    ```
 
-> For instructions on installing in Kubernetes using Helm, refer to the [Kubernetes Helm installation guide](https://docs.openlit.io/latest/installation#kubernetes).
+> For instructions on installing in Kubernetes using Helm, refer to the [Kubernetes Helm installation guide](https://docs.openlit.io/latest/openlit/installation#kubernetes).
 
 ### Step 2: Install OpenLIT SDK
 

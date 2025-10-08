@@ -4,7 +4,9 @@ from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
-
+from openlit.instrumentation.agno.utils import (
+    resolve_agno_knowledge_target,
+    resolve_agno_memory_target)
 from openlit.instrumentation.agno.agno import (
     agent_run_wrap,
     agent_continue_run_wrap,
@@ -33,6 +35,7 @@ from openlit.instrumentation.agno.async_agno import (
     async_agent_continue_run_wrap,
     async_function_execute_wrap,
     async_reasoning_wrap,
+    async_team_run_stream_wrap,
     async_workflow_run_wrap,
     async_team_run_wrap,
     async_model_run_function_call_wrap,
@@ -232,72 +235,48 @@ class AgnoInstrumentor(BaseInstrumentor):
             # Instrumenting the batch methods causes span hierarchy issues and is redundant
 
             # CRITICAL: Memory operations that bypass model bridge
-            wrap_function_wrapper(
-                "agno.memory.v2.memory",
-                "Memory.add_user_memory",
-                memory_operation_wrap(
-                    "memory.add_user_memory",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
 
-            wrap_function_wrapper(
-                "agno.memory.v2.memory",
-                "Memory.search_user_memories",
-                memory_operation_wrap(
-                    "memory.search_user_memories",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+            # Dynamically determine the correct memory module/class based on the installed
+            # agno version. 2.x versions expose MemoryManager in ``agno.memory.manager``
+            # while older 1.x versions expose Memory in ``agno.memory.v2.memory``.
 
-            # Memory Operations (v2)
-            wrap_function_wrapper(
-                "agno.memory.v2.memory",
-                "Memory.add_user_memory",
-                memory_add_wrap(
-                    "memory.add_user_memory",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+            memory_module, memory_class = resolve_agno_memory_target()
 
-            wrap_function_wrapper(
-                "agno.memory.v2.memory",
-                "Memory.search_user_memories",
-                memory_search_wrap(
-                    "memory.search_user_memories",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+            if memory_module is not None:
 
-            # Note: Memory class does not have async_add_user_memory or async_search_user_memories
+                # Wrap memory add/search exactly once using the dedicated wrappers to avoid
+                # duplicate spans and performance overhead.
+                wrap_function_wrapper(
+                    memory_module,
+                    f"{memory_class}.add_user_memory",
+                    memory_add_wrap(
+                        "memory.add_user_memory",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
+
+                wrap_function_wrapper(
+                    memory_module,
+                    f"{memory_class}.search_user_memories",
+                    memory_search_wrap(
+                        "memory.search_user_memories",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
 
             # VectorDB Operations (base class)
             wrap_function_wrapper(
@@ -332,87 +311,104 @@ class AgnoInstrumentor(BaseInstrumentor):
                 ),
             )
 
-            # Knowledge Operations
-            wrap_function_wrapper(
-                "agno.knowledge.agent",
-                "AgentKnowledge.search",
-                knowledge_search_wrap(
-                    "knowledge.search",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+            # Dynamically determine the correct knowledge module/class based on the installed
+            # agno version. 2.x versions expose `Knowledge` in `agno.knowledge.knowledge`
+            # while older 1.x versions expose `AgentKnowledge` in `agno.knowledge.agent`.
+            knowledge_module, knowledge_class = resolve_agno_knowledge_target()
 
-            wrap_function_wrapper(
-                "agno.knowledge.agent",
-                "AgentKnowledge.load",
-                knowledge_add_wrap(
-                    "knowledge.load",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+            if knowledge_module is not None:
+                # Knowledge Operations
+                wrap_function_wrapper(
+                    knowledge_module,
+                    f"{knowledge_class}.search",
+                    knowledge_search_wrap(
+                        "knowledge.search",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
 
-            wrap_function_wrapper(
-                "agno.knowledge.agent",
-                "AgentKnowledge.add_document_to_knowledge_base",
-                knowledge_add_wrap(
-                    "knowledge.add_document_to_knowledge_base",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+                # agno 2.x versions do not have load method
+                if hasattr(knowledge_class, "load"):
 
-            # Workflow Operations
-            wrap_function_wrapper(
-                "agno.workflow.workflow",
-                "Workflow.run",
-                workflow_run_wrap(
-                    "workflow.run",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+                    wrap_function_wrapper(
+                        knowledge_module,
+                        f"{knowledge_class}.load",
+                        knowledge_add_wrap(
+                            "knowledge.load",
+                            version,
+                            environment,
+                            application_name,
+                            tracer,
+                            pricing_info,
+                            capture_message_content,
+                            metrics,
+                            disable_metrics,
+                        ),
+                    )
 
-            wrap_function_wrapper(
-                "agno.workflow.workflow",
-                "Workflow.run_workflow",
-                workflow_run_wrap(
-                    "workflow.run_workflow",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+                # agno 2.x versions do not have add_document_to_knowledge_base method
+                if hasattr(knowledge_class, "add_document_to_knowledge_base"):
+                    wrap_function_wrapper(
+                        knowledge_module,
+                        f"{knowledge_class}.add_document_to_knowledge_base",
+                        knowledge_add_wrap(
+                            "knowledge.add_document_to_knowledge_base",
+                            version,
+                            environment,
+                            application_name,
+                            tracer,
+                            pricing_info,
+                            capture_message_content,
+                            metrics,
+                            disable_metrics,
+                        ),
+                    )
+
+            try:
+                from agno.workflow.workflow import Workflow
+            except ImportError:
+                Workflow = None
+
+            # agno 2.x versions do not have Workflow.run_workflow and Workflow.arun_workflow methods
+            if Workflow is not None and hasattr(Workflow, "run_workflow"):
+                wrap_function_wrapper(
+                    "agno.workflow.workflow",
+                    "Workflow.run_workflow",
+                    workflow_run_wrap(
+                        "workflow.run_workflow",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
+
+                wrap_function_wrapper(
+                    "agno.workflow.workflow",
+                    "Workflow.arun_workflow",
+                    async_workflow_run_wrap(
+                        "workflow.arun_workflow",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
 
             # Async Workflow Operations (actual methods that exist)
             wrap_function_wrapper(
@@ -431,45 +427,72 @@ class AgnoInstrumentor(BaseInstrumentor):
                 ),
             )
 
-            wrap_function_wrapper(
-                "agno.workflow.workflow",
-                "Workflow.arun_workflow",
-                async_workflow_run_wrap(
-                    "workflow.arun_workflow",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+
 
             # Team Operations
+
+            try:
+                from agno.team.team import Team # pylint: disable=import-error
+            except ImportError:
+                Team = None
+            # agno 2.x versions do use Team._arun_stream and Team._arun methods
+            if Team is not None and hasattr(Team, "_arun_stream"):
+                wrap_function_wrapper(
+                    "agno.team.team",
+                    "Team._arun_stream",
+                    async_team_run_stream_wrap(
+                        "team._arun_stream",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
+
+                wrap_function_wrapper(
+                    "agno.team.team",
+                    "Team._arun",
+                    async_team_run_wrap(
+                        "team._arun",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
+
+            else:
+                # agno 2.x versions do not have Team._arun_stream
+                # Team Async Operations (actual methods that exist)
+                wrap_function_wrapper(
+                    "agno.team.team",
+                    "Team.arun",
+                    async_team_run_wrap(
+                        "team.arun",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
+
             wrap_function_wrapper(
                 "agno.team.team",
                 "Team.run",
                 team_run_wrap(
                     "team.run",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
-
-            # Team Async Operations (actual methods that exist)
-            wrap_function_wrapper(
-                "agno.team.team",
-                "Team.arun",
-                async_team_run_wrap(
-                    "team.arun",
                     version,
                     environment,
                     application_name,
@@ -492,37 +515,44 @@ class AgnoInstrumentor(BaseInstrumentor):
             # without creating redundant spans for FunctionCall.execute/aexecute
 
             # Reasoning Operations
-            wrap_function_wrapper(
-                "agno.agent.agent",
-                "Agent.reason",
-                reasoning_wrap(
-                    "agent.reason",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+            try:
+                from agno.agent.agent import Agent
+            except ImportError:
+                Agent = None
 
-            wrap_function_wrapper(
-                "agno.agent.agent",
-                "Agent.areason",
-                async_reasoning_wrap(
-                    "agent.areason",
-                    version,
-                    environment,
-                    application_name,
-                    tracer,
-                    pricing_info,
-                    capture_message_content,
-                    metrics,
-                    disable_metrics,
-                ),
-            )
+            # agno 2.x versions do not have Agent.reason and Agent.areason methods
+            if Agent is not None and hasattr(Agent, "reason"):
+                wrap_function_wrapper(
+                    "agno.agent.agent",
+                    "Agent.reason",
+                    reasoning_wrap(
+                        "agent.reason",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
+
+                wrap_function_wrapper(
+                    "agno.agent.agent",
+                    "Agent.areason",
+                    async_reasoning_wrap(
+                        "agent.areason",
+                        version,
+                        environment,
+                        application_name,
+                        tracer,
+                        pricing_info,
+                        capture_message_content,
+                        metrics,
+                        disable_metrics,
+                    ),
+                )
 
         # Original Component Operations
         if detailed_tracing:
