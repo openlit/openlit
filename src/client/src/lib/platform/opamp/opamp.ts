@@ -1,5 +1,6 @@
 import asaw from "@/utils/asaw";
 import { jsonStringify } from "@/utils/json";
+import { consoleLog } from "@/utils/log";
 
 const baseUrl = process.env.OPAMP_API_CLIENT;
 
@@ -11,8 +12,6 @@ export async function getAllAgents() {
 		cache: 'no-store'
 	}));
 
-	console.log(`${baseUrl}/api/agents`);
-
 	if (err) {
 		return {
 			err
@@ -20,7 +19,6 @@ export async function getAllAgents() {
 	}
 
 	const data = await res.json();
-	console.log(data);
 
 	return {
 		data
@@ -61,7 +59,7 @@ export async function updateAgentConfig(id: string, config: string) {
 	}));
 
 	if (err) {
-		console.log(err);
+		consoleLog(err);
 		return {
 			err
 		};

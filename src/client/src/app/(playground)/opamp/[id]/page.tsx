@@ -1,6 +1,6 @@
 "use client";
 import { Agent } from "@/types/opamp";
-import { AgentDetail } from "../agent";
+import AgentDetail from "./agent";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";

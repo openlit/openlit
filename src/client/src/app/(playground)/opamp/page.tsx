@@ -1,13 +1,13 @@
 "use client";
 import { useEffect } from "react";
-import { HealthMonitor } from "./health-monitor";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { Agent } from "@/types/opamp";
 import { usePageHeader } from "@/selectors/page";
+import List from "./list";
 
 export default function Opamp() {
 	const { setHeader } = usePageHeader();
-	const { fireRequest, data, isLoading } = useFetchWrapper<Agent[]>();
+	const { fireRequest, data, isLoading, isFetched } = useFetchWrapper<Agent[]>();
 
 	useEffect(() => {
 		setHeader({
@@ -24,5 +24,5 @@ export default function Opamp() {
 		});
 	}, []);
 
-	return <HealthMonitor agents={data || []} isLoading={!data || isLoading} />;
+	return <List agents={data || []} isLoading={!data || isLoading} isFetched={isFetched} />;
 }
