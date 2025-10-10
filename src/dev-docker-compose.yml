@@ -14,7 +14,7 @@ services:
     restart: always
 
   openlit:
-    image: openlit-2
+    image: openlit
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -22,7 +22,7 @@ services:
         OTEL_VERSION: ${OTEL_VERSION:-v0.132.4}
         OPAMP_SUPERVISOR_VERSION: ${OPAMP_SUPERVISOR_VERSION:-v0.132.4}
         TARGETARCH: ${TARGETARCH:-arm64}
-    container_name: openlit-2
+    container_name: openlit
     environment:
       TELEMETRY_ENABLED: "true"
       INIT_DB_HOST: clickhouse
@@ -52,11 +52,11 @@ services:
     depends_on:
       - clickhouse
     volumes:
-      - openlit-data-2:/app/client/data
+      - openlit-data:/app/client/data
       - ../assets/supervisor.yaml:/etc/otel/supervisor.yaml
       - ../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
     restart: always
 
 volumes:
   clickhouse-data:
-  openlit-data-2:
+  openlit-data:

@@ -4,6 +4,7 @@ import { Agent } from "@/types/opamp";
 
 import { Badge } from "@/components/ui/badge";
 import { Columns } from "@/components/data-table/columns";
+import { useRouter } from "next/navigation";
 
 const getAttributeValue = (attributes: any[], key: string) => {
 	return attributes.find((attr) => attr.key === key)?.value.Value.StringValue || "N/A"
@@ -82,6 +83,12 @@ export default function List({ agents, isLoading, isFetched }: {
 	isLoading: boolean;
 	isFetched: boolean;
 }) {
+	const router = useRouter()
+
+	const handleClick = (row: Agent) => {
+    router.push(`/opamp/${row.InstanceIdStr}`)
+  }
+
 	return (
 		<DataTable
 			columns={columns}
@@ -95,6 +102,7 @@ export default function List({ agents, isLoading, isFetched }: {
 				startedAt: true,
 				status: true,
 			}}
+			onClick={handleClick}
 		/>
 	);
 }

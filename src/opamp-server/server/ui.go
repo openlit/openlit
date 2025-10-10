@@ -18,7 +18,6 @@ import (
 )
 
 var (
-	htmlDir string
 	srv     *http.Server
 	opampCA = sync.OnceValue(func() string {
 		p, err := os.ReadFile(constants.CaCertPath)
