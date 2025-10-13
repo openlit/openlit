@@ -37,7 +37,7 @@ export default function AuthFormContainer({
 						</Button>
 					</Link>
 					<Link
-						href="https://docs.openlit.io/latest/introduction"
+						href="https://docs.openlit.io/latest/overview"
 						target="_blank"
 					>
 						<Button variant={"ghost"} className="hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-100 dark:hover:text-stone-900">
