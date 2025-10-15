@@ -101,7 +101,7 @@ class OpenLITTracingProcessor(TracingProcessor):
                 kind=SpanKind.CLIENT,
                 attributes={
                     SemanticConvention.GEN_AI_SYSTEM: "openai_agents",
-                    SemanticConvention.GEN_AI_OPERATION: SemanticConvention.GEN_AI_OPERATION_TYPE_WORKFLOW,
+                    SemanticConvention.GEN_AI_OPERATION: SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
                     "trace.id": trace_id,
                     "trace.name": name,
                 },
