@@ -258,10 +258,10 @@ class OpenLITTracingProcessor(TracingProcessor):
         """Get operation type based on span characteristics."""
         type_mapping = {
             "agent": SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
-            "generation": SemanticConvention.GEN_AI_OPERATION_CHAT,
-            "function": SemanticConvention.GEN_AI_OPERATION_CHAT,
-            "tool": SemanticConvention.GEN_AI_OPERATION_CHAT,
-            "handoff": SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+            "generation": SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            "function": SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            "tool": SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            "handoff": SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
         }
 
         # Check span type first
@@ -274,7 +274,7 @@ class OpenLITTracingProcessor(TracingProcessor):
             if key in span_name.lower():
                 return operation
 
-        return SemanticConvention.GEN_AI_OPERATION_CHAT
+        return SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
 
     def _process_span_attributes(self, span, span_data, span_type: str):
         """Process and set span attributes based on span type."""
