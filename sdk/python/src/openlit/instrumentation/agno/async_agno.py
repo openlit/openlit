@@ -818,7 +818,7 @@ def async_workflow_run_wrap(
                     capture_message_content,
                     disable_metrics,
                     version,
-                    SemanticConvention.GEN_AI_OPERATION_TYPE_WORKFLOW,
+                    SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
                 )
 
                 span.set_status(Status(StatusCode.OK))
