@@ -1,7 +1,7 @@
 name: 🚀 Feature Request
 description: Suggest a new feature for OpenLIT
-title: "[Feature]: "
-labels: [":rocket: Feature", ":raised_hand: Up for Grabs"]
+title: "Feature: "
+labels: ["feature"]
 body:
   - type: dropdown
     id: component
