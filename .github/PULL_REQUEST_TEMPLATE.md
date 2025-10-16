@@ -1,3 +1,7 @@
+> [!IMPORTANT]  
+> 1. We strictly follow a issue-first approach, please first open an [issue](https://github.com/openlit/openlit/issues) relating to this Pull Request.
+> 2. PR name follows conventional commit format: `Feat: ...` or `Fix: ....`
+
 ### Overview:
 <!-- What does this PR do? Link issues here -->
 
@@ -8,5 +12,4 @@
 
 ### Checklist:
 - [ ] PR name follows conventional commit format: `[Feat]: ...` or `[Fix]: ....`
-- [ ] Added visuals for changes (If applicable)
 - [ ] Checked OpenLIT [contribution guidelines](https://github.com/openlit/openlit/blob/main/CONTRIBUTING.md)
