@@ -13,6 +13,7 @@ body:
         - OpenLIT Python SDK
         - OpenLIT TS SDK
         - OpenLIT Operator
+        - OpenTelemetry GPU Collector
     validations:
       required: true
 
