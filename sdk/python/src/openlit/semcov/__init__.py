@@ -70,6 +70,7 @@ class SemanticConvention:
     GEN_AI_TOOL_ARGS = "gen_ai.tool.args"
 
     # GenAI Operation Types (OTel Semconv)
+    GEN_AI_OPERATION_TYPE_TEXT_COMPLETION = "text_completion"
     GEN_AI_OPERATION_TYPE_CHAT = "chat"
     GEN_AI_OPERATION_TYPE_TOOLS = "execute_tool"
     GEN_AI_OPERATION_TYPE_EMBEDDING = "embeddings"

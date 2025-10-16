@@ -683,7 +683,7 @@ def process_workflow_request(
     # Use common span attributes for workflow operations
     common_span_attributes(
         scope,
-        SemanticConvention.GEN_AI_OPERATION_TYPE_WORKFLOW,
+        SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
         SemanticConvention.GEN_AI_SYSTEM_AGNO,
         "localhost",  # server_address
         80,  # server_port

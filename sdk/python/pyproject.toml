@@ -14,7 +14,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8.0"
+python = "^3.9.0"
 requests = "^2.26.0"
 schedule = "^1.2.2"
 pydantic = "^2.0.0"

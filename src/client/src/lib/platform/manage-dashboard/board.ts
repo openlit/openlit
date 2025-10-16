@@ -514,7 +514,7 @@ export async function updatePinnedBoard(boardId: string) {
 
 export async function isBoardTableEmpty(databaseConfigId?: string) {
 	const query = `
-		SELECT COUNT(*) as count FROM ${OPENLIT_BOARD_TABLE_NAME}
+		SELECT CAST(COUNT(*) AS INTEGER) as count FROM ${OPENLIT_BOARD_TABLE_NAME}
 	`;
 
 	const { data: boardCount, err: boardCountErr } =

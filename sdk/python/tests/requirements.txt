@@ -27,6 +27,7 @@ transformers
 huggingface-hub
 groq
 elevenlabs
+ollama
 
 # Vector DBs
 chromadb
