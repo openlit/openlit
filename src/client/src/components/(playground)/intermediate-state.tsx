@@ -11,7 +11,7 @@ export default function IntermediateState(props: IntermediateState) {
 			props.children
 		) : (
 			<div
-				className={`flex w-full items-center justify-center p-4 text-sm  text-stone-500 ${
+				className={`flex w-full items-center justify-center p-3 text-sm  text-stone-500 ${
 					props.classNames || ""
 				}`}
 			>
@@ -21,7 +21,7 @@ export default function IntermediateState(props: IntermediateState) {
 	if (props.type === "nodata")
 		return (
 			<div
-				className={`flex w-full items-center justify-center p-4 text-sm  text-stone-500  ${
+				className={`flex w-full items-center justify-center p-3 text-sm  text-stone-500  ${
 					props.classNames || ""
 				}`}
 			>

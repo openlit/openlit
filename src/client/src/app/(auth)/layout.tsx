@@ -1,24 +1,20 @@
-"use client";
-import Image from "next/image";
+import AuthFormContainer from "@/components/(auth)/auth-form-container";
+import AutoSignInDemoInstance from "../../components/(auth)/auto-signin-demo-instance";
+import AuthDetailsCarousel from "@/components/(auth)/auth-details-carousel";
 
 export default function AuthLayout({
 	children,
 }: {
-	children: React.ReactNode;
+	children: JSX.Element;
 }) {
 	return (
-		<div className="w-full lg:grid lg:grid-cols-2 h-screen">
-			<div className="flex items-center justify-center py-12">{children}</div>
-			<div className="flex flex-col items-center justify-center w-full h-full bg-stone-900">
-				<Image
-					src="/images/logo.png"
-					alt="Image"
-					width="200"
-					height="200"
-					className="object-cover"
-				/>
-				<p className="text-stone-100 text-6xl">OpenLIT</p>
-			</div>
+		<div className="min-h-screen grid lg:grid-cols-2 bg-white dark:bg-white">
+			<AuthDetailsCarousel />
+			<AuthFormContainer>
+				<AutoSignInDemoInstance demoCreds={{ email: process.env.DEMO_ACCOUNT_EMAIL, password: process.env.DEMO_ACCOUNT_PASSWORD }}>
+					{children}
+				</AutoSignInDemoInstance>
+			</AuthFormContainer>
 		</div>
 	);
 }

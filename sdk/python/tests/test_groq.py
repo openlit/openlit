@@ -2,7 +2,7 @@
 """
 This module contains tests for Groq functionality using the Groq Python library.
 
-Tests cover various API endpoints, including chat. 
+Tests cover various API endpoints, including chat.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -18,21 +18,18 @@ from groq import Groq, AsyncGroq
 import openlit
 
 # Initialize synchronous Groq client
-sync_client = Groq(
-    api_key=os.getenv("GROQ_API_TOKEN")
-)
+sync_client = Groq(api_key=os.getenv("GROQ_API_TOKEN"))
 
 # Initialize asynchronous Groq client
-async_client = AsyncGroq(
-    api_key=os.getenv("GROQ_API_TOKEN")
-)
+async_client = AsyncGroq(api_key=os.getenv("GROQ_API_TOKEN"))
 
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
+
 def test_sync_groq_chat():
     """
-    Tests synchronous Chat Completions with the 'llama3-8b-8192' model.
+    Tests synchronous Chat Completions.
 
     Raises:
         AssertionError: If the Chat Completions response object is not as expected.
@@ -46,11 +43,11 @@ def test_sync_groq_chat():
                     "content": "Monitor LLM Applications",
                 }
             ],
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             max_tokens=1,
-            stream = False,
+            stream=False,
         )
-        assert chat_completions_resp.object == 'chat.completion'
+        assert chat_completions_resp.object == "chat.completion"
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
@@ -58,6 +55,7 @@ def test_sync_groq_chat():
             print("Rate Limited:", e)
         else:
             raise
+
 
 @pytest.mark.asyncio
 async def test_async_groq_chat():
@@ -76,11 +74,11 @@ async def test_async_groq_chat():
                     "content": "What is LLM Observability?",
                 }
             ],
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
             max_tokens=1,
             stream=False,
         )
-        assert chat_completions_resp.object == 'chat.completion'
+        assert chat_completions_resp.object == "chat.completion"
 
     # pylint: disable=broad-exception-caught
     except Exception as e:

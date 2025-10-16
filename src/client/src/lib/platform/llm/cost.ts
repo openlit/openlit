@@ -1,9 +1,9 @@
 import {
 	getFilterPreviousParams,
 	getFilterWhereCondition,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import { MetricParams, dataCollector, OTEL_TRACES_TABLE_NAME } from "../common";
-import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 
 export async function getTotalCost(params: MetricParams) {
 	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("cost")}']`;
@@ -71,7 +71,7 @@ export async function getAverageCost(params: MetricParams) {
 }
 
 export async function getCostByApplication(params: MetricParams) {
-	const keyPathApplicationName = `SpanAttributes['${getTraceMappingKeyFullPath(
+	const keyPathApplicationName = `ResourceAttributes['${getTraceMappingKeyFullPath(
 		"applicationName"
 	)}']`;
 	const keyPathCost = `SpanAttributes['${getTraceMappingKeyFullPath("cost")}']`;
@@ -90,7 +90,7 @@ export async function getCostByApplication(params: MetricParams) {
 }
 
 export async function getCostByEnvironment(params: MetricParams) {
-	const keyPathEnvironment = `SpanAttributes['${getTraceMappingKeyFullPath(
+	const keyPathEnvironment = `ResourceAttributes['${getTraceMappingKeyFullPath(
 		"environment"
 	)}']`;
 	const keyPathCost = `SpanAttributes['${getTraceMappingKeyFullPath("cost")}']`;

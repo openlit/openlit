@@ -1,11 +1,10 @@
-import { DatabaseConfigWithActive } from "@/constants/dbConfig";
 import { getDatabaseConfigList } from "@/selectors/database-config";
 import { useRootStore } from "@/store";
 import { useEffect } from "react";
 import {
 	changeActiveDatabaseConfig,
 	fetchDatabaseConfigList,
-} from "@/helpers/database-config";
+} from "@/helpers/client/database-config";
 import {
 	Select,
 	SelectContent,
@@ -13,16 +12,25 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { usePostHog } from "posthog-js/react";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 export default function DatabaseConfigSwitch() {
+	const posthog = usePostHog();
 	const list = useRootStore(getDatabaseConfigList) || [];
 	const activeDatabase = list.find((item) => !!item.isCurrent);
 	const onClickItem = (id: string) => {
-		changeActiveDatabaseConfig(id);
+		changeActiveDatabaseConfig(id, () => {
+			posthog?.capture(CLIENT_EVENTS.DB_CONFIG_ACTION_CHANGE);
+		});
 	};
 
 	useEffect(() => {
-		fetchDatabaseConfigList();
+		fetchDatabaseConfigList((data: any[]) => {
+			posthog?.capture(CLIENT_EVENTS.DB_CONFIG_LIST, {
+				count: data.length,
+			});
+		});
 	}, []);
 
 	if (!activeDatabase) return null;

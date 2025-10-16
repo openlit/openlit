@@ -1,13 +1,6 @@
 "use client";
 import { lens } from "@dhmk/zustand-lens";
-import { User } from "@prisma/client";
-
-export type UserStore = {
-	details?: User;
-	isFetched: boolean;
-	set: (u: User) => void;
-	reset: () => void;
-};
+import { UserStore } from "@/types/store/user";
 
 export const userStoreSlice: UserStore = lens((setStore, getStore) => ({
 	details: undefined,
@@ -21,6 +14,6 @@ export const userStoreSlice: UserStore = lens((setStore, getStore) => ({
 		setStore(() => ({
 			...getStore(),
 			details: undefined,
-			isFetched: true,
+			isFetched: false,
 		})),
 }));

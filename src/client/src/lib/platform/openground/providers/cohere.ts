@@ -1,4 +1,4 @@
-import OpenLitHelper from "@/helpers/openlit";
+import OpenLitHelper from "@/helpers/server/openlit";
 import { Cohere, CohereClient } from "cohere-ai";
 import { omit } from "lodash";
 

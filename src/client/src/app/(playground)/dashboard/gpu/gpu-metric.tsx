@@ -14,7 +14,7 @@ import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import IntermediateState from "@/components/(playground)/intermediate-state";
-import { getFilterParamsForDashboard } from "@/helpers/filter";
+import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 
 const COLORS = ["#8884d8", "#82ca9d", "#ffc658"];
 

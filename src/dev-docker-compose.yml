@@ -1,17 +1,16 @@
-version: '3.8'
-
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server:24.2.2
+    image: clickhouse/clickhouse-server:24.4.1
     container_name: clickhouse
     environment:
-      CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}   
-      CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}                   
+      CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+      CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}
     volumes:
       - clickhouse-data:/var/lib/clickhouse
+      - ../assets/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom-config.xml:ro
     ports:
-      - "9000:9000" 
-      - "8123:8123" 
+      - "9000:9000"
+      - "8123:8123"
     restart: always
 
   openlit:
@@ -21,14 +20,26 @@ services:
       dockerfile: Dockerfile
     container_name: openlit
     environment:
+      TELEMETRY_ENABLED: "true"
       INIT_DB_HOST: clickhouse
       INIT_DB_PORT: 8123
       INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
       INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
       INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
       SQLITE_DATABASE_URL: file:/app/client/data/data.db
+      PORT: ${PORT:-3000}
+      DOCKER_PORT: ${DOCKER_PORT:-3000}
+      # OAuth Environment Variables
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+
+    env_file:
+      - path: .env
+        required: false
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:${DOCKER_PORT:-3000}"
     depends_on:
       - clickhouse
     volumes:
@@ -45,10 +56,10 @@ services:
       INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
       INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
     ports:
-      - "4317:4317" 
-      - "4318:4318" 
-      - "8888:8888" 
-      - "55679:55679" 
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+      - "55679:55679"
     depends_on:
       - clickhouse
     volumes:

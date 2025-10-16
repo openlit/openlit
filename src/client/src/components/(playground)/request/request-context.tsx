@@ -1,8 +1,8 @@
-import { TraceRow } from "@/constants/traces";
+import { TransformedTraceRow } from "@/types/trace";
 import { noop } from "@/utils/noop";
 import { ReactNode, createContext, useContext, useState } from "react";
 
-type RequestProps = TraceRow | null;
+type RequestProps = TransformedTraceRow | null;
 
 type RequestUpdateProps = (value: any) => void | typeof noop;
 

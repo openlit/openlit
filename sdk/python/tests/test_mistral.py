@@ -1,12 +1,12 @@
-# pylint: disable=duplicate-code
+# pylint: disable=duplicate-code, no-name-in-module
 """
 This module contains tests for Mistral functionality using the Mistral Python library.
 
-Tests cover various API endpoints, including chat and embeddings. 
+Tests cover various API endpoints, including chat and embeddings.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
-    - Mistral_API_TOKEN: Mistral API api_key for authentication.
+    - MISTRAL_API_KEY: Mistral API key for authentication.
 
 Note: Ensure the environment is properly configured for Mistral access and OpenLIT monitoring
 prior to running these tests.
@@ -14,23 +14,19 @@ prior to running these tests.
 
 import os
 import pytest
-from mistralai.client import MistralClient
-from mistralai.async_client import MistralAsyncClient
-from mistralai.models.chat_completion import ChatMessage
+from mistralai import Mistral
 import openlit
 
 # Initialize synchronous Mistral client
-sync_client = MistralClient(
-    api_key=os.getenv("MISTRAL_API_TOKEN")
-)
-
-# Initialize asynchronous Mistral client
-async_client = MistralAsyncClient(
-    api_key=os.getenv("MISTRAL_API_TOKEN")
+client = Mistral(
+    api_key=os.getenv("MISTRAL_API_KEY"),
 )
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-testing", application_name="openlit-python-test")
+openlit.init(
+    environment="openlit-python-testing", application_name="openlit-python-mistral-test"
+)
+
 
 def test_sync_mistral_chat():
     """
@@ -41,15 +37,19 @@ def test_sync_mistral_chat():
     """
 
     messages = [
-        ChatMessage(role="user", content="What is the best French cheese?")
+        {
+            "role": "user",
+            "content": "sync: What is LLM Observability?",
+        },
     ]
 
-    message = sync_client.chat(
+    message = client.chat.complete(
         model="open-mistral-7b",
         messages=messages,
         max_tokens=1,
     )
-    assert message.object == 'chat.completion'
+    assert message.object == "chat.completion"
+
 
 def test_sync_mistral_embeddings():
     """
@@ -59,11 +59,12 @@ def test_sync_mistral_embeddings():
         AssertionError: If the embedding response object is not as expected.
     """
 
-    response = sync_client.embeddings(
-      model="mistral-embed",
-      input=["Embed this sentence.", "As well as this one."],
+    response = client.embeddings.create(
+        model="mistral-embed",
+        inputs=["Embed this sentence.", "OpenTelemetry LLM Observability"],
     )
-    assert response.object == 'list'
+    assert response.object == "list"
+
 
 @pytest.mark.asyncio
 async def test_async_mistral():
@@ -76,19 +77,22 @@ async def test_async_mistral():
 
     #  Tests synchronous chat with the 'open-mistral-7b' model.
     messages = [
-        ChatMessage(role="user", content="What is the best French cheese?")
+        {
+            "role": "user",
+            "content": "sync: What is LLM Observability?",
+        },
     ]
 
-    message = await async_client.chat(
+    message = await client.chat.complete_async(
         model="open-mistral-7b",
         messages=messages,
         max_tokens=1,
     )
-    assert message.object == 'chat.completion'
+    assert message.object == "chat.completion"
 
     # Tests asynchronous embedding creation with the 'mistral-embed' model.
-    response = await async_client.embeddings(
-      model="mistral-embed",
-      input=["Embed this sentence.", "As well as this one."],
+    response = await client.embeddings.create_async(
+        model="mistral-embed",
+        inputs=["Embed this sentence.", "Monitor LLM Applications"],
     )
-    assert response.object == 'list'
+    assert response.object == "list"

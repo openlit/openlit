@@ -1,18 +1,10 @@
 import { get } from "lodash";
 import { useCallback, useState } from "react";
 import { deleteData, getData } from "@/utils/api";
+import { FetchWrapperProps } from "@/types/fetch-wrapper";
 
-type useFetchWrapperProps = {
-	body?: string;
-	failureCb?: (s?: string) => void;
-	url: string;
-	requestType: "GET" | "POST" | "DELETE";
-	responseDataKey?: string;
-	successCb?: (res?: any) => void;
-};
-
-export default function useFetchWrapper() {
-	const [data, setData] = useState<unknown>(null);
+export default function useFetchWrapper<T>() {
+	const [data, setData] = useState<T | null>(null);
 	const [isLoading, setIsLoading] = useState<boolean>(false);
 	const [error, setError] = useState<unknown>(null);
 	const [isFetched, setIsFetched] = useState<boolean>(false);
@@ -25,12 +17,18 @@ export default function useFetchWrapper() {
 			requestType,
 			responseDataKey = "",
 			successCb,
-		}: useFetchWrapperProps) => {
+		}: FetchWrapperProps) => {
+			let response;
+			let error;
 			setIsLoading(true);
 			setError(null);
 			try {
-				let response;
-				if (requestType === "GET" || requestType === "POST") {
+				if (
+					requestType === "GET" ||
+					requestType === "POST" ||
+					requestType === "PUT" ||
+					requestType === "PATCH"
+				) {
 					response = await getData({
 						body,
 						url,
@@ -52,6 +50,7 @@ export default function useFetchWrapper() {
 					if (typeof successCb === "function") successCb(finalResponse);
 				}
 			} catch (error) {
+				error = error;
 				const updatedError = (error as any).toString().replaceAll("Error:", "");
 				setError(updatedError);
 				setData(null);
@@ -60,6 +59,8 @@ export default function useFetchWrapper() {
 
 			setIsLoading(false);
 			setIsFetched(true);
+
+			return { response, error };
 		},
 		[setData, setError, setIsFetched, setIsLoading]
 	);

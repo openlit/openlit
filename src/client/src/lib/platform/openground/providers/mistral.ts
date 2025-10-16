@@ -1,6 +1,6 @@
 import { omit } from "lodash";
 import MistralClient from "@mistralai/mistralai";
-import OpenLitHelper from "@/helpers/openlit";
+import OpenLitHelper from "@/helpers/server/openlit";
 
 export interface MistralProviderEvaluation {
 	api_key?: string;

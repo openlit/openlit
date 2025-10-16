@@ -2,7 +2,7 @@
 """
 This module contains tests for Text Generation functionality in HuggingFace Transformers library.
 
-Tests cover the usage of the Transformers' pipeline for generating text. 
+Tests cover the usage of the Transformers' pipeline for generating text.
 These tests validate integration with OpenLIT.
 
 Note: Ensure the environment is properly configured for Transformers and OpenLIT monitoring
@@ -15,19 +15,24 @@ import openlit
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(environment="openlit-testing", application_name="openlit-python-test")
 
-def test_text_trasnformers():
+
+def test_text_transformers():
     """
-    Test text generation capabilities using the GPT-2 model from HuggingFace Transformers library.
-
-    This test sends a prompt to a pre-specified model and verifies that the response contains
-    generated text matching expected criteria. 
-    In this case, simply the presence of the 'generated_text' field in the response object.
-
-    Raises:
-        AssertionError: If the 'generated_text' field is missing from any part of the response.
+    Test text generation capabilities from HuggingFace Transformers library.
     """
 
-    generator = pipeline(model="openai-community/gpt2")
-    response = generator("My tart needs some", num_return_sequences=1, return_full_text=False)
-    for output in response:
-        assert 'generated_text' in output
+    pipe = pipeline(task="text-generation", model="Qwen/Qwen2.5-1.5B")
+    response = pipe("LLM Observability")
+    assert isinstance(response[0]["generated_text"], str)
+
+    chat = [
+        {
+            "role": "system",
+            "content": "You are an OpenTelemetry AI Observability expert",
+        },
+        {"role": "user", "content": "What is Agent Observability?"},
+    ]
+
+    response = pipe(chat, max_new_tokens=100)
+
+    assert isinstance(response[0]["generated_text"][-1]["content"], str)

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CLIENT_EVENTS } from "@/constants/events";
 import {
 	getEvaluatedResponse,
 	getPrompt,
@@ -10,9 +11,11 @@ import {
 } from "@/selectors/openground";
 import { useRootStore } from "@/store";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
+import { usePostHog } from "posthog-js/react";
 import { toast } from "sonner";
 
 export default function PromptInput() {
+	const posthog = usePostHog();
 	const { fireRequest } = useFetchWrapper();
 	const prompt = useRootStore(getPrompt);
 	const selectedProviders = useRootStore(getSelectedProviders);
@@ -49,11 +52,16 @@ export default function PromptInput() {
 					id: "evaluation",
 				});
 				setEvaluatedDataFunction(data);
+				posthog?.capture(CLIENT_EVENTS.OPENGROUND_EVALUATION_SUCCESS, {
+					providers: selectedProviders.map(({ provider }) => provider),
+					prompt,
+				});
 			},
 			failureCb: (err?: string) => {
 				toast.error(err || "Evaluation failed!", {
 					id: "evaluation",
 				});
+				posthog?.capture(CLIENT_EVENTS.OPENGROUND_EVALUATION_FAILURE);
 			},
 		});
 	};

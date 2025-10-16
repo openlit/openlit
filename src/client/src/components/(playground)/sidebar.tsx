@@ -1,3 +1,4 @@
+"use client";
 import { ReactElement } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -9,14 +10,18 @@ import {
 } from "@/components/ui/tooltip";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
+	BookKey,
 	BookText,
-	DatabaseBackup,
-	FileJson2,
+	Component,
+	Home,
 	LayoutDashboard,
 	MonitorPlay,
+	SettingsIcon,
 	ShieldAlert,
 	SquarePlay,
+	TextQuote
 } from "lucide-react";
+import VersionInfo from "./version-Info";
 
 type SidebarItemProps = {
 	className?: string;
@@ -27,17 +32,26 @@ type SidebarItemProps = {
 	target?: string;
 };
 
-const ICON_CLASSES =
-	"flex-shrink-0 size-5 transition duration-75 transition duration-75";
+const ICON_CLASSES = "flex-shrink-0 size-5";
 
 const SIDEBAR_ITEMS: SidebarItemProps[] = [
 	{
-		icon: <LayoutDashboard className={ICON_CLASSES} />,
-		text: "Dashboard",
-		link: "/dashboard",
+		icon: <Home className={ICON_CLASSES} />,
+		text: "Home",
+		link: "/home",
 	},
 	{
-		icon: <FileJson2 className={ICON_CLASSES} />,
+		icon: <LayoutDashboard className={ICON_CLASSES} />,
+		text: "Dashboards",
+		link: "/dashboards",
+	},
+	// {
+	// 	icon: <LayoutDashboard className={ICON_CLASSES} />,
+	// 	text: "Dashboard",
+	// 	link: "/dashboard",
+	// },
+	{
+		icon: <TextQuote className={ICON_CLASSES} />,
 		text: "Requests",
 		link: "/requests",
 	},
@@ -47,14 +61,24 @@ const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		link: "/exceptions",
 	},
 	{
+		icon: <Component className={ICON_CLASSES} />,
+		text: "Prompt Hub",
+		link: "/prompt-hub",
+	},
+	{
+		icon: <BookKey className={ICON_CLASSES} />,
+		text: "Vault",
+		link: "/vault",
+	},
+	{
 		icon: <MonitorPlay className={ICON_CLASSES} />,
 		text: "Openground",
 		link: "/openground",
 	},
 	{
-		icon: <DatabaseBackup className={ICON_CLASSES} />,
+		icon: <SettingsIcon className={ICON_CLASSES} />,
 		text: "Settings",
-		link: "/database-config",
+		link: "/settings",
 	},
 ];
 
@@ -72,16 +96,41 @@ const SIDEBAR_BOTTOM_ITEMS: SidebarItemProps[] = [
 	},
 ];
 
+const getIfSidebarItemActive = (pathname: string, item: SidebarItemProps) => {
+	switch (item.link) {
+		case "/home":
+			return pathname.startsWith("/home");
+		case "/dashboards":
+			return pathname.startsWith("/dashboards") || pathname.startsWith("/d/");
+		case "/dashboard":
+			return pathname.startsWith("/dashboard") && !pathname.startsWith("/dashboards");
+		case "/requests":
+			return pathname.startsWith("/requests");
+		case "/exceptions":
+			return pathname.startsWith("/exceptions");
+		case "/prompt-hub":
+			return pathname.startsWith("/prompt-hub");
+		case "/vault":
+			return pathname.startsWith("/vault");
+		case "/openground":
+			return pathname.startsWith("/openground");
+		case "/settings":
+			return pathname.startsWith("/settings");
+		default:
+			return pathname.startsWith(item.link || "");
+	}
+};
+
 const SidebarItem = (props: SidebarItemProps) => {
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
 				{!props.target && props.link ? (
 					<Link
-						className={`${props.className || ""} ${buttonVariants({
+						className={`${buttonVariants({
 							variant: "ghost",
 							size: "icon",
-						})}`}
+						})} ${props.className || ""}`}
 						href={props.link}
 						aria-label={props.text}
 					>
@@ -90,12 +139,11 @@ const SidebarItem = (props: SidebarItemProps) => {
 				) : (
 					<a
 						href={props.link}
-						className={`flex items-center p-2 ${
-							props.className || ""
-						} ${buttonVariants({
+						className={`flex items-center p-2 ${buttonVariants({
 							variant: "ghost",
 							size: "icon",
-						})}`}
+						})} ${props.className || ""
+							}`}
 						onClick={props.onClick}
 						target={props.target}
 					>
@@ -134,11 +182,10 @@ export default function Sidebar() {
 				{SIDEBAR_ITEMS.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-top-${index}`}
-						className={`${
-							pathname.startsWith(item.link || "")
-								? "text-white bg-primary dark:bg-primary dark:text-white"
-								: "text-stone-600 dark:text-white"
-						}`}
+						className={`${getIfSidebarItemActive(pathname, item)
+							? "text-white bg-primary dark:bg-primary dark:text-white hover:bg-primary/80 dark:hover:bg-primary/80 hover:text-white"
+							: "text-stone-600 dark:text-white hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white"
+							}`}
 						{...item}
 					/>
 				))}
@@ -147,14 +194,14 @@ export default function Sidebar() {
 				{SIDEBAR_BOTTOM_ITEMS.map((item, index) => (
 					<SidebarItem
 						key={`sidebar-bottom-${index}`}
-						className={`${
-							pathname.startsWith(item.link || "")
-								? "text-white bg-primary dark:bg-primary dark:text-white"
-								: "text-stone-600 dark:text-white"
-						}`}
+						className={`${getIfSidebarItemActive(pathname, item)
+							? "text-white bg-primary dark:bg-primary dark:text-white hover:bg-primary/80 dark:hover:bg-primary/80 hover:text-white"
+							: "text-stone-600 dark:text-white hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white"
+							}`}
 						{...item}
 					/>
 				))}
+				<VersionInfo />
 			</nav>
 		</aside>
 	);

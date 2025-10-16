@@ -1,10 +1,11 @@
 import { useRootStore } from "@/store";
-import { getDashboardType, setDashboardType } from "@/selectors/dashboard";
+import { getDashboardType, setPageData } from "@/selectors/page";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DASHBOARD_TYPE_OBJECT } from "@/store/dashboard";
+import { DASHBOARD_TYPE_OBJECT } from "@/types/store/page";
 import LLMDashboard from "./llm";
 import GPUDashboard from "./gpu";
 import VectorDashboard from "./vector";
+import { objectKeys } from "@/utils/object";
 
 const DashboardLabels: any = {
 	llm: "LLM",
@@ -14,12 +15,16 @@ const DashboardLabels: any = {
 
 export function DashboardTypeFilter() {
 	const dashboardType = useRootStore(getDashboardType);
-	const updateDashboardType = useRootStore(setDashboardType);
+	const updateDashboardType = useRootStore(setPageData);
+	const changeDashboardType = (value: string) => {
+		updateDashboardType("dashboard", "type", value);
+	};
+
 	return (
-		<Tabs defaultValue={dashboardType} onValueChange={updateDashboardType}>
-			<TabsList>
-				{Object.keys(DASHBOARD_TYPE_OBJECT).map((key) => (
-					<TabsTrigger key={key} value={key}>
+		<Tabs defaultValue={dashboardType} onValueChange={changeDashboardType}>
+			<TabsList className="p-0 h-[30px]">
+				{objectKeys(DASHBOARD_TYPE_OBJECT).map((key) => (
+					<TabsTrigger key={key} value={key} className="py-1.5 text-xs">
 						{DashboardLabels[key as any]}
 					</TabsTrigger>
 				))}

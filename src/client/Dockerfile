@@ -1,8 +1,23 @@
 # Use an alpine as a base image
-FROM alpine as builder
+FROM alpine AS builder
 
 # Installing node and npm
 RUN apk add --update nodejs npm
+
+
+# Installing extra packages
+RUN apk add --no-cache python3 py3-pip pipx rust cargo build-base
+
+
+# Create a virtual environment
+RUN python3 -m venv /app/client/venv
+
+# Install litellm inside the virtual environment
+RUN /app/client/venv/bin/pip install --no-cache-dir litellm
+
+RUN find /app/client/venv -name '*.pyc' -delete && \
+    find /app/client/venv -name '__pycache__' -type d -exec rm -r {} +
+
 
 # Set the working directory in the container
 WORKDIR /app/client
@@ -17,27 +32,37 @@ RUN npm install && npm run build
 # Use a smaller image for production
 FROM alpine
 
-RUN apk add --update nodejs npm
+# Installing extra packages
+RUN apk add nodejs bash openssl python3
+
 
 # Set the working directory in the container
 WORKDIR /app/client
 
 # Copy only necessary files from the builder stage
-COPY --from=builder /app/client/.next ./.next
-# COPY --from=builder /app/client/node_modules ./node_modules
-COPY --from=builder /app/client/package.json ./package.json
-COPY --from=builder /app/client/package-lock.json ./package-lock.json
+
+# Copying python virtual environment
+COPY --from=builder /app/client/venv ./venv
+# Copying the standalone next.js build
+COPY --from=builder /app/client/.next/standalone ./
+# Standalone build doesn't copy public, static, prisma, scripts
 COPY --from=builder /app/client/public ./public
+COPY --from=builder /app/client/.next/static ./.next/static
 COPY --from=builder /app/client/prisma ./prisma
+COPY --from=builder /app/client/scripts ./scripts
+# Copying prisma client, prisma and prisma cli (.bin) from builder stage
+COPY --from=builder /app/client/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/client/node_modules/.bin ./node_modules/.bin
+COPY --from=builder /app/client/node_modules/prisma ./node_modules/prisma
 
 # Execute entrypoint script to generate NextAuth.js secret and run commands
-COPY --from=builder /app/client/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
-# Installing extra packages
-RUN apk --no-cache add bash openssl
+RUN chmod +x ./scripts/entrypoint.sh
+
+# Install Prisma globally
+# RUN npm install -g prisma@5.15.0
 
 # Expose the port that Next.js will run on
-EXPOSE 3000
+EXPOSE ${DOCKER_PORT:-3000}
 
-# Run Prisma migrations using npx
-CMD ["/app/client/entrypoint.sh"]
+# Run the entrypoint script
+CMD ["/app/client/scripts/entrypoint.sh"]

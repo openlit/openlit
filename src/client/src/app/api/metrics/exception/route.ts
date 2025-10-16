@@ -2,7 +2,7 @@ import { MetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import { getRequests } from "@/lib/platform/request";
 
 export async function POST(request: Request) {
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 		offset,
 		selectedConfig,
 		sorting,
-		statusCode: ["STATUS_CODE_ERROR"],
+		statusCode: ["STATUS_CODE_ERROR", "Error"],
 	};
 
 	const validationParam = validateMetricsRequest(

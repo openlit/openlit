@@ -1,85 +1,97 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
-"""Initializer of Auto Instrumentation of LangChain Functions"""
+"""
+OpenLIT LangChain Instrumentation - Callback-Based Hierarchical Spans
+"""
+
 from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.langchain.langchain import general_wrap, hub, llm, allm
+from openlit.instrumentation.langchain.callback_handler import (
+    OpenLITLangChainCallbackHandler,
+)
 
 _instruments = ("langchain >= 0.1.20",)
 
-WRAPPED_METHODS = [
-    {
-        "package": "langchain_community.document_loaders.base",
-        "object": "BaseLoader.load",
-        "endpoint": "langchain.retrieve.load",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "langchain_community.document_loaders.base",
-        "object": "BaseLoader.aload",
-        "endpoint": "langchain.retrieve.load",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "langchain_text_splitters.base",
-        "object": "TextSplitter.split_documents",
-        "endpoint": "langchain.retrieve.split_documents",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "langchain_text_splitters.base",
-        "object": "TextSplitter.create_documents",
-        "endpoint": "langchain.retrieve.create_documents",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "langchain.hub",
-        "object": "pull",
-        "endpoint": "langchain.retrieve.prompt",
-        "wrapper": hub,
-    },
-    {
-        "package": "langchain_core.language_models.llms",
-        "object": "BaseLLM.invoke",
-        "endpoint": "langchain.llm",
-        "wrapper": llm,
-    },
-    {
-        "package": "langchain_core.language_models.llms",
-        "object": "BaseLLM.ainvoke",
-        "endpoint": "langchain.llm",
-        "wrapper": allm,
-    },
-]
+
+class CallbackManagerWrapper:  # pylint: disable=too-few-public-methods
+    """Wrapper to inject OpenLIT callback handler into LangChain's callback system"""
+
+    def __init__(self, callback_handler: OpenLITLangChainCallbackHandler):
+        self.callback_handler = callback_handler
+
+    def __call__(self, wrapped, instance, args, kwargs):
+        """Inject OpenLIT callback handler when BaseCallbackManager is initialized"""
+
+        # Call original initialization
+        wrapped(*args, **kwargs)
+
+        # Check if our callback handler is already registered
+        for handler in instance.inheritable_handlers:
+            if isinstance(handler, type(self.callback_handler)):
+                break
+        else:
+            # Add our callback handler to the manager
+            instance.add_handler(self.callback_handler, True)
+
 
 class LangChainInstrumentor(BaseInstrumentor):
-    """An instrumentor for Cohere's client library."""
+    """
+    OpenLIT LangChain instrumentor using callback-based hierarchical span creation.
+
+    This approach hooks into LangChain's built-in callback system to create
+    proper parent-child span relationships automatically, providing superior
+    observability with OpenLIT's comprehensive business intelligence.
+    """
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name")
-        environment = kwargs.get("environment")
-        tracer = kwargs.get("tracer")
-        pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
         version = importlib.metadata.version("langchain")
+        environment = kwargs.get("environment", "default")
+        application_name = kwargs.get("application_name", "default")
+        tracer = kwargs.get("tracer")
+        pricing_info = kwargs.get("pricing_info", {})
+        capture_message_content = kwargs.get("capture_message_content", False)
+        metrics = kwargs.get("metrics_dict")
+        disable_metrics = kwargs.get("disable_metrics")
 
-        for wrapped_method in WRAPPED_METHODS:
-            wrap_package = wrapped_method.get("package")
-            wrap_object = wrapped_method.get("object")
-            gen_ai_endpoint = wrapped_method.get("endpoint")
-            wrapper = wrapped_method.get("wrapper")
+        # Create OpenLIT callback handler with all configuration
+        openlit_callback_handler = OpenLITLangChainCallbackHandler(
+            tracer=tracer,
+            version=version,
+            environment=environment,
+            application_name=application_name,
+            pricing_info=pricing_info,
+            capture_message_content=capture_message_content,
+            metrics=metrics,
+            disable_metrics=disable_metrics,
+        )
+
+        # Hook into LangChain's callback system
+        # This automatically provides hierarchical spans for:
+        # - RunnableSequence (workflow spans)
+        # - PromptTemplate (task spans)
+        # - ChatOpenAI (chat spans)
+        # - Tools, Retrievers, etc.
+        try:
             wrap_function_wrapper(
-                wrap_package,
-                wrap_object,
-                wrapper(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content),
+                module="langchain_core.callbacks",
+                name="BaseCallbackManager.__init__",
+                wrapper=CallbackManagerWrapper(openlit_callback_handler),
             )
+        except Exception:
+            # Graceful degradation if callback system unavailable
+            pass
 
-    @staticmethod
+        # Result: Best of both worlds - hierarchy + business intelligence
+
     def _uninstrument(self, **kwargs):
-        pass
+        """Remove instrumentation"""
+        try:
+            from opentelemetry.instrumentation.utils import unwrap
+
+            unwrap("langchain_core.callbacks", "BaseCallbackManager.__init__")
+        except Exception:
+            pass

@@ -5,10 +5,10 @@ import { getFilterDetails } from "@/selectors/filter";
 import { getPingStatus } from "@/selectors/database-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Sector, ResponsiveContainer } from "recharts";
-import { COLORS } from "../../../colors";
+import { COLORS } from "../../../styles/colors";
 import IntermediateState from "./intermediate-state";
 import { Skeleton } from "../ui/skeleton";
-import { getFilterParamsForDashboard } from "@/helpers/filter";
+import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 
 const renderActiveShape = (props: any) => {
 	const {

@@ -4,6 +4,11 @@ test.py
 yala.py
 yala.yml
 speech.mp3
-.venv
+venv/
 path/
-__pycache__
+__pycache__/
+**bun.lockb
+logs/
+.env
+.vscode/
+.idea/

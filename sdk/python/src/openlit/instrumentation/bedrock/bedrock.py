@@ -1,196 +1,79 @@
-# pylint: disable=duplicate-code, broad-exception-caught, too-many-statements, unused-argument, protected-access, too-many-branches
 """
 Module for monitoring Amazon Bedrock API calls.
 """
 
-import logging
-from botocore.response import StreamingBody
-from botocore.exceptions import ReadTimeoutError, ResponseStreamingError
-from urllib3.exceptions import ProtocolError as URLLib3ProtocolError
-from urllib3.exceptions import ReadTimeoutError as URLLib3ReadTimeoutError
-from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
-from openlit.__helpers import get_chat_model_cost
-from openlit.__helpers import handle_exception
-from openlit.semcov import SemanticConvetion
-
-# Initialize logger for logging potential issues and operations
-logger = logging.getLogger(__name__)
-
-class CustomStreamWrapper(StreamingBody):
-    """Handle streaming responses with the ability to read multiple times."""
-
-    def __init__(self, stream_source, length):
-        super().__init__(stream_source, length)
-        self._stream_data = None
-        self._read_position = 0
-
-    def read(self, amt=None):
-        if self._stream_data is None:
-            try:
-                self._stream_data = self._raw_stream.read()
-            except URLLib3ReadTimeoutError as error:
-                raise ReadTimeoutError(endpoint_url=error.url, error=error) from error
-            except URLLib3ProtocolError as error:
-                raise ResponseStreamingError(error=error) from error
-
-            self._amount_read += len(self._stream_data)
-            if amt is None or (not self._stream_data and amt > 0):
-                self._verify_content_length()
-
-        if amt is None:
-            data_chunk = self._stream_data[self._read_position:]
-        else:
-            data_start = self._read_position
-            self._read_position += amt
-            data_chunk = self._stream_data[data_start:self._read_position]
-
-        return data_chunk
+import time
+from opentelemetry.trace import SpanKind
+from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.instrumentation.bedrock.utils import (
+    process_chunk,
+    process_chat_response,
+    process_streaming_chat_response,
+)
+from openlit.semcov import SemanticConvention
 
 
-def converse(gen_ai_endpoint, version, environment, application_name, tracer,
-         pricing_info, trace_content, metrics, disable_metrics):
+def converse(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
-    Generates a telemetry wrapper for messages to collect metrics.
-
-    Args:
-        gen_ai_endpoint: Endpoint identifier for logging and tracing.
-        version: The monitoring package version.
-        environment: Deployment environment (e.g. production, staging).
-        application_name: Name of the application using the Bedrock API.
-        tracer: OpenTelemetry tracer for creating spans.
-        pricing_info: Information for calculating Bedrock usage cost.
-        trace_content: Whether to trace the actual content.
-        metrics: Metrics collector.
-        disable_metrics: Flag to toggle metrics collection.
-    Returns:
-        A function that wraps the chat method to add telemetry.
+    Generates a telemetry wrapper for AWS Bedrock converse calls.
     """
 
     def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps an API call to add telemetry.
-
-        Args:
-            wrapped: Original method.
-            instance: Instance of the class.
-            args: Positional arguments of the 'messages' method.
-            kwargs: Keyword arguments of the 'messages' method.
-        Returns:
-            Response from the original method.
+        Wraps the ClientCreator.create_client call.
         """
 
         def converse_wrapper(original_method, *method_args, **method_kwargs):
             """
-            Adds instrumentation to the invoke model call.
-
-            Args:
-                original_method: The original invoke model method.
-                *method_args: Positional arguments for the method.
-                **method_kwargs: Keyword arguments for the method.
-            Returns:
-                The modified response with telemetry.
+            Wraps the individual converse method call.
             """
-            with tracer.start_as_current_span(gen_ai_endpoint, kind=SpanKind.CLIENT) as span:
+
+            server_address, server_port = set_server_address_and_port(
+                instance, "aws.amazon.com", 443
+            )
+            request_model = method_kwargs.get("modelId", "amazon.titan-text-express-v1")
+
+            span_name = (
+                f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+            )
+
+            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+                start_time = time.time()
                 response = original_method(*method_args, **method_kwargs)
+                llm_config = method_kwargs.get("inferenceConfig", {})
 
                 try:
-                    message_prompt = method_kwargs.get("messages", "")
-                    formatted_messages = []
-                    for message in message_prompt:
-                        role = message["role"]
-                        content = message["content"]
-
-                        if isinstance(content, list):
-                            content_str = ", ".join(
-                                # pylint: disable=line-too-long
-                                f'{item["type"]}: {item["text"] if "text" in item else item["image_url"]}'
-                                if "type" in item else f'text: {item["text"]}'
-                                for item in content
-                            )
-                            formatted_messages.append(f"{role}: {content_str}")
-                        else:
-                            formatted_messages.append(f"{role}: {content}")
-                    prompt = "\n".join(formatted_messages)
-
-                    model = method_kwargs.get("modelId", "amazon.titan-text-express-v1")
-                    input_tokens = response["usage"]["inputTokens"]
-                    output_tokens = response["usage"]["outputTokens"]
-
-                    span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-                    span.set_attribute(SemanticConvetion.GEN_AI_SYSTEM,
-                                        SemanticConvetion.GEN_AI_SYSTEM_BEDROCK)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENDPOINT,
-                                        gen_ai_endpoint)
-                    span.set_attribute(SemanticConvetion.GEN_AI_ENVIRONMENT,
-                                        environment)
-                    span.set_attribute(SemanticConvetion.GEN_AI_APPLICATION_NAME,
-                                        application_name)
-                    span.set_attribute(SemanticConvetion.GEN_AI_REQUEST_MODEL,
-                                        model)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_PROMPT_TOKENS,
-                                        input_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COMPLETION_TOKENS,
-                                        output_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_TOTAL_TOKENS,
-                                        input_tokens + output_tokens)
-
-                    # Calculate cost of the operation
-                    cost = get_chat_model_cost(model,
-                                            pricing_info, input_tokens,
-                                            output_tokens)
-                    span.set_attribute(SemanticConvetion.GEN_AI_USAGE_COST,
-                                cost)
-
-                    if trace_content:
-                        span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_PROMPT_EVENT,
-                            attributes={
-                                SemanticConvetion.GEN_AI_CONTENT_PROMPT: prompt,
-                            },
-                        )
-                        span.add_event(
-                            name=SemanticConvetion.GEN_AI_CONTENT_COMPLETION_EVENT,
-                            attributes={
-                                # pylint: disable=line-too-long
-                                SemanticConvetion.GEN_AI_CONTENT_COMPLETION: response["output"]["message"]["content"][0]["text"],
-                            },
-                        )
-
-                    span.set_status(Status(StatusCode.OK))
-
-                    if disable_metrics is False:
-                        attributes = {
-                            TELEMETRY_SDK_NAME:
-                                "openlit",
-                            SemanticConvetion.GEN_AI_APPLICATION_NAME:
-                                application_name,
-                            SemanticConvetion.GEN_AI_SYSTEM:
-                                SemanticConvetion.GEN_AI_SYSTEM_BEDROCK,
-                            SemanticConvetion.GEN_AI_ENVIRONMENT:
-                                environment,
-                            SemanticConvetion.GEN_AI_TYPE:
-                                SemanticConvetion.GEN_AI_TYPE_CHAT,
-                            SemanticConvetion.GEN_AI_REQUEST_MODEL:
-                                model
-                        }
-
-                        metrics["genai_requests"].add(1, attributes)
-                        metrics["genai_total_tokens"].add(
-                            input_tokens + output_tokens, attributes
-                        )
-                        metrics["genai_completion_tokens"].add(output_tokens, attributes)
-                        metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-                        metrics["genai_cost"].record(cost, attributes)
-
-                    return response
+                    response = process_chat_response(
+                        response=response,
+                        request_model=request_model,
+                        pricing_info=pricing_info,
+                        server_port=server_port,
+                        server_address=server_address,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        start_time=start_time,
+                        span=span,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                        llm_config=llm_config,
+                        **method_kwargs,
+                    )
 
                 except Exception as e:
                     handle_exception(span, e)
-                    logger.error("Error in trace creation: %s", e)
 
-                    # Return original response
-                    return response
+                return response
 
         # Get the original client instance from the wrapper
         client = wrapped(*args, **kwargs)
@@ -198,8 +81,168 @@ def converse(gen_ai_endpoint, version, environment, application_name, tracer,
         # Replace the original method with the instrumented one
         if kwargs.get("service_name") == "bedrock-runtime":
             original_invoke_model = client.converse
-            client.converse = lambda *args, **kwargs: converse_wrapper(original_invoke_model,
-                                                                            *args, **kwargs)
+            client.converse = lambda *args, **kwargs: converse_wrapper(
+                original_invoke_model, *args, **kwargs
+            )
+
+        return client
+
+    return wrapper
+
+
+def converse_stream(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """
+    Generates a telemetry wrapper for AWS Bedrock converse_stream calls.
+    """
+
+    class TracedSyncStream:
+        """
+        Wrapper for streaming responses to collect telemetry.
+        """
+
+        def __init__(
+            self,
+            wrapped_response,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            **args,
+        ):
+            self.__wrapped_response = wrapped_response
+            # Extract the actual stream iterator from the response
+            if isinstance(wrapped_response, dict) and "stream" in wrapped_response:
+                self.__wrapped_stream = iter(wrapped_response["stream"])
+            else:
+                self.__wrapped_stream = iter(wrapped_response)
+
+            self._span = span
+            self._span_name = span_name
+            self._llmresponse = ""
+            self._response_id = ""
+            self._response_model = ""
+            self._finish_reason = ""
+            self._tools = None
+            self._input_tokens = 0
+            self._output_tokens = 0
+
+            self._args = args
+            self._kwargs = kwargs
+            self._start_time = time.time()
+            self._end_time = None
+            self._timestamps = []
+            self._ttft = 0
+            self._tbt = 0
+            self._server_address = server_address
+            self._server_port = server_port
+
+        def __enter__(self):
+            if hasattr(self.__wrapped_stream, "__enter__"):
+                self.__wrapped_stream.__enter__()
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            if hasattr(self.__wrapped_stream, "__exit__"):
+                self.__wrapped_stream.__exit__(exc_type, exc_value, traceback)
+
+        def __iter__(self):
+            return self
+
+        def __getattr__(self, name):
+            """Delegate attribute access to the wrapped response."""
+            return getattr(self.__wrapped_response, name)
+
+        def get(self, key, default=None):
+            """Delegate get method to the wrapped response if its a dict."""
+            if isinstance(self.__wrapped_response, dict):
+                return self.__wrapped_response.get(key, default)
+            return getattr(self.__wrapped_response, key, default)
+
+        def __getitem__(self, key):
+            """Delegate item access to the wrapped response if its a dict."""
+            if isinstance(self.__wrapped_response, dict):
+                return self.__wrapped_response[key]
+            return getattr(self.__wrapped_response, key)
+
+        def __next__(self):
+            try:
+                chunk = next(self.__wrapped_stream)
+                process_chunk(self, chunk)
+                return chunk
+            except StopIteration:
+                try:
+                    llm_config = self._kwargs.get("inferenceConfig", {})
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
+                        process_streaming_chat_response(
+                            self,
+                            pricing_info=pricing_info,
+                            environment=environment,
+                            application_name=application_name,
+                            metrics=metrics,
+                            capture_message_content=capture_message_content,
+                            disable_metrics=disable_metrics,
+                            version=version,
+                            llm_config=llm_config,
+                        )
+
+                except Exception as e:
+                    handle_exception(self._span, e)
+
+                raise
+
+    def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the ClientCreator.create_client call.
+        """
+
+        def converse_stream_wrapper(original_method, *method_args, **method_kwargs):
+            """
+            Wraps the individual converse_stream method call.
+            """
+
+            server_address, server_port = set_server_address_and_port(
+                instance, "aws.amazon.com", 443
+            )
+            request_model = method_kwargs.get("modelId", "amazon.titan-text-express-v1")
+
+            span_name = (
+                f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
+            )
+
+            # Get the streaming response
+            stream_response = original_method(*method_args, **method_kwargs)
+            span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
+
+            return TracedSyncStream(
+                stream_response,
+                span,
+                span_name,
+                method_kwargs,
+                server_address,
+                server_port,
+            )
+
+        # Get the original client instance from the wrapper
+        client = wrapped(*args, **kwargs)
+
+        # Replace the original method with the instrumented one
+        if kwargs.get("service_name") == "bedrock-runtime":
+            original_stream_model = client.converse_stream
+            client.converse_stream = lambda *args, **kwargs: converse_stream_wrapper(
+                original_stream_model, *args, **kwargs
+            )
 
         return client
 

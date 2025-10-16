@@ -1,9 +1,9 @@
-import { getTraceMappingKeyFullPath } from "@/helpers/trace";
+import { getTraceMappingKeyFullPath } from "@/helpers/server/trace";
 import { MetricParams, OTEL_TRACES_TABLE_NAME, dataCollector } from "../common";
-import { getFilterWhereCondition } from "@/helpers/platform";
+import { getFilterWhereCondition } from "@/helpers/server/platform";
 
 export async function getResultGenerationByApplication(params: MetricParams) {
-	const key = `SpanAttributes['${getTraceMappingKeyFullPath(
+	const key = `ResourceAttributes['${getTraceMappingKeyFullPath(
 		"applicationName"
 	)}']`;
 	const query = `SELECT 

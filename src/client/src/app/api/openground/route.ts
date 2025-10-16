@@ -1,4 +1,4 @@
-import OpenLitHelper from "@/helpers/openlit";
+import OpenLitHelper from "@/helpers/server/openlit";
 import { evaluate, getAllOpengroundRequests } from "@/lib/platform/openground";
 
 export async function GET() {

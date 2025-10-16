@@ -1,155 +1,95 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
-"""Initializer of Auto Instrumentation of Qdrant Functions"""
+"""
+OpenLIT Qdrant Instrumentation
+"""
+
 from typing import Collection
 import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
 from openlit.instrumentation.qdrant.qdrant import general_wrap
+from openlit.instrumentation.qdrant.async_qdrant import async_general_wrap
 
 _instruments = ("qdrant-client >= 1.9.0",)
 
-WRAPPED_METHODS = [
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.create_collection",
-        "endpoint": "qdrant.create_collection",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.delete_collection",
-        "endpoint": "qdrant.delete_collection",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.update_collection",
-        "endpoint": "qdrant.update_collection",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.upload_collection",
-        "endpoint": "qdrant.upload_collection",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.upsert",
-        "endpoint": "qdrant.upsert",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.set_payload",
-        "endpoint": "qdrant.set_payload",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.overwrite_payload",
-        "endpoint": "qdrant.overwrite_payload",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.clear_payload",
-        "endpoint": "qdrant.clear_payload",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.delete_payload",
-        "endpoint": "qdrant.delete_payload",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.upload_points",
-        "endpoint": "qdrant.upload_points",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.update_vectors",
-        "endpoint": "qdrant.update_vectors",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.delete_vectors",
-        "endpoint": "qdrant.delete_vectors",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.delete",
-        "endpoint": "qdrant.delete",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.retrieve",
-        "endpoint": "qdrant.retrieve",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.scroll",
-        "endpoint": "qdrant.scroll",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.search",
-        "endpoint": "qdrant.search",
-        "wrapper": general_wrap,
-    },
-    {
-        "package": "qdrant_client",
-        "object": "QdrantClient.search_groups",
-        "endpoint": "qdrant.search_groups",
-        "wrapper": general_wrap,
-    },
-    {
-
-        "package": "qdrant_client",
-        "object": "QdrantClient.recommend",
-        "endpoint": "qdrant.recommend",
-        "wrapper": general_wrap,
-    }
+# Operations to wrap for both sync and async clients
+QDRANT_OPERATIONS = [
+    ("create_collection", "qdrant.create_collection"),
+    ("delete_collection", "qdrant.delete_collection"),
+    ("update_collection", "qdrant.update_collection"),
+    ("upload_collection", "qdrant.upload_collection"),
+    ("upsert", "qdrant.upsert"),
+    ("set_payload", "qdrant.set_payload"),
+    ("overwrite_payload", "qdrant.overwrite_payload"),
+    ("clear_payload", "qdrant.clear_payload"),
+    ("delete_payload", "qdrant.delete_payload"),
+    ("upload_points", "qdrant.upload_points"),
+    ("update_vectors", "qdrant.update_vectors"),
+    ("delete_vectors", "qdrant.delete_vectors"),
+    ("delete", "qdrant.delete"),
+    ("retrieve", "qdrant.retrieve"),
+    ("scroll", "qdrant.scroll"),
+    ("search", "qdrant.search"),
+    ("search_groups", "qdrant.search_groups"),
+    ("recommend", "qdrant.recommend"),
+    ("create_payload_index", "qdrant.create_payload_index"),
+    ("query_points", "qdrant.query_points"),
 ]
 
+
 class QdrantInstrumentor(BaseInstrumentor):
-    """An instrumentor for Qdrant's client library."""
+    """
+    An instrumentor for Qdrant client library.
+    """
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name")
-        environment = kwargs.get("environment")
-        tracer = kwargs.get("tracer")
-        metrics = kwargs.get("metrics_dict")
-        pricing_info = kwargs.get("pricing_info")
-        trace_content = kwargs.get("trace_content")
-        disable_metrics = kwargs.get("disable_metrics")
         version = importlib.metadata.version("qdrant-client")
+        environment = kwargs.get("environment", "default")
+        application_name = kwargs.get("application_name", "default")
+        tracer = kwargs.get("tracer")
+        pricing_info = kwargs.get("pricing_info", {})
+        capture_message_content = kwargs.get("capture_message_content", False)
+        metrics = kwargs.get("metrics_dict")
+        disable_metrics = kwargs.get("disable_metrics")
 
-        for wrapped_method in WRAPPED_METHODS:
-            wrap_package = wrapped_method.get("package")
-            wrap_object = wrapped_method.get("object")
-            gen_ai_endpoint = wrapped_method.get("endpoint")
-            wrapper = wrapped_method.get("wrapper")
+        # Wrap sync operations
+        for method_name, endpoint in QDRANT_OPERATIONS:
             wrap_function_wrapper(
-                wrap_package,
-                wrap_object,
-                wrapper(gen_ai_endpoint, version, environment, application_name,
-                 tracer, pricing_info, trace_content, metrics, disable_metrics),
+                "qdrant_client",
+                f"QdrantClient.{method_name}",
+                general_wrap(
+                    endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
             )
 
+        # Wrap async operations
+        for method_name, endpoint in QDRANT_OPERATIONS:
+            wrap_function_wrapper(
+                "qdrant_client",
+                f"AsyncQdrantClient.{method_name}",
+                async_general_wrap(
+                    endpoint,
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
+            )
 
-    @staticmethod
     def _uninstrument(self, **kwargs):
         pass

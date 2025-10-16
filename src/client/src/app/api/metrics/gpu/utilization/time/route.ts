@@ -2,7 +2,7 @@ import { GPUMetricParams, TimeLimit } from "@/lib/platform/common";
 import {
 	validateMetricsRequest,
 	validateMetricsRequestType,
-} from "@/helpers/platform";
+} from "@/helpers/server/platform";
 import { getUtilizationParamsPerTime } from "@/lib/platform/gpu/utilization";
 
 export async function POST(request: Request) {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
 	const validationParam = validateMetricsRequest(
 		params,
-		validateMetricsRequestType.UTILIZATION_PERCENTAGE_PER_TIME
+		validateMetricsRequestType.UTILIZATION_PER_TIME
 	);
 
 	if (!validationParam.success)
