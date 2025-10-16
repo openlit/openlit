@@ -1,7 +1,7 @@
 name: 🐛 Bug Report
 description: Submit a bug report to help us imporve
-title: "[Bug]: "
-labels: ["type: bug"]
+title: "Bug: "
+labels: ["bug"]
 body:
   - type: dropdown
     id: component
