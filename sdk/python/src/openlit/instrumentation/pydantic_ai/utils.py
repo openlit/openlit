@@ -633,13 +633,19 @@ def common_agent_create(
         args[0] if args else kwargs.get("model", "google-gla:gemini-1.5-flash")
     )
 
+    # Extract model_name if request_model is a model object
+    if hasattr(request_model, "model_name"):
+        model_name_str = str(request_model.model_name)
+    else:
+        model_name_str = str(request_model)
+
     # Create a minimal context object for creation
     class CreateContext:
         """Minimal context for agent creation instrumentation."""
 
         def __init__(self):
             self.agent_name = agent_name
-            self.model_name = request_model
+            self.model_name = model_name_str
             self.server_info = ("127.0.0.1", 80)
             self.environment = environment
             self.application_name = application_name
@@ -675,7 +681,7 @@ def common_agent_create(
                 SemanticConvention.GEN_AI_AGENT_DESCRIPTION: str(
                     kwargs.get("system_prompt", "")
                 ),
-                SemanticConvention.GEN_AI_RESPONSE_MODEL: request_model,
+                SemanticConvention.GEN_AI_RESPONSE_MODEL: model_name_str,
             },
         )
 

@@ -235,8 +235,8 @@ def process_response_chunk(scope, chunk):
 
     elif chunked.get("type") == "response.completed":
         response_data = chunked.get("response", {})
-        scope._response_id = response_data.get("id")
-        scope._response_model = response_data.get("model")
+        scope._response_id = response_data.get("id") or scope._response_id
+        scope._response_model = response_data.get("model") or scope._response_model
         scope._finish_reason = response_data.get("status")
 
         usage = response_data.get("usage", {})
@@ -328,7 +328,8 @@ def common_response_logic(
         )
 
     # Span Attributes for Response parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
+    if scope._response_id:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
     )
@@ -516,8 +517,8 @@ def process_response_response(
             if content and len(content) > 0:
                 scope._llmresponse = content[0].get("text", "")
 
-    scope._response_id = response_dict.get("id")
-    scope._response_model = response_dict.get("model")
+    scope._response_id = response_dict.get("id", "")
+    scope._response_model = response_dict.get("model", "")
 
     # Handle token usage including reasoning tokens
     usage = response_dict.get("usage", {})
@@ -641,7 +642,8 @@ def common_chat_logic(
     )
 
     # Span Attributes for Response parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
+    if scope._response_id:
+        scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
     )
@@ -805,8 +807,8 @@ def process_chat_response(
         (choice.get("message", {}).get("content") or "")
         for choice in response_dict.get("choices", [])
     )
-    scope._response_id = response_dict.get("id")
-    scope._response_model = response_dict.get("model")
+    scope._response_id = response_dict.get("id", "")
+    scope._response_model = response_dict.get("model", "")
     scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
     scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
     scope._timestamps = []
