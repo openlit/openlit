@@ -1,5 +1,5 @@
 name: 🐛 Bug Report
-description: Report a bug to help us improve OpenLIT
+description: Submit a bug report to help us imporve
 title: "[Bug]: "
 labels: ["type: bug"]
 body:
