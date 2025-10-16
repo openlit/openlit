@@ -17,13 +17,10 @@ export default function OpengroundHeader({
 		(validateResponse && !!evaluatedResponse.data) || !validateResponse;
 
 	return (
-		<div className="flex w-full items-center">
-			<h1 className="text-lg text-bold text-stone-900 dark:text-stone-200 grow">
-				{title}
-			</h1>
+		<div className="flex w-full items-center justify-end">
 			{showButton ? (
 				<Link href={"/openground/new"} onClick={resetOpengroundData}>
-					<Button variant="secondary" className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100">+ New</Button>
+					<Button variant="secondary" className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 h-auto py-1 text-xs">+ Create New</Button>
 				</Link>
 			) : null}
 		</div>

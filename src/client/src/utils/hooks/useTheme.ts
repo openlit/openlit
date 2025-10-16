@@ -5,8 +5,8 @@ type THEME = "dark" | "light";
 
 export default function useTheme() {
 	const [theme, setTheme] = useState<THEME>("light");
-	const toggleTheme = useCallback(() => {
-		const value: THEME = theme === "dark" ? "light" : "dark";
+	const toggleTheme = useCallback((themeParam?: THEME) => {
+		const value: THEME = themeParam || (theme === "dark" ? "light" : "dark");
 		document.documentElement.classList.remove(theme);
 		document.documentElement.classList.add(value);
 		set("theme", value);

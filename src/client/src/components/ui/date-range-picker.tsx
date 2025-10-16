@@ -35,54 +35,53 @@ export function DatePickerWithRange({
 	}, [date]);
 
 	return (
-		<div className={cn("grid gap-2", className)}>
-			<Popover>
-				<PopoverTrigger asChild>
-					<Button
-						id="date"
-						variant={"outline"}
-						className={cn(
-							"justify-start text-left font-normal dark:bg-stone-900 dark:text-stone-100 text-xs px-2 py-1 self-start h-auto",
-							!date && "text-muted-foreground"
-						)}
-					>
-						<CalendarIcon className="mr-2 h-3 w-3" />
-						{date?.from ? (
-							date.to ? (
-								<>
-									{format(date.from, "LLL dd, y")} -{" "}
-									{format(date.to, "LLL dd, y")}
-								</>
-							) : (
-								format(date.from, "LLL dd, y")
-							)
+		<Popover>
+			<PopoverTrigger asChild>
+				<Button
+					id="date"
+					variant={"outline"}
+					className={cn(
+						"justify-start text-left font-normal dark:bg-stone-900 dark:text-stone-100 text-xs px-2 py-1 self-start h-full",
+						!date && "text-muted-foreground",
+						className
+					)}
+				>
+					<CalendarIcon className="mr-2 h-3 w-3" />
+					{date?.from ? (
+						date.to ? (
+							<>
+								{format(date.from, "LLL dd, y")} -{" "}
+								{format(date.to, "LLL dd, y")}
+							</>
 						) : (
-							<span>Pick a date</span>
-						)}
+							format(date.from, "LLL dd, y")
+						)
+					) : (
+						<span>Pick a date</span>
+					)}
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent className="w-auto p-0" align="start">
+				<Calendar
+					initialFocus
+					mode="range"
+					defaultMonth={date?.from}
+					selected={date}
+					onSelect={setDate}
+					numberOfMonths={2}
+				/>
+				<div className="flex justify-end px-3 pb-3">
+					<Button
+						className="w-20"
+						variant="default"
+						size="xs"
+						disabled={!date?.from || !date?.to}
+						onClick={onCustomChange}
+					>
+						Done
 					</Button>
-				</PopoverTrigger>
-				<PopoverContent className="w-auto p-0" align="start">
-					<Calendar
-						initialFocus
-						mode="range"
-						defaultMonth={date?.from}
-						selected={date}
-						onSelect={setDate}
-						numberOfMonths={2}
-					/>
-					<div className="flex justify-end px-3 pb-3">
-						<Button
-							className="w-20"
-							variant="default"
-							size="xs"
-							disabled={!date?.from || !date?.to}
-							onClick={onCustomChange}
-						>
-							Done
-						</Button>
-					</div>
-				</PopoverContent>
-			</Popover>
-		</div>
+				</div>
+			</PopoverContent>
+		</Popover>
 	);
 }

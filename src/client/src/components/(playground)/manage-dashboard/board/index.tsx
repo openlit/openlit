@@ -94,7 +94,7 @@ export default function BoardList() {
 									</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-4">
-									<p className="text-sm text-gray-600 line-clamp-2 shrink-0 h-[40px]">
+									<p className="text-sm text-stone-700 dark:text-stone-400 line-clamp-2 shrink-0 h-[40px]">
 										{board.description}
 									</p>
 									<div className="flex items-center gap-2">
@@ -102,8 +102,8 @@ export default function BoardList() {
 											<Badge key={tag}>{tag}</Badge>
 										))}
 									</div>
-									<div className="flex items-center justify-between text-sm text-gray-500">
-										<div className="flex items-center gap-1 text-xs text-gray-400">
+									<div className="flex items-center justify-between text-sm text-stone-500 dark:text-stone-300">
+										<div className="flex items-center gap-1 text-xs">
 											<Clock className="h-3 w-3" />
 											<span>Updated {formatDate(board.updatedAt)}</span>
 										</div>

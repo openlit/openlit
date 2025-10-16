@@ -14,6 +14,7 @@ export interface CustomSelectProps {
 	placeholder?: string;
 	hasOtherOption?: boolean;
 	name: string;
+	id?: string;
 }
 
 export type FieldTypes =
@@ -37,6 +38,7 @@ export interface RadioGroupProps {
 	placeholder?: string;
 	onKeyUp?: any;
 	onChange?: any;
+	id?: string
 }
 
 export interface KeyValuePairProps {
@@ -45,6 +47,7 @@ export interface KeyValuePairProps {
 	placeholder?: string;
 	onKeyUp?: any;
 	onChange?: any;
+	id?: string;
 }
 
 export type FieldTypeProps =
@@ -61,6 +64,7 @@ export type FieldProps = {
 	fieldType: FieldTypes;
 	fieldTypeProps: FieldTypeProps;
 	inputKey?: string;
+	id?: string;
 };
 
 export type FormBuilderEvent = (e: FormEvent<Element>, formData: any) => void;

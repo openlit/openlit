@@ -9,6 +9,7 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { User } from "@prisma/client";
 import { usePostHog } from "posthog-js/react";
 import { toast } from "sonner";
+import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
 const PROFILE_TOAST_ID = "profile-details";
 
@@ -69,6 +70,7 @@ function ModifyProfileDetails({
 
 	return (
 		<FormBuilder
+			cardClassName={`${PRIMARY_BACKGROUND} py-4 px-6`}
 			fields={[
 				{
 					label: "Email",
@@ -154,7 +156,7 @@ export default function Profile() {
 	};
 
 	return (
-		<div className="flex flex-1 h-full w-full relative py-4  px-6 ">
+		<div className="flex flex-1 h-full w-full relative">
 			<ModifyProfileDetails user={userDetails as User} fetchUser={fetchUser} />
 		</div>
 	);

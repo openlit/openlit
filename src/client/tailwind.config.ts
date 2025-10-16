@@ -22,6 +22,10 @@ const config = {
 			colors: {
 				...COLORS,
 			},
+			boxShadow: {
+        'inset-card': 'oklch(92.3% 0.003 48.717) 0px 3px 12px inset',
+        'inset-card-dark': 'oklch(26.8% 0.007 34.298) 0px 3px 12px inset',
+      },
 			keyframes: {
 				"accordion-down": {
 					from: {

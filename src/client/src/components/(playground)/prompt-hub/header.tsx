@@ -13,14 +13,13 @@ export default function PromptHubHeader({
 	const pingStatus = useRootStore(getPingStatus);
 
 	return (
-		<div className="flex w-full items-center">
-			<RouteBreadcrumbs />
+		<div className="flex w-full items-center justify-end gap-3">
 			{pingStatus === "success" && <PromptUsage />}
 			{createNew && pingStatus === "success" && (
 				<PromptForm>
 					<Button
 						variant="secondary"
-						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-auto py-1 rounded-sm"
+						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-auto py-1 rounded-md"
 					>
 						+ New
 					</Button>

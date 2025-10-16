@@ -4,7 +4,7 @@ import React, { useCallback } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { Edit, Save, Plus, LucideIcon, Download } from "lucide-react";
+import { Plus, LucideIcon, Download, Settings, ChevronsUpDown, Pencil, Save, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DashboardProps, Widget, WidgetType } from "./types";
 import { DashboardProvider, useDashboard } from "./context/dashboard-context";
@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { jsonParse, jsonStringify } from "@/utils/json";
 import { Board } from "@/types/manage-dashboard";
 import { exportBoardLayout } from "./utils/api";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 // Empty state component
 const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
@@ -50,9 +51,9 @@ const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
 const ActionButtons = ({ onClick, label, icon }: { onClick: () => void, label: string, icon: LucideIcon }) => {
 	const Icon = icon;
 	return (
-		<Button variant="secondary" onClick={onClick} className="flex gap-2 h-auto border-none py-1.5 bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300">
+		<Button variant="secondary" onClick={onClick} className="flex gap-2 h-auto py-0 text-xs font-normal text-stone-500 dark:text-stone-100 hover:bg-stone-600 dark:hover:bg-stone-600 hover:text-stone-100 border border-stone-200 dark:border-stone-800">
 			<Icon className="h-3 w-3" />
-			<span className="text-sm">{label}</span>
+			<span>{label}</span>
 		</Button>
 	);
 };
@@ -204,9 +205,9 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 	);
 
 	return (
-		<div className={`w-full ${className ?? ""}`}>
+		<>
 			{(renderTitle || !readonly || headerComponent) && (
-				<div className="flex items-center mb-6">
+				<div className="flex w-full mb-6 gap-4">
 					{renderTitle && (
 						<div className="flex items-center gap-2 text-stone-900 dark:text-stone-300">
 							<h1 className="text-2xl font-bold">{details.title}</h1>
@@ -216,112 +217,129 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 						</div>
 					)}
 					{headerComponent}
-					<div className="flex-1" />
+					{isEditing && (
+						<ActionButtons
+							onClick={() => handleSave()}
+							icon={Save}
+							label="Save Layout"
+						/>
+					)}
+					{isEditing && (
+						<ActionButtons
+							onClick={handleAddWidget}
+							icon={Plus}
+							label={"Add Widget"}
+						/>
+					)}
 					{!readonly && (
-						<div className="flex gap-2">
-							<ActionButtons
-								onClick={() => openEditDialog({
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button variant="outline" className="flex gap-2 shrink-0 justify-start group-data-[state=close]:justify-center overflow-hidden text-stone-500 dark:text-stone-100 hover:bg-stone-600 dark:hover:bg-stone-600 hover:text-stone-100 font-normal py-0 h-auto text-xs">
+									<Settings className={`size-3 shrink-0`} />
+									<span className="block group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap grow">Actions</span>
+									<ChevronsUpDown className={`size-3 block group-data-[state=close]:hidden shrink-0`} />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent className="w-56" side="bottom" align="end">
+								<DropdownMenuLabel>Actions</DropdownMenuLabel>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem className="p-2 gap-4" onClick={() => openEditDialog({
 									id: details.id!,
 									title: details.title!,
 									description: details.description!,
 									tags: details.tags!,
-								})}
-								icon={Plus}
-								label={"Update Board details"}
-							/>
-							<ActionButtons
-								onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-								icon={isEditing ? Save : Edit}
-								label={isEditing ? "Save Layout" : "Edit Layout"}
-							/>
-							{isEditing && (
-								<ActionButtons
-									onClick={handleAddWidget}
-									icon={Plus}
-									label={"Add Widget"}
-								/>
-							)}
-							{
-								!isEditing && (
-									<ActionButtons
-										onClick={() => exportBoardLayout(details.id!)}
-										icon={Download}
-										label={"Export Layout"}
-									/>
-								)
-							}
-						</div>
+								})}>
+									<Pencil className="h-3 w-3" />
+									Update Board details
+								</DropdownMenuItem>
+								{
+									isEditing ? null : (
+										<DropdownMenuItem className="p-2 gap-4" onClick={() => setIsEditing(true)}>
+											<Edit className="h-3 w-3" />
+											Edit Layout
+										</DropdownMenuItem>
+									)
+								}
+								<DropdownMenuItem className="p-2 gap-4" onClick={() => exportBoardLayout(details.id!)}>
+									<Download className="h-3 w-3" />
+									Export Layout
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+
 					)}
 				</div>
 			)}
+			<div className={`w-full ${className ?? ""}`}>
 
-			<ResponsiveGridLayout
-				className="layout"
-				layouts={layouts}
-				breakpoints={breakpoints}
-				cols={cols}
-				rowHeight={rowHeight}
-				onLayoutChange={handleLayoutChange}
-				isDraggable={isEditing && !readonly}
-				isResizable={isEditing && !readonly}
-				margin={[16, 16]}
-				containerPadding={[0, 0]}
-			>
+				<ResponsiveGridLayout
+					className="layout"
+					layouts={layouts}
+					breakpoints={breakpoints}
+					cols={cols}
+					rowHeight={rowHeight}
+					onLayoutChange={handleLayoutChange}
+					isDraggable={isEditing && !readonly}
+					isResizable={isEditing && !readonly}
+					margin={[16, 16]}
+					containerPadding={[0, 0]}
+				>
+					{
+						layouts.lg.map((item: any) => {
+							const widget = widgets[item.i];
+							if (!widget) return null;
+
+							return (
+								<div key={item.i} className="bg-background">
+									<WidgetRenderer
+										widget={widget}
+										isEditing={isEditing && !readonly}
+										onEdit={openEditSheet}
+										onRemove={(widgetId) => {
+											// Implementation of removeWidget is in the DashboardContext
+											removeWidget(widgetId);
+										}}
+										runFilters={runFilters}
+									/>
+								</div>
+							);
+						})
+					}
+				</ResponsiveGridLayout>
 				{
-					layouts.lg.map((item: any) => {
-						const widget = widgets[item.i];
-						if (!widget) return null;
-
-						return (
-							<div key={item.i} className="bg-background">
-								<WidgetRenderer
-									widget={widget}
-									isEditing={isEditing && !readonly}
-									onEdit={openEditSheet}
-									onRemove={(widgetId) => {
-										// Implementation of removeWidget is in the DashboardContext
-										removeWidget(widgetId);
-									}}
-									runFilters={runFilters}
-								/>
-							</div>
-						);
-					})
+					!readonly && (
+						<>
+							{layouts.lg.length === 0 && (
+								<div style={{ width: '100%' }}>
+									<EmptyState onAddWidget={() => { setIsEditing(true); handleAddWidget() }} />
+								</div>
+							)}
+							<EditWidgetSheet editorLanguage={editorLanguage} />
+							<WidgetSelectionModal
+								open={showWidgetModal}
+								onClose={() => setShowWidgetModal(false)}
+								widgets={existingWidgets}
+								onSelect={handleSelectWidget}
+								onCreateNew={handleCreateNew}
+							/>
+							<UpsertResourceDialog
+								isOpen={dialogState.isOpen}
+								onOpenChange={(open) =>
+									setDialogState((prev) => ({ ...prev, isOpen: open }))
+								}
+								mode={dialogState.mode}
+								initialItemTitle={dialogState.itemTitle}
+								initialItemDescription={dialogState.itemDescription}
+								initialItemType={dialogState.itemType}
+								initialItemTags={dialogState.itemTags}
+								onSave={handleDialogSave}
+								onCancel={handleDialogCancel}
+							/>
+						</>
+					)
 				}
-			</ResponsiveGridLayout>
-			{
-				!readonly && (
-					<>
-						{layouts.lg.length === 0 && (
-							<div style={{ width: '100%' }}>
-								<EmptyState onAddWidget={() => { setIsEditing(true); handleAddWidget() }} />
-							</div>
-						)}
-						<EditWidgetSheet editorLanguage={editorLanguage} />
-						<WidgetSelectionModal
-							open={showWidgetModal}
-							onClose={() => setShowWidgetModal(false)}
-							widgets={existingWidgets}
-							onSelect={handleSelectWidget}
-							onCreateNew={handleCreateNew}
-						/>
-						<UpsertResourceDialog
-							isOpen={dialogState.isOpen}
-							onOpenChange={(open) =>
-								setDialogState((prev) => ({ ...prev, isOpen: open }))
-							}
-							mode={dialogState.mode}
-							initialItemTitle={dialogState.itemTitle}
-							initialItemDescription={dialogState.itemDescription}
-							initialItemType={dialogState.itemType}
-							initialItemTags={dialogState.itemTags}
-							onSave={handleDialogSave}
-							onCancel={handleDialogCancel}
-						/>
-					</>
-				)
-			}
-		</div>
+			</div>
+		</>
 	);
 };
 

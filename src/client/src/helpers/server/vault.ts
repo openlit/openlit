@@ -1,7 +1,7 @@
 import { SecretInput } from "@/types/vault";
 
-export function verifySecretInput(secretInput: SecretInput) {
-	if (secretInput.key.length === 0) {
+export function verifySecretInput(secretInput: Partial<SecretInput>) {
+	if (secretInput.key?.length === 0) {
 		return {
 			success: false,
 			err: "Key should be present!",

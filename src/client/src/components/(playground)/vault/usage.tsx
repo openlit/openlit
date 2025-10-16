@@ -133,7 +133,7 @@ export default function VaultUsage() {
 			<DialogTrigger asChild>
 				<Button
 					variant="outline"
-					className="px-8 h-auto py-1 rounded-sm mr-6 dark:text-stone-300"
+					className="px-8 h-auto py-1 rounded-md font-normal text-xs dark:text-stone-300"
 				>
 					How to use vault ?
 				</Button>

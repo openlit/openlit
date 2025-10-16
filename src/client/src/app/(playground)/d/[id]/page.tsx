@@ -10,7 +10,7 @@ import Loader from "@/components/common/loader";
 import Filter from "@/components/(playground)/filter";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 import { useFilters } from "@/selectors/filter";
-import { usePageHeader } from "@/selectors/page";
+import { useDynamicBreadcrumbs } from "@/utils/hooks/useBreadcrumbs";
 import { usePostHog } from "posthog-js/react";
 import { Board } from "@/types/manage-dashboard";
 import { CLIENT_EVENTS } from "@/constants/events";
@@ -26,14 +26,14 @@ export default function DashboardPage() {
 	const [initialConfig, setInitialConfig] = useState<
 		DashboardConfig | undefined
 	>();
-	const { setHeader } = usePageHeader();
+	const [dashboardDetails, setDashboardDetails] = useState<{ title?: string; description?: string }>({});
+	useDynamicBreadcrumbs(dashboardDetails, [dashboardDetails]);
 	const posthog = usePostHog();
 
 	const handleHeaderUpdates = (details: Partial<Board>) => {
-		setHeader({
+		setDashboardDetails({
 			title: details.title || "",
 			description: details.description || "",
-			breadcrumbs: [],
 		});
 	};
 
@@ -153,44 +153,41 @@ export default function DashboardPage() {
 	};
 
 	return (
-		<div className="flex flex-col items-center w-full justify-between h-full">
-			<div className="w-full h-full overflow-y-auto">
-				{
-					!isLoading && (error as Error) && (
-						<div className="flex flex-col items-center w-full justify-center h-full">
-							<p className="text-xl text-red-500">
-								{getMessage().ERROR_OCCURED}
-							</p>
-							<p className="text-sm text-stone-500 dark:text-stone-400">
-								{getMessage().ERROR_OCCURED_DESCRIPTION}
-							</p>
-						</div>
-					)
-				}
-				{
-					isLoading && (
-						<div className="flex flex-col items-center w-full justify-center h-full">
-							<Loader />
-						</div>
-					)
-				}
-				{initialConfig && (
-					<Dashboard
-						initialConfig={initialConfig}
-						runQuery={runQuery}
-						onSave={handleSave}
-						handleWidgetCrud={handleWidgetCrud}
-						fetchExistingWidgets={fetchExistingWidgets}
-						runFilters={runFilters}
-						headerComponent={(
-							<div className="flex shrink-0">
-								<Filter className="items-end" />
-							</div>
-						)}
-						handleBoardUpdates={handleHeaderUpdates}
-					/>
-				)}
-			</div>
+		<div className="flex flex-col w-full justify-between h-full">
+			{
+				!isLoading && (error as Error) && (
+					<div className="flex flex-col items-center w-full justify-center h-full">
+						<p className="text-xl text-red-500">
+							{getMessage().ERROR_OCCURED}
+						</p>
+						<p className="text-sm text-stone-500 dark:text-stone-400">
+							{getMessage().ERROR_OCCURED_DESCRIPTION}
+						</p>
+					</div>
+				)
+			}
+			{
+				isLoading && (
+					<div className="flex flex-col items-center w-full justify-center h-full">
+						<Loader />
+					</div>
+				)
+			}
+			{!isLoading && initialConfig && (
+				<Dashboard
+					className="h-100 overflow-y-auto"
+					initialConfig={initialConfig}
+					runQuery={runQuery}
+					onSave={handleSave}
+					handleWidgetCrud={handleWidgetCrud}
+					fetchExistingWidgets={fetchExistingWidgets}
+					runFilters={runFilters}
+					headerComponent={(
+						<Filter className="items-end" />
+					)}
+					handleBoardUpdates={handleHeaderUpdates}
+				/>
+			)}
 		</div>
 	);
 }

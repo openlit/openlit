@@ -4,81 +4,66 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import Link from "next/link";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
 import { EyeIcon } from "lucide-react";
-import { get } from "lodash";
 import OpengroundHeader from "@/components/(playground)/openground/header";
+import { OpengroundRequest, OpengroundStats } from "@/types/openground";
+import { Columns } from "@/components/data-table/columns";
+import { jsonParse } from "@/utils/json";
+import DataTable from "@/components/data-table/table";
 
-const columns = [
-	{
-		key: "stats.prompt",
-		header: "Prompt",
+const columns: Columns<string, OpengroundRequest> = {
+	prompt: {
+		header: () => "Prompt",
+		cell: ({ row }) => {
+			const stats: OpengroundStats = jsonParse(row.stats);
+			return stats.prompt;
+		},
 	},
-	{
-		key: "createdByUser.email",
-		header: "Created By",
+	createdBy: {
+		header: () => "Created By",
+		cell: ({ row }) => row.createdByUser.email,
 	},
-	{
-		key: "databaseConfig.name",
-		header: "Database config",
+	databaseConfig: {
+		header: () => "Database Config",
+		cell: ({ row }) => {
+			return row.databaseConfig.name;
+		},
 	},
-	{
-		header: "Min Cost",
-		render: (data: any) => {
-			const provider = get(data, "stats.minCostProvider");
-			if (!provider) return "-";
+	minCostProvider: {
+		header: () => "Min Cost Provider",
+		cell: ({ row }) => {
+			const stats: OpengroundStats = jsonParse(row.stats);
+			return stats.minCostProvider ? `${stats.minCostProvider} (${stats.minCost})` : "-";
+		},
+	},
+	minResponseTime: {
+		header: () => "Min Response Time",
+		cell: ({ row }) => {
+			const stats: OpengroundStats = jsonParse(row.stats);
+			return stats.minResponseTimeProvider ? `${stats.minResponseTimeProvider} (${stats.minResponseTime})` : "-";
+		},
+	},
+	minCompletionTokens: {
+		header: () => "Min Completion Tokens",
+		cell: ({ row }) => {
+			const stats: OpengroundStats = jsonParse(row.stats);
+			return stats.minCompletionTokensProvider ? `${stats.minCompletionTokensProvider} (${stats.minCompletionTokens})` : "-";
+		},
+	},
+	actions: {
+		header: () => "Actions",
+		cell: ({ row }) => {
 			return (
-				<p>
-					{get(data, "stats.minCostProvider")} (${get(data, "stats.minCost")})
-				</p>
+				<Link href={`/openground/${row.id}`}>
+					<EyeIcon />
+				</Link>
 			);
 		},
 	},
-	{
-		header: "Min Response Time",
-		render: (data: any) => {
-			const provider = get(data, "stats.minResponseTimeProvider");
-			if (!provider) return "-";
-			return (
-				<p>
-					{get(data, "stats.minResponseTimeProvider")} (
-					{get(data, "stats.minResponseTime")}s)
-				</p>
-			);
-		},
-	},
-	{
-		header: "Min Completion Tokens",
-		render: (data: any) => {
-			const provider = get(data, "stats.minCompletionTokensProvider");
-			if (!provider) return "-";
-			return (
-				<p>
-					{get(data, "stats.minCompletionTokensProvider")} (
-					{get(data, "stats.minCompletionTokens")})
-				</p>
-			);
-		},
-	},
-	{
-		header: "Actions",
-		render: (data: any) => (
-			<Link href={`/openground/${data.id}`}>
-				<EyeIcon />
-			</Link>
-		),
-	},
-];
+}
 
 export default function Openground() {
-	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<OpengroundRequest[]>();
 	const fetchData = useCallback(async () => {
 		fireRequest({
 			requestType: "GET",
@@ -95,61 +80,24 @@ export default function Openground() {
 		fetchData();
 	}, []);
 
-	const updatedData = (data as any) || [];
-
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
 			<OpengroundHeader title="Openground Requests" validateResponse={false} />
-			<div className="flex w-full overflow-auto relative">
-				<Table>
-					<TableHeader className="bg-stone-200 dark:bg-stone-800 sticky top-0 z-10">
-						<TableRow>
-							{columns.map((column, index) => {
-								return (
-									<TableHead
-										key={index}
-										className="text-stone-700 dark:text-stone-300"
-									>
-										{column.header}
-									</TableHead>
-								);
-							})}
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{isLoading || !isFetched ? (
-							<TableRow className="text-stone-600 dark:text-stone-400">
-								<TableCell colSpan={columns.length} className="text-center">
-									Loading
-								</TableCell>
-							</TableRow>
-						) : updatedData.length === 0 ? (
-							<TableRow className="text-stone-600 dark:text-stone-400">
-								<TableCell colSpan={columns.length} className="text-center">
-									No data to display
-								</TableCell>
-							</TableRow>
-						) : (
-							updatedData.map((item: any) => {
-								const stats = JSON.parse(item.stats);
-								const value = { ...item, stats };
-								return (
-									<TableRow
-										key={item.id}
-										className="text-stone-600 dark:text-stone-400 h-4"
-									>
-										{columns.map(({ key, render }, index) => (
-											<TableCell key={`${value.id}-column-${index}`}>
-												{render ? render(value) : get(value, key)}
-											</TableCell>
-										))}
-									</TableRow>
-								);
-							})
-						)}
-					</TableBody>
-				</Table>
-			</div>
+			<DataTable
+				columns={columns}
+				data={data || []}
+				isFetched={isFetched}
+				isLoading={isLoading}
+				visibilityColumns={{
+					prompt: true,
+					createdBy: true,
+					databaseConfig: true,
+					minCostProvider: true,
+					minResponseTime: true,
+					minCompletionTokens: true,
+					actions: true
+				}}
+			/>
 		</div>
 	);
 }

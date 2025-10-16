@@ -2,70 +2,62 @@
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useEffect } from "react";
 import { toast } from "sonner";
-import { get } from "lodash";
 import { format } from "date-fns";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
-import TableData from "@/components/common/table-data";
 import { EditIcon, TrashIcon } from "lucide-react";
 import ConfirmationModal from "@/components/common/confirmation-modal";
 import VaultHeader from "@/components/(playground)/vault/header";
 import { useParams } from "next/navigation";
 import SecretForm from "@/components/(playground)/vault/form";
+import { Secret } from "@/types/vault";
+import { Columns } from "@/components/data-table/columns";
+import DataTable from "@/components/data-table/table";
 
-const columns = [
-	{
-		key: "key",
-		className: "col-span-3",
-		header: "Key",
+const columns: Columns<string, Secret> = {
+	key: {
+		header: () => "Key",
+		cell: ({ row }) => row.key,
 	},
-	{
-		key: "created_by",
-		className: "col-span-3",
-		header: "Created By",
+	createdBy: {
+		header: () => "Created By",
+		cell: ({ row }) => row.created_by,
 	},
-	{
-		header: "Last Updated On",
-		className: "col-span-3",
-		render: (data: any) => {
-			const updatedAt = get(data, "updated_at");
-			return updatedAt ? format(updatedAt, "MMM do, y") : "-";
+	updatedAt: {
+		header: () => "Last Updated On",
+		cell: ({ row }) => {
+			return row.updated_at ? format(row.updated_at, "MMM do, y") : "-";
 		},
 	},
-	{
-		header: "Actions",
-		className: "col-span-3 text-center justify-center flex",
-		render: (
-			data: any,
-			extraFunction: {
-				handleDelete: (p?: any) => void;
-				successCallback: () => void;
-			}
-		) => (
-			<div className="flex justify-center gap-4">
-				<SecretForm
-					secretData={data}
-					successCallback={extraFunction.successCallback}
-				>
-					<EditIcon className="w-4 cursor-pointer hover:text-primary" />
-				</SecretForm>
-				<ConfirmationModal
-					handleYes={extraFunction?.handleDelete}
-					title="Are you sure you want to delete this secret?"
-					subtitle="Deleting secrets might result in breaking application if they are getting used. Please confirm before deleting it."
-					params={{
-						id: data.id,
-					}}
-				>
-					<TrashIcon className="w-4 cursor-pointer hover:text-primary" />
-				</ConfirmationModal>
-			</div>
-		),
+	actions: {
+		header: () => "Actions",
+		cell: ({ row, extraFunctions }) => {
+			return (
+				<div className="flex justify-start items-center gap-4">
+					<SecretForm
+						secretData={row}
+						successCallback={extraFunctions.successCallback}
+					>
+						<EditIcon className="w-4 cursor-pointer" />
+					</SecretForm>
+					<ConfirmationModal
+						handleYes={extraFunctions?.handleDelete}
+						title="Are you sure you want to delete this secret?"
+						subtitle="Deleting secrets might result in breaking application if they are getting used. Please confirm before deleting it."
+						params={{
+							id: row.id,
+						}}
+					>
+						<TrashIcon className="w-4 cursor-pointer" />
+					</ConfirmationModal>
+				</div>
+			);
+		},
 	},
-];
+}
 
 export default function Vault() {
-	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<Secret[]>();
 	const params = useParams();
 	const { fireRequest: fireDeleteRequest, isLoading: isDeleting } =
 		useFetchWrapper();
@@ -110,18 +102,21 @@ export default function Vault() {
 		}
 	}, [pingStatus]);
 
-	const updatedData = (data as any) || [];
-
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
 			<VaultHeader createNew={!params.id} successCallback={fetchData} />
-			<TableData
+			<DataTable
 				columns={columns}
-				data={updatedData}
+				data={data || []}
 				isFetched={isFetched || pingStatus === "failure"}
 				isLoading={isLoading || isDeleting}
-				idKey="id"
-				extraFunction={{
+				visibilityColumns={{
+					key: true,
+					createdBy: true,
+					updatedAt: true,
+					actions: true
+				}}
+				extraFunctions={{
 					handleDelete: deleteSecret,
 					successCallback: fetchData,
 				}}

@@ -6,60 +6,55 @@ import {
 	BreadcrumbSeparator,
 	BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import { usePageHeader } from "@/selectors/page";
 import { usePathname } from "next/navigation";
-import React from "react";
-
-const PATH_TO_TITLE_MAP = {
-	"/": "Home",
-	"/requests": "Request",
-	"/exceptions": "Exceptions",
-	"/prompt-hub": "Prompts",
-	"/vault": "Vault",
-	"/openground": "Openground",
-	"/settings": "Settings",
-	"/dashboards": "Dashboards",
-	"/dashboards/board": "Board",
-	"/dashboards/explorer": "Explorer",
-	"/dashboards/widget": "Widget",
-};
+import React, { useEffect } from "react";
+import { generatePageHeader } from "@/utils/breadcrumbs";
 
 export default function RouteBreadcrumbs() {
-	const params = usePathname();
-	const paths = params.split("/");
-	const pathArray: string[] = [];
+	const pathname = usePathname();
+	const { header, setHeader } = usePageHeader();
+
+	useEffect(() => {
+		const pageHeader = generatePageHeader(pathname);
+		setHeader(pageHeader);
+	}, [pathname, setHeader]);
+
+	const isHomePage = pathname === "/home";
+	const showHomeBreadcrumb = !isHomePage;
+	const hasIntermediateBreadcrumbs = header.breadcrumbs.length > 0;
 
 	return (
-		<Breadcrumb className="grow">
-			<BreadcrumbList>
-				{paths.length > 1
-					? paths.map((path, index) => {
-							if (path !== "") pathArray.push(path);
-							const pathField = `/${pathArray.join("/")}`;
-							if (index === paths.length - 1) {
-								return (
-									<BreadcrumbItem key={pathField}>
-										<BreadcrumbPage>
-											{PATH_TO_TITLE_MAP[
-												pathField as keyof typeof PATH_TO_TITLE_MAP
-											] || path}
-										</BreadcrumbPage>
-									</BreadcrumbItem>
-								);
-							}
-							return (
-								<React.Fragment key={pathField}>
-									<BreadcrumbItem>
-										<BreadcrumbLink href={pathField}>
-											{PATH_TO_TITLE_MAP[
-												pathField as keyof typeof PATH_TO_TITLE_MAP
-											] || path}
-										</BreadcrumbLink>
-									</BreadcrumbItem>
-									<BreadcrumbSeparator />
-								</React.Fragment>
-							);
-					  })
-					: null}
+		<Breadcrumb className="grow px-2 py-2 rounded-none">
+			<BreadcrumbList className="text-xs">
+				{showHomeBreadcrumb && (
+					<BreadcrumbItem>
+						<BreadcrumbLink href="/home">
+							Home
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+				)}
+				
+				{showHomeBreadcrumb && hasIntermediateBreadcrumbs && <BreadcrumbSeparator />}
+				
+				{header.breadcrumbs.map(({ title, href }, index) => (
+					<React.Fragment key={href}>
+						<BreadcrumbItem>
+							<BreadcrumbLink href={href}>
+								{title}
+							</BreadcrumbLink>
+						</BreadcrumbItem>
+						{index < header.breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+					</React.Fragment>
+				))}
+				
+				{(showHomeBreadcrumb || hasIntermediateBreadcrumbs) && <BreadcrumbSeparator />}
+				
+				<BreadcrumbItem>
+					<BreadcrumbPage className="capitalize">
+						{header.title}
+					</BreadcrumbPage>
+				</BreadcrumbItem>
 			</BreadcrumbList>
 		</Breadcrumb>
 	);
