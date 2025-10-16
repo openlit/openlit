@@ -18,6 +18,25 @@ from openlit.instrumentation.mcp.utils import (
 )
 
 
+def _populate_context_method_metadata(ctx, wrapped, endpoint):
+    """Populate method metadata on the instrumentation context for span naming."""
+
+    try:
+        if hasattr(wrapped, "__name__"):
+            ctx._wrapped_function_name = wrapped.__name__  # cached for method detection
+    except Exception:
+        pass
+
+    if endpoint:
+        parts = endpoint.split()
+        if len(parts) >= 2:
+            ctx._endpoint_method = parts[1]
+        elif parts:
+            ctx._endpoint_method = parts[0]
+        else:
+            ctx._endpoint_method = "unknown"
+
+
 def async_mcp_wrap(
     gen_ai_endpoint,
     version,
@@ -51,6 +70,7 @@ def async_mcp_wrap(
             ):
                 span_kind = SpanKind.SERVER
 
+
             # Create instrumentation context for caching expensive operations
             ctx = MCPInstrumentationContext(
                 instance=instance,
@@ -62,6 +82,8 @@ def async_mcp_wrap(
                 pricing_info=pricing_info,
                 capture_message_content=capture_message_content,
             )
+
+            _populate_context_method_metadata(ctx, wrapped, gen_ai_endpoint)
 
             # Create span name following OpenLIT convention: "{operation_type} {operation_name}"
             operation_type = (
@@ -222,6 +244,8 @@ def async_mcp_tool_call_wrap(
                 capture_message_content=capture_message_content,
             )
 
+            _populate_context_method_metadata(ctx, wrapped, gen_ai_endpoint)
+
             # Enhanced span name for tool calls
             span_name = ctx.get_enhanced_span_name("tool")
 
@@ -332,6 +356,8 @@ def async_mcp_resource_wrap(
                 capture_message_content=capture_message_content,
             )
 
+            _populate_context_method_metadata(ctx, wrapped, gen_ai_endpoint)
+
             # Enhanced span name for resource operations
             span_name = ctx.get_enhanced_span_name("resource")
 
@@ -440,6 +466,8 @@ def async_mcp_transport_wrap(
                 pricing_info=pricing_info,
                 capture_message_content=capture_message_content,
             )
+
+            _populate_context_method_metadata(ctx, wrapped, gen_ai_endpoint)
 
             # Transport-specific span name following operation_type operation_name convention
             transport_type = ctx.transport_type

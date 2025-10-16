@@ -449,9 +449,9 @@ def record_completion_metrics(
     application_name,
     start_time,
     end_time,
-    cost,
     input_tokens,
     output_tokens,
+    cost,
     tbt,
     ttft,
 ):
