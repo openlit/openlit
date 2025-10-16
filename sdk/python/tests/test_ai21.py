@@ -2,7 +2,7 @@
 """
 This module contains tests for AI21 functionality using the AI21 Python library.
 
-Tests cover various API endpoints, including chat and embeddings. 
+Tests cover various API endpoints, including chat and embeddings.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -24,11 +24,14 @@ sync_client = AI21Client()
 async_client = AsyncAI21Client()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-ai21-test")
+openlit.init(
+    environment="openlit-python-testing", application_name="openlit-python-ai21-test"
+)
 
 MESSAGES = [
     ChatMessage(content="hi", role="user"),
 ]
+
 
 def test_sync_ai21_chat():
     """
@@ -44,6 +47,7 @@ def test_sync_ai21_chat():
         max_tokens=1,
     )
     assert isinstance(response.id, str)
+
 
 def test_sync_ai21_chat_stream():
     """
@@ -63,6 +67,7 @@ def test_sync_ai21_chat_stream():
         assert isinstance(response.id, str)
         return
 
+
 def test_sync_ai21_chat_rag():
     """
     Tests synchronous chat rag.
@@ -81,6 +86,7 @@ def test_sync_ai21_chat_rag():
         max_tokens=1,
     )
     assert isinstance(response.id, str)
+
 
 @pytest.mark.asyncio
 async def test_async_ai21_test():

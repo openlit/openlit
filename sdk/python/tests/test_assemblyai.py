@@ -2,7 +2,7 @@
 """
 This module contains tests for Assembly AI functionality using the Assembly AI Python library.
 
-Tests cover various API endpoints. 
+Tests cover various API endpoints.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -18,8 +18,9 @@ import openlit
 # Initialize environment and application name for OpenLIT monitoring
 openlit.init(
     environment="openlit-python-testing",
-    application_name="openlit-python-assemblyai-test"
+    application_name="openlit-python-assemblyai-test",
 )
+
 
 def test_sync_assemblyai_transcribe():
     """
@@ -30,9 +31,7 @@ def test_sync_assemblyai_transcribe():
     """
 
     try:
-        audio_file = (
-            "https://audio-samples.github.io/samples/mp3/blizzard_unconditional/sample-0.mp3"
-        )
+        audio_file = "https://audio-samples.github.io/samples/mp3/blizzard_unconditional/sample-0.mp3"
 
         transcriber = aai.Transcriber()
         config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.nano)

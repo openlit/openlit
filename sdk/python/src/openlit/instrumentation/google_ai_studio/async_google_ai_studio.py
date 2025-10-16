@@ -2,25 +2,27 @@
 Module for monitoring Google AI Studio API calls.
 """
 
-import logging
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import (
-    handle_exception,
-    set_server_address_and_port
-)
+from openlit.__helpers import handle_exception, set_server_address_and_port
 from openlit.instrumentation.google_ai_studio.utils import (
     process_chat_response,
     process_chunk,
-    process_streaming_chat_response
+    process_streaming_chat_response,
 )
 from openlit.semcov import SemanticConvention
 
-# Initialize logger for logging potential issues and operations
-logger = logging.getLogger(__name__)
 
-def async_generate(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+def async_generate(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -30,7 +32,9 @@ def async_generate(version, environment, application_name,
         Wraps the GenAI function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "generativelanguage.googleapis.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "generativelanguage.googleapis.com", 443
+        )
         request_model = kwargs.get("model", "gemini-2.0-flash")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -39,8 +43,9 @@ def async_generate(version, environment, application_name,
             start_time = time.time()
             response = await wrapped(*args, **kwargs)
 
-            response = process_chat_response(
-                    instance = instance,
+            try:
+                response = process_chat_response(
+                    instance=instance,
                     response=response,
                     request_model=request_model,
                     pricing_info=pricing_info,
@@ -56,14 +61,27 @@ def async_generate(version, environment, application_name,
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-            )
+                )
 
-        return response
+            except Exception as e:
+                handle_exception(span, e)
+
+            # Return original response
+            return response
 
     return wrapper
 
-def async_generate_stream(version, environment, application_name,
-    tracer, pricing_info, capture_message_content, metrics, disable_metrics):
+
+def async_generate_stream(
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
     """
     Generates a telemetry wrapper for GenAI function call
     """
@@ -74,23 +92,23 @@ def async_generate_stream(version, environment, application_name,
         """
 
         def __init__(
-                self,
-                wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                **args,
-            ):
+            self,
+            wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            **args,
+        ):
             self.__wrapped__ = wrapped
             self._span = span
             self._span_name = span_name
-            self._llmresponse = ''
-            self._finish_reason = ''
-            self._output_tokens = ''
-            self._input_tokens = ''
-            self._response_model = ''
+            self._llmresponse = ""
+            self._finish_reason = ""
+            self._output_tokens = ""
+            self._input_tokens = ""
+            self._response_model = ""
             self._tools = None
 
             self._args = args
@@ -124,7 +142,9 @@ def async_generate_stream(version, environment, application_name,
                 return chunk
             except StopAsyncIteration:
                 try:
-                    with tracer.start_as_current_span(self._span_name, kind= SpanKind.CLIENT) as self._span:
+                    with tracer.start_as_current_span(
+                        self._span_name, kind=SpanKind.CLIENT
+                    ) as self._span:
                         process_streaming_chat_response(
                             self,
                             pricing_info=pricing_info,
@@ -133,12 +153,11 @@ def async_generate_stream(version, environment, application_name,
                             metrics=metrics,
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
-                            version=version
+                            version=version,
                         )
 
                 except Exception as e:
                     handle_exception(self._span, e)
-                    logger.error("Error in trace creation: %s", e)
                 raise
 
     async def wrapper(wrapped, instance, args, kwargs):
@@ -146,7 +165,9 @@ def async_generate_stream(version, environment, application_name,
         Wraps the GenAI function call.
         """
 
-        server_address, server_port = set_server_address_and_port(instance, "generativelanguage.googleapis.com", 443)
+        server_address, server_port = set_server_address_and_port(
+            instance, "generativelanguage.googleapis.com", 443
+        )
         request_model = kwargs.get("model", "gemini-2.0-flash")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -154,6 +175,8 @@ def async_generate_stream(version, environment, application_name,
         awaited_wrapped = await wrapped(*args, **kwargs)
         span = tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT)
 
-        return TracedAsyncStream(awaited_wrapped, span, span_name, kwargs, server_address, server_port)
+        return TracedAsyncStream(
+            awaited_wrapped, span, span_name, kwargs, server_address, server_port
+        )
 
     return wrapper

@@ -1,4 +1,3 @@
-# pylint: disable=useless-return, bad-staticmethod-argument, disable=duplicate-code
 """Initializer of Auto Instrumentation of Prem AI Functions"""
 
 from typing import Collection
@@ -6,11 +5,10 @@ import importlib.metadata
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 
-from openlit.instrumentation.premai.premai import (
-    chat, embedding
-)
+from openlit.instrumentation.premai.premai import chat, embedding
 
 _instruments = ("premai >= 0.3.79",)
+
 
 class PremAIInstrumentor(BaseInstrumentor):
     """
@@ -21,8 +19,8 @@ class PremAIInstrumentor(BaseInstrumentor):
         return _instruments
 
     def _instrument(self, **kwargs):
-        application_name = kwargs.get("application_name", "default_application")
-        environment = kwargs.get("environment", "default_environment")
+        application_name = kwargs.get("application_name", "default")
+        environment = kwargs.get("environment", "default")
         tracer = kwargs.get("tracer")
         metrics = kwargs.get("metrics_dict")
         pricing_info = kwargs.get("pricing_info", {})
@@ -34,16 +32,32 @@ class PremAIInstrumentor(BaseInstrumentor):
         wrap_function_wrapper(
             "premai.api",
             "ChatCompletionsModule.create",
-            chat(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            chat(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
         # sync embedding
         wrap_function_wrapper(
             "premai.api",
             "EmbeddingsModule.create",
-            embedding(version, environment, application_name,
-                  tracer, pricing_info, capture_message_content, metrics, disable_metrics),
+            embedding(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+            ),
         )
 
     def _uninstrument(self, **kwargs):

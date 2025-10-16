@@ -12,8 +12,9 @@ from openlit.guard.utils import (
     parse_llm_response,
     custom_rule_detection,
     guard_metrics,
-    guard_metric_attributes
+    guard_metric_attributes,
 )
+
 
 def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None) -> str:
     """
@@ -64,7 +65,9 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None) -> str
     """
 
     if custom_categories:
-        custom_categories_str = "\n".join([f"- {key}: {value}" for key, value in custom_categories.items()])
+        custom_categories_str = "\n".join(
+            [f"- {key}: {value}" for key, value in custom_categories.items()]
+        )
         base_prompt += f"\n    Additional Categories:\n{custom_categories_str}"
 
     base_prompt += """
@@ -73,17 +76,25 @@ def get_system_prompt(custom_categories: Optional[Dict[str, str]] = None) -> str
     """
     return base_prompt
 
+
 class PromptInjection:
     """Class to intialize Prompt Injection"""
 
-    def __init__(self, provider: Optional[str] = None, api_key: Optional[str] = None,
-                 model: Optional[str] = None, base_url: Optional[str] = None,
-                 custom_rules: Optional[List[dict]] = None,
-                 custom_categories: Optional[Dict[str, str]] = None,
-                 threshold_score: float = 0.25,
-                 collect_metrics: Optional[bool] = False):
+    def __init__(
+        self,
+        provider: Optional[str] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        base_url: Optional[str] = None,
+        custom_rules: Optional[List[dict]] = None,
+        custom_categories: Optional[Dict[str, str]] = None,
+        threshold_score: float = 0.25,
+        collect_metrics: Optional[bool] = False,
+    ):
         self.provider = provider
-        self.api_key, self.model, self.base_url = setup_provider(provider, api_key, model, base_url)
+        self.api_key, self.model, self.base_url = setup_provider(
+            provider, api_key, model, base_url
+        )
         self.system_prompt = get_system_prompt(custom_categories)
         self.custom_rules = custom_rules or []
         self.threshold_score = threshold_score
@@ -93,11 +104,19 @@ class PromptInjection:
         """Functon to detect Prompt Injection and jailbreak attempts in input"""
 
         custom_rule_result = custom_rule_detection(text, self.custom_rules)
-        llm_result = JsonOutput(score=0, classification="none", explanation="none", verdict="none", guard="none")
+        llm_result = JsonOutput(
+            score=0,
+            classification="none",
+            explanation="none",
+            verdict="none",
+            guard="none",
+        )
 
         if self.provider:
             prompt = format_prompt(self.system_prompt, text)
-            llm_result = parse_llm_response(llm_response(self.provider, prompt, self.model, self.base_url))
+            llm_result = parse_llm_response(
+                llm_response(self.provider, prompt, self.model, self.base_url)
+            )
 
         result = max(custom_rule_result, llm_result, key=lambda x: x.score)
         score = 0 if result.classification == "none" else result.score
@@ -105,8 +124,9 @@ class PromptInjection:
 
         if self.collect_metrics is True:
             guard_counter = guard_metrics()
-            attributes = guard_metric_attributes(verdict, score, result.guard,
-                                                 result.classification, result.explanation)
+            attributes = guard_metric_attributes(
+                verdict, score, result.guard, result.classification, result.explanation
+            )
             guard_counter.add(1, attributes)
 
         return JsonOutput(
@@ -114,5 +134,5 @@ class PromptInjection:
             guard=result.guard,
             verdict=verdict,
             classification=result.classification,
-            explanation=result.explanation
+            explanation=result.explanation,
         )

@@ -46,7 +46,6 @@ export default function SlideWithValue({
 				aria-label={label}
 			/>
 			<Input
-				defaultValue={value}
 				step={stepValue}
 				value={value}
 				onChange={onInputValueChange}

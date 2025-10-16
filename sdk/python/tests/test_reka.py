@@ -2,7 +2,7 @@
 """
 This module contains tests for Reka AI functionality using the Reka Python library.
 
-Tests cover various API endpoints, including chat. 
+Tests cover various API endpoints, including chat.
 These tests validate integration with OpenLIT.
 
 Environment Variables:
@@ -24,7 +24,10 @@ sync_client = Reka()
 async_client = AsyncReka()
 
 # Initialize environment and application name for OpenLIT monitoring
-openlit.init(environment="openlit-python-testing", application_name="openlit-python-reka-test")
+openlit.init(
+    environment="openlit-python-testing", application_name="openlit-python-reka-test"
+)
+
 
 def test_sync_reka_chat():
     """
@@ -45,7 +48,7 @@ def test_sync_reka_chat():
             model="reka-core",
             max_tokens=1,
         )
-        assert response.model == 'reka-core'
+        assert response.model == "reka-core"
 
     # pylint: disable=broad-exception-caught
     except Exception as e:
@@ -53,6 +56,7 @@ def test_sync_reka_chat():
             print("Insufficient balance:", e)
         else:
             raise
+
 
 @pytest.mark.asyncio
 async def test_async_reka_chat():
@@ -74,7 +78,7 @@ async def test_async_reka_chat():
             model="reka-core",
             max_tokens=1,
         )
-        assert response.model == 'reka-core'
+        assert response.model == "reka-core"
 
     # pylint: disable=broad-exception-caught
     except Exception as e:

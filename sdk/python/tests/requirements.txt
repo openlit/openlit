@@ -26,6 +26,7 @@ together
 transformers
 groq
 elevenlabs
+ollama
 
 # Vector DBs
 chromadb
@@ -37,7 +38,6 @@ astrapy
 # Frameworks
 langchain
 langchainhub
-embedchain
 
 # GPU
 xmltodict

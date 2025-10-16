@@ -9,5 +9,6 @@ path/
 __pycache__/
 **bun.lockb
 logs/
-
+.env
 .vscode/
+.idea/

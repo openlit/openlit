@@ -47,10 +47,10 @@ export default function createClickhousePool(
 	};
 
 	return createPool(getClickHouseFactoryOptions(connectionObject), {
-		max: 10,
-		min: 2,
-		idleTimeoutMillis: 10000,
-		maxWaitingClients: 2,
+		max: 20,
+		min: 5,
+		idleTimeoutMillis: 30000,
+		maxWaitingClients: 5,
 		testOnBorrow: true,
 		acquireTimeoutMillis: 5000,
 	});

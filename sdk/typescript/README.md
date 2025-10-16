@@ -54,6 +54,24 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 - [✅ OpenObserve](https://docs.openlit.io/latest/connections/openobserve)
 - [✅ Highlight.io](https://docs.openlit.io/latest/connections/highlight)
 
+## Supported Metrics
+
+> **Note:** Metrics tracking in the TypeScript SDK is only available for Anthropic, Cohere, Ollama, and OpenAI integrations.
+
+The following metrics are supported:
+
+- **genaiClientUsageTokens**: Histogram for total input/output tokens used.
+- **genaiClientOperationDuration**: Histogram for GenAI operation duration.
+- **genaiServerTbt**: Histogram for time per output token after the first token.
+- **genaiServerTtft**: Histogram for time to first token for successful responses.
+- **genaiRequests**: Counter for number of GenAI requests.
+- **genaiPromptTokens**: Counter for number of prompt tokens processed.
+- **genaiCompletionTokens**: Counter for number of completion tokens processed.
+- **genaiReasoningTokens**: Counter for number of reasoning thought tokens processed.
+- **genaiCost**: Histogram for distribution of GenAI request costs (USD).
+
+These metrics allow you to monitor usage, performance, and cost for supported GenAI operations.
+
 ## 💿 Installation
 
 ```bash
@@ -143,7 +161,7 @@ Now that your LLM observability data is being collected and sent to configured O
 
 If you want to use OpenLIT's Observability Dashboard to monitor LLM usage—like cost, tokens, and user interactions—please check out our [Quickstart Guide](https://docs.openlit.io/latest/quickstart).
 
-If you're sending metrics and traces to other observability tools, take a look at our [Connections Guide](https://docs.openlit.io/latest/connections/intro) to start using a pre-built dashboard we have created for these tools.
+If you're sending metrics and traces to other observability tools, take a look at our [Connections Guide](https://docs.openlit.io/latest/destinations/intro) to start using a pre-built dashboard we have created for these tools.
 
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
 

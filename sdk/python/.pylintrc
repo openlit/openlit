@@ -4,13 +4,13 @@
 max-locals=30
 
 # Maximum number of arguments for function / method
-max-args=25
+max-args=26
 
 # Maximum number of positional arguments (see R0917).
-max-positional-arguments=16
+max-positional-arguments=21
 
 # Maximum allowed line length
-max-line-length=125
+max-line-length=135
 
 # Maximum number of instance attributes
 max-attributes=25
@@ -30,4 +30,12 @@ disable=
     bare-except,
     expression-not-assigned,
     unnecessary-direct-lambda-call,
-    no-member
+    no-member,
+    no-else-return,
+    import-outside-toplevel,
+    too-many-return-statements,
+    too-many-function-args,
+    unnecessary-pass,
+    invalid-name
+
+    
