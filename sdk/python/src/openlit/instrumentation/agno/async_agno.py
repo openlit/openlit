@@ -237,7 +237,9 @@ def async_agent_run_stream_wrap(
     Wrap Agno Agent._arun_stream async generator method.
     """
 
+
     async def wrapper(wrapped, instance, args, kwargs):
+
         # CRITICAL: Suppression check to prevent recursive instrumentation
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             async for response in wrapped(*args, **kwargs):
@@ -254,13 +256,27 @@ def async_agent_run_stream_wrap(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-
             try:
-                async for response in wrapped(*args, **kwargs):
-                    yield response
-
-                # Get the final response after iteration completes
-                final_response = getattr(instance, "run_response", None)
+                # agno 2.x: when `yield_run_response=True`, the final `RunOutput` is yielded
+                # rather than stored on `instance.run_response`
+                try:
+                    from agno.run.agent import RunOutput  # noqa: WPS433 # pylint: disable=import-error
+                except Exception:  # noqa: WPS429
+                    RunOutput = None  # type: ignore # pylint: disable=invalid-name
+                yield_run_response = kwargs.get("yield_run_response", None)
+                final_response = None
+                new_kwargs = dict(kwargs)
+                new_kwargs['yield_run_response'] = True
+                async for response in wrapped(*args, **new_kwargs):
+                    if RunOutput and isinstance(response, RunOutput):
+                        final_response = response
+                        if yield_run_response:
+                            yield response
+                    else:
+                        yield response
+                if not RunOutput:
+                    # Get the final response after iteration completes
+                    final_response = getattr(instance, "run_response", None)
             except Exception as e:
                 handle_exception(span, e)
                 logger.error("Error in async agent._arun_stream: %s", e)
@@ -802,7 +818,6 @@ def async_workflow_run_wrap(
                     capture_message_content,
                     disable_metrics,
                     version,
-                    SemanticConvention.GEN_AI_OPERATION_TYPE_WORKFLOW,
                 )
 
                 span.set_status(Status(StatusCode.OK))
@@ -860,7 +875,6 @@ def async_team_run_wrap(
                     capture_message_content,
                     disable_metrics,
                     version,
-                    SemanticConvention.GEN_AI_OPERATION_TYPE_TEAM,
                 )
 
                 span.set_status(Status(StatusCode.OK))
@@ -870,6 +884,86 @@ def async_team_run_wrap(
                 logger.error("Error in async team run trace creation: %s", e)
 
             return result
+
+    return wrapper
+
+
+def async_team_run_stream_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+):
+    """
+    Wrap Team async stream run; request final RunOutput via yield_run_response=True.
+    """
+
+    async def wrapper(wrapped, instance, args, kwargs):
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            async for item in wrapped(*args, **kwargs):
+                yield item
+            return
+
+        team_name = getattr(instance, "name", "unknown_team")
+        span_name = f"team {team_name}"
+
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+            final_response = None
+
+
+            try:
+                # agno 2.x: when `yield_run_response=True`, the final `TeamRunOutput` is yielded
+                # rather than stored on `instance.run_response`
+                try:
+                    from agno.run.team import TeamRunOutput  # noqa: WPS433 # pylint: disable=import-error
+                except Exception:  # noqa: WPS429
+                    TeamRunOutput = None  # type: ignore # pylint: disable=invalid-name
+
+                yield_run_response = kwargs.get("yield_run_response", None)
+                final_response = None
+                new_kwargs = dict(kwargs)
+                new_kwargs['yield_run_response'] = True
+                async for response in wrapped(*args, **new_kwargs):
+                    if TeamRunOutput and isinstance(response, TeamRunOutput):
+                        final_response = response
+                        if yield_run_response:
+                            yield response
+                    else:
+                        yield response
+                if not TeamRunOutput:
+                    # Get the final response after iteration completes
+                    final_response = getattr(instance, "run_response", None)
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error in team stream run: %s", e)
+                raise
+
+            try:
+                process_team_request(
+                    span,
+                    instance,
+                    args,
+                    kwargs,
+                    final_response,
+                    start_time,
+                    pricing_info,
+                    environment,
+                    application_name,
+                    metrics,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                )
+                span.set_status(Status(StatusCode.OK))
+            except Exception as e:
+                handle_exception(span, e)
+                logger.error("Error creating team stream trace: %s", e)
 
     return wrapper
 

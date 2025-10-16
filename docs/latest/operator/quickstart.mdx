@@ -84,6 +84,9 @@ Using OpenLIT Operator, you'll capture distributed traces showing LLM costs, tok
       selector:
         matchLabels:
           instrumentation: openlit
+      python:
+        instrumentation:
+          enabled: true
       otlp:
         endpoint: "http://openlit.openlit.svc.cluster.local:4318"
     EOF
