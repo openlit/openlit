@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import SecretForm from "./form";
-import RouteBreadcrumbs from "../route-breadcrumbs";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import VaultUsage from "./usage";
@@ -21,9 +20,9 @@ export default function VaultHeader({
 				<SecretForm successCallback={successCallback}>
 					<Button
 						variant="secondary"
-						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-auto py-0.5 rounded-sm"
+						className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-9 py-0.5"
 					>
-						+ New
+						Create new
 					</Button>
 				</SecretForm>
 			)}

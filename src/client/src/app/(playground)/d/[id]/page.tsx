@@ -183,7 +183,7 @@ export default function DashboardPage() {
 					fetchExistingWidgets={fetchExistingWidgets}
 					runFilters={runFilters}
 					headerComponent={(
-						<Filter className="items-end" />
+						<Filter />
 					)}
 					handleBoardUpdates={handleHeaderUpdates}
 				/>

@@ -4,7 +4,7 @@ import React, { useCallback } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { Plus, LucideIcon, Download, Settings, ChevronsUpDown, Pencil, Save, Edit } from "lucide-react";
+import { Plus, Download, Settings, ChevronsUpDown, Pencil, Edit, BookText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DashboardProps, Widget, WidgetType } from "./types";
 import { DashboardProvider, useDashboard } from "./context/dashboard-context";
@@ -48,11 +48,9 @@ const EmptyState = ({ onAddWidget }: { onAddWidget: () => void }) => (
 	</div>
 );
 
-const ActionButtons = ({ onClick, label, icon }: { onClick: () => void, label: string, icon: LucideIcon }) => {
-	const Icon = icon;
+const ActionButtons = ({ onClick, label, className }: { onClick: () => void, label: string, className?: string }) => {
 	return (
-		<Button variant="secondary" onClick={onClick} className="flex gap-2 h-auto py-0 text-xs font-normal text-stone-500 dark:text-stone-100 hover:bg-stone-600 dark:hover:bg-stone-600 hover:text-stone-100 border border-stone-200 dark:border-stone-800">
-			<Icon className="h-3 w-3" />
+		<Button variant="secondary" onClick={onClick} className={`flex gap-2 h-8 py-0 text-xs font-normal text-stone-500 dark:text-stone-100 hover:bg-stone-600 dark:hover:bg-stone-600 hover:text-stone-100 border border-stone-200 dark:border-stone-800 ${className ?? ""}`}>
 			<span>{label}</span>
 		</Button>
 	);
@@ -207,34 +205,37 @@ const DashboardContent: React.FC<Omit<DashboardProps, "initialConfig">> = ({
 	return (
 		<>
 			{(renderTitle || !readonly || headerComponent) && (
-				<div className="flex w-full mb-6 gap-4">
+				<div className="flex items-center w-full mb-6 gap-4">
 					{renderTitle && (
 						<div className="flex items-center gap-2 text-stone-900 dark:text-stone-300">
 							<h1 className="text-2xl font-bold">{details.title}</h1>
 							{details.description && (
-								<DescriptionTooltip description={details.description} className="ml-2 h-4 w-4" />
+								<DescriptionTooltip description={details.description} className="ml-2 h-4 w-4" icon={<BookText className="text-stone-500 cursor-pointer h-5" />} />
 							)}
 						</div>
+					)}
+					{!renderTitle && details.description && (
+						<DescriptionTooltip description={details.description} className="ml-2 h-4 w-4" icon={<BookText className="text-stone-500 cursor-pointer h-5" />} />
 					)}
 					{headerComponent}
 					{isEditing && (
 						<ActionButtons
+							className="bg-primary dark:bg-primary text-stone-100 dark:text-stone-100"
 							onClick={() => handleSave()}
-							icon={Save}
 							label="Save Layout"
 						/>
 					)}
 					{isEditing && (
 						<ActionButtons
+							className="text-primary bg-primary/10 dark:bg-primary/10 dark:text-primary"
 							onClick={handleAddWidget}
-							icon={Plus}
-							label={"Add Widget"}
+							label={"Create widget"}
 						/>
 					)}
 					{!readonly && (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button variant="outline" className="flex gap-2 shrink-0 justify-start group-data-[state=close]:justify-center overflow-hidden text-stone-500 dark:text-stone-100 hover:bg-stone-600 dark:hover:bg-stone-600 hover:text-stone-100 font-normal py-0 h-auto text-xs">
+								<Button variant="outline" className="flex gap-2 shrink-0 justify-start group-data-[state=close]:justify-center overflow-hidden text-stone-500 dark:text-stone-100 hover:bg-stone-600 dark:hover:bg-stone-600 hover:text-stone-100 font-normal py-0 h-8 text-xs">
 									<Settings className={`size-3 shrink-0`} />
 									<span className="block group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap grow">Actions</span>
 									<ChevronsUpDown className={`size-3 block group-data-[state=close]:hidden shrink-0`} />

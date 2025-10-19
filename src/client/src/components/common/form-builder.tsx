@@ -99,9 +99,9 @@ const FormBuilder = ({
 			<Card className={`w-full border-0 flex flex-col h-full shadow-none  ${cardClassName} bg-transparent dark:bg-transparent`}>
 				{heading && (
 					<CardHeader className="shrink-0 px-0 pt-0 pb-4">
-						<CardTitle className="text-2xl">{heading}</CardTitle>
+						<CardTitle className="text-2xl text-stone-600 dark:text-stone-400">{heading}</CardTitle>
 						{subHeading && (
-							<CardTitle className={`text-sm ${subHeadingClass}`}>
+							<CardTitle className={`text-sm text-stone-600 dark:text-stone-400 ${subHeadingClass}`}>
 								{subHeading}
 							</CardTitle>
 						)}

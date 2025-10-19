@@ -13,6 +13,8 @@ import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { toast } from "sonner";
 import BoardList from "./board-list";
+import DescriptionTooltip from "@/components/common/description-tooltip";
+import { BookText } from "lucide-react";
 
 export default function DashboardPage() {
 	const filter = useRootStore(getFilterDetails);
@@ -93,7 +95,10 @@ export default function DashboardPage() {
 
 	return (
 		<>
-			<div className="flex w-full justify-between mb-4 gap-4">
+			<div className="flex w-full items-center justify-between mb-4 gap-4">
+				{initialConfig?.description && (
+					<DescriptionTooltip description={initialConfig.description} className="ml-2 h-4 w-4" icon={<BookText className="text-stone-500 cursor-pointer" />} />
+				)}
 				<Filter />
 				<BoardList dashboardId={dashboardId} />
 			</div>

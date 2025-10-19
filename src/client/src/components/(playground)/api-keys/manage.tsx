@@ -113,7 +113,7 @@ export default function ManageKeys() {
 	);
 
 	return (
-		<div className="flex flex-col grow w-full gap-3 overflow-hidden">
+		<div className="flex flex-col grow w-full gap-6 overflow-hidden">
 			<Generate refresh={fetchData} />
 			<DataTable
 				columns={columns}

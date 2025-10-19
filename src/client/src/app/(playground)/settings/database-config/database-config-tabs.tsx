@@ -36,7 +36,7 @@ export default function DatabaseConfigTabs({
 						data-item-id={ADD_NEW_ID}
 						onClick={onClickTab}
 					>
-						Add new
+						Add New Config
 					</div>
 					<hr className="dark:border-stone-800" />
 				</>

@@ -65,7 +65,7 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({
 			<CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
 				<div className="flex items-center gap-2">
 					<WidgetTypeIcon />
-					<CardTitle className="tracking-tight text-sm font-medium text-stone-950 dark:text-white">{widget.title}</CardTitle>
+					<CardTitle className="tracking-tight text-sm font-medium text-stone-600 dark:text-stone-300">{widget.title}</CardTitle>
 					{widget.description && (
 						<DescriptionTooltip description={widget.description} />
 					)}

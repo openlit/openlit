@@ -65,10 +65,10 @@ export default function DatabaseConfigSwitch() {
 						</div>
         </DropdownMenuCheckboxItem>
 				))}
+        <DropdownMenuSeparator />
 				<DropdownMenuItem className="py-1.5 pl-8 pr-2">
 					<Link href="/settings/database-config" className=" flex items-center">
-						<Plus className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center" />
-						Add New
+						Add New Config
 					</Link>
 				</DropdownMenuItem>
       </DropdownMenuContent>
