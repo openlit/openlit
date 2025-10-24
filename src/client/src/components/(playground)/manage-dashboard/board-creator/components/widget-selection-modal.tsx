@@ -90,7 +90,7 @@ export default function WidgetSelectionModal({
 							</Button>
 						) : (
 							<Button onClick={handleCreateNew} variant="default">
-								+ Create New Widget
+								Create New Widget
 							</Button>
 						)
 					}

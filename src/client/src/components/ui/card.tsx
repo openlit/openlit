@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { PRIMARY_BACKGROUND } from "@/constants/common-classes"
 
 const Card = React.forwardRef<
   HTMLDivElement,
@@ -9,8 +10,8 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border border-stone-200 bg-white text-stone-950 shadow-sm dark:border-stone-800 dark:bg-stone-950 dark:text-stone-50",
-      className
+      "rounded-md text-stone-950 shadow-sm dark:border-stone-800 dark:text-stone-50",
+      `${PRIMARY_BACKGROUND} ${className || ""}`,
     )}
     {...props}
   />
