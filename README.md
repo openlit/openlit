@@ -7,7 +7,7 @@
 
 **[Documentation](https://docs.openlit.io/) | [Quickstart](-getting-started-with-llm-observability) | [Python SDK](https://github.com/openlit/openlit/tree/main/sdk/python) | [Typescript SDK](https://github.com/openlit/openlit/tree/main/sdk/typescript) |**
 
-**[❤️ Sponsor this project ❤️](https://opencollective.com/openlit)** 
+**❤️ [Sponsor this project](https://opencollective.com/openlit) ❤️** 
 
 [![OpenLIT](https://img.shields.io/badge/OpenLIT-orange)](https://openlit.io/)
 [![License](https://img.shields.io/github/license/openlit/openlit?label=License&logo=github&color=f80&logoColor=white)](https://github.com/openlit/openlit/blob/main/LICENSE)
