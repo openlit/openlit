@@ -5,7 +5,7 @@ export type Columns<T extends string, TransformedT> = Partial<
 		T,
 		{
 			header: () => ReactNode;
-			cell: ({ row }: { row: TransformedT }) => ReactNode;
+			cell: ({ row, extraFunctions }: { row: TransformedT, extraFunctions: Record<string, any> }) => ReactNode;
 			enableHiding?: boolean;
 		}
 	>

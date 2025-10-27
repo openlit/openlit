@@ -32,7 +32,12 @@ export const pageStoreSlice: PageStore = lens((setStore, getStore) => ({
 	setHeader: (header) => {
 		setStore({
 			...getStore(),
-			header,
+			header: {
+				...getStore().header,
+				title: header.title,
+				breadcrumbs: header.breadcrumbs.length > 0 ? header.breadcrumbs : getStore().header.breadcrumbs,
+				description: header.description,
+			}
 		});
 	},
 	setData: (page, keyPath, value) => {

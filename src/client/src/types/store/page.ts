@@ -15,6 +15,15 @@ export type REQUEST_VISIBILITY_COLUMNS = Record<
 
 export type PAGE = "dashboard" | "request" | "exception";
 
+export type PageHeader = {
+	title: string;
+	description?: string;
+	breadcrumbs: {
+		title: string;
+		href: string;
+	}[];
+}
+
 export type PageStore = {
 	dashboard: {
 		type: DASHBOARD_TYPE;
@@ -26,22 +35,6 @@ export type PageStore = {
 		visibilityColumns: Partial<REQUEST_VISIBILITY_COLUMNS>;
 	};
 	setData: (p: PAGE, keyPath: string, value: unknown) => void;
-	header: {
-		title: string;
-		description?: string;
-		breadcrumbs: {
-			title: string;
-			href?: string;
-			onClick?: () => void;
-		}[];
-	},
-	setHeader: (header: {
-		title: string;
-		description?: string;
-		breadcrumbs: {
-			title: string;
-			href?: string;
-			onClick?: () => void;
-		}[];
-	}) => void;
+	header: PageHeader,
+	setHeader: (header: PageHeader) => void;
 };

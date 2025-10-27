@@ -268,7 +268,7 @@ export default function FormField(
 	}
 ) {
 	return (
-		<div className={props.boundaryClass}>
+		<div className={`${props.boundaryClass} text-stone-700 dark:text-stone-300`}>
 			<Label htmlFor={props.fieldTypeProps.name} className="col-span-1">
 				{props.label}
 			</Label>
@@ -288,7 +288,7 @@ export default function FormField(
 				<FormSwitchField {...props} />
 			) : null}
 			{props.description ? (
-				<span className="text-xs text-stone-400 -mt-[5px]">
+				<span className="text-xs -mt-[5px]">
 					{props.description}
 				</span>
 			) : null}

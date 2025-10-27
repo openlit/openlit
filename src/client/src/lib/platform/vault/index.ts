@@ -29,7 +29,7 @@ export async function checkNameValidity({ key }: { key: string }) {
 	return { isValid: !data?.id };
 }
 
-export async function upsertSecret(secretInputParams: SecretInput) {
+export async function upsertSecret(secretInputParams: Partial<SecretInput>) {
 	const user = await getCurrentUser();
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
@@ -40,7 +40,7 @@ export async function upsertSecret(secretInputParams: SecretInput) {
 	throwIfError(!verifiedSecretObj.success, verifiedSecretObj.err!);
 
 	if (!secretInputParams.id) {
-		const { isValid } = await checkNameValidity({ key: secretInput.key });
+		const { isValid } = await checkNameValidity({ key: secretInput.key || "" });
 		throwIfError(!isValid, getMessage().SECRET_NAME_TAKEN);
 	}
 

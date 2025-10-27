@@ -13,8 +13,6 @@ export const getVisibilityColumnsOfPage = (state: RootStore, pageName: PAGE) =>
 
 export const setPageData = (state: RootStore) => state.page.setData;
 
-
-
 const getPageHeader = (state: RootStore) => state.page.header;
 
 const setPageHeader = (state: RootStore) => state.page.setHeader;

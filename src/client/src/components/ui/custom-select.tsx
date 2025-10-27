@@ -28,6 +28,7 @@ export function CustomSelect({
 	placeholder = "Select an option...",
 	hasOtherOption,
 	name,
+	id,
 }: CustomSelectProps) {
 	const [open, setOpen] = React.useState(false);
 	const [value, setValue] = React.useState(defaultValue);
@@ -163,6 +164,7 @@ export function CustomSelect({
 					value={inputValue}
 					onChange={handleInputChange}
 					name={name}
+					id={id}
 				/>
 			</div>
 		</div>

@@ -13,8 +13,8 @@ import { DatabaseConfigTabsProps } from "@/types/database-config";
 const ADD_NEW_ID = "ADD_NEW_ID";
 
 const getCommonCardClasses = (isActive: boolean) =>
-	`item-element-card flex flex-col p-4 text-sm cursor-pointer relative group w-64 hover:bg-stone-100 dark:hover:bg-stone-700 ${
-		isActive ? "bg-stone-100 dark:bg-stone-700" : ""
+	`item-element-card flex flex-col p-4 text-sm cursor-pointer relative group w-64 hover:bg-primary/30 dark:hover:bg-primary/30 ${
+		isActive ? "bg-primary/30 dark:bg-primary/40 text-stone-700 dark:text-stone-200" : "text-stone-700 dark:text-stone-300"
 	}`;
 
 export default function DatabaseConfigTabs({
@@ -32,11 +32,11 @@ export default function DatabaseConfigTabs({
 					<div
 						className={`${getCommonCardClasses(
 							selectedTabId === ADD_NEW_ID
-						)} items-center justify-center text-stone-400 dark:text-stone-400 shrink-0`}
+						)} items-center justify-center shrink-0`}
 						data-item-id={ADD_NEW_ID}
 						onClick={onClickTab}
 					>
-						Add new
+						Add New Config
 					</div>
 					<hr className="dark:border-stone-800" />
 				</>
@@ -51,7 +51,7 @@ export default function DatabaseConfigTabs({
 						>
 							<div className="flex w-full">
 								<div className={`flex flex-col grow`}>
-									<span className="text-ellipsis overflow-hidden whitespace-nowrap mb-3 text-stone-400 dark:text-stone-400">
+									<span className="text-ellipsis overflow-hidden whitespace-nowrap mb-3">
 										{item.name}
 									</span>
 									{item.badge && (

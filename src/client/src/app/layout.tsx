@@ -22,7 +22,8 @@ export default function RootLayout({
 
 	return (
 		<html lang="en" className={`scroll-smooth ${theme?.value || ""}`}>
-			<body className={`${inter.className} bg-white dark:bg-black`}>
+			{/* bg-[linear-gradient(360deg,rgba(243,108,6,0.7)_0%,white_25%)] dark:bg-[linear-gradient(360deg,rgba(243,108,6,0.8)_0%,black_25%)] */}
+			<body className={`${inter.className} bg-stone-50 dark:bg-stone-950`}>
 				{children}
 				<Toaster position="bottom-right" />
 			</body>
