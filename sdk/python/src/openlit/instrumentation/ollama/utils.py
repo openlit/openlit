@@ -207,15 +207,14 @@ def common_chat_logic(
             for tool in scope._tools:
                 scope._span.set_attribute(
                     SemanticConvention.GEN_AI_TOOL_NAME,
-                    tool.get("function", {}).get("name", "")
+                    tool.get("function", {}).get("name", ""),
                 )
                 scope._span.set_attribute(
-                    SemanticConvention.GEN_AI_TOOL_CALL_ID,
-                    str(tool.get("id", ""))
+                    SemanticConvention.GEN_AI_TOOL_CALL_ID, str(tool.get("id", ""))
                 )
                 scope._span.set_attribute(
                     SemanticConvention.GEN_AI_TOOL_ARGS,
-                    str(tool.get("function", {}).get("arguments", ""))
+                    str(tool.get("function", {}).get("arguments", "")),
                 )
 
     # Span Attributes for Content
@@ -282,7 +281,7 @@ def common_generate_logic(
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
     json_body = scope._kwargs.get("json", {}) or {}
-    prompt = json_body.get('prompt')
+    prompt = json_body.get("prompt")
     request_model = json_body.get("model") or scope._kwargs.get("model", "llama3.2")
     is_stream = scope._kwargs.get("stream", False)
 
@@ -362,15 +361,14 @@ def common_generate_logic(
             for tool in scope._tools:
                 scope._span.set_attribute(
                     SemanticConvention.GEN_AI_TOOL_NAME,
-                    tool.get("function", {}).get("name", "")
+                    tool.get("function", {}).get("name", ""),
                 )
                 scope._span.set_attribute(
-                    SemanticConvention.GEN_AI_TOOL_CALL_ID,
-                    str(tool.get("id", ""))
+                    SemanticConvention.GEN_AI_TOOL_CALL_ID, str(tool.get("id", ""))
                 )
                 scope._span.set_attribute(
                     SemanticConvention.GEN_AI_TOOL_ARGS,
-                    str(tool.get("function", {}).get("arguments", ""))
+                    str(tool.get("function", {}).get("arguments", "")),
                 )
 
     # Span Attributes for Content
@@ -604,6 +602,7 @@ def process_streaming_generate_response(
         disable_metrics,
         version,
     )
+
 
 def process_generate_response(
     response,
