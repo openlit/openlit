@@ -34,6 +34,7 @@ export default function AgentPage() {
 				href: "/opamp"
 			}, {
 				title: agentName,
+				href: `/opamp/${params.id}`
 			}],
 		});
 	}, [agentName])
