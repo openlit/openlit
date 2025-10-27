@@ -72,6 +72,7 @@ class AgnoInstrumentor(BaseInstrumentor):
         """Initialize the AgnoInstrumentor."""
         super().__init__()
         self._original_thread_pool_submit = None
+        self._original_runtime_detach = None
 
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
