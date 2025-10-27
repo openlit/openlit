@@ -6,7 +6,8 @@ from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from wrapt import wrap_function_wrapper
 from openlit.instrumentation.agno.utils import (
     resolve_agno_knowledge_target,
-    resolve_agno_memory_target)
+    resolve_agno_memory_target,
+)
 from openlit.instrumentation.agno.agno import (
     agent_run_wrap,
     agent_continue_run_wrap,
@@ -243,7 +244,6 @@ class AgnoInstrumentor(BaseInstrumentor):
             memory_module, memory_class = resolve_agno_memory_target()
 
             if memory_module is not None:
-
                 # Wrap memory add/search exactly once using the dedicated wrappers to avoid
                 # duplicate spans and performance overhead.
                 wrap_function_wrapper(
@@ -336,7 +336,6 @@ class AgnoInstrumentor(BaseInstrumentor):
 
                 # agno 2.x versions do not have load method
                 if hasattr(knowledge_class, "load"):
-
                     wrap_function_wrapper(
                         knowledge_module,
                         f"{knowledge_class}.load",
@@ -427,12 +426,10 @@ class AgnoInstrumentor(BaseInstrumentor):
                 ),
             )
 
-
-
             # Team Operations
 
             try:
-                from agno.team.team import Team # pylint: disable=import-error
+                from agno.team.team import Team  # pylint: disable=import-error
             except ImportError:
                 Team = None
             # agno 2.x versions do use Team._arun_stream and Team._arun methods

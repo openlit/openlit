@@ -225,9 +225,7 @@ def async_agent_run_stream_wrap(
     Wrap Agno Agent._arun_stream async generator method.
     """
 
-
     async def wrapper(wrapped, instance, args, kwargs):
-
         # Extract agent name for span naming with fallback to agent_id
         agent_name = (
             getattr(instance, "name", None)
@@ -248,7 +246,7 @@ def async_agent_run_stream_wrap(
                     RunOutput = None  # type: ignore # pylint: disable=invalid-name
                 yield_run_response = kwargs.get("yield_run_response", None)
                 new_kwargs = dict(kwargs)
-                new_kwargs['yield_run_response'] = True
+                new_kwargs["yield_run_response"] = True
                 async for response in wrapped(*args, **new_kwargs):
                     if RunOutput and isinstance(response, RunOutput):
                         final_response = response
@@ -294,7 +292,9 @@ def async_agent_run_stream_wrap(
                 except Exception as e:
                     # Handle instrumentation exceptions - log but don't raise
                     handle_exception(span, e)
-                    logger.error("Error in async agent._arun_stream trace creation: %s", e)
+                    logger.error(
+                        "Error in async agent._arun_stream trace creation: %s", e
+                    )
 
     return wrapper
 
@@ -735,7 +735,7 @@ def async_workflow_run_wrap(
             result = wrapped(*args, **kwargs)
 
             # Check if result is an async iterator (Agno 2.2+)
-            if hasattr(result, '__aiter__'):
+            if hasattr(result, "__aiter__"):
                 # Handle async iterator - stream events and collect final response
                 try:
                     final_response = None
@@ -763,7 +763,9 @@ def async_workflow_run_wrap(
                         span.set_status(Status(StatusCode.OK))
                     except Exception as e:
                         handle_exception(span, e)
-                        logger.error("Error in async workflow run trace creation: %s", e)
+                        logger.error(
+                            "Error in async workflow run trace creation: %s", e
+                        )
 
                 except Exception as e:
                     handle_exception(span, e)
@@ -890,7 +892,7 @@ def async_team_run_stream_wrap(
 
                 yield_run_response = kwargs.get("yield_run_response", None)
                 new_kwargs = dict(kwargs)
-                new_kwargs['yield_run_response'] = True
+                new_kwargs["yield_run_response"] = True
                 async for response in wrapped(*args, **new_kwargs):
                     if TeamRunOutput and isinstance(response, TeamRunOutput):
                         final_response = response
