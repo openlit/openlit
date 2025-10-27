@@ -220,6 +220,9 @@ OpenLIT is available under the [Apache-2.0 license](LICENSE).
 
 <p>This project is proudly supported by:</p>
 <p>
+    <a href="https://www.lambdatest.com/?utm_source=openlit&utm_medium=sponsor" target="_blank">
+					<img src="https://www.lambdatest.com/blue-logo.png" style={{ verticalAlign: 'middle' }} width="250" />
+				</a>
   <a href="https://www.digitalocean.com/">
     <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" width="201px">
   </a>

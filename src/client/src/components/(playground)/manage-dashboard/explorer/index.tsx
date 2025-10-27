@@ -20,6 +20,7 @@ import { AddResource, EditResource, useUpsertResource } from "../board-creator/h
 import { exportBoardLayout } from "../board-creator/utils/api";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
+import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
 // React 18 StrictMode compatibility fix for react-beautiful-dnd
 const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
@@ -681,7 +682,7 @@ export default function DashboardExplorer() {
 			<Header title="Explorer">
 				<RootActions openAddDialog={openAddDialog} importBoardLayout={importBoardLayout} />
 			</Header>
-			<div className="grow bg-stone-100 dark:bg-stone-900 rounded-sm p-2 overflow-y-auto">
+			<div className={`grow ${PRIMARY_BACKGROUND} border border-stone-200 dark:border-stone-800 rounded-sm p-2 overflow-y-auto`}>
 				{isLoading ? (
 					<div className="flex justify-center items-center py-8 h-full">
 						<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

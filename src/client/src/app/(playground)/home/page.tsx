@@ -1,12 +1,9 @@
 "use client";
 import Filter from "@/components/(playground)/filter";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useSearchParams } from "next/navigation";
 import Dashboard, { DashboardConfig } from "../../../components/(playground)/manage-dashboard/board-creator";
-import { Board } from "@/types/manage-dashboard";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { useRootStore } from "@/store";
 import { getFilterDetails } from "@/selectors/filter";
 import { getFilterParamsForDashboard } from "@/helpers/client/filter";
@@ -15,49 +12,9 @@ import { usePageHeader } from "@/selectors/page";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import { toast } from "sonner";
-
-const BoardList = ({ dashboardId }: { dashboardId: string | null }) => {
-	const [boards, setBoards] = useState<Board[]>([]);
-	const { fireRequest } = useFetchWrapper();
-
-	const fetchBoards = useCallback(() => {
-		fireRequest({
-			url: "/api/manage-dashboard/board?home=true",
-			requestType: "GET",
-			successCb: (response) => {
-				if (response?.data) {
-					setBoards(response.data);
-				}
-			},
-			failureCb: (error) => {
-				setBoards([]);
-			},
-		});
-	}, [fireRequest]);
-
-	useEffect(() => {
-		fetchBoards();
-	}, [fetchBoards]);
-
-	if (boards.length === 0) {
-		return null;
-	}
-
-	return (
-		<div className="flex gap-2">
-			{boards.map((board) => {
-				if (dashboardId === board.id || (!dashboardId && board.isMainDashboard)) {
-					return null;
-				}
-				return (
-					<Link key={board.id} href={`?dashboardId=${board.id}`}>
-						<Badge>{board.title}</Badge>
-					</Link>
-				);
-			})}
-		</div>
-	);
-};
+import BoardList from "./board-list";
+import DescriptionTooltip from "@/components/common/description-tooltip";
+import { BookText } from "lucide-react";
 
 export default function DashboardPage() {
 	const filter = useRootStore(getFilterDetails);
@@ -138,7 +95,10 @@ export default function DashboardPage() {
 
 	return (
 		<>
-			<div className="flex items-center w-full justify-between mb-4">
+			<div className="flex w-full items-center justify-between mb-4 gap-4">
+				{initialConfig?.description && (
+					<DescriptionTooltip description={initialConfig.description} className="ml-2 h-4 w-4" icon={<BookText className="text-stone-500 cursor-pointer" />} />
+				)}
 				<Filter />
 				<BoardList dashboardId={dashboardId} />
 			</div>

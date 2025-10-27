@@ -5,10 +5,10 @@ import asaw from "@/utils/asaw";
 export async function POST(request: Request) {
 	const formData = await request.json();
 
-	const promptInput: SecretInput = {
-		key: formData.key,
-		value: formData.value,
-		tags: formData.tags,
+	const promptInput: Partial<SecretInput> = {
+		key: formData.key as string,
+		value: formData.value as string,
+		tags: formData.tags as string[],
 	};
 
 	const [err, res]: any = await asaw(upsertSecret(promptInput));
@@ -25,11 +25,11 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
 	const formData = await request.json();
 
-	const secretInput: SecretInput = {
+	const secretInput: Partial<SecretInput> = {
 		id: formData.id,
-		key: formData.key,
-		value: formData.value,
-		tags: formData.tags,
+		key: formData.key as string,
+		value: formData.value as string,
+		tags: formData.tags as string[],
 	};
 
 	const [err, res]: any = await asaw(upsertSecret(secretInput));

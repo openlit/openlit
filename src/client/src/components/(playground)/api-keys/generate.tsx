@@ -77,7 +77,7 @@ export default function Generate({ refresh }: { refresh: () => void }) {
 			<DialogTrigger asChild>
 				<Button
 					variant="secondary"
-					className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 py-2 h-auto py-2 rounded-sm self-end"
+					className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 py-1 h-8 self-end"
 				>
 					Generate New API Key
 				</Button>

@@ -5,7 +5,6 @@ Module for monitoring Agno agent framework async operations.
 import logging
 import time
 from opentelemetry.trace import Status, StatusCode, SpanKind
-from opentelemetry import context as context_api
 from openlit.__helpers import (
     handle_exception,
 )
@@ -41,10 +40,6 @@ def async_agent_run_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         # Extract agent name for span naming with fallback to agent_id
         agent_name = (
             getattr(instance, "name", None)
@@ -105,10 +100,6 @@ def async_agent_continue_run_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         agent_name = getattr(instance, "name", "unknown")
         span_name = f"continue {agent_name}"
 
@@ -163,10 +154,6 @@ def async_model_run_function_call_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         # Extract function call information for span naming
         function_call = args[0] if args else kwargs.get("function_call", None)
         function_name = None
@@ -237,15 +224,7 @@ def async_agent_run_stream_wrap(
     Wrap Agno Agent._arun_stream async generator method.
     """
 
-
     async def wrapper(wrapped, instance, args, kwargs):
-
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            async for response in wrapped(*args, **kwargs):
-                yield response
-            return
-
         # Extract agent name for span naming with fallback to agent_id
         agent_name = (
             getattr(instance, "name", None)
@@ -256,6 +235,7 @@ def async_agent_run_stream_wrap(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
+            final_response = None
             try:
                 # agno 2.x: when `yield_run_response=True`, the final `RunOutput` is yielded
                 # rather than stored on `instance.run_response`
@@ -264,9 +244,8 @@ def async_agent_run_stream_wrap(
                 except Exception:  # noqa: WPS429
                     RunOutput = None  # type: ignore # pylint: disable=invalid-name
                 yield_run_response = kwargs.get("yield_run_response", None)
-                final_response = None
                 new_kwargs = dict(kwargs)
-                new_kwargs['yield_run_response'] = True
+                new_kwargs["yield_run_response"] = True
                 async for response in wrapped(*args, **new_kwargs):
                     if RunOutput and isinstance(response, RunOutput):
                         final_response = response
@@ -277,37 +256,44 @@ def async_agent_run_stream_wrap(
                 if not RunOutput:
                     # Get the final response after iteration completes
                     final_response = getattr(instance, "run_response", None)
+            except GeneratorExit:
+                # Generator was closed early by consumer - this is normal
+                # Don't log as error, just mark span complete with what we have
+                pass
             except Exception as e:
                 handle_exception(span, e)
                 logger.error("Error in async agent._arun_stream: %s", e)
                 raise
+            finally:
+                # Always process telemetry in finally block to ensure it runs
+                try:
+                    # Process request using utils function with ALL attributes from semcov
+                    process_agent_request(
+                        span,
+                        instance,
+                        args,
+                        kwargs,
+                        final_response,
+                        start_time,
+                        pricing_info,
+                        environment,
+                        application_name,
+                        metrics,
+                        capture_message_content,
+                        disable_metrics,
+                        version,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+                    )
 
-            try:
-                # Process request using utils function with ALL attributes from semcov
-                process_agent_request(
-                    span,
-                    instance,
-                    args,
-                    kwargs,
-                    final_response,
-                    start_time,
-                    pricing_info,
-                    environment,
-                    application_name,
-                    metrics,
-                    capture_message_content,
-                    disable_metrics,
-                    version,
-                    SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
-                )
+                    # Mark span as successful
+                    span.set_status(Status(StatusCode.OK))
 
-                # Mark span as successful
-                span.set_status(Status(StatusCode.OK))
-
-            except Exception as e:
-                # Handle instrumentation exceptions - log but don't raise
-                handle_exception(span, e)
-                logger.error("Error in async agent._arun_stream trace creation: %s", e)
+                except Exception as e:
+                    # Handle instrumentation exceptions - log but don't raise
+                    handle_exception(span, e)
+                    logger.error(
+                        "Error in async agent._arun_stream trace creation: %s", e
+                    )
 
     return wrapper
 
@@ -329,12 +315,6 @@ def async_model_run_function_calls_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            async for item in wrapped(*args, **kwargs):
-                yield item
-            return
-
         # Extract function calls information for span naming
         function_calls = args[0] if args else []
         function_names = []
@@ -350,31 +330,17 @@ def async_model_run_function_calls_wrap(
         if len(function_names) > 3:
             span_name += f" (+{len(function_names) - 3} more)"
 
-        # CRITICAL: Capture current OpenTelemetry context to ensure proper nesting
-        current_context = context_api.get_current()
-
-        with tracer.start_as_current_span(
-            span_name, kind=SpanKind.INTERNAL, context=current_context
-        ) as span:
+        with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
             start_time = time.time()
-            # CRITICAL: Create the context with this span active for nested calls
-            span_context = context_api.set_value("current_span", span, current_context)
 
             try:
-                # CRITICAL: Maintain span context across async iteration
-                # We need to collect all items while maintaining context, then yield them
-                items = []
-                token = context_api.attach(span_context)
-                try:
-                    async for item in wrapped(*args, **kwargs):
-                        items.append(item)
-                finally:
-                    context_api.detach(token)
-
-                # Now yield all collected items (span is still active in the with block)
-                for item in items:
+                # Stream items directly - OpenTelemetry's context manager handles context automatically
+                async for item in wrapped(*args, **kwargs):
                     yield item
 
+            except GeneratorExit:
+                # Generator was closed early by consumer - this is normal
+                pass
             except Exception as e:
                 handle_exception(span, e)
                 logger.error(
@@ -429,31 +395,15 @@ def async_function_entrypoint_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         # Extract function information for span naming
         function_name = getattr(instance, "name", None) or getattr(
             instance, "__name__", "unknown_function"
         )
         span_name = f"tool {function_name}"
 
-        # CRITICAL: Capture current OpenTelemetry context to ensure proper nesting
-        current_context = context_api.get_current()
-
-        with tracer.start_as_current_span(
-            span_name, kind=SpanKind.INTERNAL, context=current_context
-        ) as span:
+        with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
             start_time = time.time()
-            # CRITICAL: Set the span context as current for nested calls
-            token = context_api.attach(
-                context_api.set_value("current_span", span, current_context)
-            )
-            try:
-                result = await wrapped(*args, **kwargs)
-            finally:
-                context_api.detach(token)
+            result = await wrapped(*args, **kwargs)
 
             try:
                 # Process request using utils function with ALL attributes from semcov
@@ -502,10 +452,6 @@ def async_function_call_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         # Extract function information
         function_name = getattr(
             instance, "name", getattr(instance, "__name__", "unknown_function")
@@ -564,10 +510,6 @@ def async_memory_add_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         span_name = "memory add"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
@@ -620,10 +562,6 @@ def async_memory_search_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         span_name = "memory search"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
@@ -677,10 +615,6 @@ def async_vectordb_search_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         span_name = "vectordb search"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -734,10 +668,6 @@ def async_knowledge_search_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         span_name = "knowledge search"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
@@ -787,46 +717,90 @@ def async_workflow_run_wrap(
     disable_metrics,
 ):
     """
-    Wrap Agno Workflow async run method for workflow execution tracing using process functions only.
+    Wrap Agno Workflow async run method for workflow execution tracing.
+
+    In Agno 2.2+, workflow.arun() returns an async iterator instead of a coroutine.
+    This wrapper handles both patterns for backward compatibility.
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         workflow_name = getattr(instance, "name", "unknown_workflow")
         span_name = f"workflow {workflow_name}"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            result = await wrapped(*args, **kwargs)
 
-            try:
-                # Process request using utils function with ALL attributes from semcov
-                process_workflow_request(
-                    span,
-                    instance,
-                    args,
-                    kwargs,
-                    result,
-                    start_time,
-                    pricing_info,
-                    environment,
-                    application_name,
-                    metrics,
-                    capture_message_content,
-                    disable_metrics,
-                    version,
-                )
+            # Call the wrapped function to get the result
+            result = wrapped(*args, **kwargs)
 
-                span.set_status(Status(StatusCode.OK))
+            # Check if result is an async iterator (Agno 2.2+)
+            if hasattr(result, "__aiter__"):
+                # Handle async iterator - stream events and collect final response
+                try:
+                    final_response = None
+                    async for event in result:
+                        final_response = event
+                        yield event
 
-            except Exception as e:
-                handle_exception(span, e)
-                logger.error("Error in async workflow run trace creation: %s", e)
+                    # Process the final response for telemetry
+                    try:
+                        process_workflow_request(
+                            span,
+                            instance,
+                            args,
+                            kwargs,
+                            final_response,
+                            start_time,
+                            pricing_info,
+                            environment,
+                            application_name,
+                            metrics,
+                            capture_message_content,
+                            disable_metrics,
+                            version,
+                        )
+                        span.set_status(Status(StatusCode.OK))
+                    except Exception as e:
+                        handle_exception(span, e)
+                        logger.error(
+                            "Error in async workflow run trace creation: %s", e
+                        )
 
-            return result
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error("Error in async workflow run iteration: %s", e)
+                    raise
+            else:
+                # Legacy coroutine pattern (pre-Agno 2.2)
+                # Await the result and yield it as a single item
+                try:
+                    response = await result
+
+                    # Process request using utils function with ALL attributes from semcov
+                    process_workflow_request(
+                        span,
+                        instance,
+                        args,
+                        kwargs,
+                        response,
+                        start_time,
+                        pricing_info,
+                        environment,
+                        application_name,
+                        metrics,
+                        capture_message_content,
+                        disable_metrics,
+                        version,
+                    )
+                    span.set_status(Status(StatusCode.OK))
+
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error("Error in async workflow run trace creation: %s", e)
+                    raise
+
+                # Yield the single response to maintain generator contract
+                yield response
 
     return wrapper
 
@@ -848,10 +822,6 @@ def async_team_run_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         team_name = getattr(instance, "name", "unknown_team")
         span_name = f"team {team_name}"
 
@@ -904,18 +874,12 @@ def async_team_run_stream_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            async for item in wrapped(*args, **kwargs):
-                yield item
-            return
-
         team_name = getattr(instance, "name", "unknown_team")
         span_name = f"team {team_name}"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
             final_response = None
-
 
             try:
                 # agno 2.x: when `yield_run_response=True`, the final `TeamRunOutput` is yielded
@@ -926,9 +890,8 @@ def async_team_run_stream_wrap(
                     TeamRunOutput = None  # type: ignore # pylint: disable=invalid-name
 
                 yield_run_response = kwargs.get("yield_run_response", None)
-                final_response = None
                 new_kwargs = dict(kwargs)
-                new_kwargs['yield_run_response'] = True
+                new_kwargs["yield_run_response"] = True
                 async for response in wrapped(*args, **new_kwargs):
                     if TeamRunOutput and isinstance(response, TeamRunOutput):
                         final_response = response
@@ -939,31 +902,36 @@ def async_team_run_stream_wrap(
                 if not TeamRunOutput:
                     # Get the final response after iteration completes
                     final_response = getattr(instance, "run_response", None)
+            except GeneratorExit:
+                # Generator was closed early by consumer - this is normal
+                # Don't log as error, just mark span complete with what we have
+                pass
             except Exception as e:
                 handle_exception(span, e)
                 logger.error("Error in team stream run: %s", e)
                 raise
-
-            try:
-                process_team_request(
-                    span,
-                    instance,
-                    args,
-                    kwargs,
-                    final_response,
-                    start_time,
-                    pricing_info,
-                    environment,
-                    application_name,
-                    metrics,
-                    capture_message_content,
-                    disable_metrics,
-                    version,
-                )
-                span.set_status(Status(StatusCode.OK))
-            except Exception as e:
-                handle_exception(span, e)
-                logger.error("Error creating team stream trace: %s", e)
+            finally:
+                # Always process telemetry in finally block to ensure it runs
+                try:
+                    process_team_request(
+                        span,
+                        instance,
+                        args,
+                        kwargs,
+                        final_response,
+                        start_time,
+                        pricing_info,
+                        environment,
+                        application_name,
+                        metrics,
+                        capture_message_content,
+                        disable_metrics,
+                        version,
+                    )
+                    span.set_status(Status(StatusCode.OK))
+                except Exception as e:
+                    handle_exception(span, e)
+                    logger.error("Error creating team stream trace: %s", e)
 
     return wrapper
 
@@ -984,10 +952,6 @@ def async_agent_add_tool_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         agent_name = getattr(instance, "name", "unknown")
         span_name = f"agent {agent_name}"
 
@@ -1041,10 +1005,6 @@ def async_session_memory_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         # Extract method name from endpoint
         method_name = gen_ai_endpoint.split(".")[-1]
         span_name = f"memory {method_name.replace('get_', '').replace('_', ' ')}"
@@ -1102,30 +1062,13 @@ def async_function_execute_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         # Extract function information
         function_name = getattr(instance.function, "name", "unknown_function")
         span_name = f"tool {function_name}"
 
-        # CRITICAL: Capture current OpenTelemetry context to ensure proper nesting
-        current_context = context_api.get_current()
-
-        with tracer.start_as_current_span(
-            span_name, kind=SpanKind.INTERNAL, context=current_context
-        ) as span:
-            # Execute async tool with timing
+        with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
             start_time = time.time()
-            # CRITICAL: Set the span context as current for nested calls
-            token = context_api.attach(
-                context_api.set_value("current_span", span, current_context)
-            )
-            try:
-                result = await wrapped(*args, **kwargs)
-            finally:
-                context_api.detach(token)
+            result = await wrapped(*args, **kwargs)
 
             try:
                 # Process request using utils function with ALL attributes from semcov
@@ -1173,10 +1116,6 @@ def async_toolkit_run_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         # Extract toolkit information
         toolkit_name = getattr(
             instance,
@@ -1236,10 +1175,6 @@ def async_reasoning_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         agent_name = getattr(instance, "name", "unknown_agent")
         span_name = f"reasoning {agent_name}"
 
@@ -1294,10 +1229,6 @@ def async_vectordb_upsert_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         span_name = "vectordb upsert"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -1351,10 +1282,6 @@ def async_knowledge_add_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
-        # CRITICAL: Suppression check to prevent recursive instrumentation
-        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return await wrapped(*args, **kwargs)
-
         span_name = "knowledge add"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
