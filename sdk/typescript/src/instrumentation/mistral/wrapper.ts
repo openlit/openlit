@@ -1,280 +1,230 @@
-import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
+import { Span, SpanKind, Tracer } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
+import BaseWrapper from '../base-wrapper';
 
 export default class MistralWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_MISTRAL;
 
-  static _patchChat(tracer: Tracer): any {
-    const genAIEndpoint = 'mistral.chat';
-    return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
-        return context
-          .with(trace.setSpan(context.active(), span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((response: any) => {
-            return MistralWrapper._chat({ args, genAIEndpoint, response, span });
-          })
-          .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
-            span.end();
-          });
-      };
+  // Wrap Mistral provider: functions return models
+  static wrapProvider(provider: any, tracer: Tracer) {
+    if (!provider) return provider;
+    const wrapped: any = function (modelId: string, settings?: any) {
+      const model = provider(modelId, settings);
+      return MistralWrapper.wrapLanguageModel(model, tracer);
     };
-  }
-
-  static _patchChatStream(tracer: Tracer): any {
-    const genAIEndpoint = 'mistral.chatStream';
-    return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
-        return context
-          .with(trace.setSpan(context.active(), span), async () => {
-            return originalMethod.apply(this, args);
-          })
-          .then((response: any) => {
-            return OpenLitHelper.createStreamProxy(
-              response,
-              MistralWrapper._chatGenerator({ args, genAIEndpoint, response, span })
-            );
-          })
-          .catch((e: any) => {
-            OpenLitHelper.handleException(span, e);
-            span.end();
-          });
+    // mirror provider methods
+    for (const key of Object.keys(provider)) {
+      wrapped[key] = provider[key];
+    }
+    if (typeof provider.languageModel === 'function') {
+      wrapped.languageModel = function (...args: any[]) {
+        const model = provider.languageModel.apply(provider, args);
+        return MistralWrapper.wrapLanguageModel(model, tracer);
       };
-    };
-  }
-
-  static async _chat({
-    args,
-    genAIEndpoint,
-    response,
-    span,
-  }: {
-    args: any[];
-    genAIEndpoint: string;
-    response: any;
-    span: Span;
-  }): Promise<any> {
-    let metricParams: BaseSpanAttributes | undefined;
-    try {
-      metricParams = await MistralWrapper._chatCommonSetter({
-        args,
-        genAIEndpoint,
-        result: response,
-        span,
-      });
-      return response;
-    } catch (e: any) {
-      OpenLitHelper.handleException(span, e);
-    } finally {
-      span.end();
-      if (metricParams) BaseWrapper.recordMetrics(span, metricParams);
     }
-  }
-
-  static async *_chatGenerator({
-    args,
-    genAIEndpoint,
-    response,
-    span,
-  }: {
-    args: any[];
-    genAIEndpoint: string;
-    response: any;
-    span: Span;
-  }): AsyncGenerator<unknown, any, unknown> {
-    let metricParams: BaseSpanAttributes | undefined;
-    try {
-      // The SDK returns an async iterator where final response is available
-      // at the end; we accumulate minimal fields for metrics.
-      let result: any = { model: '', usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, id: '', choices: [{ message: { content: '' }, finish_reason: '' }] };
-      for await (const chunk of response) {
-        // Depending on SDK format, merge useful fields when present
-        if (chunk?.id) result.id = chunk.id;
-        if (chunk?.model) result.model = chunk.model;
-        if (chunk?.usage) {
-          result.usage.prompt_tokens = Number(chunk.usage.prompt_tokens ?? result.usage.prompt_tokens);
-          result.usage.completion_tokens = Number(chunk.usage.completion_tokens ?? result.usage.completion_tokens);
-          result.usage.total_tokens = Number(chunk.usage.total_tokens ?? (result.usage.prompt_tokens + result.usage.completion_tokens));
-        }
-        if (chunk?.choices?.[0]?.delta?.content) {
-          result.choices[0].message.content = (result.choices[0].message.content || '') + chunk.choices[0].delta.content;
-        }
-        if (chunk?.choices?.[0]?.finish_reason) {
-          result.choices[0].finish_reason = chunk.choices[0].finish_reason;
-        }
-        yield chunk;
-      }
-
-      metricParams = await MistralWrapper._chatCommonSetter({ args, genAIEndpoint, result, span });
-      return result;
-    } catch (e: any) {
-      OpenLitHelper.handleException(span, e);
-    } finally {
-      span.end();
-      if (metricParams) BaseWrapper.recordMetrics(span, metricParams);
+    if (typeof provider.chat === 'function') {
+      wrapped.chat = function (...args: any[]) {
+        const model = provider.chat.apply(provider, args);
+        return MistralWrapper.wrapLanguageModel(model, tracer);
+      };
     }
+    if (typeof provider.textEmbeddingModel === 'function') {
+      wrapped.textEmbeddingModel = function (...args: any[]) {
+        const model = provider.textEmbeddingModel.apply(provider, args);
+        return MistralWrapper.wrapEmbeddingModel(model, tracer);
+      };
+    }
+    if (typeof provider.embedding === 'function') {
+      wrapped.embedding = function (...args: any[]) {
+        const model = provider.embedding.apply(provider, args);
+        return MistralWrapper.wrapEmbeddingModel(model, tracer);
+      };
+    }
+    return wrapped;
   }
 
-  static async _chatCommonSetter({
-    args,
-    genAIEndpoint,
+  // Wrap AI SDK LanguageModelV1 to intercept doGenerate and doStream
+  static wrapLanguageModel(model: any, tracer: Tracer) {
+    if (!model || typeof model !== 'object') return model;
+    const wrapped: any = Object.create(model);
+
+    if (typeof model.doGenerate === 'function') {
+      wrapped.doGenerate = async (options: any) => {
+        const genAIEndpoint = 'ai.mistral.languageModel.generate';
+        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
+        let metricParams;
+        try {
+          const result = await model.doGenerate(options);
+          metricParams = await MistralWrapper._setChatAttributesFromAISDK({ span, options, result, genAIEndpoint });
+          return result;
+        } catch (e: any) {
+          OpenLitHelper.handleException(span as any, e);
+          throw e;
+        } finally {
+          span.end();
+          if (metricParams) BaseWrapper.recordMetrics(span as any, metricParams);
+        }
+      };
+    }
+
+    if (typeof model.doStream === 'function') {
+      wrapped.doStream = async (options: any) => {
+        const genAIEndpoint = 'ai.mistral.languageModel.stream';
+        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
+        let metricParams;
+        try {
+          const streamResult = await model.doStream(options);
+          // The AI SDK returns a ReadableStream of parts and usage in finish part.
+          const { stream } = streamResult;
+          const reader = stream.getReader();
+          let text = '';
+          let usage = { promptTokens: 0, completionTokens: 0 } as any;
+          let responseMeta: any = {};
+          const newStream = new ReadableStream({
+            async pull(controller) {
+              const { done, value } = await reader.read();
+              if (done) {
+                controller.close();
+                return;
+              }
+              if (value?.type === 'text-delta') text += value.textDelta || '';
+              if (value?.type === 'response-metadata') {
+                responseMeta = value;
+              }
+              if (value?.type === 'finish') {
+                usage = value.usage || usage;
+              }
+              controller.enqueue(value);
+            },
+          });
+
+          // After wrapping stream, set attributes and return same shape
+          metricParams = await MistralWrapper._setChatAttributesFromAISDK({
+            span,
+            options,
+            result: {
+              text,
+              finishReason: responseMeta?.finishReason,
+              usage,
+              response: { id: responseMeta?.id, modelId: responseMeta?.modelId },
+            },
+            genAIEndpoint,
+          });
+
+          return { ...streamResult, stream: newStream };
+        } catch (e: any) {
+          OpenLitHelper.handleException(span as any, e);
+          throw e;
+        } finally {
+          span.end();
+          if (metricParams) BaseWrapper.recordMetrics(span as any, metricParams);
+        }
+      };
+    }
+
+    return wrapped;
+  }
+
+  // Wrap AI SDK EmbeddingModelV1 to intercept doEmbed
+  static wrapEmbeddingModel(model: any, tracer: Tracer) {
+    if (!model || typeof model !== 'object') return model;
+    const wrapped: any = Object.create(model);
+    if (typeof model.doEmbed === 'function') {
+      wrapped.doEmbed = async (options: any) => {
+        const genAIEndpoint = 'ai.mistral.embeddingModel.embed';
+        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
+        try {
+          const result = await model.doEmbed(options);
+
+          const modelId = model?.modelId || 'mistral-embed';
+          const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
+          const inputTokens = Number(result?.usage?.tokens ?? 0);
+          const cost = OpenLitHelper.getEmbedModelCost(modelId, pricingInfo, inputTokens);
+
+          MistralWrapper.setBaseSpanAttributes(span as any, {
+            genAIEndpoint,
+            model: modelId,
+            user: undefined,
+            cost,
+            aiSystem: MistralWrapper.aiSystem,
+          });
+
+          span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING);
+          span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
+          span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, inputTokens);
+          return result;
+        } catch (e: any) {
+          OpenLitHelper.handleException(span as any, e);
+          throw e;
+        } finally {
+          span.end();
+        }
+      };
+    }
+    return wrapped;
+  }
+
+  private static async _setChatAttributesFromAISDK({
+    span,
+    options,
     result,
-    span,
+    genAIEndpoint,
   }: {
-    args: any[];
-    genAIEndpoint: string;
-    result: any;
     span: Span;
+    options: any;
+    result: any;
+    genAIEndpoint: string;
   }) {
     const traceContent = OpenlitConfig.traceContent;
-    const {
-      messages,
-      max_tokens = null,
-      seed = null,
-      temperature = 1,
-      top_p,
-      user,
-      stream = false,
-      tools,
-    } = args[0] || {};
+    const settings = options || {};
 
-    // Request params
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
+    const model = result?.response?.modelId || settings?.mode?.modelId || settings?.modelId || 'mistral-small-latest';
 
-    // Content prompt
-    if (traceContent) {
-      const messagePrompt = messages || [];
-      const formattedMessages: string[] = [];
-      for (const message of messagePrompt) {
-        const role = message.role;
-        const content = message.content;
-        if (Array.isArray(content)) {
-          const contentStr = content
-            .map((item: any) => ('type' in item ? `${item.type}: ${item.text ?? item.image_url}` : `text: ${item.text}`))
-            .join(', ');
-          formattedMessages.push(`${role}: ${contentStr}`);
-        } else {
-          formattedMessages.push(`${role}: ${content}`);
-        }
-      }
-      const prompt = formattedMessages.join('\n');
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
-    }
-
-    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
-
-    const model = result?.model || args?.[0]?.model || 'mistral-small-latest';
     const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
 
-    const promptTokens = Number(result?.usage?.prompt_tokens ?? 0);
-    const completionTokens = Number(result?.usage?.completion_tokens ?? 0);
-    const totalTokens = Number(result?.usage?.total_tokens ?? (promptTokens + completionTokens));
+    const promptTokens = Number(result?.usage?.promptTokens ?? 0);
+    const completionTokens = Number(result?.usage?.completionTokens ?? 0);
+    const totalTokens = promptTokens + completionTokens;
 
     const cost = OpenLitHelper.getChatModelCost(model, pricingInfo, promptTokens, completionTokens);
 
-    MistralWrapper.setBaseSpanAttributes(span, {
+    MistralWrapper.setBaseSpanAttributes(span as any, {
       genAIEndpoint,
       model,
-      user,
+      user: undefined,
       cost,
       aiSystem: MistralWrapper.aiSystem,
     });
 
-    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result?.id);
+    span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
+    if (result?.response?.id) span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.response.id);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, promptTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, completionTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, totalTokens);
 
-    if (result?.choices?.[0]?.finish_reason) {
-      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, result.choices[0].finish_reason);
+    if (traceContent && typeof result?.text === 'string') {
+      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, result.text);
     }
 
-    if (tools) {
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, 'Function called with tools');
-    } else if (traceContent) {
-      span.setAttribute(
-        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-        result?.choices?.[0]?.message?.content || ''
-      );
+    // Map common call settings if available
+    const { maxTokens, temperature, topP, seed } = settings;
+    if (maxTokens !== undefined) span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, maxTokens);
+    if (temperature !== undefined) span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
+    if (topP !== undefined) span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, topP);
+    if (seed !== undefined) span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
+
+    // Prompt content is not standardized across AI SDK; try to pick from options.prompt
+    if (traceContent && settings?.prompt) {
+      try {
+        const promptText = Array.isArray(settings.prompt)
+          ? settings.prompt.map((p: any) => (typeof p === 'string' ? p : p?.text ?? '')).join('\n')
+          : String(settings.prompt);
+        span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, promptText);
+      } catch {}
     }
 
-    return {
-      genAIEndpoint,
-      model,
-      user,
-      cost,
-      aiSystem: MistralWrapper.aiSystem,
-    };
-  }
-
-  static _patchEmbeddings(tracer: Tracer): any {
-    const genAIEndpoint = 'mistral.embeddings';
-    const traceContent = OpenlitConfig.traceContent;
-
-    return (originalMethod: (...args: any[]) => any) => {
-      return async function (this: any, ...args: any[]) {
-        const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
-        return context.with(trace.setSpan(context.active(), span), async () => {
-          let metricParams: BaseSpanAttributes = {
-            genAIEndpoint,
-            model: '',
-            user: '',
-            cost: 0,
-            aiSystem: MistralWrapper.aiSystem,
-          };
-          try {
-            const response = await originalMethod.apply(this, args);
-
-            const model = response?.model || args?.[0]?.model || 'mistral-embed';
-            const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
-            const inputTokens = Number(response?.usage?.prompt_tokens ?? 0);
-            const cost = OpenLitHelper.getEmbedModelCost(model, pricingInfo, inputTokens);
-
-            span.setAttribute(
-              SemanticConvention.GEN_AI_OPERATION,
-              SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING
-            );
-
-            const { dimensions, encoding_format = 'float', input, user } = args[0] || {};
-            MistralWrapper.setBaseSpanAttributes(span, {
-              genAIEndpoint,
-              model,
-              user,
-              cost,
-              aiSystem: MistralWrapper.aiSystem,
-            });
-
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, encoding_format);
-            span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION, dimensions);
-            if (traceContent) {
-              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, input);
-            }
-
-            span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, inputTokens);
-            span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, inputTokens);
-
-            metricParams = { genAIEndpoint, model, user, cost, aiSystem: MistralWrapper.aiSystem };
-
-            return response;
-          } catch (e: any) {
-            OpenLitHelper.handleException(span, e);
-          } finally {
-            span.end();
-            BaseWrapper.recordMetrics(span, metricParams);
-          }
-        });
-      };
-    };
+    return { genAIEndpoint, model, user: undefined, cost, aiSystem: MistralWrapper.aiSystem };
   }
 }

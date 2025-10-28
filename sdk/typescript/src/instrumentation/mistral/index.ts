@@ -6,77 +6,131 @@ import {
 } from '@opentelemetry/instrumentation';
 import { InstrumentationConfig } from '@opentelemetry/instrumentation';
 import { INSTRUMENTATION_PREFIX } from '../../constant';
-import MistralClient from '@mistralai/mistralai';
 import MistralWrapper from './wrapper';
 
 export interface MistralInstrumentationConfig extends InstrumentationConfig {}
 
 export default class OpenlitMistralInstrumentation extends InstrumentationBase {
   constructor(config: MistralInstrumentationConfig = {}) {
-    super(`${INSTRUMENTATION_PREFIX}/instrumentation-mistral`, '1.0.0', config);
+    super(`${INSTRUMENTATION_PREFIX}/instrumentation-ai-mistral`, '1.0.0', config);
   }
 
   protected init(): void | InstrumentationModuleDefinition | InstrumentationModuleDefinition[] {
     const module = new InstrumentationNodeModuleDefinition(
-      '@mistralai/mistralai',
-      ['>= 0.4.0'],
+      '@ai-sdk/mistral',
+      ['>= 1.0.0'],
       (moduleExports) => {
-        this._patch(moduleExports);
+        this._patch(moduleExports as any);
         return moduleExports;
       },
       (moduleExports) => {
         if (moduleExports !== undefined) {
-          this._unpatch(moduleExports);
+          this._unpatch(moduleExports as any);
         }
       }
     );
     return [module];
   }
 
-  public manualPatch(mistral: any): void {
-    this._patch(mistral);
+  public manualPatch(mistralModule: any): void {
+    this._patch(mistralModule);
   }
 
-  protected _patch(moduleExports: typeof MistralClient) {
+  protected _patch(moduleExports: any) {
     try {
-      if (isWrapped((moduleExports as any).prototype.chat)) {
-        this._unwrap((moduleExports as any).prototype, 'chat');
+      // Wrap default provider function: mistral(modelId) -> LanguageModelV1
+      if (isWrapped((moduleExports as any).mistral)) {
+        (this as any)._unwrap(moduleExports as any, 'mistral' as any);
       }
-      if ((moduleExports as any).prototype.chatStream && isWrapped((moduleExports as any).prototype.chatStream)) {
-        this._unwrap((moduleExports as any).prototype, 'chatStream');
+      ;(this as any)._wrap(moduleExports as any, 'mistral' as any, (original: any) => {
+        const tracer = this.tracer;
+        return function wrappedMistral(this: any, ...args: any[]) {
+          const model = original.apply(this, args);
+          return MistralWrapper.wrapLanguageModel(model, tracer);
+        };
+      });
+
+      // Wrap factory: createMistral(options) -> provider function
+      if (isWrapped((moduleExports as any).createMistral)) {
+        (this as any)._unwrap(moduleExports as any, 'createMistral' as any);
       }
-      if ((moduleExports as any).prototype.embeddings && isWrapped((moduleExports as any).prototype.embeddings)) {
-        this._unwrap((moduleExports as any).prototype, 'embeddings');
+      if (moduleExports.createMistral) {
+        ;(this as any)._wrap(moduleExports as any, 'createMistral' as any, (original: any) => {
+          const tracer = this.tracer;
+          return function wrappedCreateMistral(this: any, ...args: any[]) {
+            const provider = original.apply(this, args);
+            return MistralWrapper.wrapProvider(provider, tracer);
+          };
+        });
       }
 
-      this._wrap((moduleExports as any).prototype, 'chat', MistralWrapper._patchChat(this.tracer));
-      // chatStream is optional; patch if present at runtime
-      if ((moduleExports as any).prototype.chatStream) {
-        this._wrap(
-          (moduleExports as any).prototype,
-          'chatStream',
-          MistralWrapper._patchChatStream(this.tracer)
-        );
-      }
-      if ((moduleExports as any).prototype.embeddings) {
-        this._wrap(
-          (moduleExports as any).prototype,
-          'embeddings',
-          MistralWrapper._patchEmbeddings(this.tracer)
-        );
+      // Also wrap provider methods on the default provider function object
+      if (moduleExports.mistral) {
+        const providerObj = moduleExports.mistral;
+        if (isWrapped(providerObj.languageModel)) {
+          (this as any)._unwrap(providerObj as any, 'languageModel' as any);
+        }
+        if (isWrapped(providerObj.chat)) {
+          (this as any)._unwrap(providerObj as any, 'chat' as any);
+        }
+        if (isWrapped(providerObj.textEmbeddingModel)) {
+          (this as any)._unwrap(providerObj as any, 'textEmbeddingModel' as any);
+        }
+        if (isWrapped(providerObj.embedding)) {
+          (this as any)._unwrap(providerObj as any, 'embedding' as any);
+        }
+
+        ;(this as any)._wrap(providerObj as any, 'languageModel' as any, (original: any) => {
+          const tracer = this.tracer;
+          return function wrappedLanguageModel(this: any, ...args: any[]) {
+            const model = original.apply(this, args);
+            return MistralWrapper.wrapLanguageModel(model, tracer);
+          };
+        });
+        if (providerObj.chat) {
+          ;(this as any)._wrap(providerObj as any, 'chat' as any, (original: any) => {
+            const tracer = this.tracer;
+            return function wrappedChat(this: any, ...args: any[]) {
+              const model = original.apply(this, args);
+              return MistralWrapper.wrapLanguageModel(model, tracer);
+            };
+          });
+        }
+        if (providerObj.textEmbeddingModel) {
+          ;(this as any)._wrap(providerObj as any, 'textEmbeddingModel' as any, (original: any) => {
+            const tracer = this.tracer;
+            return function wrappedEmbeddingModel(this: any, ...args: any[]) {
+              const model = original.apply(this, args);
+              return MistralWrapper.wrapEmbeddingModel(model, tracer);
+            };
+          });
+        }
+        if (providerObj.embedding) {
+          ;(this as any)._wrap(providerObj as any, 'embedding' as any, (original: any) => {
+            const tracer = this.tracer;
+            return function wrappedEmbedding(this: any, ...args: any[]) {
+              const model = original.apply(this, args);
+              return MistralWrapper.wrapEmbeddingModel(model, tracer);
+            };
+          });
+        }
       }
     } catch (e) {
       console.error('Error in _patch method:', e);
     }
   }
 
-  protected _unpatch(moduleExports: typeof MistralClient) {
-    this._unwrap((moduleExports as any).prototype, 'chat');
+  protected _unpatch(moduleExports: any) {
+    try { (this as any)._unwrap(moduleExports as any, 'mistral' as any); } catch {}
+    try { (this as any)._unwrap(moduleExports as any, 'createMistral' as any); } catch {}
     try {
-      this._unwrap((moduleExports as any).prototype, 'chatStream');
-    } catch {}
-    try {
-      this._unwrap((moduleExports as any).prototype, 'embeddings');
+      const providerObj = moduleExports.mistral;
+      if (providerObj) {
+        try { (this as any)._unwrap(providerObj as any, 'languageModel' as any); } catch {}
+        try { (this as any)._unwrap(providerObj as any, 'chat' as any); } catch {}
+        try { (this as any)._unwrap(providerObj as any, 'textEmbeddingModel' as any); } catch {}
+        try { (this as any)._unwrap(providerObj as any, 'embedding' as any); } catch {}
+      }
     } catch {}
   }
 }
