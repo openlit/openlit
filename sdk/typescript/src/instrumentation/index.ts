@@ -5,12 +5,14 @@ import { TracerProvider } from '@opentelemetry/api';
 import OpenAIInstrumentation from './openai';
 import AnthropicInstrumentation from './anthropic';
 import CohereInstrumentation from './cohere';
+import MistralInstrumentation from './mistral';
 
 export default class Instrumentations {
   static availableInstrumentations: OpenlitInstrumentations = {
     openai: new OpenAIInstrumentation(),
     anthropic: new AnthropicInstrumentation(),
     cohere: new CohereInstrumentation(),
+    mistral: new MistralInstrumentation(),
   };
 
   static setup(
