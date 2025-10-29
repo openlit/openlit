@@ -21,18 +21,18 @@ graph TB
         A[Evaluation Settings Page] -->|Create/Update| B[Custom Eval Form]
         B -->|Submit| C[API: /api/evaluation/custom-config]
     end
-    
+
     subgraph "API Layer"
         C -->|Save Config| D[customEvaluationConfig.ts]
         D -->|Persist| E[Prisma ORM]
         F[API: /api/evaluation/spanId] -->|Execute| G[index.ts: setEvaluationsForSpanId]
     end
-    
+
     subgraph "Database Layer - PostgreSQL"
         E -->|Store| H[(CustomEvaluationConfigs Table)]
         I[(EvaluationConfigs Table)]
     end
-    
+
     subgraph "Execution Layer"
         G -->|Load Configs| J[getActiveEvaluationConfigs]
         J -->|Built-in| I
@@ -46,18 +46,18 @@ graph TB
         O -->|LLM Call| P
         P -->|Parse Response| Q[Evaluation Results]
     end
-    
+
     subgraph "Storage Layer - ClickHouse"
         Q -->|Store| R[storeEvaluation]
         R -->|Insert| S[(openlit_evaluation Table)]
     end
-    
+
     subgraph "Cron Layer"
         T[auto.js Cron Job] -->|Trigger| U[autoEvaluate]
         U -->|Load Custom| H
         U -->|Execute| K
     end
-    
+
     style H fill:#e1f5ff
     style S fill:#ffe1e1
     style L fill:#fff4e1
@@ -87,7 +87,7 @@ erDiagram
         datetime updatedAt
         string meta
     }
-    
+
     EvaluationConfigs {
         string id PK
         string databaseConfigId FK
@@ -98,11 +98,12 @@ erDiagram
         string recurringTime
         string meta
     }
-    
+
     CustomEvaluationConfigs ||--|| EvaluationConfigs : "uses LLM config"
 ```
 
 **Fields Description:**
+
 - `id`: Unique identifier for the custom evaluation
 - `databaseConfigId`: Links to the database configuration
 - `name`: User-friendly name for the evaluation (e.g., "PII Detection", "Code Quality")
@@ -127,10 +128,10 @@ sequenceDiagram
     participant Service as customEvalConfig.ts
     participant DB as PostgreSQL
     participant Vault as Vault Service
-    
+
     UI->>API: POST /api/evaluation/custom-config
     Note over UI,API: { name, description, customPrompt, evaluationType, thresholdScore }
-    
+
     API->>Service: createCustomEvaluation(config)
     Service->>Service: validatePromptTemplate()
     Service->>Service: validateEvaluationType()
@@ -138,7 +139,7 @@ sequenceDiagram
     DB-->>Service: Saved Config
     Service-->>API: { success: true, data: config }
     API-->>UI: Success Response
-    
+
     Note over UI: User can test the custom eval
     UI->>API: POST /api/evaluation/test-custom
     API->>Service: testCustomEvaluation(configId, testData)
@@ -160,35 +161,35 @@ sequenceDiagram
     participant Python as evaluate.py
     participant LLM as LiteLLM
     participant CH as ClickHouse
-    
+
     Client->>API: Trigger Evaluation (spanId)
     API->>Service: setEvaluationsForSpanId(spanId)
     Service->>Service: getRequestViaSpanId()
     Service->>Config: getActiveEvaluationConfigs()
-    
+
     Config->>Config: Load Built-in Config
     Config->>Config: Load Custom Configs (enabled=true)
     Config-->>Service: All Configs Array
-    
+
     loop For Each Config
         Service->>Service: buildPromptForConfig(trace, config)
         Service->>Python: spawn evaluate.py
         Note over Service,Python: Pass: prompt, response, contexts, custom_eval_type
-        
+
         Python->>Python: get_system_prompt(config)
         alt Built-in Evaluation
             Python->>Python: Use predefined categories
         else Custom Evaluation
             Python->>Python: Inject custom prompt template
         end
-        
+
         Python->>LLM: completion(model, prompt)
         LLM-->>Python: JSON Response
         Python-->>Service: { success, result: [evaluations] }
-        
+
         Service->>CH: storeEvaluation(spanId, evaluations)
     end
-    
+
     Service-->>API: { success: true }
     API-->>Client: Evaluation Complete
 ```
@@ -198,6 +199,7 @@ sequenceDiagram
 ## Python Script Architecture
 
 ### Current `evaluate.py` Structure
+
 ```python
 def get_system_prompt(threshold_score, prompt, contexts, response):
     # Hardcoded categories for Bias, Toxicity, Hallucination
@@ -209,6 +211,7 @@ def measure(api_key, model, prompt, contexts, response, threshold_score):
 ```
 
 ### Proposed Enhanced Structure
+
 ```python
 def get_builtin_system_prompt(threshold_score, prompt, contexts, response):
     # Existing hardcoded categories
@@ -218,12 +221,12 @@ def get_custom_system_prompt(custom_config, prompt, contexts, response):
     # Dynamic prompt based on custom_config
     template = f"""
     You are evaluating: {custom_config['name']}
-    
+
     Description: {custom_config['description']}
-    
+
     Custom Instructions:
     {custom_config['customPrompt']}
-    
+
     Return JSON:
     {{
         "success": true,
@@ -237,29 +240,29 @@ def get_custom_system_prompt(custom_config, prompt, contexts, response):
             }}
         ]
     }}
-    
+
     Prompt: {prompt}
     Response: {response}
     Contexts: {contexts}
     """
     return template
 
-def measure(api_key, model, prompt, contexts, response, 
+def measure(api_key, model, prompt, contexts, response,
             threshold_score=0.5, custom_configs=None):
     results = []
-    
+
     # Execute built-in evaluations
     builtin_prompt = get_builtin_system_prompt(threshold_score, prompt, contexts, response)
     builtin_results = llm_response(builtin_prompt, model, api_key)
     results.append(builtin_results)
-    
+
     # Execute custom evaluations
     if custom_configs:
         for config in custom_configs:
             custom_prompt = get_custom_system_prompt(config, prompt, contexts, response)
             custom_result = llm_response(custom_prompt, model, api_key)
             results.append(custom_result)
-    
+
     # Merge all results
     return merge_evaluation_results(results)
 ```
@@ -289,6 +292,7 @@ CREATE TABLE openlit_evaluation (
 ```
 
 **Benefits:**
+
 - Custom evaluation names become keys in the `scores` map
 - No schema migration needed
 - Fully backward compatible
@@ -376,15 +380,15 @@ flowchart TD
     A[Evaluation Settings Page] --> B{Tab Selection}
     B -->|Built-in| C[Toxicity, Bias, Hallucination Config]
     B -->|Custom| D[Custom Evaluations List]
-    
+
     D --> E[+ Add Custom Evaluation Button]
     D --> F[Table: Custom Evaluations]
-    
+
     F --> G[Edit Custom Eval]
     F --> H[Delete Custom Eval]
     F --> I[Enable/Disable Toggle]
     F --> J[Test Custom Eval]
-    
+
     E --> K[Custom Evaluation Form]
     K --> L{Form Fields}
     L --> M[Name Input]
@@ -393,16 +397,16 @@ flowchart TD
     L --> P[Evaluation Type Input]
     L --> Q[Threshold Score Slider]
     L --> R[Enable/Disable Checkbox]
-    
+
     O --> S[Template Variables Guide]
     S --> T[prompt, response, contexts]
-    
+
     K --> U[Preview/Test Button]
     U --> V[Test Modal]
     V --> W[Enter Test Data]
     V --> X[Run Test]
     X --> Y[Show Results]
-    
+
     K --> Z[Save Button]
     Z --> AA[Validate]
     AA --> AB[Save to DB]
@@ -413,16 +417,19 @@ flowchart TD
 **Custom Evaluation Form Fields:**
 
 1. **Name** (required)
+
    - Input field
    - Unique, user-friendly identifier
    - Example: "PII Detection", "Code Security", "Brand Compliance"
 
 2. **Description** (required)
+
    - Textarea
    - Explains what the evaluation checks
    - Displayed in lists and tooltips
 
 3. **Evaluation Type** (required)
+
    - Input field
    - Alphanumeric identifier (no spaces)
    - Used as the key in ClickHouse
@@ -430,6 +437,7 @@ flowchart TD
    - Validated for uniqueness
 
 4. **Custom Prompt Template** (required)
+
    - Code editor (Monaco/CodeMirror)
    - Markdown/text editor with syntax highlighting
    - Template variables guide sidebar:
@@ -439,11 +447,13 @@ flowchart TD
    - Example templates provided
 
 5. **Threshold Score** (required)
+
    - Slider (0.0 to 1.0)
    - Default: 0.5
    - Determines verdict (yes/no)
 
 6. **Enabled** (optional)
+
    - Checkbox
    - Default: true
    - Allows disabling without deletion
@@ -466,31 +476,34 @@ async function getActiveEvaluationConfigs(
   databaseConfigId: string,
   excludeVaultValue: boolean = false
 ): Promise<{
-  builtin: EvaluationConfigWithSecret,
-  custom: CustomEvaluationConfigWithSecret[]
+  builtin: EvaluationConfigWithSecret;
+  custom: CustomEvaluationConfigWithSecret[];
 }> {
   // Get built-in config
   const builtinConfig = await getEvaluationConfig(undefined, excludeVaultValue);
-  
+
   // Get enabled custom configs
   const customConfigs = await prisma.customEvaluationConfigs.findMany({
     where: {
       databaseConfigId,
-      enabled: true
-    }
+      enabled: true,
+    },
   });
-  
+
   return { builtin: builtinConfig, custom: customConfigs };
 }
 
 async function getEvaluationConfigForTrace(
   trace: TraceRow,
-  configs: { builtin: EvaluationConfigWithSecret, custom: CustomEvaluationConfigWithSecret[] },
+  configs: {
+    builtin: EvaluationConfigWithSecret;
+    custom: CustomEvaluationConfigWithSecret[];
+  },
   dbConfigId?: string
 ) {
   const response = get(trace, getTraceMappingKeyFullPath("response", true));
   const prompt = get(trace, getTraceMappingKeyFullPath("prompt", true));
-  
+
   try {
     const data = await new Promise((resolve) => {
       const pythonProcess = spawn("/bin/sh", [
@@ -505,21 +518,21 @@ async function getEvaluationConfigForTrace(
           response,
           contexts: "",
           threshold_score: 0.5,
-          custom_configs: configs.custom.map(c => ({
+          custom_configs: configs.custom.map((c) => ({
             name: c.name,
             description: c.description,
             customPrompt: c.customPrompt,
             evaluationType: c.evaluationType,
-            thresholdScore: c.thresholdScore
-          }))
+            thresholdScore: c.thresholdScore,
+          })),
         })}' && \
         deactivate
         `,
       ]);
-      
+
       // ... rest of promise handling
     });
-    
+
     // Store all evaluations (built-in + custom) in one call
     await storeEvaluation(
       trace.SpanId,
@@ -527,11 +540,11 @@ async function getEvaluationConfigForTrace(
       {
         model: `${configs.builtin.provider}/${configs.builtin.model}`,
         traceTimeStamp: trace.Timestamp,
-        customEvaluations: configs.custom.map(c => c.evaluationType)
+        customEvaluations: configs.custom.map((c) => c.evaluationType),
       },
       dbConfigId
     );
-    
+
     return { success: true };
   } catch (e) {
     return { success: false, error: e };
@@ -548,17 +561,17 @@ async function getEvaluationConfigForTrace(
 The existing `getEvaluationsForSpanId` query already supports custom evaluations since it dynamically maps over all entries in the `evaluationData` array:
 
 ```sql
-SELECT 
+SELECT
   span_id as spanId,
   created_at as createdAt,
   id,
   arrayMap(
-    (e, c, ex, v) -> 
+    (e, c, ex, v) ->
     map(
-      'evaluation', e, 
-      'score', if(mapContains(scores, e), toString(scores[e]), toString(0.0)), 
-      'classification', c, 
-      'explanation', ex, 
+      'evaluation', e,
+      'score', if(mapContains(scores, e), toString(scores[e]), toString(0.0)),
+      'classification', c,
+      'explanation', ex,
       'verdict', v
     ),
     evaluationData.evaluation,
@@ -578,9 +591,11 @@ This will automatically return custom evaluations alongside built-in ones.
 ```typescript
 // Display evaluations in UI
 evaluations.forEach((evaluation) => {
-  const isBuiltin = ['Toxicity', 'Bias', 'Hallucination'].includes(evaluation.evaluation);
+  const isBuiltin = ["Toxicity", "Bias", "Hallucination"].includes(
+    evaluation.evaluation
+  );
   const isCustom = !isBuiltin;
-  
+
   // Render with appropriate badge/icon
   // Built-in: Standard icon
   // Custom: Custom icon with tooltip showing description
@@ -592,15 +607,18 @@ evaluations.forEach((evaluation) => {
 ## Security Considerations
 
 1. **Prompt Injection Protection**
+
    - Sanitize custom prompts before execution
    - Validate against malicious patterns
    - Limit prompt length (e.g., 5000 characters)
 
 2. **Rate Limiting**
+
    - Apply rate limits to custom evaluation execution
    - Prevent abuse of LLM API calls
 
 3. **Access Control**
+
    - User-based permissions for creating/editing custom evaluations
    - Database config isolation
 
@@ -614,22 +632,26 @@ evaluations.forEach((evaluation) => {
 ## Migration Strategy
 
 ### Phase 1: Database Schema
+
 1. Create `CustomEvaluationConfigs` table via Prisma migration
 2. Add indexes for performance
 
 ### Phase 2: Backend Implementation
+
 1. Create `custom-eval-config.ts` service layer
 2. Modify `evaluate.py` to support custom evaluations
 3. Update `getEvaluationConfigForTrace` to load custom configs
 4. Add new API routes
 
 ### Phase 3: UI Implementation
+
 1. Add "Custom Evaluations" tab to settings page
 2. Build custom evaluation form
 3. Implement test/preview functionality
 4. Add custom evaluation display in trace details
 
 ### Phase 4: Testing & Documentation
+
 1. Unit tests for custom eval service
 2. Integration tests for end-to-end flow
 3. User documentation and examples
@@ -644,6 +666,7 @@ evaluations.forEach((evaluation) => {
 **Name:** PII Detection  
 **Evaluation Type:** `pii_detection`  
 **Custom Prompt:**
+
 ```
 You are a privacy compliance expert. Analyze the response for personally identifiable information (PII).
 
@@ -672,6 +695,7 @@ Provide specific classification of what type of PII was found.
 **Name:** Code Security Check  
 **Evaluation Type:** `code_security`  
 **Custom Prompt:**
+
 ```
 You are a security expert reviewing code for vulnerabilities.
 
@@ -698,6 +722,7 @@ Provide specific vulnerability type in classification field.
 **Name:** Brand Compliance  
 **Evaluation Type:** `brand_compliance`  
 **Custom Prompt:**
+
 ```
 Evaluate if the response aligns with our brand guidelines:
 
@@ -722,14 +747,17 @@ Classification should specify what guideline was violated.
 ## Performance Considerations
 
 1. **Parallel Execution**
+
    - Execute custom evaluations in parallel where possible
    - Consider batching for multiple traces
 
 2. **Caching**
+
    - Cache custom evaluation configs (with invalidation)
    - Consider caching LLM responses for identical inputs
 
 3. **Cost Management**
+
    - Track LLM API costs per custom evaluation
    - Allow users to set execution limits
    - Provide cost estimation before enabling
@@ -743,18 +771,22 @@ Classification should specify what guideline was violated.
 ## Future Enhancements
 
 1. **Evaluation Marketplace**
+
    - Share custom evaluations across workspace
    - Import community-created evaluations
 
 2. **Multi-Model Support**
+
    - Different LLM models for different custom evaluations
    - Specialized models for specific tasks
 
 3. **Evaluation Chains**
+
    - Conditional evaluation execution
    - Evaluation dependencies
 
 4. **Advanced Analytics**
+
    - Trends for custom evaluations
    - Comparison dashboards
    - Anomaly detection
@@ -768,11 +800,13 @@ Classification should specify what guideline was violated.
 ## Success Metrics
 
 1. **Adoption Metrics**
+
    - Number of custom evaluations created
    - Percentage of users creating custom evaluations
    - Average number of custom evaluations per workspace
 
 2. **Usage Metrics**
+
    - Custom evaluation execution count
    - Success/failure rates
    - Average execution time
@@ -787,31 +821,37 @@ Classification should specify what guideline was violated.
 ## Rollout Plan
 
 ### Week 1-2: Foundation
+
 - Database schema design and migration
 - Core service layer implementation
 - Python script enhancements
 
 ### Week 3-4: API & Backend
+
 - API endpoint implementation
 - Integration with existing evaluation flow
 - Unit and integration tests
 
 ### Week 5-6: UI Development
+
 - Settings page UI components
 - Form validation and testing
 - Display integration in trace details
 
 ### Week 7: Testing & Documentation
+
 - End-to-end testing
 - Performance testing
 - Documentation and examples
 
 ### Week 8: Beta Launch
+
 - Limited rollout to select users
 - Gather feedback
 - Iterate based on feedback
 
 ### Week 9+: General Availability
+
 - Full rollout
 - Monitor metrics
 - Plan future enhancements
