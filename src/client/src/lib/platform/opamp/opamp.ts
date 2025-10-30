@@ -2,7 +2,7 @@ import asaw from "@/utils/asaw";
 import { jsonStringify } from "@/utils/json";
 import { consoleLog } from "@/utils/log";
 
-const baseUrl = process.env.OPAMP_API_CLIENT;
+const baseUrl = "http://127.0.0.1:8080";
 
 export async function getAllAgents() {
 	const [err, res]: any = await asaw(fetch(`${baseUrl}/api/agents`, {

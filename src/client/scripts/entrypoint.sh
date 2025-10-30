@@ -17,9 +17,6 @@ echo "INIT_DB_HOST=${INIT_DB_HOST}" >> /etc/environment
 echo "INIT_DB_PORT=${INIT_DB_PORT}" >> /etc/environment
 echo "INIT_DB_DATABASE=${INIT_DB_DATABASE}" >> /etc/environment
 
-# Setting Opamp Client env
-echo "OPAMP_API_CLIENT=http://127.0.0.1:8080" >> /etc/environment
-
 # Load the environment variables
 source /etc/environment
 

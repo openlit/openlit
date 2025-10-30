@@ -38,8 +38,6 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      # Opamp client
-      OPAMP_API_CLIENT: "http://127.0.0.1:8080"
 
     env_file:
       - path: .env
