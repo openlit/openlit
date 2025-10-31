@@ -1,4 +1,4 @@
-import { getAgentByInstanceId } from "@/lib/platform/opamp/opamp";
+import { getAgentByInstanceId } from "@/lib/platform/fleet-hub";
 
 export async function GET(_: Request, context: any) {
 	const { id } = context.params;

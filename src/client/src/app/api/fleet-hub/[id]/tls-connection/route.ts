@@ -1,4 +1,4 @@
-import { updateTlsConnection } from "@/lib/platform/opamp/opamp";
+import { updateTlsConnection } from "@/lib/platform/fleet-hub";
 
 export async function POST(request: Request, context: any) {
 	const { id } = context.params;

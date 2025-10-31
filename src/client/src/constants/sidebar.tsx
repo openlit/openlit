@@ -12,6 +12,7 @@ import {
 	TextQuote
 } from "lucide-react";
 import DatabaseConfigSwitch from "@/components/(playground)/sidebar/database-config-switch";
+import OpenTelemetrySvg from "@/components/svg/opentelemetry";
 
 export const ICON_CLASSES = "flex-shrink-0 size-5";
 
@@ -42,7 +43,14 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			text: "Exceptions",
 			link: "/exceptions",
 			type: "action",
-		},]
+		},
+		{
+			icon: <OpenTelemetrySvg className={ICON_CLASSES} />,
+			text: "Fleet Hub",
+			link: "/fleet-hub",
+			type: "action",
+		},
+		]
 	},
 	{
 		title: "Resources",
@@ -88,12 +96,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		type: "section",
 		collapsible: true,
 		children: [
-		{
-			icon: <Key className={ICON_CLASSES} />,
-			text: "Api Keys",
-			link: "/settings/api-keys",
-			type: "action",
-		},
+			{
+				icon: <Key className={ICON_CLASSES} />,
+				text: "Api Keys",
+				link: "/settings/api-keys",
+				type: "action",
+			},
 		]
 	},
 	{

@@ -1,4 +1,4 @@
-import { getAllAgents } from "@/lib/platform/opamp/opamp";
+import { getAllAgents } from "@/lib/platform/fleet-hub";
 
 export async function GET() {
 	const res: any = await getAllAgents();

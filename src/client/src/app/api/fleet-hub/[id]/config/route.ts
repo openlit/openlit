@@ -1,4 +1,4 @@
-import { updateAgentConfig } from "@/lib/platform/opamp/opamp";
+import { updateAgentConfig } from "@/lib/platform/fleet-hub";
 
 export async function POST(request: Request, context: any) {
 	const { id } = context.params;

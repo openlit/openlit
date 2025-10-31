@@ -25,6 +25,16 @@ export const pageStoreSlice: PageStore = lens((setStore, getStore) => ({
 			exceptionType: true,
 		},
 	},
+	fleethub: {
+		visibilityColumns: {
+			id: true,
+			name: true,
+			os: true,
+			version: true,
+			startedAt: true,
+			status: true,
+		}
+	},
 	header: {
 		title: "",
 		breadcrumbs: [],
@@ -35,7 +45,7 @@ export const pageStoreSlice: PageStore = lens((setStore, getStore) => ({
 			header: {
 				...getStore().header,
 				title: header.title,
-				breadcrumbs: header.breadcrumbs.length > 0 ? header.breadcrumbs : getStore().header.breadcrumbs,
+				breadcrumbs: header.breadcrumbs,
 				description: header.description,
 			}
 		});

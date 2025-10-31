@@ -2,17 +2,19 @@
 
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, Package, Server } from "lucide-react"
-import { Agent } from "@/types/opamp"
+import { Clock, HeartPulse, Package, Server } from "lucide-react"
+import { Agent } from "@/types/fleet-hub"
 import { formatDate } from "@/utils/date"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { cn } from "@/lib/utils"
 import { CodeEditor } from "@/components/(playground)/manage-dashboard/board-creator"
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper"
 import { jsonStringify } from "@/utils/json"
 import { consoleLog } from "@/utils/log"
+import { getAttributeValue } from "@/helpers/client/fleet-hub"
+import { usePageHeader } from "@/selectors/page"
 
 interface AgentDetailProps {
   agent: Agent,
@@ -27,18 +29,28 @@ const InfoItem = ({ label, value, mono = false }: { label: string; value: string
 );
 
 export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps) {
-  const getAttributeValue = (attributes: any[], key: string) => {
-    return attributes.find((attr) => attr.key === key)?.value.Value.StringValue || "N/A"
-  }
+  const isUnhealthy = !agent.Status.health.healthy;
+  const { setHeader } = usePageHeader();
+
+  useEffect(() => {
+    const serviceName = getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.name")
+
+    setHeader({
+      title: serviceName,
+      breadcrumbs: [
+        {
+          title: "Fleet Hub",
+          href: "/fleet-hub"
+        }
+      ]
+    })
+  }, [agent.InstanceIdStr]);
 
   return (
     <div className="space-y-6 overflow-auto w-full flex flex-col grow">
       <Card>
         <CardHeader className="flex flex-row items-center gap-8 space-y-0 p-4">
-          <CardTitle>{getAttributeValue(agent.Status.agent_description.identifying_attributes, "service.name")}</CardTitle>
-          <Badge className={`mt-0 ${agent.Status.health.healthy ? "bg-green-500 text-white dark:bg-green-500 dark:text-white" : "bg-red-500 text-white dark:bg-red-500 dark:text-white"} text-xs py-0 font-normal`}>
-            {agent.Status.health.status}
-          </Badge>
+          <CardTitle>{getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.name")}</CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -46,7 +58,7 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
               <Package className="h-4 w-4 text-primary" />
               <div>
                 <p className="text-xs text-muted-foreground">Version</p>
-                <p className="font-mono text-sm font-medium">{getAttributeValue(agent.Status.agent_description.identifying_attributes, "service.version")}</p>
+                <p className="font-mono text-sm font-medium">{getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.version")}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-stone-200/50 dark:bg-stone-700/50">
@@ -60,9 +72,21 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
               <Server className="h-4 w-4 text-primary" />
               <div>
                 <p className="text-xs text-muted-foreground">Host Name</p>
-                <p className="font-mono text-sm font-medium">{getAttributeValue(agent.Status.agent_description.non_identifying_attributes, "host.name")}</p>
+                <p className="font-mono text-sm font-medium">{getAttributeValue(agent, "Status.agent_description.non_identifying_attributes", "host.name")}</p>
               </div>
             </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-stone-200/50 dark:bg-stone-700/50">
+              <HeartPulse className="h-4 w-4 text-primary" />
+              <div>
+                <p className="text-xs text-muted-foreground">Health Status</p>
+                <p className={`font-mono text-xs font-medium px-2 text-center ${agent.Status.health.healthy ? "bg-green-500 text-white dark:bg-green-500 dark:text-white" : "bg-red-500 text-white dark:bg-red-500 dark:text-white"}`}>{agent.Status.health.status || "Error"}</p>
+              </div>
+            </div>
+            {
+              isUnhealthy && agent.Status.health.last_error ? (
+                <div className="bg-red-500 text-white text-center text-xs p-2 col-span-4">{agent.Status.health.last_error} </div>
+              ) : null
+            }
           </div>
         </CardContent>
         <CardFooter className="p-0">
@@ -112,7 +136,7 @@ function ConfigDetails({ agent, fetchAgentInfo }: { agent: Agent, fetchAgentInfo
   const onSave = useCallback(() => {
     fireRequest({
       requestType: "POST",
-      url: `/api/opamp/${agent.InstanceIdStr}/config`,
+      url: `/api/fleet-hub/${agent.InstanceIdStr}/config`,
       body: jsonStringify({
         config: yamlInput,
       }),

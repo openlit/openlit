@@ -1,4 +1,4 @@
-import { Agent, AgentAttribute } from "@/types/opamp"
+import { Agent, AgentAttribute } from "@/types/fleet-hub"
 import { get } from "lodash"
 
 export const getAttributeValue = (agent: Agent, path:string, key: string, defaultValue: string = "N/A") => {

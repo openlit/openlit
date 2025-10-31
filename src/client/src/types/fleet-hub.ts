@@ -10,6 +10,7 @@ export interface Agent {
       healthy: boolean
       status: string
       component_health_map: Record<string, { healthy: boolean; status: string }>
+      last_error?: string
     }
     agent_description: {
       identifying_attributes: AgentAttribute[]
