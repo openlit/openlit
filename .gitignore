@@ -9,6 +9,8 @@ path/
 __pycache__/
 **bun.lockb
 logs/
-.env
+**.env
 .vscode/
 .idea/
+.cursor-rules/
+.cursorrules

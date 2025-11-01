@@ -30,6 +30,21 @@ prisma db seed
 # Run crond in the background
 crond &
 
+# Generate certificates
+chmod +x /app/opamp/certs/clear.sh
+chmod +x /app/opamp/certs/generate.sh
+cd /app/opamp/certs
+./generate.sh > /var/log/certs.log
+cd ../../
+
+# Starting OpAMP Server
+/app/opamp/opamp-server &
+
+# Starting Supervisor for the OTEL Collector
+/app/opamp/opampsupervisor --config=/etc/otel/supervisor.yaml &
+
+
+# Starting the OpenLIT UI Server
 export PORT=${DOCKER_PORT:-3000} 
 # Start the Next.js application
-exec node --max_old_space_size=512 server.js
+exec node --max_old_space_size=512 client/server.js

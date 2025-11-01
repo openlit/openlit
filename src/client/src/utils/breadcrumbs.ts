@@ -204,11 +204,13 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 		],
 	},
 	
-	// Getting started
+	// Fleet Hub
 	{
-		regex: /^\/getting-started$/,
-		getTitle: () => "Getting Started",
-		getBreadcrumbs: () => [],
+		regex: /^\/fleet-hub\/[^/]+$/,
+		getTitle: () => "Fleet Hub",
+		getBreadcrumbs: () => [
+			{ title: "Fleet Hub", href: "/fleet-hub" }
+		],
 	},
 ];
 

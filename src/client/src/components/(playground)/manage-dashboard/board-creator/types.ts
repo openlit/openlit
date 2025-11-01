@@ -165,4 +165,5 @@ export interface EditorProps {
 	language?: string;
 	height?: string;
 	fullScreen?: boolean;
+	readOnly?: boolean;
 }

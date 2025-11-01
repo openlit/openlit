@@ -1,5 +1,5 @@
 import { RootStore } from "@/types/store/root";
-import { PAGE, REQUEST_VISIBILITY_COLUMNS } from "@/types/store/page";
+import { PAGE } from "@/types/store/page";
 import { useRootStore } from "@/store";
 
 export const getDashboardType = (state: RootStore) => state.page.dashboard.type;
@@ -7,7 +7,7 @@ export const getDashboardType = (state: RootStore) => state.page.dashboard.type;
 export const getVisibilityColumnsOfPage = (state: RootStore, pageName: PAGE) =>
 	(
 		state.page[pageName] as {
-			visibilityColumns: Partial<REQUEST_VISIBILITY_COLUMNS>;
+			visibilityColumns: Record<string, boolean>;
 		}
 	).visibilityColumns;
 

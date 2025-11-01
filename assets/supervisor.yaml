@@ -1,0 +1,25 @@
+server:
+  # The endpoint of the OpAMP server
+  endpoint: wss://0.0.0.0:4320/v1/opamp
+  tls:
+    insecure_skip_verify: true
+
+agent:
+  # The path to the OpenTelemetry Collector binary managed by this supervisor
+  executable: /app/opamp/otelcontribcol
+
+  # Reference to external configuration file
+  config_files: 
+    - /etc/otel/otel-collector-config.yaml
+
+capabilities:
+  accepts_remote_config: true
+  reports_effective_config: true
+  reports_own_metrics: false
+  reports_own_logs: true
+  reports_own_traces: false
+  reports_health: true
+  reports_remote_config: true
+
+storage:
+  directory: ./storage

@@ -13,7 +13,7 @@ export type REQUEST_VISIBILITY_COLUMNS = Record<
 	boolean
 >;
 
-export type PAGE = "dashboard" | "request" | "exception";
+export type PAGE = "dashboard" | "request" | "exception" | "fleethub";
 
 export type PageHeader = {
 	title: string;
@@ -29,10 +29,13 @@ export type PageStore = {
 		type: DASHBOARD_TYPE;
 	};
 	request: {
-		visibilityColumns: Partial<REQUEST_VISIBILITY_COLUMNS>;
+		visibilityColumns: Record<string, boolean>;
 	};
 	exception: {
-		visibilityColumns: Partial<REQUEST_VISIBILITY_COLUMNS>;
+		visibilityColumns: Record<string, boolean>;
+	};
+	fleethub: {
+		visibilityColumns: Record<string, boolean>;
 	};
 	setData: (p: PAGE, keyPath: string, value: unknown) => void;
 	header: PageHeader,

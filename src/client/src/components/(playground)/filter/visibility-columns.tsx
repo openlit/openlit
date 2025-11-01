@@ -7,13 +7,15 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { TraceMapping } from "@/constants/traces";
 import { getVisibilityColumnsOfPage, setPageData } from "@/selectors/page";
 import { useRootStore } from "@/store";
-import { PAGE, REQUEST_VISIBILITY_COLUMNS } from "@/types/store/page";
-import { TraceMappingKeyType } from "@/types/trace";
+import { PAGE } from "@/types/store/page";
 import { objectEntries } from "@/utils/object";
 import { EyeIcon } from "lucide-react";
+
+const convertKeyToLabel = (key: string) => {
+	return key.replace(/(?<=[a-z])(?=[A-Z])/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export default function VisibilityColumns({
 	columns,
@@ -26,7 +28,7 @@ export default function VisibilityColumns({
 	const visibilityColumns = useRootStore((state) =>
 		getVisibilityColumnsOfPage(state, pageName)
 	);
-	const onVisibilityChange = (key: TraceMappingKeyType, value: boolean) => {
+	const onVisibilityChange = (key: string, value: boolean) => {
 		updateFilter(pageName, `visibilityColumns.${key}`, value);
 	};
 
@@ -46,8 +48,8 @@ export default function VisibilityColumns({
 						key={key}
 						onClick={() =>
 							onVisibilityChange(
-								key as TraceMappingKeyType,
-								!visibilityColumns[key as keyof REQUEST_VISIBILITY_COLUMNS]
+								key,
+								!visibilityColumns[key]
 							)
 						}
 						disabled={!value?.enableHiding}
@@ -55,10 +57,10 @@ export default function VisibilityColumns({
 					>
 						<Checkbox
 							checked={
-								visibilityColumns[key as keyof REQUEST_VISIBILITY_COLUMNS]
+								visibilityColumns[key]
 							}
 						/>
-						{TraceMapping[key as TraceMappingKeyType].label}
+						{convertKeyToLabel(key)}
 					</DropdownMenuItem>
 				))}
 			</DropdownMenuContent>
