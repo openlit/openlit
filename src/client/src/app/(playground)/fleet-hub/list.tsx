@@ -85,7 +85,7 @@ const columns: Columns<string, Agent> = {
 					className="block items-center overflow-hidden text-ellipsis whitespace-nowrap"
 					title={row.StartedAt}
 				>
-					{formatDate(row.StartedAt)}
+					{formatDate(row.StartedAt, { time: true })}
 				</div>
 			);
 		},

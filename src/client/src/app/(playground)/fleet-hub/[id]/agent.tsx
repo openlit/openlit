@@ -65,7 +65,7 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
               <Clock className="h-4 w-4 text-primary" />
               <div>
                 <p className="text-xs text-muted-foreground">Started At</p>
-                <p className="font-mono text-sm font-medium">{formatDate(agent.StartedAt)}</p>
+                <p className="font-mono text-sm font-medium">{formatDate(agent.StartedAt, { time: true })}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-stone-200/50 dark:bg-stone-700/50">
