@@ -26,41 +26,35 @@ services:
       SQLITE_DATABASE_URL: file:/app/client/data/data.db
       PORT: ${PORT:-3000}
       DOCKER_PORT: ${PORT:-3000}
+      
       # OAuth Environment Variables
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      
+      # TLS Configuration (user-configurable)
+      OPAMP_ENVIRONMENT: ${OPAMP_ENVIRONMENT:-production}
+      OPAMP_CERTS_DIR: "/app/opamp/certs"
+      OPAMP_TLS_INSECURE_SKIP_VERIFY: ${OPAMP_TLS_INSECURE_SKIP_VERIFY:-false}
+      OPAMP_TLS_REQUIRE_CLIENT_CERT: ${OPAMP_TLS_REQUIRE_CLIENT_CERT:-true}
+      OPAMP_TLS_MIN_VERSION: ${OPAMP_TLS_MIN_VERSION:-1.2}
+      OPAMP_TLS_MAX_VERSION: ${OPAMP_TLS_MAX_VERSION:-1.3}
+      OPAMP_LOG_LEVEL: ${OPAMP_LOG_LEVEL:-info}
 
     env_file:
       - path: .env
         required: false
     ports:
       - "${PORT:-3000}:${DOCKER_PORT:-3000}"
+      - "4317:4317"  # OTLP gRPC receiver
+      - "4318:4318"  # OTLP HTTP receiver
     depends_on:
       - clickhouse
     volumes:
       - openlit-data:/app/client/data
-    restart: always
-
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.94.0
-    container_name: otel-collector
-    environment:
-      INIT_DB_HOST: clickhouse
-      INIT_DB_PORT: 9000
-      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
-      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
-      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
-    ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "8888:8888"
-      - "55679:55679"
-    depends_on:
-      - clickhouse
-    volumes:
-      - ./assets/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+      - ./assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
+      - ./assets/supervisor-dynamic.yaml:/etc/otel/supervisor-dynamic.yaml
     restart: always
 
 volumes:
