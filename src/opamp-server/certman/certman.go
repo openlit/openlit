@@ -157,39 +157,147 @@ func CreateClientTLSCert() (*protobufs.TLSCertificate, error) {
 	return certificate, nil
 }
 
+// TLSConfigOptions holds options for TLS configuration
+type TLSConfigOptions struct {
+	InsecureSkipVerify bool
+	RequireClientCert  bool
+	MinTLSVersion      uint16
+	MaxTLSVersion      uint16
+}
+
+// CreateServerTLSConfig creates a TLS configuration for the server with enhanced security options
 func CreateServerTLSConfig(caCertPath, serverCertPath, serverKeyPath string) (*tls.Config, error) {
-	// Read the CA's public key. This is the CA that signs the server's certificate.
+	return CreateServerTLSConfigWithOptions(caCertPath, serverCertPath, serverKeyPath, TLSConfigOptions{
+		InsecureSkipVerify: false,
+		RequireClientCert:  false,
+		MinTLSVersion:      tls.VersionTLS12,
+		MaxTLSVersion:      tls.VersionTLS13,
+	})
+}
+
+// CreateServerTLSConfigWithOptions creates a TLS configuration with custom options
+func CreateServerTLSConfigWithOptions(caCertPath, serverCertPath, serverKeyPath string, options TLSConfigOptions) (*tls.Config, error) {
+	// Validate certificate files first
+	validator := NewCertificateValidator()
+
+	// Check if certificate files exist
+	if _, err := os.Stat(caCertPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("CA certificate file not found: %s", caCertPath)
+	}
+	if _, err := os.Stat(serverCertPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("server certificate file not found: %s", serverCertPath)
+	}
+	if _, err := os.Stat(serverKeyPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("server private key file not found: %s", serverKeyPath)
+	}
+
+	// Validate certificate chain
+	if err := validator.VerifyCertificateChain(serverCertPath, caCertPath); err != nil {
+		logger.Printf("WARNING: Server certificate chain validation failed: %v", err)
+	}
+
+	// Check certificate expiry
+	if err := validator.CheckCertificateExpiry(serverCertPath, 30); err != nil {
+		logger.Printf("WARNING: %v", err)
+	}
+
+	// Read the CA's public key
 	caCertBytes, err := os.ReadFile(caCertPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read CA certificate: %v", err)
 	}
 
-	// Create a certificate pool and make our CA trusted.
+	// Create a certificate pool and make our CA trusted
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM(caCertBytes); !ok {
-		return nil, errors.New("cannot append ca.cert.pem")
+		return nil, errors.New("failed to append CA certificate to pool")
 	}
 
-	// Load server's certificate.
-	cert, err := tls.LoadX509KeyPair(
-		serverCertPath,
-		serverKeyPath,
-	)
+	// Load server's certificate
+	cert, err := tls.LoadX509KeyPair(serverCertPath, serverKeyPath)
 	if err != nil {
-		return nil, fmt.Errorf("tls.LoadX509KeyPair failed: %v", err)
+		return nil, fmt.Errorf("failed to load server certificate/key pair: %v", err)
 	}
+
+	// Determine client authentication mode
+	clientAuth := tls.NoClientCert
+	if options.RequireClientCert {
+		clientAuth = tls.RequireAndVerifyClientCert
+	} else {
+		clientAuth = tls.VerifyClientCertIfGiven
+	}
+
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		// TODO: verify client cert manually, and allow TOFU option. See manual
-		// verification example: https://dev.to/living_syn/validating-client-certificate-sans-in-go-i5p
-		// Instead, we use VerifyClientCertIfGiven which will automatically verify the provided certificate
-		// is signed by our CA (so TOFU with self-generated client certificate will not work).
-		ClientAuth: tls.VerifyClientCertIfGiven,
-		// Allow insecure connections for demo purposes.
-		InsecureSkipVerify: true,
-		ClientCAs:          caCertPool,
+		ClientAuth:   clientAuth,
+		ClientCAs:    caCertPool,
+		MinVersion:   options.MinTLSVersion,
+		MaxVersion:   options.MaxTLSVersion,
+
+		// Security settings
+		InsecureSkipVerify: options.InsecureSkipVerify,
+
+		// Prefer server cipher suites for better security
+		PreferServerCipherSuites: true,
+
+		// Use only secure cipher suites
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		},
+
+		// Curve preferences
+		CurvePreferences: []tls.CurveID{
+			tls.X25519,
+			tls.CurveP256,
+			tls.CurveP384,
+		},
 	}
+
+	logger.Printf("TLS configuration created successfully")
+	logger.Printf("  Min TLS Version: %s", getTLSVersionString(options.MinTLSVersion))
+	logger.Printf("  Max TLS Version: %s", getTLSVersionString(options.MaxTLSVersion))
+	logger.Printf("  Client Auth: %s", getClientAuthString(clientAuth))
+	logger.Printf("  Insecure Skip Verify: %t", options.InsecureSkipVerify)
+
 	return tlsConfig, nil
+}
+
+// Helper function to get TLS version string
+func getTLSVersionString(version uint16) string {
+	switch version {
+	case tls.VersionTLS10:
+		return "TLS 1.0"
+	case tls.VersionTLS11:
+		return "TLS 1.1"
+	case tls.VersionTLS12:
+		return "TLS 1.2"
+	case tls.VersionTLS13:
+		return "TLS 1.3"
+	default:
+		return fmt.Sprintf("Unknown (%d)", version)
+	}
+}
+
+// Helper function to get client auth string
+func getClientAuthString(auth tls.ClientAuthType) string {
+	switch auth {
+	case tls.NoClientCert:
+		return "No Client Certificate"
+	case tls.RequestClientCert:
+		return "Request Client Certificate"
+	case tls.RequireAnyClientCert:
+		return "Require Any Client Certificate"
+	case tls.VerifyClientCertIfGiven:
+		return "Verify Client Certificate If Given"
+	case tls.RequireAndVerifyClientCert:
+		return "Require and Verify Client Certificate"
+	default:
+		return fmt.Sprintf("Unknown (%d)", auth)
+	}
 }
 
 func CreateTLSCert(caCertPath, caKeyPath string) (*protobufs.TLSCertificate, error) {

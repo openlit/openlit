@@ -2,7 +2,17 @@ server:
   # The endpoint of the OpAMP server
   endpoint: wss://0.0.0.0:4320/v1/opamp
   tls:
+    # For development: set to true to skip certificate verification
+    # For production: set to false and provide ca_file
     insecure_skip_verify: true
+    
+    # For production with custom CA certificate:
+    # insecure_skip_verify: false
+    # ca_file: /app/opamp/certs/cert/ca.cert.pem
+    
+    # Optional: Client certificate for mutual TLS
+    # cert_file: /app/opamp/certs/client/client.cert.pem
+    # key_file: /app/opamp/certs/client/client.key.pem
 
 agent:
   # The path to the OpenTelemetry Collector binary managed by this supervisor

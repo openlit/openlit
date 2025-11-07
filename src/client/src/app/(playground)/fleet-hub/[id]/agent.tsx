@@ -33,10 +33,8 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
   const { setHeader } = usePageHeader();
 
   useEffect(() => {
-    const serviceName = getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.name")
-
     setHeader({
-      title: serviceName,
+      title: getAttributeValue(agent, "Status.agent_description.identifying_attributes", "service.name"),
       breadcrumbs: [
         {
           title: "Fleet Hub",
@@ -44,7 +42,7 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
         }
       ]
     })
-  }, [agent.InstanceIdStr]);
+  }, [agent]);
 
   return (
     <div className="space-y-6 overflow-auto w-full flex flex-col grow">

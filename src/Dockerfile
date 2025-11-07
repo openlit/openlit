@@ -40,16 +40,8 @@ FROM golang:1.25-alpine AS go-builder
 # Set working directory for opamp-server
 WORKDIR /app/opamp-server
 
-# Copy go.mod and go.sum first for better caching
-# COPY ./opamp-server/go.mod ./opamp-server/go.sum ./
-# COPY ./opamp/go.mod ./
-
-# Download dependencies
-# RUN go mod download
-
 # Copy the rest of the opamp-server source code
 COPY ./opamp-server/ ./
-# COPY ./server/ ./
 
 # Build the opamp-server binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o opamp-server .
@@ -108,18 +100,16 @@ COPY --from=builder /app/client/node_modules/prisma ./node_modules/prisma
 # Copy the built opamp-server binary from go-builder stage
 COPY --from=go-builder /app/opamp-server/opamp-server /app/opamp/opamp-server
 COPY --from=go-builder /app/opamp-server/certs /app/opamp/certs
+COPY --from=go-builder /app/opamp-server/setup-supervisor.sh /app/opamp/setup-supervisor.sh
 
 # Copy OpenTelemetry Collector and OpAMP Supervisor binaries
-# Place otelcol-contrib at the path expected by supervisor.yaml
+# Place otelcol-contrib at the path expected by supervisor configuration file
 COPY --from=otel-downloader /tmp/otelcol-contrib /app/opamp/otelcontribcol
 COPY --from=otel-downloader /tmp/opampsupervisor /app/opamp/opampsupervisor
 
 # Execute entrypoint script to generate NextAuth.js secret and run commands
-RUN chmod +x ./scripts/entrypoint.sh /app/opamp/otelcontribcol /app/opamp/opampsupervisor /app/opamp/opamp-server
+RUN chmod +x ./scripts/entrypoint.sh /app/opamp/otelcontribcol /app/opamp/opampsupervisor /app/opamp/opamp-server /app/opamp/setup-supervisor.sh
 RUN chmod -R u=rwX,go= /app/opamp/certs
-
-# Install Prisma globally
-# RUN npm install -g prisma@5.15.0
 
 # Expose the port that Next.js will run on
 EXPOSE ${DOCKER_PORT:-3000}
