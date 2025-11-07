@@ -10,10 +10,7 @@ import { setDefaultAutoSelectFamily } from 'node:net';
 setDefaultAutoSelectFamily(false);
 
 export default class PostHogServer {
-	static distinctId: string;
-	static createClient() {
-		this.distinctId = randomUUID();
-	}
+	static distinctId: string = randomUUID();
 
 	static async capture(options: {
 		event: string,

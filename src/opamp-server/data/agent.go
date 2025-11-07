@@ -77,15 +77,6 @@ func NewAgent(
 		}
 	}
 
-	// status := &protobufs.ServerToAgent{
-	// 	Capabilities: uint64(protobufs.AgentCapabilities_AgentCapabilities_AcceptsRemoteConfig |
-	// 		protobufs.AgentCapabilities_AgentCapabilities_ReportsRemoteConfig |
-	// 		protobufs.AgentCapabilities_AgentCapabilities_ReportsEffectiveConfig |
-	// 		protobufs.AgentCapabilities_AgentCapabilities_ReportsOwnMetrics),
-	// }
-
-	// agent.conn.Send(context.Background(), status)
-
 	return agent
 }
 
@@ -94,13 +85,24 @@ func NewAgent(
 func (agent *Agent) CloneReadonly() *Agent {
 	agent.mux.RLock()
 	defer agent.mux.RUnlock()
+
+	var clonedStatus *protobufs.AgentToServer
+	if agent.Status != nil {
+		clonedStatus = proto.Clone(agent.Status).(*protobufs.AgentToServer)
+	}
+
+	var clonedRemoteConfig *protobufs.AgentRemoteConfig
+	if agent.remoteConfig != nil {
+		clonedRemoteConfig = proto.Clone(agent.remoteConfig).(*protobufs.AgentRemoteConfig)
+	}
+
 	return &Agent{
 		InstanceId:                  agent.InstanceId,
 		InstanceIdStr:               uuid.UUID(agent.InstanceId).String(),
-		Status:                      proto.Clone(agent.Status).(*protobufs.AgentToServer),
+		Status:                      clonedStatus,
 		EffectiveConfig:             agent.EffectiveConfig,
 		CustomInstanceConfig:        agent.CustomInstanceConfig,
-		remoteConfig:                proto.Clone(agent.remoteConfig).(*protobufs.AgentRemoteConfig),
+		remoteConfig:                clonedRemoteConfig,
 		StartedAt:                   agent.StartedAt,
 		ClientCert:                  agent.ClientCert,
 		ClientCertOfferError:        agent.ClientCertOfferError,
