@@ -15,6 +15,8 @@ import { jsonStringify } from "@/utils/json"
 import { consoleLog } from "@/utils/log"
 import { getAttributeValue } from "@/helpers/client/fleet-hub"
 import { usePageHeader } from "@/selectors/page"
+import { usePostHog } from "posthog-js/react"
+import { CLIENT_EVENTS } from "@/constants/events"
 
 interface AgentDetailProps {
   agent: Agent,
@@ -126,6 +128,7 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
 function ConfigDetails({ agent, fetchAgentInfo }: { agent: Agent, fetchAgentInfo: () => void }) {
   const [yamlInput, setYamlInput] = useState<string>(agent.CustomInstanceConfig || "");
   const { fireRequest } = useFetchWrapper();
+  const posthog = usePostHog();
 
   const handleYamlChange = (value: string | undefined) => {
     setYamlInput(value || "");
@@ -140,6 +143,9 @@ function ConfigDetails({ agent, fetchAgentInfo }: { agent: Agent, fetchAgentInfo
       }),
       successCb: (resp) => {
         fetchAgentInfo();
+        posthog?.capture(CLIENT_EVENTS.FLEET_HUB_AGENT_CONFIG_SAVED, {
+          agentId: agent.InstanceIdStr,
+        });
       },
       failureCb: (resp) => {
         consoleLog(resp);
