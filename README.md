@@ -1,7 +1,7 @@
 <div align="center">
 <img src="https://github.com/openlit/.github/blob/main/profile/assets/wide-logo-no-bg.png?raw=true" alt="OpenLIT Logo" width="30%">
 
-#### Observability, Evaluations, Guardrails, Prompts, Vault, Playground
+#### Observability, Evaluations, Guardrails, Prompts, Vault, Playground, FleetHub
 
 # Open Source Platform for AI Engineering
 
@@ -44,6 +44,8 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 - 🔑 **API Keys and Secrets Management**: Securely handle your API keys and secrets centrally, avoiding insecure practices.
 
 - 🎮 **Experiment with different LLMs**: Use OpenGround to explore, test and compare various LLMs side by side.
+
+- 🚀 **Fleet Hub for OpAMP Management**: Centrally manage and monitor OpenTelemetry Collectors across your infrastructure using the OpAMP (Open Agent Management Protocol) with secure TLS communication.
 
 ## 🚀 Getting Started with LLM Observability
 
@@ -184,6 +186,7 @@ We are dedicated to continuously improving OpenLIT. Here's a look at what's been
 | [Cost Tracking for Custom Models](https://docs.openlit.io/latest/features/pricing)                                                | ✅ Completed   |
 | [Real-Time Guardrails Implementation](https://docs.openlit.io/latest/features/guardrails)                                         | ✅ Completed   |
 | [Programmatic Evaluation for LLM Response](https://docs.openlit.io/latest/features/evaluations)                                   | ✅ Completed   |
+| [Fleet Hub for OpAMP Management](https://docs.openlit.io/latest/openlit/observability/fleet-hub)                                  | ✅ Completed   |
 | [Auto-Evaluation Metrics Based on Usage](https://github.com/openlit/openlit/issues/470)                                           | 🔜 Coming Soon |
 | [Human Feedback for LLM Events](https://github.com/openlit/openlit/issues/471)                                                    | 🔜 Coming Soon |
 | [Dataset Generation Based on LLM Events](https://github.com/openlit/openlit/issues/472)                                           | 🔜 Coming Soon |
