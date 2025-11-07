@@ -5,6 +5,7 @@ import sys
 import json
 import signal
 import time
+from threading import Event
 
 
 # Create a JSON logger
@@ -61,14 +62,14 @@ environment = os.getenv("GPU_ENVIRONMENT", "default")
 # Initialize logger
 logger = setup_logger(application_name, environment)
 
-# Flag to control the infinite loop
-keep_running = True
+# Event to control the infinite loop
+keep_running = Event()
 
 
 def signal_handler(sig, frame):
     global keep_running
     logger.info("Received termination signal", extra={"signal": sig})
-    keep_running = False
+    keep_running.set()
 
 
 def main():
@@ -98,8 +99,7 @@ def main():
 
         # Keep the script running indefinitely
         global keep_running
-        while keep_running:
-            pass
+        keep_running.wait()
 
     except Exception as e:
         logger.error("An unexpected error occurred", exc_info=True)

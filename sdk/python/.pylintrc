@@ -36,6 +36,7 @@ disable=
     too-many-return-statements,
     too-many-function-args,
     unnecessary-pass,
-    invalid-name
+    invalid-name,
+    import-error
 
     

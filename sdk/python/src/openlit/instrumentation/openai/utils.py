@@ -329,7 +329,9 @@ def common_response_logic(
 
     # Span Attributes for Response parameters
     if scope._response_id:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id
+        )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
     )
@@ -643,7 +645,9 @@ def common_chat_logic(
 
     # Span Attributes for Response parameters
     if scope._response_id:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id
+        )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
     )

@@ -27,6 +27,7 @@ transformers
 groq
 elevenlabs
 ollama
+agno
 
 # Vector DBs
 chromadb
