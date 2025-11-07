@@ -38,10 +38,11 @@ docker-compose up -d
 
 **For Production:**
 ```bash
-# Set production environment
-export OPAMP_ENVIRONMENT=production
-export OPAMP_TLS_INSECURE_SKIP_VERIFY=false
-export OPAMP_TLS_REQUIRE_CLIENT_CERT=true
+# Production mode is now the default with secure TLS settings
+# Set any custom overrides if needed
+export OPAMP_ENVIRONMENT=production  # Default
+export OPAMP_TLS_INSECURE_SKIP_VERIFY=false  # Default
+export OPAMP_TLS_REQUIRE_CLIENT_CERT=true  # Default
 
 docker-compose up -d
 ```
@@ -138,7 +139,7 @@ docker-compose up -d
 The deployment automatically generates:
 - **CA Certificate**: Self-signed root certificate
 - **Server Certificate**: For OpAMP server TLS
-- **Client Certificate**: For mutual TLS (optional)
+- **Client Certificate**: For mutual TLS authentication (required in production)
 
 ### Certificate Properties
 
@@ -190,14 +191,19 @@ capabilities:
 
 ### Production Connection
 
-For production deployments:
+For production deployments with mutual TLS:
 
-1. **Extract CA certificate**:
+1. **Extract certificates**:
    ```bash
+   # Extract CA certificate
    docker cp openlit:/app/opamp/certs/cert/ca.cert.pem ./ca.cert.pem
+   
+   # Extract client certificates for mutual TLS
+   docker cp openlit:/app/opamp/certs/client/client.cert.pem ./client.cert.pem
+   docker cp openlit:/app/opamp/certs/client/client.key.pem ./client.key.pem
    ```
 
-2. **Configure supervisor**:
+2. **Configure supervisor with mutual TLS**:
    ```yaml
    # supervisor.yaml
    server:
@@ -205,6 +211,8 @@ For production deployments:
      tls:
        insecure_skip_verify: false
        ca_file: /path/to/ca.cert.pem
+       cert_file: /path/to/client.cert.pem
+       key_file: /path/to/client.key.pem
    ```
 
 3. **Deploy supervisor**:
@@ -309,18 +317,20 @@ docker exec openlit openssl x509 -in /app/opamp/certs/cert/ca.cert.pem -noout -t
 
 ### Mutual TLS Configuration
 
-Enable mutual TLS for enhanced security:
+Mutual TLS is enabled by default in production mode. To disable it:
 
 ```bash
-export OPAMP_TLS_REQUIRE_CLIENT_CERT=true
+export OPAMP_TLS_REQUIRE_CLIENT_CERT=false
 docker-compose up -d
 ```
 
-Configure supervisor with client certificates:
+Supervisor configuration with client certificates (required in production):
 
 ```yaml
 server:
   tls:
+    insecure_skip_verify: false
+    ca_file: /path/to/ca.cert.pem
     cert_file: /path/to/client.cert.pem
     key_file: /path/to/client.key.pem
 ```

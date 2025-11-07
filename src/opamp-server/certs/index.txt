@@ -1,2 +1,0 @@
-V	261104063115Z		01	unknown	/C=IN/ST=Delhi/O=OpenLIT/OU=OpAMP Client/CN=OpAMP Example Client
-V	261104063116Z		02	unknown	/C=IN/ST=Delhi/O=OpenLIT/OU=OpAMP Server/CN=OpenLIT OpAMP Server

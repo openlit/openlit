@@ -31,9 +31,9 @@ prisma db seed
 crond &
 
 # Set OpAMP environment variables for entrypoint
-export OPAMP_ENVIRONMENT=${OPAMP_ENVIRONMENT:-development}
+export OPAMP_ENVIRONMENT=${OPAMP_ENVIRONMENT:-production}
 export OPAMP_CERTS_DIR=${OPAMP_CERTS_DIR:-/app/opamp/certs}
-export OPAMP_TLS_INSECURE_SKIP_VERIFY=${OPAMP_TLS_INSECURE_SKIP_VERIFY:-true}
+export OPAMP_TLS_INSECURE_SKIP_VERIFY=${OPAMP_TLS_INSECURE_SKIP_VERIFY:-false}
 
 echo "OpAMP Configuration:"
 echo "  Environment: $OPAMP_ENVIRONMENT"
@@ -69,8 +69,10 @@ if [[ "$OPAMP_ENVIRONMENT" == "production" ]]; then
     cat >> /etc/otel/supervisor-dynamic.yaml << EOF
     insecure_skip_verify: false
     ca_file: /app/opamp/certs/cert/ca.cert.pem
+    cert_file: /app/opamp/certs/client/client.cert.pem
+    key_file: /app/opamp/certs/client/client.key.pem
 EOF
-    echo "  Production mode: Using CA certificate verification"
+    echo "  Production mode: Using CA certificate verification with client certificates"
 else
     cat >> /etc/otel/supervisor-dynamic.yaml << EOF
     insecure_skip_verify: true

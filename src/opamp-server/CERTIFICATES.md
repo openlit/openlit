@@ -80,10 +80,10 @@ certs/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPAMP_ENVIRONMENT` | `development` | Environment mode (`development`, `production`, `testing`) |
+| `OPAMP_ENVIRONMENT` | `production` | Environment mode (`development`, `production`, `testing`) |
 | `OPAMP_CERTS_DIR` | `/app/opamp/certs` | Certificate directory path |
 | `OPAMP_TLS_INSECURE_SKIP_VERIFY` | `false` | Skip certificate verification (dev only) |
-| `OPAMP_TLS_REQUIRE_CLIENT_CERT` | `true` (prod), `false` (dev) | Require client certificates |
+| `OPAMP_TLS_REQUIRE_CLIENT_CERT` | `true` | Require client certificates for mutual TLS |
 | `OPAMP_TLS_MIN_VERSION` | `1.2` | Minimum TLS version |
 | `OPAMP_TLS_MAX_VERSION` | `1.3` | Maximum TLS version |
 
@@ -95,9 +95,9 @@ certs/
 - Relaxed certificate validation
 - Suitable for local development and testing
 
-#### Production Mode
+#### Production Mode (Default)
 - `insecure_skip_verify: false` (strict verification)
-- Client certificates required by default
+- Client certificates required for mutual TLS authentication
 - Full certificate chain validation
 - Certificate expiry monitoring
 - Secure cipher suites only
@@ -175,9 +175,9 @@ server:
   tls:
     insecure_skip_verify: false
     ca_file: /app/opamp/certs/cert/ca.cert.pem
-    # Optional mutual TLS:
-    # cert_file: /app/opamp/certs/client/client.cert.pem
-    # key_file: /app/opamp/certs/client/client.key.pem
+    # Required for mutual TLS (default in production):
+    cert_file: /app/opamp/certs/client/client.cert.pem
+    key_file: /app/opamp/certs/client/client.key.pem
 ```
 
 ### Automated Setup
@@ -232,6 +232,32 @@ chmod 700 private/
 2. **Production**: Provide CA certificate path in supervisor config
 3. **Verify**: Ensure CA certificate is accessible and readable
 
+#### "tls: certificate required" / "client didn't provide a certificate"
+
+**Cause**: Server requires client certificates for mutual TLS, but client configuration is missing certificate files.
+
+**Solutions**:
+1. **Check client certificate files exist**:
+   ```bash
+   ls -la /app/opamp/certs/client/client.cert.pem
+   ls -la /app/opamp/certs/client/client.key.pem
+   ```
+2. **Regenerate certificates if missing**:
+   ```bash
+   cd /app/opamp/certs && ./generate.sh --clean
+   ```
+3. **Update supervisor configuration**:
+   ```yaml
+   server:
+     tls:
+       cert_file: /app/opamp/certs/client/client.cert.pem
+       key_file: /app/opamp/certs/client/client.key.pem
+   ```
+4. **Disable mutual TLS for development**:
+   ```bash
+   export OPAMP_TLS_REQUIRE_CLIENT_CERT=false
+   ```
+
 #### "certificate has expired"
 
 **Cause**: Certificate validity period has passed.
@@ -258,6 +284,15 @@ chmod 700 private/
 1. Verify server is running: `netstat -tlnp | grep 4320`
 2. Check firewall rules for port 4320
 3. Verify WebSocket support in network infrastructure
+
+#### "Can't load /root/.rnd into RNG"
+
+**Cause**: OpenSSL trying to access a random number generator file that doesn't exist.
+
+**Solutions**:
+1. **Fixed automatically**: This issue has been resolved in the current version
+2. **Manual fix**: Remove or comment out `RANDFILE` in `openssl.conf`
+3. **Verify fix**: Run `./generate.sh` and check for the error
 
 ### Validation Tools
 
