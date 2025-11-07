@@ -122,9 +122,6 @@ func (srv *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	srv.logger.Println(configStr)
-	srv.logger.Println(config)
-
 	notifyNextStatusUpdate := make(chan struct{}, 1)
 	data.AllAgents.SetCustomConfigForAgent(instanceId, config, notifyNextStatusUpdate)
 
