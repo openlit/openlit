@@ -354,7 +354,7 @@ def init(
             disable_metrics = True
 
         if (
-            os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower
+            os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower()
             == "false"
         ):
             capture_message_content = False
