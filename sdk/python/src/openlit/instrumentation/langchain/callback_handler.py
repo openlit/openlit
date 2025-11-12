@@ -95,6 +95,9 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
         # Track active spans by run_id
         self.spans: Dict[UUID, SpanHolder] = {}
 
+        # Track streaming responses by run_id
+        self.streaming_chunks: Dict[UUID, List[str]] = {}
+
         self.session_name = environment  # Map environment to session
         self.tags_enabled = True  # Enable tagging system
         self.events_enabled = True  # Enable events tracking
@@ -433,6 +436,24 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             span_holder = self.spans[run_id]
             span = span_holder.span
 
+            # If this was a streaming call and we accumulated chunks,
+            # add the complete streamed response to the span
+            if run_id in self.streaming_chunks:
+                complete_response = "".join(self.streaming_chunks[run_id])
+                if self.capture_message_content and complete_response:
+                    # Set the complete streamed content
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CONTENT_COMPLETION, complete_response
+                    )
+                    # Calculate output tokens for the streamed content
+                    output_tokens = general_tokens(complete_response)
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens
+                    )
+
+                # Clean up streaming chunks
+                del self.streaming_chunks[run_id]
+
             # Process LLM response with OpenLIT's business intelligence
             self._process_llm_response(span, response, run_id)
 
@@ -467,6 +488,10 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
 
             span_holder = self.spans[run_id]
             span = span_holder.span
+
+            # Clean up streaming chunks if this was a streaming call
+            if run_id in self.streaming_chunks:
+                del self.streaming_chunks[run_id]
 
             # NEW: Enhanced error classification and tracking
             # Framework error classification
@@ -596,6 +621,49 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             # Graceful error handling
             pass
 
+    def on_chain_error(
+        self,
+        error: Exception,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called when a chain ends with an error"""
+
+        try:
+            if run_id not in self.spans:
+                return
+
+            span_holder = self.spans[run_id]
+            span = span_holder.span
+
+            # Clean up streaming chunks if this was a streaming call
+            if run_id in self.streaming_chunks:
+                del self.streaming_chunks[run_id]
+
+            # Enhanced error classification and tracking
+            error_class = self._classify_error(error)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_ERROR_CLASS, error_class
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_ERROR_TYPE, type(error).__name__
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE, str(error)
+            )
+
+            # Set error status
+            span.set_status(Status(StatusCode.ERROR, str(error)))
+            span.record_exception(error)
+
+            self._end_span(run_id)
+
+        except Exception:
+            # Graceful error handling
+            pass
+
     def on_chat_model_start(
         self,
         serialized: Dict[str, Any],
@@ -700,6 +768,43 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
 
         except Exception:
             # Graceful error handling
+            pass
+
+    def on_llm_new_token(
+        self,
+        token: str,
+        *,
+        chunk: Optional[Any] = None,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called when a new token is generated during streaming.
+
+        This callback is triggered for each token during astream() operations.
+        We accumulate the tokens to build the complete response, which will
+        be processed when on_llm_end() is called.
+
+        Args:
+            token: The new token generated
+            chunk: Optional chunk object containing additional metadata
+            run_id: The run ID for this streaming operation
+            parent_run_id: The parent run ID if nested
+            **kwargs: Additional keyword arguments
+        """
+        try:
+            # Initialize streaming chunks list for this run_id if needed
+            if run_id not in self.streaming_chunks:
+                self.streaming_chunks[run_id] = []
+
+            # Accumulate the token
+            if token:
+                self.streaming_chunks[run_id].append(token)
+
+            # The span remains open - it will be closed in on_llm_end()
+
+        except Exception:
+            # Graceful error handling to prevent callback system failure
             pass
 
     def _format_messages(self, messages: List[BaseMessage]) -> str:
