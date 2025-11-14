@@ -62,6 +62,11 @@ export default class OpenlitOpenAIInstrumentation extends InstrumentationBase {
       if (isWrapped(moduleExports.OpenAI.Audio.Speech.prototype)) {
         this._unwrap(moduleExports.OpenAI.Audio.Speech.prototype, 'create');
       }
+      
+      // Check if Responses API exists (OpenAI SDK >= 1.92.0)
+      if ((moduleExports.OpenAI as any).Responses && isWrapped((moduleExports.OpenAI as any).Responses.prototype.create)) {
+        this._unwrap((moduleExports.OpenAI as any).Responses.prototype, 'create');
+      }
 
       this._wrap(
         moduleExports.OpenAI.Chat.Completions.prototype,
@@ -98,6 +103,15 @@ export default class OpenlitOpenAIInstrumentation extends InstrumentationBase {
         'create',
         OpenAIWrapper._patchAudioCreate(this.tracer)
       );
+      
+      // Patch Responses API if available (OpenAI SDK >= 1.92.0)
+      if ((moduleExports.OpenAI as any).Responses) {
+        this._wrap(
+          (moduleExports.OpenAI as any).Responses.prototype,
+          'create',
+          OpenAIWrapper._patchResponsesCreate(this.tracer)
+        );
+      }
     } catch (e) {
       console.error('Error in _patch method:', e);
     }
@@ -110,5 +124,8 @@ export default class OpenlitOpenAIInstrumentation extends InstrumentationBase {
     this._unwrap(moduleExports.OpenAI.Images.prototype, 'generate');
     this._unwrap(moduleExports.OpenAI.Images.prototype, 'createVariation');
     this._unwrap(moduleExports.OpenAI.Audio.prototype, 'speech');
+    if ((moduleExports.OpenAI as any).Responses) {
+      this._unwrap((moduleExports.OpenAI as any).Responses.prototype, 'create');
+    }
   }
 }
