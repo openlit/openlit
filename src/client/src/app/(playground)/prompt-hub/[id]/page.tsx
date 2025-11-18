@@ -233,38 +233,6 @@ export default function PromptHub() {
 						</div>
 					</div>
 				) : null}
-				{metaPropertiesMap.length > 0 ? (
-					<div className="flex flex-col gap-2">
-						<h3 className="text-sm text-stone-500 dark:text-stone-400">
-							Meta Properties
-						</h3>
-						<div className="rounded-sm border border-stone-200 dark:border-stone-700">
-							<Table>
-								<TableHeader className="bg-stone-100 dark:bg-stone-800">
-									<TableRow>
-										<TableHead className="h-8 text-stone-400">Key</TableHead>
-										<TableHead className="h-8 text-stone-400">Value</TableHead>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{metaPropertiesMap.map(([itemKey, value]: string[]) => (
-										<TableRow
-											key={itemKey}
-											className="bg-stone-50 dark:bg-stone-900 data-[state=selected]:bg-stone-50 dark:data-[state=selected]:bg-stone-900 text-stone-600 dark:text-stone-300"
-										>
-											<TableCell className="p-0 px-4 align-middle font-medium h-10">
-												{itemKey}
-											</TableCell>
-											<TableCell className="p-0 px-4 align-middle h-10">
-												{value}
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</div>
-					</div>
-				) : null}
 				</CardContent>
 			</Card>
 			<Card className="border border-stone-200 dark:border-stone-800">
