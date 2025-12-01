@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -29,6 +30,8 @@ var (
 		}
 		return string(p)
 	})
+	// uuidRegex validates UUID format (8-4-4-4-12 hexadecimal pattern)
+	uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 )
 
 func (srv *Server) setupRoutes(mux *http.ServeMux) {
@@ -74,6 +77,13 @@ func (srv *Server) handleGetAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate UUID format using regex to prevent path traversal
+	if !uuidRegex.MatchString(instanceID) {
+		srv.logger.Printf("Instance ID failed regex validation: %s", instanceID)
+		http.Error(w, "Invalid instance ID format", http.StatusBadRequest)
+		return
+	}
+
 	uid, err := uuid.Parse(instanceID)
 	if err != nil {
 		http.Error(w, "Invalid instance ID", http.StatusBadRequest)
@@ -103,6 +113,13 @@ func (srv *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate UUID format using regex to prevent path traversal
+	if !uuidRegex.MatchString(request.InstanceID) {
+		srv.logger.Printf("Instance ID failed regex validation: %s", request.InstanceID)
+		http.Error(w, "Invalid instance ID format", http.StatusBadRequest)
 		return
 	}
 
@@ -224,6 +241,13 @@ func (srv *Server) handleRotateCertificate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Validate UUID format using regex to prevent path traversal
+	if !uuidRegex.MatchString(request.InstanceID) {
+		srv.logger.Printf("Instance ID failed regex validation: %s", request.InstanceID)
+		http.Error(w, "Invalid instance ID format", http.StatusBadRequest)
+		return
+	}
+
 	uid, err := uuid.Parse(request.InstanceID)
 	if err != nil {
 		http.Error(w, "Invalid instance ID", http.StatusBadRequest)
@@ -285,6 +309,13 @@ func (srv *Server) handleConnectionSettings(w http.ResponseWriter, r *http.Reque
 
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate UUID format using regex to prevent path traversal
+	if !uuidRegex.MatchString(request.InstanceID) {
+		srv.logger.Printf("Instance ID failed regex validation: %s", request.InstanceID)
+		http.Error(w, "Invalid instance ID format", http.StatusBadRequest)
 		return
 	}
 
