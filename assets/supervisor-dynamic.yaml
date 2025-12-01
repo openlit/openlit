@@ -1,2 +1,24 @@
 server:
   endpoint: wss://localhost:4320/v1/opamp
+  tls:
+    insecure_skip_verify: false
+    ca_file: /app/opamp/certs/cert/ca.cert.pem
+    cert_file: /app/opamp/certs/client/client.cert.pem
+    key_file: /app/opamp/certs/client/client.key.pem
+
+agent:
+  executable: /app/opamp/otelcontribcol
+  config_files: 
+    - /etc/otel/otel-collector-config.yaml
+
+capabilities:
+  accepts_remote_config: true
+  reports_effective_config: true
+  reports_own_metrics: false
+  reports_own_logs: true
+  reports_own_traces: false
+  reports_health: true
+  reports_remote_config: true
+
+storage:
+  directory: ./storage
