@@ -54,7 +54,6 @@ services:
     volumes:
       - openlit-data:/app/client/data
       - ./assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
-      - ./assets/supervisor-dynamic.yaml:/etc/otel/supervisor-dynamic.yaml
     restart: always
 
 volumes:

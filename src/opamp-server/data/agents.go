@@ -4,11 +4,17 @@ import (
 	"crypto/sha256"
 	"io"
 	"log"
+	"os"
+	"path/filepath"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/open-telemetry/opamp-go/protobufshelpers"
 	"github.com/open-telemetry/opamp-go/server/types"
+	"gopkg.in/yaml.v3"
+
+	"opamp-server/constants"
 )
 
 type Agents struct {
@@ -82,6 +88,9 @@ func (agents *Agents) FindOrCreateAgent(agentId InstanceId, conn types.Connectio
 		agent = NewAgent(agentId, conn)
 		agents.agentsById[agentId] = agent
 
+		// Load persisted configuration if available
+		agents.loadPersistedConfig(agent)
+
 		// Ensure the Agent's instance id is associated with the connection.
 		if agents.connections[conn] == nil {
 			agents.connections[conn] = map[InstanceId]bool{}
@@ -90,6 +99,55 @@ func (agents *Agents) FindOrCreateAgent(agentId InstanceId, conn types.Connectio
 	}
 
 	return agent
+}
+
+// loadPersistedConfig loads a persisted configuration for an agent if it exists
+func (agents *Agents) loadPersistedConfig(agent *Agent) {
+	agentIDStr := uuid.UUID(agent.InstanceId).String()
+	configPath := filepath.Join(constants.ConfigDirectory, agentIDStr+".yaml")
+
+	// Check if persisted config exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return
+	}
+
+	// Read the persisted configuration
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		logger.Printf("Failed to read persisted config for agent %s: %v", agentIDStr, err)
+		return
+	}
+
+	// Validate that the persisted config is valid YAML
+	var yamlTest interface{}
+	if err := yaml.Unmarshal(configData, &yamlTest); err != nil {
+		logger.Printf("Persisted config for agent %s is invalid YAML, skipping: %v", agentIDStr, err)
+		// Delete the corrupted config file
+		if removeErr := os.Remove(configPath); removeErr != nil {
+			logger.Printf("Failed to remove corrupted config file %s: %v", configPath, removeErr)
+		} else {
+			logger.Printf("Removed corrupted config file: %s", configPath)
+		}
+		return
+	}
+
+	// Additional validation: ensure it's a YAML map/object, not a scalar value
+	if _, isMap := yamlTest.(map[string]interface{}); !isMap {
+		logger.Printf("Persisted config for agent %s must be a YAML object, not a scalar value. Skipping.", agentIDStr)
+		// Delete the invalid config file
+		if removeErr := os.Remove(configPath); removeErr != nil {
+			logger.Printf("Failed to remove invalid config file %s: %v", configPath, removeErr)
+		} else {
+			logger.Printf("Removed invalid config file: %s", configPath)
+		}
+		return
+	}
+
+	// Set the custom config on the agent
+	agent.CustomInstanceConfig = string(configData)
+	agent.calcRemoteConfig()
+
+	logger.Printf("Loaded persisted configuration for agent %s from %s", agentIDStr, configPath)
 }
 
 func (agents *Agents) GetAgentReadonlyClone(agentId InstanceId) *Agent {

@@ -25,6 +25,9 @@ var (
 	ClientCSRPath  = filepath.Join(CertificatesDirectory, "client", "client.csr")
 )
 
+// Agent configuration storage directory
+const ConfigDirectory = "/app/client/data/configs"
+
 // getEnvOrDefault returns environment variable value or default if not set
 func getEnvOrDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
