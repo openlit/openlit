@@ -238,57 +238,39 @@ export class CustomEvaluationConfigService {
     dbConfigId?: string
   ): Promise<{ data?: boolean; error?: string }> {
     try {
+      // Note: evaluation_type cannot be updated as it's part of the ORDER BY clause in ClickHouse
       if (updates.evaluationType) {
-        const currentConfig = await this.findById(id, dbConfigId);
-        if (!currentConfig.data) {
-          return { error: "Custom evaluation configuration not found" };
-        }
-
-        const existingConfig = await this.findByEvaluationType(
-          updates.evaluationType,
-          currentConfig.data.databaseConfigId,
-          dbConfigId,
-          id
-        );
-
-        if (existingConfig.data) {
-          return {
-            error: `Evaluation type '${updates.evaluationType}' already exists`,
-          };
-        }
+        return {
+          error:
+            "Evaluation type cannot be changed after creation (it's part of the table's sorting key)",
+        };
       }
 
       const sanitizedId = Sanitizer.sanitizeValue(id);
       const updateFields: string[] = [];
-      const values: Record<string, any> = {};
 
       if (updates.name !== undefined) {
-        updateFields.push("name = {name:String}");
-        values.name = updates.name;
+        updateFields.push(`name = '${Sanitizer.sanitizeValue(updates.name)}'`);
       }
       if (updates.description !== undefined) {
-        updateFields.push("description = {description:String}");
-        values.description = updates.description;
+        updateFields.push(
+          `description = '${Sanitizer.sanitizeValue(updates.description)}'`
+        );
       }
       if (updates.customPrompt !== undefined) {
-        updateFields.push("custom_prompt = {custom_prompt:String}");
-        values.custom_prompt = updates.customPrompt;
-      }
-      if (updates.evaluationType !== undefined) {
-        updateFields.push("evaluation_type = {evaluation_type:String}");
-        values.evaluation_type = updates.evaluationType;
+        // Escape single quotes in the prompt
+        const escapedPrompt = updates.customPrompt.replace(/'/g, "\\'");
+        updateFields.push(`custom_prompt = '${escapedPrompt}'`);
       }
       if (updates.thresholdScore !== undefined) {
-        updateFields.push("threshold_score = {threshold_score:Float64}");
-        values.threshold_score = updates.thresholdScore;
+        updateFields.push(`threshold_score = ${updates.thresholdScore}`);
       }
       if (updates.enabled !== undefined) {
-        updateFields.push("enabled = {enabled:UInt8}");
-        values.enabled = updates.enabled ? 1 : 0;
+        updateFields.push(`enabled = ${updates.enabled ? 1 : 0}`);
       }
       if (updates.meta !== undefined) {
-        updateFields.push("meta = {meta:String}");
-        values.meta = JSON.stringify(updates.meta);
+        const escapedMeta = JSON.stringify(updates.meta).replace(/'/g, "\\'");
+        updateFields.push(`meta = '${escapedMeta}'`);
       }
 
       if (updateFields.length === 0) {
@@ -306,7 +288,6 @@ export class CustomEvaluationConfigService {
       const { err } = await dataCollector(
         {
           query,
-          query_params: values,
         },
         "command",
         dbConfigId

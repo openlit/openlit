@@ -101,19 +101,24 @@ function CustomEvaluationForm({
       event.preventDefault();
       const formElement = event.target as HTMLFormElement;
 
-      const payload = {
+      const payload: any = {
         name: (formElement.name as any).value,
         description: (formElement.description as any).value,
-        evaluationType: (formElement.evaluationType as any).value,
         customPrompt: (formElement.customPrompt as any).value,
         thresholdScore: parseFloat((formElement.thresholdScore as any).value),
         enabled: (formElement.enabled as any).checked,
         meta: {},
       };
 
+      // Only include evaluationType when creating (not updating)
+      // ClickHouse doesn't allow updating ORDER BY columns
+      if (!evaluation) {
+        payload.evaluationType = (formElement.evaluationType as any).value;
+      }
+
       onSubmit(payload);
     },
-    [onSubmit]
+    [onSubmit, evaluation]
   );
 
   return (
@@ -155,7 +160,8 @@ function CustomEvaluationForm({
               name: "evaluationType",
               placeholder: "pii_detection",
               defaultValue: evaluation?.evaluationType || "",
-              required: true,
+              required: !evaluation, // Only required when creating
+              disabled: !!evaluation, // Disable when editing
             },
           },
           {
@@ -275,48 +281,44 @@ export default function CustomEvaluations() {
 
   const handleFormSubmit = useCallback(
     async (payload: any) => {
-      if (editingEvaluation) {
-        // Update existing evaluation
-        fireUpdateRequest({
-          requestType: "PUT",
-          url: `/api/evaluation/custom-config/${editingEvaluation.id}`,
-          body: JSON.stringify(payload),
-          responseDataKey: "data",
-          successCb: () => {
-            toast.success("Custom evaluation updated successfully!", {
+      const requestPayload = editingEvaluation
+        ? { ...payload, id: editingEvaluation.id }
+        : payload;
+
+      const requestHandler = editingEvaluation
+        ? fireUpdateRequest
+        : fireCreateRequest;
+
+      requestHandler({
+        requestType: "POST",
+        url: `/api/evaluation/custom-config`,
+        body: JSON.stringify(requestPayload),
+        responseDataKey: "data",
+        successCb: () => {
+          toast.success(
+            `Custom evaluation ${
+              editingEvaluation ? "updated" : "created"
+            } successfully!`,
+            {
               id: "custom-evaluations",
-            });
-            setIsDialogOpen(false);
-            setEditingEvaluation(undefined);
-            fetchData();
-          },
-          failureCb: (err?: string) => {
-            toast.error(err || `Failed to update custom evaluation!`, {
+            }
+          );
+          setIsDialogOpen(false);
+          setEditingEvaluation(undefined);
+          fetchData();
+        },
+        failureCb: (err?: string) => {
+          toast.error(
+            err ||
+              `Failed to ${
+                editingEvaluation ? "update" : "create"
+              } custom evaluation!`,
+            {
               id: "custom-evaluations",
-            });
-          },
-        });
-      } else {
-        // Create new evaluation
-        fireCreateRequest({
-          requestType: "POST",
-          url: `/api/evaluation/custom-config`,
-          body: JSON.stringify(payload),
-          responseDataKey: "data",
-          successCb: () => {
-            toast.success("Custom evaluation created successfully!", {
-              id: "custom-evaluations",
-            });
-            setIsDialogOpen(false);
-            fetchData();
-          },
-          failureCb: (err?: string) => {
-            toast.error(err || `Failed to create custom evaluation!`, {
-              id: "custom-evaluations",
-            });
-          },
-        });
-      }
+            }
+          );
+        },
+      });
     },
     [editingEvaluation, fireCreateRequest, fireUpdateRequest, fetchData]
   );

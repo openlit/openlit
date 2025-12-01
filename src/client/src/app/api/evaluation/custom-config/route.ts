@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
     await configManagementRateLimit(request, user!.email);
 
     const formData = await request.json();
+    const id = formData.id; // Get id from request body for updates
 
     const [err, dbConfig] = await asaw(getDBConfigByUser(true));
     if (err || !dbConfig) {
@@ -90,10 +91,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!formData.name || !formData.evaluationType || !formData.customPrompt) {
+    // Validate required fields based on operation type
+    if (!formData.name || !formData.customPrompt) {
       return Response.json(
         {
-          error: "Missing required fields: name, evaluationType, customPrompt",
+          error: "Missing required fields: name, customPrompt",
+        },
+        { status: 400 }
+      );
+    }
+
+    // evaluationType is only required when creating (not updating)
+    if (!id && !formData.evaluationType) {
+      return Response.json(
+        {
+          error: "Missing required field: evaluationType",
         },
         { status: 400 }
       );
@@ -178,48 +190,96 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const sanitizedEvalType = SecurityValidator.sanitizeEvaluationType(
-      formData.evaluationType
-    );
-    const typeValidation =
-      CustomEvaluationConfigService.validateEvaluationType(sanitizedEvalType);
-    if (!typeValidation.valid) {
-      return Response.json(
-        { error: "Invalid evaluation type", details: typeValidation.errors },
-        { status: 400 }
+    // Only validate and sanitize evaluationType when creating
+    let sanitizedEvalType: string | undefined;
+    if (!id) {
+      // Creating new evaluation
+      sanitizedEvalType = SecurityValidator.sanitizeEvaluationType(
+        formData.evaluationType
       );
+      const typeValidation =
+        CustomEvaluationConfigService.validateEvaluationType(sanitizedEvalType);
+      if (!typeValidation.valid) {
+        return Response.json(
+          { error: "Invalid evaluation type", details: typeValidation.errors },
+          { status: 400 }
+        );
+      }
     }
 
-    const customEvaluationConfig: CreateCustomEvaluationConfig = {
-      databaseConfigId: dbConfig.id,
-      name: formData.name.trim(),
-      description: (formData.description || "").trim(),
-      customPrompt: formData.customPrompt,
-      evaluationType: sanitizedEvalType,
-      thresholdScore: formData.thresholdScore || 0.5,
-      enabled: formData.enabled !== false, // default to true
-      createdBy: user!.email || user!.id,
-      meta: formData.meta || {},
-    };
+    // Handle both create and update
+    let customConfig;
+    let error;
 
-    const { data: customConfig, error } = await createCustomEvaluationConfig(
-      customEvaluationConfig,
-      dbConfig.id
-    );
+    if (id) {
+      // Update existing evaluation
+      const updates: UpdateCustomEvaluationConfig = {
+        name: formData.name.trim(),
+        description: (formData.description || "").trim(),
+        customPrompt: formData.customPrompt,
+        thresholdScore: formData.thresholdScore || 0.5,
+        enabled: formData.enabled !== false,
+        meta: formData.meta || {},
+      };
+
+      const { updateCustomEvaluationConfig } = await import(
+        "@/lib/platform/evaluation/custom-eval-config"
+      );
+      const updateResult = await updateCustomEvaluationConfig(
+        id,
+        updates,
+        dbConfig.id
+      );
+      error = updateResult.error;
+      customConfig = updateResult.data ? { id, ...updates } : null;
+
+      if (!error) {
+        logSecurityEvent(
+          "CUSTOM_EVALUATION_UPDATED",
+          {
+            configId: id,
+          },
+          user!.email,
+          request
+        );
+      }
+    } else {
+      // Create new evaluation
+      const customEvaluationConfig: CreateCustomEvaluationConfig = {
+        databaseConfigId: dbConfig.id,
+        name: formData.name.trim(),
+        description: (formData.description || "").trim(),
+        customPrompt: formData.customPrompt,
+        evaluationType: sanitizedEvalType!, // We know it's defined when creating
+        thresholdScore: formData.thresholdScore || 0.5,
+        enabled: formData.enabled !== false, // default to true
+        createdBy: user!.email || user!.id,
+        meta: formData.meta || {},
+      };
+
+      const createResult = await createCustomEvaluationConfig(
+        customEvaluationConfig,
+        dbConfig.id
+      );
+      customConfig = createResult.data;
+      error = createResult.error;
+
+      if (!error) {
+        logSecurityEvent(
+          "CUSTOM_EVALUATION_CREATED",
+          {
+            evaluationType: customConfig!.evaluationType,
+            configId: customConfig!.id,
+          },
+          user!.email,
+          request
+        );
+      }
+    }
 
     if (error) {
       return Response.json({ error }, { status: 400 });
     }
-
-    logSecurityEvent(
-      "CUSTOM_EVALUATION_CREATED",
-      {
-        evaluationType: customConfig!.evaluationType,
-        configId: customConfig!.id,
-      },
-      user!.email,
-      request
-    );
 
     const response = Response.json({
       success: true,
