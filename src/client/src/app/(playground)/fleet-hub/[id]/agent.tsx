@@ -17,6 +17,7 @@ import { getAttributeValue } from "@/helpers/client/fleet-hub"
 import { usePageHeader } from "@/selectors/page"
 import { usePostHog } from "posthog-js/react"
 import { CLIENT_EVENTS } from "@/constants/events"
+import { toast } from "sonner"
 
 interface AgentDetailProps {
   agent: Agent,
@@ -141,7 +142,10 @@ function ConfigDetails({ agent, fetchAgentInfo }: { agent: Agent, fetchAgentInfo
       body: jsonStringify({
         config: yamlInput,
       }),
-      successCb: (resp) => {
+      successCb: () => {
+        toast.success("Configuration saved successfully", {
+          description: "The collector configuration has been updated and applied."
+        });
         fetchAgentInfo();
         posthog?.capture(CLIENT_EVENTS.FLEET_HUB_AGENT_CONFIG_SAVED, {
           agentId: agent.InstanceIdStr,
@@ -149,9 +153,23 @@ function ConfigDetails({ agent, fetchAgentInfo }: { agent: Agent, fetchAgentInfo
       },
       failureCb: (resp) => {
         consoleLog(resp);
+        // Extract error message from response
+        let errorMessage = "Failed to save configuration";
+        try {
+          const errorData = typeof resp === 'string' ? JSON.parse(resp) : resp;
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If parsing fails, use the raw response as error message
+          errorMessage = typeof resp === 'string' ? resp : errorMessage;
+        }
+
+        toast.error("Configuration validation failed", {
+          description: errorMessage,
+          duration: 5000
+        });
       }
     })
-  }, [yamlInput, agent.InstanceIdStr]);
+  }, [yamlInput, agent.InstanceIdStr, fetchAgentInfo, posthog]);
 
   return (
     <div className="grid grid-cols-2 gap-3 grow text-stone-700 dark:text-stone-300">

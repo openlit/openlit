@@ -1,8 +1,20 @@
 #!/bin/bash
 set -e
 
-# Generate and set NextAuth.js secret as an environment variable
-export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+# Generate and persist NextAuth.js secret to ensure session persistence across restarts
+NEXTAUTH_SECRET_FILE="/app/client/data/.nextauth_secret"
+
+if [ -f "$NEXTAUTH_SECRET_FILE" ]; then
+    # Load existing secret from persistent volume
+    export NEXTAUTH_SECRET=$(cat "$NEXTAUTH_SECRET_FILE")
+    echo "✅ Loaded existing NextAuth secret from persistent storage"
+else
+    # Generate new secret and save it to persistent volume
+    export NEXTAUTH_SECRET=$(openssl rand -base64 32)
+    echo "$NEXTAUTH_SECRET" > "$NEXTAUTH_SECRET_FILE"
+    chmod 600 "$NEXTAUTH_SECRET_FILE"
+    echo "✅ Generated and saved new NextAuth secret to persistent storage"
+fi
 
 # Set NextAuth.js environment variables
 echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
@@ -58,15 +70,18 @@ fi
 echo "Configuring OpAMP supervisor for $OPAMP_ENVIRONMENT environment..."
 cd /app/opamp
 
+# Use a runtime config location to avoid overwriting mounted files
+SUPERVISOR_CONFIG_PATH="/app/opamp/supervisor-runtime.yaml"
+
 # Create supervisor configuration dynamically
-cat > /etc/otel/supervisor-dynamic.yaml << EOF
+cat > "$SUPERVISOR_CONFIG_PATH" << EOF
 server:
   endpoint: wss://localhost:4320/v1/opamp
   tls:
 EOF
 
 if [[ "$OPAMP_ENVIRONMENT" == "production" ]]; then
-    cat >> /etc/otel/supervisor-dynamic.yaml << EOF
+    cat >> "$SUPERVISOR_CONFIG_PATH" << EOF
     insecure_skip_verify: false
     ca_file: /app/opamp/certs/cert/ca.cert.pem
     cert_file: /app/opamp/certs/client/client.cert.pem
@@ -74,17 +89,17 @@ if [[ "$OPAMP_ENVIRONMENT" == "production" ]]; then
 EOF
     echo "  Production mode: Using CA certificate verification with client certificates"
 else
-    cat >> /etc/otel/supervisor-dynamic.yaml << EOF
+    cat >> "$SUPERVISOR_CONFIG_PATH" << EOF
     insecure_skip_verify: true
 EOF
     echo "  Development mode: Skipping certificate verification"
 fi
 
-cat >> /etc/otel/supervisor-dynamic.yaml << EOF
+cat >> "$SUPERVISOR_CONFIG_PATH" << EOF
 
 agent:
   executable: /app/opamp/otelcontribcol
-  config_files: 
+  config_files:
     - /etc/otel/otel-collector-config.yaml
 
 capabilities:
@@ -97,10 +112,10 @@ capabilities:
   reports_remote_config: true
 
 storage:
-  directory: ./storage
+  directory: /app/client/data/supervisor-storage
 EOF
 
-echo "✅ Supervisor configuration generated"
+echo "✅ Supervisor configuration generated at $SUPERVISOR_CONFIG_PATH"
 
 # Starting OpAMP Server
 echo "Starting OpAMP Server..."
@@ -112,7 +127,7 @@ sleep 2
 
 # Starting Supervisor for the OTEL Collector
 echo "Starting OpAMP Supervisor..."
-/app/opamp/opampsupervisor --config=/etc/otel/supervisor-dynamic.yaml &
+/app/opamp/opampsupervisor --config="$SUPERVISOR_CONFIG_PATH" &
 SUPERVISOR_PID=$!
 
 

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"opamp-server/certman"
 	"opamp-server/constants"
 	"opamp-server/data"
@@ -34,6 +36,7 @@ func (srv *Server) setupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/agent/config", srv.handleSaveConfig)
 	mux.HandleFunc("/api/agent/connection", srv.handleConnectionSettings)
 	mux.HandleFunc("/api/agent/certificate", srv.handleRotateCertificate)
+	// TODO
 	// mux.HandleFunc("/api/capabilities", srv.handleCapabilities)
 }
 
@@ -116,11 +119,44 @@ func (srv *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	configStr := request.Config
+
+	// Validate that the config is valid YAML
+	var yamlTest interface{}
+	if err := yaml.Unmarshal([]byte(configStr), &yamlTest); err != nil {
+		srv.logger.Printf("Invalid YAML configuration for agent %s: %v", request.InstanceID, err)
+		http.Error(w, "Invalid YAML configuration: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Additional validation: ensure it's a YAML map/object, not a scalar value
+	if _, isMap := yamlTest.(map[string]interface{}); !isMap {
+		srv.logger.Printf("Configuration must be a YAML object/map for agent %s", request.InstanceID)
+		http.Error(w, "Configuration must be a valid YAML object with key-value pairs", http.StatusBadRequest)
+		return
+	}
+
 	config := &protobufs.AgentConfigMap{
 		ConfigMap: map[string]*protobufs.AgentConfigFile{
 			"": {Body: []byte(configStr)},
 		},
 	}
+
+	// Persist configuration to disk
+	configDir := "/app/client/data/configs"
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		srv.logger.Printf("Failed to create config directory: %v", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		return
+	}
+
+	configPath := configDir + "/" + request.InstanceID + ".yaml"
+	if err := os.WriteFile(configPath, []byte(configStr), 0644); err != nil {
+		srv.logger.Printf("Failed to persist config for agent %s: %v", request.InstanceID, err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		return
+	}
+
+	srv.logger.Printf("Persisted configuration for agent %s to %s", request.InstanceID, configPath)
 
 	notifyNextStatusUpdate := make(chan struct{}, 1)
 	data.AllAgents.SetCustomConfigForAgent(instanceId, config, notifyNextStatusUpdate)
