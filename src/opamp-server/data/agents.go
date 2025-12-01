@@ -13,6 +13,8 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufshelpers"
 	"github.com/open-telemetry/opamp-go/server/types"
 	"gopkg.in/yaml.v3"
+
+	"opamp-server/constants"
 )
 
 type Agents struct {
@@ -101,9 +103,8 @@ func (agents *Agents) FindOrCreateAgent(agentId InstanceId, conn types.Connectio
 
 // loadPersistedConfig loads a persisted configuration for an agent if it exists
 func (agents *Agents) loadPersistedConfig(agent *Agent) {
-	configDir := "/app/client/data/configs"
 	agentIDStr := uuid.UUID(agent.InstanceId).String()
-	configPath := filepath.Join(configDir, agentIDStr+".yaml")
+	configPath := filepath.Join(constants.ConfigDirectory, agentIDStr+".yaml")
 
 	// Check if persisted config exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {

@@ -106,7 +106,7 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
                     ))}
                   </div>
 
-                  <h4 className="font-semibold text-sm">Component Health Status</h4>
+                  {Object.keys(agent.Status.health.component_health_map || {}).length > 0 ? <h4 className="font-semibold text-sm">Component Health Status</h4> : null}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {Object.entries(agent.Status.health.component_health_map || {}).map(([component, health]) => (
                       <div key={component} className={`p-4 rounded-lg border ${health.healthy ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"}`}>
@@ -136,6 +136,8 @@ function ConfigDetails({ agent, fetchAgentInfo }: { agent: Agent, fetchAgentInfo
   };
 
   const onSave = useCallback(() => {
+    const isClearing = yamlInput.trim() === "";
+
     fireRequest({
       requestType: "POST",
       url: `/api/fleet-hub/${agent.InstanceIdStr}/config`,
@@ -143,9 +145,15 @@ function ConfigDetails({ agent, fetchAgentInfo }: { agent: Agent, fetchAgentInfo
         config: yamlInput,
       }),
       successCb: () => {
-        toast.success("Configuration saved successfully", {
-          description: "The collector configuration has been updated and applied."
-        });
+        if (isClearing) {
+          toast.success("Configuration cleared successfully", {
+            description: "The custom collector configuration has been removed. The collector will use its default configuration."
+          });
+        } else {
+          toast.success("Configuration saved successfully", {
+            description: "The collector configuration has been updated and applied."
+          });
+        }
         fetchAgentInfo();
         posthog?.capture(CLIENT_EVENTS.FLEET_HUB_AGENT_CONFIG_SAVED, {
           agentId: agent.InstanceIdStr,

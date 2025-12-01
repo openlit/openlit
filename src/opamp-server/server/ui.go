@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -120,6 +121,41 @@ func (srv *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 
 	configStr := request.Config
 
+	// Handle empty config - this clears the custom configuration
+	if configStr == "" {
+		// Delete the persisted config file if it exists
+		configPath := filepath.Join(constants.ConfigDirectory, request.InstanceID+".yaml")
+		if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
+			srv.logger.Printf("Failed to delete config for agent %s: %v", request.InstanceID, err)
+			http.Error(w, "Failed to clear configuration", http.StatusInternalServerError)
+			return
+		}
+
+		// Send empty config to agent to clear remote configuration
+		config := &protobufs.AgentConfigMap{
+			ConfigMap: map[string]*protobufs.AgentConfigFile{
+				"": {Body: []byte("")},
+			},
+		}
+
+		srv.logger.Printf("Cleared configuration for agent %s", request.InstanceID)
+
+		notifyNextStatusUpdate := make(chan struct{}, 1)
+		data.AllAgents.SetCustomConfigForAgent(instanceId, config, notifyNextStatusUpdate)
+
+		// Wait for up to 5 seconds for a Status update
+		timer := time.NewTicker(time.Second * 5)
+		defer timer.Stop()
+
+		select {
+		case <-notifyNextStatusUpdate:
+			w.WriteHeader(http.StatusOK)
+		case <-timer.C:
+			w.WriteHeader(http.StatusRequestTimeout)
+		}
+		return
+	}
+
 	// Validate that the config is valid YAML
 	var yamlTest interface{}
 	if err := yaml.Unmarshal([]byte(configStr), &yamlTest); err != nil {
@@ -142,14 +178,13 @@ func (srv *Server) handleSaveConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Persist configuration to disk
-	configDir := "/app/client/data/configs"
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(constants.ConfigDirectory, 0755); err != nil {
 		srv.logger.Printf("Failed to create config directory: %v", err)
 		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
 		return
 	}
 
-	configPath := configDir + "/" + request.InstanceID + ".yaml"
+	configPath := filepath.Join(constants.ConfigDirectory, request.InstanceID+".yaml")
 	if err := os.WriteFile(configPath, []byte(configStr), 0644); err != nil {
 		srv.logger.Printf("Failed to persist config for agent %s: %v", request.InstanceID, err)
 		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)

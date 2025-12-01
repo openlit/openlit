@@ -17,7 +17,14 @@ else
 fi
 
 # Set NextAuth.js environment variables
-echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
+# remove any existing NEXTAUTH_SECRET line, then append the current value
+if [ -w /etc/environment ]; then
+    sed -i '/^NEXTAUTH_SECRET=/d' /etc/environment
+    echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> /etc/environment
+else
+    echo "WARNING: /etc/environment is not writable; NEXTAUTH_SECRET will not be persisted there." >&2
+fi
+
 echo "NEXTAUTH_URL=http://localhost:${DOCKER_PORT:-3000}" >> /etc/environment
 echo "SQLITE_DATABASE_URL=${SQLITE_DATABASE_URL:-file:../data/data.db}" >> /etc/environment
 echo "PATH=./node_modules/.bin:$PATH" >> /etc/environment
