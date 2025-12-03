@@ -12,6 +12,7 @@ import ConfirmationModal from "@/components/common/confirmation-modal";
 import DataTable from "@/components/data-table/table";
 import { Columns } from "@/components/data-table/columns";
 import { PromptList } from "@/types/prompt";
+import PromptsGettingStarted from "@/components/(playground)/getting-started/prompts";
 
 const columns: Columns<string, PromptList> = {
 	name: {
@@ -115,6 +116,14 @@ export default function PromptHub() {
 			fetchData();
 		}
 	}, [pingStatus]);
+
+	if (!data?.length && !isLoading) {
+		return (
+			<div className="flex flex-col items-center p-8 overflow-auto">
+				<PromptsGettingStarted />
+			</div>
+		);
+	}
 
 	return (
 		<DataTable

@@ -16,6 +16,7 @@ import DataTable from "@/components/data-table/table";
 import { columns } from "@/components/(playground)/exceptions/columns";
 import { getVisibilityColumnsOfPage } from "@/selectors/page";
 import TracesFilter from "@/components/(playground)/filter/traces-filter";
+import ExceptionsGettingStarted from "@/components/(playground)/getting-started/tracing";
 
 function ExceptionPage() {
 	const filter = useRootStore(getFilterDetails);
@@ -26,6 +27,15 @@ function ExceptionPage() {
 	};
 	const pingStatus = useRootStore(getPingStatus);
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper();
+	const { data: existData, fireRequest: fireExistRequest, isFetched: isFetchedExist, isLoading: isLoadingExist } = useFetchWrapper();
+	useEffect(() => {
+		fireExistRequest({
+			requestType: "POST",
+			url: "/api/metrics/request/exist",
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
 	const visibilityColumns = useRootStore((state) =>
 		getVisibilityColumnsOfPage(state, "exception")
 	);
@@ -41,7 +51,7 @@ function ExceptionPage() {
 				});
 			},
 		});
-	}, [filter]);
+	}, [filter, fireRequest]);
 
 	useEffect(() => {
 		if (
@@ -50,9 +60,20 @@ function ExceptionPage() {
 			pingStatus === "success"
 		)
 			fetchData();
-	}, [filter, fetchData, pingStatus]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filter.timeLimit, pingStatus]);
 
 	const normalizedData = ((data as any)?.records || []).map(normalizeTrace);
+
+
+	// Show getting started when there's no trace data AND initial fetch is complete
+	if (existData === false && !isLoadingExist && isFetchedExist) {
+		return (
+			<div className="flex flex-col w-full h-full overflow-auto">
+				<ExceptionsGettingStarted />
+			</div>
+		);
+	}
 
 	return (
 		<>

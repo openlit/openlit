@@ -10,6 +10,7 @@ import { OpengroundRequest, OpengroundStats } from "@/types/openground";
 import { Columns } from "@/components/data-table/columns";
 import { jsonParse } from "@/utils/json";
 import DataTable from "@/components/data-table/table";
+import OpengroundGettingStarted from "@/components/(playground)/getting-started/experiments";
 
 const columns: Columns<string, OpengroundRequest> = {
 	prompt: {
@@ -83,21 +84,29 @@ export default function Openground() {
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
 			<OpengroundHeader title="Openground Requests" validateResponse={false} />
-			<DataTable
-				columns={columns}
-				data={data || []}
-				isFetched={isFetched}
-				isLoading={isLoading}
-				visibilityColumns={{
-					prompt: true,
-					createdBy: true,
-					databaseConfig: true,
-					minCostProvider: true,
-					minResponseTime: true,
-					minCompletionTokens: true,
-					actions: true
-				}}
-			/>
+			{(!data?.length && !isLoading) ? (
+					<div className="flex flex-col items-center p-8 overflow-auto">
+						<OpengroundGettingStarted />
+					</div>
+				) : (
+					<DataTable
+						columns={columns}
+						data={data || []}
+						isFetched={isFetched}
+						isLoading={isLoading}
+						visibilityColumns={{
+							prompt: true,
+							createdBy: true,
+							databaseConfig: true,
+							minCostProvider: true,
+							minResponseTime: true,
+							minCompletionTokens: true,
+							actions: true
+						}}
+					/>
+
+				)
+			}
 		</div>
 	);
 }

@@ -13,6 +13,7 @@ import SecretForm from "@/components/(playground)/vault/form";
 import { Secret } from "@/types/vault";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
+import SecretsGettingStarted from "@/components/(playground)/getting-started/secrets";
 
 const columns: Columns<string, Secret> = {
 	key: {
@@ -105,22 +106,30 @@ export default function Vault() {
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
 			<VaultHeader createNew={!params.id} successCallback={fetchData} />
-			<DataTable
-				columns={columns}
-				data={data || []}
-				isFetched={isFetched || pingStatus === "failure"}
-				isLoading={isLoading || isDeleting}
-				visibilityColumns={{
-					key: true,
-					createdBy: true,
-					updatedAt: true,
-					actions: true
-				}}
-				extraFunctions={{
-					handleDelete: deleteSecret,
-					successCallback: fetchData,
-				}}
-			/>
+			{
+				(!data?.length && !isLoading) ? (
+					<div className="flex flex-col items-center p-8 overflow-auto">
+						<SecretsGettingStarted />
+					</div>
+				) : (
+					<DataTable
+						columns={columns}
+						data={data || []}
+						isFetched={isFetched || pingStatus === "failure"}
+						isLoading={isLoading || isDeleting}
+						visibilityColumns={{
+							key: true,
+							createdBy: true,
+							updatedAt: true,
+							actions: true
+						}}
+						extraFunctions={{
+							handleDelete: deleteSecret,
+							successCallback: fetchData,
+						}}
+					/>
+				)
+			}
 		</div>
 	);
 }
