@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
-    // Apply strict rate limiting for test evaluations
     await testEvaluationRateLimit(request, user!.email);
 
     const formData = await request.json();
@@ -32,7 +31,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate required fields
     if (!formData.customPrompt || !formData.evaluationType) {
       return Response.json(
         { error: "Missing required fields: customPrompt, evaluationType" },
@@ -40,7 +38,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enhanced security validation for test data
     const promptSecurity = SecurityValidator.validatePromptSecurity(
       formData.customPrompt
     );
@@ -61,7 +58,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log warnings for test prompts
     if (promptSecurity.warnings.length > 0) {
       logSecurityEvent(
         "TEST_PROMPT_SECURITY_WARNING",
@@ -74,7 +70,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate prompt template
     const promptValidation =
       CustomEvaluationConfigService.validatePromptTemplate(
         formData.customPrompt
@@ -86,7 +81,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate and sanitize evaluation type
     const sanitizedEvalType = SecurityValidator.sanitizeEvaluationType(
       formData.evaluationType
     );
@@ -99,7 +93,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get evaluation config for LLM API details
     const { getEvaluationConfig } = await import(
       "@/lib/platform/evaluation/config"
     );
@@ -123,7 +116,6 @@ export async function POST(request: NextRequest) {
       thresholdScore: formData.thresholdScore || 0.5,
     };
 
-    // Sanitize test data
     const testData = {
       prompt: (
         formData.testPrompt || "What is the capital of France?"
@@ -138,7 +130,6 @@ export async function POST(request: NextRequest) {
         : [],
     };
 
-    // Execute test evaluation
     const testResult = await executeTestEvaluation(
       evaluationConfig,
       testCustomConfig,
@@ -161,7 +152,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log successful test
     logSecurityEvent(
       "TEST_EVALUATION_SUCCESS",
       {
@@ -179,7 +169,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Add security headers
     const securityHeaders = getSecurityHeaders();
     Object.entries(securityHeaders).forEach(([key, value]) => {
       response.headers.set(key, value);

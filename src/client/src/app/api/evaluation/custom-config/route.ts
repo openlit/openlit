@@ -81,8 +81,7 @@ export async function POST(request: NextRequest) {
     await configManagementRateLimit(request, user!.email);
 
     const formData = await request.json();
-    const id = formData.id; // Get id from request body for updates
-
+    const id = formData.id;
     const [err, dbConfig] = await asaw(getDBConfigByUser(true));
     if (err || !dbConfig) {
       return Response.json(
@@ -91,7 +90,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate required fields based on operation type
     if (!formData.name || !formData.customPrompt) {
       return Response.json(
         {
@@ -101,7 +99,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // evaluationType is only required when creating (not updating)
     if (!id && !formData.evaluationType) {
       return Response.json(
         {
@@ -190,10 +187,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Only validate and sanitize evaluationType when creating
     let sanitizedEvalType: string | undefined;
     if (!id) {
-      // Creating new evaluation
       sanitizedEvalType = SecurityValidator.sanitizeEvaluationType(
         formData.evaluationType
       );
@@ -207,12 +202,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Handle both create and update
     let customConfig;
     let error;
 
     if (id) {
-      // Update existing evaluation
       const updates: UpdateCustomEvaluationConfig = {
         name: formData.name.trim(),
         description: (formData.description || "").trim(),
@@ -244,7 +237,6 @@ export async function POST(request: NextRequest) {
         );
       }
     } else {
-      // Create new evaluation
       const customEvaluationConfig: CreateCustomEvaluationConfig = {
         databaseConfigId: dbConfig.id,
         name: formData.name.trim(),
