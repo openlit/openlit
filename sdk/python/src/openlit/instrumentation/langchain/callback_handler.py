@@ -397,13 +397,13 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             # Capture input if enabled (with safe JSON serialization)
             if self.capture_message_content:
                 try:
-                    input_str = json.dumps(prompts, default=str)[:1000]
+                    input_str = json.dumps(prompts, default=str)
                     span.set_attribute(
                         SemanticConvention.GEN_AI_WORKFLOW_INPUT, input_str
                     )
                 except Exception:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_WORKFLOW_INPUT, str(prompts)[:1000]
+                        SemanticConvention.GEN_AI_WORKFLOW_INPUT, str(prompts)
                     )
 
             # Framework enhancements - use attributes only (not events for non-chat operations)
@@ -564,13 +564,13 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             # Capture input if enabled (with safe JSON serialization)
             if self.capture_message_content:
                 try:
-                    input_str = json.dumps(inputs, default=str)[:1000]
+                    input_str = json.dumps(inputs, default=str)
                     span.set_attribute(
                         SemanticConvention.GEN_AI_WORKFLOW_INPUT, input_str
                     )
                 except Exception:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_WORKFLOW_INPUT, str(inputs)[:1000]
+                        SemanticConvention.GEN_AI_WORKFLOW_INPUT, str(inputs)
                     )
 
             # Enhanced chain tracking - use attributes only (not events for non-chat operations)
@@ -604,13 +604,13 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             # Capture output if enabled (with safe JSON serialization)
             if self.capture_message_content:
                 try:
-                    output_str = json.dumps(outputs, default=str)[:1000]
+                    output_str = json.dumps(outputs, default=str)
                     span.set_attribute(
                         SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, output_str
                     )
                 except Exception:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, str(outputs)[:1000]
+                        SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, str(outputs)
                     )
 
             # Duration is set in _end_span method
@@ -1068,14 +1068,14 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             if "signature" in serialized and serialized["signature"]:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_SERIALIZED_SIGNATURE,
-                    str(serialized["signature"])[:500],
+                    str(serialized["signature"]),
                 )
 
             # Capture docstring if available
             if "doc" in serialized and serialized["doc"]:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_SERIALIZED_DOC,
-                    str(serialized["doc"])[:200],
+                    str(serialized["doc"]),
                 )
 
             # Capture module information
@@ -1116,7 +1116,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             )
 
             if self.capture_message_content and input_str:
-                span.set_attribute(SemanticConvention.GEN_AI_TOOL_INPUT, str(input_str)[:1000])
+                span.set_attribute(SemanticConvention.GEN_AI_TOOL_INPUT, str(input_str))
         except Exception:
             # Graceful error handling
             pass
@@ -1138,7 +1138,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             span = self.spans[run_id].span
 
             if self.capture_message_content and output:
-                span.set_attribute(SemanticConvention.GEN_AI_TOOL_OUTPUT, str(output)[:1000])
+                span.set_attribute(SemanticConvention.GEN_AI_TOOL_OUTPUT, str(output))
 
             # Duration is set in _end_span method
 
@@ -1171,7 +1171,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
             )
 
             if self.capture_message_content and query:
-                span.set_attribute(SemanticConvention.GEN_AI_RETRIEVAL_QUERY, str(query)[:1000])
+                span.set_attribute(SemanticConvention.GEN_AI_RETRIEVAL_QUERY, str(query))
         except Exception:
             # Graceful error handling
             pass
@@ -1200,11 +1200,11 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
         # Sample document content
         if self.capture_message_content and documents:
             sample_docs = []
-            for doc in documents[:3]:  # First 3 docs
+            for doc in documents:  # First 3 docs
                 if hasattr(doc, "page_content"):
-                    sample_docs.append(doc.page_content[:200])
+                    sample_docs.append(doc.page_content)
                 else:
-                    sample_docs.append(str(doc)[:200])
+                    sample_docs.append(str(doc))
             span.set_attribute(
                 SemanticConvention.GEN_AI_RETRIEVAL_DOCUMENTS, "; ".join(sample_docs)
             )
@@ -1246,14 +1246,14 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
                 )
 
             if hasattr(action, "tool_input") and self.capture_message_content:
-                tool_input_str = json.dumps(action.tool_input, default=str)[:1000]
+                tool_input_str = json.dumps(action.tool_input, default=str)
                 span.set_attribute(
                     SemanticConvention.GEN_AI_AGENT_ACTION_TOOL_INPUT, tool_input_str
                 )
 
             if hasattr(action, "log") and self.capture_message_content:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_AGENT_ACTION_LOG, str(action.log)[:500]
+                    SemanticConvention.GEN_AI_AGENT_ACTION_LOG, str(action.log)
                 )
 
         except Exception:
@@ -1278,14 +1278,14 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
 
             # Capture agent finish output
             if hasattr(finish, "return_values") and self.capture_message_content:
-                output_str = json.dumps(finish.return_values, default=str)[:1000]
+                output_str = json.dumps(finish.return_values, default=str)
                 span.set_attribute(
                     SemanticConvention.GEN_AI_AGENT_FINISH_OUTPUT, output_str
                 )
 
             if hasattr(finish, "log") and self.capture_message_content:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_AGENT_FINISH_LOG, str(finish.log)[:500]
+                    SemanticConvention.GEN_AI_AGENT_FINISH_LOG, str(finish.log)
                 )
 
             self._end_span(run_id)
@@ -1311,7 +1311,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
                 span.add_event(
                     "text_output",
                     {
-                        "text": text[:500],  # Limit text length
+                        "text": text,
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                     },
                 )
@@ -1344,7 +1344,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
                     if hasattr(retry_state.outcome, "exception"):
                         retry_info["error"] = str(
                             retry_state.outcome.exception()
-                        )[:200]
+                        )
 
                 span.add_event("retry", retry_info)
 
@@ -1377,9 +1377,9 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
                 # Add data if capture_message_content is enabled
                 if self.capture_message_content:
                     try:
-                        event_data["data"] = json.dumps(data, default=str)[:500]
+                        event_data["data"] = json.dumps(data, default=str)
                     except Exception:
-                        event_data["data"] = str(data)[:500]
+                        event_data["data"] = str(data)
 
                 # Add tags if provided
                 if tags:
@@ -1392,7 +1392,7 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
                             :500
                         ]
                     except Exception:
-                        event_data["metadata"] = str(metadata)[:500]
+                        event_data["metadata"] = str(metadata)
 
                 span.add_event(f"custom_event.{name}", event_data)
 
