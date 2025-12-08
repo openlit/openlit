@@ -35,6 +35,7 @@ disable=
     import-outside-toplevel,
     too-many-return-statements,
     too-many-function-args,
+    too-many-public-methods,
     unnecessary-pass,
     invalid-name,
     import-error
