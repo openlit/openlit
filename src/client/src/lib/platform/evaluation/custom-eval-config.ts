@@ -258,7 +258,6 @@ export class CustomEvaluationConfigService {
         );
       }
       if (updates.customPrompt !== undefined) {
-        // Escape single quotes in the prompt
         const escapedPrompt = updates.customPrompt.replace(/'/g, "\\'");
         updateFields.push(`custom_prompt = '${escapedPrompt}'`);
       }
@@ -333,7 +332,6 @@ export class CustomEvaluationConfigService {
   } {
     const errors: string[] = [];
 
-    // Check for required placeholders
     const requiredPlaceholders = ["{prompt}", "{response}"];
     requiredPlaceholders.forEach((placeholder) => {
       if (!prompt.includes(placeholder)) {
@@ -341,7 +339,6 @@ export class CustomEvaluationConfigService {
       }
     });
 
-    // Check prompt length
     if (prompt.length > 5000) {
       errors.push("Prompt exceeds maximum length of 5000 characters");
     }
@@ -350,7 +347,6 @@ export class CustomEvaluationConfigService {
       errors.push("Prompt is too short (minimum 10 characters)");
     }
 
-    // Basic injection detection
     const dangerousPatterns = [
       /system\s*[:\s]*ignore/i,
       /forget\s+previous\s+instructions/i,
@@ -375,14 +371,12 @@ export class CustomEvaluationConfigService {
   } {
     const errors: string[] = [];
 
-    // Check format: alphanumeric + underscores, no spaces
     if (!/^[a-zA-Z0-9_]+$/.test(evaluationType)) {
       errors.push(
         "Evaluation type must contain only letters, numbers, and underscores"
       );
     }
 
-    // Check length
     if (evaluationType.length < 2) {
       errors.push("Evaluation type must be at least 2 characters long");
     }
@@ -391,7 +385,6 @@ export class CustomEvaluationConfigService {
       errors.push("Evaluation type must be no more than 50 characters long");
     }
 
-    // Check reserved names
     const reservedTypes = ["Bias", "Toxicity", "Hallucination"];
     if (reservedTypes.includes(evaluationType)) {
       errors.push(
