@@ -196,7 +196,7 @@ const chatCompletion = await client.chat.completions.create({
               description: "Visualize application flow and identify performance bottlenecks to optimize your GenAI and LLM applications.",
             }
             ].map((item, index) => (
-              <Card key={index} className='border'>
+              <Card key={item.title} className='border'>
                 <CardTitle className='p-6 gap-2 flex items-center text-stone-700 dark:text-stone-300'>
                   <span className="text-2xl">{item.icon}</span>
                   <span>{item.title}</span>

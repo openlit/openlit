@@ -61,7 +61,7 @@ function ExceptionPage() {
 		)
 			fetchData();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [filter.timeLimit, pingStatus]);
+	}, [filter, pingStatus]);
 
 	const normalizedData = ((data as any)?.records || []).map(normalizeTrace);
 

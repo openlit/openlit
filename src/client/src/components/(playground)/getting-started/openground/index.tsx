@@ -1,7 +1,8 @@
 import React from 'react';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import OpengroundHeader from '../../openground/header';
 
-export default function ExperimentsGettingStarted() {
+export default function OpengroundGettingStarted() {
   return (
     <div className="flex flex-col items-center p-8">
       <div className="max-w-4xl w-full">
@@ -12,6 +13,8 @@ export default function ExperimentsGettingStarted() {
           Experiment and test different LLM configurations, prompts, and parameters.
           Compare outputs side-by-side to find the optimal setup for your use case.
         </p>
+
+        <OpengroundHeader  validateResponse={false} className='flex mb-8 items-center justify-center' />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[{
@@ -35,7 +38,7 @@ export default function ExperimentsGettingStarted() {
             description: "Rapidly test multiple variations to optimize your LLM application before deploying to production.",
           }
           ].map((item) => (
-            <Card className='border'>
+            <Card className='border' key={item.title}>
               <CardTitle className='p-6 gap-2 flex items-center text-stone-700 dark:text-stone-300'>
                 <span className="text-2xl">{item.icon}</span>
                 <span>{item.title}</span>

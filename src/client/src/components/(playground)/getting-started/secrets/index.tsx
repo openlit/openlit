@@ -1,7 +1,12 @@
 import React from 'react';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import VaultHeader from '../../vault/header';
 
-export default function SecretsGettingStarted() {
+export default function SecretsGettingStarted({
+  successCallback
+}: {
+  successCallback?: () => void;
+}) {
   return (
     <div className="flex flex-col items-center p-8">
       <div className="max-w-4xl w-full">
@@ -12,6 +17,7 @@ export default function SecretsGettingStarted() {
           Securely store and access sensitive information including LLM API keys and credentials.
           Access your secrets through authenticated API endpoints with full audit tracking.
         </p>
+        <VaultHeader successCallback={successCallback} className="grid grid-cols-2 w-full items-center justify-center gap-6 mb-8 [&>*:first-child]:justify-self-end [&>*:nth-child(2)]:justify-self-start" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[{
@@ -35,7 +41,7 @@ export default function SecretsGettingStarted() {
             description: "Monitor when secrets were last updated to ensure your credentials remain current and secure.",
           }
           ].map((item) => (
-            <Card className='border'>
+            <Card className='border' key={item.title}>
               <CardTitle className='p-6 gap-2 flex items-center text-stone-700 dark:text-stone-300'>
                 <span className="text-2xl">{item.icon}</span>
                 <span>{item.title}</span>

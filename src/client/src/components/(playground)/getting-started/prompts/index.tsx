@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import PromptHubHeader from '../../prompt-hub/header';
 
 export default function PromptsGettingStarted() {
   return (
@@ -8,10 +9,11 @@ export default function PromptsGettingStarted() {
         <h1 className="text-3xl font-semibold text-center mb-6 text-stone-800 dark:text-stone-200">
           Get Started with Prompt Hub
         </h1>
-        <p className="text-center text-md mb-12 text-stone-500 dark:text-stone-500">
+        <p className="text-center text-md mb-6 text-stone-500 dark:text-stone-500">
           Centralized prompt management system to version, deploy, and collaborate on prompts.
           Track prompt usage, manage variables, and easily retrieve prompts across your applications.
         </p>
+        <PromptHubHeader createNew className="grid grid-cols-2 w-full items-center justify-center gap-6 mb-8 [&>*:first-child]:justify-self-end [&>*:nth-child(2)]:justify-self-start" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[{
@@ -35,7 +37,7 @@ export default function PromptsGettingStarted() {
             description: "Monitor prompt downloads and usage across your applications to understand which prompts are most valuable.",
           }
           ].map((item) => (
-            <Card className='border'>
+            <Card className='border' key={item.title}>
               <CardTitle className='p-6 gap-2 flex items-center text-stone-700 dark:text-stone-300 text-xl'>
                 <span>{item.icon}</span>
                 <span>{item.title}</span>

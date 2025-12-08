@@ -13,6 +13,7 @@ import DataTable from "@/components/data-table/table";
 import { Columns } from "@/components/data-table/columns";
 import { PromptList } from "@/types/prompt";
 import PromptsGettingStarted from "@/components/(playground)/getting-started/prompts";
+import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
 
 const columns: Columns<string, PromptList> = {
 	name: {
@@ -119,29 +120,32 @@ export default function PromptHub() {
 
 	if (!data?.length && !isLoading) {
 		return (
-			<div className="flex flex-col items-center p-8 overflow-auto">
+			<div className="flex flex-col items-center mx-auto p-8 overflow-auto">
 				<PromptsGettingStarted />
 			</div>
 		);
 	}
 
 	return (
-		<DataTable
-			columns={columns}
-			data={data || []}
-			isFetched={isFetched || pingStatus === "failure"}
-			isLoading={isLoading || isDeleting}
-			visibilityColumns={{
-				name: true,
-				createdBy: true,
-				latestVersion: true,
-				downloads: true,
-				lastReleasedOn: true,
-				actions: true
-			}}
-			extraFunctions={{
-				handleDelete: deletePrompt,
-			}}
-		/>
+		<div className="flex flex-col w-full h-full gap-4">
+			<PromptHubHeader createNew />
+			<DataTable
+				columns={columns}
+				data={data || []}
+				isFetched={isFetched || pingStatus === "failure"}
+				isLoading={isLoading || isDeleting}
+				visibilityColumns={{
+					name: true,
+					createdBy: true,
+					latestVersion: true,
+					downloads: true,
+					lastReleasedOn: true,
+					actions: true
+				}}
+				extraFunctions={{
+					handleDelete: deletePrompt,
+				}}
+			/>
+		</div>
 	);
 }
