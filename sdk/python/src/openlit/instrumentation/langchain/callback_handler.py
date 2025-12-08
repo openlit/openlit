@@ -683,16 +683,24 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
 
             # DEBUG: Log serialized data to understand structure
             # This helps us improve model extraction logic
-            # print(f"DEBUG: serialized={serialized}")
-            # print(f"DEBUG: kwargs={kwargs}")
+            # print(f"DEBUG on_chat_model_start: serialized={serialized}")
+            # print(f"DEBUG on_chat_model_start: kwargs={kwargs}")
 
             # Try extracting from serialized kwargs first (most reliable)
             if (
                 serialized
                 and "kwargs" in serialized
-                and "model" in serialized["kwargs"]
             ):
-                model_name = serialized["kwargs"]["model"]
+                # Check for both 'model' and 'model_name' in serialized kwargs
+                if "model_name" in serialized["kwargs"]:
+                    model_name = serialized["kwargs"]["model_name"]
+                elif "model" in serialized["kwargs"]:
+                    model_name = serialized["kwargs"]["model"]
+            elif kwargs.get("invocation_params", {}).get("model"):
+                # Extract from invocation_params (LangChain's standard location)
+                model_name = kwargs["invocation_params"]["model"]
+            elif kwargs.get("invocation_params", {}).get("model_name"):
+                model_name = kwargs["invocation_params"]["model_name"]
             elif kwargs.get("model"):
                 model_name = kwargs["model"]
             elif serialized:
@@ -737,8 +745,9 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
 
             # Set OpenLIT chat operation attributes
             span.set_attribute(
-                SemanticConvention.GEN_AI_SYSTEM, "openai"
-            )  # Most common
+                SemanticConvention.GEN_AI_SYSTEM,
+                SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+            )
             span.set_attribute(
                 SemanticConvention.GEN_AI_OPERATION,
                 SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -1094,19 +1103,23 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
     ) -> None:
         """Called when a tool starts"""
 
-        span_name = self._get_span_name(serialized, "tool")
-        span = self._create_span(run_id, parent_run_id, span_name, SpanKind.CLIENT)
+        try:
+            span_name = self._get_span_name(serialized, "tool")
+            span = self._create_span(run_id, parent_run_id, span_name, SpanKind.CLIENT)
 
-        span.set_attribute(
-            SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN
-        )
-        span.set_attribute(
-            SemanticConvention.GEN_AI_OPERATION,
-            SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS,
-        )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OPERATION,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS,
+            )
 
-        if self.capture_message_content:
-            span.set_attribute(SemanticConvention.GEN_AI_TOOL_INPUT, input_str[:1000])
+            if self.capture_message_content and input_str:
+                span.set_attribute(SemanticConvention.GEN_AI_TOOL_INPUT, str(input_str)[:1000])
+        except Exception:
+            # Graceful error handling
+            pass
 
     def on_tool_end(
         self,
@@ -1118,17 +1131,21 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
     ) -> None:
         """Called when a tool ends"""
 
-        if run_id not in self.spans:
-            return
+        try:
+            if run_id not in self.spans:
+                return
 
-        span = self.spans[run_id].span
+            span = self.spans[run_id].span
 
-        if self.capture_message_content:
-            span.set_attribute(SemanticConvention.GEN_AI_TOOL_OUTPUT, output[:1000])
+            if self.capture_message_content and output:
+                span.set_attribute(SemanticConvention.GEN_AI_TOOL_OUTPUT, str(output)[:1000])
 
-        # Duration is set in _end_span method
+            # Duration is set in _end_span method
 
-        self._end_span(run_id)
+            self._end_span(run_id)
+        except Exception:
+            # Graceful error handling
+            pass
 
     def on_retriever_start(
         self,
@@ -1141,19 +1158,23 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
     ) -> None:
         """Called when a retriever starts"""
 
-        span_name = self._get_span_name(serialized, "retrieval")
-        span = self._create_span(run_id, parent_run_id, span_name, SpanKind.CLIENT)
+        try:
+            span_name = self._get_span_name(serialized, "retrieval")
+            span = self._create_span(run_id, parent_run_id, span_name, SpanKind.CLIENT)
 
-        span.set_attribute(
-            SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN
-        )
-        span.set_attribute(
-            SemanticConvention.GEN_AI_OPERATION,
-            SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
-        )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OPERATION,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
+            )
 
-        if self.capture_message_content:
-            span.set_attribute(SemanticConvention.GEN_AI_RETRIEVAL_QUERY, query[:1000])
+            if self.capture_message_content and query:
+                span.set_attribute(SemanticConvention.GEN_AI_RETRIEVAL_QUERY, str(query)[:1000])
+        except Exception:
+            # Graceful error handling
+            pass
 
     def on_retriever_end(
         self,
@@ -1191,6 +1212,232 @@ class OpenLITLangChainCallbackHandler(BaseCallbackHandler):
         # Duration is set in _end_span method
 
         self._end_span(run_id)
+
+    def on_agent_action(
+        self,
+        action,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called when an agent takes an action (selects a tool)"""
+
+        try:
+            span_name = f"agent_action {getattr(action, 'tool', 'unknown')}"
+            span = self._create_span(
+                run_id, parent_run_id, span_name, SpanKind.CLIENT
+            )
+
+            # Set OpenLIT attributes
+            span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM,
+                SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OPERATION,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+            )
+
+            # Capture agent action details
+            if hasattr(action, "tool"):
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_ACTION_TOOL, action.tool
+                )
+
+            if hasattr(action, "tool_input") and self.capture_message_content:
+                tool_input_str = json.dumps(action.tool_input, default=str)[:1000]
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_ACTION_TOOL_INPUT, tool_input_str
+                )
+
+            if hasattr(action, "log") and self.capture_message_content:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_ACTION_LOG, str(action.log)[:500]
+                )
+
+        except Exception:
+            # Graceful error handling
+            pass
+
+    def on_agent_finish(
+        self,
+        finish,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called when an agent finishes"""
+
+        try:
+            if run_id not in self.spans:
+                return
+
+            span = self.spans[run_id].span
+
+            # Capture agent finish output
+            if hasattr(finish, "return_values") and self.capture_message_content:
+                output_str = json.dumps(finish.return_values, default=str)[:1000]
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_FINISH_OUTPUT, output_str
+                )
+
+            if hasattr(finish, "log") and self.capture_message_content:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_AGENT_FINISH_LOG, str(finish.log)[:500]
+                )
+
+            self._end_span(run_id)
+
+        except Exception:
+            # Graceful error handling
+            pass
+
+    def on_text(
+        self,
+        text: str,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called on arbitrary text output"""
+
+        try:
+            # Add text as an event to the current span if it exists
+            if run_id in self.spans and self.capture_message_content:
+                span = self.spans[run_id].span
+                span.add_event(
+                    "text_output",
+                    {
+                        "text": text[:500],  # Limit text length
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+
+        except Exception:
+            # Graceful error handling
+            pass
+
+    def on_retry(
+        self,
+        retry_state,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called on retry events"""
+
+        try:
+            # Add retry event to the current span if it exists
+            if run_id in self.spans:
+                span = self.spans[run_id].span
+                retry_info = {
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "attempt": getattr(retry_state, "attempt_number", "unknown"),
+                }
+
+                # Add error information if available
+                if hasattr(retry_state, "outcome") and retry_state.outcome:
+                    if hasattr(retry_state.outcome, "exception"):
+                        retry_info["error"] = str(
+                            retry_state.outcome.exception()
+                        )[:200]
+
+                span.add_event("retry", retry_info)
+
+        except Exception:
+            # Graceful error handling
+            pass
+
+    def on_custom_event(
+        self,
+        name: str,
+        data: Any,
+        *,
+        run_id: UUID,
+        tags: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called for custom user-defined events"""
+
+        try:
+            # Add custom event to the current span if it exists
+            if run_id in self.spans:
+                span = self.spans[run_id].span
+
+                event_data = {
+                    "name": name,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+
+                # Add data if capture_message_content is enabled
+                if self.capture_message_content:
+                    try:
+                        event_data["data"] = json.dumps(data, default=str)[:500]
+                    except Exception:
+                        event_data["data"] = str(data)[:500]
+
+                # Add tags if provided
+                if tags:
+                    event_data["tags"] = tags
+
+                # Add metadata if provided
+                if metadata:
+                    try:
+                        event_data["metadata"] = json.dumps(metadata, default=str)[
+                            :500
+                        ]
+                    except Exception:
+                        event_data["metadata"] = str(metadata)[:500]
+
+                span.add_event(f"custom_event.{name}", event_data)
+
+        except Exception:
+            # Graceful error handling
+            pass
+
+    def on_tool_error(
+        self,
+        error: Exception,
+        *,
+        run_id: UUID,
+        parent_run_id: Optional[UUID] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called when a tool ends with an error"""
+
+        try:
+            if run_id not in self.spans:
+                return
+
+            span_holder = self.spans[run_id]
+            span = span_holder.span
+
+            # Enhanced error classification and tracking
+            error_class = self._classify_error(error)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_ERROR_CLASS, error_class
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_ERROR_TYPE, type(error).__name__
+            )
+            span.set_attribute(
+                SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE, str(error)
+            )
+
+            # Set error status
+            span.set_status(Status(StatusCode.ERROR, str(error)))
+            span.record_exception(error)
+
+            self._end_span(run_id)
+
+        except Exception:
+            # Graceful error handling
+            pass
 
 
 def _calculate_percentile(value: float, baseline: Dict[str, Any]) -> float:
