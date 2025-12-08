@@ -14,10 +14,7 @@ boto3
 botocore
 google-genai
 azure-ai-inference
-reka-api
-multion
 mem0ai
-julep
 ai21
 controlflow
 assemblyai
@@ -26,14 +23,12 @@ together
 transformers
 groq
 elevenlabs
-ollama
 agno
 
 # Vector DBs
 chromadb
 pinecone
 qdrant-client
-pymilvus
 astrapy
 
 # Frameworks
