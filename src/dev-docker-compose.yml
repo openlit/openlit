@@ -60,7 +60,6 @@ services:
       - clickhouse
     volumes:
       - openlit-data:/app/client/data
-      - ../assets/supervisor-dynamic.yaml:/etc/otel/supervisor-dynamic.yaml
       - ../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
     restart: always
 

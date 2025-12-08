@@ -61,7 +61,17 @@ export async function updateAgentConfig(id: string, config: string) {
 	if (err) {
 		consoleLog(err);
 		return {
-			err
+			err: err.message || "Failed to save configuration",
+			status: 500
+		};
+	}
+
+	// Check for HTTP error responses
+	if (!res.ok) {
+		const errorText = await res.text();
+		return {
+			err: errorText || `HTTP ${res.status}: ${res.statusText}`,
+			status: res.status
 		};
 	}
 

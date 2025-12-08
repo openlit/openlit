@@ -25,5 +25,6 @@ export const config = {
 		"/home",
 		"/dashboards/:path*",
 		"/d/:path*",
+		"/fleet-hub"
 	],
 };
