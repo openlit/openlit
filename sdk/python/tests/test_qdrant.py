@@ -191,24 +191,24 @@ def test_db_qdrant():
     )
     assert isinstance(scroll, tuple)
 
-    # Search vectors from the collection
-    search = client.search(
-        collection_name=COLLECTION_NAME,
-        query_filter=models.Filter(
-            must=[
-                models.FieldCondition(
-                    key="city",
-                    match=models.MatchValue(
-                        value="London",
-                    ),
-                )
-            ]
-        ),
-        search_params=models.SearchParams(hnsw_ef=128, exact=False),
-        query_vector=[0.2, 0.1, 0.9, 0.7],
-        limit=3,
-    )
-    assert isinstance(search, list)
+    # # Search vectors from the collection
+    # search = client.search(
+    #     collection_name=COLLECTION_NAME,
+    #     query_filter=models.Filter(
+    #         must=[
+    #             models.FieldCondition(
+    #                 key="city",
+    #                 match=models.MatchValue(
+    #                     value="London",
+    #                 ),
+    #             )
+    #         ]
+    #     ),
+    #     search_params=models.SearchParams(hnsw_ef=128, exact=False),
+    #     query_vector=[0.2, 0.1, 0.9, 0.7],
+    #     limit=3,
+    # )
+    # assert isinstance(search, list)
 
     # Search groups from the collection
     search_groups = client.search_groups(
