@@ -59,7 +59,7 @@ function ModifyEvaluationSettings({
 			return;
 		}
 
-		const autoValue = formElement.auto instanceof HTMLInputElement ? formElement.auto.checked : formElement.auto instanceof RadioNodeList ? (Array.from(formElement.auto).find(item => ((item as any).name)) as any)?.checked : false;
+		const autoValue = formElement.auto instanceof HTMLInputElement ? formElement.auto.checked : formElement.auto instanceof RadioNodeList ? (Array.from(formElement.auto).find(item => ((item as any).checked)) as any)?.checked : false;
 
 		const bodyObject = {
 			...(evaluation || {}),

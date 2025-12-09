@@ -118,7 +118,7 @@ export default function PromptHub() {
 		}
 	}, [pingStatus]);
 
-	if (!data?.length && !isLoading) {
+	if (!data?.length && !isLoading && isFetched) {
 		return (
 			<div className="flex flex-col items-center mx-auto p-8 overflow-auto">
 				<PromptsGettingStarted />
