@@ -306,6 +306,44 @@ class SemanticConvention:
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
     GEN_AI_CONTENT_REASONING = "gen_ai.content.reasoning"
 
+    # Tool Attributes (LangChain/Framework Support)
+    GEN_AI_TOOL_INPUT = "gen_ai.tool.input"
+    GEN_AI_TOOL_OUTPUT = "gen_ai.tool.output"
+
+    # Retrieval Attributes (LangChain Retriever Support)
+    GEN_AI_RETRIEVAL_QUERY = "gen_ai.retrieval.query"
+    GEN_AI_RETRIEVAL_DOCUMENTS = "gen_ai.retrieval.documents"
+    GEN_AI_RETRIEVAL_DOCUMENT_COUNT = "gen_ai.retrieval.document_count"
+
+    # Workflow Attributes (LangChain Chain Support)
+    GEN_AI_WORKFLOW_INPUT = "gen_ai.workflow.input"
+    GEN_AI_WORKFLOW_OUTPUT = "gen_ai.workflow.output"
+    GEN_AI_WORKFLOW_TYPE = "gen_ai.workflow.type"
+
+    # Framework Attributes (Enhanced Observability)
+    GEN_AI_FRAMEWORK_TAGS = "gen_ai.framework.tags"
+    GEN_AI_FRAMEWORK_ERROR_CLASS = "gen_ai.framework.error.class"
+    GEN_AI_FRAMEWORK_ERROR_TYPE = "gen_ai.framework.error.type"
+    GEN_AI_FRAMEWORK_ERROR_MESSAGE = "gen_ai.framework.error.message"
+    GEN_AI_FRAMEWORK_PERFORMANCE_VS_BASELINE = "gen_ai.framework.performance.vs_baseline"
+    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_AVG = "gen_ai.framework.performance.baseline_avg"
+    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_PERCENTILE = "gen_ai.framework.performance.baseline_percentile"
+
+    # Serialized Function Capture (LangSmith-style)
+    GEN_AI_SERIALIZED_NAME = "gen_ai.serialized.name"
+    GEN_AI_SERIALIZED_SIGNATURE = "gen_ai.serialized.signature"
+    GEN_AI_SERIALIZED_DOC = "gen_ai.serialized.doc"
+    GEN_AI_SERIALIZED_MODULE = "gen_ai.serialized.module"
+
+    # Provider Mapping
+    GEN_AI_REQUEST_PROVIDER = "gen_ai.request.provider"
+
+    # Enhanced Token Usage Details (OpenAI/Anthropic Cache Support)
+    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_AUDIO = "gen_ai.usage.completion_tokens_details.audio_tokens"
+    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = "gen_ai.usage.completion_tokens_details.reasoning_tokens"
+    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = "gen_ai.usage.prompt_tokens_details.cached_tokens"
+    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE = "gen_ai.usage.prompt_tokens_details.cache_creation_tokens"
+
     # GenAI Rag
     GEN_AI_RAG_MAX_SEGMENTS = "gen_ai.rag.max_segments"
     GEN_AI_RAG_STRATEGY = "gen_ai.rag.strategy"
@@ -421,6 +459,13 @@ class SemanticConvention:
     GEN_AI_AGENT_STEP_COUNT = "gen_ai.agent.step_count"
     GEN_AI_AGENT_RESPONSE_TIME = "gen_ai.agent.response_time"
     GEN_AI_AGENT_STRATEGY = "gen_ai.agent.strategy"
+
+    # Agent Action/Finish Attributes (LangChain Agent Support)
+    GEN_AI_AGENT_ACTION_TOOL = "gen_ai.agent.action.tool"
+    GEN_AI_AGENT_ACTION_TOOL_INPUT = "gen_ai.agent.action.tool_input"
+    GEN_AI_AGENT_ACTION_LOG = "gen_ai.agent.action.log"
+    GEN_AI_AGENT_FINISH_OUTPUT = "gen_ai.agent.finish.output"
+    GEN_AI_AGENT_FINISH_LOG = "gen_ai.agent.finish.log"
 
     GEN_AI_AGENT_TYPE_BROWSER = "browser"
 
