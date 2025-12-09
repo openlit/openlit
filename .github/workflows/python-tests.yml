@@ -40,7 +40,21 @@ env:
   TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
 
 jobs:
+  # It's important that we run this job first, because we need to remove the
+  # "safe to test" label when the PR comes from a fork in order to ensure that
+  # every change is reviewed for security implications.
+  remove-safe-to-build-label:
+    runs-on: ubuntu-24.04
+    permissions:
+      # Required by the remove-safe-to-test-label action
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Remove "safe to test" label, if PR is from a fork
+        uses: SharezoneApp/remove-safe-to-test-label@91b378205db41bb08dde8e4c4f2685847eb3d168
+
   build:
+    needs: remove-safe-to-build-label
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -48,6 +62,9 @@ jobs:
         python-version: ["3.12"]
 
     steps:
+    - name: Ensure PR has "safe to test" label, if PR is from a fork
+      uses: SharezoneApp/verify-safe-to-test-label@c1059d43fc918756660a700ca6d08e445ff314a2
+
     - name: Checkout base code
       uses: actions/checkout@v5
       with:
