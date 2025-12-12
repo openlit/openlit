@@ -12,7 +12,7 @@ import importlib.metadata
 
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from opentelemetry import context as context_api
+# context_api not needed - callbacks execute in different contexts
 from opentelemetry.trace import set_span_in_context
 from wrapt import wrap_function_wrapper
 
@@ -38,6 +38,7 @@ class SpanHolder:
         "token_timestamps",
         "model_name",
         "model_parameters",
+        "prompt_content",
     )
 
     def __init__(self, span, token=None, start_time=None):
@@ -53,6 +54,7 @@ class SpanHolder:
         self.token_timestamps: List[float] = []
         self.model_name = "unknown"
         self.model_parameters: Dict[str, Any] = {}
+        self.prompt_content = ""
 
 
 # =============================================================================
@@ -395,6 +397,10 @@ def _create_callback_handler_class(
             kind: SpanKind = SpanKind.INTERNAL,
         ) -> Any:
             """Create a new span with proper parent relationship."""
+            # For callback-based instrumentation, we manage parent-child relationships
+            # via the parent_context parameter, not via context attachment.
+            # This avoids "Failed to detach context" errors in streaming scenarios
+            # where callbacks may execute in different execution contexts.
             parent_context = None
             if parent_run_id is not None and parent_run_id in self.spans:
                 parent_span = self.spans[parent_run_id].span
@@ -406,13 +412,8 @@ def _create_callback_handler_class(
                 kind=kind,
             )
 
-            token = None
-            try:
-                token = context_api.attach(set_span_in_context(span))
-            except Exception:
-                pass
-
-            holder = SpanHolder(span, token)
+            # Don't attach to context - callbacks can execute in different contexts
+            holder = SpanHolder(span, token=None)
             self.spans[run_id] = holder
 
             if parent_run_id is not None and parent_run_id in self.spans:
@@ -428,6 +429,7 @@ def _create_callback_handler_class(
             holder = self.spans[run_id]
             span = holder.span
 
+            # End any child spans that are still open
             for child_id in holder.children:
                 if child_id in self.spans:
                     child_holder = self.spans[child_id]
@@ -440,12 +442,6 @@ def _create_callback_handler_class(
                 span.set_status(Status(StatusCode.OK))
 
             span.end()
-
-            if holder.token:
-                try:
-                    context_api.detach(holder.token)
-                except Exception:
-                    pass
 
             del self.spans[run_id]
 
@@ -692,7 +688,8 @@ def _create_callback_handler_class(
                 self.spans[run_id].model_name = model_name
                 self.spans[run_id].model_parameters = model_params
 
-                if self._capture_message_content and messages:
+                # Always calculate prompt content for token estimation
+                if messages:
                     formatted = []
                     for msg_list in messages:
                         for msg in msg_list:
@@ -700,10 +697,16 @@ def _create_callback_handler_class(
                             content = getattr(msg, "content", str(msg))
                             formatted.append(f"{role}: {content}")
                     prompt_str = "\n".join(formatted)[:5000]
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_str
-                    )
+
+                    # Store prompt for token estimation
+                    self.spans[run_id].prompt_content = prompt_str
                     self.spans[run_id].input_tokens = general_tokens(prompt_str)
+
+                    # Set prompt attribute if capturing content
+                    if self._capture_message_content:
+                        span.set_attribute(
+                            SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_str
+                        )
 
             except Exception as e:
                 logger.debug("Error in on_chat_model_start: %s", e)
@@ -714,6 +717,7 @@ def _create_callback_handler_class(
             *,
             run_id: UUID,
             parent_run_id: Optional[UUID] = None,
+            chunk: Any = None,
             **kwargs: Any,
         ) -> None:
             """Run on new LLM token (streaming) - tracks TTFT."""
@@ -728,7 +732,48 @@ def _create_callback_handler_class(
 
                     # Track timestamps for TBT calculation
                     holder.token_timestamps.append(current_time)
-                    holder.streaming_content.append(token)
+
+                    # Helper to extract string from content (handles list, str, etc.)
+                    def extract_str(content):
+                        if content is None:
+                            return None
+                        if isinstance(content, str):
+                            return content if content else None
+                        if isinstance(content, list):
+                            # Flatten list of content items
+                            parts = []
+                            for item in content:
+                                if isinstance(item, str):
+                                    parts.append(item)
+                                elif isinstance(item, dict) and "text" in item:
+                                    parts.append(str(item["text"]))
+                                elif hasattr(item, "text"):
+                                    parts.append(str(item.text))
+                                else:
+                                    parts.append(str(item))
+                            return "".join(parts) if parts else None
+                        return str(content)
+
+                    # Append the token content
+                    token_str = extract_str(token)
+                    if token_str:
+                        holder.streaming_content.append(token_str)
+
+                    # Also try to get content from chunk if available
+                    # Some providers (Bedrock, etc.) pass content in chunk
+                    if not token_str and chunk is not None:
+                        chunk_content = None
+                        if hasattr(chunk, "content") and chunk.content:
+                            chunk_content = extract_str(chunk.content)
+                        elif hasattr(chunk, "text") and chunk.text:
+                            chunk_content = extract_str(chunk.text)
+                        elif hasattr(chunk, "message"):
+                            msg = chunk.message
+                            if hasattr(msg, "content") and msg.content:
+                                chunk_content = extract_str(msg.content)
+
+                        if chunk_content:
+                            holder.streaming_content.append(chunk_content)
 
             except Exception as e:
                 logger.debug("Error in on_llm_new_token: %s", e)
@@ -777,28 +822,89 @@ def _create_callback_handler_class(
                 input_tokens = holder.input_tokens
                 output_tokens = 0
                 completion_content = ""
+                model_name = holder.model_name
 
+                # Get completion from streaming content first
+                # Filter out empty strings and ensure all items are strings
                 if holder.streaming_content:
-                    completion_content = "".join(holder.streaming_content)
-                elif response.generations:
+                    str_parts = []
+                    for item in holder.streaming_content:
+                        if isinstance(item, str) and item:
+                            str_parts.append(item)
+                        elif isinstance(item, list):
+                            for sub in item:
+                                if isinstance(sub, str) and sub:
+                                    str_parts.append(sub)
+                                elif sub:
+                                    str_parts.append(str(sub))
+                        elif item:
+                            str_parts.append(str(item))
+                    if str_parts:
+                        completion_content = "".join(str_parts)
+
+                # Extract from response.generations (works for streaming and non-streaming)
+                # For streaming, the final response often contains the complete content
+                if response.generations:
                     for gen_list in response.generations:
                         for gen in gen_list:
-                            if hasattr(gen, "text"):
-                                completion_content += gen.text
-                            elif hasattr(gen, "message"):
-                                completion_content += getattr(
-                                    gen.message, "content", str(gen)
-                                )
+                            # Get content from generation - ALWAYS try, not just when empty
+                            gen_content = None
+                            if hasattr(gen, "text") and gen.text:
+                                gen_content = gen.text
+                            elif hasattr(gen, "message") and gen.message:
+                                msg = gen.message
+                                if hasattr(msg, "content") and msg.content:
+                                    if isinstance(msg.content, str):
+                                        gen_content = msg.content
+                                    else:
+                                        gen_content = str(msg.content)
 
-                if completion_content:
-                    output_tokens = general_tokens(completion_content)
-                    if self._capture_message_content:
-                        span.set_attribute(
-                            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-                            completion_content[:5000],
-                        )
+                            # Use generation content if we don't have completion yet
+                            # or if it's longer (streaming sometimes has partial content)
+                            if gen_content:
+                                if not completion_content or len(gen_content) > len(completion_content):
+                                    completion_content = gen_content
 
-                # Try to get token usage from llm_output
+                            # Extract usage_metadata from message (OpenLLMetry approach)
+                            # This is the key for LangChain responses including streaming
+                            if hasattr(gen, "message") and gen.message:
+                                msg = gen.message
+                                if hasattr(msg, "usage_metadata") and msg.usage_metadata:
+                                    usage = msg.usage_metadata
+                                    input_tokens = (
+                                        usage.get("input_tokens")
+                                        or usage.get("prompt_tokens")
+                                        or input_tokens
+                                    )
+                                    output_tokens = (
+                                        usage.get("output_tokens")
+                                        or usage.get("completion_tokens")
+                                        or output_tokens
+                                    )
+
+                                # Also check response_metadata for Bedrock
+                                if hasattr(msg, "response_metadata") and msg.response_metadata:
+                                    metadata = msg.response_metadata
+                                    if "usage" in metadata:
+                                        usage = metadata["usage"]
+                                        input_tokens = usage.get(
+                                            "inputTokens",
+                                            usage.get("input_tokens", input_tokens),
+                                        )
+                                        output_tokens = usage.get(
+                                            "outputTokens",
+                                            usage.get("output_tokens", output_tokens),
+                                        )
+
+                            # Check generation_info as fallback
+                            if hasattr(gen, "generation_info") and gen.generation_info:
+                                gen_info = gen.generation_info
+                                if "usage" in gen_info:
+                                    usage = gen_info["usage"]
+                                    input_tokens = usage.get("input_tokens", input_tokens)
+                                    output_tokens = usage.get("output_tokens", output_tokens)
+
+                # Try to get token usage from llm_output as another fallback
                 if response.llm_output:
                     token_usage = response.llm_output.get(
                         "token_usage"
@@ -815,7 +921,29 @@ def _create_callback_handler_class(
                             or output_tokens
                         )
 
-                # Set token attributes
+                # Calculate tokens from content if not available from metadata
+                # (Similar to OpenAI instrumentation approach)
+                try:
+                    if output_tokens == 0 and completion_content:
+                        output_tokens = general_tokens(completion_content)
+                except Exception as token_err:
+                    logger.debug("Error calculating output tokens: %s", token_err)
+
+                # If we still don't have input tokens, estimate from prompt
+                try:
+                    if input_tokens == 0 and hasattr(holder, "prompt_content") and holder.prompt_content:
+                        input_tokens = general_tokens(holder.prompt_content)
+                except Exception as input_err:
+                    logger.debug("Error calculating input tokens: %s", input_err)
+
+                # Set completion content attribute
+                if completion_content and self._capture_message_content:
+                    span.set_attribute(
+                        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+                        completion_content[:5000],
+                    )
+
+                # Always set token attributes
                 span.set_attribute(
                     SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
                 )
@@ -827,15 +955,11 @@ def _create_callback_handler_class(
                     input_tokens + output_tokens,
                 )
 
-                model_name = holder.model_name
-
                 # Calculate cost
-                cost = 0.0
-                if input_tokens > 0 or output_tokens > 0:
-                    cost = get_chat_model_cost(
-                        model_name, self._pricing_info, input_tokens, output_tokens
-                    )
-                    span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+                cost = get_chat_model_cost(
+                    model_name, self._pricing_info, input_tokens, output_tokens
+                )
+                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
                 # Set response model
                 response_model = model_name
