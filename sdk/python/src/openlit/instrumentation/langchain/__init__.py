@@ -23,7 +23,7 @@ _instruments = ("langchain-core >= 0.1.20",)
 
 
 class SpanHolder:
-    """Container for span and related metadata."""
+    """Container for span and related metadata with performance optimization via __slots__."""
 
     __slots__ = (
         "span",
@@ -55,6 +55,14 @@ class SpanHolder:
         self.model_name = "unknown"
         self.model_parameters: Dict[str, Any] = {}
         self.prompt_content = ""
+
+    def get_duration(self) -> float:
+        """Calculate duration from start time to now."""
+        return time.time() - self.start_time
+
+    def is_streaming(self) -> bool:
+        """Check if this is a streaming response."""
+        return len(self.streaming_content) > 0
 
 
 # =============================================================================
@@ -454,6 +462,125 @@ def _create_callback_handler_class(
             )
             span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, self._version)
 
+        def _extract_from_generations(
+            self, response, input_tokens: int, output_tokens: int, completion_content: str
+        ) -> tuple:
+            """
+            Extract token usage and content from response.generations.
+            Based on Langfuse's _parse_usage approach for comprehensive extraction.
+            """
+            if not response.generations:
+                return input_tokens, output_tokens, completion_content
+
+            for gen_list in response.generations:
+                for gen in gen_list:
+                    # Extract content
+                    gen_content = self._extract_generation_content(gen)
+                    if gen_content and (not completion_content or len(gen_content) > len(completion_content)):
+                        completion_content = gen_content
+
+                    # Extract usage from message
+                    tokens = self._extract_message_usage(gen, input_tokens, output_tokens)
+                    input_tokens, output_tokens = tokens
+
+                    # Check generation_info as fallback
+                    if hasattr(gen, "generation_info") and gen.generation_info:
+                        gen_info = gen.generation_info
+                        if "usage" in gen_info:
+                            usage = gen_info["usage"]
+                            input_tokens = usage.get("input_tokens", input_tokens)
+                            output_tokens = usage.get("output_tokens", output_tokens)
+
+            return input_tokens, output_tokens, completion_content
+
+        def _extract_generation_content(self, gen) -> Optional[str]:
+            """Extract content from a generation object."""
+            if hasattr(gen, "text") and gen.text:
+                return gen.text
+            if hasattr(gen, "message") and gen.message:
+                msg = gen.message
+                if hasattr(msg, "content") and msg.content:
+                    return msg.content if isinstance(msg.content, str) else str(msg.content)
+            return None
+
+        def _join_streaming_content(self, streaming_content: List[Any]) -> str:
+            """
+            Join streaming content into a single string.
+            Handles nested lists and ensures all items are properly converted.
+            """
+            if not streaming_content:
+                return ""
+
+            str_parts = []
+            for item in streaming_content:
+                if isinstance(item, str) and item:
+                    str_parts.append(item)
+                elif isinstance(item, list):
+                    str_parts.extend(self._flatten_list_item(item))
+                elif item:
+                    str_parts.append(str(item))
+
+            return "".join(str_parts) if str_parts else ""
+
+        def _flatten_list_item(self, items: List[Any]) -> List[str]:
+            """Flatten a list of items into strings."""
+            result = []
+            for sub in items:
+                if isinstance(sub, str) and sub:
+                    result.append(sub)
+                elif sub:
+                    result.append(str(sub))
+            return result
+
+        def _extract_message_usage(self, gen, input_tokens: int, output_tokens: int) -> tuple:
+            """
+            Extract token usage from message metadata.
+            Handles multiple formats based on Langfuse's comprehensive approach:
+            - usage_metadata (standard LangChain)
+            - response_metadata.usage (Bedrock-Anthropic)
+            - response_metadata.amazon-bedrock-invocationMetrics (Bedrock-Titan)
+            """
+            if not hasattr(gen, "message") or not gen.message:
+                return input_tokens, output_tokens
+
+            msg = gen.message
+
+            # Check usage_metadata (standard LangChain, Ollama)
+            if hasattr(msg, "usage_metadata") and msg.usage_metadata:
+                usage = msg.usage_metadata
+                input_tokens = (
+                    usage.get("input_tokens")
+                    or usage.get("prompt_tokens")
+                    or input_tokens
+                )
+                output_tokens = (
+                    usage.get("output_tokens")
+                    or usage.get("completion_tokens")
+                    or output_tokens
+                )
+
+            # Check response_metadata (Bedrock, etc.)
+            if hasattr(msg, "response_metadata") and msg.response_metadata:
+                metadata = msg.response_metadata
+                if isinstance(metadata, dict):
+                    # Bedrock-Anthropic style
+                    if "usage" in metadata:
+                        usage = metadata["usage"]
+                        input_tokens = usage.get(
+                            "inputTokens", usage.get("input_tokens", input_tokens)
+                        )
+                        output_tokens = usage.get(
+                            "outputTokens", usage.get("output_tokens", output_tokens)
+                        )
+
+                    # Bedrock-Titan style (amazon-bedrock-invocationMetrics)
+                    if "amazon-bedrock-invocationMetrics" in metadata:
+                        metrics = metadata["amazon-bedrock-invocationMetrics"]
+                        input_tokens = metrics.get("inputTokenCount", input_tokens)
+                        output_tokens = metrics.get("outputTokenCount", output_tokens)
+
+            return input_tokens, output_tokens
+
         def _set_model_parameters(self, span, params: Dict[str, Any]) -> None:
             """Set model parameters as span attributes."""
             if params.get("temperature") is not None:
@@ -825,84 +952,12 @@ def _create_callback_handler_class(
                 model_name = holder.model_name
 
                 # Get completion from streaming content first
-                # Filter out empty strings and ensure all items are strings
-                if holder.streaming_content:
-                    str_parts = []
-                    for item in holder.streaming_content:
-                        if isinstance(item, str) and item:
-                            str_parts.append(item)
-                        elif isinstance(item, list):
-                            for sub in item:
-                                if isinstance(sub, str) and sub:
-                                    str_parts.append(sub)
-                                elif sub:
-                                    str_parts.append(str(sub))
-                        elif item:
-                            str_parts.append(str(item))
-                    if str_parts:
-                        completion_content = "".join(str_parts)
+                completion_content = self._join_streaming_content(holder.streaming_content)
 
                 # Extract from response.generations (works for streaming and non-streaming)
-                # For streaming, the final response often contains the complete content
-                if response.generations:
-                    for gen_list in response.generations:
-                        for gen in gen_list:
-                            # Get content from generation - ALWAYS try, not just when empty
-                            gen_content = None
-                            if hasattr(gen, "text") and gen.text:
-                                gen_content = gen.text
-                            elif hasattr(gen, "message") and gen.message:
-                                msg = gen.message
-                                if hasattr(msg, "content") and msg.content:
-                                    if isinstance(msg.content, str):
-                                        gen_content = msg.content
-                                    else:
-                                        gen_content = str(msg.content)
-
-                            # Use generation content if we don't have completion yet
-                            # or if it's longer (streaming sometimes has partial content)
-                            if gen_content:
-                                if not completion_content or len(gen_content) > len(completion_content):
-                                    completion_content = gen_content
-
-                            # Extract usage_metadata from message (OpenLLMetry approach)
-                            # This is the key for LangChain responses including streaming
-                            if hasattr(gen, "message") and gen.message:
-                                msg = gen.message
-                                if hasattr(msg, "usage_metadata") and msg.usage_metadata:
-                                    usage = msg.usage_metadata
-                                    input_tokens = (
-                                        usage.get("input_tokens")
-                                        or usage.get("prompt_tokens")
-                                        or input_tokens
-                                    )
-                                    output_tokens = (
-                                        usage.get("output_tokens")
-                                        or usage.get("completion_tokens")
-                                        or output_tokens
-                                    )
-
-                                # Also check response_metadata for Bedrock
-                                if hasattr(msg, "response_metadata") and msg.response_metadata:
-                                    metadata = msg.response_metadata
-                                    if "usage" in metadata:
-                                        usage = metadata["usage"]
-                                        input_tokens = usage.get(
-                                            "inputTokens",
-                                            usage.get("input_tokens", input_tokens),
-                                        )
-                                        output_tokens = usage.get(
-                                            "outputTokens",
-                                            usage.get("output_tokens", output_tokens),
-                                        )
-
-                            # Check generation_info as fallback
-                            if hasattr(gen, "generation_info") and gen.generation_info:
-                                gen_info = gen.generation_info
-                                if "usage" in gen_info:
-                                    usage = gen_info["usage"]
-                                    input_tokens = usage.get("input_tokens", input_tokens)
-                                    output_tokens = usage.get("output_tokens", output_tokens)
+                input_tokens, output_tokens, completion_content = self._extract_from_generations(
+                    response, input_tokens, output_tokens, completion_content
+                )
 
                 # Try to get token usage from llm_output as another fallback
                 if response.llm_output:
@@ -1329,13 +1384,20 @@ class _BaseCallbackManagerInitWrapper:
     def __init__(self, callback_handler):
         self._callback_handler = callback_handler
 
+    def get_handler(self):
+        """Return the callback handler instance."""
+        return self._callback_handler
+
+    def is_handler_present(self, handlers) -> bool:
+        """Check if OpenLIT handler is already present in handlers list."""
+        return any(isinstance(h, type(self._callback_handler)) for h in handlers)
+
     def __call__(self, wrapped, instance, args, kwargs) -> None:
         wrapped(*args, **kwargs)
 
         try:
-            for handler in instance.inheritable_handlers:
-                if isinstance(handler, type(self._callback_handler)):
-                    return
+            if self.is_handler_present(instance.inheritable_handlers):
+                return
 
             instance.add_handler(self._callback_handler, True)
         except Exception as e:
