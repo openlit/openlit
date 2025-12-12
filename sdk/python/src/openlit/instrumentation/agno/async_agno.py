@@ -239,7 +239,7 @@ def async_agent_run_stream_wrap(
             try:
                 # agno 2.x: when `yield_run_response=True`, the final `RunOutput` is yielded
                 # rather than stored on `instance.run_response`
-                # agno 2.3+: `yield_run_response` has been deprecated for `yield_run_output` 
+                # agno 2.3+: `yield_run_response` has been deprecated for `yield_run_output`
                 try:
                     from agno.run.agent import RunOutput  # noqa: WPS433 # pylint: disable=import-error
                 except Exception:  # noqa: WPS429
