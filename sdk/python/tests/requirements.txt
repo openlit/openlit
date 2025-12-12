@@ -14,9 +14,6 @@ boto3
 botocore
 google-genai
 azure-ai-inference
-mem0ai
-ai21
-controlflow
 assemblyai
 firecrawl-py
 together
@@ -30,10 +27,6 @@ chromadb
 pinecone
 qdrant-client
 astrapy
-
-# Frameworks
-langchain
-langchainhub
 
 # GPU
 xmltodict
