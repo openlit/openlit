@@ -12,6 +12,7 @@ import importlib.metadata
 
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.trace import SpanKind, Status, StatusCode
+
 # context_api not needed - callbacks execute in different contexts
 from opentelemetry.trace import set_span_in_context
 from wrapt import wrap_function_wrapper
@@ -463,7 +464,11 @@ def _create_callback_handler_class(
             span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, self._version)
 
         def _extract_from_generations(
-            self, response, input_tokens: int, output_tokens: int, completion_content: str
+            self,
+            response,
+            input_tokens: int,
+            output_tokens: int,
+            completion_content: str,
         ) -> tuple:
             """
             Extract token usage and content from response.generations.
@@ -476,11 +481,16 @@ def _create_callback_handler_class(
                 for gen in gen_list:
                     # Extract content
                     gen_content = self._extract_generation_content(gen)
-                    if gen_content and (not completion_content or len(gen_content) > len(completion_content)):
+                    if gen_content and (
+                        not completion_content
+                        or len(gen_content) > len(completion_content)
+                    ):
                         completion_content = gen_content
 
                     # Extract usage from message
-                    tokens = self._extract_message_usage(gen, input_tokens, output_tokens)
+                    tokens = self._extract_message_usage(
+                        gen, input_tokens, output_tokens
+                    )
                     input_tokens, output_tokens = tokens
 
                     # Check generation_info as fallback
@@ -500,7 +510,11 @@ def _create_callback_handler_class(
             if hasattr(gen, "message") and gen.message:
                 msg = gen.message
                 if hasattr(msg, "content") and msg.content:
-                    return msg.content if isinstance(msg.content, str) else str(msg.content)
+                    return (
+                        msg.content
+                        if isinstance(msg.content, str)
+                        else str(msg.content)
+                    )
             return None
 
         def _join_streaming_content(self, streaming_content: List[Any]) -> str:
@@ -532,7 +546,9 @@ def _create_callback_handler_class(
                     result.append(str(sub))
             return result
 
-        def _extract_message_usage(self, gen, input_tokens: int, output_tokens: int) -> tuple:
+        def _extract_message_usage(
+            self, gen, input_tokens: int, output_tokens: int
+        ) -> tuple:
             """
             Extract token usage from message metadata.
             Handles multiple formats based on Langfuse's comprehensive approach:
@@ -952,11 +968,15 @@ def _create_callback_handler_class(
                 model_name = holder.model_name
 
                 # Get completion from streaming content first
-                completion_content = self._join_streaming_content(holder.streaming_content)
+                completion_content = self._join_streaming_content(
+                    holder.streaming_content
+                )
 
                 # Extract from response.generations (works for streaming and non-streaming)
-                input_tokens, output_tokens, completion_content = self._extract_from_generations(
-                    response, input_tokens, output_tokens, completion_content
+                input_tokens, output_tokens, completion_content = (
+                    self._extract_from_generations(
+                        response, input_tokens, output_tokens, completion_content
+                    )
                 )
 
                 # Try to get token usage from llm_output as another fallback
@@ -986,7 +1006,11 @@ def _create_callback_handler_class(
 
                 # If we still don't have input tokens, estimate from prompt
                 try:
-                    if input_tokens == 0 and hasattr(holder, "prompt_content") and holder.prompt_content:
+                    if (
+                        input_tokens == 0
+                        and hasattr(holder, "prompt_content")
+                        and holder.prompt_content
+                    ):
                         input_tokens = general_tokens(holder.prompt_content)
                 except Exception as input_err:
                     logger.debug("Error calculating input tokens: %s", input_err)
