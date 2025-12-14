@@ -6,13 +6,15 @@ import { dataCollector, MetricParams, OTEL_TRACES_TABLE_NAME } from "../common";
 import { OPENLIT_EVALUATION_TABLE_NAME } from "./table-details";
 import { spawn } from "child_process";
 import { getEvaluationConfig, getEvaluationConfigById } from "./config";
+import { getCustomEvaluationConfigs } from "./custom-eval-config";
 import asaw from "@/utils/asaw";
 import {
-	AutoEvaluationConfig,
-	Evaluation,
-	EvaluationConfig,
-	EvaluationConfigWithSecret,
-	EvaluationResponse,
+  AutoEvaluationConfig,
+  Evaluation,
+  EvaluationConfig,
+  EvaluationConfigWithSecret,
+  EvaluationResponse,
+  CustomEvaluationConfig,
 } from "@/types/evaluation";
 import { consoleLog } from "@/utils/log";
 import { getRequestViaSpanId } from "../request";
@@ -23,21 +25,21 @@ import { getDBConfigById } from "@/lib/db-config";
 import { SUPPORTED_EVALUATION_OPERATIONS } from "@/constants/traces";
 import { jsonParse } from "@/utils/json";
 import {
-	getLastRunCronLogByCronId,
-	getLastFailureCronLogBySpanId,
-	insertCronLog,
+  getLastRunCronLogByCronId,
+  getLastFailureCronLogBySpanId,
+  insertCronLog,
 } from "@/lib/platform/cron-log";
 import { CronType, CronRunStatus, CronLogData } from "@/types/cron";
 import { differenceInSeconds } from "date-fns";
 import { getFilterPreviousParams } from "@/helpers/server/platform";
 
 export async function getEvaluationsForSpanId(spanId: string) {
-	const user = await getCurrentUser();
+  const user = await getCurrentUser();
 
-	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
-	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
+  throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+  const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	const query = `
+  const query = `
 		SELECT 
 			span_id as spanId,
 			created_at as createdAt,
@@ -55,311 +57,362 @@ export async function getEvaluationsForSpanId(spanId: string) {
 		ORDER BY created_at;
 	`;
 
-	const { data, err } = await dataCollector({ query });
+  const { data, err } = await dataCollector({ query });
 
-	if (err) {
-		return { err };
-	}
+  if (err) {
+    return { err };
+  }
 
-	if (!(data as any[])?.length) {
-		const [evaluationConfigErr, evaluationConfig] = await asaw(
-			getEvaluationConfig()
-		);
-		const evaluationConfigTyped = evaluationConfig as EvaluationConfig;
-		if (evaluationConfigErr) {
-			return { configErr: evaluationConfigErr };
-		}
-		if (!evaluationConfigTyped?.id) {
-			return { configErr: getMessage().EVALUATION_CONFIG_NOT_FOUND };
-		}
+  if (!(data as any[])?.length) {
+    const [evaluationConfigErr, evaluationConfig] = await asaw(
+      getEvaluationConfig()
+    );
+    const evaluationConfigTyped = evaluationConfig as EvaluationConfig;
+    if (evaluationConfigErr) {
+      return { configErr: evaluationConfigErr };
+    }
+    if (!evaluationConfigTyped?.id) {
+      return { configErr: getMessage().EVALUATION_CONFIG_NOT_FOUND };
+    }
 
-		const { data: lastFailureCronLog } = await getLastFailureCronLogBySpanId(
-			spanId
-		);
+    const { data: lastFailureCronLog } = await getLastFailureCronLogBySpanId(
+      spanId
+    );
 
-		const errorMessage =
-			(lastFailureCronLog as CronLogData[])?.[0]?.errorStacktrace?.[spanId] ||
-			"";
+    const errorMessage =
+      (lastFailureCronLog as CronLogData[])?.[0]?.errorStacktrace?.[spanId] ||
+      "";
 
-		if (errorMessage) {
-			return { err: errorMessage };
-		}
+    if (errorMessage) {
+      return { err: errorMessage };
+    }
 
-		return { config: evaluationConfigTyped.id };
-	}
-	return { data: (data as EvaluationResponse[])?.[0] || {} };
+    return { config: evaluationConfigTyped.id };
+  }
+  return { data: (data as EvaluationResponse[])?.[0] || {} };
+}
+
+/**
+ * Get active evaluation configs including both built-in and custom evaluations
+ */
+async function getActiveEvaluationConfigs(
+  databaseConfigId: string,
+  excludeVaultValue: boolean = false
+): Promise<{
+  builtin: EvaluationConfigWithSecret;
+  custom: CustomEvaluationConfig[];
+}> {
+  // Get built-in config from PostgreSQL
+  const builtinConfig = await getEvaluationConfig(undefined, excludeVaultValue);
+
+  // Get enabled custom configs from ClickHouse
+  const { data: customConfigs } = await getCustomEvaluationConfigs(
+    databaseConfigId,
+    true, // only enabled configs
+    databaseConfigId
+  );
+
+  return {
+    builtin: builtinConfig,
+    custom: customConfigs || [],
+  };
 }
 
 async function storeEvaluation(
-	spanId: string,
-	evaluation: Evaluation[],
-	meta: any,
-	dbConfigId?: string
+  spanId: string,
+  evaluation: Evaluation[],
+  meta: any,
+  dbConfigId?: string
 ) {
-	const { err } = await dataCollector(
-		{
-			table: OPENLIT_EVALUATION_TABLE_NAME,
-			values: [
-				{
-					span_id: spanId,
-					meta,
-					"evaluationData.evaluation": evaluation.map((e) => e.evaluation),
-					"evaluationData.classification": evaluation.map(
-						(e) => e.classification
-					),
-					"evaluationData.explanation": evaluation.map((e) => e.explanation),
-					"evaluationData.verdict": evaluation.map((e) => e.verdict),
-					scores: evaluation.reduce((acc: Record<string, number>, e) => {
-						acc[e.evaluation] = e.score;
-						return acc;
-					}, {}),
-				},
-			],
-		},
-		"insert",
-		dbConfigId
-	);
-	if (err) {
-		consoleLog(err);
-		return { err };
-	}
+  const { err } = await dataCollector(
+    {
+      table: OPENLIT_EVALUATION_TABLE_NAME,
+      values: [
+        {
+          span_id: spanId,
+          meta,
+          "evaluationData.evaluation": evaluation.map((e) => e.evaluation),
+          "evaluationData.classification": evaluation.map(
+            (e) => e.classification
+          ),
+          "evaluationData.explanation": evaluation.map((e) => e.explanation),
+          "evaluationData.verdict": evaluation.map((e) => e.verdict),
+          scores: evaluation.reduce((acc: Record<string, number>, e) => {
+            acc[e.evaluation] = e.score;
+            return acc;
+          }, {}),
+        },
+      ],
+    },
+    "insert",
+    dbConfigId
+  );
+  if (err) {
+    consoleLog(err);
+    return { err };
+  }
 
-	return { data: true };
+  return { data: true };
 }
 
 export async function setEvaluationsForSpanId(spanId: string) {
-	const user = await getCurrentUser();
+  const user = await getCurrentUser();
 
-	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
-	const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
+  throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+  const sanitizedSpanId = Sanitizer.sanitizeValue(spanId);
 
-	let { record: spanData } = await getRequestViaSpanId(sanitizedSpanId);
-	const spanDataTyped = spanData as TraceRow;
+  let { record: spanData } = await getRequestViaSpanId(sanitizedSpanId);
+  const spanDataTyped = spanData as TraceRow;
 
-	throwIfError(!(spanData as any).SpanId, getMessage().TRACE_NOT_FOUND);
+  throwIfError(!(spanData as any).SpanId, getMessage().TRACE_NOT_FOUND);
 
-	const evaluationConfig = await getEvaluationConfig(undefined, false);
-	return await getEvaluationConfigForTrace(spanDataTyped, evaluationConfig);
+  // Get both built-in and custom evaluation configs
+  const builtinConfig = await getEvaluationConfig(undefined, false);
+  const configs = await getActiveEvaluationConfigs(
+    builtinConfig.databaseConfigId
+  );
+
+  return await getEvaluationConfigForTrace(
+    spanDataTyped,
+    configs,
+    builtinConfig.databaseConfigId
+  );
 }
 
 async function getEvaluationConfigForTrace(
-	trace: TraceRow,
-	evaluationConfig: EvaluationConfigWithSecret,
-	dbConfigId?: string
+  trace: TraceRow,
+  configs: {
+    builtin: EvaluationConfigWithSecret;
+    custom: CustomEvaluationConfig[];
+  },
+  dbConfigId?: string
 ) {
-	const response = get(trace, getTraceMappingKeyFullPath("response", true));
-	const prompt = get(trace, getTraceMappingKeyFullPath("prompt", true));
-	// const contexts = spanDataTyped[getTraceMappingKeyFullPath("prompt", true)];
+  const response = get(trace, getTraceMappingKeyFullPath("response", true));
+  const prompt = get(trace, getTraceMappingKeyFullPath("prompt", true));
+  // const contexts = spanDataTyped[getTraceMappingKeyFullPath("prompt", true)];
 
-	try {
-		const data: { success: boolean; result?: Evaluation[]; error?: string } =
-			await new Promise((resolve) => {
-				const pythonProcess = spawn("/bin/sh", [
-					"-c",
-					`
+  try {
+    const data: { success: boolean; result?: Evaluation[]; error?: string } =
+      await new Promise((resolve) => {
+        const pythonProcess = spawn("/bin/sh", [
+          "-c",
+          `
 					source venv/bin/activate && \
 					python3 scripts/evaluation/evaluate.py '${JSON.stringify({
-						spanId: trace.SpanId,
-						model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
-						api_key: evaluationConfig.secret.value,
-						prompt,
-						response,
-						contexts: "",
-						threshold_score: 0.5,
-					})}' && \
+            spanId: trace.SpanId,
+            model: `${configs.builtin.provider}/${configs.builtin.model}`,
+            api_key: configs.builtin.secret.value,
+            prompt,
+            response,
+            contexts: "",
+            threshold_score: 0.5,
+            custom_configs: configs.custom.map((c) => ({
+              name: c.name,
+              description: c.description,
+              customPrompt: c.customPrompt,
+              evaluationType: c.evaluationType,
+              thresholdScore: c.thresholdScore,
+            })),
+          })}' && \
 					deactivate
 				`,
-				]);
+        ]);
 
-				pythonProcess.on("error", (err) => {
-					resolve({
-						success: false,
-						error: `Python process error: ${err.message}`,
-					});
-				});
+        pythonProcess.on("error", (err) => {
+          resolve({
+            success: false,
+            error: `Python process error: ${err.message}`,
+          });
+        });
 
-				let output = "";
-				let errorOutput = "";
+        let output = "";
+        let errorOutput = "";
 
-				pythonProcess.stdout.on("data", (data) => {
-					output += data.toString();
-				});
+        pythonProcess.stdout.on("data", (data) => {
+          output += data.toString();
+        });
 
-				pythonProcess.stderr.on("data", (data) => {
-					errorOutput += data.toString();
-				});
+        pythonProcess.stderr.on("data", (data) => {
+          errorOutput += data.toString();
+        });
 
-				pythonProcess.on("close", (code) => {
-					if (code === 0) {
-						const match = output.match(/\{.*\}/m);
-						if (match) {
-							const parsedData = jsonParse(match[0]);
-							return resolve(parsedData);
-						}
+        pythonProcess.on("close", (code) => {
+          if (code === 0) {
+            const match = output.match(/\{.*\}/m);
+            if (match) {
+              const parsedData = jsonParse(match[0]);
+              return resolve(parsedData);
+            }
 
-						return resolve({ success: false, error: output });
-					} else {
-						resolve({ success: false, error: errorOutput });
-					}
-				});
-			});
+            return resolve({ success: false, error: output });
+          } else {
+            resolve({ success: false, error: errorOutput });
+          }
+        });
+      });
 
-		if (!data.success) {
-			return { success: false, error: data.error };
-		}
+    if (!data.success) {
+      return { success: false, error: data.error };
+    }
 
-		await storeEvaluation(
-			trace.SpanId,
-			data.result || [],
-			{
-				model: `${evaluationConfig.provider}/${evaluationConfig.model}`,
-				traceTimeStamp: trace.Timestamp,
-			},
-			dbConfigId
-		);
-		return { success: true };
-	} catch (e) {
-		consoleLog(e);
-		return { success: false, error: e };
-	}
+    await storeEvaluation(
+      trace.SpanId,
+      data.result || [],
+      {
+        model: `${configs.builtin.provider}/${configs.builtin.model}`,
+        traceTimeStamp: trace.Timestamp,
+        customEvaluations: configs.custom.map((c) => c.evaluationType),
+      },
+      dbConfigId
+    );
+    return { success: true };
+  } catch (e) {
+    consoleLog(e);
+    return { success: false, error: e };
+  }
 }
 
 export async function autoEvaluate(autoEvaluationConfig: AutoEvaluationConfig) {
-	const startedAt = new Date();
-	const cronLogObject = {
-		cronId: autoEvaluationConfig.cronId,
-		cronType: CronType.SPAN_EVALUATION,
-		metaProperties: {
-			...autoEvaluationConfig,
-		},
-		startedAt,
-	};
+  const startedAt = new Date();
+  const cronLogObject = {
+    cronId: autoEvaluationConfig.cronId,
+    cronType: CronType.SPAN_EVALUATION,
+    metaProperties: {
+      ...autoEvaluationConfig,
+    },
+    startedAt,
+  };
 
-	// TODO: Verify the cron job request
-	const [evaluationConfigErr, evaluationConfig] = await asaw(
-		getEvaluationConfigById(autoEvaluationConfig.evaluationConfigId, false)
-	);
+  // TODO: Verify the cron job request
+  const [evaluationConfigErr, evaluationConfig] = await asaw(
+    getEvaluationConfigById(autoEvaluationConfig.evaluationConfigId, false)
+  );
 
-	if (evaluationConfigErr || !evaluationConfig.id) {
-		return { err: getMessage().EVALUATION_CONFIG_NOT_FOUND, success: false };
-	}
+  if (evaluationConfigErr || !evaluationConfig.id) {
+    return { err: getMessage().EVALUATION_CONFIG_NOT_FOUND, success: false };
+  }
 
-	const [databaseConfigErr, databaseConfig] = await asaw(
-		getDBConfigById({ id: evaluationConfig.databaseConfigId })
-	);
+  const [databaseConfigErr, databaseConfig] = await asaw(
+    getDBConfigById({ id: evaluationConfig.databaseConfigId })
+  );
 
-	if (databaseConfigErr || !databaseConfig.id) {
-		return {
-			err: getMessage().DATABASE_CONFIG_NOT_FOUND,
-			success: false,
-		};
-	}
+  if (databaseConfigErr || !databaseConfig.id) {
+    return {
+      err: getMessage().DATABASE_CONFIG_NOT_FOUND,
+      success: false,
+    };
+  }
 
-	const lastRunTime = await getLastRunCronLogByCronId(
-		autoEvaluationConfig.cronId
-	);
+  const lastRunTime = await getLastRunCronLogByCronId(
+    autoEvaluationConfig.cronId
+  );
 
-	const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
+  const keyPath = `SpanAttributes['${getTraceMappingKeyFullPath("type")}']`;
 
-	const query = `
+  const query = `
 		SELECT 
 				*
 		FROM ${OTEL_TRACES_TABLE_NAME} AS t
 		LEFT JOIN ${OPENLIT_EVALUATION_TABLE_NAME} AS e 
 		ON t.SpanId = e.span_id
 		WHERE ${keyPath} IN (${SUPPORTED_EVALUATION_OPERATIONS.map(
-		(operation) => `'${operation}'`
-	).join(", ")})
+    (operation) => `'${operation}'`
+  ).join(", ")})
 		AND (e.span_id = '' OR e.span_id IS NULL)
 		${
-			lastRunTime
-				? `AND t.Timestamp >= parseDateTimeBestEffort('${lastRunTime}')`
-				: ""
-		}
+      lastRunTime
+        ? `AND t.Timestamp >= parseDateTimeBestEffort('${lastRunTime}')`
+        : ""
+    }
 		ORDER BY t.Timestamp;
 	`;
 
-	const { data, err } = await dataCollector(
-		{ query },
-		"query",
-		databaseConfig.id
-	);
+  const { data, err } = await dataCollector(
+    { query },
+    "query",
+    databaseConfig.id
+  );
 
-	if (err) {
-		const finishedAt = new Date();
-		const { err: cronLogErr } = await insertCronLog(
-			{
-				...cronLogObject,
-				runStatus: CronRunStatus.FAILURE,
-				errorStacktrace: {
-					error: `${getMessage().TRACE_FETCHING_ERROR} : ${err}`,
-				},
-				finishedAt,
-				duration: differenceInSeconds(finishedAt, startedAt),
-			},
-			databaseConfig.id
-		);
-		return { err: cronLogErr || err, success: false };
-	}
+  if (err) {
+    const finishedAt = new Date();
+    const { err: cronLogErr } = await insertCronLog(
+      {
+        ...cronLogObject,
+        runStatus: CronRunStatus.FAILURE,
+        errorStacktrace: {
+          error: `${getMessage().TRACE_FETCHING_ERROR} : ${err}`,
+        },
+        finishedAt,
+        duration: differenceInSeconds(finishedAt, startedAt),
+      },
+      databaseConfig.id
+    );
+    return { err: cronLogErr || err, success: false };
+  }
 
-	const traces = data as TraceRow[];
-	let errorCount = 0;
+  const traces = data as TraceRow[];
+  let errorCount = 0;
 
-	const results = await Promise.all(
-		traces.map(async (trace) => {
-			return await getEvaluationConfigForTrace(
-				trace,
-				evaluationConfig,
-				evaluationConfig.databaseConfigId
-			);
-		})
-	);
+  const results = await Promise.all(
+    traces.map(async (trace) => {
+      // Get both built-in and custom configs for each trace
+      const configs = await getActiveEvaluationConfigs(
+        evaluationConfig.databaseConfigId
+      );
 
-	const errorObject = results.reduce(
-		(acc: Record<string, string>, r, index) => {
-			if (!r.success) {
-				acc[traces[index].SpanId] = r.error as string;
-				errorCount++;
-			}
-			return acc;
-		},
-		{}
-	);
+      return await getEvaluationConfigForTrace(
+        trace,
+        { builtin: evaluationConfig, custom: configs.custom },
+        evaluationConfig.databaseConfigId
+      );
+    })
+  );
 
-	const finishedAt = new Date();
-	const { err: cronLogErr } = await insertCronLog(
-		{
-			...cronLogObject,
-			runStatus:
-				errorCount === results.length
-					? CronRunStatus.FAILURE
-					: errorCount > 0
-					? CronRunStatus.PARTIAL_SUCCESS
-					: CronRunStatus.SUCCESS,
-			errorStacktrace: errorObject,
-			meta: {
-				totalSpans: traces.length,
-				totalEvaluated: results.length - errorCount,
-				totalFailed: errorCount,
-				spanIds: traces.map((t) => t.SpanId),
-			},
-			finishedAt,
-			duration: differenceInSeconds(finishedAt, startedAt),
-		},
-		databaseConfig.id
-	);
+  const errorObject = results.reduce(
+    (acc: Record<string, string>, r, index) => {
+      if (!r.success) {
+        acc[traces[index].SpanId] = r.error as string;
+        errorCount++;
+      }
+      return acc;
+    },
+    {}
+  );
 
-	return { success: true, err: cronLogErr };
+  const finishedAt = new Date();
+  const { err: cronLogErr } = await insertCronLog(
+    {
+      ...cronLogObject,
+      runStatus:
+        errorCount === results.length
+          ? CronRunStatus.FAILURE
+          : errorCount > 0
+          ? CronRunStatus.PARTIAL_SUCCESS
+          : CronRunStatus.SUCCESS,
+      errorStacktrace: errorObject,
+      meta: {
+        totalSpans: traces.length,
+        totalEvaluated: results.length - errorCount,
+        totalFailed: errorCount,
+        spanIds: traces.map((t) => t.SpanId),
+      },
+      finishedAt,
+      duration: differenceInSeconds(finishedAt, startedAt),
+    },
+    databaseConfig.id
+  );
+
+  return { success: true, err: cronLogErr };
 }
 
 export async function getEvaluationDetectedByType(
-	params: MetricParams,
-	evalType: string
+  params: MetricParams,
+  evalType: string
 ) {
-	const currentWhereParams = params;
-	const previousWhereParams = getFilterPreviousParams(currentWhereParams);
+  const currentWhereParams = params;
+  const previousWhereParams = getFilterPreviousParams(currentWhereParams);
 
-	const commonQuery = (parameters: MetricParams) => `
+  const commonQuery = (parameters: MetricParams) => `
 		SELECT
 			COUNT(DISTINCT span_id) AS total_evaluation_detected,
 			'${params.timeLimit.start}' as start_date
@@ -372,7 +425,7 @@ export async function getEvaluationDetectedByType(
 			AND parseDateTimeBestEffort(meta['traceTimeStamp']) <= parseDateTimeBestEffort('${parameters.timeLimit.end}')
 	`;
 
-	const query = `
+  const query = `
 		SELECT
 			CAST(current_data.total_evaluation_detected AS FLOAT) AS total_evaluation_detected,
 			CAST(previous_day.total_evaluation_detected AS FLOAT) AS previous_total_evaluation_detected
@@ -388,5 +441,5 @@ export async function getEvaluationDetectedByType(
 			current_data.start_date = previous_day.start_date;
 	`;
 
-	return dataCollector({ query });
+  return dataCollector({ query });
 }

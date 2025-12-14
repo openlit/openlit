@@ -19,6 +19,11 @@ export default function SettingsLayout({
 			label: "Evaluation Settings",
 			path: "/settings/evaluation",
 		},
+		{
+			value: "custom-evaluations",
+			label: "Custom Evaluations",
+			path: "/settings/custom-evaluations",
+		},
 		{ value: "profile", label: "User Profile", path: "/settings/profile" },
 		{
 			value: "database",
@@ -46,7 +51,7 @@ export default function SettingsLayout({
 			className="w-full flex flex-col h-full"
 		>
 			<div className="flex items-center justify-between gap-4 mb-4">
-				<TabsList className="p-0 h-[30px] grid grid-cols-4 self-start border border-stone-200 dark:border-stone-800">
+				<TabsList className="p-0 h-[30px] grid grid-cols-5 self-start border border-stone-200 dark:border-stone-800">
 					{tabs.map((tab) => (
 						<TabsTrigger key={tab.value} value={tab.value} className="py-1.5 text-xs rounded-md">
 							{tab.label}
