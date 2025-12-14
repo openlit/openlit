@@ -9,6 +9,13 @@ on:
     branches: [ "main" ]
     paths:
       - 'sdk/python/**'
+    types:
+      - 'opened'
+      - 'synchronize'
+      - 'reopened'
+      # Retrigger the workflow when label has been added to run the CI when the
+      # "safe to test" label is added.
+      - 'labeled'
   workflow_dispatch:
   schedule:
     - cron: '0 0 1-31/15 * *'
