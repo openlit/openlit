@@ -325,9 +325,15 @@ class SemanticConvention:
     GEN_AI_FRAMEWORK_ERROR_CLASS = "gen_ai.framework.error.class"
     GEN_AI_FRAMEWORK_ERROR_TYPE = "gen_ai.framework.error.type"
     GEN_AI_FRAMEWORK_ERROR_MESSAGE = "gen_ai.framework.error.message"
-    GEN_AI_FRAMEWORK_PERFORMANCE_VS_BASELINE = "gen_ai.framework.performance.vs_baseline"
-    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_AVG = "gen_ai.framework.performance.baseline_avg"
-    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_PERCENTILE = "gen_ai.framework.performance.baseline_percentile"
+    GEN_AI_FRAMEWORK_PERFORMANCE_VS_BASELINE = (
+        "gen_ai.framework.performance.vs_baseline"
+    )
+    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_AVG = (
+        "gen_ai.framework.performance.baseline_avg"
+    )
+    GEN_AI_FRAMEWORK_PERFORMANCE_BASELINE_PERCENTILE = (
+        "gen_ai.framework.performance.baseline_percentile"
+    )
 
     # Serialized Function Capture (LangSmith-style)
     GEN_AI_SERIALIZED_NAME = "gen_ai.serialized.name"
@@ -339,10 +345,18 @@ class SemanticConvention:
     GEN_AI_REQUEST_PROVIDER = "gen_ai.request.provider"
 
     # Enhanced Token Usage Details (OpenAI/Anthropic Cache Support)
-    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_AUDIO = "gen_ai.usage.completion_tokens_details.audio_tokens"
-    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = "gen_ai.usage.completion_tokens_details.reasoning_tokens"
-    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = "gen_ai.usage.prompt_tokens_details.cached_tokens"
-    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE = "gen_ai.usage.prompt_tokens_details.cache_creation_tokens"
+    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_AUDIO = (
+        "gen_ai.usage.completion_tokens_details.audio_tokens"
+    )
+    GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = (
+        "gen_ai.usage.completion_tokens_details.reasoning_tokens"
+    )
+    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = (
+        "gen_ai.usage.prompt_tokens_details.cached_tokens"
+    )
+    GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE = (
+        "gen_ai.usage.prompt_tokens_details.cache_creation_tokens"
+    )
 
     # GenAI Rag
     GEN_AI_RAG_MAX_SEGMENTS = "gen_ai.rag.max_segments"
