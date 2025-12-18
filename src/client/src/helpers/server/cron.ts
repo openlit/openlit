@@ -1,5 +1,6 @@
 import getMessage from "@/constants/messages";
 import { Job } from "@/types/cron";
+import { consoleLog } from "@/utils/log";
 import { execSync } from "child_process";
 import { isValidCron } from "cron-validator";
 import { existsSync, mkdirSync } from "fs";
@@ -99,7 +100,8 @@ export default class Cron {
 			const endIdx = lines.indexOf(this.END_MARKER);
 
 			if (startIdx === -1 || endIdx === -1 || startIdx > endIdx) {
-				throw new Error("Cron job section not found in crontab");
+				consoleLog("Cron job section not found in crontab");
+				return;
 			}
 
 			const managedSection = lines.slice(startIdx + 1, endIdx);

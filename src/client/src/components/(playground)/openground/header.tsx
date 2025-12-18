@@ -4,10 +4,10 @@ import { useRootStore } from "@/store";
 import Link from "next/link";
 
 export default function OpengroundHeader({
-	title,
+	className ="flex w-full items-center justify-end",
 	validateResponse = true,
 }: {
-	title: string;
+	className?: string;
 	validateResponse: boolean;
 }) {
 	const evaluatedResponse = useRootStore(getEvaluatedResponse);
@@ -17,7 +17,7 @@ export default function OpengroundHeader({
 		(validateResponse && !!evaluatedResponse.data) || !validateResponse;
 
 	return (
-		<div className="flex w-full items-center justify-end">
+		<div className={className}>
 			{showButton ? (
 				<Link href={"/openground/new"} onClick={resetOpengroundData}>
 					<Button variant="secondary" className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 h-9 py-1">Create new</Button>
