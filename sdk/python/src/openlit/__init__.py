@@ -17,6 +17,9 @@ import requests
 from opentelemetry import trace as t
 from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from opentelemetry.sdk.resources import SERVICE_NAME, DEPLOYMENT_ENVIRONMENT
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
+
 from openlit.semcov import SemanticConvention
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
@@ -33,6 +36,9 @@ import openlit.evals
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
+
+tracer = trace.get_tracer(__name__)
+
 
 
 class OpenlitConfig:
@@ -514,25 +520,37 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
     # Prepare headers
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    try:
-        # Make the POST request to the API with headers
-        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+    with tracer.start_as_current_span("promptflow.request") as span:
+        span.set_attribute("http.method", "POST")
+        span.set_attribute("http.url", endpoint)
 
-        # Check if the response is successful
-        response.raise_for_status()
+        try:
+            response = requests.post(
+                endpoint,
+                json=payload,
+                headers=headers,
+                timeout=120
+            )
 
-        # Return the JSON response
-        vault_response = response.json()
+            span.set_attribute("http.status_code", response.status_code)
 
-        res = vault_response.get("res", [])
+            response.raise_for_status()
+            vault_response = response.json()
 
-        if should_set_env is True:
-            for token, value in res.items():
-                os.environ[token] = str(value)
-        return vault_response
-    except requests.RequestException as error:
-        logger.error("Error fetching secrets: '%s'", error)
-        return None
+            res = vault_response.get("res", [])
+
+            if should_set_env is True:
+                for token, value in res.items():
+                    os.environ[token] = str(value)
+
+            return vault_response
+
+        except requests.RequestException as error:
+            span.record_exception(error)
+            span.set_status(Status(StatusCode.ERROR))
+            logger.error("Error fetching secrets: '%s'", error)
+            return None
+
 
 
 def trace(wrapped):
