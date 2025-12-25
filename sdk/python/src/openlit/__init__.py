@@ -520,9 +520,13 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
     # Prepare headers
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    with tracer.start_as_current_span("promptflow.request") as span:
-        span.set_attribute("http.method", "POST")
-        span.set_attribute("http.url", endpoint)
+    with tracer.start_as_current_span("vault.get_secrets") as span:
+         # Operation-specific attribute
+        span.set_attribute("vault.operation", "get_secrets")
+         # HTTP / semantic convention attributes
+        span.set_attribute("http.request.method", "POST")
+        span.set_attribute("url.full", endpoint)
+
 
         try:
             response = requests.post(
