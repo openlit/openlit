@@ -17,8 +17,7 @@ import requests
 from opentelemetry import trace as t
 from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from opentelemetry.sdk.resources import SERVICE_NAME, DEPLOYMENT_ENVIRONMENT
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
+
 
 from openlit.semcov import SemanticConvention
 from openlit.otel.tracing import setup_tracing
@@ -37,7 +36,7 @@ import openlit.evals
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
 
-tracer = trace.get_tracer(__name__)
+tracer = t.get_tracer(__name__)
 
 
 
@@ -91,7 +90,7 @@ class OpenlitConfig:
         cls,
         environment,
         application_name,
-        tracer,
+        otel_tracer,
         event_provider,
         otlp_endpoint,
         otlp_headers,
@@ -108,7 +107,7 @@ class OpenlitConfig:
         Args:
             environment (str): Deployment environment.
             application_name (str): Application name.
-            tracer: Tracer instance.
+            otel_tracer: Tracer instance.
             event_provider: Event logger provider instance.
             meter: Metric Instance
             otlp_endpoint (str): OTLP endpoint.
@@ -123,7 +122,7 @@ class OpenlitConfig:
         cls.environment = environment
         cls.application_name = application_name
         cls.pricing_info = fetch_pricing_info(pricing_json)
-        cls.tracer = tracer
+        cls.tracer = otel_tracer
         cls.event_provider = event_provider
         cls.metrics_dict = metrics_dict
         cls.otlp_endpoint = otlp_endpoint
@@ -209,7 +208,7 @@ def init(
     environment="default",
     application_name="default",
     service_name="default",
-    tracer=None,
+    otel_tracer=None,
     event_logger=None,
     otlp_endpoint=None,
     otlp_headers=None,
@@ -232,7 +231,7 @@ def init(
     Args:
         environment (str): Deployment environment.
         application_name (str): Application name.
-        tracer: Tracer instance (Optional).
+        otel_tracer: Tracer instance (Optional).
         event_logger: EventLoggerProvider instance (Optional).
         meter: OpenTelemetry Metrics Instance (Optional).
         otlp_endpoint (str): OTLP endpoint for exporter (Optional).
@@ -319,7 +318,7 @@ def init(
         tracer = setup_tracing(
             application_name=final_service_name,
             environment=environment,
-            tracer=tracer,
+            tracer=otel_tracer,
             otlp_endpoint=otlp_endpoint,
             otlp_headers=otlp_headers,
             disable_batch=disable_batch,
@@ -369,7 +368,7 @@ def init(
         config.update_config(
             environment,
             final_service_name,
-            tracer,
+            otel_tracer,
             event_provider,
             otlp_endpoint,
             otlp_headers,
@@ -564,7 +563,7 @@ def trace(wrapped):
 
     try:
         __trace = t.get_tracer_provider()
-        tracer = __trace.get_tracer(__name__)
+        otel_tracer = __trace.get_tracer(__name__)
     except Exception as tracer_exception:
         logging.error(
             "Failed to initialize tracer: %s", tracer_exception, exc_info=True
@@ -573,7 +572,7 @@ def trace(wrapped):
 
     @wraps(wrapped)
     def wrapper(*args, **kwargs):
-        with tracer.start_as_current_span(
+        with otel_tracer.start_as_current_span(
             name=wrapped.__name__,
             kind=SpanKind.CLIENT,
         ) as span:
