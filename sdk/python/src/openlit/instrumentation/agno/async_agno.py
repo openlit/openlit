@@ -104,6 +104,10 @@ def async_agent_continue_run_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
+
         agent_name = getattr(instance, "name", "unknown")
         span_name = f"continue {agent_name}"
 
@@ -233,6 +237,12 @@ def async_agent_run_stream_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            async for item in wrapped(*args, **kwargs):
+                yield item
+            return
+
         # Extract agent name for span naming with fallback to agent_id
         agent_name = (
             getattr(instance, "name", None)
@@ -470,6 +480,10 @@ def async_function_call_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
+
         # Extract function information
         function_name = getattr(
             instance, "name", getattr(instance, "__name__", "unknown_function")
