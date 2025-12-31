@@ -108,7 +108,7 @@ def chat_completions(
         """
 
         streaming = kwargs.get("stream", False)
-        
+
         # Check if tracer is available
         if not tracer:
             return wrapped(*args, **kwargs)
@@ -252,7 +252,7 @@ def responses(
         """
 
         streaming = kwargs.get("stream", False)
-        
+
         # Check if tracer is available
         if not tracer:
             return wrapped(*args, **kwargs)

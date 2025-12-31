@@ -315,7 +315,7 @@ def init(
         config = OpenlitConfig()
 
         # Setup tracing based on the provided or default configuration.
-        tracer = setup_tracing(
+        configured_tracer = setup_tracing(
             application_name=final_service_name,
             environment=environment,
             tracer=otel_tracer,
@@ -324,7 +324,7 @@ def init(
             disable_batch=disable_batch,
         )
 
-        if not tracer:
+        if not configured_tracer:
             logger.error("OpenLIT tracing setup failed. Tracing will not be available.")
             return
 
@@ -519,7 +519,7 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
     # Prepare headers
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    with tracer.start_as_current_span("vault.get_secrets") as span:
+    with tracer.start_as_current_span("promptflow.request") as span:
         span.set_attribute("http.method", "POST")
         span.set_attribute("http.url", endpoint)
 

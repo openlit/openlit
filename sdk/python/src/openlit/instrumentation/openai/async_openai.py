@@ -108,7 +108,7 @@ def async_chat_completions(
         """
 
         streaming = kwargs.get("stream", False)
-        
+
         # Check if tracer is available
         if not tracer:
             return await wrapped(*args, **kwargs)
