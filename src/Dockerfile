@@ -1,28 +1,32 @@
-# Use an alpine as a base image
-FROM alpine AS builder
+# Python builder using Debian for fast pre-compiled wheels
+FROM python:3.11-slim-bullseye AS python-builder
 
-# Build arguments for configurable versions
-ARG OTEL_VERSION=v0.132.0
-ARG OPAMP_SUPERVISOR_VERSION=v0.132.0
-ARG TARGETARCH=arm64
-
-# Installing node and npm
-RUN apk add --update nodejs npm
-
-
-# Installing extra packages
-RUN apk add --no-cache python3 py3-pip pipx rust cargo build-base
-
+# Install minimal dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create a virtual environment
 RUN python3 -m venv /app/client/venv
 
-# Install litellm inside the virtual environment
+# Install litellm (gets pre-compiled grpcio wheels - installs in ~30 seconds)
 RUN /app/client/venv/bin/pip install --no-cache-dir litellm
 
+# Clean up unnecessary files
 RUN find /app/client/venv -name '*.pyc' -delete && \
-    find /app/client/venv -name '__pycache__' -type d -exec rm -r {} +
+    find /app/client/venv -name '__pycache__' -type d -exec rm -r {} + && \
+    find /app/client/venv -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/client/venv -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
 
+
+# Node.js builder
+FROM alpine AS builder
+
+# Installing node and npm
+RUN apk add --update nodejs npm
+
+# Installing extra packages
+RUN apk add --no-cache rust cargo build-base
 
 # Set the working directory in the container
 WORKDIR /app/client
@@ -46,12 +50,13 @@ COPY ./opamp-server/ ./
 # Build the opamp-server binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o opamp-server .
 
+
 # OpenTelemetry Collector Contrib download
 FROM alpine AS otel-downloader
 
 # Accept build arguments
 ARG OTEL_VERSION=v0.132.4
-ARG OPAMP_SUPERVISOR_VERSION=v0.126.0
+ARG OPAMP_SUPERVISOR_VERSION=v0.132.0
 ARG TARGETARCH=arm64
 
 # Install curl for downloading binaries
@@ -71,20 +76,30 @@ RUN curl --proto '=https' --tlsv1.2 -fL -o opampsupervisor \
     chmod +x opampsupervisor
 
 
-# Use a smaller image for production
-FROM alpine
+# Final runtime image - Use slim-bullseye (Debian) for compatibility
+FROM python:3.11-slim-bullseye
 
-# Installing extra packages
-RUN apk add nodejs bash openssl python3
-
+# Install Node.js from NodeSource repository
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y --no-install-recommends \
+    nodejs \
+    bash \
+    openssl \
+    ca-certificates \
+    cron \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container
 WORKDIR /app/client
 
-# Copy only necessary files from the builder stage
+# Copy only necessary files from the builder stages
 
-# Copying python virtual environment
-COPY --from=builder /app/client/venv ./venv
+# Copying python virtual environment from Debian builder (compatible!)
+COPY --from=python-builder /app/client/venv ./venv
+
 # Copying the standalone next.js build
 COPY --from=builder /app/client/.next/standalone ./
 # Standalone build doesn't copy public, static, prisma, scripts

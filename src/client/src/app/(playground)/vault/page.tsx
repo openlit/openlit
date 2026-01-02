@@ -8,11 +8,11 @@ import { getPingStatus } from "@/selectors/database-config";
 import { EditIcon, TrashIcon } from "lucide-react";
 import ConfirmationModal from "@/components/common/confirmation-modal";
 import VaultHeader from "@/components/(playground)/vault/header";
-import { useParams } from "next/navigation";
 import SecretForm from "@/components/(playground)/vault/form";
 import { Secret } from "@/types/vault";
 import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
+import SecretsGettingStarted from "@/components/(playground)/getting-started/secrets";
 
 const columns: Columns<string, Secret> = {
 	key: {
@@ -58,7 +58,6 @@ const columns: Columns<string, Secret> = {
 
 export default function Vault() {
 	const { data, fireRequest, isFetched, isLoading } = useFetchWrapper<Secret[]>();
-	const params = useParams();
 	const { fireRequest: fireDeleteRequest, isLoading: isDeleting } =
 		useFetchWrapper();
 	const pingStatus = useRootStore(getPingStatus);
@@ -102,9 +101,17 @@ export default function Vault() {
 		}
 	}, [pingStatus]);
 
+	if (!data?.length && !isLoading && isFetched) {
+		return (
+			<div className="flex flex-col items-center mx-auto p-8 overflow-auto">
+				<SecretsGettingStarted successCallback={fetchData} />
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
-			<VaultHeader createNew={!params.id} successCallback={fetchData} />
+			<VaultHeader successCallback={fetchData} />
 			<DataTable
 				columns={columns}
 				data={data || []}
