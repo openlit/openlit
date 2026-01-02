@@ -245,7 +245,9 @@ def async_agent_run_stream_wrap(
                 except Exception:  # noqa: WPS429
                     RunOutput = None  # type: ignore # pylint: disable=invalid-name
                 # `yield_run_response` is backwards compatibility for agno < 2.3
-                yield_run_output = kwargs.get("yield_run_output", None) or kwargs.get("yield_run_response", None)
+                yield_run_output = kwargs.get("yield_run_output", None) or kwargs.get(
+                    "yield_run_response", None
+                )
                 new_kwargs = dict(kwargs)
                 new_kwargs["yield_run_output"] = True
                 async for response in wrapped(*args, **new_kwargs):

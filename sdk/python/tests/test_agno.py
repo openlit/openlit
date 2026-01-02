@@ -18,8 +18,7 @@ import openlit
 
 # Initialize OpenLIT monitoring
 openlit.init(
-    environment="openlit-python-testing",
-    application_name="openlit-python-agno-test"
+    environment="openlit-python-testing", application_name="openlit-python-agno-test"
 )
 
 
@@ -31,10 +30,7 @@ def test_agent_run():
         AssertionError: If the agent response is not as expected.
     """
     try:
-        agent = Agent(
-            model=Cohere(id="command-r-08-2024"),
-            markdown=True
-        )
+        agent = Agent(model=Cohere(id="command-r-08-2024"), markdown=True)
 
         response = agent.run("Say 'test passed' in 2 words")
         assert response is not None
@@ -56,10 +52,7 @@ def test_agent_async_run():
 
     async def run_async():
         try:
-            agent = Agent(
-                model=Cohere(id="command-r-08-2024"),
-                markdown=True
-            )
+            agent = Agent(model=Cohere(id="command-r-08-2024"), markdown=True)
 
             response = await agent.arun("Say 'async test passed' in 3 words")
             assert response is not None
