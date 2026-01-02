@@ -3,6 +3,7 @@ Setups up OpenTelemetry tracer
 """
 
 import os
+import logging
 from opentelemetry import trace
 from opentelemetry.sdk.resources import (
     SERVICE_NAME,
@@ -19,8 +20,27 @@ if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
 else:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
+logger = logging.getLogger(__name__)
+
 # Global flag to check if the tracer provider initialization is complete.
 TRACER_SET = False
+
+
+def _parse_exporters(env_var_name):
+    """
+    Parse comma-separated exporter names from environment variable.
+    Returns None if not set (signals to use default behavior).
+
+    Args:
+        env_var_name: Name of the environment variable to parse
+
+    Returns:
+        List of exporter names (lowercase, stripped) or None if env var not set
+    """
+    exporters_str = os.getenv(env_var_name)
+    if not exporters_str:
+        return None
+    return [e.strip().lower() for e in exporters_str.split(",") if e.strip()]
 
 
 def setup_tracing(
@@ -70,20 +90,44 @@ def setup_tracing(
 
                 os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = headers_str
 
-            # Configure the span exporter and processor based on whether the endpoint is effectively set.
-            if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-                span_exporter = OTLPSpanExporter()
-                # pylint: disable=line-too-long
-                span_processor = (
-                    BatchSpanProcessor(span_exporter)
-                    if not disable_batch
-                    else SimpleSpanProcessor(span_exporter)
-                )
-            else:
-                span_exporter = ConsoleSpanExporter()
-                span_processor = SimpleSpanProcessor(span_exporter)
+            # Check for OTEL_TRACES_EXPORTER env var for multiple exporters support
+            exporters_config = _parse_exporters("OTEL_TRACES_EXPORTER")
 
-            trace.get_tracer_provider().add_span_processor(span_processor)
+            if exporters_config is not None:
+                # New behavior: use specified exporters from OTEL_TRACES_EXPORTER
+                for exporter_name in exporters_config:
+                    if exporter_name == "otlp":
+                        span_exporter = OTLPSpanExporter()
+                        span_processor = (
+                            BatchSpanProcessor(span_exporter)
+                            if not disable_batch
+                            else SimpleSpanProcessor(span_exporter)
+                        )
+                        trace.get_tracer_provider().add_span_processor(span_processor)
+                    elif exporter_name == "console":
+                        span_exporter = ConsoleSpanExporter()
+                        span_processor = SimpleSpanProcessor(span_exporter)
+                        trace.get_tracer_provider().add_span_processor(span_processor)
+                    elif exporter_name == "none":
+                        # "none" means no exporter, skip
+                        continue
+                    else:
+                        logger.warning("Unknown trace exporter: %s", exporter_name)
+            else:
+                # Default behavior: use OTEL_EXPORTER_OTLP_ENDPOINT check
+                if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+                    span_exporter = OTLPSpanExporter()
+                    # pylint: disable=line-too-long
+                    span_processor = (
+                        BatchSpanProcessor(span_exporter)
+                        if not disable_batch
+                        else SimpleSpanProcessor(span_exporter)
+                    )
+                else:
+                    span_exporter = ConsoleSpanExporter()
+                    span_processor = SimpleSpanProcessor(span_exporter)
+
+                trace.get_tracer_provider().add_span_processor(span_processor)
 
             TRACER_SET = True
 
