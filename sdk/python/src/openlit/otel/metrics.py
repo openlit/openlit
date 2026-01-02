@@ -18,6 +18,7 @@ from opentelemetry.sdk.resources import (
 )
 from opentelemetry.sdk.resources import Resource
 from openlit.semcov import SemanticConvention
+from openlit.__helpers import parse_exporters
 
 if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
     from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
@@ -32,23 +33,6 @@ logger = logging.getLogger(__name__)
 
 # Global flag to check if the meter provider initialization is complete.
 METER_SET = False
-
-
-def _parse_exporters(env_var_name):
-    """
-    Parse comma-separated exporter names from environment variable.
-    Returns None if not set (signals to use default behavior).
-
-    Args:
-        env_var_name: Name of the environment variable to parse
-
-    Returns:
-        List of exporter names (lowercase, stripped) or None if env var not set
-    """
-    exporters_str = os.getenv(env_var_name)
-    if not exporters_str:
-        return None
-    return [e.strip().lower() for e in exporters_str.split(",") if e.strip()]
 
 
 _DB_CLIENT_OPERATION_DURATION_BUCKETS = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]
@@ -192,7 +176,7 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = headers_str
 
             # Check for OTEL_METRICS_EXPORTER env var for multiple exporters support
-            exporters_config = _parse_exporters("OTEL_METRICS_EXPORTER")
+            exporters_config = parse_exporters("OTEL_METRICS_EXPORTER")
             metric_readers = []
 
             if exporters_config is not None:
@@ -213,6 +197,13 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                         continue
                     else:
                         logger.warning("Unknown metric exporter: %s", exporter_name)
+
+                # Warn if no valid exporters were configured
+                if not metric_readers:
+                    logger.warning(
+                        "OTEL_METRICS_EXPORTER is set but no valid exporters configured. "
+                        "Metric export is disabled. Valid exporters: otlp, console"
+                    )
             else:
                 # Default behavior: use OTEL_EXPORTER_OTLP_ENDPOINT check
                 if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
