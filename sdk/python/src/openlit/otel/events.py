@@ -3,6 +3,7 @@ Setups up OpenTelemetry events emitter
 """
 
 import os
+import logging
 from opentelemetry import _events, _logs
 from opentelemetry.sdk.resources import (
     SERVICE_NAME,
@@ -22,6 +23,10 @@ if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
     from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
 else:
     from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+
+from openlit.__helpers import parse_exporters
+
+logger = logging.getLogger(__name__)
 
 # Global flag to check if the events provider initialization is complete.
 EVENTS_SET = False
@@ -82,20 +87,54 @@ def setup_events(
 
                 os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = headers_str
 
-            # Configure the span exporter and processor based on whether the endpoint is effectively set.
-            if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-                event_exporter = OTLPLogExporter()
-                # pylint: disable=line-too-long
-                logger_provider.add_log_record_processor(
-                    SimpleLogRecordProcessor(event_exporter)
-                ) if disable_batch else logger_provider.add_log_record_processor(
-                    BatchLogRecordProcessor(event_exporter)
-                )
+            # Check for OTEL_LOGS_EXPORTER env var for multiple exporters support
+            exporters_config = parse_exporters("OTEL_LOGS_EXPORTER")
+            processors_added = False
+
+            if exporters_config is not None:
+                # New behavior: use specified exporters from OTEL_LOGS_EXPORTER
+                for exporter_name in exporters_config:
+                    if exporter_name == "otlp":
+                        event_exporter = OTLPLogExporter()
+                        log_processor = (
+                            BatchLogRecordProcessor(event_exporter)
+                            if not disable_batch
+                            else SimpleLogRecordProcessor(event_exporter)
+                        )
+                        logger_provider.add_log_record_processor(log_processor)
+                        processors_added = True
+                    elif exporter_name == "console":
+                        event_exporter = ConsoleLogExporter()
+                        log_processor = SimpleLogRecordProcessor(event_exporter)
+                        logger_provider.add_log_record_processor(log_processor)
+                        processors_added = True
+                    elif exporter_name == "none":
+                        # "none" means no exporter, skip
+                        continue
+                    else:
+                        logger.warning("Unknown log exporter: %s", exporter_name)
+
+                # Warn if no valid exporters were configured
+                if not processors_added:
+                    logger.warning(
+                        "OTEL_LOGS_EXPORTER is set but no valid exporters configured. "
+                        "Log export is disabled. Valid exporters: otlp, console"
+                    )
             else:
-                event_exporter = ConsoleLogExporter()
-                logger_provider.add_log_record_processor(
-                    SimpleLogRecordProcessor(event_exporter)
-                )
+                # Default behavior: use OTEL_EXPORTER_OTLP_ENDPOINT check
+                if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+                    event_exporter = OTLPLogExporter()
+                    # pylint: disable=line-too-long
+                    log_processor = (
+                        BatchLogRecordProcessor(event_exporter)
+                        if not disable_batch
+                        else SimpleLogRecordProcessor(event_exporter)
+                    )
+                else:
+                    event_exporter = ConsoleLogExporter()
+                    log_processor = SimpleLogRecordProcessor(event_exporter)
+
+                logger_provider.add_log_record_processor(log_processor)
 
             _logs.set_logger_provider(logger_provider)
             event_provider = EventLoggerProvider()

@@ -23,6 +23,23 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 
+def parse_exporters(env_var_name):
+    """
+    Parse comma-separated exporter names from environment variable.
+    Returns None if not set (signals to use default behavior).
+
+    Args:
+        env_var_name: Name of the environment variable to parse
+
+    Returns:
+        List of exporter names (lowercase, stripped) or None if env var not set
+    """
+    exporters_str = os.getenv(env_var_name)
+    if not exporters_str:
+        return None
+    return [e.strip().lower() for e in exporters_str.split(",") if e.strip()]
+
+
 def response_as_dict(response):
     """
     Return parsed response as a dict
