@@ -24,7 +24,8 @@ exporters:
     ttl: 730h
     logs_table_name: otel_logs
     traces_table_name: otel_traces
-    metrics_table_name: otel_metrics
+    # Metrics use separate tables by type: otel_metrics_gauge, otel_metrics_sum,
+    # otel_metrics_histogram, otel_metrics_summary, otel_metrics_exponential_histogram
     timeout: 5s
     retry_on_failure:
       enabled: true

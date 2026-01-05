@@ -5,12 +5,20 @@ services:
     environment:
       CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
       CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}
+      CLICKHOUSE_DATABASE: ${OPENLIT_DB_NAME:-openlit}
+      CLICKHOUSE_ALWAYS_RUN_INITDB_SCRIPTS: true
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ./assets/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom-config.xml:ro
+      - ./assets/clickhouse-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     ports:
       - "9000:9000"
       - "8123:8123"
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: always
 
   openlit:
@@ -50,7 +58,8 @@ services:
       - "4317:4317"  # OTLP gRPC receiver
       - "4318:4318"  # OTLP HTTP receiver
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_healthy
     volumes:
       - openlit-data:/app/client/data
       - ./assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
