@@ -6,13 +6,15 @@ import PromptUsage from "./usage";
 
 export default function PromptHubHeader({
 	createNew,
+	className = "flex w-full items-center justify-end gap-3",
 }: {
 	createNew?: boolean;
+	className?: string;
 }) {
 	const pingStatus = useRootStore(getPingStatus);
 
 	return (
-		<div className="flex w-full items-center justify-end gap-3">
+		<div className={className}>
 			{pingStatus === "success" && <PromptUsage />}
 			{createNew && pingStatus === "success" && (
 				<PromptForm>

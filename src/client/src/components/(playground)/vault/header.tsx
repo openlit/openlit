@@ -5,18 +5,18 @@ import { getPingStatus } from "@/selectors/database-config";
 import VaultUsage from "./usage";
 
 export default function VaultHeader({
-	createNew,
+	className = "flex w-full items-center justify-end gap-4",
 	successCallback,
 }: {
-	createNew?: boolean;
+	className?: string;
 	successCallback?: () => void;
 }) {
 	const pingStatus = useRootStore(getPingStatus);
 
 	return (
-		<div className="flex w-full items-center justify-end gap-4">
+		<div className={className}>
 			{pingStatus === "success" && <VaultUsage />}
-			{createNew && pingStatus === "success" && (
+			{pingStatus === "success" && (
 				<SecretForm successCallback={successCallback}>
 					<Button
 						variant="secondary"

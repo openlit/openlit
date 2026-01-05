@@ -51,10 +51,7 @@ export default function OpengroundRequest({
 
 	return (
 		<div className="flex flex-col w-full h-full gap-4">
-			<OpengroundHeader
-				title={`Request id : ${updatedData.id}`}
-				validateResponse={false}
-			/>
+			<OpengroundHeader validateResponse={false} />
 			<RequestInfo data={updatedData} />
 			<div className="flex w-full h-full bg-stone-100 grow dark:bg-stone-900 overflow-auto transition-all relative gap-1">
 				{requestMeta.selectedProviders?.map(

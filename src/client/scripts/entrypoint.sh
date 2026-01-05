@@ -37,7 +37,7 @@ echo "INIT_DB_PORT=${INIT_DB_PORT}" >> /etc/environment
 echo "INIT_DB_DATABASE=${INIT_DB_DATABASE}" >> /etc/environment
 
 # Load the environment variables
-source /etc/environment
+. /etc/environment
 
 # Run Prisma migrations and generate prisma client
 prisma migrate deploy
@@ -47,7 +47,7 @@ prisma generate
 prisma db seed
 
 # Run crond in the background
-crond &
+service cron start
 
 # Set OpAMP environment variables for entrypoint
 export OPAMP_ENVIRONMENT=${OPAMP_ENVIRONMENT:-production}
