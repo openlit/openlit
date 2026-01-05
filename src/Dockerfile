@@ -56,7 +56,7 @@ FROM alpine AS otel-downloader
 
 # Accept build arguments
 ARG OTEL_VERSION=v0.132.4
-ARG OPAMP_SUPERVISOR_VERSION=v0.132.0
+ARG OPAMP_SUPERVISOR_VERSION=v0.132.4
 ARG TARGETARCH=arm64
 
 # Install curl for downloading binaries

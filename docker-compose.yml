@@ -16,10 +16,6 @@ services:
   openlit:
     image: ghcr.io/openlit/openlit:latest
     container_name: openlit
-    args:
-        OTEL_VERSION: ${OTEL_VERSION:-v0.132.4}
-        OPAMP_SUPERVISOR_VERSION: ${OPAMP_SUPERVISOR_VERSION:-v0.132.4}
-        TARGETARCH: ${TARGETARCH:-arm64}
     environment:
       TELEMETRY_ENABLED: "true"
       INIT_DB_HOST: clickhouse
