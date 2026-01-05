@@ -6,7 +6,7 @@ echo "==================== ClickHouse Initialization ===================="
 
 clickhouse-client --query "CREATE DATABASE IF NOT EXISTS ${CLICKHOUSE_DATABASE}"
 
-echo "✅ Database $DATABASE_NAME created successfully"
+echo "✅ Database $CLICKHOUSE_DATABASE created successfully"
 echo ""
 echo "Creating OTEL tables required by OpenTelemetry Collector..."
 
