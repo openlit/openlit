@@ -107,10 +107,12 @@ COPY --from=builder /app/client/public ./public
 COPY --from=builder /app/client/.next/static ./.next/static
 COPY --from=builder /app/client/prisma ./prisma
 COPY --from=builder /app/client/scripts ./scripts
-# Copying prisma client, prisma and prisma cli (.bin) from builder stage
-COPY --from=builder /app/client/node_modules/@prisma ./node_modules/@prisma
+# Copying prisma and prisma cli (.bin) from builder stage (but NOT @prisma client - we'll regenerate it)
 COPY --from=builder /app/client/node_modules/.bin ./node_modules/.bin
 COPY --from=builder /app/client/node_modules/prisma ./node_modules/prisma
+
+# Regenerate Prisma client for Debian (to get correct binaries instead of Alpine/musl ones)
+RUN npx prisma generate
 
 # Copy the built opamp-server binary from go-builder stage
 COPY --from=go-builder /app/opamp-server/opamp-server /app/opamp/opamp-server

@@ -15,10 +15,11 @@ services:
       - "9000:9000"
       - "8123:8123"
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--user", "$${CLICKHOUSE_USER}", "--password", "$${CLICKHOUSE_PASSWORD}", "--query", "SELECT 1"]
+      test: ["CMD-SHELL", "clickhouse-client --user=$${CLICKHOUSE_USER} --password=$${CLICKHOUSE_PASSWORD} --query='SELECT 1' || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 30s
     restart: always
 
   openlit:
