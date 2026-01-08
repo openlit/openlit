@@ -213,7 +213,8 @@ cat > "${INSTRUCTIONS_FILE}" << EOF
 
 \`\`\`bash
 # Download the latest OpAMP supervisor binary
-curl -LO https://github.com/open-telemetry/opentelemetry-collector-releases/releases/latest/download/opampsupervisor_linux_amd64
+curl --proto '=https' --tlsv1.2 -fL -o opampsupervisor_linux_amd64 \
+    "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2Fv0.142.0/opampsupervisor_0.142.0_linux_amd64"
 
 # Make it executable
 chmod +x opampsupervisor_linux_amd64
