@@ -70,7 +70,7 @@ RUN curl -LO "https://github.com/open-telemetry/opentelemetry-collector-releases
     tar -xzf "otelcol-contrib_${OTEL_VERSION#v}_linux_${TARGETARCH}.tar.gz" && \
     chmod +x otelcol-contrib
 
-# Download OpAMP Supervisor 
+# Download OpAMP Supervisor
 RUN curl --proto '=https' --tlsv1.2 -fL -o opampsupervisor \
     "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2F${OPAMP_SUPERVISOR_VERSION}/opampsupervisor_${OPAMP_SUPERVISOR_VERSION#v}_linux_${TARGETARCH}" && \
     chmod +x opampsupervisor
