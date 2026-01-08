@@ -57,7 +57,7 @@ FROM alpine AS otel-downloader
 # Accept build arguments
 ARG OTEL_VERSION=v0.142.0
 ARG OPAMP_SUPERVISOR_VERSION=v0.142.0
-ARG TARGETARCH=arm64
+ARG TARGETARCH=amd64
 
 # Install curl for downloading binaries
 RUN apk add --no-cache curl
