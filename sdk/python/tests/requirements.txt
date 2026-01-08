@@ -4,7 +4,7 @@ pytest-asyncio
 requests
 schedule
 pylint
-do-not-install-this-package-002==0.1.0
+do-not-install-this-package-002==0.1.1
 
 # Gen AI
 cohere
