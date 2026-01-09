@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = localFont({
+	src: "../../public/fonts/Inter.ttf",
+	variable: "--font-inter",
+	weight: "100 900",
+	display: "swap",
+});
 
 export const metadata: Metadata = {
 	title: "OpenLIT | Open Source Observability for LLMs",
