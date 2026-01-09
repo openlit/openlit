@@ -19,7 +19,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 30s
+      start_period: 100s
     restart: always
 
   openlit:
