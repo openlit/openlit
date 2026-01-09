@@ -53,17 +53,43 @@ show_usage() {
     echo "  --production      Configure for production (with CA certificate)"
     echo "  --server-url URL  Set the OpAMP server URL (default: wss://localhost:4320/v1/opamp)"
     echo "  --output-dir DIR  Output directory for supervisor config (default: ./supervisor-config)"
+    echo "  --version VER     OpAMP supervisor version (default: v0.142.0 or from OPAMP_SUPERVISOR_VERSION env)"
+    echo "  --arch ARCH       Target architecture (default: amd64 or from TARGETARCH env)"
     echo "  --help           Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 --development"
     echo "  $0 --production --server-url wss://my-openlit-server:4320/v1/opamp"
+    echo "  $0 --production --version v0.142.0 --arch arm64"
 }
 
-# Default values
+# Default values (can be overridden by environment variables or command line)
 ENVIRONMENT="development"
 SERVER_URL="wss://localhost:4320/v1/opamp"
 OUTPUT_DIR="./supervisor-config"
+OPAMP_SUPERVISOR_VERSION="${OPAMP_SUPERVISOR_VERSION:-v0.142.0}"
+
+# Auto-detect architecture if not provided
+if [[ -z "${TARGETARCH}" ]]; then
+    ARCH=$(uname -m)
+    case "${ARCH}" in
+        x86_64)
+            TARGETARCH="amd64"
+            ;;
+        aarch64|arm64)
+            TARGETARCH="arm64"
+            ;;
+        armv7l)
+            TARGETARCH="arm"
+            ;;
+        *)
+            log_warn "Unknown architecture: ${ARCH}, defaulting to amd64"
+            TARGETARCH="amd64"
+            ;;
+    esac
+else
+    TARGETARCH="${TARGETARCH}"
+fi
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -84,6 +110,14 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_DIR="$2"
             shift 2
             ;;
+        --version)
+            OPAMP_SUPERVISOR_VERSION="$2"
+            shift 2
+            ;;
+        --arch)
+            TARGETARCH="$2"
+            shift 2
+            ;;
         --help)
             show_usage
             exit 0
@@ -99,6 +133,8 @@ done
 print_banner
 
 log_step "Configuring OpAMP supervisor for ${ENVIRONMENT} environment"
+log_info "OpAMP Supervisor Version: ${OPAMP_SUPERVISOR_VERSION}"
+log_info "Target Architecture: ${TARGETARCH}"
 
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
@@ -212,11 +248,18 @@ cat > "${INSTRUCTIONS_FILE}" << EOF
 ### 1. Download OpAMP Supervisor
 
 \`\`\`bash
-# Download the latest OpAMP supervisor binary
-curl -LO https://github.com/open-telemetry/opentelemetry-collector-releases/releases/latest/download/opampsupervisor_linux_amd64
+# Download the OpAMP supervisor binary
+# Version: ${OPAMP_SUPERVISOR_VERSION}
+# Architecture: ${TARGETARCH}
+OPAMP_VERSION="${OPAMP_SUPERVISOR_VERSION}"
+OPAMP_ARCH="${TARGETARCH}"
+OPAMP_VERSION_NO_V="${OPAMP_SUPERVISOR_VERSION#v}"
+
+curl --proto '=https' --tlsv1.2 -fL -o "opampsupervisor_linux_\${OPAMP_ARCH}" \
+    "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/cmd%2Fopampsupervisor%2F\${OPAMP_VERSION}/opampsupervisor_\${OPAMP_VERSION_NO_V}_linux_\${OPAMP_ARCH}"
 
 # Make it executable
-chmod +x opampsupervisor_linux_amd64
+chmod +x "opampsupervisor_linux_\${OPAMP_ARCH}"
 \`\`\`
 
 ### 2. Deploy Configuration
@@ -245,7 +288,7 @@ cat >> "${INSTRUCTIONS_FILE}" << EOF
 
 \`\`\`bash
 # Start the OpAMP supervisor
-./opampsupervisor_linux_amd64 --config /etc/opamp/supervisor.yaml
+./opampsupervisor_linux_${TARGETARCH} --config /etc/opamp/supervisor.yaml
 \`\`\`
 
 ### 4. Verify Connection

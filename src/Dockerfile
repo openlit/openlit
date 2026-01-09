@@ -79,6 +79,14 @@ RUN curl --proto '=https' --tlsv1.2 -fL -o opampsupervisor \
 # Final runtime image - Use slim-bullseye (Debian) for compatibility
 FROM python:3.11-slim-bullseye
 
+# Accept build arguments to pass version and architecture info
+ARG OPAMP_SUPERVISOR_VERSION=v0.142.0
+ARG TARGETARCH=amd64
+
+# Set as environment variables for use by scripts
+ENV OPAMP_SUPERVISOR_VERSION=${OPAMP_SUPERVISOR_VERSION}
+ENV TARGETARCH=${TARGETARCH}
+
 # Install Node.js from NodeSource repository
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
