@@ -67,6 +67,12 @@ services:
     volumes:
       - openlit-data:/app/client/data
       - ../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://openlit:3000"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
     restart: always
 
 volumes:
