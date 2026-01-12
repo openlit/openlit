@@ -313,15 +313,17 @@ def common_qdrant_logic(
 
         if endpoint == "qdrant.query_points":
             query = scope._kwargs.get("query", {})
+            limit = scope._kwargs.get("limit", 10)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_COLLECTION_NAME, collection_name
             )
             scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(query))
+            scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, limit)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_QUERY_SUMMARY,
-                f"{scope._db_operation} {collection_name} query={query}",
+                f"{scope._db_operation} {collection_name} query={query} limit={limit}",
             )
 
         elif endpoint == "qdrant.query_batch_points":
@@ -343,15 +345,19 @@ def common_qdrant_logic(
         elif endpoint == "qdrant.query_points_groups":
             query = scope._kwargs.get("query", {})
             group_by = scope._kwargs.get("group_by", "")
+            limit = scope._kwargs.get("limit", 10)
+            group_size = scope._kwargs.get("group_size", 1)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_COLLECTION_NAME, collection_name
             )
             scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(query))
+            scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, limit)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_QUERY_SUMMARY,
-                f"{scope._db_operation} {collection_name} query={query} group_by={group_by}",
+                f"{scope._db_operation} {collection_name} query={query} "
+                f"group_by={group_by} limit={limit} group_size={group_size}",
             )
 
     # Handle index operations
