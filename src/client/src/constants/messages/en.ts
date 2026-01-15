@@ -97,10 +97,10 @@ export const ERROR_OCCURED_DESCRIPTION = "An error occurred while fetching the d
 
 // Openground
 export const OPENGROUND_MIGRATION_FAILED = "Openground migration failed!";
-export const OPENGROUND_CREATE_FAILED = "Failed to create OpenGround evaluation!";
-export const OPENGROUND_FETCH_FAILED = "Failed to fetch OpenGround evaluation!";
-export const OPENGROUND_DELETE_FAILED = "Failed to delete OpenGround evaluation!";
-export const OPENGROUND_DATA_MIGRATION_FAILED = "Failed to migrate OpenGround data from Prisma to ClickHouse!";
+export const OPENGROUND_CREATE_FAILED = "Failed to create Openground evaluation!";
+export const OPENGROUND_FETCH_FAILED = "Failed to fetch Openground evaluation!";
+export const OPENGROUND_DELETE_FAILED = "Failed to delete Openground evaluation!";
+export const OPENGROUND_DATA_MIGRATION_FAILED = "Failed to migrate Openground data from Prisma to ClickHouse!";
 export const OPENGROUND_RUN_DETAILS = "Run Details";
 export const OPENGROUND_PROVIDER_RESPONSE = "Provider Response";
 export const OPENGROUND_PROVIDER_RESPONSES = "Provider Responses";
@@ -204,14 +204,14 @@ export const OPENGROUND_NO_MODELS_FOUND = "No models found";
 export const OPENGROUND_CUSTOM_MODELS = "Custom Models";
 
 // Features Title
-export const FEATURE_OPENGROUND = "OpenGround";
+export const FEATURE_OPENGROUND = "Openground";
 export const FEATURE_PROMPTS = "Prompt Hub";
 export const FEATURE_VAULT = "Vault";
 export const FEATURE_FLEET_HUB = "Fleet Hub";
 
 
 // Getting Started - Openground
-export const GET_STARTED_WITH_OPENGROUND = "Get Started with OpenGround";
+export const GET_STARTED_WITH_OPENGROUND = "Get Started with Openground";
 export const GET_STARTED_WITH_OPENGROUND_DESCRIPTION = "Experiment and test different LLM configurations, prompts, and parameters. Compare outputs side-by-side to find the optimal setup for your use case.";
 export const GET_STARTED_WITH_OPENGROUND_ACTION_BUTTON = "Create New Playground";
 export const GET_STARTED_WITH_OPENGROUND_FEATURE_DETAILS = [
