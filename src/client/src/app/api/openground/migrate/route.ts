@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 			);
 		}
 
-		const needsMigration = await checkMigrationNeeded(dbConfig.id, user.id);
+		const needsMigration = await checkMigrationNeeded(dbConfig.id);
 
 		return NextResponse.json({
 			needsMigration,

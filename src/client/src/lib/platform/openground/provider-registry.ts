@@ -1,33 +1,7 @@
-export interface ProviderMetadata {
-	providerId: string;
-	displayName: string;
-	description?: string;
-	supportedModels: ModelMetadata[];
-	configSchema: {
-		temperature?: ConfigField;
-		maxTokens?: ConfigField;
-		topP?: ConfigField;
-	};
-	requiresVault: boolean;
-	logoUrl?: string;
-}
+import { ProviderMetadata, ModelMetadata, ConfigField } from "@/types/openground";
 
-export interface ModelMetadata {
-	id: string;
-	displayName: string;
-	contextWindow: number;
-	inputPricePerMToken: number; // Price per million tokens
-	outputPricePerMToken: number;
-	capabilities?: string[]; // e.g., ["function-calling", "vision", "streaming"]
-}
-
-export interface ConfigField {
-	min: number;
-	max: number;
-	step: number;
-	default: number;
-	description?: string;
-}
+// Re-export types for convenience
+export type { ProviderMetadata, ModelMetadata, ConfigField };
 
 // Provider metadata registry
 const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
@@ -853,6 +827,31 @@ export class ProviderRegistry {
 	}
 
 	/**
+	 * Get provider by ID with custom models included
+	 */
+	static async getProviderByIdWithCustomModels(
+		providerId: string,
+		userId: string,
+		databaseConfigId: string
+	): Promise<ProviderMetadata | null> {
+		const provider = PROVIDER_METADATA[providerId];
+		if (!provider) return null;
+
+		// Load custom models from database
+		const customModels = await this.getCustomModels(
+			providerId,
+			userId,
+			databaseConfigId
+		);
+
+		// Merge custom models with static models
+		return {
+			...provider,
+			supportedModels: [...provider.supportedModels, ...customModels],
+		};
+	}
+
+	/**
 	 * Get all supported models across all providers
 	 */
 	static async getAllModels(): Promise<
@@ -888,10 +887,76 @@ export class ProviderRegistry {
 	}
 
 	/**
-	 * Get models for a specific provider
+	 * Get models for a specific provider (static models only)
 	 */
 	static async getProviderModels(providerId: string): Promise<ModelMetadata[]> {
 		const provider = PROVIDER_METADATA[providerId];
 		return provider?.supportedModels || [];
+	}
+
+	/**
+	 * Get models for a specific provider including custom models
+	 */
+	static async getProviderModelsWithCustom(
+		providerId: string,
+		userId: string,
+		databaseConfigId: string
+	): Promise<ModelMetadata[]> {
+		const provider = PROVIDER_METADATA[providerId];
+		if (!provider) return [];
+
+		// Load custom models from database
+		const customModels = await this.getCustomModels(
+			providerId,
+			userId,
+			databaseConfigId
+		);
+
+		// Merge static and custom models
+		return [...provider.supportedModels, ...customModels];
+	}
+
+	/**
+	 * Load custom models from database for a specific provider
+	 */
+	private static async getCustomModels(
+		providerId: string,
+		userId: string,
+		databaseConfigId: string
+	): Promise<ModelMetadata[]> {
+		try {
+			// Import dynamically to avoid circular dependencies
+			const { dataCollector } = await import("@/lib/platform/common");
+			const { OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME } = await import(
+				"@/lib/platform/openground/table-details"
+			);
+			const Sanitizer = (await import("@/utils/sanitizer")).default;
+
+			const query = `
+				SELECT
+					model_id as id,
+					display_name as displayName,
+					context_window as contextWindow,
+					input_price_per_m_token as inputPricePerMToken,
+					output_price_per_m_token as outputPricePerMToken,
+					capabilities
+				FROM ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
+				WHERE created_by_user_id = '${Sanitizer.sanitizeValue(userId)}'
+				  AND database_config_id = '${Sanitizer.sanitizeValue(databaseConfigId)}'
+				  AND provider = '${Sanitizer.sanitizeValue(providerId)}'
+				ORDER BY created_at DESC
+			`;
+
+			const { data } = await dataCollector(
+				{ query },
+				"query",
+				databaseConfigId
+			);
+
+			return (data as ModelMetadata[]) || [];
+		} catch (error) {
+			console.error("Error loading custom models:", error);
+			return [];
+		}
 	}
 }

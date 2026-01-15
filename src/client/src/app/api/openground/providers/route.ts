@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
-import { ProviderRegistry } from "@/lib/platform/openground/provider-registry";
+import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
+import asaw from "@/utils/asaw";
+import {
+	getAllProvidersWithCustomModels,
+	getProviderByIdWithCustomModels,
+	searchProvidersWithCustomModels,
+} from "@/lib/platform/openground/provider-service";
 
 /**
  * GET /api/openground/providers
- * Get all available LLM providers
+ * Get all available LLM providers with custom models merged in
  */
 export async function GET(request: NextRequest) {
 	try {
@@ -21,26 +27,55 @@ export async function GET(request: NextRequest) {
 		const providerId = searchParams.get("provider");
 		const search = searchParams.get("search");
 
+		// Get database config
+		const [, dbConfig] = await asaw(getDBConfigByUser(true));
+		if (!dbConfig?.id) {
+			return NextResponse.json(
+				{ error: getMessage().DATABASE_CONFIG_NOT_FOUND },
+				{ status: 500 }
+			);
+		}
+
 		// Get specific provider
 		if (providerId) {
-			const provider = await ProviderRegistry.getProviderById(providerId);
-			if (!provider) {
-				return NextResponse.json(
-					{ error: "Provider not found" },
-					{ status: 404 }
-				);
+			const { data: provider, err } = await getProviderByIdWithCustomModels(
+				providerId,
+				user.id,
+				dbConfig.id
+			);
+
+			if (err) {
+				return NextResponse.json({ error: err }, { status: 404 });
 			}
+
 			return NextResponse.json(provider);
 		}
 
 		// Search providers
 		if (search) {
-			const providers = await ProviderRegistry.searchProviders(search);
+			const { data: providers, err } = await searchProvidersWithCustomModels(
+				search,
+				user.id,
+				dbConfig.id
+			);
+
+			if (err) {
+				return NextResponse.json({ error: err }, { status: 500 });
+			}
+
 			return NextResponse.json(providers);
 		}
 
 		// Get all providers
-		const providers = await ProviderRegistry.getAvailableProviders();
+		const { data: providers, err } = await getAllProvidersWithCustomModels(
+			user.id,
+			dbConfig.id
+		);
+
+		if (err) {
+			return NextResponse.json({ error: err }, { status: 500 });
+		}
+
 		return NextResponse.json(providers);
 	} catch (error: any) {
 		console.error("Providers GET error:", error);

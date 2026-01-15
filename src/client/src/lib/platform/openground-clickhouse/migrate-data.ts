@@ -93,34 +93,61 @@ export async function migrateOpengroundDataToClickhouse(
 				);
 				const stats: Stats = JSON.parse(record.stats);
 
-				// Prepare main record data
-				const mainRecord = {
-					id: record.id,
-					prompt: requestMeta.prompt,
-					prompt_source: "custom", // Old records are always custom
-					prompt_hub_id: null,
-					prompt_hub_version: null,
-					prompt_variables: "{}",
-					created_by_user_id: record.createdByUserId,
-					database_config_id: record.databaseConfigId,
-					created_at: record.createdAt.toISOString().replace("T", " ").slice(0, 19),
-					total_providers: stats.totalProviders || responseMeta.length,
-					min_cost: stats.minCost || 0,
-					min_cost_provider: stats.minCostProvider || "",
-					min_response_time: stats.minResponseTime || 0,
-					min_response_time_provider: stats.minResponseTimeProvider || "",
-					min_completion_tokens: stats.minCompletionTokens || 0,
-					min_completion_tokens_provider: stats.minCompletionTokensProvider || "",
-					errors: stats.errors || [],
-				};
+				// Escape single quotes in string values for SQL
+				const escapeString = (str: string) => str.replace(/'/g, "''");
+				const promptEscaped = escapeString(requestMeta.prompt);
+				const createdAt = record.createdAt.toISOString().replace("T", " ").slice(0, 19);
 
-				// Insert main record
+				// Format errors array for ClickHouse
+				const errorsArray = stats.errors || [];
+				const errorsClickhouse = errorsArray.length > 0
+					? `[${errorsArray.map(err => `'${escapeString(err)}'`).join(', ')}]`
+					: '[]';
+
+				// Insert main record using raw query for better control
+				const insertQuery = `
+					INSERT INTO ${OPENLIT_OPENGROUND_TABLE_NAME} (
+						prompt,
+						prompt_source,
+						prompt_hub_id,
+						prompt_hub_version,
+						prompt_variables,
+						created_by_user_id,
+						database_config_id,
+						created_at,
+						total_providers,
+						min_cost,
+						min_cost_provider,
+						min_response_time,
+						min_response_time_provider,
+						min_completion_tokens,
+						min_completion_tokens_provider,
+						errors
+					) VALUES (
+						'${promptEscaped}',
+						'custom',
+						NULL,
+						NULL,
+						'{}',
+						'${record.createdByUserId}',
+						'${databaseConfigId}',
+						parseDateTimeBestEffort('${createdAt}'),
+						${stats.totalProviders || responseMeta.length},
+						${stats.minCost || 0},
+						'${escapeString(stats.minCostProvider || "")}',
+						${stats.minResponseTime || 0},
+						'${escapeString(stats.minResponseTimeProvider || "")}',
+						${stats.minCompletionTokens || 0},
+						'${escapeString(stats.minCompletionTokensProvider || "")}',
+						${errorsClickhouse}
+					)
+				`;
+
 				const { err: mainErr } = await dataCollector(
 					{
-						table: OPENLIT_OPENGROUND_TABLE_NAME,
-						values: [mainRecord],
+						query: insertQuery,
 					},
-					"insert",
+					"exec",
 					databaseConfigId
 				);
 
@@ -131,57 +158,96 @@ export async function migrateOpengroundDataToClickhouse(
 					continue;
 				}
 
-				// Prepare provider results
-				const providerValues = requestMeta.selectedProviders
-					.map((provider, index) => {
-						const [error, response] = responseMeta[index] || [null, null];
+				// Get the inserted record ID
+				const { data: insertedData, err: fetchErr } = await dataCollector(
+					{
+						query: `SELECT id FROM ${OPENLIT_OPENGROUND_TABLE_NAME}
+								WHERE created_by_user_id = '${record.createdByUserId}'
+								AND database_config_id = '${databaseConfigId}'
+								AND created_at = parseDateTimeBestEffort('${record.createdAt.toISOString()}')
+								ORDER BY created_at DESC
+								LIMIT 1`,
+					},
+					"query",
+					databaseConfigId
+				);
 
-						const evaluationData = response?.evaluationData;
+				if (fetchErr || !(insertedData as any[])?.[0]?.id) {
+					console.error(`Error fetching inserted ID for ${record.id}:`, fetchErr);
+					errorCount++;
+					errors.push(`Record ${record.id}: Could not fetch inserted ID`);
+					continue;
+				}
 
-						return {
-							openground_id: record.id,
-							provider: provider.provider,
-							model: evaluationData?.model || provider.config?.model || "unknown",
-							config: JSON.stringify(provider.config || {}),
-							response: evaluationData?.response || "",
-							error: error || "",
-							cost: evaluationData?.cost || 0,
-							prompt_tokens: evaluationData?.promptTokens || 0,
-							completion_tokens: evaluationData?.completionTokens || 0,
-							total_tokens:
-								evaluationData?.totalTokens ||
-								(evaluationData?.promptTokens || 0) +
-									(evaluationData?.completionTokens || 0),
-							response_time: evaluationData?.responseTime || 0,
-							finish_reason: evaluationData?.finishReason || "",
-							provider_response: JSON.stringify(response || {}),
-							created_at: record.createdAt
-								.toISOString()
-								.replace("T", " ")
-								.slice(0, 19),
-						};
-					})
-					.filter((p) => p !== null);
+				const insertedId = (insertedData as any[])[0].id;
 
-				// Insert provider results
-				if (providerValues.length > 0) {
+				// Insert provider results using raw queries
+				for (let index = 0; index < requestMeta.selectedProviders.length; index++) {
+					const provider = requestMeta.selectedProviders[index];
+					const [error, response] = responseMeta[index] || [null, null];
+					const evaluationData = response?.evaluationData;
+
+					const providerName = escapeString(provider.provider);
+					const model = escapeString(evaluationData?.model || provider.config?.model || "unknown");
+					const config = JSON.stringify(provider.config || {}).replace(/'/g, "''");
+					const responseText = escapeString(evaluationData?.response || "");
+					const errorText = escapeString(error || "");
+					const cost = evaluationData?.cost || 0;
+					const promptTokens = evaluationData?.promptTokens || 0;
+					const completionTokens = evaluationData?.completionTokens || 0;
+					const totalTokens = evaluationData?.totalTokens || (promptTokens + completionTokens);
+					const responseTime = evaluationData?.responseTime || 0;
+					const finishReason = escapeString(evaluationData?.finishReason || "");
+					const providerResponse = JSON.stringify(response || {}).replace(/'/g, "''");
+
+					const providerInsertQuery = `
+						INSERT INTO ${OPENLIT_OPENGROUND_PROVIDERS_TABLE_NAME} (
+							openground_id,
+							provider,
+							model,
+							config,
+							response,
+							error,
+							cost,
+							prompt_tokens,
+							completion_tokens,
+							total_tokens,
+							response_time,
+							finish_reason,
+							provider_response,
+							created_at
+						) VALUES (
+							'${insertedId}',
+							'${providerName}',
+							'${model}',
+							'${config}',
+							'${responseText}',
+							'${errorText}',
+							${cost},
+							${promptTokens},
+							${completionTokens},
+							${totalTokens},
+							${responseTime},
+							'${finishReason}',
+							'${providerResponse}',
+							parseDateTimeBestEffort('${createdAt}')
+						)
+					`;
+
 					const { err: providerErr } = await dataCollector(
 						{
-							table: OPENLIT_OPENGROUND_PROVIDERS_TABLE_NAME,
-							values: providerValues,
+							query: providerInsertQuery,
 						},
-						"insert",
+						"exec",
 						databaseConfigId
 					);
 
 					if (providerErr) {
 						console.error(
-							`Error migrating provider results for ${record.id}:`,
+							`Error migrating provider result ${index} for ${record.id}:`,
 							providerErr
 						);
-						errorCount++;
-						errors.push(`Provider results for ${record.id}: ${providerErr}`);
-						continue;
+						// Don't increment errorCount or continue - just log and move to next provider
 					}
 				}
 
@@ -228,8 +294,7 @@ export async function migrateOpengroundDataToClickhouse(
  * Check if migration is needed (if there are Prisma records but no ClickHouse records)
  */
 export async function checkMigrationNeeded(
-	databaseConfigId: string,
-	userId: string
+	databaseConfigId: string
 ): Promise<boolean> {
 	try {
 		// Check Prisma count

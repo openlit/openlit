@@ -212,7 +212,7 @@ export default function ProviderConfigDialog({
 					<div className="space-y-2">
 						<Label htmlFor="model">{getMessage().OPENGROUND_DEFAULT_MODEL_OPTIONAL}</Label>
 						<Select value={selectedModelId} onValueChange={setSelectedModelId}>
-							<SelectTrigger id="model">
+							<SelectTrigger id="model" className="h-auto">
 								<SelectValue placeholder={getMessage().OPENGROUND_SELECT_DEFAULT_MODEL} />
 							</SelectTrigger>
 							<SelectContent>

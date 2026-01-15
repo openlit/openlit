@@ -56,6 +56,7 @@ model User {
   createdDBConfigs DatabaseConfig[]
   createdApiKeys   APIKeys[]            @relation("createdByUser")
   deletedApiKeys   APIKeys[]            @relation("deletedByUser")
+  opengrounds      OpenGround[]
 
   @@map("users")
 }
@@ -90,6 +91,7 @@ model DatabaseConfig {
   createdByUser   User                        @relation(fields: [createdByUserId], references: [id])
   dbInvitedUsers  DatabaseConfigInvitedUser[]
   apiKeys         APIKeys[]
+  opengrounds     OpenGround[]
 
   @@unique([name])
   @@map("databaseconfig")
@@ -114,6 +116,21 @@ model DatabaseConfigUser {
 // DEPRECATED: All OpenGround data has been migrated to ClickHouse
 // All tables: openlit_openground, openlit_openground_providers, openlit_openground_configs
 // Old Prisma models removed - everything now in ClickHouse for better performance and scalability
+// This table will be removed in future
+// @deprecated - Commented out as all data migrated to ClickHouse
+model OpenGround {
+  id               String         @id @default(cuid())
+  requestMeta      String
+  responseMeta     String
+  stats            String
+  createdAt        DateTime       @default(now())
+  createdByUserId  String         @map("user_id")
+  createdByUser    User           @relation(fields: [createdByUserId], references: [id])
+  databaseConfigId String         @map("database_config_id")
+  databaseConfig   DatabaseConfig @relation(fields: [databaseConfigId], references: [id])
+
+  @@map("openground")
+}
 
 model DatabaseConfigInvitedUser {
   databaseConfigId String
