@@ -346,7 +346,7 @@ def common_qdrant_logic(
             query = scope._kwargs.get("query", {})
             group_by = scope._kwargs.get("group_by", "")
             limit = scope._kwargs.get("limit", 10)
-            group_size = scope._kwargs.get("group_size", 1)
+            group_size = scope._kwargs.get("group_size", 3)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_COLLECTION_NAME, collection_name
