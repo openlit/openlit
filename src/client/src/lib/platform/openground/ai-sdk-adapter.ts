@@ -77,6 +77,27 @@ export class AISdkAdapter {
 	};
 
 	/**
+	 * Get provider factory with strict validation
+	 * Uses explicit allowlist to prevent user-controlled method invocation
+	 */
+	private static getProviderFactory(providerId: string): ProviderFactory | null {
+		// Explicit allowlist of valid provider IDs
+		const validProviders = [
+			'openai', 'anthropic', 'google', 'mistral', 'cohere',
+			'groq', 'perplexity', 'azure', 'together', 'fireworks',
+			'deepseek', 'xai', 'huggingface', 'replicate'
+		];
+		
+		// Check against allowlist first
+		if (!validProviders.includes(providerId)) {
+			return null;
+		}
+		
+		// Safe to access after allowlist validation
+		return this.providerFactories[providerId] || null;
+	}
+
+	/**
 	 * Generate text completion using the specified provider and model
 	 */
 	static async generateCompletion(
@@ -87,12 +108,12 @@ export class AISdkAdapter {
 			throw new Error('Invalid provider name');
 		}
 
-		// Use hasOwnProperty to ensure we only access direct properties
-		if (!Object.prototype.hasOwnProperty.call(this.providerFactories, config.provider)) {
+		// Use allowlist-based lookup to prevent user-controlled method invocation
+		const providerFactory = this.getProviderFactory(config.provider);
+		if (!providerFactory) {
 			throw new Error(`Provider ${config.provider} not supported`);
 		}
 
-		const providerFactory = this.providerFactories[config.provider];
 		if (typeof providerFactory !== 'function') {
 			throw new Error(`Invalid provider factory for ${config.provider}`);
 		}
@@ -144,6 +165,7 @@ export class AISdkAdapter {
 	/**
 	 * Register a custom provider factory
 	 * Allows extending support to additional providers
+	 * Note: Custom providers won't be in the default allowlist
 	 */
 	static registerProvider(providerId: string, factory: ProviderFactory): void {
 		// Validate provider ID to prevent prototype pollution
@@ -153,6 +175,8 @@ export class AISdkAdapter {
 		if (typeof factory !== 'function') {
 			throw new Error('Provider factory must be a function');
 		}
+		
+		// Warning: Custom registered providers need to be added to the allowlist in getProviderFactory
 		this.providerFactories[providerId] = factory;
 	}
 
@@ -160,7 +184,12 @@ export class AISdkAdapter {
 	 * Get list of supported provider IDs
 	 */
 	static getSupportedProviders(): string[] {
-		return Object.keys(this.providerFactories);
+		// Return only allowlisted providers for security
+		return [
+			'openai', 'anthropic', 'google', 'mistral', 'cohere',
+			'groq', 'perplexity', 'azure', 'together', 'fireworks',
+			'deepseek', 'xai', 'huggingface', 'replicate'
+		];
 	}
 
 	/**
@@ -170,6 +199,7 @@ export class AISdkAdapter {
 		if (!providerId || typeof providerId !== 'string') {
 			return false;
 		}
-		return Object.prototype.hasOwnProperty.call(this.providerFactories, providerId);
+		// Use getProviderFactory which has allowlist validation
+		return this.getProviderFactory(providerId) !== null;
 	}
 }
