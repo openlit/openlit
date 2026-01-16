@@ -85,7 +85,8 @@ async function calculateCost(
 	// Get pricing from registry
 	const providerMetadata = await ProviderRegistry.getProviderById(provider);
 	if (!providerMetadata) {
-		console.warn(`Provider metadata not found for: ${provider}`);
+		// Use separate parameter to prevent log injection
+		console.warn('Provider metadata not found for:', provider);
 		return 0;
 	}
 
@@ -93,7 +94,8 @@ async function calculateCost(
 		(m) => m.id === model
 	);
 	if (!modelMetadata) {
-		console.warn(`Model metadata not found for: ${provider}/${model}`);
+		// Use separate parameters to prevent log injection
+		console.warn('Model metadata not found for:', provider, '/', model);
 		return 0;
 	}
 
@@ -176,7 +178,8 @@ async function evaluateProvider(
 		};
 	} catch (error: any) {
 		const responseTime = (Date.now() - startTime) / 1000;
-		console.error(`Error evaluating ${provider}/${model}:`, error);
+		// Use separate parameters to prevent log injection
+		console.error('Error evaluating provider/model:', provider, '/', model, error);
 
 		return {
 			provider,

@@ -65,7 +65,8 @@ export async function getCustomModels(
 
 	// Log invalid IDs for cleanup
 	if (invalidIds.length > 0) {
-		console.warn(`Found ${invalidIds.length} models with invalid UUIDs:`, invalidIds);
+		// Use separate parameters to prevent log injection
+		console.warn('Found', invalidIds.length, 'models with invalid UUIDs:', invalidIds);
 	}
 
 	return { data: validModels as CustomModel[] };

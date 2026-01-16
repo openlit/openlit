@@ -82,9 +82,19 @@ export class AISdkAdapter {
 	static async generateCompletion(
 		config: ProviderConfig
 	): Promise<GenerationResult> {
-		const providerFactory = this.providerFactories[config.provider];
-		if (!providerFactory) {
+		// Validate provider name to prevent prototype pollution
+		if (!config.provider || typeof config.provider !== 'string') {
+			throw new Error('Invalid provider name');
+		}
+
+		// Use hasOwnProperty to ensure we only access direct properties
+		if (!Object.prototype.hasOwnProperty.call(this.providerFactories, config.provider)) {
 			throw new Error(`Provider ${config.provider} not supported`);
+		}
+
+		const providerFactory = this.providerFactories[config.provider];
+		if (typeof providerFactory !== 'function') {
+			throw new Error(`Invalid provider factory for ${config.provider}`);
 		}
 
 		const provider = providerFactory(config.apiKey);
@@ -125,6 +135,13 @@ export class AISdkAdapter {
 	 * Allows extending support to additional providers
 	 */
 	static registerProvider(providerId: string, factory: ProviderFactory): void {
+		// Validate provider ID to prevent prototype pollution
+		if (!providerId || typeof providerId !== 'string' || providerId.includes('__proto__') || providerId.includes('constructor') || providerId.includes('prototype')) {
+			throw new Error('Invalid provider ID');
+		}
+		if (typeof factory !== 'function') {
+			throw new Error('Provider factory must be a function');
+		}
 		this.providerFactories[providerId] = factory;
 	}
 
@@ -139,6 +156,9 @@ export class AISdkAdapter {
 	 * Check if a provider is supported
 	 */
 	static isProviderSupported(providerId: string): boolean {
-		return providerId in this.providerFactories;
+		if (!providerId || typeof providerId !== 'string') {
+			return false;
+		}
+		return Object.prototype.hasOwnProperty.call(this.providerFactories, providerId);
 	}
 }

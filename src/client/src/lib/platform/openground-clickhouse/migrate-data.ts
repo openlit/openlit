@@ -77,7 +77,7 @@ export async function migrateOpengroundDataToClickhouse(
 			return { data: "No records to migrate" };
 		}
 
-		console.log(`Found ${prismaRecords.length} records to migrate.`);
+		console.log('Found', prismaRecords.length, 'records to migrate.');
 
 		let successCount = 0;
 		let errorCount = 0;
@@ -151,12 +151,13 @@ export async function migrateOpengroundDataToClickhouse(
 					databaseConfigId
 				);
 
-				if (mainErr) {
-					console.error(`Error migrating record ${record.id}:`, mainErr);
-					errorCount++;
-					errors.push(`Record ${record.id}: ${mainErr}`);
-					continue;
-				}
+			if (mainErr) {
+				// Use separate parameters to prevent log injection
+				console.error('Error migrating record:', record.id, mainErr);
+				errorCount++;
+				errors.push(`Record ${record.id}: ${mainErr}`);
+				continue;
+			}
 
 				// Get the inserted record ID
 				const { data: insertedData, err: fetchErr } = await dataCollector(
@@ -172,12 +173,13 @@ export async function migrateOpengroundDataToClickhouse(
 					databaseConfigId
 				);
 
-				if (fetchErr || !(insertedData as any[])?.[0]?.id) {
-					console.error(`Error fetching inserted ID for ${record.id}:`, fetchErr);
-					errorCount++;
-					errors.push(`Record ${record.id}: Could not fetch inserted ID`);
-					continue;
-				}
+			if (fetchErr || !(insertedData as any[])?.[0]?.id) {
+				// Use separate parameters to prevent log injection
+				console.error('Error fetching inserted ID for record:', record.id, fetchErr);
+				errorCount++;
+				errors.push(`Record ${record.id}: Could not fetch inserted ID`);
+				continue;
+			}
 
 				const insertedId = (insertedData as any[])[0].id;
 
@@ -251,27 +253,30 @@ export async function migrateOpengroundDataToClickhouse(
 					}
 				}
 
-				successCount++;
-				console.log(
-					`✓ Migrated record ${record.id} (${successCount}/${prismaRecords.length})`
-				);
-			} catch (recordError: any) {
-				console.error(`Error processing record ${record.id}:`, recordError);
-				errorCount++;
-				errors.push(
-					`Record ${record.id}: ${recordError.message || String(recordError)}`
-				);
-			}
+			successCount++;
+			// Use separate parameters to prevent log injection
+			console.log(
+				'✓ Migrated record', record.id, `(${successCount}/${prismaRecords.length})`
+			);
+		} catch (recordError: any) {
+			// Use separate parameters to prevent log injection
+			console.error('Error processing record:', record.id, recordError);
+			errorCount++;
+			errors.push(
+				`Record ${record.id}: ${recordError.message || String(recordError)}`
+			);
+		}
 		}
 
-		console.log("\nMigration complete!");
-		console.log(`Success: ${successCount}/${prismaRecords.length}`);
-		console.log(`Errors: ${errorCount}/${prismaRecords.length}`);
+	console.log("\nMigration complete!");
+	console.log('Success:', `${successCount}/${prismaRecords.length}`);
+	console.log('Errors:', `${errorCount}/${prismaRecords.length}`);
 
-		if (errors.length > 0) {
-			console.error("\nErrors encountered:");
-			errors.forEach((err) => console.error(`  - ${err}`));
-		}
+	if (errors.length > 0) {
+		console.error("\nErrors encountered:");
+		// Use separate parameters to prevent log injection
+		errors.forEach((err) => console.error('  -', err));
+	}
 
 		return {
 			data: {

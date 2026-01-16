@@ -71,7 +71,8 @@ export async function POST(request: NextRequest) {
 		});
 	}
 
-	console.log(`Found ${invalidModels.length} models with invalid UUIDs:`, invalidModels);
+	// Use separate parameters to prevent log injection
+	console.log('Found', invalidModels.length, 'models with invalid UUIDs:', invalidModels);
 
 	// Delete all rows with invalid UUIDs using a simpler approach
 	// We'll delete all and rely on the user to recreate valid ones

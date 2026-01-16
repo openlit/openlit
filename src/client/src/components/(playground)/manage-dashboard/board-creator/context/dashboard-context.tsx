@@ -95,12 +95,13 @@ export const DashboardProvider: React.FC<DashboardProviderProps> = ({
 
 		try {
 			if (runQuery) {
-				const { data } = await runQuery(widgetId, {});
-				updateWidgetData(widgetId, data);
-			}
-		} catch (error) {
-			console.error(`Failed to load data for widget ${widgetId}:`, error);
+			const { data } = await runQuery(widgetId, {});
+			updateWidgetData(widgetId, data);
 		}
+	} catch (error) {
+		// Use separate parameters to prevent log injection
+		console.error('Failed to load data for widget:', widgetId, error);
+	}
 	};
 
 	// Update widget data
