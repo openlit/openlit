@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { dataCollector } from "@/lib/platform/common";
 import getMessage from "@/constants/messages";
+import Sanitizer from "@/utils/sanitizer";
 import {
 	OPENLIT_OPENGROUND_TABLE_NAME,
 	OPENLIT_OPENGROUND_PROVIDERS_TABLE_NAME,
@@ -124,14 +125,14 @@ export async function migrateOpengroundDataToClickhouse(
 						min_completion_tokens_provider,
 						errors
 					) VALUES (
-						'${promptEscaped}',
-						'custom',
-						NULL,
-						NULL,
-						'{}',
-						'${record.createdByUserId}',
-						'${databaseConfigId}',
-						parseDateTimeBestEffort('${createdAt}'),
+				'${promptEscaped}',
+				'custom',
+				NULL,
+				NULL,
+				'{}',
+				'${escapeString(record.createdByUserId)}',
+				'${escapeString(databaseConfigId)}',
+				parseDateTimeBestEffort('${createdAt}'),
 						${stats.totalProviders || responseMeta.length},
 						${stats.minCost || 0},
 						'${escapeString(stats.minCostProvider || "")}',
@@ -218,13 +219,13 @@ export async function migrateOpengroundDataToClickhouse(
 							finish_reason,
 							provider_response,
 							created_at
-						) VALUES (
-							'${insertedId}',
-							'${providerName}',
-							'${model}',
-							'${config}',
-							'${responseText}',
-							'${errorText}',
+					) VALUES (
+						'${escapeString(insertedId)}',
+						'${providerName}',
+						'${model}',
+						'${config}',
+						'${responseText}',
+						'${errorText}',
 							${cost},
 							${promptTokens},
 							${completionTokens},
@@ -313,14 +314,16 @@ export async function checkMigrationNeeded(
 			return false; // No data to migrate
 		}
 
-		// Check ClickHouse count
-		const { data: clickhouseData } = await dataCollector(
-			{
-				query: `SELECT COUNT(*) as count FROM ${OPENLIT_OPENGROUND_TABLE_NAME} WHERE database_config_id = '${databaseConfigId}'`,
-			},
-			"query",
-			databaseConfigId
-		);
+	// Check ClickHouse count
+	// Sanitize databaseConfigId to prevent SQL injection
+	const sanitizedDbConfigId = Sanitizer.sanitizeValue(databaseConfigId);
+	const { data: clickhouseData } = await dataCollector(
+		{
+			query: `SELECT COUNT(*) as count FROM ${OPENLIT_OPENGROUND_TABLE_NAME} WHERE database_config_id = '${sanitizedDbConfigId}'`,
+		},
+		"query",
+		databaseConfigId
+	);
 
 		const clickhouseCount = (clickhouseData as any[])?.[0]?.count || 0;
 

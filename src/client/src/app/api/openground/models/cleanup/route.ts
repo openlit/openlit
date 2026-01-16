@@ -6,6 +6,7 @@ import { getDBConfigByUser } from "@/lib/db-config";
 import getMessage from "@/constants/messages";
 import { OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME } from "@/lib/platform/openground/table-details";
 import asaw from "@/utils/asaw";
+import Sanitizer from "@/utils/sanitizer";
 
 // Extend the session type to include id
 interface SessionWithId {
@@ -74,12 +75,16 @@ export async function POST(request: NextRequest) {
 	// Use separate parameters to prevent log injection
 	console.log('Found', invalidModels.length, 'models with invalid UUIDs:', invalidModels);
 
+	// Sanitize user inputs to prevent SQL injection
+	const sanitizedUserId = Sanitizer.sanitizeValue(session.user.id);
+	const sanitizedDbConfigId = Sanitizer.sanitizeValue(dbConfig.id);
+
 	// Delete all rows with invalid UUIDs using a simpler approach
 	// We'll delete all and rely on the user to recreate valid ones
 	const deleteQuery = `
 		ALTER TABLE ${OPENLIT_OPENGROUND_CUSTOM_MODELS_TABLE_NAME}
-		DELETE WHERE created_by_user_id = '${session.user.id}'
-		  AND database_config_id = '${dbConfig.id}'
+		DELETE WHERE created_by_user_id = '${sanitizedUserId}'
+		  AND database_config_id = '${sanitizedDbConfigId}'
 		  AND NOT match(toString(id), '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 	`;
 

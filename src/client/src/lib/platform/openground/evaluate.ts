@@ -65,7 +65,9 @@ async function resolvePrompt(
 	// Substitute variables
 	if (promptSource.variables) {
 		Object.entries(promptSource.variables).forEach(([key, value]) => {
-			const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
+			// Escape special regex characters to prevent RegExp injection
+			const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const regex = new RegExp(`\\{\\{\\s*${escapedKey}\\s*\\}\\}`, "g");
 			prompt = prompt.replace(regex, value);
 		});
 	}
