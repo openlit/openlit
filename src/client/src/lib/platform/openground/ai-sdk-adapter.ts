@@ -97,7 +97,18 @@ export class AISdkAdapter {
 			throw new Error(`Invalid provider factory for ${config.provider}`);
 		}
 
+		// Validate model name to prevent injection attacks
+		if (!config.model || typeof config.model !== 'string') {
+			throw new Error('Invalid model name');
+		}
+
 		const provider = providerFactory(config.apiKey);
+		
+		// Validate that provider is callable before invoking
+		if (typeof provider !== 'function') {
+			throw new Error(`Invalid provider instance for ${config.provider}`);
+		}
+		
 		const modelInstance = provider(config.model);
 
 		// Build options object with only defined values
