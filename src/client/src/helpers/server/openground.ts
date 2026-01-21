@@ -7,7 +7,7 @@ export function generateOpengroundStats(requestMeta: any, responseMeta: any) {
 		stats.errors = responseMeta
 			.filter(([err]: [any, any]) => !!err)
 			.map(([err]: [any, any]) => err);
-		stats.totalProviders = responseMeta.length;
+		stats.totalProviders = responseMeta.selectedProviders.length;
 		stats.minCostProvider = Infinity;
 		stats.minResponseTime = Infinity;
 		stats.minCompletionTokens = Infinity;

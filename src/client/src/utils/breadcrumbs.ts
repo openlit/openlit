@@ -1,3 +1,4 @@
+import getMessage from "@/constants/messages";
 import { PageHeader } from "@/types/store/page";
 
 export interface BreadcrumbConfig {
@@ -39,6 +40,15 @@ export function extractRouteParams(pathname: string, regex: RegExp): Record<stri
 	if (pathname.includes('/vault/') && !pathname.endsWith('/vault')) {
 		const parts = pathname.split('/');
 		const idIndex = parts.indexOf('vault') + 1;
+		if (idIndex < parts.length) {
+			params.id = parts[idIndex];
+		}
+	}
+	
+	// Extract openground ID
+	if (pathname.includes('/openground/') && !pathname.endsWith('/openground')) {
+		const parts = pathname.split('/');
+		const idIndex = parts.indexOf('openground') + 1;
 		if (idIndex < parts.length) {
 			params.id = parts[idIndex];
 		}
@@ -149,20 +159,24 @@ export const ROUTE_CONFIGS: RouteConfig[] = [
 			{ title: "Vault", href: "/vault" }
 		],
 	},
-	
+
 	// Openground
 	{
-		regex: /^\/openground\/?.*$/,
-		getTitle: (pathname) => {
-			if (pathname === "/openground/new") return "New Evaluation";
-			return "Openground";
+		regex: /^\/openground$/,
+		getTitle: () => "Openground",
+		getBreadcrumbs: () => [],
+	},
+	
+	{
+		regex: /^\/openground\/[^/]+$/,
+		getTitle: (pathname, params) => {
+			if (pathname === "/openground/new") return getMessage().OPENGROUND_CREATE_NEW_PLAYGROUND;
+			if (pathname === "/openground/models") return getMessage().OPENGROUND_MANAGE_MODELS;
+			return params?.id ? getMessage().OPENGROUND_RUN_DETAILS : getMessage().FEATURE_OPENGROUND;
 		},
-		getBreadcrumbs: (pathname) => {
-			if (pathname === "/openground/new") {
-				return [{ title: "Openground", href: "/openground" }];
-			}
-			return [];
-		},
+		getBreadcrumbs: () => [
+			{ title: getMessage().FEATURE_OPENGROUND, href: "/openground" }
+		],
 	},
 	
 	// Settings
