@@ -38,7 +38,7 @@ export default function DatabaseConfigSwitch() {
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="flex gap-2 shrink-0 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white font-normal">
 					<Database className={`${ICON_CLASSES} shrink-0`} />
-					<span className="block group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap grow">{activeDatabase?.name}</span>
+					<span className="block group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap grow text-left">{activeDatabase?.name}</span>
 					<ChevronsUpDown className={`size-4 block group-data-[state=close]:hidden shrink-0`} />
 				</Button>
       </DropdownMenuTrigger>

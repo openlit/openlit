@@ -4,6 +4,7 @@ import asaw from "@/utils/asaw";
 import { getCurrentUser } from "./session";
 import { User } from "@prisma/client";
 import { moveSharedDBConfigToDBUser } from "./db-config";
+import { moveInvitationsToMembership } from "./organisation";
 import getMessage from "@/constants/messages";
 
 function exclude<User extends Record<string, unknown>, K extends keyof User>(
@@ -74,11 +75,13 @@ export const createNewUser = async (
 		data: {
 			email,
 			password: hashedPassword,
+			hasCompletedOnboarding: false,
 		},
 	});
 
 	if (createdUser?.id) {
 		await moveSharedDBConfigToDBUser(email, createdUser.id);
+		await moveInvitationsToMembership(email, createdUser.id);
 		return exclude(createdUser, options?.selectPassword ? [] : undefined);
 	}
 

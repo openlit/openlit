@@ -6,17 +6,27 @@ import migrations from "@/clickhouse/migrations";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
 import { consoleLog } from "@/utils/log";
+import { getCurrentOrganisation } from "./organisation";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
 
 	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
+	// Get current organisation
+	const currentOrg = await getCurrentOrganisation();
+
 	if (currentOnly) {
 		const dbConfig = await prisma.databaseConfigUser.findFirst({
 			where: {
 				userId: user.id,
 				isCurrent: true,
+				// Filter by current organisation if available
+				...(currentOrg?.id && {
+					databaseConfig: {
+						organisationId: currentOrg.id,
+					},
+				}),
 			},
 			select: {
 				databaseConfig: true,
@@ -29,6 +39,12 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const dbUserConfigs = await prisma.databaseConfigUser.findMany({
 		where: {
 			userId: user.id,
+			// Filter by current organisation if available
+			...(currentOrg?.id && {
+				databaseConfig: {
+					organisationId: currentOrg.id,
+				},
+			}),
 		},
 		select: {
 			databaseConfigId: true,
@@ -82,9 +98,13 @@ export const upsertDBConfig = async (
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
-	const existingDBName = await prisma.databaseConfig.findUnique({
+	// Get current organisation
+	const currentOrg = await getCurrentOrganisation();
+
+	const existingDBName = await prisma.databaseConfig.findFirst({
 		where: {
 			name: dbConfig.name,
+			organisationId: currentOrg?.id || null,
 			NOT: {
 				id,
 			},
@@ -95,7 +115,17 @@ export const upsertDBConfig = async (
 
 	const whereObject: any = {};
 	if (id) whereObject.id = id;
-	else whereObject.name = dbConfig.name;
+	else if (currentOrg?.id) {
+		whereObject.name_organisationId = {
+			name: dbConfig.name,
+			organisationId: currentOrg.id,
+		};
+	} else {
+		whereObject.name_organisationId = {
+			name: dbConfig.name,
+			organisationId: null,
+		};
+	}
 
 	if (id) {
 		await checkPermissionForDbAction(user!.id, id, "EDIT");
@@ -107,6 +137,7 @@ export const upsertDBConfig = async (
 			create: {
 				...(dbConfig as any),
 				createdByUserId: user!.id,
+				organisationId: currentOrg?.id,
 			},
 			update: {
 				...dbConfig,

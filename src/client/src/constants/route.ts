@@ -1,10 +1,18 @@
-export const DEFAULT_LOGGED_IN_ROUTE = "/getting-started";
+export const DEFAULT_LOGGED_IN_ROUTE = "/home";
 export const ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN = [
 	"/api/prompt/get-compiled",
 	"/api/vault/get-secrets",
 ];
 
 export const CRON_JOB_ROUTES = ["/api/evaluation/auto"];
+
+// Routes that are accessible without completing onboarding
+export const ONBOARDING_WHITELIST_ROUTES = [
+	"/onboarding",
+	"/api/organisation",
+	"/api/user/complete-onboarding",
+	"/api/user/profile",
+];
 
 // Route format is methodtype: routepathregex[]
 export const RESTRICTED_DEMO_ACCOUNT_ROUTES: Record<string, string[]> = {

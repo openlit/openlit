@@ -7,3 +7,5 @@ export const getIsUserFetched = (state: RootStore) => state.user.isFetched;
 export const setUser = (state: RootStore) => state.user.set;
 
 export const resetUser = (state: RootStore) => state.user.reset;
+
+export const getCurrentUserId = (state: RootStore) => state.user.details?.id;

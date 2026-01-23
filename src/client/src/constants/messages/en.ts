@@ -354,3 +354,74 @@ export const CANCEL = "Cancel";
 export const DELETE = "Delete";
 export const CLOSE = "Close";
 export const ACTIONS = "Actions";
+export const JOIN = "Join";
+export const CREATING = "Creating...";
+export const SETTING_UP = "Setting up...";
+export const SELECTING = "Selecting...";
+
+// Organisation
+export const ORGANISATION = "Organisation";
+export const ORGANISATIONS = "Organisations";
+export const ORGANISATION_NAME = "Organisation Name";
+export const ORGANISATION_NAME_PLACEHOLDER = "My Company";
+export const CREATE_ORGANISATION = "Create Organisation";
+export const NEW_ORGANISATION = "New Organisation";
+export const MANAGE_ORGANISATIONS = "Manage Organisations";
+export const SWITCH_ORGANISATION = "Switch Organisation";
+export const ORGANISATION_SETTINGS = "Organisation Settings";
+export const ORGANISATION_SETTINGS_DESCRIPTION = "Manage your organisations and team members";
+export const CURRENT_ORGANISATION = "Current Organisation";
+export const UPDATE_ORGANISATION_DETAILS = "Update your organisation details";
+export const YOUR_ORGANISATIONS = "Your Organisations";
+export const YOUR_ORGANISATIONS_DESCRIPTION = "All organisations you are a member of";
+export const YOUR_ORGANISATIONS_ONBOARDING_DESCRIPTION = "You're already a member of these organisations. Select one to get started.";
+export const ORGANISATION_CREATED = "Organisation created successfully";
+export const ORGANISATION_UPDATED = "Organisation updated successfully";
+export const ORGANISATION_DELETED = "Organisation deleted successfully";
+export const ORGANISATION_SWITCHED = "Switched organisation successfully";
+export const ORGANISATION_SWITCH_FAILED = "Failed to switch organisation";
+export const ORGANISATION_CREATE_FAILED = "Failed to create organisation";
+export const ORGANISATION_UPDATE_FAILED = "Failed to update organisation";
+export const ORGANISATION_DELETE_FAILED = "Failed to delete organisation";
+export const ORGANISATION_CREATE_DESCRIPTION = "Create a new organisation to manage your databases and team members.";
+
+// Organisation Members
+export const MEMBERS = "Members";
+export const MEMBER = "Member";
+export const OWNER = "Owner";
+export const INVITE_MEMBERS = "Invite Members";
+export const INVITE_MEMBERS_DESCRIPTION = "Invite new members to your organisation";
+export const INVITE = "Invite";
+export const INVITING = "Inviting...";
+export const INVITATIONS_SENT = "Invitations sent successfully";
+export const INVITATION_FAILED = "Failed to send invitations";
+export const REMOVE_MEMBER = "Remove Member";
+export const REMOVE_MEMBER_CONFIRMATION = "Are you sure you want to remove this member from the organisation?";
+export const MEMBER_REMOVED = "Member removed successfully";
+export const LEAVE_ORGANISATION = "Leave Organisation";
+export const LEAVE_ORGANISATION_CONFIRMATION = "Are you sure you want to leave this organisation?";
+export const DELETE_ORGANISATION = "Delete Organisation";
+export const DELETE_ORGANISATION_CONFIRMATION = "Are you sure you want to delete this organisation? This action cannot be undone.";
+export const DANGER_ZONE = "Danger Zone";
+export const DANGER_ZONE_DESCRIPTION = "Irreversible actions for this organisation";
+
+// Organisation Invitations
+export const PENDING_INVITATIONS = "Pending Invitations";
+export const PENDING_INVITES = "Pending Invites";
+export const PENDING_INVITES_DESCRIPTION = "Invitations sent but not yet accepted";
+export const PENDING_INVITATIONS_DESCRIPTION = "You have been invited to join the following organisations";
+export const PENDING_INVITATIONS_ONBOARDING_DESCRIPTION = "You've been invited to join the following organisations";
+export const INVITATION_ACCEPTED = "Joined organisation successfully";
+export const INVITATION_DECLINED = "Invitation declined";
+export const INVITATION_CANCELLED = "Invitation cancelled";
+export const INVITATION_ACCEPT_FAILED = "Failed to accept invitation";
+export const INVITATION_DECLINE_FAILED = "Failed to decline invitation";
+export const INVITATION_CANCEL_FAILED = "Failed to cancel invitation";
+export const INVITED = "Invited";
+
+// Onboarding
+export const ONBOARDING_WELCOME = "Welcome to OpenLIT";
+export const ONBOARDING_SUBTITLE = "Let's get you set up with an organisation";
+export const ONBOARDING_CREATE_DESCRIPTION = "Create a new organisation to get started";
+export const ONBOARDING_SKIP = "Skip for now (create a Personal organisation)";
+export const PERSONAL_ORGANISATION = "Personal";
