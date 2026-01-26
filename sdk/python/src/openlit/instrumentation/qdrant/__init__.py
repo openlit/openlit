@@ -13,6 +13,7 @@ from openlit.instrumentation.qdrant.async_qdrant import async_general_wrap
 _instruments = ("qdrant-client >= 1.16.0",)
 
 # Operations to wrap for both sync and async clients
+# Note: Some methods are version-dependent and will be filtered at runtime
 QDRANT_OPERATIONS = [
     ("create_collection", "qdrant.create_collection"),
     ("delete_collection", "qdrant.delete_collection"),
@@ -29,10 +30,17 @@ QDRANT_OPERATIONS = [
     ("delete", "qdrant.delete"),
     ("retrieve", "qdrant.retrieve"),
     ("scroll", "qdrant.scroll"),
+    # Deprecated in v1.13.0, removed in v1.16.0 (replaced by query_points)
+    ("search", "qdrant.search"),
+    # Deprecated in v1.13.0, removed in v1.16.0 (replaced by query_points_groups)
+    ("search_groups", "qdrant.search_groups"),
+    # Deprecated in v1.13.0, removed in v1.16.0 (replaced by query_batch_points)
+    ("recommend", "qdrant.recommend"),
     ("create_payload_index", "qdrant.create_payload_index"),
+    # New methods added in v1.13.0+
     ("query_points", "qdrant.query_points"),
-    ("query_batch_points", "qdrant.query_batch_points"),
     ("query_points_groups", "qdrant.query_points_groups"),
+    ("query_batch_points", "qdrant.query_batch_points"),
 ]
 
 
@@ -55,13 +63,23 @@ class QdrantInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
 
         # #region agent log
-        import json;from qdrant_client import QdrantClient;deprecated_methods=["search","search_groups","recommend"];new_methods=["query_points","query_points_groups","query_batch_points"];method_availability={"deprecated":{m:hasattr(QdrantClient,m) for m in deprecated_methods},"new":{m:hasattr(QdrantClient,m) for m in new_methods}};open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:48","message":"instrument_entry","data":{"qdrant_version":version,"method_availability":method_availability},"sessionId":"debug-session","runId":"initial","hypothesisId":"A,B"})+'\n')
+        import json;from qdrant_client import QdrantClient;deprecated_methods=["search","search_groups","recommend"];new_methods=["query_points","query_points_groups","query_batch_points"];method_availability={"deprecated":{m:hasattr(QdrantClient,m) for m in deprecated_methods},"new":{m:hasattr(QdrantClient,m) for m in new_methods}};open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:61","message":"instrument_entry","data":{"qdrant_version":version,"method_availability":method_availability},"sessionId":"debug-session","runId":"post-fix","hypothesisId":"A,B"})+'\n')
         # #endregion
 
-        # Wrap sync operations
+        # Import QdrantClient to check method availability
+        from qdrant_client import QdrantClient, AsyncQdrantClient
+
+        # Wrap sync operations (only if method exists in this version)
         for method_name, endpoint in QDRANT_OPERATIONS:
+            # Check if method exists on QdrantClient before attempting to wrap
+            if not hasattr(QdrantClient, method_name):
+                # #region agent log
+                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:70","message":"skip_sync_method","data":{"method":method_name,"reason":"method_not_found"},"sessionId":"debug-session","runId":"post-fix","hypothesisId":"A,D"})+'\n')
+                # #endregion
+                continue
+
             # #region agent log
-            import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:64","message":"before_wrap_sync","data":{"method":method_name,"endpoint":endpoint},"sessionId":"debug-session","runId":"initial","hypothesisId":"A"})+'\n')
+            import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:75","message":"before_wrap_sync","data":{"method":method_name,"endpoint":endpoint},"sessionId":"debug-session","runId":"post-fix","hypothesisId":"A"})+'\n')
             # #endregion
             try:
                 wrap_function_wrapper(
@@ -80,18 +98,25 @@ class QdrantInstrumentor(BaseInstrumentor):
                     ),
                 )
                 # #region agent log
-                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:82","message":"wrap_sync_success","data":{"method":method_name},"sessionId":"debug-session","runId":"initial","hypothesisId":"A"})+'\n')
+                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:94","message":"wrap_sync_success","data":{"method":method_name},"sessionId":"debug-session","runId":"post-fix","hypothesisId":"A"})+'\n')
                 # #endregion
             except Exception as e:
                 # #region agent log
-                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:86","message":"wrap_sync_failed","data":{"method":method_name,"error":str(e),"error_type":type(e).__name__},"sessionId":"debug-session","runId":"initial","hypothesisId":"A,D"})+'\n')
+                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:98","message":"wrap_sync_failed","data":{"method":method_name,"error":str(e),"error_type":type(e).__name__},"sessionId":"debug-session","runId":"post-fix","hypothesisId":"A,D"})+'\n')
                 # #endregion
                 pass
 
-        # Wrap async operations
+        # Wrap async operations (only if method exists in this version)
         for method_name, endpoint in QDRANT_OPERATIONS:
+            # Check if method exists on AsyncQdrantClient before attempting to wrap
+            if not hasattr(AsyncQdrantClient, method_name):
+                # #region agent log
+                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:105","message":"skip_async_method","data":{"method":method_name,"reason":"method_not_found"},"sessionId":"debug-session","runId":"post-fix","hypothesisId":"A,D"})+'\n')
+                # #endregion
+                continue
+
             # #region agent log
-            import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:93","message":"before_wrap_async","data":{"method":method_name,"endpoint":endpoint},"sessionId":"debug-session","runId":"initial","hypothesisId":"A"})+'\n')
+            import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:110","message":"before_wrap_async","data":{"method":method_name,"endpoint":endpoint},"sessionId":"debug-session","runId":"post-fix","hypothesisId":"A"})+'\n')
             # #endregion
             try:
                 wrap_function_wrapper(
@@ -110,11 +135,11 @@ class QdrantInstrumentor(BaseInstrumentor):
                     ),
                 )
                 # #region agent log
-                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:111","message":"wrap_async_success","data":{"method":method_name},"sessionId":"debug-session","runId":"initial","hypothesisId":"A"})+'\n')
+                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:129","message":"wrap_async_success","data":{"method":method_name},"sessionId":"debug-session","runId":"post-fix","hypothesisId":"A"})+'\n')
                 # #endregion
             except Exception as e:
                 # #region agent log
-                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:115","message":"wrap_async_failed","data":{"method":method_name,"error":str(e),"error_type":type(e).__name__},"sessionId":"debug-session","runId":"initial","hypothesisId":"A,D"})+'\n')
+                import json;open(r'd:\open-source\.cursor\debug.log','a').write(json.dumps({"timestamp":__import__('time').time()*1000,"location":"__init__.py:133","message":"wrap_async_failed","data":{"method":method_name,"error":str(e),"error_type":type(e).__name__},"sessionId":"debug-session","runId":"post-fix","hypothesisId":"A,D"})+'\n')
                 # #endregion
                 pass
 

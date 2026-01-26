@@ -28,6 +28,11 @@ DB_OPERATION_MAP = {
     "qdrant.clear_payload": SemanticConvention.DB_OPERATION_DELETE,
     "qdrant.retrieve": SemanticConvention.DB_OPERATION_GET,
     "qdrant.scroll": SemanticConvention.DB_OPERATION_GET,
+    # Deprecated in v1.13.0, removed in v1.16.0
+    "qdrant.search": SemanticConvention.DB_OPERATION_GET,
+    "qdrant.search_groups": SemanticConvention.DB_OPERATION_GET,
+    "qdrant.recommend": SemanticConvention.DB_OPERATION_GET,
+    # New methods (v1.13.0+)
     "qdrant.query_points": SemanticConvention.DB_OPERATION_QUERY,
     "qdrant.query_batch_points": SemanticConvention.DB_OPERATION_QUERY,
     "qdrant.query_points_groups": SemanticConvention.DB_OPERATION_QUERY,
@@ -358,6 +363,40 @@ def common_qdrant_logic(
                 SemanticConvention.DB_QUERY_SUMMARY,
                 f"{scope._db_operation} {collection_name} query={query} "
                 f"group_by={group_by} limit={limit} group_size={group_size}",
+            )
+
+        elif endpoint == "qdrant.query_points_groups":
+            # New method (v1.13.0+) - replacement for search_groups
+            query = scope._kwargs.get("query", {})
+            group_by = scope._kwargs.get("group_by", "unknown")
+
+            scope._span.set_attribute(
+                SemanticConvention.DB_COLLECTION_NAME, collection_name
+            )
+            scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(query))
+
+            scope._span.set_attribute(
+                SemanticConvention.DB_QUERY_SUMMARY,
+                f"{scope._db_operation} {collection_name} query={query} group_by={group_by}",
+            )
+
+        elif endpoint == "qdrant.query_batch_points":
+            # New method (v1.13.0+) - replacement for recommend
+            requests = scope._kwargs.get("requests", [])
+
+            scope._span.set_attribute(
+                SemanticConvention.DB_COLLECTION_NAME, collection_name
+            )
+            scope._span.set_attribute(
+                SemanticConvention.DB_QUERY_TEXT, str(requests)
+            )
+            scope._span.set_attribute(
+                SemanticConvention.DB_VECTOR_COUNT, object_count(requests)
+            )
+
+            scope._span.set_attribute(
+                SemanticConvention.DB_QUERY_SUMMARY,
+                f"{scope._db_operation} {collection_name} batch_requests={object_count(requests)}",
             )
 
     # Handle index operations
