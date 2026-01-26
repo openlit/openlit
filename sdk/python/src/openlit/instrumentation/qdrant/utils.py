@@ -383,6 +383,7 @@ def common_qdrant_logic(
         elif endpoint == "qdrant.query_batch_points":
             # New method (v1.13.0+) - replacement for recommend
             requests = scope._kwargs.get("requests", [])
+            requests_count = object_count(requests)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_COLLECTION_NAME, collection_name
@@ -391,12 +392,12 @@ def common_qdrant_logic(
                 SemanticConvention.DB_QUERY_TEXT, str(requests)
             )
             scope._span.set_attribute(
-                SemanticConvention.DB_VECTOR_COUNT, object_count(requests)
+                SemanticConvention.DB_VECTOR_COUNT, requests_count
             )
 
             scope._span.set_attribute(
                 SemanticConvention.DB_QUERY_SUMMARY,
-                f"{scope._db_operation} {collection_name} batch_requests={object_count(requests)}",
+                f"{scope._db_operation} {collection_name} batch_requests={requests_count}",
             )
 
     # Handle index operations
