@@ -17,29 +17,29 @@ pip install "qdrant-client>=1.16.0"
 ### 2. Install OpenLIT in development mode
 
 ```bash
-cd d:\open-source\openlit\sdk\python
+cd sdk/python
 pip install -e .
 ```
 
 Or with poetry:
 
 ```bash
-cd d:\open-source\openlit\sdk\python
+cd sdk/python
 poetry install
 ```
 
 ### 3. Run the test script
 
 ```bash
-cd d:\open-source\openlit
-python test_qdrant_issue.py
+# From repository root
+python examples/test_qdrant_compatibility.py
 ```
 
 ## Expected Behavior
 
 **With qdrant-client >= 1.16.0 (BEFORE fix):**
 - The test should FAIL with an error about missing methods (search, search_groups, recommend)
-- Debug logs will be written to `d:\open-source\.cursor\debug.log`
+- Debug logs may be written to local debug files (if instrumented)
 
 **With the fix (AFTER applying changes):**
 - The test should PASS
@@ -48,10 +48,7 @@ python test_qdrant_issue.py
 
 ## Debug Log Location
 
-All instrumentation logs are written to:
-```
-d:\open-source\.cursor\debug.log
-```
+Debug logs (if instrumented) are written to the local workspace debug file.
 
 ## What the test does
 
