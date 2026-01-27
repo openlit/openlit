@@ -50,75 +50,75 @@ TABLE_PATTERNS = [
 def parse_sql_operation(query: Any) -> str:
     """
     Parse SQL statement to detect operation type.
-    
+
     Args:
         query: SQL query string or SQL composition object
-        
+
     Returns:
         Operation type constant from SemanticConvention
     """
     if query is None:
         return SemanticConvention.DB_OPERATION_QUERY
-    
+
     # Handle psycopg sql.SQL and sql.Composed objects
     query_str = str(query).strip()
     if not query_str:
         return SemanticConvention.DB_OPERATION_QUERY
-    
+
     # Get the first word (SQL command)
     query_upper = query_str.upper()
-    
+
     # Check for common SQL operations
     for keyword, operation in SQL_OPERATION_MAP.items():
         if query_upper.startswith(keyword):
             return operation
-    
+
     # Handle WITH ... SELECT/INSERT/UPDATE/DELETE (CTEs)
     if query_upper.startswith("WITH"):
         # Look for the actual operation after the CTE
         for keyword, operation in SQL_OPERATION_MAP.items():
             if keyword in query_upper:
                 return operation
-    
+
     return SemanticConvention.DB_OPERATION_QUERY
 
 
 def extract_table_name(query: Any) -> str:
     """
     Extract table name from SQL query for span naming.
-    
+
     Args:
         query: SQL query string or SQL composition object
-        
+
     Returns:
         Table name or "unknown" if not found
     """
     if query is None:
         return "unknown"
-    
+
     query_str = str(query)
-    
+
     for pattern in TABLE_PATTERNS:
         match = re.search(pattern, query_str, re.IGNORECASE)
         if match:
             return match.group(1)
-    
+
     return "unknown"
 
 
 def extract_connection_info(connection: Any) -> Tuple[str, int]:
     """
     Extract server address and port from psycopg connection.
-    
+
     Args:
         connection: Psycopg Connection or AsyncConnection object
-        
+
     Returns:
         Tuple of (server_address, server_port)
     """
     default_address = "localhost"
     default_port = 5432
-    
+
     try:
         if hasattr(connection, "info"):
             info = connection.info
@@ -127,17 +127,17 @@ def extract_connection_info(connection: Any) -> Tuple[str, int]:
             return host, int(port)
     except Exception:
         pass
-    
+
     return default_address, default_port
 
 
 def extract_database_name(connection: Any) -> str:
     """
     Extract database name from psycopg connection.
-    
+
     Args:
         connection: Psycopg Connection or AsyncConnection object
-        
+
     Returns:
         Database name or "unknown"
     """
@@ -146,26 +146,26 @@ def extract_database_name(connection: Any) -> str:
             return getattr(connection.info, "dbname", None) or "unknown"
     except Exception:
         pass
-    
+
     return "unknown"
 
 
 def detect_special_features(query: Any) -> dict:
     """
     Detect special PostgreSQL features in the query.
-    
+
     Args:
         query: SQL query string
-        
+
     Returns:
         Dict with detected features
     """
     features = {}
     if query is None:
         return features
-    
+
     query_str = str(query).upper()
-    
+
     # pgvector similarity operators
     if "<=>" in str(query):
         features["similarity_metric"] = "cosine"
@@ -173,7 +173,7 @@ def detect_special_features(query: Any) -> dict:
         features["similarity_metric"] = "l2"
     elif "<#>" in str(query):
         features["similarity_metric"] = "inner_product"
-    
+
     # Full-text search
     if "TSVECTOR" in query_str or "TSQUERY" in query_str:
         features["full_text_search"] = True
@@ -181,69 +181,69 @@ def detect_special_features(query: Any) -> dict:
         features["websearch"] = True
     if "TS_RANK" in query_str:
         features["text_ranking"] = True
-    
+
     return features
 
 
 def get_query_summary(db_operation: str, table_name: str, query: Any) -> str:
     """
     Generate a human-readable query summary.
-    
+
     Args:
         db_operation: The detected database operation
         table_name: The table name
         query: The SQL query
-        
+
     Returns:
         Human-readable summary string
     """
     summary = f"{db_operation} {table_name}"
-    
+
     features = detect_special_features(query)
     if features.get("similarity_metric"):
         summary += f" (vector {features['similarity_metric']})"
     if features.get("full_text_search"):
         summary += " (full-text)"
-    
+
     return summary
 
 
 def sanitize_parameter(value: Any, max_length: int = MAX_PARAM_LENGTH) -> str:
     """
     Sanitize a parameter value for safe inclusion in traces.
-    
+
     Truncates long values and converts to string representation.
     Does NOT mask sensitive data - that's the user's responsibility
     to not enable capture_parameters with sensitive queries.
-    
+
     Args:
         value: Parameter value
         max_length: Maximum string length
-        
+
     Returns:
         Sanitized string representation
     """
     if value is None:
         return "NULL"
-    
+
     # Handle bytes (don't capture binary data)
     if isinstance(value, (bytes, bytearray)):
         return f"<bytes:{len(value)}>"
-    
+
     # Handle memoryview
     if isinstance(value, memoryview):
         return f"<memoryview:{len(value)}>"
-    
+
     # Convert to string
     try:
         str_value = str(value)
     except Exception:
         return "<unrepresentable>"
-    
+
     # Truncate if too long
     if len(str_value) > max_length:
         return str_value[:max_length] + f"...<truncated:{len(str_value)}>"
-    
+
     return str_value
 
 
@@ -254,18 +254,18 @@ def format_parameters(
 ) -> Optional[str]:
     """
     Format query parameters for span attributes.
-    
+
     Args:
         params: Query parameters (tuple, list, dict, or None)
         max_count: Maximum number of parameters to include
         max_length: Maximum length per parameter value
-        
+
     Returns:
         Formatted string or None if no parameters
     """
     if params is None:
         return None
-    
+
     try:
         if isinstance(params, dict):
             # Named parameters: {"name": "value", ...}
@@ -274,7 +274,7 @@ def format_parameters(
             if len(params) > max_count:
                 formatted["..."] = f"<{len(params) - max_count} more>"
             return str(formatted)
-        
+
         elif isinstance(params, (list, tuple)):
             # Positional parameters: ($1, $2, ...)
             items = list(params)[:max_count]
@@ -282,11 +282,11 @@ def format_parameters(
             if len(params) > max_count:
                 formatted.append(f"<{len(params) - max_count} more>")
             return str(formatted)
-        
+
         else:
             # Single parameter
             return sanitize_parameter(params, max_length)
-    
+
     except Exception:
         return "<error formatting parameters>"
 
@@ -298,43 +298,43 @@ def generate_sql_comment(
 ) -> str:
     """
     Generate a SQL comment with trace context (SQLCommenter format).
-    
+
     This allows database logs to be correlated with application traces.
     Format follows the SQLCommenter specification:
     https://google.github.io/sqlcommenter/
-    
+
     Args:
         traceparent: W3C Trace Context traceparent header value
         tracestate: W3C Trace Context tracestate header value
         application_name: Application name to include
-        
+
     Returns:
         SQL comment string to append to queries
     """
     parts = []
-    
+
     if traceparent:
         # URL-encode single quotes for safety
         parts.append(f"traceparent='{traceparent}'")
-    
+
     if tracestate:
         parts.append(f"tracestate='{tracestate}'")
-    
+
     if application_name:
         # Sanitize application name (alphanumeric and underscores only)
-        safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', application_name)
+        safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", application_name)
         parts.append(f"application='{safe_name}'")
-    
+
     if not parts:
         return ""
-    
+
     return "/*" + ",".join(parts) + "*/"
 
 
 def get_trace_context_for_comment() -> Tuple[Optional[str], Optional[str]]:
     """
     Extract current trace context for SQLCommenter.
-    
+
     Returns:
         Tuple of (traceparent, tracestate) or (None, None) if no active span
     """
@@ -342,18 +342,18 @@ def get_trace_context_for_comment() -> Tuple[Optional[str], Optional[str]]:
         span = get_current_span()
         if span is None or not span.is_recording():
             return None, None
-        
+
         ctx = span.get_span_context()
         if ctx is None or not ctx.is_valid:
             return None, None
-        
+
         # Format traceparent: version-trace_id-span_id-flags
         # Version is always 00
-        trace_id = format(ctx.trace_id, '032x')
-        span_id = format(ctx.span_id, '016x')
-        flags = format(ctx.trace_flags, '02x')
+        trace_id = format(ctx.trace_id, "032x")
+        span_id = format(ctx.span_id, "016x")
+        flags = format(ctx.trace_flags, "02x")
         traceparent = f"00-{trace_id}-{span_id}-{flags}"
-        
+
         # Get tracestate if available
         tracestate = None
         if ctx.trace_state:
@@ -363,9 +363,9 @@ def get_trace_context_for_comment() -> Tuple[Optional[str], Optional[str]]:
                 tracestate_items.append(f"{key}={value}")
             if tracestate_items:
                 tracestate = ",".join(tracestate_items)
-        
+
         return traceparent, tracestate
-    
+
     except Exception:
         return None, None
 
@@ -377,39 +377,39 @@ def inject_sql_comment(
 ) -> Any:
     """
     Inject SQLCommenter trace context into a SQL query.
-    
+
     Only modifies string queries. SQL composition objects are returned as-is.
     Only injects if enable_sqlcommenter is True.
-    
+
     Args:
         query: Original SQL query
         application_name: Application name to include in comment
         enable_sqlcommenter: Whether SQLCommenter is enabled
-        
+
     Returns:
         Modified query with comment appended, or original query
     """
     if not enable_sqlcommenter:
         return query
-    
+
     # Only inject into string queries
     if not isinstance(query, str):
         return query
-    
+
     # Don't inject if query already has a comment at the end
     stripped = query.rstrip()
     if stripped.endswith("*/"):
         return query
-    
+
     # Get current trace context
     traceparent, tracestate = get_trace_context_for_comment()
-    
+
     # Generate comment
     comment = generate_sql_comment(traceparent, tracestate, application_name)
-    
+
     if not comment:
         return query
-    
+
     # Append comment to query
     # Handle queries that end with semicolon
     if stripped.endswith(";"):
@@ -433,7 +433,7 @@ def common_psycopg_logic(
 ):
     """
     Process psycopg request and generate telemetry.
-    
+
     Args:
         scope: Scope object with span and operation data
         environment: Deployment environment
@@ -448,7 +448,7 @@ def common_psycopg_logic(
         params: Query parameters (if capture_parameters is True)
     """
     scope._end_time = time.time()
-    
+
     # Set common database span attributes using helper
     common_db_span_attributes(
         scope,
@@ -459,22 +459,24 @@ def common_psycopg_logic(
         application_name,
         version,
     )
-    
+
     # Set DB operation specific attributes
     scope._span.set_attribute(SemanticConvention.DB_OPERATION_NAME, scope._db_operation)
     scope._span.set_attribute(
         SemanticConvention.DB_CLIENT_OPERATION_DURATION,
         scope._end_time - scope._start_time,
     )
-    
+
     # Set database namespace (database name)
     if scope._database_name and scope._database_name != "unknown":
         scope._span.set_attribute(SemanticConvention.DB_NAMESPACE, scope._database_name)
-    
+
     # Set table/collection name
     if scope._table_name and scope._table_name != "unknown":
-        scope._span.set_attribute(SemanticConvention.DB_COLLECTION_NAME, scope._table_name)
-    
+        scope._span.set_attribute(
+            SemanticConvention.DB_COLLECTION_NAME, scope._table_name
+        )
+
     # Set query text if capture is enabled
     if capture_message_content and scope._query:
         query_str = str(scope._query)
@@ -482,7 +484,7 @@ def common_psycopg_logic(
         if len(query_str) > 4096:
             query_str = query_str[:4096] + "..."
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, query_str)
-    
+
     # Set query parameters if capture is enabled
     if capture_parameters and params is not None:
         formatted_params = format_parameters(params)
@@ -490,19 +492,23 @@ def common_psycopg_logic(
             scope._span.set_attribute(
                 SemanticConvention.DB_QUERY_PARAMETER, formatted_params
             )
-    
+
     # Set query summary
     scope._span.set_attribute(
         SemanticConvention.DB_QUERY_SUMMARY,
         get_query_summary(scope._db_operation, scope._table_name, scope._query),
     )
-    
+
     # Set row count if available
-    if hasattr(scope, "_rowcount") and scope._rowcount is not None and scope._rowcount >= 0:
+    if (
+        hasattr(scope, "_rowcount")
+        and scope._rowcount is not None
+        and scope._rowcount >= 0
+    ):
         scope._span.set_attribute(
             SemanticConvention.DB_RESPONSE_RETURNED_ROWS, scope._rowcount
         )
-    
+
     # Set special features
     features = detect_special_features(scope._query)
     if features.get("similarity_metric"):
@@ -510,9 +516,9 @@ def common_psycopg_logic(
             SemanticConvention.DB_SEARCH_SIMILARITY_METRIC,
             features["similarity_metric"],
         )
-    
+
     scope._span.set_status(Status(StatusCode.OK))
-    
+
     # Record metrics using helper
     if not disable_metrics:
         record_db_metrics(
@@ -552,7 +558,7 @@ def process_cursor_response(
 ):
     """
     Process psycopg cursor response and generate telemetry.
-    
+
     Args:
         response: The cursor response
         db_operation: Database operation type
@@ -586,7 +592,7 @@ def process_cursor_response(
     scope._server_port = server_port
     scope._database_name = database_name
     scope._start_time = start_time
-    
+
     # Try to get rowcount from cursor
     scope._rowcount = None
     if cursor is not None:
@@ -594,7 +600,7 @@ def process_cursor_response(
             scope._rowcount = cursor.rowcount
         except Exception:
             pass
-    
+
     # Process the response
     common_psycopg_logic(
         scope,
@@ -609,7 +615,7 @@ def process_cursor_response(
         capture_parameters=capture_parameters,
         params=params,
     )
-    
+
     return response
 
 
@@ -632,7 +638,7 @@ def process_connection_response(
 ):
     """
     Process psycopg connection response (commit/rollback) and generate telemetry.
-    
+
     Args:
         response: The response
         db_operation: Database operation type (COMMIT/ROLLBACK)
@@ -662,7 +668,7 @@ def process_connection_response(
     scope._database_name = database_name
     scope._start_time = start_time
     scope._rowcount = None
-    
+
     # Process the response
     common_psycopg_logic(
         scope,
@@ -675,5 +681,5 @@ def process_connection_response(
         connection=connection,
         endpoint=endpoint,
     )
-    
+
     return response

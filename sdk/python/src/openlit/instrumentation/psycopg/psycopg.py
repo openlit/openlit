@@ -34,7 +34,7 @@ def execute_wrap(
 ):
     """
     Generates a telemetry wrapper for Cursor.execute operations.
-    
+
     Args:
         capture_parameters: If True, captures query parameters in spans (security risk!)
         enable_sqlcommenter: If True, injects trace context as SQL comments
@@ -51,14 +51,14 @@ def execute_wrap(
         # Extract query and params from args/kwargs
         query = args[0] if args else kwargs.get("query", "")
         params = args[1] if len(args) > 1 else kwargs.get("params", None)
-        
+
         # Parse operation and table
         db_operation = parse_sql_operation(query)
         table_name = extract_table_name(query)
 
         # Get connection from cursor
         connection = getattr(instance, "connection", None)
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(connection)
         database_name = extract_database_name(connection)
@@ -69,13 +69,15 @@ def execute_wrap(
         # CRITICAL: Use tracer.start_as_current_span() for proper context
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            
+
             # Inject SQLCommenter if enabled (must be done inside span context)
-            modified_query = inject_sql_comment(query, application_name, enable_sqlcommenter)
+            modified_query = inject_sql_comment(
+                query, application_name, enable_sqlcommenter
+            )
             if modified_query != query:
                 # Update args with modified query
                 args = (modified_query,) + args[1:] if args else args
-            
+
             response = wrapped(*args, **kwargs)
 
             try:
@@ -126,8 +128,8 @@ def executemany_wrap(
 ):
     """
     Generates a telemetry wrapper for Cursor.executemany operations.
-    
-    Note: For executemany, capture_parameters only captures first batch item 
+
+    Note: For executemany, capture_parameters only captures first batch item
     to avoid huge traces.
     """
 
@@ -142,14 +144,14 @@ def executemany_wrap(
         # Extract query from args/kwargs
         query = args[0] if args else kwargs.get("query", "")
         params_seq = args[1] if len(args) > 1 else kwargs.get("params_seq", [])
-        
+
         # Parse operation and table
         db_operation = parse_sql_operation(query)
         table_name = extract_table_name(query)
 
         # Get connection from cursor
         connection = getattr(instance, "connection", None)
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(connection)
         database_name = extract_database_name(connection)
@@ -162,21 +164,23 @@ def executemany_wrap(
         # CRITICAL: Use tracer.start_as_current_span() for proper context
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            
+
             # Inject SQLCommenter if enabled
-            modified_query = inject_sql_comment(query, application_name, enable_sqlcommenter)
+            modified_query = inject_sql_comment(
+                query, application_name, enable_sqlcommenter
+            )
             if modified_query != query:
                 args = (modified_query,) + args[1:] if args else args
-            
+
             response = wrapped(*args, **kwargs)
 
             try:
                 # Add batch-specific attribute
                 span.set_attribute("db.batch.size", batch_size)
-                
+
                 # For executemany, only capture first param set to avoid huge traces
                 first_params = params_list[0] if params_list else None
-                
+
                 # Process response with endpoint information
                 response = process_cursor_response(
                     response,
@@ -224,7 +228,7 @@ def copy_wrap(
 ):
     """
     Generates a telemetry wrapper for Cursor.copy operations.
-    
+
     Note: COPY operations don't typically have parameters, so capture_parameters
     has limited effect here. SQLCommenter is also not injected for COPY statements.
     """
@@ -239,14 +243,14 @@ def copy_wrap(
 
         # Extract statement from args/kwargs
         statement = args[0] if args else kwargs.get("statement", "")
-        
+
         # Parse operation and table
         db_operation = SemanticConvention.DB_OPERATION_COPY
         table_name = extract_table_name(statement)
 
         # Get connection from cursor
         connection = getattr(instance, "connection", None)
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(connection)
         database_name = extract_database_name(connection)
@@ -305,8 +309,8 @@ def commit_wrap(
 ):
     """
     Generates a telemetry wrapper for Connection.commit operations.
-    
-    Note: capture_parameters and enable_sqlcommenter are accepted for API 
+
+    Note: capture_parameters and enable_sqlcommenter are accepted for API
     consistency but not used for commit operations.
     """
 
@@ -319,7 +323,7 @@ def commit_wrap(
             return wrapped(*args, **kwargs)
 
         db_operation = SemanticConvention.DB_OPERATION_COMMIT
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(instance)
         database_name = extract_database_name(instance)
@@ -375,8 +379,8 @@ def rollback_wrap(
 ):
     """
     Generates a telemetry wrapper for Connection.rollback operations.
-    
-    Note: capture_parameters and enable_sqlcommenter are accepted for API 
+
+    Note: capture_parameters and enable_sqlcommenter are accepted for API
     consistency but not used for rollback operations.
     """
 
@@ -389,7 +393,7 @@ def rollback_wrap(
             return wrapped(*args, **kwargs)
 
         db_operation = SemanticConvention.DB_OPERATION_ROLLBACK
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(instance)
         database_name = extract_database_name(instance)
@@ -445,8 +449,8 @@ def callproc_wrap(
 ):
     """
     Generates a telemetry wrapper for Cursor.callproc operations (stored procedures).
-    
-    Note: enable_sqlcommenter is not applicable to callproc (procedure calls 
+
+    Note: enable_sqlcommenter is not applicable to callproc (procedure calls
     don't use SQL strings). capture_parameters captures procedure arguments.
     """
 
@@ -461,13 +465,13 @@ def callproc_wrap(
         # Extract procedure name and parameters from args
         proc_name = args[0] if args else kwargs.get("procname", "unknown")
         proc_params = args[1] if len(args) > 1 else kwargs.get("parameters", None)
-        
+
         # Parse operation
         db_operation = SemanticConvention.DB_OPERATION_CALL
 
         # Get connection from cursor
         connection = getattr(instance, "connection", None)
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(connection)
         database_name = extract_database_name(connection)

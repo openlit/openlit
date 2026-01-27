@@ -34,7 +34,7 @@ def async_execute_wrap(
 ):
     """
     Generates a telemetry wrapper for AsyncCursor.execute operations.
-    
+
     Args:
         capture_parameters: If True, captures query parameters in spans (security risk!)
         enable_sqlcommenter: If True, injects trace context as SQL comments
@@ -51,14 +51,14 @@ def async_execute_wrap(
         # Extract query and params from args/kwargs
         query = args[0] if args else kwargs.get("query", "")
         params = args[1] if len(args) > 1 else kwargs.get("params", None)
-        
+
         # Parse operation and table
         db_operation = parse_sql_operation(query)
         table_name = extract_table_name(query)
 
         # Get connection from cursor
         connection = getattr(instance, "connection", None)
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(connection)
         database_name = extract_database_name(connection)
@@ -69,12 +69,14 @@ def async_execute_wrap(
         # CRITICAL: Use tracer.start_as_current_span() for proper context
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            
+
             # Inject SQLCommenter if enabled (must be done inside span context)
-            modified_query = inject_sql_comment(query, application_name, enable_sqlcommenter)
+            modified_query = inject_sql_comment(
+                query, application_name, enable_sqlcommenter
+            )
             if modified_query != query:
                 args = (modified_query,) + args[1:] if args else args
-            
+
             response = await wrapped(*args, **kwargs)
 
             try:
@@ -125,8 +127,8 @@ def async_executemany_wrap(
 ):
     """
     Generates a telemetry wrapper for AsyncCursor.executemany operations.
-    
-    Note: For executemany, capture_parameters only captures first batch item 
+
+    Note: For executemany, capture_parameters only captures first batch item
     to avoid huge traces.
     """
 
@@ -141,14 +143,14 @@ def async_executemany_wrap(
         # Extract query from args/kwargs
         query = args[0] if args else kwargs.get("query", "")
         params_seq = args[1] if len(args) > 1 else kwargs.get("params_seq", [])
-        
+
         # Parse operation and table
         db_operation = parse_sql_operation(query)
         table_name = extract_table_name(query)
 
         # Get connection from cursor
         connection = getattr(instance, "connection", None)
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(connection)
         database_name = extract_database_name(connection)
@@ -161,21 +163,23 @@ def async_executemany_wrap(
         # CRITICAL: Use tracer.start_as_current_span() for proper context
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            
+
             # Inject SQLCommenter if enabled
-            modified_query = inject_sql_comment(query, application_name, enable_sqlcommenter)
+            modified_query = inject_sql_comment(
+                query, application_name, enable_sqlcommenter
+            )
             if modified_query != query:
                 args = (modified_query,) + args[1:] if args else args
-            
+
             response = await wrapped(*args, **kwargs)
 
             try:
                 # Add batch-specific attribute
                 span.set_attribute("db.batch.size", batch_size)
-                
+
                 # For executemany, only capture first param set to avoid huge traces
                 first_params = params_list[0] if params_list else None
-                
+
                 # Process response with endpoint information
                 response = process_cursor_response(
                     response,
@@ -223,7 +227,7 @@ def async_copy_wrap(
 ):
     """
     Generates a telemetry wrapper for AsyncCursor.copy operations.
-    
+
     Note: COPY operations don't typically have parameters, so capture_parameters
     has limited effect here. SQLCommenter is also not injected for COPY statements.
     """
@@ -238,14 +242,14 @@ def async_copy_wrap(
 
         # Extract statement from args/kwargs
         statement = args[0] if args else kwargs.get("statement", "")
-        
+
         # Parse operation and table
         db_operation = SemanticConvention.DB_OPERATION_COPY
         table_name = extract_table_name(statement)
 
         # Get connection from cursor
         connection = getattr(instance, "connection", None)
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(connection)
         database_name = extract_database_name(connection)
@@ -304,8 +308,8 @@ def async_commit_wrap(
 ):
     """
     Generates a telemetry wrapper for AsyncConnection.commit operations.
-    
-    Note: capture_parameters and enable_sqlcommenter are accepted for API 
+
+    Note: capture_parameters and enable_sqlcommenter are accepted for API
     consistency but not used for commit operations.
     """
 
@@ -318,7 +322,7 @@ def async_commit_wrap(
             return await wrapped(*args, **kwargs)
 
         db_operation = SemanticConvention.DB_OPERATION_COMMIT
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(instance)
         database_name = extract_database_name(instance)
@@ -374,8 +378,8 @@ def async_rollback_wrap(
 ):
     """
     Generates a telemetry wrapper for AsyncConnection.rollback operations.
-    
-    Note: capture_parameters and enable_sqlcommenter are accepted for API 
+
+    Note: capture_parameters and enable_sqlcommenter are accepted for API
     consistency but not used for rollback operations.
     """
 
@@ -388,7 +392,7 @@ def async_rollback_wrap(
             return await wrapped(*args, **kwargs)
 
         db_operation = SemanticConvention.DB_OPERATION_ROLLBACK
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(instance)
         database_name = extract_database_name(instance)
@@ -444,8 +448,8 @@ def async_callproc_wrap(
 ):
     """
     Generates a telemetry wrapper for AsyncCursor.callproc operations (stored procedures).
-    
-    Note: enable_sqlcommenter is not applicable to callproc (procedure calls 
+
+    Note: enable_sqlcommenter is not applicable to callproc (procedure calls
     don't use SQL strings). capture_parameters captures procedure arguments.
     """
 
@@ -460,13 +464,13 @@ def async_callproc_wrap(
         # Extract procedure name and parameters from args
         proc_name = args[0] if args else kwargs.get("procname", "unknown")
         proc_params = args[1] if len(args) > 1 else kwargs.get("parameters", None)
-        
+
         # Parse operation
         db_operation = SemanticConvention.DB_OPERATION_CALL
 
         # Get connection from cursor
         connection = getattr(instance, "connection", None)
-        
+
         # Server address calculation
         server_address, server_port = extract_connection_info(connection)
         database_name = extract_database_name(connection)
@@ -527,8 +531,8 @@ def async_pool_getconn_wrap(
 ):
     """
     Generates a telemetry wrapper for AsyncConnectionPool.getconn operations.
-    
-    Note: capture_parameters and enable_sqlcommenter are accepted for API 
+
+    Note: capture_parameters and enable_sqlcommenter are accepted for API
     consistency but not used for pool operations.
     """
 
@@ -541,7 +545,7 @@ def async_pool_getconn_wrap(
             return await wrapped(*args, **kwargs)
 
         db_operation = "pool.getconn"
-        
+
         # Span naming
         span_name = "PostgreSQL pool.getconn"
 
@@ -553,18 +557,24 @@ def async_pool_getconn_wrap(
 
             try:
                 # Set pool-specific attributes
-                span.set_attribute(SemanticConvention.DB_SYSTEM_NAME, 
-                                   SemanticConvention.DB_SYSTEM_POSTGRESQL)
+                span.set_attribute(
+                    SemanticConvention.DB_SYSTEM_NAME,
+                    SemanticConvention.DB_SYSTEM_POSTGRESQL,
+                )
                 span.set_attribute(SemanticConvention.DB_OPERATION_NAME, db_operation)
-                span.set_attribute(SemanticConvention.DB_CLIENT_OPERATION_DURATION,
-                                   end_time - start_time)
-                
+                span.set_attribute(
+                    SemanticConvention.DB_CLIENT_OPERATION_DURATION,
+                    end_time - start_time,
+                )
+
                 # Try to get pool stats
                 if hasattr(instance, "get_stats"):
                     try:
                         stats = instance.get_stats()
                         span.set_attribute("db.pool.size", stats.get("pool_size", 0))
-                        span.set_attribute("db.pool.available", stats.get("pool_available", 0))
+                        span.set_attribute(
+                            "db.pool.available", stats.get("pool_available", 0)
+                        )
                     except Exception:
                         pass
 
