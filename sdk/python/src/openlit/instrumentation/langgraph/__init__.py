@@ -60,20 +60,45 @@ CONSTRUCTION_OPERATIONS = [
 # === CHECKPOINTING OPERATIONS (Detailed tracing only) ===
 CHECKPOINT_OPERATIONS = [
     # Async PostgresSaver
-    ("langgraph.checkpoint.postgres.aio", "AsyncPostgresSaver.setup", "checkpoint_setup", "async"),
-    ("langgraph.checkpoint.postgres.aio", "AsyncPostgresSaver.aput", "checkpoint_write", "async"),
-    ("langgraph.checkpoint.postgres.aio", "AsyncPostgresSaver.aget_tuple", "checkpoint_read", "async"),
+    (
+        "langgraph.checkpoint.postgres.aio",
+        "AsyncPostgresSaver.setup",
+        "checkpoint_setup",
+        "async",
+    ),
+    (
+        "langgraph.checkpoint.postgres.aio",
+        "AsyncPostgresSaver.aput",
+        "checkpoint_write",
+        "async",
+    ),
+    (
+        "langgraph.checkpoint.postgres.aio",
+        "AsyncPostgresSaver.aget_tuple",
+        "checkpoint_read",
+        "async",
+    ),
     # Sync PostgresSaver
-    ("langgraph.checkpoint.postgres", "PostgresSaver.setup", "checkpoint_setup", "sync"),
+    (
+        "langgraph.checkpoint.postgres",
+        "PostgresSaver.setup",
+        "checkpoint_setup",
+        "sync",
+    ),
     ("langgraph.checkpoint.postgres", "PostgresSaver.put", "checkpoint_write", "sync"),
-    ("langgraph.checkpoint.postgres", "PostgresSaver.get_tuple", "checkpoint_read", "sync"),
+    (
+        "langgraph.checkpoint.postgres",
+        "PostgresSaver.get_tuple",
+        "checkpoint_read",
+        "sync",
+    ),
 ]
 
 
 class LangGraphInstrumentor(BaseInstrumentor):
     """
     OpenLIT LangGraph instrumentor with comprehensive coverage.
-    
+
     Features:
     - Graph execution tracing (invoke, stream, get_state)
     - Async support (ainvoke, astream, aget_state)
@@ -106,40 +131,78 @@ class LangGraphInstrumentor(BaseInstrumentor):
         # === EXECUTION OPERATIONS (Always enabled) ===
         self._wrap_execution_operations(
             EXECUTION_OPERATIONS,
-            version, environment, application_name, tracer,
-            pricing_info, capture_message_content, metrics, disable_metrics
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
         )
-        
+
         # Try alternative module paths
         self._wrap_execution_operations(
             EXECUTION_OPERATIONS_ALT,
-            version, environment, application_name, tracer,
-            pricing_info, capture_message_content, metrics, disable_metrics
+            version,
+            environment,
+            application_name,
+            tracer,
+            pricing_info,
+            capture_message_content,
+            metrics,
+            disable_metrics,
         )
 
         # === CONSTRUCTION OPERATIONS (Detailed tracing or always for key operations) ===
         if detailed_tracing:
             self._wrap_construction_operations(
-                version, environment, application_name, tracer,
-                pricing_info, capture_message_content, metrics, disable_metrics
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
             )
         else:
             # Always wrap compile and add_node for graph structure and per-node tracing
             self._wrap_key_construction_operations(
-                version, environment, application_name, tracer,
-                pricing_info, capture_message_content, metrics, disable_metrics
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
             )
 
         # === CHECKPOINTING OPERATIONS (Detailed tracing only) ===
         if detailed_tracing:
             self._wrap_checkpoint_operations(
-                version, environment, application_name, tracer,
-                pricing_info, capture_message_content, metrics, disable_metrics
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
             )
 
     def _wrap_execution_operations(
-        self, operations, version, environment, application_name,
-        tracer, pricing_info, capture_message_content, metrics, disable_metrics
+        self,
+        operations,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
     ):
         """Wrap graph execution operations."""
         for module, method, operation_type, sync_type in operations:
@@ -168,15 +231,22 @@ class LangGraphInstrumentor(BaseInstrumentor):
                         metrics,
                         disable_metrics,
                     )
-                
+
                 wrap_function_wrapper(module, method, wrapper)
             except Exception:
                 # Graceful degradation if module/method doesn't exist
                 pass
 
     def _wrap_construction_operations(
-        self, version, environment, application_name,
-        tracer, pricing_info, capture_message_content, metrics, disable_metrics
+        self,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
     ):
         """Wrap all graph construction operations."""
         for module, method, operation_type, sync_type in CONSTRUCTION_OPERATIONS:
@@ -230,21 +300,33 @@ class LangGraphInstrumentor(BaseInstrumentor):
                         metrics,
                         disable_metrics,
                     )
-                
+
                 wrap_function_wrapper(module, method, wrapper)
             except Exception:
                 pass
 
     def _wrap_key_construction_operations(
-        self, version, environment, application_name,
-        tracer, pricing_info, capture_message_content, metrics, disable_metrics
+        self,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
     ):
         """Wrap only key construction operations (compile and add_node)."""
         key_operations = [
-            ("langgraph.graph.state", "StateGraph.add_node", "graph_add_node", "special"),
+            (
+                "langgraph.graph.state",
+                "StateGraph.add_node",
+                "graph_add_node",
+                "special",
+            ),
             ("langgraph.graph.state", "StateGraph.compile", "graph_compile", "special"),
         ]
-        
+
         for module, method, operation_type, sync_type in key_operations:
             try:
                 if "compile" in method:
@@ -273,14 +355,21 @@ class LangGraphInstrumentor(BaseInstrumentor):
                     )
                 else:
                     continue
-                
+
                 wrap_function_wrapper(module, method, wrapper)
             except Exception:
                 pass
 
     def _wrap_checkpoint_operations(
-        self, version, environment, application_name,
-        tracer, pricing_info, capture_message_content, metrics, disable_metrics
+        self,
+        version,
+        environment,
+        application_name,
+        tracer,
+        pricing_info,
+        capture_message_content,
+        metrics,
+        disable_metrics,
     ):
         """Wrap checkpointing operations."""
         for module, method, operation_type, sync_type in CHECKPOINT_OPERATIONS:
@@ -309,7 +398,7 @@ class LangGraphInstrumentor(BaseInstrumentor):
                         metrics,
                         disable_metrics,
                     )
-                
+
                 wrap_function_wrapper(module, method, wrapper)
             except Exception:
                 pass

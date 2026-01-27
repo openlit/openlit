@@ -22,6 +22,7 @@ from unittest.mock import patch, MagicMock
 try:
     from langgraph.graph import StateGraph, START, END
     from langgraph.graph.message import add_messages
+
     LANGGRAPH_AVAILABLE = True
 except ImportError:
     LANGGRAPH_AVAILABLE = False
@@ -31,20 +32,20 @@ import openlit
 # Initialize OpenLIT monitoring
 openlit.init(
     environment="openlit-python-testing",
-    application_name="openlit-python-langgraph-test"
+    application_name="openlit-python-langgraph-test",
 )
 
 
 # Skip all tests if langgraph is not available
 pytestmark = pytest.mark.skipif(
-    not LANGGRAPH_AVAILABLE,
-    reason="langgraph not installed"
+    not LANGGRAPH_AVAILABLE, reason="langgraph not installed"
 )
 
 
 # Define a simple state for testing
 class SimpleState(TypedDict):
     """Simple state with messages."""
+
     messages: Annotated[list, add_messages]
 
 
@@ -71,12 +72,12 @@ class TestLangGraphInstrumentation:
             graph.add_node("test_node", simple_node)
             graph.add_edge(START, "test_node")
             graph.add_edge("test_node", END)
-            
+
             # Compile the graph
             compiled = graph.compile()
-            
+
             assert compiled is not None
-            
+
         except Exception as e:
             pytest.fail(f"Error in test_graph_construction: {e}")
 
@@ -91,15 +92,15 @@ class TestLangGraphInstrumentation:
             graph.add_edge(START, "test_node")
             graph.add_edge("test_node", END)
             compiled = graph.compile()
-            
+
             # Invoke the graph
-            result = compiled.invoke({
-                "messages": [{"role": "user", "content": "test input"}]
-            })
-            
+            result = compiled.invoke(
+                {"messages": [{"role": "user", "content": "test input"}]}
+            )
+
             assert result is not None
             assert "messages" in result
-            
+
         except Exception as e:
             pytest.fail(f"Error in test_graph_invoke: {e}")
 
@@ -114,14 +115,16 @@ class TestLangGraphInstrumentation:
             graph.add_edge(START, "test_node")
             graph.add_edge("test_node", END)
             compiled = graph.compile()
-            
+
             # Stream the graph
-            chunks = list(compiled.stream({
-                "messages": [{"role": "user", "content": "test input"}]
-            }))
-            
+            chunks = list(
+                compiled.stream(
+                    {"messages": [{"role": "user", "content": "test input"}]}
+                )
+            )
+
             assert len(chunks) > 0
-            
+
         except Exception as e:
             pytest.fail(f"Error in test_graph_stream: {e}")
 
@@ -137,15 +140,15 @@ class TestLangGraphInstrumentation:
             graph.add_edge(START, "test_node")
             graph.add_edge("test_node", END)
             compiled = graph.compile()
-            
+
             # Async invoke the graph
-            result = await compiled.ainvoke({
-                "messages": [{"role": "user", "content": "test input"}]
-            })
-            
+            result = await compiled.ainvoke(
+                {"messages": [{"role": "user", "content": "test input"}]}
+            )
+
             assert result is not None
             assert "messages" in result
-            
+
         except Exception as e:
             pytest.fail(f"Error in test_graph_ainvoke: {e}")
 
@@ -161,16 +164,16 @@ class TestLangGraphInstrumentation:
             graph.add_edge(START, "test_node")
             graph.add_edge("test_node", END)
             compiled = graph.compile()
-            
+
             # Async stream the graph
             chunks = []
-            async for chunk in compiled.astream({
-                "messages": [{"role": "user", "content": "test input"}]
-            }):
+            async for chunk in compiled.astream(
+                {"messages": [{"role": "user", "content": "test input"}]}
+            ):
                 chunks.append(chunk)
-            
+
             assert len(chunks) > 0
-            
+
         except Exception as e:
             pytest.fail(f"Error in test_graph_astream: {e}")
 
@@ -178,12 +181,13 @@ class TestLangGraphInstrumentation:
         """
         Tests graph with multiple nodes.
         """
+
         def node_a(state: SimpleState) -> dict:
             return {"messages": [{"role": "assistant", "content": "from node a"}]}
-        
+
         def node_b(state: SimpleState) -> dict:
             return {"messages": [{"role": "assistant", "content": "from node b"}]}
-        
+
         try:
             # Create graph with multiple nodes
             graph = StateGraph(SimpleState)
@@ -193,17 +197,17 @@ class TestLangGraphInstrumentation:
             graph.add_edge("node_a", "node_b")
             graph.add_edge("node_b", END)
             compiled = graph.compile()
-            
+
             # Execute
-            result = compiled.invoke({
-                "messages": [{"role": "user", "content": "test"}]
-            })
-            
+            result = compiled.invoke(
+                {"messages": [{"role": "user", "content": "test"}]}
+            )
+
             assert result is not None
             assert "messages" in result
             # Should have messages from both nodes
             assert len(result["messages"]) > 1
-            
+
         except Exception as e:
             pytest.fail(f"Error in test_graph_with_multiple_nodes: {e}")
 
@@ -215,6 +219,7 @@ class TestLangGraphInstrumentorUnit:
         """Tests that the instrumentor can be imported."""
         try:
             from openlit.instrumentation.langgraph import LangGraphInstrumentor
+
             assert LangGraphInstrumentor is not None
         except ImportError as e:
             pytest.fail(f"Failed to import LangGraphInstrumentor: {e}")
@@ -231,6 +236,7 @@ class TestLangGraphInstrumentorUnit:
                 set_graph_attributes,
                 generate_span_name,
             )
+
             assert OPERATION_MAP is not None
             assert extract_messages_from_input is not None
         except ImportError as e:
@@ -239,12 +245,12 @@ class TestLangGraphInstrumentorUnit:
     def test_extract_messages_from_input(self):
         """Tests message extraction from input."""
         from openlit.instrumentation.langgraph.utils import extract_messages_from_input
-        
+
         # Test with messages
         input_with_messages = {"messages": [{"role": "user", "content": "test"}]}
         result = extract_messages_from_input(input_with_messages)
         assert len(result) == 1
-        
+
         # Test without messages
         input_without_messages = {"other": "data"}
         result = extract_messages_from_input(input_without_messages)
@@ -253,29 +259,29 @@ class TestLangGraphInstrumentorUnit:
     def test_get_message_role(self):
         """Tests message role extraction."""
         from openlit.instrumentation.langgraph.utils import get_message_role
-        
+
         # Mock message with role
         class MockMessage:
             role = "assistant"
-        
+
         result = get_message_role(MockMessage())
         assert result == "assistant"
-        
+
         # Mock message with type
         class MockMessageWithType:
             type = "human"
-        
+
         result = get_message_role(MockMessageWithType())
         assert result == "human"
 
     def test_generate_span_name(self):
         """Tests span name generation."""
         from openlit.instrumentation.langgraph.utils import generate_span_name
-        
+
         # Test invoke span name
         span_name = generate_span_name("graph_execution", "graph_invoke", None)
         assert "graph_execution" in span_name or "graph" in span_name
-        
+
         # Test stream span name
         span_name = generate_span_name("graph_execution", "graph_stream", None)
         assert "stream" in span_name
@@ -283,7 +289,7 @@ class TestLangGraphInstrumentorUnit:
     def test_operation_map_completeness(self):
         """Tests that OPERATION_MAP has all required operations."""
         from openlit.instrumentation.langgraph.utils import OPERATION_MAP
-        
+
         required_ops = [
             "graph_invoke",
             "graph_ainvoke",
@@ -293,7 +299,7 @@ class TestLangGraphInstrumentorUnit:
             "graph_aget_state",
             "graph_compile",
         ]
-        
+
         for op in required_ops:
             assert op in OPERATION_MAP, f"Missing operation: {op}"
 

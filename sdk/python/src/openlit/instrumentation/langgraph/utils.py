@@ -74,10 +74,10 @@ def ensure_no_none_values(attributes):
 def extract_messages_from_input(input_data):
     """
     Extract messages from graph input.
-    
+
     Args:
         input_data: Input data to the graph (dict or other)
-        
+
     Returns:
         list: List of message objects
     """
@@ -89,10 +89,10 @@ def extract_messages_from_input(input_data):
 def extract_messages_from_output(output_data):
     """
     Extract messages from graph output.
-    
+
     Args:
         output_data: Output data from the graph (dict or other)
-        
+
     Returns:
         list: List of message objects
     """
@@ -104,10 +104,10 @@ def extract_messages_from_output(output_data):
 def get_message_content(message):
     """
     Get content string from a message object.
-    
+
     Args:
         message: Message object with content attribute
-        
+
     Returns:
         str: Content string
     """
@@ -133,10 +133,10 @@ def get_message_content(message):
 def get_message_role(message):
     """
     Get role/type from a message object.
-    
+
     Args:
         message: Message object
-        
+
     Returns:
         str: Role string
     """
@@ -154,7 +154,7 @@ def get_message_role(message):
 def set_graph_attributes(span, nodes=None, edges=None):
     """
     Set graph structure attributes on span.
-    
+
     Args:
         span: OpenTelemetry span
         nodes: List of node names
@@ -162,13 +162,9 @@ def set_graph_attributes(span, nodes=None, edges=None):
     """
     if nodes:
         span.set_attribute(
-            SemanticConvention.LANGGRAPH_GRAPH_NODES,
-            json.dumps(list(nodes))
+            SemanticConvention.LANGGRAPH_GRAPH_NODES, json.dumps(list(nodes))
         )
-        span.set_attribute(
-            SemanticConvention.LANGGRAPH_GRAPH_NODE_COUNT,
-            len(nodes)
-        )
+        span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_NODE_COUNT, len(nodes))
         # Set individual node names
         for i, node in enumerate(list(nodes)[:10]):  # Limit to first 10
             span.set_attribute(f"langgraph.node.{i}.name", str(node))
@@ -180,14 +176,12 @@ def set_graph_attributes(span, nodes=None, edges=None):
                 edge_list.append(f"{edge[0]}->{edge[1]}")
             elif isinstance(edge, str):
                 edge_list.append(edge)
-        
+
         span.set_attribute(
-            SemanticConvention.LANGGRAPH_GRAPH_EDGES,
-            json.dumps(edge_list)
+            SemanticConvention.LANGGRAPH_GRAPH_EDGES, json.dumps(edge_list)
         )
         span.set_attribute(
-            SemanticConvention.LANGGRAPH_GRAPH_EDGE_COUNT,
-            len(edge_list)
+            SemanticConvention.LANGGRAPH_GRAPH_EDGE_COUNT, len(edge_list)
         )
         # Set individual edge info
         for i, edge in enumerate(edge_list[:10]):  # Limit to first 10
@@ -200,7 +194,7 @@ def set_graph_attributes(span, nodes=None, edges=None):
 def extract_llm_info_from_result(span, state, result):
     """
     Extract LLM token usage, model info from node result.
-    
+
     Args:
         span: OpenTelemetry span
         state: Input state dict
@@ -222,7 +216,11 @@ def extract_llm_info_from_result(span, state, result):
         if isinstance(result, dict) and "messages" in result:
             output_messages = result["messages"]
             if output_messages:
-                last_msg = output_messages[-1] if isinstance(output_messages, list) else output_messages
+                last_msg = (
+                    output_messages[-1]
+                    if isinstance(output_messages, list)
+                    else output_messages
+                )
 
                 # Extract model info from response_metadata
                 if hasattr(last_msg, "response_metadata"):
@@ -231,8 +229,12 @@ def extract_llm_info_from_result(span, state, result):
                         # Model name
                         model_name = metadata.get("model_name") or metadata.get("model")
                         if model_name:
-                            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model_name)
-                            span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, model_name)
+                            span.set_attribute(
+                                SemanticConvention.GEN_AI_REQUEST_MODEL, model_name
+                            )
+                            span.set_attribute(
+                                SemanticConvention.GEN_AI_RESPONSE_MODEL, model_name
+                            )
 
                         # Token usage
                         if "token_usage" in metadata:
@@ -241,31 +243,30 @@ def extract_llm_info_from_result(span, state, result):
                                 if "prompt_tokens" in usage:
                                     span.set_attribute(
                                         SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
-                                        usage["prompt_tokens"]
+                                        usage["prompt_tokens"],
                                     )
                                 if "completion_tokens" in usage:
                                     span.set_attribute(
                                         SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-                                        usage["completion_tokens"]
+                                        usage["completion_tokens"],
                                     )
                                 if "total_tokens" in usage:
                                     span.set_attribute(
                                         SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-                                        usage["total_tokens"]
+                                        usage["total_tokens"],
                                     )
 
                         # Finish reason
                         if "finish_reason" in metadata:
                             span.set_attribute(
                                 SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-                                metadata["finish_reason"]
+                                metadata["finish_reason"],
                             )
 
                         # Response ID
                         if "id" in metadata and metadata["id"]:
                             span.set_attribute(
-                                SemanticConvention.GEN_AI_RESPONSE_ID,
-                                metadata["id"]
+                                SemanticConvention.GEN_AI_RESPONSE_ID, metadata["id"]
                             )
 
                 # Extract content
@@ -273,8 +274,7 @@ def extract_llm_info_from_result(span, state, result):
                     content = get_message_content(last_msg)
                     if content:
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-                            content[:1000]
+                            SemanticConvention.GEN_AI_CONTENT_COMPLETION, content[:1000]
                         )
 
                 # Extract usage_metadata (alternative location)
@@ -283,17 +283,17 @@ def extract_llm_info_from_result(span, state, result):
                     if hasattr(usage, "input_tokens"):
                         span.set_attribute(
                             SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
-                            usage.input_tokens
+                            usage.input_tokens,
                         )
                     if hasattr(usage, "output_tokens"):
                         span.set_attribute(
                             SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-                            usage.output_tokens
+                            usage.output_tokens,
                         )
                     if hasattr(usage, "total_tokens"):
                         span.set_attribute(
                             SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-                            usage.total_tokens
+                            usage.total_tokens,
                         )
 
                 # Tool calls
@@ -303,19 +303,27 @@ def extract_llm_info_from_result(span, state, result):
                         tool_info = {}
                         if hasattr(tool_call, "name"):
                             tool_info["name"] = tool_call.name
-                            span.set_attribute(f"gen_ai.tool_call.{j}.name", tool_call.name)
+                            span.set_attribute(
+                                f"gen_ai.tool_call.{j}.name", tool_call.name
+                            )
                         if hasattr(tool_call, "args"):
-                            args_str = json.dumps(tool_call.args) if isinstance(tool_call.args, dict) else str(tool_call.args)
-                            span.set_attribute(f"gen_ai.tool_call.{j}.arguments", args_str[:500])
+                            args_str = (
+                                json.dumps(tool_call.args)
+                                if isinstance(tool_call.args, dict)
+                                else str(tool_call.args)
+                            )
+                            span.set_attribute(
+                                f"gen_ai.tool_call.{j}.arguments", args_str[:500]
+                            )
                         if hasattr(tool_call, "id"):
                             span.set_attribute(f"gen_ai.tool_call.{j}.id", tool_call.id)
                         if tool_info:
                             tool_calls_info.append(tool_info)
-                    
+
                     if tool_calls_info:
                         span.set_attribute(
                             SemanticConvention.GEN_AI_TOOL_CALLS,
-                            json.dumps(tool_calls_info)
+                            json.dumps(tool_calls_info),
                         )
 
     except Exception:
@@ -326,47 +334,47 @@ def extract_llm_info_from_result(span, state, result):
 def extract_config_info(config):
     """
     Extract configuration information from RunnableConfig.
-    
+
     Args:
         config: RunnableConfig dict
-        
+
     Returns:
         dict: Extracted config info (thread_id, checkpoint_id, etc.)
     """
     info = {}
     if not config:
         return info
-    
+
     try:
         # Extract configurable values
         configurable = config.get("configurable", {})
-        
+
         if "thread_id" in configurable:
             info["thread_id"] = str(configurable["thread_id"])
-        
+
         if "checkpoint_id" in configurable:
             info["checkpoint_id"] = str(configurable["checkpoint_id"])
-        
+
         if "checkpoint_ns" in configurable:
             info["checkpoint_ns"] = str(configurable["checkpoint_ns"])
-            
+
     except Exception:
         pass
-    
+
     return info
 
 
 def generate_span_name(operation_type, endpoint, instance=None, args=None, kwargs=None):
     """
     Generate proper span name following OpenTelemetry conventions.
-    
+
     Args:
         operation_type: Standard operation type from OPERATION_MAP
         endpoint: Endpoint name (e.g., "graph_invoke")
         instance: The instance being instrumented
         args: Positional arguments
         kwargs: Keyword arguments
-        
+
     Returns:
         str: Span name
     """
@@ -374,44 +382,44 @@ def generate_span_name(operation_type, endpoint, instance=None, args=None, kwarg
     if endpoint in ("graph_invoke", "graph_ainvoke"):
         graph_name = _get_graph_name(instance)
         return f"{operation_type} {graph_name}"
-    
+
     elif endpoint in ("graph_stream", "graph_astream"):
         graph_name = _get_graph_name(instance)
         return f"{operation_type} {graph_name} stream"
-    
+
     # State operations
     elif endpoint in ("graph_get_state", "graph_aget_state"):
         return f"retrieve graph_state"
-    
+
     # Graph construction
     elif endpoint == "graph_init":
         return f"{operation_type} graph_init"
-    
+
     elif endpoint == "graph_compile":
         return f"{operation_type} graph_compile"
-    
+
     elif endpoint == "graph_add_node":
         node_name = args[0] if args else "node"
         return f"{operation_type} add_node:{node_name}"
-    
+
     elif endpoint == "graph_add_edge":
         return f"{operation_type} add_edge"
-    
+
     # Node execution
     elif endpoint == "node_execute":
         node_name = kwargs.get("node_name", "node") if kwargs else "node"
         return f"invoke_agent {node_name}"
-    
+
     # Checkpointing
     elif endpoint == "checkpoint_setup":
         return f"{operation_type} checkpoint_setup"
-    
+
     elif endpoint == "checkpoint_write":
         return f"{operation_type} checkpoint_write"
-    
+
     elif endpoint == "checkpoint_read":
         return f"retrieve checkpoint"
-    
+
     # Default
     return f"{operation_type} {endpoint}"
 
@@ -420,22 +428,22 @@ def _get_graph_name(instance):
     """Get the name of a graph instance."""
     if instance is None:
         return "graph"
-    
+
     # Try to get name from instance
     name = getattr(instance, "name", None)
     if name:
         return str(name)
-    
+
     # Try to get from graph_id
     graph_id = getattr(instance, "graph_id", None)
     if graph_id:
         return str(graph_id)
-    
+
     # Try class name
     class_name = instance.__class__.__name__
     if class_name not in ("Pregel", "CompiledStateGraph", "StateGraph"):
         return class_name
-    
+
     return "graph"
 
 
@@ -459,7 +467,7 @@ def process_langgraph_response(
 ):
     """
     Process LangGraph response with comprehensive business intelligence.
-    
+
     Args:
         response: The response from the LangGraph operation
         operation_type: Type of operation performed
@@ -477,7 +485,7 @@ def process_langgraph_response(
         args: Positional arguments
         endpoint: Endpoint name
         **kwargs: Additional keyword arguments
-        
+
     Returns:
         The original response
     """
@@ -490,7 +498,9 @@ def process_langgraph_response(
     scope._end_time = end_time
 
     # Get standard operation name
-    standard_operation = OPERATION_MAP.get(endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK)
+    standard_operation = OPERATION_MAP.get(
+        endpoint, SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK
+    )
 
     # Set common framework attributes
     common_framework_span_attributes(
@@ -519,9 +529,13 @@ def process_langgraph_response(
     if config:
         config_info = extract_config_info(config)
         if config_info.get("thread_id"):
-            span.set_attribute(SemanticConvention.LANGGRAPH_THREAD_ID, config_info["thread_id"])
+            span.set_attribute(
+                SemanticConvention.LANGGRAPH_THREAD_ID, config_info["thread_id"]
+            )
         if config_info.get("checkpoint_id"):
-            span.set_attribute(SemanticConvention.LANGGRAPH_CHECKPOINT_ID, config_info["checkpoint_id"])
+            span.set_attribute(
+                SemanticConvention.LANGGRAPH_CHECKPOINT_ID, config_info["checkpoint_id"]
+            )
 
     # Process response based on type
     if endpoint in ("graph_invoke", "graph_ainvoke"):
@@ -538,7 +552,11 @@ def process_langgraph_response(
     # Record metrics
     if not disable_metrics and metrics:
         _record_langgraph_metrics(
-            metrics, standard_operation, end_time - start_time, environment, application_name
+            metrics,
+            standard_operation,
+            end_time - start_time,
+            environment,
+            application_name,
         )
 
     return response
@@ -551,25 +569,25 @@ def _process_invoke_response(span, response, capture_message_content):
             # Extract messages
             messages = extract_messages_from_output(response)
             if messages:
-                span.set_attribute(SemanticConvention.LANGGRAPH_MESSAGE_COUNT, len(messages))
-                
+                span.set_attribute(
+                    SemanticConvention.LANGGRAPH_MESSAGE_COUNT, len(messages)
+                )
+
                 # Get final response content
                 if messages:
                     last_msg = messages[-1] if isinstance(messages, list) else messages
                     content = get_message_content(last_msg)
                     if content and capture_message_content:
                         span.set_attribute(
-                            SemanticConvention.LANGGRAPH_FINAL_RESPONSE,
-                            content[:500]
+                            SemanticConvention.LANGGRAPH_FINAL_RESPONSE, content[:500]
                         )
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-                            content[:1000]
+                            SemanticConvention.GEN_AI_CONTENT_COMPLETION, content[:1000]
                         )
 
             # Try to extract LLM info
             extract_llm_info_from_result(span, {}, response)
-            
+
     except Exception:
         pass
 
@@ -581,15 +599,16 @@ def _process_state_response(span, response):
             values = response.values
             if isinstance(values, dict) and "messages" in values:
                 span.set_attribute(
-                    SemanticConvention.LANGGRAPH_MESSAGE_COUNT,
-                    len(values["messages"])
+                    SemanticConvention.LANGGRAPH_MESSAGE_COUNT, len(values["messages"])
                 )
-        
+
         if hasattr(response, "next"):
             next_nodes = response.next
             if next_nodes:
-                span.set_attribute("langgraph.state.next_nodes", json.dumps(list(next_nodes)))
-                
+                span.set_attribute(
+                    "langgraph.state.next_nodes", json.dumps(list(next_nodes))
+                )
+
     except Exception:
         pass
 
@@ -600,10 +619,12 @@ def _process_compile_response(span, instance, response):
         # Extract nodes and edges from the graph
         nodes = []
         edges = []
-        
+
         if hasattr(instance, "nodes"):
-            nodes = list(instance.nodes.keys()) if hasattr(instance.nodes, "keys") else []
-        
+            nodes = (
+                list(instance.nodes.keys()) if hasattr(instance.nodes, "keys") else []
+            )
+
         if hasattr(instance, "edges"):
             edge_set = instance.edges
             if hasattr(edge_set, "items"):
@@ -618,14 +639,16 @@ def _process_compile_response(span, instance, response):
                 for edge in edge_set:
                     if isinstance(edge, tuple) and len(edge) >= 2:
                         edges.append(f"{edge[0]}->{edge[1]}")
-        
+
         set_graph_attributes(span, nodes, edges)
-        
+
     except Exception:
         pass
 
 
-def _record_langgraph_metrics(metrics, operation_type, duration, environment, application_name):
+def _record_langgraph_metrics(
+    metrics, operation_type, duration, environment, application_name
+):
     """Record LangGraph metrics."""
     try:
         attributes = {
