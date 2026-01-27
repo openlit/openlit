@@ -166,6 +166,24 @@ class SemanticConvention:
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
     GEN_AI_SYSTEM_SARVAM = "sarvam"
     GEN_AI_SYSTEM_BROWSER_USE = "browser_use"
+    GEN_AI_SYSTEM_LANGGRAPH = "langgraph"
+
+    # LangGraph-specific Attributes
+    LANGGRAPH_GRAPH_NODES = "langgraph.graph.nodes"
+    LANGGRAPH_GRAPH_NODE_COUNT = "langgraph.graph.node_count"
+    LANGGRAPH_GRAPH_EDGES = "langgraph.graph.edges"
+    LANGGRAPH_GRAPH_EDGE_COUNT = "langgraph.graph.edge_count"
+    LANGGRAPH_EXECUTION_MODE = "langgraph.execution.mode"
+    LANGGRAPH_EXECUTED_NODES = "langgraph.graph.executed_nodes"
+    LANGGRAPH_NODE_EXECUTION_COUNT = "langgraph.graph.node_execution_count"
+    LANGGRAPH_MESSAGE_COUNT = "langgraph.graph.message_count"
+    LANGGRAPH_CHUNK_COUNT = "langgraph.graph.total_chunks"
+    LANGGRAPH_FINAL_RESPONSE = "langgraph.graph.final_response"
+    LANGGRAPH_NODE_NAME = "langgraph.node.name"
+    LANGGRAPH_GRAPH_STATUS = "langgraph.graph.status"
+    LANGGRAPH_THREAD_ID = "langgraph.thread.id"
+    LANGGRAPH_CHECKPOINT_ID = "langgraph.checkpoint.id"
+    LANGGRAPH_STREAM_MODE = "langgraph.stream.mode"
 
     # GenAI Framework Component Attributes (Standard)
     GEN_AI_FRAMEWORK_COMPONENT_NAME = "gen_ai.framework.component.name"
