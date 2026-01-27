@@ -48,11 +48,13 @@ pytestmark = pytest.mark.skipif(
 
 # Define a simple state for testing - only use add_messages annotation when available
 if LANGGRAPH_AVAILABLE:
+
     class SimpleState(TypedDict):
         """Simple state with messages."""
 
         messages: Annotated[list, add_messages]
 else:
+
     class SimpleState(TypedDict):
         """Simple state with messages (fallback without add_messages)."""
 
