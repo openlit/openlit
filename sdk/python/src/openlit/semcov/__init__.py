@@ -381,6 +381,7 @@ class SemanticConvention:
     DB_OPERATION_NAME = "db.operation.name"
     DB_QUERY_TEXT = "db.query.text"
     DB_QUERY_SUMMARY = "db.query.summary"
+    DB_QUERY_PARAMETER = "db.query.parameter"
     DB_RESPONSE_RETURNED_ROWS = "db.response.returned_rows"
 
     # Vector DB Attributes (Extras)
@@ -442,6 +443,21 @@ class SemanticConvention:
     DB_SYSTEM_QDRANT = "qdrant"
     DB_SYSTEM_MILVUS = "milvus"
     DB_SYSTEM_ASTRA = "astra"
+    DB_SYSTEM_POSTGRESQL = "postgresql"
+
+    # SQL Transaction Operations
+    DB_OPERATION_COMMIT = "COMMIT"
+    DB_OPERATION_ROLLBACK = "ROLLBACK"
+    DB_OPERATION_COPY = "COPY"
+    DB_OPERATION_CREATE = "CREATE"
+    DB_OPERATION_ALTER = "ALTER"
+    DB_OPERATION_DROP = "DROP"
+    DB_OPERATION_TRUNCATE = "TRUNCATE"
+    DB_OPERATION_CALL = "CALL"
+
+    # PostgreSQL-specific attributes
+    DB_POSTGRESQL_ROWS_AFFECTED = "db.postgresql.rows_affected"
+    DB_POSTGRESQL_PLAN = "db.postgresql.plan"
 
     # GenAI Request Attributes (OTel Semconv)
     GEN_AI_AGENT_ID = "gen_ai.agent.id"
