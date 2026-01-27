@@ -18,13 +18,14 @@ from opentelemetry.sdk._logs.export import (
 )
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import ConsoleLogExporter
+from openlit.__helpers import parse_exporters
 
+# pylint: disable=ungrouped-imports
 if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
     from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
 else:
     from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
-
-from openlit.__helpers import parse_exporters
+# pylint: enable=ungrouped-imports
 
 logger = logging.getLogger(__name__)
 
