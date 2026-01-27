@@ -13,7 +13,6 @@ from openlit.instrumentation.langgraph.utils import (
     generate_span_name,
     set_graph_attributes,
     extract_messages_from_input,
-    extract_messages_from_output,
     get_message_content,
     get_message_role,
     SemanticConvention,
@@ -150,8 +149,6 @@ def _handle_stream(
 
     Returns a generator that wraps the stream and captures telemetry.
     """
-    from opentelemetry.trace import Status, StatusCode
-
     # Set basic attributes directly without using common_framework_span_attributes
     # (since we don't have _end_time for streaming until it completes)
     span.set_attribute("telemetry.sdk.name", "openlit")
@@ -242,7 +239,6 @@ def _handle_stream(
 
 def _finalize_stream_span(span, execution_state, capture_message_content, start_time):
     """Finalize stream span with collected telemetry."""
-    import time
     import json
     from opentelemetry.trace import Status, StatusCode
 

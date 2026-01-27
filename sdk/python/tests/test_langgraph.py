@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, no-member
+# pylint: disable=duplicate-code, no-member, too-few-public-methods, missing-class-docstring
 """
 This module contains tests for LangGraph instrumentation using the LangGraph Python library.
 
@@ -13,10 +13,9 @@ These tests validate integration with OpenLIT.
 Note: These tests require langgraph to be installed.
 """
 
-import pytest
-import asyncio
 from typing import Annotated, TypedDict
-from unittest.mock import patch, MagicMock
+
+import pytest
 
 # Try to import langgraph
 try:
@@ -241,11 +240,6 @@ class TestLangGraphInstrumentorUnit:
             from openlit.instrumentation.langgraph.utils import (
                 OPERATION_MAP,
                 extract_messages_from_input,
-                extract_messages_from_output,
-                get_message_content,
-                get_message_role,
-                set_graph_attributes,
-                generate_span_name,
             )
 
             assert OPERATION_MAP is not None

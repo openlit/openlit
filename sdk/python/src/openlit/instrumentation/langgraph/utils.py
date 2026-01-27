@@ -5,10 +5,7 @@ LangGraph utilities for comprehensive telemetry processing and business intellig
 import time
 import json
 from opentelemetry.trace import Status, StatusCode
-from openlit.__helpers import (
-    common_framework_span_attributes,
-    handle_exception,
-)
+from openlit.__helpers import common_framework_span_attributes
 from openlit.semcov import SemanticConvention
 
 
@@ -389,7 +386,7 @@ def generate_span_name(operation_type, endpoint, instance=None, args=None, kwarg
 
     # State operations
     elif endpoint in ("graph_get_state", "graph_aget_state"):
-        return f"retrieve graph_state"
+        return "retrieve graph_state"
 
     # Graph construction
     elif endpoint == "graph_init":
@@ -418,7 +415,7 @@ def generate_span_name(operation_type, endpoint, instance=None, args=None, kwarg
         return f"{operation_type} checkpoint_write"
 
     elif endpoint == "checkpoint_read":
-        return f"retrieve checkpoint"
+        return "retrieve checkpoint"
 
     # Default
     return f"{operation_type} {endpoint}"

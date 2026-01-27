@@ -327,7 +327,7 @@ class LangGraphInstrumentor(BaseInstrumentor):
             ("langgraph.graph.state", "StateGraph.compile", "graph_compile", "special"),
         ]
 
-        for module, method, operation_type, sync_type in key_operations:
+        for module, method, operation_type, _ in key_operations:
             try:
                 if "compile" in method:
                     wrapper = wrap_compile(
