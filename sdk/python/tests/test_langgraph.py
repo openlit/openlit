@@ -26,6 +26,11 @@ try:
     LANGGRAPH_AVAILABLE = True
 except ImportError:
     LANGGRAPH_AVAILABLE = False
+    # Define placeholder for type hints when langgraph not available
+    add_messages = None
+    StateGraph = None
+    START = None
+    END = None
 
 import openlit
 
@@ -42,11 +47,17 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-# Define a simple state for testing
-class SimpleState(TypedDict):
-    """Simple state with messages."""
+# Define a simple state for testing - only use add_messages annotation when available
+if LANGGRAPH_AVAILABLE:
+    class SimpleState(TypedDict):
+        """Simple state with messages."""
 
-    messages: Annotated[list, add_messages]
+        messages: Annotated[list, add_messages]
+else:
+    class SimpleState(TypedDict):
+        """Simple state with messages (fallback without add_messages)."""
+
+        messages: list
 
 
 def simple_node(state: SimpleState) -> dict:
