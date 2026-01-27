@@ -15,6 +15,7 @@ from openlit.instrumentation.psycopg.psycopg import (
     commit_wrap,
     rollback_wrap,
     callproc_wrap,
+    pool_getconn_wrap,
 )
 from openlit.instrumentation.psycopg.async_psycopg import (
     async_execute_wrap,
@@ -273,7 +274,7 @@ class PsycopgInstrumentor(BaseInstrumentor):
             wrap_function_wrapper(
                 "psycopg_pool",
                 "ConnectionPool.getconn",
-                commit_wrap(  # Reuse commit wrapper structure for pool ops
+                pool_getconn_wrap(
                     "psycopg.pool.getconn",
                     pool_version,
                     environment,
@@ -401,25 +402,22 @@ class PsycopgInstrumentor(BaseInstrumentor):
                 )
 
                 # Create a bound wrapper for this instance
-                @functools.wraps(original_method)
-                def make_bound_wrapper(orig, wrap):
-                    if is_async:
-
+                def make_bound_wrapper(orig, wrap, conn, async_mode):
+                    if async_mode:
+                        @functools.wraps(orig)
                         async def bound_wrapper(*args, **kw):
-                            return await wrap(orig, connection, args, kw)
-
+                            return await wrap(orig, conn, args, kw)
                         return bound_wrapper
                     else:
-
+                        @functools.wraps(orig)
                         def bound_wrapper(*args, **kw):
-                            return wrap(orig, connection, args, kw)
-
+                            return wrap(orig, conn, args, kw)
                         return bound_wrapper
 
                 setattr(
                     connection,
                     method_name,
-                    make_bound_wrapper(original_method, wrapped),
+                    make_bound_wrapper(original_method, wrapped, connection, is_async),
                 )
 
         # Wrap the cursor() method to return instrumented cursors
@@ -518,25 +516,22 @@ class PsycopgInstrumentor(BaseInstrumentor):
                 )
 
                 # Create a bound wrapper for this cursor instance
-                @functools.wraps(original_method)
-                def make_cursor_wrapper(orig, wrap, async_mode):
+                def make_cursor_wrapper(orig, wrap, cur, async_mode):
                     if async_mode:
-
+                        @functools.wraps(orig)
                         async def bound_wrapper(*args, **kw):
-                            return await wrap(orig, cursor, args, kw)
-
+                            return await wrap(orig, cur, args, kw)
                         return bound_wrapper
                     else:
-
+                        @functools.wraps(orig)
                         def bound_wrapper(*args, **kw):
-                            return wrap(orig, cursor, args, kw)
-
+                            return wrap(orig, cur, args, kw)
                         return bound_wrapper
 
                 setattr(
                     cursor,
                     method_name,
-                    make_cursor_wrapper(original_method, wrapped, is_async),
+                    make_cursor_wrapper(original_method, wrapped, cursor, is_async),
                 )
 
     def _uninstrument(self, **kwargs):

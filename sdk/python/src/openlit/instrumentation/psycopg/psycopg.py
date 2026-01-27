@@ -515,3 +515,73 @@ def callproc_wrap(
             return response
 
     return wrapper
+
+
+def pool_getconn_wrap(
+    gen_ai_endpoint,
+    version,
+    environment,
+    application_name,
+    tracer,
+    pricing_info,
+    capture_message_content,
+    metrics,
+    disable_metrics,
+    capture_parameters=False,
+    enable_sqlcommenter=False,
+):
+    """
+    Generates a telemetry wrapper for ConnectionPool.getconn operations.
+
+    Note: capture_parameters and enable_sqlcommenter are accepted for API
+    consistency but not used for pool operations.
+    """
+
+    def wrapper(wrapped, instance, args, kwargs):
+        """
+        Wraps the ConnectionPool.getconn operation with tracing and logging.
+        """
+        # CRITICAL: Suppression check
+        if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
+            return wrapped(*args, **kwargs)
+
+        db_operation = "pool.getconn"
+
+        # Span naming
+        span_name = "PostgreSQL pool.getconn"
+
+        # CRITICAL: Use tracer.start_as_current_span() for proper context
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+            response = wrapped(*args, **kwargs)
+            end_time = time.time()
+
+            try:
+                # Set pool-specific attributes
+                span.set_attribute(
+                    SemanticConvention.DB_SYSTEM_NAME,
+                    SemanticConvention.DB_SYSTEM_POSTGRESQL,
+                )
+                span.set_attribute(SemanticConvention.DB_OPERATION_NAME, db_operation)
+                span.set_attribute(
+                    SemanticConvention.DB_CLIENT_OPERATION_DURATION,
+                    end_time - start_time,
+                )
+
+                # Try to get pool stats
+                if hasattr(instance, "get_stats"):
+                    try:
+                        stats = instance.get_stats()
+                        span.set_attribute("db.pool.size", stats.get("pool_size", 0))
+                        span.set_attribute(
+                            "db.pool.available", stats.get("pool_available", 0)
+                        )
+                    except Exception:
+                        pass
+
+            except Exception as e:
+                handle_exception(span, e)
+
+            return response
+
+    return wrapper
