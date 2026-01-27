@@ -54,6 +54,9 @@ MODULE_NAME_MAP = {
     "sarvam": "sarvamai",
     "browser-use": "browser_use",
     "mcp": "mcp",
+    # Database instrumentations
+    "psycopg": "psycopg",
+    "psycopg-pool": "psycopg_pool",
     # Official OpenTelemetry HTTP Framework instrumentations
     "asgi": "asgiref",
     "django": "django",
@@ -121,6 +124,9 @@ INSTRUMENTOR_MAP = {
     "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
     "browser-use": "openlit.instrumentation.browser_use.BrowserUseInstrumentor",
     "mcp": "openlit.instrumentation.mcp.MCPInstrumentor",
+    # Database instrumentations
+    "psycopg": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
+    "psycopg-pool": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
     # Official OpenTelemetry HTTP Framework instrumentations
     "asgi": "opentelemetry.instrumentation.asgi.AsgiInstrumentor",
     "django": "opentelemetry.instrumentation.django.DjangoInstrumentor",
