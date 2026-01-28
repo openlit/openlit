@@ -238,7 +238,7 @@ export default function OrganisationSettingsPage() {
 	};
 
 	return (
-		<div className="p-4 space-y-4 overflow-auto w-full">
+		<div className="p-4 space-y-4 overflow-auto w-full text-stone-700 dark:text-stone-300">
 			<div className="flex items-center justify-between">
 				<div>
 					<h1 className="text-xl font-bold">{messages.ORGANISATION_SETTINGS}</h1>
@@ -253,7 +253,7 @@ export default function OrganisationSettingsPage() {
 			</div>
 
 			{pendingInvitations.length > 0 && (
-				<Card className="border-primary/20 bg-primary/5">
+				<Card className="border-primary/20 bg-primary/5 dark:border-primary/30 dark:bg-primary/10">
 					<CardHeader className="pb-3">
 						<CardTitle className="text-base flex items-center gap-2">
 							<Mail className="h-4 w-4" />
@@ -264,7 +264,7 @@ export default function OrganisationSettingsPage() {
 						{pendingInvitations.map((invitation) => (
 							<div
 								key={invitation.id}
-								className="flex items-center justify-between p-2 border rounded-md bg-background"
+								className="flex items-center justify-between p-2 border border-stone-200 dark:border-stone-800 rounded-md bg-background"
 							>
 								<p className="text-sm font-medium">{invitation.organisationName}</p>
 								<div className="flex gap-1">
@@ -292,30 +292,30 @@ export default function OrganisationSettingsPage() {
 			)}
 
 			{currentOrg && (
-				<Tabs defaultValue="details" className="w-full">
-					<TabsList className="w-full justify-start p-0 h-auto">
-						<TabsTrigger value="details" className="text-xs">
+				<Tabs defaultValue="details" className="w-auto">
+					<TabsList className="w-auto justify-start p-0 h-auto">
+						<TabsTrigger value="details" className="text-xs text-stone-700 dark:text-stone-300">
 							<Settings className="h-3.5 w-3.5 mr-1.5" />
 							{messages.DETAILS}
 						</TabsTrigger>
-						<TabsTrigger value="members" className="text-xs">
+						<TabsTrigger value="members" className="text-xs text-stone-700 dark:text-stone-300">
 							<Users className="h-3.5 w-3.5 mr-1.5" />
 							{messages.MEMBERS} ({members.length})
 						</TabsTrigger>
 						{orgPendingInvites.length > 0 && (
-							<TabsTrigger value="pending" className="text-xs">
+							<TabsTrigger value="pending" className="text-xs text-stone-700 dark:text-stone-300">
 								<Clock className="h-3.5 w-3.5 mr-1.5" />
 								{messages.PENDING} ({orgPendingInvites.length})
 							</TabsTrigger>
 						)}
-						<TabsTrigger value="all" className="text-xs">
+						<TabsTrigger value="all" className="text-xs text-stone-700 dark:text-stone-300">
 							<Building2 className="h-3.5 w-3.5 mr-1.5" />
 							{messages.ORGANISATIONS}
 						</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="details" className="space-y-4 mt-0">
-						<div className="space-y-3 p-4">
+						<div className="space-y-3 py-4">
 							<div className="space-y-1.5">
 								<Label htmlFor="org-name" className="text-sm">
 									{messages.ORGANISATION_NAME}
@@ -375,7 +375,7 @@ export default function OrganisationSettingsPage() {
 						</div>
 
 						{isCreator && (
-							<div className="border-t pt-4 px-4 pb-4">
+							<div className="border-t border-stone-200 dark:border-stone-800 pt-4 px-4 pb-4">
 								<div className="space-y-2">
 									<h4 className="text-sm font-medium text-destructive">
 										{messages.DANGER_ZONE}
@@ -415,8 +415,8 @@ export default function OrganisationSettingsPage() {
 										</AlertDialogContent>
 									</AlertDialog>
 									{members.length > 1 && (
-										<p className="text-xs text-muted-foreground">
-											Remove all members before deleting this organisation.
+										<p className="text-xs text-stone-600 dark:text-stone-400">
+											{messages.ORGANISATION_DELETE_DESCRIPTION}
 										</p>
 									)}
 								</div>
@@ -431,7 +431,7 @@ export default function OrganisationSettingsPage() {
 							</div>
 						) : (
 							<Table>
-								<TableHeader>
+								<TableHeader className="bg-stone-200/[0.5] text-stone-500 dark:bg-stone-800 dark:text-stone-400">
 									<TableRow className="text-xs">
 										<TableHead className="h-8 pl-2">{messages.MEMBER}</TableHead>
 										<TableHead className="h-8">{messages.ROLE}</TableHead>
@@ -571,7 +571,7 @@ export default function OrganisationSettingsPage() {
 					{orgPendingInvites.length > 0 && (
 						<TabsContent value="pending" className="mt-0 p-4">
 							<Table>
-								<TableHeader>
+								<TableHeader className="bg-stone-200/[0.5] text-stone-500 dark:bg-stone-800 dark:text-stone-400">
 									<TableRow className="text-xs">
 										<TableHead className="h-8 pl-2">{messages.EMAIL}</TableHead>
 										<TableHead className="h-8">{messages.INVITED}</TableHead>
@@ -606,7 +606,7 @@ export default function OrganisationSettingsPage() {
 
 					<TabsContent value="all" className="mt-0 p-0 pt-2">
 						<Table>
-							<TableHeader>
+							<TableHeader className="bg-stone-200/[0.5] text-stone-500 dark:bg-stone-800 dark:text-stone-400">
 								<TableRow className="text-xs">
 									<TableHead className="h-8 pl-2">{messages.NAME}</TableHead>
 									<TableHead className="h-8">{messages.MEMBERS}</TableHead>

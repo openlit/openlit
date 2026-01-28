@@ -142,7 +142,7 @@ export default function OnboardingPage() {
 							{existingMemberships.map((org) => (
 								<div
 									key={org.id}
-									className="flex items-center justify-between p-3 border rounded-lg"
+									className="flex items-center justify-between p-3 border border-stone-200 dark:border-stone-800 rounded-lg"
 								>
 									<div>
 										<p className="font-medium">{org.name}</p>
@@ -185,7 +185,7 @@ export default function OnboardingPage() {
 							{pendingInvitations.map((invitation) => (
 								<div
 									key={invitation.id}
-									className="flex items-center justify-between p-3 border rounded-lg"
+									className="flex items-center justify-between p-3 border border-stone-200 dark:border-stone-800 rounded-lg"
 								>
 									<div>
 										<p className="font-medium">{invitation.organisationName}</p>

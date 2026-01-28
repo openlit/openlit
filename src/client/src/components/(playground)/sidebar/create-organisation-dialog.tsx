@@ -45,7 +45,7 @@ export default function CreateOrganisationDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[425px]">
+			<DialogContent className="sm:max-w-[425px] text-stone-700 dark:text-stone-300">
 				<DialogHeader>
 					<DialogTitle>{messages.CREATE_ORGANISATION}</DialogTitle>
 					<DialogDescription>

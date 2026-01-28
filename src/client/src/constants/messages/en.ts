@@ -392,6 +392,7 @@ export const ORGANISATION_CREATE_FAILED = "Failed to create organisation";
 export const ORGANISATION_UPDATE_FAILED = "Failed to update organisation";
 export const ORGANISATION_DELETE_FAILED = "Failed to delete organisation";
 export const ORGANISATION_CREATE_DESCRIPTION = "Create a new organisation to manage your databases and team members.";
+export const ORGANISATION_DELETE_DESCRIPTION = "Remove all members before deleting this organisation.";
 
 // Organisation Members
 export const MEMBERS = "Members";
