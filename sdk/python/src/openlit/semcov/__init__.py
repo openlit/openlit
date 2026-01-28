@@ -166,6 +166,24 @@ class SemanticConvention:
     GEN_AI_SYSTEM_PYDANTIC_AI = "pydantic_ai"
     GEN_AI_SYSTEM_SARVAM = "sarvam"
     GEN_AI_SYSTEM_BROWSER_USE = "browser_use"
+    GEN_AI_SYSTEM_LANGGRAPH = "langgraph"
+
+    # LangGraph-specific Attributes
+    LANGGRAPH_GRAPH_NODES = "langgraph.graph.nodes"
+    LANGGRAPH_GRAPH_NODE_COUNT = "langgraph.graph.node_count"
+    LANGGRAPH_GRAPH_EDGES = "langgraph.graph.edges"
+    LANGGRAPH_GRAPH_EDGE_COUNT = "langgraph.graph.edge_count"
+    LANGGRAPH_EXECUTION_MODE = "langgraph.execution.mode"
+    LANGGRAPH_EXECUTED_NODES = "langgraph.graph.executed_nodes"
+    LANGGRAPH_NODE_EXECUTION_COUNT = "langgraph.graph.node_execution_count"
+    LANGGRAPH_MESSAGE_COUNT = "langgraph.graph.message_count"
+    LANGGRAPH_CHUNK_COUNT = "langgraph.graph.total_chunks"
+    LANGGRAPH_FINAL_RESPONSE = "langgraph.graph.final_response"
+    LANGGRAPH_NODE_NAME = "langgraph.node.name"
+    LANGGRAPH_GRAPH_STATUS = "langgraph.graph.status"
+    LANGGRAPH_THREAD_ID = "langgraph.thread.id"
+    LANGGRAPH_CHECKPOINT_ID = "langgraph.checkpoint.id"
+    LANGGRAPH_STREAM_MODE = "langgraph.stream.mode"
 
     # GenAI Framework Component Attributes (Standard)
     GEN_AI_FRAMEWORK_COMPONENT_NAME = "gen_ai.framework.component.name"
@@ -381,6 +399,7 @@ class SemanticConvention:
     DB_OPERATION_NAME = "db.operation.name"
     DB_QUERY_TEXT = "db.query.text"
     DB_QUERY_SUMMARY = "db.query.summary"
+    DB_QUERY_PARAMETER = "db.query.parameter"
     DB_RESPONSE_RETURNED_ROWS = "db.response.returned_rows"
 
     # Vector DB Attributes (Extras)
@@ -442,6 +461,21 @@ class SemanticConvention:
     DB_SYSTEM_QDRANT = "qdrant"
     DB_SYSTEM_MILVUS = "milvus"
     DB_SYSTEM_ASTRA = "astra"
+    DB_SYSTEM_POSTGRESQL = "postgresql"
+
+    # SQL Transaction Operations
+    DB_OPERATION_COMMIT = "COMMIT"
+    DB_OPERATION_ROLLBACK = "ROLLBACK"
+    DB_OPERATION_COPY = "COPY"
+    DB_OPERATION_CREATE = "CREATE"
+    DB_OPERATION_ALTER = "ALTER"
+    DB_OPERATION_DROP = "DROP"
+    DB_OPERATION_TRUNCATE = "TRUNCATE"
+    DB_OPERATION_CALL = "CALL"
+
+    # PostgreSQL-specific attributes
+    DB_POSTGRESQL_ROWS_AFFECTED = "db.postgresql.rows_affected"
+    DB_POSTGRESQL_PLAN = "db.postgresql.plan"
 
     # GenAI Request Attributes (OTel Semconv)
     GEN_AI_AGENT_ID = "gen_ai.agent.id"

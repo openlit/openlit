@@ -50,6 +50,33 @@ Customize OpenLIT SDK behavior for your specific instrumentation needs:
 | `event_logger` | N/A | N/A | EventLoggerProvider instance | `None` | No |
 | `meter` | N/A | N/A | OpenTelemetry Metrics instance | `None` | No |
 
+### Database instrumentation options
+
+These options apply to database instrumentations like PostgreSQL (psycopg3):
+
+| Parameter | CLI Argument | Environment Variable | Description | Default | Required |
+|-----------|--------------|---------------------|-------------|---------|----------|
+| `capture_parameters` | `--capture_parameters` | `OPENLIT_CAPTURE_PARAMETERS` | Capture database query parameters in spans (security risk - may expose sensitive data) | `False` | No |
+| `enable_sqlcommenter` | `--enable_sqlcommenter` | `OPENLIT_ENABLE_SQLCOMMENTER` | Inject OpenTelemetry trace context as SQL comments for database log correlation | `False` | No |
+
+<Warning>
+**Security Notice**: Enabling `capture_parameters` records query parameters (the values passed to `$1`, `$2`, etc.) in your traces. This may expose sensitive data like passwords, API keys, or personal information. Only enable in development environments or when you're certain parameters don't contain sensitive data.
+</Warning>
+
+**SQLCommenter Example:**
+
+When `enable_sqlcommenter` is enabled, queries are automatically modified to include trace context:
+
+```sql
+-- Original
+SELECT * FROM users WHERE id = $1;
+
+-- With SQLCommenter
+SELECT * FROM users WHERE id = $1 /*traceparent='00-abc123def456-789xyz-01',application='my_app'*/;
+```
+
+This enables correlation between application traces and database logs (e.g., `pg_stat_statements`, `auto_explain`).
+
 ### Deprecated parameters
 
 | Parameter | CLI Argument | Environment Variable | Description | Default | Required |

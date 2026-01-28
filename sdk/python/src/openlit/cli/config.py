@@ -98,6 +98,18 @@ PARAMETER_CONFIG = {
         "cli_help": "Enable comprehensive system metrics (CPU, memory, disk, network, GPU if detected)",
         "cli_type": bool,
     },
+    "capture_parameters": {
+        "default": False,
+        "env_var": "OPENLIT_CAPTURE_PARAMETERS",
+        "cli_help": "Capture database query parameters in spans (security risk - may expose sensitive data)",
+        "cli_type": bool,
+    },
+    "enable_sqlcommenter": {
+        "default": False,
+        "env_var": "OPENLIT_ENABLE_SQLCOMMENTER",
+        "cli_help": "Inject OpenTelemetry trace context as SQL comments for database log correlation",
+        "cli_type": bool,
+    },
     # Parameters that are not exposed via CLI (internal use only)
     "tracer": {
         "default": None,
