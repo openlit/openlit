@@ -8,6 +8,7 @@ import { opengroundStoreSlice } from "./openground";
 import { pageStoreSlice } from "./page";
 import { RootStore } from "@/types/store/root";
 import { dashboardStoreSlice } from "./dashboards";
+import { organisationStoreSlice } from "./organisation";
 
 export const useRootStore = create<RootStore>()(
 	devtools(
@@ -18,6 +19,7 @@ export const useRootStore = create<RootStore>()(
 			openground: opengroundStoreSlice,
 			page: pageStoreSlice,
 			dashboards: dashboardStoreSlice,
+			organisation: organisationStoreSlice,
 		})
 	)
 );
