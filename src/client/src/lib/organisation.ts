@@ -34,11 +34,12 @@ export async function createOrganisation(name: string) {
 		},
 	});
 
-	// Add creator as a member
+	// Add creator as a member with owner role
 	await prisma.organisationUser.create({
 		data: {
 			organisationId: organisation.id,
 			userId: user!.id,
+			role: "owner",
 			isCurrent: false, // Don't auto-switch to new org
 		},
 	});
@@ -284,9 +285,13 @@ export async function inviteUserToOrganisation(
 			data: {
 				organisationId,
 				userId: existingUser.id,
+				role: "member",
 				isCurrent: false,
 			},
 		});
+
+		// Share all organisation database configs with the new member
+		await shareOrganisationDatabaseConfigs(organisationId, existingUser.id);
 
 		return { added: true, invited: false };
 	}
@@ -364,9 +369,13 @@ export async function acceptInvitation(invitationId: string) {
 		data: {
 			organisationId: invitation!.organisationId,
 			userId: user!.id,
+			role: "member",
 			isCurrent: false,
 		},
 	});
+
+	// Share all organisation database configs with the new member
+	await shareOrganisationDatabaseConfigs(invitation!.organisationId, user!.id);
 
 	// Delete invitation
 	await prisma.organisationInvitedUser.delete({
@@ -417,9 +426,13 @@ export async function moveInvitationsToMembership(
 			data: {
 				organisationId: invitation.organisationId,
 				userId,
+				role: "member",
 				isCurrent: false,
 			},
 		});
+
+		// Share all organisation database configs with the new member
+		await shareOrganisationDatabaseConfigs(invitation.organisationId, userId);
 
 		// Delete invitation
 		await prisma.organisationInvitedUser.delete({
@@ -529,8 +542,59 @@ export async function getOrganisationMembers(organisationId: string) {
 		name: member.user.name,
 		image: member.user.image,
 		isCreator: member.user.id === organisation!.createdByUserId,
+		role: member.user.id === organisation!.createdByUserId ? "owner" : member.role,
 		joinedAt: member.createdAt,
 	}));
+}
+
+/**
+ * Update member role in an organisation
+ */
+export async function updateMemberRole(
+	organisationId: string,
+	userId: string,
+	role: string
+) {
+	const user = await getCurrentUser();
+	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
+
+	const organisation = await prisma.organisation.findUnique({
+		where: { id: organisationId },
+	});
+
+	throwIfError(!organisation, "Organisation not found");
+
+	// Only owner can update roles
+	throwIfError(
+		organisation!.createdByUserId !== user!.id,
+		"Only the organisation owner can update member roles"
+	);
+
+	// Cannot change owner's role
+	throwIfError(
+		userId === organisation!.createdByUserId,
+		"Cannot change the owner's role"
+	);
+
+	// Validate role
+	throwIfError(
+		!["member", "admin"].includes(role),
+		"Invalid role. Must be 'member' or 'admin'"
+	);
+
+	await prisma.organisationUser.update({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId,
+			},
+		},
+		data: {
+			role,
+		},
+	});
+
+	return { success: true };
 }
 
 /**
@@ -639,4 +703,63 @@ export async function getOrganisationById(id: string) {
 		memberCount: organisation._count.members,
 		createdByUserId: organisation.createdByUserId,
 	};
+}
+
+/**
+ * Share all database configs in an organisation with a user
+ */
+async function shareOrganisationDatabaseConfigs(
+	organisationId: string,
+	userId: string
+) {
+	// Get all database configs for this organisation
+	const databaseConfigs = await prisma.databaseConfig.findMany({
+		where: { organisationId },
+		orderBy: {
+			createdAt: "asc",
+		},
+	});
+
+	if (databaseConfigs.length === 0) return;
+
+	// Check if user has any current database config
+	const existingCurrentConfig = await prisma.databaseConfigUser.findFirst({
+		where: {
+			userId,
+			isCurrent: true,
+		},
+	});
+
+	// Add user to each database config with view permissions
+	for (let i = 0; i < databaseConfigs.length; i++) {
+		const config = databaseConfigs[i];
+		
+		// Check if user already has access
+		const existingAccess = await prisma.databaseConfigUser.findUnique({
+			where: {
+				databaseConfigId_userId: {
+					databaseConfigId: config.id,
+					userId,
+				},
+			},
+		});
+
+		// Only add if they don't already have access
+		if (!existingAccess) {
+			// Set the first config as current if user doesn't have any current config
+			const isFirstConfig = i === 0;
+			const shouldBeCurrent = !existingCurrentConfig && isFirstConfig;
+
+			await prisma.databaseConfigUser.create({
+				data: {
+					databaseConfigId: config.id,
+					userId,
+					isCurrent: shouldBeCurrent,
+					canEdit: false,
+					canShare: false,
+					canDelete: false,
+				},
+			});
+		}
+	}
 }

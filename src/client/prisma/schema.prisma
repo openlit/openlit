@@ -96,6 +96,7 @@ model OrganisationUser {
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   userId         String       @map("user_id")
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
   isCurrent      Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

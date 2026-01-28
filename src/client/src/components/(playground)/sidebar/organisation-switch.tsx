@@ -23,9 +23,11 @@ import { ICON_CLASSES } from "@/constants/sidebar";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CreateOrganisationDialog from "./create-organisation-dialog";
+import getMessage from "@/constants/messages";
 
 export default function OrganisationSwitch() {
 	const posthog = usePostHog();
+	const messages = getMessage();
 	const list = useRootStore(getOrganisationList) || [];
 	const currentOrg = useRootStore(getCurrentOrganisation);
 	const pendingInvitationsCount = useRootStore(getPendingInvitationsCount);
@@ -66,7 +68,7 @@ export default function OrganisationSwitch() {
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent className="w-56" side="right" align="start">
-					<DropdownMenuLabel>Organisations</DropdownMenuLabel>
+					<DropdownMenuLabel>{messages.ORGANISATIONS}</DropdownMenuLabel>
 					<DropdownMenuSeparator />
 					{list.map((item) => (
 						<DropdownMenuCheckboxItem
@@ -82,7 +84,7 @@ export default function OrganisationSwitch() {
 										</span>
 									</p>
 									<p className="text-xs" data-description>
-										{item.memberCount} member{item.memberCount !== 1 ? "s" : ""}
+										{item.memberCount} {messages.MEMBER}{item.memberCount !== 1 ? "s" : ""}
 									</p>
 								</div>
 							</div>
@@ -97,7 +99,7 @@ export default function OrganisationSwitch() {
 									className="flex items-center gap-2"
 								>
 									<Mail className="size-4" />
-									{pendingInvitationsCount} Pending Invitation
+									{pendingInvitationsCount} {messages.PENDING_INVITATION}
 									{pendingInvitationsCount !== 1 ? "s" : ""}
 								</Link>
 							</DropdownMenuItem>
@@ -110,7 +112,7 @@ export default function OrganisationSwitch() {
 					>
 						<div className="flex items-center gap-2">
 							<Plus className="size-4" />
-							Create Organisation
+							{messages.CREATE_ORGANISATION}
 						</div>
 					</DropdownMenuItem>
 					<DropdownMenuItem className="py-1.5 pl-8 pr-2">
@@ -118,7 +120,7 @@ export default function OrganisationSwitch() {
 							href="/settings/organisation"
 							className="flex items-center w-full"
 						>
-							Manage Organisations
+							{messages.MANAGE_ORGANISATIONS}
 						</Link>
 					</DropdownMenuItem>
 				</DropdownMenuContent>

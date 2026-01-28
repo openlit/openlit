@@ -312,3 +312,32 @@ export const cancelOrganisationInvitation = async (
 
 	successCb?.();
 };
+
+export const updateMemberRole = async (
+	organisationId: string,
+	userId: string,
+	role: string,
+	successCb?: () => void
+) => {
+	const messages = getMessage();
+	const [err, data] = await asaw(
+		getData({
+			url: `/api/organisation/${organisationId}/members/${userId}`,
+			method: "PATCH",
+			data: { role },
+		})
+	);
+
+	if (err || data?.err) {
+		toast.error(err || data?.err || messages.MEMBER_ROLE_UPDATE_FAILED, {
+			id: "organisation-member-role",
+		});
+		return;
+	}
+
+	toast.success(messages.MEMBER_ROLE_UPDATED, {
+		id: "organisation-member-role",
+	});
+
+	successCb?.();
+};

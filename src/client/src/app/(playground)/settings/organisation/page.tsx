@@ -22,6 +22,19 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
 	Building2,
 	Mail,
 	Check,
@@ -31,6 +44,10 @@ import {
 	Crown,
 	LogOut,
 	Loader2,
+	Save,
+	Users,
+	Settings,
+	Clock,
 } from "lucide-react";
 import { useRootStore } from "@/store";
 import {
@@ -51,6 +68,7 @@ import {
 	fetchOrganisationList,
 	fetchPendingInvitations,
 	changeActiveOrganisation,
+	updateMemberRole,
 } from "@/helpers/client/organisation";
 import { getData } from "@/utils/api";
 import asaw from "@/utils/asaw";
@@ -66,7 +84,6 @@ import {
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import CreateOrganisationDialog from "@/components/(playground)/sidebar/create-organisation-dialog";
-import { Separator } from "@/components/ui/separator";
 import getMessage from "@/constants/messages";
 
 interface Member {
@@ -75,6 +92,7 @@ interface Member {
 	name: string | null;
 	image: string | null;
 	isCreator: boolean;
+	role: "owner" | "admin" | "member";
 	joinedAt: string;
 }
 
@@ -177,6 +195,11 @@ export default function OrganisationSettingsPage() {
 		await cancelOrganisationInvitation(inviteId, fetchMembers);
 	};
 
+	const handleUpdateRole = async (userId: string, role: string) => {
+		if (!currentOrg) return;
+		await updateMemberRole(currentOrg.id, userId, role, fetchMembers);
+	};
+
 	const handleLeaveOrg = async () => {
 		if (!currentOrg || !currentUserId) return;
 
@@ -215,81 +238,94 @@ export default function OrganisationSettingsPage() {
 	};
 
 	return (
-		<div className="p-6 space-y-6 overflow-auto w-full">
+		<div className="p-4 space-y-4 overflow-auto w-full">
 			<div className="flex items-center justify-between">
 				<div>
-					<h1 className="text-2xl font-bold">Organisation Settings</h1>
-					<p className="text-muted-foreground">
-						Manage your organisations and team members
+					<h1 className="text-xl font-bold">{messages.ORGANISATION_SETTINGS}</h1>
+					<p className="text-sm text-muted-foreground">
+						{messages.ORGANISATION_SETTINGS_DESCRIPTION}
 					</p>
 				</div>
-				<Button onClick={() => setCreateDialogOpen(true)}>
-					<Building2 className="h-4 w-4 mr-2" />
-					New Organisation
+				<Button onClick={() => setCreateDialogOpen(true)} size="sm">
+					<Building2 className="h-3.5 w-3.5 mr-1.5" />
+					{messages.NEW_ORGANISATION}
 				</Button>
 			</div>
 
 			{pendingInvitations.length > 0 && (
-				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<Mail className="h-5 w-5" />
-							Pending Invitations
+				<Card className="border-primary/20 bg-primary/5">
+					<CardHeader className="pb-3">
+						<CardTitle className="text-base flex items-center gap-2">
+							<Mail className="h-4 w-4" />
+							{messages.PENDING_INVITATIONS}
 						</CardTitle>
-						<CardDescription>
-							You have been invited to join the following organisations
-						</CardDescription>
 					</CardHeader>
-					<CardContent>
-						<div className="space-y-3">
-							{pendingInvitations.map((invitation) => (
-								<div
-									key={invitation.id}
-									className="flex items-center justify-between p-3 border rounded-lg"
-								>
-									<div>
-										<p className="font-medium">{invitation.organisationName}</p>
-									</div>
-									<div className="flex gap-2">
-										<Button
-											size="sm"
-											variant="outline"
-											onClick={() => handleDeclineInvitation(invitation.id)}
-										>
-											<X className="h-4 w-4" />
-										</Button>
-										<Button
-											size="sm"
-											onClick={() => handleAcceptInvitation(invitation.id)}
-										>
-											<Check className="h-4 w-4 mr-1" />
-											Join
-										</Button>
-									</div>
+					<CardContent className="space-y-2">
+						{pendingInvitations.map((invitation) => (
+							<div
+								key={invitation.id}
+								className="flex items-center justify-between p-2 border rounded-md bg-background"
+							>
+								<p className="text-sm font-medium">{invitation.organisationName}</p>
+								<div className="flex gap-1">
+									<Button
+										size="sm"
+										variant="ghost"
+										className="h-7 w-7 p-0"
+										onClick={() => handleDeclineInvitation(invitation.id)}
+									>
+										<X className="h-3.5 w-3.5" />
+									</Button>
+									<Button
+										size="sm"
+										className="h-7"
+										onClick={() => handleAcceptInvitation(invitation.id)}
+									>
+										<Check className="h-3.5 w-3.5 mr-1" />
+										{messages.JOIN}
+									</Button>
 								</div>
-							))}
-						</div>
+							</div>
+						))}
 					</CardContent>
 				</Card>
 			)}
 
 			{currentOrg && (
-				<>
-					<Card>
-						<CardHeader>
-							<CardTitle>Current Organisation</CardTitle>
-							<CardDescription>
-								Update your organisation details
-							</CardDescription>
-						</CardHeader>
-						<CardContent className="space-y-4">
-							<div className="grid gap-2">
-								<Label htmlFor="org-name">Organisation Name</Label>
+				<Tabs defaultValue="details" className="w-full">
+					<TabsList className="w-full justify-start p-0 h-auto">
+						<TabsTrigger value="details" className="text-xs">
+							<Settings className="h-3.5 w-3.5 mr-1.5" />
+							{messages.DETAILS}
+						</TabsTrigger>
+						<TabsTrigger value="members" className="text-xs">
+							<Users className="h-3.5 w-3.5 mr-1.5" />
+							{messages.MEMBERS} ({members.length})
+						</TabsTrigger>
+						{orgPendingInvites.length > 0 && (
+							<TabsTrigger value="pending" className="text-xs">
+								<Clock className="h-3.5 w-3.5 mr-1.5" />
+								{messages.PENDING} ({orgPendingInvites.length})
+							</TabsTrigger>
+						)}
+						<TabsTrigger value="all" className="text-xs">
+							<Building2 className="h-3.5 w-3.5 mr-1.5" />
+							{messages.ORGANISATIONS}
+						</TabsTrigger>
+					</TabsList>
+
+					<TabsContent value="details" className="space-y-4 mt-0">
+						<div className="space-y-3 p-4">
+							<div className="space-y-1.5">
+								<Label htmlFor="org-name" className="text-sm">
+									{messages.ORGANISATION_NAME}
+								</Label>
 								<div className="flex gap-2">
 									<Input
 										id="org-name"
 										value={orgName}
 										onChange={(e) => setOrgName(e.target.value)}
+										className="h-9"
 									/>
 									<Button
 										onClick={handleSaveName}
@@ -298,125 +334,195 @@ export default function OrganisationSettingsPage() {
 											!orgName.trim() ||
 											orgName === currentOrg.name
 										}
+										size="sm"
+										className="h-9"
 									>
-										{isSaving ? "Saving..." : "Save"}
+										<Save className="h-3.5 w-3.5 mr-1.5" />
+										{isSaving ? messages.SAVING : messages.SAVE}
 									</Button>
 								</div>
 							</div>
-						</CardContent>
-					</Card>
 
-					<Card>
-						<CardHeader>
-							<CardTitle className="flex items-center gap-2">
-								<UserPlus className="h-5 w-5" />
-								Invite Members
-							</CardTitle>
-							<CardDescription>
-								Invite new members to your organisation
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							<div className="flex gap-2">
-								<Input
-									placeholder="email@example.com"
-									type="email"
-									value={inviteEmail}
-									onChange={(e) => setInviteEmail(e.target.value)}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") {
-											handleInvite();
-										}
-									}}
-								/>
-								<Button
-									onClick={handleInvite}
-									disabled={isInviting || !inviteEmail.trim()}
-								>
-									{isInviting ? "Inviting..." : "Invite"}
-								</Button>
-							</div>
-						</CardContent>
-					</Card>
-
-					<Card>
-						<CardHeader>
-							<CardTitle>Members</CardTitle>
-							<CardDescription>
-								{members.length} member{members.length !== 1 ? "s" : ""} in this
-								organisation
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							{isLoading ? (
-								<div className="flex items-center justify-center py-8">
-									<Loader2 className="h-6 w-6 animate-spin" />
+							<div className="space-y-1.5">
+								<Label htmlFor="invite-email" className="text-sm">
+									{messages.INVITE_NEW_MEMBER}
+								</Label>
+								<div className="flex gap-2">
+									<Input
+										id="invite-email"
+										placeholder="email@example.com"
+										type="email"
+										value={inviteEmail}
+										onChange={(e) => setInviteEmail(e.target.value)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter") {
+												handleInvite();
+											}
+										}}
+										className="h-9"
+									/>
+									<Button
+										onClick={handleInvite}
+										disabled={isInviting || !inviteEmail.trim()}
+										size="sm"
+										className="h-9"
+									>
+										<UserPlus className="h-3.5 w-3.5 mr-1.5" />
+										{isInviting ? messages.INVITING : messages.INVITE}
+									</Button>
 								</div>
-							) : (
-								<Table>
-									<TableHeader>
-										<TableRow>
-											<TableHead>Member</TableHead>
-											<TableHead>Role</TableHead>
-											<TableHead className="text-right">Actions</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{members.map((member) => (
-											<TableRow key={member.id}>
-												<TableCell>
-													<div>
-														<p className="font-medium">
-															{member.name || member.email}
+							</div>
+						</div>
+
+						{isCreator && (
+							<div className="border-t pt-4 px-4 pb-4">
+								<div className="space-y-2">
+									<h4 className="text-sm font-medium text-destructive">
+										{messages.DANGER_ZONE}
+									</h4>
+									<p className="text-xs text-muted-foreground">
+										{messages.DANGER_ZONE_DESCRIPTION}
+									</p>
+									<AlertDialog>
+										<AlertDialogTrigger asChild>
+											<Button
+												variant="destructive"
+												size="sm"
+												className="h-8"
+												disabled={members.length > 1}
+											>
+												<Trash2 className="h-3.5 w-3.5 mr-1.5" />
+												{messages.DELETE_ORGANISATION}
+											</Button>
+										</AlertDialogTrigger>
+										<AlertDialogContent>
+											<AlertDialogHeader>
+												<AlertDialogTitle>
+													{messages.DELETE_ORGANISATION}
+												</AlertDialogTitle>
+												<AlertDialogDescription>
+													{messages.DELETE_ORGANISATION_CONFIRMATION}
+												</AlertDialogDescription>
+											</AlertDialogHeader>
+											<AlertDialogFooter>
+												<AlertDialogCancel>
+													{messages.CANCEL}
+												</AlertDialogCancel>
+												<AlertDialogAction onClick={handleDeleteOrg}>
+													{messages.DELETE}
+												</AlertDialogAction>
+											</AlertDialogFooter>
+										</AlertDialogContent>
+									</AlertDialog>
+									{members.length > 1 && (
+										<p className="text-xs text-muted-foreground">
+											Remove all members before deleting this organisation.
+										</p>
+									)}
+								</div>
+							</div>
+						)}
+					</TabsContent>
+
+					<TabsContent value="members" className="mt-0 p-0 pt-2">
+						{isLoading ? (
+							<div className="flex items-center justify-center py-8">
+								<Loader2 className="h-5 w-5 animate-spin" />
+							</div>
+						) : (
+							<Table>
+								<TableHeader>
+									<TableRow className="text-xs">
+										<TableHead className="h-8 pl-2">{messages.MEMBER}</TableHead>
+										<TableHead className="h-8">{messages.ROLE}</TableHead>
+										<TableHead className="h-8 text-right">
+											{messages.ACTIONS}
+										</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{members.map((member) => (
+										<TableRow key={member.id} className="text-sm">
+											<TableCell className="py-2 pl-2">
+												<div>
+													<p className="font-medium">
+														{member.name || member.email}
+													</p>
+													{member.name && (
+														<p className="text-xs text-muted-foreground">
+															{member.email}
 														</p>
-														{member.name && (
-															<p className="text-sm text-muted-foreground">
-																{member.email}
-															</p>
-														)}
-													</div>
-												</TableCell>
-												<TableCell>
-													{member.isCreator ? (
-														<Badge variant="secondary">
-															<Crown className="h-3 w-3 mr-1" />
-															Owner
-														</Badge>
-													) : (
-														<Badge variant="outline">Member</Badge>
 													)}
-												</TableCell>
-												<TableCell className="text-right">
+												</div>
+											</TableCell>
+											<TableCell className="py-2">
+												{member.isCreator ? (
+													<Badge
+														variant="secondary"
+														className="text-xs h-5 px-2"
+													>
+														<Crown className="h-3 w-3 mr-1" />
+														{messages.OWNER}
+													</Badge>
+												) : isCreator ? (
+													<Select
+														value={member.role}
+														onValueChange={(value) =>
+															handleUpdateRole(member.id, value)
+														}
+													>
+														<SelectTrigger className="h-7 w-auto text-xs">
+															<SelectValue />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="admin" className="text-xs">
+																{messages.ADMIN}
+															</SelectItem>
+															<SelectItem value="member" className="text-xs">
+																{messages.MEMBER}
+															</SelectItem>
+														</SelectContent>
+													</Select>
+												) : (
+													<Badge variant="outline" className="text-xs h-5 px-2">
+														{member.role === "admin"
+															? messages.ADMIN
+															: messages.MEMBER}
+													</Badge>
+												)}
+											</TableCell>
+											<TableCell className="py-2 text-right">
+												<div className="flex justify-end gap-1">
 													{!member.isCreator && isCreator && (
 														<AlertDialog>
 															<AlertDialogTrigger asChild>
 																<Button
 																	variant="ghost"
 																	size="sm"
-																	className="text-destructive"
+																	className="h-7 w-7 p-0 text-destructive"
 																>
-																	<Trash2 className="h-4 w-4" />
+																	<Trash2 className="h-3.5 w-3.5" />
 																</Button>
 															</AlertDialogTrigger>
 															<AlertDialogContent>
 																<AlertDialogHeader>
 																	<AlertDialogTitle>
-																		Remove Member
+																		{messages.REMOVE_MEMBER}
 																	</AlertDialogTitle>
 																	<AlertDialogDescription>
-																		Are you sure you want to remove{" "}
-																		{member.name || member.email} from this
-																		organisation?
+																		{messages.REMOVE_MEMBER_CONFIRMATION}
 																	</AlertDialogDescription>
 																</AlertDialogHeader>
 																<AlertDialogFooter>
-																	<AlertDialogCancel>Cancel</AlertDialogCancel>
+																	<AlertDialogCancel>
+																		{messages.CANCEL}
+																	</AlertDialogCancel>
 																	<AlertDialogAction
 																		onClick={() =>
 																			handleRemoveMember(member.id)
 																		}
 																	>
-																		Remove
+																		{messages.DELETE}
 																	</AlertDialogAction>
 																</AlertDialogFooter>
 															</AlertDialogContent>
@@ -428,169 +534,126 @@ export default function OrganisationSettingsPage() {
 																<Button
 																	variant="ghost"
 																	size="sm"
-																	className="text-destructive"
+																	className="h-7 w-7 p-0 text-destructive"
 																>
-																	<LogOut className="h-4 w-4" />
+																	<LogOut className="h-3.5 w-3.5" />
 																</Button>
 															</AlertDialogTrigger>
 															<AlertDialogContent>
 																<AlertDialogHeader>
 																	<AlertDialogTitle>
-																		Leave Organisation
+																		{messages.LEAVE_ORGANISATION}
 																	</AlertDialogTitle>
 																	<AlertDialogDescription>
-																		Are you sure you want to leave this
-																		organisation?
+																		{messages.LEAVE_ORGANISATION_CONFIRMATION}
 																	</AlertDialogDescription>
 																</AlertDialogHeader>
 																<AlertDialogFooter>
-																	<AlertDialogCancel>Cancel</AlertDialogCancel>
+																	<AlertDialogCancel>
+																		{messages.CANCEL}
+																	</AlertDialogCancel>
 																	<AlertDialogAction onClick={handleLeaveOrg}>
-																		Leave
+																		{messages.DELETE}
 																	</AlertDialogAction>
 																</AlertDialogFooter>
 															</AlertDialogContent>
 														</AlertDialog>
 													)}
-												</TableCell>
-											</TableRow>
-										))}
-									</TableBody>
-								</Table>
-							)}
-						</CardContent>
-					</Card>
+												</div>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						)}
+					</TabsContent>
 
 					{orgPendingInvites.length > 0 && (
-						<Card>
-							<CardHeader>
-								<CardTitle>Pending Invites</CardTitle>
-								<CardDescription>
-									Invitations sent but not yet accepted
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<Table>
-									<TableHeader>
-										<TableRow>
-											<TableHead>Email</TableHead>
-											<TableHead>Invited</TableHead>
-											<TableHead className="text-right">Actions</TableHead>
+						<TabsContent value="pending" className="mt-0 p-4">
+							<Table>
+								<TableHeader>
+									<TableRow className="text-xs">
+										<TableHead className="h-8 pl-2">{messages.EMAIL}</TableHead>
+										<TableHead className="h-8">{messages.INVITED}</TableHead>
+										<TableHead className="h-8 text-right">
+											{messages.ACTIONS}
+										</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{orgPendingInvites.map((invite) => (
+										<TableRow key={invite.id} className="text-sm">
+											<TableCell className="py-2 pl-2">{invite.email}</TableCell>
+											<TableCell className="py-2 text-xs text-muted-foreground">
+												{new Date(invite.invitedAt).toLocaleDateString()}
+											</TableCell>
+											<TableCell className="py-2 text-right">
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-7 w-7 p-0 text-destructive"
+													onClick={() => handleCancelInvite(invite.id)}
+												>
+													<X className="h-3.5 w-3.5" />
+												</Button>
+											</TableCell>
 										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{orgPendingInvites.map((invite) => (
-											<TableRow key={invite.id}>
-												<TableCell>{invite.email}</TableCell>
-												<TableCell>
-													{new Date(invite.invitedAt).toLocaleDateString()}
-												</TableCell>
-												<TableCell className="text-right">
-													<Button
-														variant="ghost"
-														size="sm"
-														className="text-destructive"
-														onClick={() => handleCancelInvite(invite.id)}
-													>
-														<X className="h-4 w-4" />
-													</Button>
-												</TableCell>
-											</TableRow>
-										))}
-									</TableBody>
-								</Table>
-							</CardContent>
-						</Card>
+									))}
+								</TableBody>
+							</Table>
+						</TabsContent>
 					)}
 
-					{isCreator && members.length === 1 && (
-						<Card className="border-destructive">
-							<CardHeader>
-								<CardTitle className="text-destructive">Danger Zone</CardTitle>
-								<CardDescription>
-									Irreversible actions for this organisation
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								<AlertDialog>
-									<AlertDialogTrigger asChild>
-										<Button variant="destructive">
-											<Trash2 className="h-4 w-4 mr-2" />
-											Delete Organisation
-										</Button>
-									</AlertDialogTrigger>
-									<AlertDialogContent>
-										<AlertDialogHeader>
-											<AlertDialogTitle>Delete Organisation</AlertDialogTitle>
-											<AlertDialogDescription>
-												Are you sure you want to delete &ldquo;{currentOrg.name}
-												&rdquo;? This action cannot be undone.
-											</AlertDialogDescription>
-										</AlertDialogHeader>
-										<AlertDialogFooter>
-											<AlertDialogCancel>Cancel</AlertDialogCancel>
-											<AlertDialogAction onClick={handleDeleteOrg}>
-												Delete
-											</AlertDialogAction>
-										</AlertDialogFooter>
-									</AlertDialogContent>
-								</AlertDialog>
-							</CardContent>
-						</Card>
-					)}
-				</>
-			)}
-
-			<Separator />
-
-			<Card>
-				<CardHeader>
-					<CardTitle>Your Organisations</CardTitle>
-					<CardDescription>
-						All organisations you are a member of
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Name</TableHead>
-								<TableHead>Members</TableHead>
-								<TableHead>Status</TableHead>
-								<TableHead className="text-right">Actions</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{organisations.map((org) => (
-								<TableRow key={org.id}>
-									<TableCell className="font-medium">{org.name}</TableCell>
-									<TableCell>
-										{org.memberCount} member{org.memberCount !== 1 ? "s" : ""}
-									</TableCell>
-									<TableCell>
-										{org.isCurrent ? (
-											<Badge>Active</Badge>
-										) : (
-											<Badge variant="outline">-</Badge>
-										)}
-									</TableCell>
-									<TableCell className="text-right">
-										{!org.isCurrent && (
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => changeActiveOrganisation(org.id)}
-											>
-												Switch
-											</Button>
-										)}
-									</TableCell>
+					<TabsContent value="all" className="mt-0 p-0 pt-2">
+						<Table>
+							<TableHeader>
+								<TableRow className="text-xs">
+									<TableHead className="h-8 pl-2">{messages.NAME}</TableHead>
+									<TableHead className="h-8">{messages.MEMBERS}</TableHead>
+									<TableHead className="h-8">{messages.STATUS}</TableHead>
+									<TableHead className="h-8 text-right">
+										{messages.ACTIONS}
+									</TableHead>
 								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</CardContent>
-			</Card>
+							</TableHeader>
+							<TableBody>
+								{organisations.map((org) => (
+									<TableRow key={org.id} className="text-sm">
+										<TableCell className="py-2 font-medium pl-2">
+											{org.name}
+										</TableCell>
+										<TableCell className="py-2 text-xs text-muted-foreground">
+											{org.memberCount} {messages.MEMBER}
+											{org.memberCount !== 1 ? "s" : ""}
+										</TableCell>
+										<TableCell className="py-2">
+											{org.isCurrent ? (
+												<Badge className="text-xs h-5 px-2">
+													{messages.ACTIVE}
+												</Badge>
+											) : (
+												<span className="text-xs text-muted-foreground">-</span>
+											)}
+										</TableCell>
+										<TableCell className="py-2 text-right">
+											{!org.isCurrent && (
+												<Button
+													variant="outline"
+													size="sm"
+													className="h-7 text-xs"
+													onClick={() => changeActiveOrganisation(org.id)}
+												>
+													{messages.SWITCH_ORGANISATION}
+												</Button>
+											)}
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</TabsContent>
+				</Tabs>
+			)}
 
 			<CreateOrganisationDialog
 				open={createDialogOpen}

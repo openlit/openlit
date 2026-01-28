@@ -355,9 +355,17 @@ export const DELETE = "Delete";
 export const CLOSE = "Close";
 export const ACTIONS = "Actions";
 export const JOIN = "Join";
+export const CREATE = "Create";
 export const CREATING = "Creating...";
 export const SETTING_UP = "Setting up...";
 export const SELECTING = "Selecting...";
+export const EDIT_DETAILS = "Edit details";
+export const LOG_OUT = "Log out";
+export const EXPAND = "Expand";
+export const DATABASES = "Databases";
+export const ADD_NEW_CONFIG = "Add New Config";
+export const MANAGE_DB_CONFIG = "Manage DB Config";
+export const PENDING_INVITATION = "Pending Invitation";
 
 // Organisation
 export const ORGANISATION = "Organisation";
@@ -389,8 +397,14 @@ export const ORGANISATION_CREATE_DESCRIPTION = "Create a new organisation to man
 export const MEMBERS = "Members";
 export const MEMBER = "Member";
 export const OWNER = "Owner";
+export const ADMIN = "Admin";
+export const ROLE = "Role";
+export const CHANGE_ROLE = "Change Role";
+export const MEMBER_ROLE_UPDATED = "Member role updated successfully";
+export const MEMBER_ROLE_UPDATE_FAILED = "Failed to update member role";
 export const INVITE_MEMBERS = "Invite Members";
 export const INVITE_MEMBERS_DESCRIPTION = "Invite new members to your organisation";
+export const INVITE_NEW_MEMBER = "Invite New Member";
 export const INVITE = "Invite";
 export const INVITING = "Inviting...";
 export const INVITATIONS_SENT = "Invitations sent successfully";
@@ -404,6 +418,14 @@ export const DELETE_ORGANISATION = "Delete Organisation";
 export const DELETE_ORGANISATION_CONFIRMATION = "Are you sure you want to delete this organisation? This action cannot be undone.";
 export const DANGER_ZONE = "Danger Zone";
 export const DANGER_ZONE_DESCRIPTION = "Irreversible actions for this organisation";
+export const GENERAL = "General";
+export const DETAILS = "Details";
+export const PENDING = "Pending";
+export const NAME = "Name";
+export const EMAIL = "Email";
+export const SAVE = "Save";
+export const ACTIVE = "Active";
+export const STATUS = "Status";
 
 // Organisation Invitations
 export const PENDING_INVITATIONS = "Pending Invitations";

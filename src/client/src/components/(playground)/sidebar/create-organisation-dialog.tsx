@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createOrganisation } from "@/helpers/client/organisation";
+import getMessage from "@/constants/messages";
 
 interface CreateOrganisationDialogProps {
 	open: boolean;
@@ -24,6 +25,7 @@ export default function CreateOrganisationDialog({
 	onOpenChange,
 	onSuccess,
 }: CreateOrganisationDialogProps) {
+	const messages = getMessage();
 	const [name, setName] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 
@@ -45,19 +47,19 @@ export default function CreateOrganisationDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-[425px]">
 				<DialogHeader>
-					<DialogTitle>Create Organisation</DialogTitle>
+					<DialogTitle>{messages.CREATE_ORGANISATION}</DialogTitle>
 					<DialogDescription>
-						Create a new organisation to manage your databases and team members.
+						{messages.ORGANISATION_CREATE_DESCRIPTION}
 					</DialogDescription>
 				</DialogHeader>
 				<div className="grid gap-4 py-4">
 					<div className="grid gap-2">
-						<Label htmlFor="name">Organisation Name</Label>
+						<Label htmlFor="name">{messages.ORGANISATION_NAME}</Label>
 						<Input
 							id="name"
 							value={name}
 							onChange={(e) => setName(e.target.value)}
-							placeholder="My Organisation"
+							placeholder={messages.ORGANISATION_NAME_PLACEHOLDER}
 							onKeyDown={(e) => {
 								if (e.key === "Enter") {
 									handleCreate();
@@ -68,10 +70,10 @@ export default function CreateOrganisationDialog({
 				</div>
 				<DialogFooter>
 					<Button variant="outline" onClick={() => onOpenChange(false)}>
-						Cancel
+						{messages.CANCEL}
 					</Button>
 					<Button onClick={handleCreate} disabled={!name.trim() || isLoading}>
-						{isLoading ? "Creating..." : "Create"}
+						{isLoading ? messages.CREATING : messages.CREATE}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
