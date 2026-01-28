@@ -10,7 +10,7 @@ from wrapt import wrap_function_wrapper
 from openlit.instrumentation.qdrant.qdrant import general_wrap
 from openlit.instrumentation.qdrant.async_qdrant import async_general_wrap
 
-_instruments = ("qdrant-client >= 1.9.0",)
+_instruments = ("qdrant-client >= 1.16.0",)
 
 # Operations to wrap for both sync and async clients
 QDRANT_OPERATIONS = [
@@ -29,11 +29,10 @@ QDRANT_OPERATIONS = [
     ("delete", "qdrant.delete"),
     ("retrieve", "qdrant.retrieve"),
     ("scroll", "qdrant.scroll"),
-    ("search", "qdrant.search"),
-    ("search_groups", "qdrant.search_groups"),
-    ("recommend", "qdrant.recommend"),
     ("create_payload_index", "qdrant.create_payload_index"),
     ("query_points", "qdrant.query_points"),
+    ("query_batch_points", "qdrant.query_batch_points"),
+    ("query_points_groups", "qdrant.query_points_groups"),
 ]
 
 
