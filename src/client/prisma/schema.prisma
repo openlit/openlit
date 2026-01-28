@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-arm64-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
+  binaryTargets = ["native", "debian-openssl-1.1.x", "linux-arm64-openssl-1.1.x"]
 }
 
 datasource db {
@@ -54,9 +54,9 @@ model User {
   sessions         Session[]
   dbConfigs        DatabaseConfigUser[]
   createdDBConfigs DatabaseConfig[]
-  OpenGround       OpenGround[]
   createdApiKeys   APIKeys[]            @relation("createdByUser")
   deletedApiKeys   APIKeys[]            @relation("deletedByUser")
+  opengrounds      OpenGround[]
 
   @@map("users")
 }
@@ -89,9 +89,9 @@ model DatabaseConfig {
   updatedAt       DateTime                    @updatedAt
   createdByUserId String                      @map("user_id")
   createdByUser   User                        @relation(fields: [createdByUserId], references: [id])
-  OpenGround      OpenGround[]
   dbInvitedUsers  DatabaseConfigInvitedUser[]
   apiKeys         APIKeys[]
+  opengrounds     OpenGround[]
 
   @@unique([name])
   @@map("databaseconfig")
@@ -113,6 +113,11 @@ model DatabaseConfigUser {
   @@map("databaseconfiguser")
 }
 
+// DEPRECATED: All OpenGround data has been migrated to ClickHouse
+// All tables: openlit_openground, openlit_openground_providers, openlit_openground_configs
+// Old Prisma models removed - everything now in ClickHouse for better performance and scalability
+// This table will be removed in future
+// @deprecated - Commented out as all data migrated to ClickHouse
 model OpenGround {
   id               String         @id @default(cuid())
   requestMeta      String

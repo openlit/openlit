@@ -84,6 +84,9 @@ class OpenlitConfig:
         cls.capture_message_content = True
         cls.disable_metrics = False
         cls.detailed_tracing = True
+        # Database instrumentation options
+        cls.capture_parameters = False
+        cls.enable_sqlcommenter = False
 
     @classmethod
     def update_config(
@@ -100,6 +103,8 @@ class OpenlitConfig:
         disable_metrics,
         pricing_json,
         detailed_tracing,
+        capture_parameters=False,
+        enable_sqlcommenter=False,
     ):
         """
         Updates the configuration based on provided parameters.
@@ -118,6 +123,8 @@ class OpenlitConfig:
             disable_metrics (bool): Flag to disable metrics.
             pricing_json(str): path or url to the pricing json file
             detailed_tracing (bool): Flag to enable detailed component-level tracing.
+            capture_parameters (bool): Capture database query parameters (security risk).
+            enable_sqlcommenter (bool): Inject trace context as SQL comments.
         """
         cls.environment = environment
         cls.application_name = application_name
@@ -131,6 +138,8 @@ class OpenlitConfig:
         cls.capture_message_content = capture_message_content
         cls.disable_metrics = disable_metrics
         cls.detailed_tracing = detailed_tracing
+        cls.capture_parameters = capture_parameters
+        cls.enable_sqlcommenter = enable_sqlcommenter
 
 
 def module_exists(module_name):
@@ -193,6 +202,8 @@ def instrument_if_available(
                     metrics_dict=config.metrics_dict,
                     disable_metrics=config.disable_metrics,
                     detailed_tracing=config.detailed_tracing,
+                    capture_parameters=config.capture_parameters,
+                    enable_sqlcommenter=config.enable_sqlcommenter,
                 )
         else:
             logger.info(
@@ -221,6 +232,8 @@ def init(
     collect_gpu_stats=False,
     detailed_tracing=True,
     collect_system_metrics=False,
+    capture_parameters=False,
+    enable_sqlcommenter=False,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -296,6 +309,10 @@ def init(
             detailed_tracing = env_config["detailed_tracing"]
         if collect_system_metrics is False and "collect_system_metrics" in env_config:
             collect_system_metrics = env_config["collect_system_metrics"]
+        if capture_parameters is False and "capture_parameters" in env_config:
+            capture_parameters = env_config["capture_parameters"]
+        if enable_sqlcommenter is False and "enable_sqlcommenter" in env_config:
+            enable_sqlcommenter = env_config["enable_sqlcommenter"]
 
     except ImportError:
         # Fallback if config module is not available - continue without env var support
@@ -378,6 +395,8 @@ def init(
             disable_metrics,
             pricing_json,
             detailed_tracing,
+            capture_parameters,
+            enable_sqlcommenter,
         )
 
         # Create instrumentor instances dynamically
