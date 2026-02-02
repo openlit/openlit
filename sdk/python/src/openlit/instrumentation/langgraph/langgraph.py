@@ -516,7 +516,7 @@ def wrap_add_node(
         # Wrap the action function
         node_name = str(node_key) if not isinstance(node_key, str) else node_key
 
-        # FIX: Check if action is a function/routine. 
+        # FIX: Check if action is a function/routine.
         # If it is a class instance (like ToolNode), do NOT wrap it.
         if inspect.isroutine(action):
             wrapped_action = create_wrapped_node(action, node_name)
