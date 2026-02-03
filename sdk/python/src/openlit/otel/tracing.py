@@ -9,18 +9,20 @@ from opentelemetry.sdk.resources import (
     SERVICE_NAME,
     TELEMETRY_SDK_NAME,
     DEPLOYMENT_ENVIRONMENT,
+    Resource,
 )
-from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+    ConsoleSpanExporter,
+)
+from openlit.__helpers import parse_exporters
 
 if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 else:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-
-from openlit.__helpers import parse_exporters
 
 logger = logging.getLogger(__name__)
 
