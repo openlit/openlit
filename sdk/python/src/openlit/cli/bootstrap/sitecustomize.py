@@ -38,6 +38,8 @@ except ImportError:
                 "OPENLIT_COLLECT_GPU_STATS": "collect_gpu_stats",
                 "OPENLIT_DETAILED_TRACING": "detailed_tracing",
                 "OPENLIT_PRICING_JSON": "pricing_json",
+                "OPENLIT_CAPTURE_PARAMETERS": "capture_parameters",
+                "OPENLIT_ENABLE_SQLCOMMENTER": "enable_sqlcommenter",
             }
 
             for env_var, param_name in env_mappings.items():
@@ -49,6 +51,8 @@ except ImportError:
                         "OPENLIT_DISABLE_METRICS",
                         "OPENLIT_COLLECT_GPU_STATS",
                         "OPENLIT_DETAILED_TRACING",
+                        "OPENLIT_CAPTURE_PARAMETERS",
+                        "OPENLIT_ENABLE_SQLCOMMENTER",
                     ]:
                         config[param_name] = env_value.lower() in ("true", "1", "yes")
                     # Handle CSV values
