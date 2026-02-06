@@ -40,6 +40,10 @@ def async_agent_run_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
+
         # Extract agent name for span naming with fallback to agent_id
         agent_name = (
             getattr(instance, "name", None)
@@ -100,6 +104,10 @@ def async_agent_continue_run_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
+
         agent_name = getattr(instance, "name", "unknown")
         span_name = f"continue {agent_name}"
 
@@ -154,6 +162,10 @@ def async_model_run_function_call_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
+
         # Extract function call information for span naming
         function_call = args[0] if args else kwargs.get("function_call", None)
         function_name = None
@@ -225,6 +237,12 @@ def async_agent_run_stream_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            async for item in wrapped(*args, **kwargs):
+                yield item
+            return
+
         # Extract agent name for span naming with fallback to agent_id
         agent_name = (
             getattr(instance, "name", None)
@@ -239,17 +257,21 @@ def async_agent_run_stream_wrap(
             try:
                 # agno 2.x: when `yield_run_response=True`, the final `RunOutput` is yielded
                 # rather than stored on `instance.run_response`
+                # agno 2.3+: `yield_run_response` has been deprecated for `yield_run_output`
                 try:
                     from agno.run.agent import RunOutput  # noqa: WPS433 # pylint: disable=import-error
                 except Exception:  # noqa: WPS429
                     RunOutput = None  # type: ignore # pylint: disable=invalid-name
-                yield_run_response = kwargs.get("yield_run_response", None)
+                # `yield_run_response` is backwards compatibility for agno < 2.3
+                yield_run_output = kwargs.get("yield_run_output", None) or kwargs.get(
+                    "yield_run_response", None
+                )
                 new_kwargs = dict(kwargs)
-                new_kwargs["yield_run_response"] = True
+                new_kwargs["yield_run_output"] = True
                 async for response in wrapped(*args, **new_kwargs):
                     if RunOutput and isinstance(response, RunOutput):
                         final_response = response
-                        if yield_run_response:
+                        if yield_run_output:
                             yield response
                     else:
                         yield response
@@ -315,6 +337,12 @@ def async_model_run_function_calls_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            async for item in wrapped(*args, **kwargs):
+                yield item
+            return
+
         # Extract function calls information for span naming
         function_calls = args[0] if args else []
         function_names = []
@@ -395,6 +423,10 @@ def async_function_entrypoint_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
+
         # Extract function information for span naming
         function_name = getattr(instance, "name", None) or getattr(
             instance, "__name__", "unknown_function"
@@ -452,6 +484,10 @@ def async_function_call_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
+
         # Extract function information
         function_name = getattr(
             instance, "name", getattr(instance, "__name__", "unknown_function")
@@ -510,6 +546,9 @@ def async_memory_add_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
         span_name = "memory add"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
@@ -562,6 +601,9 @@ def async_memory_search_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
         span_name = "memory search"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
@@ -615,6 +657,9 @@ def async_vectordb_search_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
         span_name = "vectordb search"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
@@ -668,6 +713,9 @@ def async_knowledge_search_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+            return await wrapped(*args, **kwargs)
         span_name = "knowledge search"
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.INTERNAL) as span:
@@ -724,6 +772,17 @@ def async_workflow_run_wrap(
     """
 
     async def wrapper(wrapped, instance, args, kwargs):
+        # Check if tracer is available
+        if not tracer:
+             # Just call and handle async iterator if needed
+            result = wrapped(*args, **kwargs)
+            if hasattr(result, "__aiter__"):
+                async for event in result:
+                    yield event
+            else:
+                return await result
+            return
+
         workflow_name = getattr(instance, "name", "unknown_workflow")
         span_name = f"workflow {workflow_name}"
 

@@ -17,6 +17,7 @@ import { getAttributeValue } from "@/helpers/client/fleet-hub"
 import { usePageHeader } from "@/selectors/page"
 import { usePostHog } from "posthog-js/react"
 import { CLIENT_EVENTS } from "@/constants/events"
+import { toast } from "sonner"
 
 interface AgentDetailProps {
   agent: Agent,
@@ -105,7 +106,7 @@ export default function AgentDetail({ agent, fetchAgentInfo }: AgentDetailProps)
                     ))}
                   </div>
 
-                  <h4 className="font-semibold text-sm">Component Health Status</h4>
+                  {Object.keys(agent.Status.health.component_health_map || {}).length > 0 ? <h4 className="font-semibold text-sm">Component Health Status</h4> : null}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {Object.entries(agent.Status.health.component_health_map || {}).map(([component, health]) => (
                       <div key={component} className={`p-4 rounded-lg border ${health.healthy ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"}`}>
@@ -135,13 +136,24 @@ function ConfigDetails({ agent, fetchAgentInfo }: { agent: Agent, fetchAgentInfo
   };
 
   const onSave = useCallback(() => {
+    const isClearing = yamlInput.trim() === "";
+
     fireRequest({
       requestType: "POST",
       url: `/api/fleet-hub/${agent.InstanceIdStr}/config`,
       body: jsonStringify({
         config: yamlInput,
       }),
-      successCb: (resp) => {
+      successCb: () => {
+        if (isClearing) {
+          toast.success("Configuration cleared successfully", {
+            description: "The custom collector configuration has been removed. The collector will use its default configuration."
+          });
+        } else {
+          toast.success("Configuration saved successfully", {
+            description: "The collector configuration has been updated and applied."
+          });
+        }
         fetchAgentInfo();
         posthog?.capture(CLIENT_EVENTS.FLEET_HUB_AGENT_CONFIG_SAVED, {
           agentId: agent.InstanceIdStr,
@@ -149,9 +161,23 @@ function ConfigDetails({ agent, fetchAgentInfo }: { agent: Agent, fetchAgentInfo
       },
       failureCb: (resp) => {
         consoleLog(resp);
+        // Extract error message from response
+        let errorMessage = "Failed to save configuration";
+        try {
+          const errorData = typeof resp === 'string' ? JSON.parse(resp) : resp;
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If parsing fails, use the raw response as error message
+          errorMessage = typeof resp === 'string' ? resp : errorMessage;
+        }
+
+        toast.error("Configuration validation failed", {
+          description: errorMessage,
+          duration: 5000
+        });
       }
     })
-  }, [yamlInput, agent.InstanceIdStr]);
+  }, [yamlInput, agent.InstanceIdStr, fetchAgentInfo, posthog]);
 
   return (
     <div className="grid grid-cols-2 gap-3 grow text-stone-700 dark:text-stone-300">

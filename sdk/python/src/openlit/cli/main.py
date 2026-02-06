@@ -102,6 +102,10 @@ def set_environment_from_cli_args(args) -> None:
             if cli_value is not None:
                 # Handle boolean values
                 if isinstance(cli_value, bool):
+                    # Skip setting env var if boolean is False and default is True
+                    # (this means the flag wasn't provided, just the store_true default)
+                    if cli_value is False and config.get("default") is True:
+                        continue
                     os.environ[env_var] = "true" if cli_value else "false"
                 else:
                     os.environ[env_var] = str(cli_value)

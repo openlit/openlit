@@ -8,6 +8,7 @@ require (
 	github.com/open-telemetry/opamp-go v0.21.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0
 	google.golang.org/protobuf v1.36.7
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
