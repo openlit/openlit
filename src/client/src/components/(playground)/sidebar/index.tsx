@@ -19,8 +19,8 @@ import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
 const getIfSidebarItemClasses = (pathname: string, item: SidebarItemProps) => {
 	const commonClasses = "flex gap-2 group-data-[state=open]:w-auto group-data-[state=open]:justify-start p-2.5 font-normal ";
-	const activeClasses = "text-white bg-primary dark:bg-primary dark:text-white [&]:hover:bg-primary [&]:dark:hover:bg-primary hover:text-white ";
-	const inactiveClasses = "text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white ";
+	const activeClasses = "text-white bg-primary dark:bg-primary dark:text-white [&]:hover:bg-primary [&]:dark:hover:bg-primary hover:text-white [&>.external-icon-svg]:fill-white [&>.external-icon-svg]:dark:fill-white ";
+	const inactiveClasses = "text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white [&>.external-icon-svg]:fill-stone-500 [&>.external-icon-svg]:dark:fill-stone-300 [&>.external-icon-svg]:hover:fill-white ";
 
 	if (item.type === "section")
 		return `${inactiveClasses}${commonClasses}`;

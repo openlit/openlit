@@ -154,10 +154,10 @@ async function getEvaluationConfigForTrace(
 	try {
 		const data: { success: boolean; result?: Evaluation[]; error?: string } =
 			await new Promise((resolve) => {
-				const pythonProcess = spawn("/bin/sh", [
+				const pythonProcess = spawn("/bin/bash", [
 					"-c",
 					`
-					source venv/bin/activate && \
+					. venv/bin/activate && \
 					python3 scripts/evaluation/evaluate.py '${JSON.stringify({
 						spanId: trace.SpanId,
 						model: `${evaluationConfig.provider}/${evaluationConfig.model}`,

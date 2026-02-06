@@ -26,11 +26,12 @@ export default class OpenLitHelper {
     completionTokens: number
   ): number {
     try {
-      return (
+      const cost = (
         (promptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * pricingInfo.chat[model].promptPrice +
         (completionTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) *
           pricingInfo.chat[model].completionPrice
       );
+      return isNaN(cost) ? 0 : cost;
     } catch (error) {
       console.error(`Error in getChatModelCost: ${error}`);
       return 0;
@@ -39,7 +40,8 @@ export default class OpenLitHelper {
 
   static getEmbedModelCost(model: string, pricingInfo: any, promptTokens: number): number {
     try {
-      return (promptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * pricingInfo.embeddings[model];
+      const cost = (promptTokens / OpenLitHelper.PROMPT_TOKEN_FACTOR) * pricingInfo.embeddings[model];
+      return isNaN(cost) ? 0 : cost;
     } catch (error) {
       console.error(`Error in getEmbedModelCost: ${error}`);
       return 0;
@@ -48,7 +50,8 @@ export default class OpenLitHelper {
 
   static getImageModelCost(model: string, pricingInfo: any, size: string, quality: number): number {
     try {
-      return pricingInfo.images[model][quality][size];
+      const cost = pricingInfo.images[model][quality][size];
+      return isNaN(cost) ? 0 : cost;
     } catch (error) {
       console.error(`Error in getImageModelCost: ${error}`);
       return 0;
@@ -57,7 +60,8 @@ export default class OpenLitHelper {
 
   static getAudioModelCost(model: string, pricingInfo: any, prompt: string): number {
     try {
-      return (prompt.length / OpenLitHelper.PROMPT_TOKEN_FACTOR) * pricingInfo.audio[model];
+      const cost = (prompt.length / OpenLitHelper.PROMPT_TOKEN_FACTOR) * pricingInfo.audio[model];
+      return isNaN(cost) ? 0 : cost;
     } catch (error) {
       console.error(`Error in getAudioModelCost: ${error}`);
       return 0;

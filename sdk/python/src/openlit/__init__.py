@@ -17,6 +17,8 @@ import requests
 from opentelemetry import trace as t
 from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from opentelemetry.sdk.resources import SERVICE_NAME, DEPLOYMENT_ENVIRONMENT
+
+
 from openlit.semcov import SemanticConvention
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
@@ -33,6 +35,9 @@ import openlit.evals
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
+
+tracer = t.get_tracer(__name__)
+
 
 
 class OpenlitConfig:
@@ -79,13 +84,16 @@ class OpenlitConfig:
         cls.capture_message_content = True
         cls.disable_metrics = False
         cls.detailed_tracing = True
+        # Database instrumentation options
+        cls.capture_parameters = False
+        cls.enable_sqlcommenter = False
 
     @classmethod
     def update_config(
         cls,
         environment,
         application_name,
-        tracer,
+        otel_tracer,
         event_provider,
         otlp_endpoint,
         otlp_headers,
@@ -95,6 +103,8 @@ class OpenlitConfig:
         disable_metrics,
         pricing_json,
         detailed_tracing,
+        capture_parameters=False,
+        enable_sqlcommenter=False,
     ):
         """
         Updates the configuration based on provided parameters.
@@ -102,7 +112,7 @@ class OpenlitConfig:
         Args:
             environment (str): Deployment environment.
             application_name (str): Application name.
-            tracer: Tracer instance.
+            otel_tracer: Tracer instance.
             event_provider: Event logger provider instance.
             meter: Metric Instance
             otlp_endpoint (str): OTLP endpoint.
@@ -113,11 +123,13 @@ class OpenlitConfig:
             disable_metrics (bool): Flag to disable metrics.
             pricing_json(str): path or url to the pricing json file
             detailed_tracing (bool): Flag to enable detailed component-level tracing.
+            capture_parameters (bool): Capture database query parameters (security risk).
+            enable_sqlcommenter (bool): Inject trace context as SQL comments.
         """
         cls.environment = environment
         cls.application_name = application_name
         cls.pricing_info = fetch_pricing_info(pricing_json)
-        cls.tracer = tracer
+        cls.tracer = otel_tracer
         cls.event_provider = event_provider
         cls.metrics_dict = metrics_dict
         cls.otlp_endpoint = otlp_endpoint
@@ -126,6 +138,8 @@ class OpenlitConfig:
         cls.capture_message_content = capture_message_content
         cls.disable_metrics = disable_metrics
         cls.detailed_tracing = detailed_tracing
+        cls.capture_parameters = capture_parameters
+        cls.enable_sqlcommenter = enable_sqlcommenter
 
 
 def module_exists(module_name):
@@ -188,6 +202,8 @@ def instrument_if_available(
                     metrics_dict=config.metrics_dict,
                     disable_metrics=config.disable_metrics,
                     detailed_tracing=config.detailed_tracing,
+                    capture_parameters=config.capture_parameters,
+                    enable_sqlcommenter=config.enable_sqlcommenter,
                 )
         else:
             logger.info(
@@ -203,7 +219,7 @@ def init(
     environment="default",
     application_name="default",
     service_name="default",
-    tracer=None,
+    otel_tracer=None,
     event_logger=None,
     otlp_endpoint=None,
     otlp_headers=None,
@@ -216,6 +232,8 @@ def init(
     collect_gpu_stats=False,
     detailed_tracing=True,
     collect_system_metrics=False,
+    capture_parameters=False,
+    enable_sqlcommenter=False,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -226,7 +244,7 @@ def init(
     Args:
         environment (str): Deployment environment.
         application_name (str): Application name.
-        tracer: Tracer instance (Optional).
+        otel_tracer: Tracer instance (Optional).
         event_logger: EventLoggerProvider instance (Optional).
         meter: OpenTelemetry Metrics Instance (Optional).
         otlp_endpoint (str): OTLP endpoint for exporter (Optional).
@@ -291,6 +309,10 @@ def init(
             detailed_tracing = env_config["detailed_tracing"]
         if collect_system_metrics is False and "collect_system_metrics" in env_config:
             collect_system_metrics = env_config["collect_system_metrics"]
+        if capture_parameters is False and "capture_parameters" in env_config:
+            capture_parameters = env_config["capture_parameters"]
+        if enable_sqlcommenter is False and "enable_sqlcommenter" in env_config:
+            enable_sqlcommenter = env_config["enable_sqlcommenter"]
 
     except ImportError:
         # Fallback if config module is not available - continue without env var support
@@ -310,16 +332,16 @@ def init(
         config = OpenlitConfig()
 
         # Setup tracing based on the provided or default configuration.
-        tracer = setup_tracing(
+        configured_tracer = setup_tracing(
             application_name=final_service_name,
             environment=environment,
-            tracer=tracer,
+            tracer=otel_tracer,
             otlp_endpoint=otlp_endpoint,
             otlp_headers=otlp_headers,
             disable_batch=disable_batch,
         )
 
-        if not tracer:
+        if not configured_tracer:
             logger.error("OpenLIT tracing setup failed. Tracing will not be available.")
             return
 
@@ -354,7 +376,7 @@ def init(
             disable_metrics = True
 
         if (
-            os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower
+            os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower()
             == "false"
         ):
             capture_message_content = False
@@ -363,7 +385,7 @@ def init(
         config.update_config(
             environment,
             final_service_name,
-            tracer,
+            otel_tracer,
             event_provider,
             otlp_endpoint,
             otlp_headers,
@@ -373,6 +395,8 @@ def init(
             disable_metrics,
             pricing_json,
             detailed_tracing,
+            capture_parameters,
+            enable_sqlcommenter,
         )
 
         # Create instrumentor instances dynamically
@@ -514,25 +538,37 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
     # Prepare headers
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    try:
-        # Make the POST request to the API with headers
-        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+    with tracer.start_as_current_span("promptflow.request") as span:
+        span.set_attribute("http.method", "POST")
+        span.set_attribute("http.url", endpoint)
 
-        # Check if the response is successful
-        response.raise_for_status()
+        try:
+            response = requests.post(
+                endpoint,
+                json=payload,
+                headers=headers,
+                timeout=120
+            )
 
-        # Return the JSON response
-        vault_response = response.json()
+            span.set_attribute("http.status_code", response.status_code)
 
-        res = vault_response.get("res", [])
+            response.raise_for_status()
+            vault_response = response.json()
 
-        if should_set_env is True:
-            for token, value in res.items():
-                os.environ[token] = str(value)
-        return vault_response
-    except requests.RequestException as error:
-        logger.error("Error fetching secrets: '%s'", error)
-        return None
+            res = vault_response.get("res", [])
+
+            if should_set_env is True:
+                for token, value in res.items():
+                    os.environ[token] = str(value)
+
+            return vault_response
+
+        except requests.RequestException as error:
+            span.record_exception(error)
+            span.set_status(Status(StatusCode.ERROR))
+            logger.error("Error fetching secrets: '%s'", error)
+            return None
+
 
 
 def trace(wrapped):
@@ -546,7 +582,7 @@ def trace(wrapped):
 
     try:
         __trace = t.get_tracer_provider()
-        tracer = __trace.get_tracer(__name__)
+        otel_tracer = __trace.get_tracer(__name__)
     except Exception as tracer_exception:
         logging.error(
             "Failed to initialize tracer: %s", tracer_exception, exc_info=True
@@ -555,7 +591,7 @@ def trace(wrapped):
 
     @wraps(wrapped)
     def wrapper(*args, **kwargs):
-        with tracer.start_as_current_span(
+        with otel_tracer.start_as_current_span(
             name=wrapped.__name__,
             kind=SpanKind.CLIENT,
         ) as span:

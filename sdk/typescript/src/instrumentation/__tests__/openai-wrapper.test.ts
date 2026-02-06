@@ -17,6 +17,7 @@ describe('OpenAIWrapper', () => {
   beforeEach(() => {
     span = mockTracer.startSpan('test-span');
     span.setAttribute = jest.fn();
+    span.addEvent = jest.fn();
     jest.clearAllMocks();
   });
 
@@ -26,12 +27,19 @@ describe('OpenAIWrapper', () => {
 
   describe('_chatCompletion', () => {
     it('should call recordMetrics after span ends', async () => {
-      const mockArgs = [{ message: 'test message' }];
+      const mockArgs = [{ messages: [{ role: 'user', content: 'test message' }] }];
       const mockResponse = {
-        response_id: '123',
-        meta: { billedUnits: { inputTokens: 10, outputTokens: 20 } },
+        id: '123',
+        model: 'gpt-3.5-turbo',
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+        choices: [
+          {
+            message: { content: 'response text', role: 'assistant' },
+            finish_reason: 'stop',
+          },
+        ],
       };
-      const mockGenAIEndpoint = 'openai.endpoint';
+      const mockGenAIEndpoint = 'openai.resources.chat.completions';
       jest
         .spyOn(OpenAIWrapper, '_chatCompletionCommonSetter')
         .mockImplementationOnce(async ({ genAIEndpoint, span }) => {
@@ -41,7 +49,7 @@ describe('OpenAIWrapper', () => {
 
           return {
             genAIEndpoint,
-            model: 'test-model',
+            model: 'gpt-3.5-turbo',
             user: 'test-user',
             cost: 0.5,
             aiSystem: 'openai',
@@ -57,7 +65,7 @@ describe('OpenAIWrapper', () => {
 
       expect(BaseWrapper.recordMetrics).toHaveBeenCalledWith(span, {
         genAIEndpoint: mockGenAIEndpoint,
-        model: 'test-model',
+        model: 'gpt-3.5-turbo',
         user: 'test-user',
         cost: 0.5,
         aiSystem: 'openai',
@@ -69,7 +77,7 @@ describe('OpenAIWrapper', () => {
     it('should set span attributes and return metric parameters', async () => {
       const mockArgs = [
         {
-          message: 'test message',
+          messages: [{ role: 'user', content: 'test message' }],
           max_tokens: 100,
           temperature: 0.7,
           top_p: 1,
@@ -77,24 +85,30 @@ describe('OpenAIWrapper', () => {
           presence_penalty: 2,
           frequency_penalty: 3,
           seed: 3,
-          stream: true,
+          stream: false,
+          stop: ['STOP'],
         },
       ];
 
       const mockResult = {
-        response_id: '123',
-        meta: { billedUnits: { inputTokens: 10, outputTokens: 20 } },
-        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
-        text: 'response text',
-        finishReason: 'stop',
+        id: '123',
+        model: 'gpt-3.5-turbo',
+        usage: { 
+          prompt_tokens: 10, 
+          completion_tokens: 20, 
+          total_tokens: 30,
+          completion_tokens_details: { reasoning_tokens: 5 },
+        },
         choices: [
           {
+            message: { content: 'response text', role: 'assistant' },
             finish_reason: 'stop',
           },
         ],
-        model: 'test-model',
+        system_fingerprint: 'fp_test',
+        service_tier: 'default',
       };
-      const mockGenAIEndpoint = 'openai.endpoint';
+      const mockGenAIEndpoint = 'openai.resources.chat.completions';
 
       jest.restoreAllMocks();
 
@@ -108,6 +122,7 @@ describe('OpenAIWrapper', () => {
         span,
       });
 
+      // Basic request parameters
       expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_TOP_P, 1);
       expect(span.setAttribute).toHaveBeenCalledWith(
         SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
@@ -125,19 +140,103 @@ describe('OpenAIWrapper', () => {
         SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
         3
       );
-      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_SEED, 3);
+      expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_SEED, '3');
       expect(span.setAttribute).toHaveBeenCalledWith(
         SemanticConvention.GEN_AI_REQUEST_IS_STREAM,
-        true
+        false
+      );
+      
+      // New attributes
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES,
+        ['STOP']
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_RESPONSE_MODEL,
+        'gpt-3.5-turbo'
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT,
+        'fp_test'
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_REQUEST_SERVICE_TIER,
+        'default'
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
+        30
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING,
+        5
       );
 
       expect(metricParams).toEqual({
         genAIEndpoint: mockGenAIEndpoint,
-        model: 'test-model',
+        model: 'gpt-3.5-turbo',
         user: 'test-user',
         cost: 0.5,
         aiSystem: 'openai',
       });
+    });
+
+    it('should handle tool calls properly', async () => {
+      const mockArgs = [
+        {
+          messages: [{ role: 'user', content: 'test message' }],
+          tools: [{ type: 'function', function: { name: 'get_weather' } }],
+        },
+      ];
+
+      const mockResult = {
+        id: '123',
+        model: 'gpt-3.5-turbo',
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+        choices: [
+          {
+            message: {
+              content: null,
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 'call_123',
+                  type: 'function',
+                  function: { name: 'get_weather', arguments: '{"location":"SF"}' },
+                },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      };
+
+      jest.spyOn(OpenlitConfig, 'updatePricingJson').mockResolvedValue({});
+      jest.spyOn(OpenLitHelper, 'getChatModelCost').mockReturnValue(0.5);
+
+      await OpenAIWrapper._chatCompletionCommonSetter({
+        args: mockArgs,
+        genAIEndpoint: 'openai.resources.chat.completions',
+        result: mockResult,
+        span,
+      });
+
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_TOOL_NAME,
+        'get_weather'
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_TOOL_CALL_ID,
+        'call_123'
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS,
+        ['{"location":"SF"}']
+      );
+      expect(span.setAttribute).toHaveBeenCalledWith(
+        SemanticConvention.GEN_AI_TOOL_TYPE,
+        'function'
+      );
     });
   });
 });

@@ -8,6 +8,7 @@ Before you begin:
 - Ensure you have a [GitHub account](https://github.com/join).
 - Familiarize yourself with git commands in the [Git Documentation](https://git-scm.com/documentation).
 - Read the README for project setup instructions.
+- For Fleet Hub and OpAMP development, review the [OpAMP Deployment Guide](OPAMP_DEPLOYMENT.md) and [Certificate Management Guide](src/opamp-server/CERTIFICATES.md).
 
 ## Contributing Workflow
 
@@ -32,6 +33,8 @@ Here's how you can contribute to OpenLIT:
 
 4. **Make Your Changes**
    - Make and test your changes locally. Make sure you adhere to the code style and guidelines of the project.
+   - For OpAMP-related development, refer to the [OpAMP Deployment Guide](OPAMP_DEPLOYMENT.md) for setup and configuration.
+   - For TLS certificate management in OpAMP, see the [Certificate Management Guide](src/opamp-server/CERTIFICATES.md).
 
 5. **Commit Your Changes**
    - Commit your changes with a descriptive message:
