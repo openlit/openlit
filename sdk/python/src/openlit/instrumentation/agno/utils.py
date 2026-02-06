@@ -151,14 +151,15 @@ def process_agent_request(
             )
 
     # agno 2.x versions agent.run use input instead of args[0]
-    if kwargs and kwargs.get('input', None) and capture_message_content:
+    if kwargs and kwargs.get("input", None) and capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, str(kwargs['input'])[:1000]
+            SemanticConvention.GEN_AI_CONTENT_PROMPT, str(kwargs["input"])[:1000]
         )
     # agno 2.x versions team.run use input_message instead of args[0]
-    if kwargs and kwargs.get('input_message', None) and capture_message_content:
+    if kwargs and kwargs.get("input_message", None) and capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, str(kwargs['input_message'])[:1000]
+            SemanticConvention.GEN_AI_CONTENT_PROMPT,
+            str(kwargs["input_message"])[:1000],
         )
 
     # User and session information
@@ -171,8 +172,14 @@ def process_agent_request(
         span.set_attribute(SemanticConvention.GEN_AI_SESSION_ID, kwargs["session_id"])
 
     # agno 2.x versions use session instead of session_id
-    if "session" in kwargs and kwargs["session"] and hasattr(kwargs["session"], "session_id"):
-        span.set_attribute(SemanticConvention.GEN_AI_SESSION_ID, kwargs["session"].session_id)
+    if (
+        "session" in kwargs
+        and kwargs["session"]
+        and hasattr(kwargs["session"], "session_id")
+    ):
+        span.set_attribute(
+            SemanticConvention.GEN_AI_SESSION_ID, kwargs["session"].session_id
+        )
 
     # Stream and reasoning attributes
     if "stream" in kwargs:
@@ -807,44 +814,53 @@ def resolve_agno_memory_target():
         >>> if module:
         ...     print(f"Found memory class: {class_name} in {module}")
     """
-    return resolve_target("agno.memory", (
-        ("agno.memory.v2.memory", "Memory"),
-        ("agno.memory.manager", "MemoryManager"),))
+    return resolve_target(
+        "agno.memory",
+        (
+            ("agno.memory.v2.memory", "Memory"),
+            ("agno.memory.manager", "MemoryManager"),
+        ),
+    )
 
 
 def resolve_agno_knowledge_target():
     """
     Resolve the appropriate Agno knowledge target class.
-    
+
     Attempts to find and import the correct knowledge class from Agno framework.
     Tries multiple candidate modules in order of preference.
-    
+
     Returns:
         tuple: (module_name, class_name) if successful, (None, None) if no valid target found
-        
+
     Example:
         >>> module, class_name = resolve_agno_knowledge_target()
         >>> if module:
         ...     print(f"Found knowledge class: {class_name} in {module}")
     """
-    return resolve_target("agno.knowledge", (
-        ("agno.knowledge.agent", "AgentKnowledge"),
-        ("agno.knowledge.knowledge", "Knowledge"),))
+    return resolve_target(
+        "agno.knowledge",
+        (
+            ("agno.knowledge.agent", "AgentKnowledge"),
+            ("agno.knowledge.knowledge", "Knowledge"),
+        ),
+    )
+
 
 def resolve_target(target_name, candidates):
     """
     Resolve a target class by trying multiple candidate modules.
-    
+
     This function attempts to import and find a specific class from a list of candidate
     modules. It tries each candidate in order until it finds a valid module and class.
-    
+
     Args:
         target_name (str): Name of the target being resolved (used for logging)
         candidates (tuple): Tuple of (module_name, class_name) pairs to try
-        
+
     Returns:
         tuple: (module_name, class_name) if successful, (None, None) if no valid target found
-        
+
     Example:
         >>> candidates = (
         ...     ("agno.memory.v2.memory", "Memory"),

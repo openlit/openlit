@@ -71,7 +71,7 @@ export default function ExplorerItemRow({
 					className="my-2"
 				>
 					<div className={`${snapshot.isDragging ? "opacity-50" : ""}`}>
-						<div className="flex items-center justify-between group py-1 px-2 rounded-sm  hover:bg-stone-200/50 dark:hover:bg-stone-700/50 group-hover  bg-transparent dark:bg-transparent">
+						<div className="flex items-center justify-between group py-1 px-2 rounded-sm  hover:bg-primary/10 dark:hover:bg-primary/10 group-hover  bg-transparent dark:bg-transparent">
 							<div className="flex items-center gap-2 flex-1">
 								<div
 									{...provided.dragHandleProps}

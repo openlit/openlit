@@ -268,3 +268,8 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 		record: {},
 	};
 }
+
+export async function getRequestExist() {
+	const query = `SELECT COUNT(*) AS total_requests FROM ${OTEL_TRACES_TABLE_NAME}`;
+	return dataCollector({ query });
+}

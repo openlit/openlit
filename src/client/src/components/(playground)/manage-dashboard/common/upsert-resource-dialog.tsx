@@ -128,7 +128,7 @@ export default function UpsertResourceDialog({
 						alignment="vertical"
 						fields={formFields}
 						onSubmit={handleSubmit}
-						submitButtonText={mode === "add" ? "Add" : "Save"}
+						submitButtonText={mode === "add" ? "Create" : "Save"}
 					/>
 				</div>
 			</DialogContent>

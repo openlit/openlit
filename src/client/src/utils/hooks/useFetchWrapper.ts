@@ -49,8 +49,13 @@ export default function useFetchWrapper<T>() {
 					setData(finalResponse);
 					if (typeof successCb === "function") successCb(finalResponse);
 				}
-			} catch (error) {
-				error = error;
+			} catch (errorResp) {
+				if (typeof errorResp === "string") {
+					error = errorResp;
+				} else if (typeof errorResp === "object" && errorResp !== null){
+					error = (errorResp as any).message || (errorResp as any).error;
+				}
+				
 				const updatedError = (error as any).toString().replaceAll("Error:", "");
 				setError(updatedError);
 				setData(null);

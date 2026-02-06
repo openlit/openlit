@@ -23,6 +23,23 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 
+def parse_exporters(env_var_name):
+    """
+    Parse comma-separated exporter names from environment variable.
+    Returns None if not set (signals to use default behavior).
+
+    Args:
+        env_var_name: Name of the environment variable to parse
+
+    Returns:
+        List of exporter names (lowercase, stripped) or None if env var not set
+    """
+    exporters_str = os.getenv(env_var_name)
+    if not exporters_str:
+        return None
+    return [e.strip().lower() for e in exporters_str.split(",") if e.strip()]
+
+
 def response_as_dict(response):
     """
     Return parsed response as a dict
@@ -427,9 +444,14 @@ def common_span_attributes(
     scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, gen_ai_system)
     scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
     scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
+    if request_model:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_REQUEST_MODEL, request_model
+        )
     if response_model:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, response_model)
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_MODEL, response_model
+        )
     scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
     scope._span.set_attribute(SERVICE_NAME, application_name)
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, is_stream)

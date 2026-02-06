@@ -116,12 +116,13 @@ export const authOptions = {
 							}
 						}
 
-						// Set the user ID to the existing user
-						user.id = existingUser.id;
-					} catch (error) {
-						console.error(`Error linking ${account.provider} account:`, error);
-						return false;
-					}
+					// Set the user ID to the existing user
+					user.id = existingUser.id;
+				} catch (error) {
+					// Use separate parameters to prevent log injection
+					console.error('Error linking account for provider:', account.provider, error);
+					return false;
+				}
 				}
 				return true;
 			}
