@@ -17,6 +17,8 @@ import requests
 from opentelemetry import trace as t
 from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from opentelemetry.sdk.resources import SERVICE_NAME, DEPLOYMENT_ENVIRONMENT
+
+
 from openlit.semcov import SemanticConvention
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
@@ -33,6 +35,9 @@ import openlit.evals
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
+
+tracer = t.get_tracer(__name__)
+
 
 
 class OpenlitConfig:
@@ -88,7 +93,7 @@ class OpenlitConfig:
         cls,
         environment,
         application_name,
-        tracer,
+        otel_tracer,
         event_provider,
         otlp_endpoint,
         otlp_headers,
@@ -107,7 +112,7 @@ class OpenlitConfig:
         Args:
             environment (str): Deployment environment.
             application_name (str): Application name.
-            tracer: Tracer instance.
+            otel_tracer: Tracer instance.
             event_provider: Event logger provider instance.
             meter: Metric Instance
             otlp_endpoint (str): OTLP endpoint.
@@ -124,7 +129,7 @@ class OpenlitConfig:
         cls.environment = environment
         cls.application_name = application_name
         cls.pricing_info = fetch_pricing_info(pricing_json)
-        cls.tracer = tracer
+        cls.tracer = otel_tracer
         cls.event_provider = event_provider
         cls.metrics_dict = metrics_dict
         cls.otlp_endpoint = otlp_endpoint
@@ -214,7 +219,7 @@ def init(
     environment="default",
     application_name="default",
     service_name="default",
-    tracer=None,
+    otel_tracer=None,
     event_logger=None,
     otlp_endpoint=None,
     otlp_headers=None,
@@ -239,7 +244,7 @@ def init(
     Args:
         environment (str): Deployment environment.
         application_name (str): Application name.
-        tracer: Tracer instance (Optional).
+        otel_tracer: Tracer instance (Optional).
         event_logger: EventLoggerProvider instance (Optional).
         meter: OpenTelemetry Metrics Instance (Optional).
         otlp_endpoint (str): OTLP endpoint for exporter (Optional).
@@ -327,16 +332,16 @@ def init(
         config = OpenlitConfig()
 
         # Setup tracing based on the provided or default configuration.
-        tracer = setup_tracing(
+        configured_tracer = setup_tracing(
             application_name=final_service_name,
             environment=environment,
-            tracer=tracer,
+            tracer=otel_tracer,
             otlp_endpoint=otlp_endpoint,
             otlp_headers=otlp_headers,
             disable_batch=disable_batch,
         )
 
-        if not tracer:
+        if not configured_tracer:
             logger.error("OpenLIT tracing setup failed. Tracing will not be available.")
             return
 
@@ -380,7 +385,7 @@ def init(
         config.update_config(
             environment,
             final_service_name,
-            tracer,
+            otel_tracer,
             event_provider,
             otlp_endpoint,
             otlp_headers,
@@ -533,25 +538,37 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
     # Prepare headers
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    try:
-        # Make the POST request to the API with headers
-        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+    with tracer.start_as_current_span("promptflow.request") as span:
+        span.set_attribute("http.method", "POST")
+        span.set_attribute("http.url", endpoint)
 
-        # Check if the response is successful
-        response.raise_for_status()
+        try:
+            response = requests.post(
+                endpoint,
+                json=payload,
+                headers=headers,
+                timeout=120
+            )
 
-        # Return the JSON response
-        vault_response = response.json()
+            span.set_attribute("http.status_code", response.status_code)
 
-        res = vault_response.get("res", [])
+            response.raise_for_status()
+            vault_response = response.json()
 
-        if should_set_env is True:
-            for token, value in res.items():
-                os.environ[token] = str(value)
-        return vault_response
-    except requests.RequestException as error:
-        logger.error("Error fetching secrets: '%s'", error)
-        return None
+            res = vault_response.get("res", [])
+
+            if should_set_env is True:
+                for token, value in res.items():
+                    os.environ[token] = str(value)
+
+            return vault_response
+
+        except requests.RequestException as error:
+            span.record_exception(error)
+            span.set_status(Status(StatusCode.ERROR))
+            logger.error("Error fetching secrets: '%s'", error)
+            return None
+
 
 
 def trace(wrapped):
@@ -565,7 +582,7 @@ def trace(wrapped):
 
     try:
         __trace = t.get_tracer_provider()
-        tracer = __trace.get_tracer(__name__)
+        otel_tracer = __trace.get_tracer(__name__)
     except Exception as tracer_exception:
         logging.error(
             "Failed to initialize tracer: %s", tracer_exception, exc_info=True
@@ -574,7 +591,7 @@ def trace(wrapped):
 
     @wraps(wrapped)
     def wrapper(*args, **kwargs):
-        with tracer.start_as_current_span(
+        with otel_tracer.start_as_current_span(
             name=wrapped.__name__,
             kind=SpanKind.CLIENT,
         ) as span:
