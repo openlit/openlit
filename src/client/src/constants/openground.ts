@@ -260,4 +260,71 @@ export const providersConfig: Record<Providers, ProviderType> = {
 			},
 		],
 	},
+	google: {
+		key: "google",
+		title: "Google AI",
+		subTitle: "Gemini models",
+		logoDark: "/images/provider/google.png",
+		logo: "/images/provider/google-white.png",
+		config: [
+			{
+				key: "type",
+				label: "Type",
+				type: "hidden",
+				defaultValue: "chat",
+			},
+			{
+				key: "api_key",
+				label: "API Key",
+				type: "input",
+				placeholder: "GOOGLE_API_KEY",
+			},
+			{
+				key: "model",
+				label: "Model",
+				type: "select",
+				placeholder: "select a model",
+				defaultValue: "gemini-1.5-pro",
+				options: [
+					{
+						label: "Gemini 1.5 Pro",
+						value: "gemini-1.5-pro",
+					},
+					{
+						label: "Gemini 1.5 Flash",
+						value: "gemini-1.5-flash",
+					},
+					{
+						label: "Gemini Pro",
+						value: "gemini-pro",
+					},
+					{
+						label: "Gemini Pro Vision",
+						value: "gemini-pro-vision",
+					},
+				],
+			},
+			{
+				key: "temperature",
+				label: "Temperature",
+				type: "slider",
+				limits: { min: 0, max: 2, step: 0.1 },
+				defaultValue: 1,
+			},
+			{
+				key: "max_tokens",
+				label: "Max tokens",
+				type: "slider",
+				limits: { min: 0, max: 8000, step: 1 },
+				defaultValue: 1000,
+			},
+			{
+				key: "top_p",
+				label: "Top P",
+				type: "slider",
+				limits: { min: 0, max: 1, step: 0.1 },
+				defaultValue: 0.95,
+			},
+		],
+	},
 };
