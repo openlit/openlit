@@ -5,6 +5,7 @@ import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { TIME_RANGE_TYPE } from "@/store/filter";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
+import RefreshRate from "./refresh-rate";
 
 const TIME_RANGE_TABS: { key: string; label: string }[] = Object.keys(
 	TIME_RANGE_TYPE
@@ -35,7 +36,7 @@ const Filter = ({ className = "" }: { className?: string }) => {
 	return (
 		<div className={`flex grow gap-4 ${className}`}>
 			<Tabs defaultValue={filter.timeLimit.type} onValueChange={handleChange}>
-				<TabsList className="p-0 h-[30px]">
+				<TabsList className="p-0 h-[30px] border border-stone-200 dark:border-stone-800">
 					{TIME_RANGE_TABS.map(({ label, key }) => (
 						<TabsTrigger key={key} value={key} className="py-1.5 text-xs">
 							{label}
@@ -49,6 +50,7 @@ const Filter = ({ className = "" }: { className?: string }) => {
 					onCustomDateChange={onCustomDateChange}
 				/>
 			)}
+			<RefreshRate />
 		</div>
 	);
 };

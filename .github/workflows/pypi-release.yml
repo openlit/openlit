@@ -15,6 +15,23 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     
+    - name: Validate tag version matches pyproject.toml
+      if: github.ref_type == 'tag'
+      working-directory: sdk/python
+      run: |
+        pip install tomli
+        TAG_VERSION="${GITHUB_REF#refs/tags/py-}"
+        PYPROJECT_VERSION=$(python3 -c "import tomli; print(tomli.load(open('pyproject.toml', 'rb'))['tool']['poetry']['version'])")
+        
+        echo "Tag version: $TAG_VERSION"
+        echo "pyproject.toml version: $PYPROJECT_VERSION"
+        
+        if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
+          echo "::error::Tag py-$TAG_VERSION does not match pyproject.toml version $PYPROJECT_VERSION"
+          exit 1
+        fi
+        echo "✓ Version validation passed"
+    
     - name: Set up Python
       uses: actions/setup-python@v5
       with:

@@ -70,7 +70,6 @@ def async_mcp_wrap(
             ):
                 span_kind = SpanKind.SERVER
 
-
             # Create instrumentation context for caching expensive operations
             ctx = MCPInstrumentationContext(
                 instance=instance,

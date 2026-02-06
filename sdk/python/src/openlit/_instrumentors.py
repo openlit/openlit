@@ -20,8 +20,8 @@ MODULE_NAME_MAP = {
     "vllm": "vllm",
     "google-ai-studio": "google.genai",
     "azure-ai-inference": "azure.ai.inference",
-    "langchain": "langchain",
-    "langchain_community": "langchain_community",
+    "langchain": "langchain_core",
+    "langgraph": "langgraph",
     "llama_index": "llama_index",
     "haystack": "haystack",
     "mem0": "mem0",
@@ -54,6 +54,9 @@ MODULE_NAME_MAP = {
     "sarvam": "sarvamai",
     "browser-use": "browser_use",
     "mcp": "mcp",
+    # Database instrumentations
+    "psycopg": "psycopg",
+    "psycopg-pool": "psycopg_pool",
     # Official OpenTelemetry HTTP Framework instrumentations
     "asgi": "asgiref",
     "django": "django",
@@ -88,7 +91,7 @@ INSTRUMENTOR_MAP = {
     "google-ai-studio": "openlit.instrumentation.google_ai_studio.GoogleAIStudioInstrumentor",
     "azure-ai-inference": "openlit.instrumentation.azure_ai_inference.AzureAIInferenceInstrumentor",
     "langchain": "openlit.instrumentation.langchain.LangChainInstrumentor",
-    "langchain_community": "openlit.instrumentation.langchain_community.LangChainCommunityInstrumentor",
+    "langgraph": "openlit.instrumentation.langgraph.LangGraphInstrumentor",
     "llama_index": "openlit.instrumentation.llamaindex.LlamaIndexInstrumentor",
     "haystack": "openlit.instrumentation.haystack.HaystackInstrumentor",
     "mem0": "openlit.instrumentation.mem0.Mem0Instrumentor",
@@ -121,6 +124,9 @@ INSTRUMENTOR_MAP = {
     "sarvam": "openlit.instrumentation.sarvam.SarvamInstrumentor",
     "browser-use": "openlit.instrumentation.browser_use.BrowserUseInstrumentor",
     "mcp": "openlit.instrumentation.mcp.MCPInstrumentor",
+    # Database instrumentations
+    "psycopg": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
+    "psycopg-pool": "openlit.instrumentation.psycopg.PsycopgInstrumentor",
     # Official OpenTelemetry HTTP Framework instrumentations
     "asgi": "opentelemetry.instrumentation.asgi.AsgiInstrumentor",
     "django": "opentelemetry.instrumentation.django.DjangoInstrumentor",

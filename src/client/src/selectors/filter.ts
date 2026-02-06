@@ -1,7 +1,5 @@
 import { useRootStore } from "@/store";
 import { RootStore } from "@/types/store/root";
-import { useMemo } from "react";
-import { getFilterParamsForDashboard } from "@/helpers/client/filter";
 
 export const getFilterDetails = (state: RootStore) => state.filter.details;
 

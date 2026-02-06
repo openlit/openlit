@@ -118,6 +118,21 @@ The project proudly follows OpenTelemetry Semantic Conventions for AI observabil
   </Tab>
 </Tabs>
 
+## Upgrade Information
+
+<Warning>
+**Important Upgrade Notice**: When upgrading from OpenLIT versions prior to 1.15.0 (which introduced Fleet Hub), special attention is required for Docker Compose deployments.
+
+If you're running OpenLIT using Docker Compose, you **must** use the `--remove-orphans` flag when upgrading:
+
+```bash
+# Upgrade with orphan removal
+docker-compose up -d --remove-orphans
+```
+
+This is necessary because the OpenTelemetry Collector has been integrated directly into the OpenLIT container, and the standalone `otel-collector` container is no longer needed. Without `--remove-orphans`, the old collector container will conflict with the new integrated collector on ports 4317 and 4318.
+</Warning>
+
 ## Getting Started
 Choose your path to start building better AI applications with OpenLIT:
 

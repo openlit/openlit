@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import CustomPostHogProvider from "@/components/(playground)/posthog";
 import NavigationEvents from "@/components/common/navigation-events";
 import AppInit from "@/components/common/app-init";
+import { PortalProvider } from "@/components/(playground)/header-portal";
 
 export default async function PlaygroundLayout({
 	children,
@@ -17,20 +18,19 @@ export default async function PlaygroundLayout({
 	return (
 		<CustomPostHogProvider telemetryEnabled={telemetryEnabled}>
 			<TooltipProvider>
-				<div className="flex h-screen w-full pl-[56px] overflow-hidden">
-					<Sidebar />
-					<div className="flex flex-col grow w-full">
-						<Header />
-						<main className="flex flex-col grow flex-1 items-start p-4 sm:px-6 overflow-hidden">
-							{/* <div className="fixed inset-0 w-full h-full bg-cover bg-center bg-no-repeat z-[-1]" style={{
-								backgroundImage: "linear-gradient(344deg, #f89b29 5%, rgba(255,255,255,0) 72%)"
-							}} /> */}
-							<ClickhouseConnectivityWrapper>
-								{children}
-							</ClickhouseConnectivityWrapper>
-						</main>
+				<PortalProvider>
+					<div className="flex h-screen w-full gap-4 overflow-hidden p-2">
+						<Sidebar />
+						<div className="flex flex-col grow w-full">
+							<Header />
+							<main className="flex flex-col grow flex-1 items-start p-0 overflow-hidden">
+								<ClickhouseConnectivityWrapper>
+									{children}
+								</ClickhouseConnectivityWrapper>
+							</main>
+						</div>
 					</div>
-				</div>
+				</PortalProvider>
 			</TooltipProvider>
 			<Suspense fallback={null}>
 				<NavigationEvents />
