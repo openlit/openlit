@@ -10,6 +10,7 @@ import {
 	DEFAULT_LOGGED_IN_ROUTE,
 	ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN,
 	CRON_JOB_ROUTES,
+	ONBOARDING_WHITELIST_ROUTES,
 } from "@/constants/route";
 
 export default function checkAuth(next: NextMiddleware) {
@@ -33,9 +34,20 @@ export default function checkAuth(next: NextMiddleware) {
 				const isAuthPage =
 					pathname.startsWith("/login") || pathname.startsWith("/register");
 				const isApiPage = pathname.startsWith("/api");
+				const isOnboardingWhitelisted = ONBOARDING_WHITELIST_ROUTES.some(
+					(route) => pathname.startsWith(route)
+				);
+				// Check if user just completed onboarding (query param bypass for stale JWT)
+				const hasOnboardingCompleted = request.nextUrl.searchParams.get("onboarding_completed") === "1";
 
 				if (isAuthPage) {
 					if (isAuth) {
+						// Check if user needs onboarding
+						if (token.hasCompletedOnboarding === false) {
+							return NextResponse.redirect(
+								new URL("/onboarding", request.url)
+							);
+						}
 						return NextResponse.redirect(
 							new URL(DEFAULT_LOGGED_IN_ROUTE, request.url)
 						);
@@ -64,6 +76,19 @@ export default function checkAuth(next: NextMiddleware) {
 
 					return NextResponse.redirect(
 						new URL(`/login?callbackUrl=${encodeURIComponent(from)}`, request.url)
+					);
+				}
+
+				// Check if authenticated user needs onboarding
+				// Skip if they just completed onboarding (query param bypass for stale JWT)
+				if (
+					isAuth &&
+					token.hasCompletedOnboarding === false &&
+					!isOnboardingWhitelisted &&
+					!hasOnboardingCompleted
+				) {
+					return NextResponse.redirect(
+						new URL("/onboarding", request.url)
 					);
 				}
 

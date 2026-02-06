@@ -8,12 +8,14 @@ import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePostHog } from "posthog-js/react";
 import { useEffect } from "react";
+import getMessage from "@/constants/messages";
 
 const DROPDOWN_MENU_ITEM_CLASS = "flex w-full text-xs gap-2 hover:bg-primary/10 dark:hover:bg-primary/10 px-2 py-1.5";
 const DROPDOWN_MENU_ICON_CLASS = "w-4 h-4";
 
 export default function UserActions() {
 	const posthog = usePostHog();
+	const messages = getMessage();
 	const user = useRootStore(getUserDetails);
 	const resetUserFn = useRootStore(resetUser);
 	const onClickSignout = () => {
@@ -68,7 +70,7 @@ export default function UserActions() {
 					<DropdownMenuItem className="p-0">
 						<Link href="/settings/profile" className={DROPDOWN_MENU_ITEM_CLASS}>
 							<Pencil className={DROPDOWN_MENU_ICON_CLASS} />
-							Edit details
+							{messages.EDIT_DETAILS}
 						</Link>
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
@@ -76,7 +78,7 @@ export default function UserActions() {
 				<DropdownMenuItem className="p-0" onClick={onClickSignout}>
 					<div className={DROPDOWN_MENU_ITEM_CLASS}>
 						<LogOut className={DROPDOWN_MENU_ICON_CLASS} />
-						Log out
+						{messages.LOG_OUT}
 					</div>
 				</DropdownMenuItem>
 			</DropdownMenuContent>

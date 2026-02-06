@@ -18,7 +18,7 @@ const prisma = new PrismaClient();
 export const authOptions = {
 	adapter: PrismaAdapter(prisma),
 	callbacks: {
-		async jwt({ token, account, user }) {
+		async jwt({ token, account, user, trigger }) {
 			// Persist the OAuth access_token and or the user id to the token right after signin
 			if (account) {
 				token.accessToken = account.access_token;
@@ -40,12 +40,20 @@ export const authOptions = {
 					if (!existingUser) {
 						return null;
 					}
+
+					// Update hasCompletedOnboarding status on every token refresh
+					token.hasCompletedOnboarding = existingUser.hasCompletedOnboarding;
 				} catch (error) {
 					// If there's a database connection error during startup,
 					// allow the token to pass through to avoid blocking the app
 					// The error will be handled at the application level
 					console.error("Database error during JWT validation:", error);
 				}
+			}
+
+			// Set initial hasCompletedOnboarding for new users
+			if (user) {
+				token.hasCompletedOnboarding = (user as any).hasCompletedOnboarding ?? false;
 			}
 
 			return token;
@@ -145,8 +153,11 @@ export const authOptions = {
 				try {
 					const { moveSharedDBConfigToDBUser } = await import("@/lib/db-config");
 					await moveSharedDBConfigToDBUser(user.email, user.id);
+
+					const { moveInvitationsToMembership } = await import("@/lib/organisation");
+					await moveInvitationsToMembership(user.email, user.id);
 				} catch (error) {
-					console.error("Error moving shared db configs to new user:", error);
+					console.error("Error during new user setup:", error);
 				}
 			}
 		}
