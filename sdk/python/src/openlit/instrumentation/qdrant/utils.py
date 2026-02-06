@@ -19,7 +19,7 @@ DB_OPERATION_MAP = {
     "qdrant.update_collection": SemanticConvention.DB_OPERATION_UPDATE_COLLECTION,
     "qdrant.upsert": SemanticConvention.DB_OPERATION_UPSERT,
     "qdrant.upload_points": SemanticConvention.DB_OPERATION_INSERT,
-    "qdrant.set_payload": SemanticConvention.DB_OPERATION_INSERT,
+    "qdrant.set_payload": SemanticConvention.DB_OPERATION_UPDATE,
     "qdrant.overwrite_payload": SemanticConvention.DB_OPERATION_UPDATE,
     "qdrant.update_vectors": SemanticConvention.DB_OPERATION_UPDATE,
     "qdrant.delete": SemanticConvention.DB_OPERATION_DELETE,
@@ -28,10 +28,9 @@ DB_OPERATION_MAP = {
     "qdrant.clear_payload": SemanticConvention.DB_OPERATION_DELETE,
     "qdrant.retrieve": SemanticConvention.DB_OPERATION_GET,
     "qdrant.scroll": SemanticConvention.DB_OPERATION_GET,
-    "qdrant.search": SemanticConvention.DB_OPERATION_GET,
-    "qdrant.search_groups": SemanticConvention.DB_OPERATION_GET,
-    "qdrant.recommend": SemanticConvention.DB_OPERATION_GET,
-    "qdrant.query_points": SemanticConvention.DB_OPERATION_GET,
+    "qdrant.query_points": SemanticConvention.DB_OPERATION_QUERY,
+    "qdrant.query_batch_points": SemanticConvention.DB_OPERATION_QUERY,
+    "qdrant.query_points_groups": SemanticConvention.DB_OPERATION_QUERY,
     "qdrant.create_payload_index": SemanticConvention.DB_OPERATION_CREATE_INDEX,
 }
 
@@ -142,35 +141,7 @@ def common_qdrant_logic(
     ]:
         collection_name = scope._kwargs.get("collection_name", "unknown")
 
-        if endpoint == "qdrant.set_payload":
-            points = scope._kwargs.get("points", [])
-            payload = scope._kwargs.get("payload", {})
-
-            scope._span.set_attribute(
-                SemanticConvention.DB_COLLECTION_NAME, collection_name
-            )
-            scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(points))
-            scope._span.set_attribute(
-                SemanticConvention.DB_VECTOR_COUNT, object_count(points)
-            )
-            scope._span.set_attribute(
-                SemanticConvention.DB_PAYLOAD_COUNT, object_count(payload)
-            )
-
-            # Set operation status if response available
-            if scope._response and hasattr(scope._response, "status"):
-                scope._span.set_attribute(
-                    SemanticConvention.DB_OPERATION_STATUS, scope._response.status
-                )
-
-            scope._span.set_attribute(
-                SemanticConvention.DB_QUERY_SUMMARY,
-                f"{scope._db_operation} {collection_name} "
-                f"points={object_count(points)} "
-                f"payload={object_count(payload)}",
-            )
-
-        elif endpoint in ["qdrant.upsert", "qdrant.upload_points"]:
+        if endpoint in ["qdrant.upsert", "qdrant.upload_points"]:
             points = scope._kwargs.get("points", [])
 
             scope._span.set_attribute(
@@ -197,7 +168,7 @@ def common_qdrant_logic(
     elif scope._db_operation == SemanticConvention.DB_OPERATION_UPDATE:
         collection_name = scope._kwargs.get("collection_name", "unknown")
 
-        if endpoint == "qdrant.overwrite_payload":
+        if endpoint in ["qdrant.set_payload", "qdrant.overwrite_payload"]:
             points = scope._kwargs.get("points", [])
             payload = scope._kwargs.get("payload", {})
 
@@ -300,7 +271,7 @@ def common_qdrant_logic(
                 f"selector={object_count(points_selector)}",
             )
 
-    # Handle query operations
+    # Handle GET operations (fetch by ID)
     elif scope._db_operation == SemanticConvention.DB_OPERATION_GET:
         collection_name = scope._kwargs.get("collection_name", "unknown")
 
@@ -336,51 +307,57 @@ def common_qdrant_logic(
                 f"{scope._db_operation} {collection_name} filter={scroll_filter}",
             )
 
-        elif endpoint in ["qdrant.search", "qdrant.search_groups"]:
-            query_vector = scope._kwargs.get("query_vector", [])
+    # Handle QUERY operations (vector similarity search)
+    elif scope._db_operation == SemanticConvention.DB_OPERATION_QUERY:
+        collection_name = scope._kwargs.get("collection_name", "unknown")
+
+        if endpoint == "qdrant.query_points":
+            query = scope._kwargs.get("query", {})
             limit = scope._kwargs.get("limit", 10)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_COLLECTION_NAME, collection_name
             )
-            scope._span.set_attribute(
-                SemanticConvention.DB_QUERY_TEXT, str(query_vector)
-            )
+            scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(query))
             scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, limit)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_QUERY_SUMMARY,
-                f"{scope._db_operation} {collection_name} limit={limit}",
+                f"{scope._db_operation} {collection_name} query={query} limit={limit}",
             )
 
-        elif endpoint == "qdrant.recommend":
-            positive = scope._kwargs.get("positive", [])
-            negative = scope._kwargs.get("negative", [])
+        elif endpoint == "qdrant.query_batch_points":
+            requests = scope._kwargs.get("requests", [])
 
             scope._span.set_attribute(
                 SemanticConvention.DB_COLLECTION_NAME, collection_name
             )
-            query_content = f"positive:{positive} negative:{negative}"
-            scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, query_content)
+            scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(requests))
+            scope._span.set_attribute(
+                SemanticConvention.DB_VECTOR_COUNT, object_count(requests)
+            )
 
             scope._span.set_attribute(
                 SemanticConvention.DB_QUERY_SUMMARY,
-                f"{scope._db_operation} {collection_name} "
-                f"positive={object_count(positive)} "
-                f"negative={object_count(negative)}",
+                f"{scope._db_operation} {collection_name} requests={object_count(requests)}",
             )
 
-        elif endpoint == "qdrant.query_points":
+        elif endpoint == "qdrant.query_points_groups":
             query = scope._kwargs.get("query", {})
+            group_by = scope._kwargs.get("group_by", "")
+            limit = scope._kwargs.get("limit", 10)
+            group_size = scope._kwargs.get("group_size", 3)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_COLLECTION_NAME, collection_name
             )
             scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, str(query))
+            scope._span.set_attribute(SemanticConvention.DB_VECTOR_QUERY_TOP_K, limit)
 
             scope._span.set_attribute(
                 SemanticConvention.DB_QUERY_SUMMARY,
-                f"{scope._db_operation} {collection_name} query={query}",
+                f"{scope._db_operation} {collection_name} query={query} "
+                f"group_by={group_by} limit={limit} group_size={group_size}",
             )
 
     # Handle index operations

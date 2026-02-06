@@ -2,9 +2,10 @@
 """
 This module contains tests for Qdrant functionality using the Qdrant Python library.
 
-Tests cover various API endpoints, including create_collection, add, query,
-upsert, update, get and delete.
-These tests validate integration with OpenLIT.
+Tests cover various API endpoints including collection operations (create, delete),
+point operations (upsert, upload, update, delete), payload operations (set, overwrite, clear, delete),
+retrieval operations (retrieve, scroll), query operations (query_points, query_points_groups,
+query_batch_points), and index management. These tests validate integration with OpenLIT.
 
 Environment Variables:
     - QDRANT_URL: Qdrant Cloud Instance URL.
@@ -36,22 +37,21 @@ def test_db_qdrant():
     """
     Tests basic operations within a Qdrant collection.
 
-    This includes creating a new collection, adding documents to the collection,
-    querying the collection, and deleting documents from the collection. The test
-    verifies correct behavior of these operations by asserting expected outcomes at
-    each step.
+    This includes creating a new collection, adding points to the collection, modifying payloads and vectors,
+    querying the collection, and deleting points. The test verifies correct behavior
+    of these operations by asserting expected outcomes at each step.
 
-    - A new collection is created and verified for correct naming.
-    - Documents are added to the collection with specific metadata and ids,
-      and the absence of an error response is verified.
-    - A query operation is performed, and its results are verified to match the
-      expected document ids.
-    - A delete operation targets a specific document by id, and successful deletion
-      is implicitly verified by the absence of an error response.
+    - (Commented out) A new collection is created and verified for correct naming.
+    - Points are upserted and uploaded to the collection with metadata.
+    - Payload operations (set, overwrite, clear, delete) are tested.
+    - Vector updates are performed and verified.
+    - Query operations are performed, and results are verified.
+    - Delete operations target specific points by id.
 
-    The test ensures the basic CRUD operations perform as expected in ChromaDB.
+    The test ensures the basic CRUD operations perform as expected in Qdrant.
+
     Raises:
-      AssertionError: If the responses from ChromaDB operations do not meet the expected outcomes.
+      AssertionError: If the responses from Qdrant operations do not meet the expected outcomes.
     """
 
     # # Create a new collection
@@ -210,35 +210,49 @@ def test_db_qdrant():
     # )
     # assert isinstance(search, list)
 
-    # Search groups from the collection
-    search_groups = client.search_groups(
+    # Query points from the collection
+    query_result = client.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=[1.1, 1.2, 1.3, 1.4],
-        group_by="city",
-        limit=4,
-        group_size=2,
-    )
-    assert isinstance(search_groups.groups, list)
-
-    # Get Recommened vectors from the collection
-    recommend = client.recommend(
-        collection_name=COLLECTION_NAME,
-        positive=[1, 3],
-        negative=[4, [0.2, 0.3, 0.4, 0.5]],
-        strategy=models.RecommendStrategy.AVERAGE_VECTOR,
+        query=[0.2, 0.1, 0.9, 0.7],
         query_filter=models.Filter(
             must=[
                 models.FieldCondition(
                     key="city",
                     match=models.MatchValue(
-                        value="London",
+                        value="Toronto",
                     ),
                 )
             ]
         ),
         limit=3,
     )
-    assert isinstance(recommend, list)
+    assert hasattr(query_result, "points")
+
+    # Query points groups from the collection
+    query_groups = client.query_points_groups(
+        collection_name=COLLECTION_NAME,
+        query=[1.1, 1.2, 1.3, 1.4],
+        group_by="city",
+        limit=4,
+        group_size=2,
+    )
+    assert isinstance(query_groups.groups, list)
+
+    # Query batch points from the collection
+    batch_result = client.query_batch_points(
+        collection_name=COLLECTION_NAME,
+        requests=[
+            models.QueryRequest(
+                query=[0.2, 0.1, 0.9, 0.7],
+                limit=3,
+            ),
+            models.QueryRequest(
+                query=[0.5, 0.5, 0.5, 0.5],
+                limit=2,
+            ),
+        ],
+    )
+    assert isinstance(batch_result, list)
 
     # # Delete collection
     # del_col = client.delete_collection(

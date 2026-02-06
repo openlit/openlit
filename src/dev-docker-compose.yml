@@ -5,12 +5,21 @@ services:
     environment:
       CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
       CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}
+      CLICKHOUSE_DATABASE: ${OPENLIT_DB_NAME:-openlit}
+      CLICKHOUSE_ALWAYS_RUN_INITDB_SCRIPTS: true
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ../assets/clickhouse-config.xml:/etc/clickhouse-server/config.d/custom-config.xml:ro
+      - ../assets/clickhouse-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     ports:
       - "9000:9000"
       - "8123:8123"
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user=$${CLICKHOUSE_USER} --password=$${CLICKHOUSE_PASSWORD} --query='SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 100s
     restart: always
 
   openlit:
@@ -18,10 +27,6 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-      args:
-        OTEL_VERSION: ${OTEL_VERSION:-v0.132.4}
-        OPAMP_SUPERVISOR_VERSION: ${OPAMP_SUPERVISOR_VERSION:-v0.132.4}
-        TARGETARCH: ${TARGETARCH:-arm64}
     container_name: openlit
     environment:
       TELEMETRY_ENABLED: "true"
@@ -57,10 +62,17 @@ services:
       - "4317:4317"  # OTLP gRPC receiver
       - "4318:4318"  # OTLP HTTP receiver
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_healthy
     volumes:
       - openlit-data:/app/client/data
       - ../assets/otel-collector-config.yaml:/etc/otel/otel-collector-config.yaml
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://openlit:3000"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
     restart: always
 
 volumes:

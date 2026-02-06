@@ -59,12 +59,14 @@ function ModifyEvaluationSettings({
 			return;
 		}
 
+		const autoValue = formElement.auto instanceof HTMLInputElement ? formElement.auto.checked : formElement.auto instanceof RadioNodeList ? (Array.from(formElement.auto).find(item => ((item as any).checked)) as any)?.checked : false;
+
 		const bodyObject = {
 			...(evaluation || {}),
 			provider: (formElement.provider as any)?.value,
 			model: (formElement.model as any)?.value,
 			vaultId: (formElement.vaultId as any)?.value,
-			auto: (formElement.auto as any)?.checked,
+			auto: autoValue,
 			recurringTime: (formElement.recurringTime as any)?.value,
 		};
 
