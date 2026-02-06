@@ -123,17 +123,21 @@ def process_chat_chunk(scope, chunk):
                     scope._tools[idx] = {
                         "id": tool["id"],
                         "function": {
-                            "name": func.get("name", ""),
-                            "arguments": func.get("arguments", ""),
+                            # Use `or ""` to handle explicit None values from some providers
+                            "name": func.get("name") or "",
+                            "arguments": func.get("arguments") or "",
                         },
                         "type": tool.get("type", "function"),
                     }
                 elif (
                     scope._tools[idx] and "function" in tool
                 ):  # Append args (id is None)
-                    scope._tools[idx]["function"]["arguments"] += tool["function"].get(
-                        "arguments", ""
-                    )
+                    # Handle None arguments - some providers return None instead of ""
+                    new_args = tool["function"].get("arguments") or ""
+                    if scope._tools[idx]["function"]["arguments"] is None:
+                        scope._tools[idx]["function"]["arguments"] = new_args
+                    else:
+                        scope._tools[idx]["function"]["arguments"] += new_args
 
     # Extract metadata
     scope._response_id = chunked.get("id") or scope._response_id
