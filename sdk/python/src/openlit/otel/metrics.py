@@ -4,6 +4,7 @@ Setups up OpenTelemetry Meter
 """
 
 import os
+import logging
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import (
@@ -17,6 +18,7 @@ from opentelemetry.sdk.resources import (
 )
 from opentelemetry.sdk.resources import Resource
 from openlit.semcov import SemanticConvention
+from openlit.__helpers import parse_exporters
 
 if os.environ.get("OTEL_EXPORTER_OTLP_PROTOCOL") == "grpc":
     from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
@@ -27,8 +29,11 @@ else:
         OTLPMetricExporter,
     )
 
+logger = logging.getLogger(__name__)
+
 # Global flag to check if the meter provider initialization is complete.
 METER_SET = False
+
 
 _DB_CLIENT_OPERATION_DURATION_BUCKETS = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]
 
@@ -170,16 +175,45 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 # Now, we have either converted the dict to a string or used the provided string.
                 os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = headers_str
 
-            # Configure the span exporter and processor based on whether the endpoint is effectively set.
-            if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
-                metric_exporter = OTLPMetricExporter()
-            else:
-                metric_exporter = ConsoleMetricExporter()
+            # Check for OTEL_METRICS_EXPORTER env var for multiple exporters support
+            exporters_config = parse_exporters("OTEL_METRICS_EXPORTER")
+            metric_readers = []
 
-            metric_reader = PeriodicExportingMetricReader(metric_exporter)
+            if exporters_config is not None:
+                # New behavior: use specified exporters from OTEL_METRICS_EXPORTER
+                for exporter_name in exporters_config:
+                    if exporter_name == "otlp":
+                        metric_exporter = OTLPMetricExporter()
+                        metric_readers.append(
+                            PeriodicExportingMetricReader(metric_exporter)
+                        )
+                    elif exporter_name == "console":
+                        metric_exporter = ConsoleMetricExporter()
+                        metric_readers.append(
+                            PeriodicExportingMetricReader(metric_exporter)
+                        )
+                    elif exporter_name == "none":
+                        # "none" means no exporter, skip
+                        continue
+                    else:
+                        logger.warning("Unknown metric exporter: %s", exporter_name)
+
+                # Warn if no valid exporters were configured
+                if not metric_readers:
+                    logger.warning(
+                        "OTEL_METRICS_EXPORTER is set but no valid exporters configured. "
+                        "Metric export is disabled. Valid exporters: otlp, console"
+                    )
+            else:
+                # Default behavior: use OTEL_EXPORTER_OTLP_ENDPOINT check
+                if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+                    metric_exporter = OTLPMetricExporter()
+                else:
+                    metric_exporter = ConsoleMetricExporter()
+                metric_readers.append(PeriodicExportingMetricReader(metric_exporter))
 
             meter_provider = MeterProvider(
-                resource=resource, metric_readers=[metric_reader]
+                resource=resource, metric_readers=metric_readers
             )
 
             metrics.set_meter_provider(meter_provider)

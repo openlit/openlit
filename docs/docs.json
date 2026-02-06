@@ -63,7 +63,8 @@
             "pages": [
               "latest/openlit/observability/tracing",
               "latest/openlit/observability/metrics",
-              "latest/openlit/observability/error"
+              "latest/openlit/observability/error",
+              "latest/openlit/observability/fleet-hub"
             ]
           },
           {
@@ -291,6 +292,7 @@
                   "latest/sdk/destinations/prometheus-tempo",
                   "latest/sdk/destinations/prometheus-jaeger",
                   "latest/sdk/destinations/datadog",
+                  "latest/sdk/destinations/dash0",
                   "latest/sdk/destinations/signoz",
                   "latest/sdk/destinations/new-relic",
                   "latest/sdk/destinations/dynatrace",
@@ -359,7 +361,8 @@
                   "latest/operator/destinations/prometheus-tempo",
                   "latest/operator/destinations/prometheus-jaeger",
                   "latest/operator/destinations/datadog",
-                  "latest/operator/destinations/signoz", 
+                  "latest/operator/destinations/dash0",
+                  "latest/operator/destinations/signoz",
                   "latest/operator/destinations/newrelic",
                   "latest/operator/destinations/dynatrace",
                   "latest/operator/destinations/elastic",

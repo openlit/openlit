@@ -12,6 +12,7 @@ const CodeEditor: React.FC<EditorProps> = ({
 	language = "sql",
 	height = "100%",
 	fullScreen = false,
+	readOnly,
 }) => {
 	const editorRef = useRef<any>(null);
 	const completionProviderRef = useRef<any>(null);
@@ -60,6 +61,7 @@ const CodeEditor: React.FC<EditorProps> = ({
 				fontSize: 14,
 				wordWrap: "on",
 				automaticLayout: true,
+				readOnly: !!readOnly
 			}}
 			beforeMount={(monaco) => {
 				// Register ClickHouse SQL language

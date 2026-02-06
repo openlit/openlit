@@ -3,6 +3,7 @@ import {
 	ProviderType,
 	Providers,
 } from "@/types/store/openground";
+import { ProviderResult } from "@/lib/platform/openground-clickhouse";
 import {
 	Table,
 	TableBody,
@@ -13,11 +14,11 @@ import {
 import { useRootStore } from "@/store";
 import { removeProvider } from "@/selectors/openground";
 import { Button } from "@/components/ui/button";
-import { FlaskRoundIcon, Settings2Icon, Trash2Icon } from "lucide-react";
+import { FlaskRoundIcon, Trash2Icon } from "lucide-react";
 import { JsonViewer } from "@textea/json-viewer";
 import { omit } from "lodash";
-import ProviderSettings from "./provider-settings";
 import Image from "next/image";
+import getMessage from "@/constants/messages";
 
 const keyHeadersTransformer = (str: string) => {
 	// Step 1: Capitalize the first letter
@@ -56,7 +57,7 @@ export default function ProviderTable({
 	index: number;
 	evaluatedResponse: {
 		isLoading: boolean;
-		data?: EvalutatedResponseData;
+		data?: EvalutatedResponseData | ProviderResult[];
 	};
 	selectedProviders: {
 		provider: Providers;
@@ -66,10 +67,15 @@ export default function ProviderTable({
 	const removeProviderItem = useRootStore(removeProvider);
 	const onClickDelete = () => removeProviderItem(index);
 	const selectedProvider = selectedProviders[index];
+
+	// This component only works with the legacy data format (tuple format)
+	// Cast to legacy type for backward compatibility
+	const legacyData = evaluatedResponse.data as EvalutatedResponseData | undefined;
+
 	const keysDisplayOrder = [
 		...priorityDisplayOrder,
 		...Object.keys(
-			evaluatedResponse.data?.[index]?.[1]?.evaluationData || {}
+			legacyData?.[index]?.[1]?.evaluationData || {}
 		).filter((k) => !priorityDisplayOrder.includes(k)),
 	];
 	return (
@@ -81,23 +87,6 @@ export default function ProviderTable({
 							<span className="grow">
 								{provider.title} ({provider.subTitle})
 							</span>
-							<ProviderSettings
-								provider={provider}
-								index={index}
-								selectedProvider={selectedProvider}
-								updateAllowed={
-									!(evaluatedResponse.data || evaluatedResponse.isLoading)
-								}
-							>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="rounded-full shrink-0 h-auto w-auto"
-								>
-									<Settings2Icon className="h-4 w-4" />
-									<span className="sr-only">Config</span>
-								</Button>
-							</ProviderSettings>
 							{!(evaluatedResponse.data || evaluatedResponse.isLoading) && (
 								<Button
 									variant="ghost"
@@ -106,7 +95,7 @@ export default function ProviderTable({
 									onClick={onClickDelete}
 								>
 									<Trash2Icon className="h-4 w-4" />
-									<span className="sr-only">Delete</span>
+									<span className="sr-only">{getMessage().DELETE}</span>
 								</Button>
 							)}
 						</div>
@@ -114,8 +103,8 @@ export default function ProviderTable({
 				</TableRow>
 			</TableHeader>
 			<TableBody className="text-stone-900 dark:text-stone-300">
-				{evaluatedResponse.data ? (
-					evaluatedResponse.data?.[index]?.[1] ? (
+				{legacyData ? (
+					legacyData?.[index]?.[1] ? (
 						<>
 							{keysDisplayOrder.map((key) => (
 								<TableRow key={key}>
@@ -133,7 +122,7 @@ export default function ProviderTable({
 											}`}
 										>
 											{dataAdditionalStrings[key]?.prefix || ""}
-											{evaluatedResponse.data?.[index]?.[1].evaluationData[key]}
+											{legacyData?.[index]?.[1].evaluationData[key]}
 											{dataAdditionalStrings[key]?.suffix || ""}
 										</p>
 									</section>
@@ -142,10 +131,10 @@ export default function ProviderTable({
 							<TableRow>
 								<section className="flex flex-col w-full h-full relative">
 									<p className="font-medium p-4 bg-stone-200 dark:bg-stone-800 text-stone-500 sticky top-[48px]">
-										Provider response
+										{getMessage().OPENGROUND_PROVIDER_RESPONSE}
 									</p>
 									<JsonViewer
-										value={omit(evaluatedResponse.data[index]?.[1], [
+										value={omit(legacyData?.[index]?.[1], [
 											"evaluationData",
 										])}
 										className="overflow-auto p-3 h-[400px] !rounded-none"
@@ -160,8 +149,8 @@ export default function ProviderTable({
 					) : (
 						<TableRow>
 							<div className="flex flex-col w-full h-full items-center justify-center p-4 text-error text-center">
-								{evaluatedResponse.data?.[index]?.[0] ||
-									"Some error occurred while evaluating the provider"}
+								{legacyData?.[index]?.[0] ||
+									getMessage().SOME_ERROR_OCCURRED}
 							</div>
 						</TableRow>
 					)

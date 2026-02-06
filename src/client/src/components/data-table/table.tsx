@@ -4,6 +4,7 @@ import { fill } from "lodash";
 import { objectEntries } from "@/utils/object";
 import { Columns } from "./columns";
 import { noop } from "@/utils/noop";
+import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
 
 const RowWrapper = ({
 	children,
@@ -32,7 +33,7 @@ const ColumnRowItem = ({
 }) => {
 	return (
 		<div
-			className={` flex-shrink-0 border-b dark:border-stone-800 py-2 px-3 overflow-hidden ${className}`}
+			className={`flex-shrink-0 border-b dark:border-stone-800 py-3 px-3 overflow-hidden ${className}`}
 			style={style}
 		>
 			{children}
@@ -58,19 +59,20 @@ const RenderLoader = ({
 					key={`loader-column-${index}`}
 					className="group-last-of-type:border-b-0 cursor-pointer py-4"
 				>
-					<div className="h-2 w-2/3 bg-stone-200 rounded" />
+					<div className="h-2 w-2/3 bg-stone-800/20 dark:bg-stone-100/20 rounded" />
 				</ColumnRowItem>
 			))}
 		</RowWrapper>
 	));
 
-export default function Table({
+export default function DataTable({
 	columns,
 	data,
 	isFetched,
 	isLoading,
 	visibilityColumns,
 	onClick,
+	extraFunctions = {},
 }: {
 	columns: Columns<any, any>;
 	data: any[];
@@ -78,6 +80,7 @@ export default function Table({
 	isLoading: boolean;
 	visibilityColumns: Record<string, boolean>;
 	onClick?: (item: any) => void;
+	extraFunctions?: Record<string, any>;
 }) {
 	const visibleColumns = objectEntries(visibilityColumns)
 		.filter(([, value]) => value)
@@ -92,12 +95,12 @@ export default function Table({
 		typeof onClick === "function" ? onClick(rowItem) : noop();
 
 	return (
-		<div className="flex flex-col w-full overflow-auto border dark:border-stone-800 rounded-md">
+		<div className={`flex flex-col w-full overflow-auto scrollbar-hidden border dark:border-stone-800 rounded-md grow ${PRIMARY_BACKGROUND}`}>
 			<RowWrapper className={`sticky top-0 z-10`} style={style}>
 				{visibleColumns.map((column) => (
 					<ColumnRowItem
 						key={column}
-						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-500 text-sm`}
+						className={`group-last-of-type:border-b-0 bg-stone-100 text-stone-500 dark:bg-stone-900 dark:text-stone-400 text-sm overflow-hidden text-ellipsis whitespace-nowrap`}
 					>
 						{columns[column]?.header()}
 					</ColumnRowItem>
@@ -122,10 +125,11 @@ export default function Table({
 							{visibleColumns.map((column, cIdx) => (
 								<ColumnRowItem
 									key={`row-${index}-column-${cIdx}`}
-									className={`group-last-of-type:border-b-0 group-hover:bg-stone-100  dark:group-hover:bg-stone-800 cursor-pointer`}
+									className={`group-hover:text-stone-700 group-hover:bg-stone-100 dark:group-hover:text-stone-300  dark:group-hover:bg-stone-800 cursor-pointer hover:[&_svg]:text-stone-950 dark:hover:[&_svg]:text-stone-100`}
 								>
 									{columns[column]?.cell({
 										row: rowItem,
+										extraFunctions,
 									})}
 								</ColumnRowItem>
 							))}

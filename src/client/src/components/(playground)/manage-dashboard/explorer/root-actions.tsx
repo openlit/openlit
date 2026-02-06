@@ -6,7 +6,7 @@ import {
   DropdownMenuContent
 } from "@/components/ui/dropdown-menu";
 import {
-  MoreHorizontal, Plus, Upload
+  MoreHorizontal, Upload
 } from "lucide-react";
 import { useState } from "react";
 import ImportLayoutModal from "./import-layout-modal";
@@ -20,8 +20,7 @@ export default function RootActions({ openAddDialog, importBoardLayout }: {
   return (
     <div className="flex gap-2">
       <Button variant="outline" className="bg-primary hover:bg-primary/90 text-white hover:text-white dark:text-white dark:hover:text-white dark:bg-primary dark:hover:bg-primary/90" onClick={() => openAddDialog()}>
-        <Plus className="h-4 w-4 mr-2" />
-        Add
+        Create new dashboard
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
