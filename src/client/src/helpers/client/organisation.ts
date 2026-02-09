@@ -186,15 +186,24 @@ export const inviteToOrganisation = async (
 		return;
 	}
 
-	const successCount = data.filter((r: { error?: string }) => !r.error).length;
-	const failCount = data.filter((r: { error?: string }) => r.error).length;
+	const results = data as { email: string; error?: string; result?: unknown }[];
+	const successCount = results.filter((r) => !r.error).length;
+	const failCount = results.filter((r) => r.error).length;
 
 	if (failCount > 0 && successCount > 0) {
-		toast.warning(`Sent ${successCount} invitations, ${failCount} failed`, {
-			id: "organisation-invite",
-		});
+		const firstError = results.find((r) => r.error)?.error;
+		toast.warning(
+			firstError ||
+				messages.INVITATIONS_PARTIAL_SUCCESS
+					.replace("{success}", String(successCount))
+					.replace("{fail}", String(failCount)),
+			{
+				id: "organisation-invite",
+			}
+		);
 	} else if (failCount > 0) {
-		toast.error(messages.INVITATION_FAILED, {
+		const firstError = results.find((r) => r.error)?.error;
+		toast.error(firstError || messages.INVITATION_FAILED, {
 			id: "organisation-invite",
 		});
 	} else {

@@ -410,6 +410,7 @@ export const INVITE = "Invite";
 export const INVITING = "Inviting...";
 export const INVITATIONS_SENT = "Invitations sent successfully";
 export const INVITATION_FAILED = "Failed to send invitations";
+export const INVITATIONS_PARTIAL_SUCCESS = "Sent {success} invitation(s), {fail} failed";
 export const REMOVE_MEMBER = "Remove Member";
 export const REMOVE_MEMBER_CONFIRMATION = "Are you sure you want to remove this member from the organisation?";
 export const MEMBER_REMOVED = "Member removed successfully";
@@ -427,6 +428,22 @@ export const EMAIL = "Email";
 export const SAVE = "Save";
 export const ACTIVE = "Active";
 export const STATUS = "Status";
+
+// Organisation Errors
+export const NOT_ORGANISATION_MEMBER = "You are not a member of this organisation";
+export const ORGANISATION_NOT_FOUND = "Organisation not found";
+export const ORGANISATION_NOTHING_TO_UPDATE = "Nothing to update";
+export const ORGANISATION_ONLY_CREATOR_CAN_DELETE = "Only the creator can delete the organisation";
+export const ORGANISATION_CANNOT_DELETE_WITH_MEMBERS = "Cannot delete organisation with other members";
+export const USER_ALREADY_ORGANISATION_MEMBER = "User is already a member of this organisation";
+export const USER_ALREADY_INVITED = "User has already been invited to this organisation";
+export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";
+export const INVITATION_NOT_FOUND = "Invitation not found";
+export const ONLY_CREATOR_CAN_REMOVE_MEMBERS = "Only the organisation creator can remove other members";
+export const CANNOT_LEAVE_WITH_MEMBERS = "Cannot leave organisation while other members exist. Transfer ownership or remove other members first.";
+export const ONLY_OWNER_CAN_UPDATE_ROLES = "Only the organisation owner can update member roles";
+export const CANNOT_CHANGE_OWNER_ROLE = "Cannot change the owner's role";
+export const INVALID_MEMBER_ROLE = "Invalid role. Must be 'member' or 'admin'";
 
 // Organisation Invitations
 export const PENDING_INVITATIONS = "Pending Invitations";

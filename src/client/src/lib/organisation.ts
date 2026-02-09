@@ -138,7 +138,7 @@ export async function setCurrentOrganisation(organisationId: string) {
 		},
 	});
 
-	throwIfError(!membership, "You are not a member of this organisation");
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
 
 	// Unset all current orgs for this user
 	await prisma.organisationUser.updateMany({
@@ -187,7 +187,7 @@ export async function updateOrganisation(
 		},
 	});
 
-	throwIfError(!membership, "You are not a member of this organisation");
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
 
 	const updateData: { name?: string } = {};
 	if (data.name) {
@@ -195,7 +195,7 @@ export async function updateOrganisation(
 	}
 
 	if (Object.keys(updateData).length === 0) {
-		throw new Error("Nothing to update");
+		throw new Error(getMessage().ORGANISATION_NOTHING_TO_UPDATE);
 	}
 
 	return await prisma.organisation.update({
@@ -220,14 +220,14 @@ export async function deleteOrganisation(id: string) {
 		},
 	});
 
-	throwIfError(!organisation, "Organisation not found");
+	throwIfError(!organisation, getMessage().ORGANISATION_NOT_FOUND);
 	throwIfError(
 		organisation!.createdByUserId !== user!.id,
-		"Only the creator can delete the organisation"
+		getMessage().ORGANISATION_ONLY_CREATOR_CAN_DELETE
 	);
 	throwIfError(
 		organisation!._count.members > 1,
-		"Cannot delete organisation with other members"
+		getMessage().ORGANISATION_CANNOT_DELETE_WITH_MEMBERS
 	);
 
 	// Delete the organisation (cascade will handle members)
@@ -258,7 +258,7 @@ export async function inviteUserToOrganisation(
 		},
 	});
 
-	throwIfError(!membership, "You are not a member of this organisation");
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
 
 	// Check if user already exists
 	const existingUser = await prisma.user.findUnique({
@@ -277,7 +277,7 @@ export async function inviteUserToOrganisation(
 		});
 
 		if (existingMembership) {
-			throw new Error("User is already a member of this organisation");
+			throw new Error(getMessage().USER_ALREADY_ORGANISATION_MEMBER);
 		}
 
 		// Add them directly as a member
@@ -307,7 +307,7 @@ export async function inviteUserToOrganisation(
 	});
 
 	if (existingInvite) {
-		throw new Error("User has already been invited to this organisation");
+		throw new Error(getMessage().USER_ALREADY_INVITED);
 	}
 
 	// Create invitation
@@ -358,10 +358,10 @@ export async function acceptInvitation(invitationId: string) {
 		where: { id: invitationId },
 	});
 
-	throwIfError(!invitation, "Invitation not found");
+	throwIfError(!invitation, getMessage().INVITATION_NOT_FOUND);
 	throwIfError(
 		invitation!.email !== user!.email,
-		"This invitation is not for you"
+		getMessage().INVITATION_NOT_FOR_YOU
 	);
 
 	// Create membership
@@ -396,10 +396,10 @@ export async function declineInvitation(invitationId: string) {
 		where: { id: invitationId },
 	});
 
-	throwIfError(!invitation, "Invitation not found");
+	throwIfError(!invitation, getMessage().INVITATION_NOT_FOUND);
 	throwIfError(
 		invitation!.email !== user!.email,
-		"This invitation is not for you"
+		getMessage().INVITATION_NOT_FOR_YOU
 	);
 
 	await prisma.organisationInvitedUser.delete({
@@ -461,7 +461,7 @@ export async function removeUserFromOrganisation(
 		},
 	});
 
-	throwIfError(!membership, "You are not a member of this organisation");
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
 
 	const organisation = await prisma.organisation.findUnique({
 		where: { id: organisationId },
@@ -469,7 +469,7 @@ export async function removeUserFromOrganisation(
 
 	// Only creator can remove others, or user can remove themselves
 	if (userId !== user!.id && organisation!.createdByUserId !== user!.id) {
-		throw new Error("Only the organisation creator can remove other members");
+		throw new Error(getMessage().ONLY_CREATOR_CAN_REMOVE_MEMBERS);
 	}
 
 	// Creator cannot remove themselves if there are other members
@@ -479,7 +479,7 @@ export async function removeUserFromOrganisation(
 		});
 		if (memberCount > 1) {
 			throw new Error(
-				"Cannot leave organisation while other members exist. Transfer ownership or remove other members first."
+				getMessage().CANNOT_LEAVE_WITH_MEMBERS
 			);
 		}
 	}
@@ -513,7 +513,7 @@ export async function getOrganisationMembers(organisationId: string) {
 		},
 	});
 
-	throwIfError(!membership, "You are not a member of this organisation");
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
 
 	const members = await prisma.organisationUser.findMany({
 		where: { organisationId },
@@ -562,24 +562,24 @@ export async function updateMemberRole(
 		where: { id: organisationId },
 	});
 
-	throwIfError(!organisation, "Organisation not found");
+	throwIfError(!organisation, getMessage().ORGANISATION_NOT_FOUND);
 
 	// Only owner can update roles
 	throwIfError(
 		organisation!.createdByUserId !== user!.id,
-		"Only the organisation owner can update member roles"
+		getMessage().ONLY_OWNER_CAN_UPDATE_ROLES
 	);
 
 	// Cannot change owner's role
 	throwIfError(
 		userId === organisation!.createdByUserId,
-		"Cannot change the owner's role"
+		getMessage().CANNOT_CHANGE_OWNER_ROLE
 	);
 
 	// Validate role
 	throwIfError(
 		!["member", "admin"].includes(role),
-		"Invalid role. Must be 'member' or 'admin'"
+		getMessage().INVALID_MEMBER_ROLE
 	);
 
 	await prisma.organisationUser.update({
@@ -614,7 +614,7 @@ export async function getOrganisationPendingInvites(organisationId: string) {
 		},
 	});
 
-	throwIfError(!membership, "You are not a member of this organisation");
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
 
 	const invites = await prisma.organisationInvitedUser.findMany({
 		where: { organisationId },
@@ -642,7 +642,7 @@ export async function cancelInvitation(invitationId: string) {
 		include: { organisation: true },
 	});
 
-	throwIfError(!invitation, "Invitation not found");
+	throwIfError(!invitation, getMessage().INVITATION_NOT_FOUND);
 
 	// Verify user is a member of the organisation
 	const membership = await prisma.organisationUser.findUnique({
@@ -654,7 +654,7 @@ export async function cancelInvitation(invitationId: string) {
 		},
 	});
 
-	throwIfError(!membership, "You are not a member of this organisation");
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
 
 	await prisma.organisationInvitedUser.delete({
 		where: { id: invitationId },
@@ -680,7 +680,7 @@ export async function getOrganisationById(id: string) {
 		},
 	});
 
-	throwIfError(!membership, "You are not a member of this organisation");
+	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
 
 	const organisation = await prisma.organisation.findUnique({
 		where: { id },

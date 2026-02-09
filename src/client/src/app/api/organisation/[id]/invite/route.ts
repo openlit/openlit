@@ -18,7 +18,11 @@ export async function POST(
 	const results = await Promise.all(
 		emails.map(async (email: string) => {
 			const [err, res] = await asaw(inviteUserToOrganisation(id, email));
-			return { email, error: err, result: res };
+			return {
+				email,
+				error: err ? String(err).replace(/^Error:\s*/, "") : null,
+				result: res,
+			};
 		})
 	);
 
