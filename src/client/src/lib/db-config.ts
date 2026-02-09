@@ -21,12 +21,11 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 			where: {
 				userId: user.id,
 				isCurrent: true,
-				// Filter by current organisation if available
-				...(currentOrg?.id && {
-					databaseConfig: {
-						organisationId: currentOrg.id,
-					},
-				}),
+				// Always filter by current organisation to maintain data isolation
+				// If no current org, only return orphaned configs (organisationId: null)
+				databaseConfig: {
+					organisationId: currentOrg?.id ?? null,
+				},
 			},
 			select: {
 				databaseConfig: true,
@@ -39,12 +38,11 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const dbUserConfigs = await prisma.databaseConfigUser.findMany({
 		where: {
 			userId: user.id,
-			// Filter by current organisation if available
-			...(currentOrg?.id && {
-				databaseConfig: {
-					organisationId: currentOrg.id,
-				},
-			}),
+			// Always filter by current organisation to maintain data isolation
+			// If no current org, only return orphaned configs (organisationId: null)
+			databaseConfig: {
+				organisationId: currentOrg?.id ?? null,
+			},
 		},
 		select: {
 			databaseConfigId: true,

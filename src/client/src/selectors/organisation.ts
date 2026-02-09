@@ -12,8 +12,5 @@ export const getOrganisationPendingInvitations = (state: RootStore) =>
 export const getOrganisationIsLoading = (state: RootStore) =>
 	state.organisation.isLoading;
 
-export const getHasOrganisations = (state: RootStore) =>
-	(state.organisation.list?.length ?? 0) > 0;
-
 export const getPendingInvitationsCount = (state: RootStore) =>
 	state.organisation.pendingInvitations.length;

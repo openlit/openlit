@@ -143,29 +143,33 @@ export async function setCurrentOrganisation(organisationId: string) {
 
 	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
 
-	// Unset all current orgs for this user
-	await prisma.organisationUser.updateMany({
-		where: {
-			userId: user!.id,
-			isCurrent: true,
-		},
-		data: {
-			isCurrent: false,
-		},
-	});
-
-	// Set the new current org
-	await prisma.organisationUser.update({
-		where: {
-			organisationId_userId: {
-				organisationId,
+	// Atomically unset all current orgs and set the new one in a transaction
+	// This prevents a race condition where concurrent requests could see
+	// no current organisation between the two operations
+	await prisma.$transaction([
+		// Unset all current orgs for this user
+		prisma.organisationUser.updateMany({
+			where: {
 				userId: user!.id,
+				isCurrent: true,
 			},
-		},
-		data: {
-			isCurrent: true,
-		},
-	});
+			data: {
+				isCurrent: false,
+			},
+		}),
+		// Set the new current org
+		prisma.organisationUser.update({
+			where: {
+				organisationId_userId: {
+					organisationId,
+					userId: user!.id,
+				},
+			},
+			data: {
+				isCurrent: true,
+			},
+		}),
+	]);
 
 	return { success: true };
 }

@@ -206,6 +206,7 @@ export const inviteToOrganisation = async (
 		toast.error(firstError || messages.INVITATION_FAILED, {
 			id: "organisation-invite",
 		});
+		return; // Don't call successCb when all invitations failed
 	} else {
 		toast.success(messages.INVITATIONS_SENT, {
 			id: "organisation-invite",
