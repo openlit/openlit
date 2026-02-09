@@ -34,8 +34,8 @@ WORKDIR /app/client
 # Copy package.json and package-lock.json to the working directory & the rest of the application code
 COPY ./client/ .
 
-# Install dependencies & Build the Next.js application
-RUN npm install && npm run build
+# Install dependencies, generate Prisma client & Build the Next.js application
+RUN npm install && npx prisma generate && npm run build
 
 
 # Opamp server build from source
