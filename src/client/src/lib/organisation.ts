@@ -44,6 +44,9 @@ export async function createOrganisation(name: string) {
 		},
 	});
 
+	// Migrate orphaned configs and shared users to the new org
+	await migrateUserConfigsToOrganisation(organisation.id, user!.id);
+
 	return organisation;
 }
 
@@ -703,6 +706,96 @@ export async function getOrganisationById(id: string) {
 		memberCount: organisation._count.members,
 		createdByUserId: organisation.createdByUserId,
 	};
+}
+
+/**
+ * Migrate a user's orphaned DB configs to an organisation.
+ * Also adds users who share those configs as members of the org.
+ */
+async function migrateUserConfigsToOrganisation(
+	organisationId: string,
+	userId: string
+) {
+	// Find all orphaned DB configs the user has access to
+	const userConfigLinks = await prisma.databaseConfigUser.findMany({
+		where: {
+			userId,
+			databaseConfig: {
+				organisationId: null,
+			},
+		},
+		select: { databaseConfigId: true },
+	});
+
+	if (userConfigLinks.length === 0) return;
+
+	const orphanedConfigIds = userConfigLinks.map(
+		(link) => link.databaseConfigId
+	);
+
+	// Move those configs to the new org
+	await prisma.databaseConfig.updateMany({
+		where: { id: { in: orphanedConfigIds } },
+		data: { organisationId },
+	});
+
+	// Find other users who share those configs
+	const sharedUserLinks = await prisma.databaseConfigUser.findMany({
+		where: {
+			databaseConfigId: { in: orphanedConfigIds },
+			userId: { not: userId },
+		},
+		select: { userId: true },
+		distinct: ["userId"],
+	});
+
+	for (const { userId: sharedUserId } of sharedUserLinks) {
+		// Check if already a member
+		const existingMembership = await prisma.organisationUser.findUnique({
+			where: {
+				organisationId_userId: {
+					organisationId,
+					userId: sharedUserId,
+				},
+			},
+		});
+
+		// Check if the user already has a current org
+		const hasCurrentOrg = await prisma.organisationUser.findFirst({
+			where: { userId: sharedUserId, isCurrent: true },
+		});
+
+		if (!existingMembership) {
+			await prisma.organisationUser.create({
+				data: {
+					organisationId,
+					userId: sharedUserId,
+					role: "member",
+					isCurrent: !hasCurrentOrg,
+				},
+			});
+		} else if (!hasCurrentOrg) {
+			// Existing membership but no current org — fix it
+			await prisma.organisationUser.update({
+				where: {
+					organisationId_userId: {
+						organisationId,
+						userId: sharedUserId,
+					},
+				},
+				data: { isCurrent: true },
+			});
+		}
+
+		// Share org DB configs with the new member
+		await shareOrganisationDatabaseConfigs(organisationId, sharedUserId);
+
+		// Mark as onboarded
+		await prisma.user.update({
+			where: { id: sharedUserId },
+			data: { hasCompletedOnboarding: true },
+		});
+	}
 }
 
 /**

@@ -91,44 +91,98 @@ async function main() {
 	}
 
 	// Migrate existing data if needed (for upgrades)
-	await migrateExistingData(user.id, defaultOrg.id);
+	await migrateExistingData(defaultOrg.id, user.id);
 
 	console.log("Seeding End.....");
 }
 
 // Migration logic for existing installations
-async function migrateExistingData(defaultUserId, defaultOrgId) {
-	// Find all users not yet linked to any organisation
-	const usersWithoutOrg = await prisma.user.findMany({
+// Migrates orphaned configs the seed user has access to, then ensures
+// all users sharing configs in the default org are also members.
+async function migrateExistingData(defaultOrgId, seedUserId) {
+	// Step 1: Move orphaned DB configs the seed user has access to into the default org
+	const seedUserOrphanedLinks = await prisma.databaseConfigUser.findMany({
 		where: {
-			organisations: {
-				none: {},
+			userId: seedUserId,
+			databaseConfig: {
+				organisationId: null,
 			},
 		},
+		select: { databaseConfigId: true },
 	});
 
-	// Add all orphaned users to the default organisation
-	for (const user of usersWithoutOrg) {
-		await prisma.organisationUser.create({
-			data: {
-				organisationId: defaultOrgId,
-				userId: user.id,
-				isCurrent: true,
-			},
-		});
+	if (seedUserOrphanedLinks.length > 0) {
+		const orphanedConfigIds = seedUserOrphanedLinks.map(
+			(link) => link.databaseConfigId
+		);
 
-		// Mark as onboarded since they're existing users
-		await prisma.user.update({
-			where: { id: user.id },
-			data: { hasCompletedOnboarding: true },
+		await prisma.databaseConfig.updateMany({
+			where: { id: { in: orphanedConfigIds } },
+			data: { organisationId: defaultOrgId },
 		});
 	}
 
-	// Move all database configs without an organisation to the default org
-	await prisma.databaseConfig.updateMany({
-		where: { organisationId: null },
-		data: { organisationId: defaultOrgId },
+	// Step 2: Find ALL configs now in the default org and ensure shared users are members
+	const orgConfigs = await prisma.databaseConfig.findMany({
+		where: { organisationId: defaultOrgId },
+		select: { id: true },
 	});
+
+	if (orgConfigs.length === 0) return;
+
+	const orgConfigIds = orgConfigs.map((c) => c.id);
+
+	// Find users who have access to these configs but aren't in the default org
+	const sharedUserLinks = await prisma.databaseConfigUser.findMany({
+		where: {
+			databaseConfigId: { in: orgConfigIds },
+			userId: { not: seedUserId },
+		},
+		select: { userId: true },
+		distinct: ["userId"],
+	});
+
+	for (const { userId } of sharedUserLinks) {
+		const existingMembership = await prisma.organisationUser.findUnique({
+			where: {
+				organisationId_userId: {
+					organisationId: defaultOrgId,
+					userId,
+				},
+			},
+		});
+
+		// Check if the user already has any current org
+		const hasCurrentOrg = await prisma.organisationUser.findFirst({
+			where: { userId, isCurrent: true },
+		});
+
+		if (!existingMembership) {
+			await prisma.organisationUser.create({
+				data: {
+					organisationId: defaultOrgId,
+					userId,
+					isCurrent: !hasCurrentOrg,
+				},
+			});
+		} else if (!hasCurrentOrg) {
+			// Existing membership but no current org — fix it
+			await prisma.organisationUser.update({
+				where: {
+					organisationId_userId: {
+						organisationId: defaultOrgId,
+						userId,
+					},
+				},
+				data: { isCurrent: true },
+			});
+		}
+
+		await prisma.user.update({
+			where: { id: userId },
+			data: { hasCompletedOnboarding: true },
+		});
+	}
 }
 main()
 	.then(async () => {

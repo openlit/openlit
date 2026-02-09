@@ -19,8 +19,6 @@ import {
 	getOrganisationList,
 } from "@/selectors/organisation";
 import {
-	createOrganisation,
-	changeActiveOrganisation,
 	acceptInvitation,
 	declineInvitation,
 	fetchOrganisationList,
@@ -51,61 +49,74 @@ export default function OnboardingPage() {
 		fetchPendingInvitations();
 	}, []);
 
-	const completeOnboardingAndRedirect = async () => {
+	const setCurrentOrgAndComplete = async (orgId: string) => {
 		// Prevent multiple calls
 		if (isCompleting) return;
 		setIsCompleting(true);
 
-		const [err] = await asaw(
-			postData({
-				url: "/api/user/complete-onboarding",
-				data: {},
-			})
+		// Set current org via API directly (skip DB config fetch/ping for speed)
+		const [setOrgErr] = await asaw(
+			postData({ url: `/api/organisation/current/${orgId}`, data: {} })
 		);
-
-		if (!err) {
-			// Trigger session update to refresh the JWT token with hasCompletedOnboarding: true
-			await updateSession();
-			window.location.href = DEFAULT_LOGGED_IN_ROUTE;
-		} else {
+		if (setOrgErr) {
 			setIsCompleting(false);
+			return;
 		}
+
+		// Mark onboarding complete
+		const [completeErr] = await asaw(
+			postData({ url: "/api/user/complete-onboarding", data: {} })
+		);
+		if (completeErr) {
+			setIsCompleting(false);
+			return;
+		}
+
+		// Refresh JWT token and redirect — home page AppInit will load DB configs
+		await updateSession();
+		window.location.href = DEFAULT_LOGGED_IN_ROUTE;
 	};
 
 	const handleCreateOrganisation = async () => {
 		if (!orgName.trim() || isCompleting) return;
 
 		setIsCreating(true);
-		const result = await createOrganisation(orgName.trim());
+		const [err, result] = await asaw(
+			postData({ url: "/api/organisation", data: { name: orgName.trim() } })
+		);
 
-		if (result) {
-			await changeActiveOrganisation(result.id);
-			await completeOnboardingAndRedirect();
-		} else {
+		if (err || !result?.id) {
 			setIsCreating(false);
+			return;
 		}
+
+		await setCurrentOrgAndComplete(result.id);
 	};
 
 	const handleSkip = async () => {
 		if (isCompleting) return;
 
 		setIsSkipping(true);
-		const result = await createOrganisation(messages.PERSONAL_ORGANISATION);
+		const [err, result] = await asaw(
+			postData({
+				url: "/api/organisation",
+				data: { name: messages.PERSONAL_ORGANISATION },
+			})
+		);
 
-		if (result) {
-			await changeActiveOrganisation(result.id);
-			await completeOnboardingAndRedirect();
-		} else {
+		if (err || !result?.id) {
 			setIsSkipping(false);
+			return;
 		}
+
+		await setCurrentOrgAndComplete(result.id);
 	};
 
 	const handleSelectOrganisation = async (orgId: string) => {
 		if (isCompleting) return;
 
 		setIsSelectingOrg(orgId);
-		await changeActiveOrganisation(orgId);
-		await completeOnboardingAndRedirect();
+		await setCurrentOrgAndComplete(orgId);
 	};
 
 	const handleAcceptInvitation = async (invitationId: string) => {
