@@ -9,15 +9,16 @@ from opentelemetry.sdk.resources import (
     SERVICE_NAME,
     TELEMETRY_SDK_NAME,
     DEPLOYMENT_ENVIRONMENT,
+    Resource,
 )
-from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk._events import EventLoggerProvider
+from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import (
     BatchLogRecordProcessor,
     SimpleLogRecordProcessor,
+    ConsoleLogExporter,
 )
-from opentelemetry.sdk._logs import LoggerProvider
-from opentelemetry.sdk._logs.export import ConsoleLogExporter
+
 from openlit.__helpers import parse_exporters
 
 # pylint: disable=ungrouped-imports
