@@ -18,13 +18,98 @@ export function generateOrganisationSlug(name: string): string {
 }
 
 /**
+ * Generate a unique organisation slug with retry logic
+ */
+async function generateUniqueOrganisationSlug(
+	name: string,
+	maxRetries: number = 10
+): Promise<string> {
+	for (let attempt = 0; attempt < maxRetries; attempt++) {
+		const slug = generateOrganisationSlug(name);
+
+		// Check if slug already exists
+		const existing = await prisma.organisation.findUnique({
+			where: { slug },
+			select: { id: true },
+		});
+
+		if (!existing) {
+			return slug;
+		}
+	}
+
+	// If we've exhausted all retries, throw a meaningful error
+	throw new Error(
+		"Unable to generate a unique organisation slug. Please try again or use a different name."
+	);
+}
+
+/**
+ * Check if a user is the owner of an organisation
+ */
+async function isOrganisationOwner(
+	organisationId: string,
+	userId: string
+): Promise<boolean> {
+	const organisation = await prisma.organisation.findUnique({
+		where: { id: organisationId },
+		select: { createdByUserId: true },
+	});
+
+	return organisation?.createdByUserId === userId;
+}
+
+/**
+ * Check if a user has admin or owner role in an organisation
+ */
+async function hasAdminOrOwnerRole(
+	organisationId: string,
+	userId: string
+): Promise<boolean> {
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId,
+			},
+		},
+		select: { role: true },
+	});
+
+	if (!membership) return false;
+
+	// Owner or admin have elevated permissions
+	return membership.role === "owner" || membership.role === "admin";
+}
+
+/**
+ * Get a user's role in an organisation
+ */
+async function getUserRoleInOrganisation(
+	organisationId: string,
+	userId: string
+): Promise<string | null> {
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId,
+			},
+		},
+		select: { role: true },
+	});
+
+	return membership?.role || null;
+}
+
+/**
  * Create a new organisation
  */
 export async function createOrganisation(name: string) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
-	const slug = generateOrganisationSlug(name);
+	const slug = await generateUniqueOrganisationSlug(name);
 
 	const organisation = await prisma.organisation.create({
 		data: {
@@ -184,17 +269,9 @@ export async function updateOrganisation(
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
-	// Verify user is a member
-	const membership = await prisma.organisationUser.findUnique({
-		where: {
-			organisationId_userId: {
-				organisationId: id,
-				userId: user!.id,
-			},
-		},
-	});
-
-	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
+	// Verify user has admin or owner role
+	const hasPermission = await hasAdminOrOwnerRole(id, user!.id);
+	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_UPDATE_ORGANISATION);
 
 	const updateData: { name?: string } = {};
 	if (data.name) {
@@ -255,17 +332,9 @@ export async function inviteUserToOrganisation(
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
-	// Verify inviter is a member
-	const membership = await prisma.organisationUser.findUnique({
-		where: {
-			organisationId_userId: {
-				organisationId,
-				userId: user!.id,
-			},
-		},
-	});
-
-	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
+	// Verify inviter has admin or owner role
+	const hasPermission = await hasAdminOrOwnerRole(organisationId, user!.id);
+	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_INVITE);
 
 	// Check if user already exists
 	const existingUser = await prisma.user.findUnique({
@@ -458,41 +527,64 @@ export async function removeUserFromOrganisation(
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
-	// Verify current user is a member
-	const membership = await prisma.organisationUser.findUnique({
-		where: {
-			organisationId_userId: {
-				organisationId,
-				userId: user!.id,
-			},
-		},
-	});
-
-	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
-
 	const organisation = await prisma.organisation.findUnique({
 		where: { id: organisationId },
 	});
 
-	// Only creator can remove others, or user can remove themselves
-	if (userId !== user!.id && organisation!.createdByUserId !== user!.id) {
-		throw new Error(getMessage().ONLY_CREATOR_CAN_REMOVE_MEMBERS);
-	}
+	throwIfError(!organisation, getMessage().ORGANISATION_NOT_FOUND);
 
-	// Creator cannot remove themselves at all
-	if (userId === organisation!.createdByUserId) {
-		const memberCount = await prisma.organisationUser.count({
-			where: { organisationId },
-		});
-		if (memberCount > 1) {
-			throw new Error(
-				getMessage().CANNOT_LEAVE_WITH_MEMBERS
-			);
-		} else {
-			// memberCount === 1, they are the sole member
-			throw new Error(
-				getMessage().CREATOR_CANNOT_LEAVE_ALONE
-			);
+	// Check if user removing themselves
+	const isSelfRemoval = userId === user!.id;
+
+	if (isSelfRemoval) {
+		// Creator cannot remove themselves at all
+		if (userId === organisation!.createdByUserId) {
+			const memberCount = await prisma.organisationUser.count({
+				where: { organisationId },
+			});
+			if (memberCount > 1) {
+				throw new Error(getMessage().CANNOT_LEAVE_WITH_MEMBERS);
+			} else {
+				// memberCount === 1, they are the sole member
+				throw new Error(getMessage().CREATOR_CANNOT_LEAVE_ALONE);
+			}
+		}
+		// Regular members and admins can remove themselves
+	} else {
+		// Removing someone else - need admin or owner permissions
+		const currentUserRole = await getUserRoleInOrganisation(
+			organisationId,
+			user!.id
+		);
+		throwIfError(
+			!currentUserRole,
+			getMessage().NOT_ORGANISATION_MEMBER
+		);
+
+		const targetUserRole = await getUserRoleInOrganisation(
+			organisationId,
+			userId
+		);
+
+		// Only admins and owners can remove other members
+		const hasPermission =
+			currentUserRole === "owner" || currentUserRole === "admin";
+		throwIfError(
+			!hasPermission,
+			getMessage().ONLY_ADMIN_CAN_REMOVE_MEMBERS
+		);
+
+		// Only owner can remove admins or other owners
+		if (
+			(targetUserRole === "admin" || targetUserRole === "owner") &&
+			currentUserRole !== "owner"
+		) {
+			throw new Error(getMessage().CANNOT_REMOVE_ADMIN_OR_OWNER);
+		}
+
+		// Owner cannot be removed
+		if (userId === organisation!.createdByUserId) {
+			throw new Error(getMessage().CANNOT_REMOVE_ADMIN_OR_OWNER);
 		}
 	}
 
@@ -576,10 +668,10 @@ export async function updateMemberRole(
 
 	throwIfError(!organisation, getMessage().ORGANISATION_NOT_FOUND);
 
-	// Only owner can update roles
+	// Validate role
 	throwIfError(
-		organisation!.createdByUserId !== user!.id,
-		getMessage().ONLY_OWNER_CAN_UPDATE_ROLES
+		!["member", "admin"].includes(role),
+		getMessage().INVALID_MEMBER_ROLE
 	);
 
 	// Cannot change owner's role
@@ -588,11 +680,35 @@ export async function updateMemberRole(
 		getMessage().CANNOT_CHANGE_OWNER_ROLE
 	);
 
-	// Validate role
-	throwIfError(
-		!["member", "admin"].includes(role),
-		getMessage().INVALID_MEMBER_ROLE
+	// Get current user's role
+	const currentUserRole = await getUserRoleInOrganisation(
+		organisationId,
+		user!.id
 	);
+	throwIfError(!currentUserRole, getMessage().NOT_ORGANISATION_MEMBER);
+
+	// Get target user's current role
+	const targetUserRole = await getUserRoleInOrganisation(
+		organisationId,
+		userId
+	);
+	throwIfError(!targetUserRole, getMessage().NOT_ORGANISATION_MEMBER);
+
+	// Only admins and owners can update roles
+	const hasPermission =
+		currentUserRole === "owner" || currentUserRole === "admin";
+	throwIfError(!hasPermission, getMessage().ONLY_OWNER_CAN_UPDATE_ROLES);
+
+	// Only owner can change admin roles or promote to admin
+	if (
+		targetUserRole === "admin" ||
+		role === "admin"
+	) {
+		throwIfError(
+			currentUserRole !== "owner",
+			getMessage().CANNOT_CHANGE_ADMIN_ROLE
+		);
+	}
 
 	await prisma.organisationUser.update({
 		where: {
@@ -656,17 +772,12 @@ export async function cancelInvitation(invitationId: string) {
 
 	throwIfError(!invitation, getMessage().INVITATION_NOT_FOUND);
 
-	// Verify user is a member of the organisation
-	const membership = await prisma.organisationUser.findUnique({
-		where: {
-			organisationId_userId: {
-				organisationId: invitation!.organisationId,
-				userId: user!.id,
-			},
-		},
-	});
-
-	throwIfError(!membership, getMessage().NOT_ORGANISATION_MEMBER);
+	// Verify user has admin or owner role
+	const hasPermission = await hasAdminOrOwnerRole(
+		invitation!.organisationId,
+		user!.id
+	);
+	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_CANCEL_INVITATION);
 
 	await prisma.organisationInvitedUser.delete({
 		where: { id: invitationId },

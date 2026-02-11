@@ -28,9 +28,27 @@ export const authOptions = {
 				token.id = user.id;
 			}
 
+			// Handle explicit session update requests (e.g., after completing onboarding)
+			if (trigger === "update" && token?.id) {
+				try {
+					const [, existingUser] = await asaw(
+						getUserById({ id: token.id as string })
+					);
+
+					if (!existingUser) {
+						return null;
+					}
+
+					// Update hasCompletedOnboarding status from database
+					token.hasCompletedOnboarding = existingUser.hasCompletedOnboarding;
+				} catch (error) {
+					console.error("Database error during JWT update:", error);
+				}
+			}
+
 			// Validate that the user still exists in the database for existing tokens
 			// This prevents issues when starting with a fresh database but stale cookies
-			if (token?.id && !user) {
+			if (token?.id && !user && trigger !== "update") {
 				try {
 					const [, existingUser] = await asaw(
 						getUserById({ id: token.id as string })

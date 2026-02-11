@@ -83,18 +83,20 @@ export default function checkAuth(next: NextMiddleware) {
 								return NextResponse.next();
 							}
 						}
-						// Enforce onboarding restrictions for authenticated API calls.
-						// Only explicitly whitelisted API routes should work before onboarding.
-						if (
-							isAuth &&
-							token.hasCompletedOnboarding === false &&
-							!isOnboardingWhitelisted
-						) {
-							return NextResponse.json(
-								{ error: "Please complete onboarding first" },
-								{ status: 403 }
-							);
-						}
+					// Enforce onboarding restrictions for authenticated API calls.
+					// Only explicitly whitelisted API routes should work before onboarding.
+					// Routes that are allowed without token should also bypass onboarding check.
+					if (
+						isAuth &&
+						token.hasCompletedOnboarding === false &&
+						!isOnboardingWhitelisted &&
+						!isAllowedRequestWithoutToken
+					) {
+						return NextResponse.json(
+							{ error: "Please complete onboarding first" },
+							{ status: 403 }
+						);
+					}
 						return NextResponse.next();
 					}
 				}

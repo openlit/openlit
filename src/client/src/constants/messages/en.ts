@@ -441,10 +441,17 @@ export const USER_ALREADY_INVITED = "User has already been invited to this organ
 export const INVITATION_NOT_FOR_YOU = "This invitation is not for you";
 export const INVITATION_NOT_FOUND = "Invitation not found";
 export const ONLY_CREATOR_CAN_REMOVE_MEMBERS = "Only the organisation creator can remove other members";
+export const ONLY_ADMIN_CAN_REMOVE_MEMBERS = "Only organisation admins or owner can remove members";
+export const INSUFFICIENT_PERMISSIONS = "You don't have permission to perform this action";
+export const ONLY_ADMIN_CAN_INVITE = "Only organisation admins or owner can invite new members";
+export const ONLY_ADMIN_CAN_CANCEL_INVITATION = "Only organisation admins or owner can cancel invitations";
+export const ONLY_ADMIN_CAN_UPDATE_ORGANISATION = "Only organisation admins or owner can update organisation settings";
+export const CANNOT_REMOVE_ADMIN_OR_OWNER = "Only the owner can remove admins or other owners";
 export const CANNOT_LEAVE_WITH_MEMBERS = "Cannot leave organisation while other members exist. Transfer ownership or remove other members first.";
 export const CREATOR_CANNOT_LEAVE_ALONE = "Cannot leave organisation as the sole member. Delete the organisation instead.";
 export const ONLY_OWNER_CAN_UPDATE_ROLES = "Only the organisation owner can update member roles";
 export const CANNOT_CHANGE_OWNER_ROLE = "Cannot change the owner's role";
+export const CANNOT_CHANGE_ADMIN_ROLE = "Only the owner can change admin roles";
 export const INVALID_MEMBER_ROLE = "Invalid role. Must be 'member' or 'admin'";
 
 // Organisation Invitations

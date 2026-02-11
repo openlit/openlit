@@ -217,8 +217,8 @@ export default function OrganisationSettingsPage() {
 		if (!currentOrg) return;
 
 		await deleteOrganisation(currentOrg.id, async () => {
-			await fetchOrganisationList();
 			// Switch to another org if available
+			// Note: fetchOrganisationList() is already called by deleteOrganisation()
 			const updatedList = useRootStore.getState().organisation.list || [];
 			if (updatedList.length > 0) {
 				await changeActiveOrganisation(updatedList[0].id);
