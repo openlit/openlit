@@ -37,9 +37,6 @@ export default function checkAuth(next: NextMiddleware) {
 				const isOnboardingWhitelisted = ONBOARDING_WHITELIST_ROUTES.some(
 					(route) => pathname.startsWith(route)
 				);
-				// Check if user just completed onboarding (query param bypass for stale JWT)
-				const hasOnboardingCompleted = request.nextUrl.searchParams.get("onboarding_completed") === "1";
-
 				if (isAuthPage) {
 					if (isAuth) {
 						// Check if user needs onboarding
@@ -64,6 +61,18 @@ export default function checkAuth(next: NextMiddleware) {
 								return NextResponse.next();
 							}
 						}
+						// Enforce onboarding restrictions for authenticated API calls.
+						// Only explicitly whitelisted API routes should work before onboarding.
+						if (
+							isAuth &&
+							token.hasCompletedOnboarding === false &&
+							!isOnboardingWhitelisted
+						) {
+							return NextResponse.json(
+								{ error: "Please complete onboarding first" },
+								{ status: 403 }
+							);
+						}
 						return NextResponse.next();
 					}
 				}
@@ -80,12 +89,10 @@ export default function checkAuth(next: NextMiddleware) {
 				}
 
 				// Check if authenticated user needs onboarding
-				// Skip if they just completed onboarding (query param bypass for stale JWT)
 				if (
 					isAuth &&
 					token.hasCompletedOnboarding === false &&
-					!isOnboardingWhitelisted &&
-					!hasOnboardingCompleted
+					!isOnboardingWhitelisted
 				) {
 					return NextResponse.redirect(
 						new URL("/onboarding", request.url)

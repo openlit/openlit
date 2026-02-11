@@ -227,10 +227,7 @@ export default function OrganisationSettingsPage() {
 	};
 
 	const handleAcceptInvitation = async (invitationId: string) => {
-		await acceptInvitation(invitationId, async () => {
-			await fetchOrganisationList();
-			await fetchPendingInvitations();
-		});
+	await acceptInvitation(invitationId);
 	};
 
 	const handleDeclineInvitation = async (invitationId: string) => {

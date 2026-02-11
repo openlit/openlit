@@ -26,10 +26,11 @@ export const organisationStoreSlice: OrganisationStore = lens(
 					...item,
 					isCurrent: item.id === org?.id,
 				}));
+				const updatedCurrent = updatedList.find((item) => item.id === org?.id);
 				return {
 					...getStore(),
 					list: updatedList,
-					current: org,
+					current: updatedCurrent,
 				};
 			}),
 		setPendingInvitations: (invites) =>
