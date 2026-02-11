@@ -51,15 +51,15 @@ export default function DatabaseConfigSwitch() {
 		);
 	}
 
-	// If there are configs but none are active, show dropdown with first config
-	const displayDatabase = activeDatabase || list[0];
+	const activeDatabaseId = activeDatabase?.id;
+	const displayDatabaseName = activeDatabase?.name || messages.PLEASE_SELECT;
 
 	return (
 		<DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="flex gap-2 shrink-0 justify-start group-data-[state=close]:justify-center p-[calc(0.625rem-1px)] overflow-hidden text-stone-500 dark:text-stone-300 hover:bg-stone-700 dark:hover:bg-stone-600 hover:text-white font-normal">
 					<Database className={`${ICON_CLASSES} shrink-0`} />
-					<span className="block group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap grow text-left">{displayDatabase?.name}</span>
+					<span className="block group-data-[state=close]:hidden text-ellipsis overflow-hidden whitespace-nowrap grow text-left">{displayDatabaseName}</span>
 					<ChevronsUpDown className={`size-4 block group-data-[state=close]:hidden shrink-0`} />
 				</Button>
       </DropdownMenuTrigger>
@@ -69,7 +69,7 @@ export default function DatabaseConfigSwitch() {
 				{list.map((item) => (
 					<DropdownMenuCheckboxItem
 					key={item.id}
-          checked={item.id === displayDatabase?.id}
+          checked={item.id === activeDatabaseId}
           onCheckedChange={() => onClickItem(item.id)}
         >
           <div className="flex items-start text-muted-foreground ">

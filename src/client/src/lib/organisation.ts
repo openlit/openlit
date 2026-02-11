@@ -826,6 +826,7 @@ async function shareOrganisationDatabaseConfigs(
 			isCurrent: true,
 		},
 	});
+	let hasAssignedCurrentToNewShare = false;
 
 	// Add user to each database config with view permissions
 	for (let i = 0; i < databaseConfigs.length; i++) {
@@ -843,9 +844,9 @@ async function shareOrganisationDatabaseConfigs(
 
 		// Only add if they don't already have access
 		if (!existingAccess) {
-			// Set the first config as current if user doesn't have any current config
-			const isFirstConfig = i === 0;
-			const shouldBeCurrent = !existingCurrentConfig && isFirstConfig;
+			// Set the first config actually shared as current if user has no current config
+			const shouldBeCurrent =
+				!existingCurrentConfig && !hasAssignedCurrentToNewShare;
 
 			await prisma.databaseConfigUser.create({
 				data: {
@@ -857,6 +858,10 @@ async function shareOrganisationDatabaseConfigs(
 					canDelete: false,
 				},
 			});
+
+			if (shouldBeCurrent) {
+				hasAssignedCurrentToNewShare = true;
+			}
 		}
 	}
 }
