@@ -371,16 +371,28 @@ async function addDatabaseConfigUserEntry(
 		canShare: boolean;
 	}
 ) {
-	const ifFirstDBConfigCreated = await prisma.databaseConfigUser.count({
+	// Get the database config to find its organisation
+	const dbConfig = await prisma.databaseConfig.findUnique({
+		where: { id: databaseConfigId },
+		select: { organisationId: true },
+	});
+
+	// Check if user has any current database config in the SAME organisation
+	const existingCurrentConfigInOrg = await prisma.databaseConfigUser.findFirst({
 		where: {
 			userId: userId,
+			isCurrent: true,
+			databaseConfig: {
+				organisationId: dbConfig?.organisationId || null,
+			},
 		},
 	});
+
 	await prisma.databaseConfigUser.create({
 		data: {
 			userId,
 			databaseConfigId,
-			isCurrent: !ifFirstDBConfigCreated,
+			isCurrent: !existingCurrentConfigInOrg,
 			...permissions,
 		},
 	});

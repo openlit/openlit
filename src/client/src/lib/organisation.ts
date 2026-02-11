@@ -479,7 +479,7 @@ export async function removeUserFromOrganisation(
 		throw new Error(getMessage().ONLY_CREATOR_CAN_REMOVE_MEMBERS);
 	}
 
-	// Creator cannot remove themselves if there are other members
+	// Creator cannot remove themselves at all
 	if (userId === organisation!.createdByUserId) {
 		const memberCount = await prisma.organisationUser.count({
 			where: { organisationId },
@@ -487,6 +487,11 @@ export async function removeUserFromOrganisation(
 		if (memberCount > 1) {
 			throw new Error(
 				getMessage().CANNOT_LEAVE_WITH_MEMBERS
+			);
+		} else {
+			// memberCount === 1, they are the sole member
+			throw new Error(
+				getMessage().CREATOR_CANNOT_LEAVE_ALONE
 			);
 		}
 	}
@@ -819,11 +824,14 @@ async function shareOrganisationDatabaseConfigs(
 
 	if (databaseConfigs.length === 0) return;
 
-	// Check if user has any current database config
+	// Check if user has any current database config in THIS organisation
 	const existingCurrentConfig = await prisma.databaseConfigUser.findFirst({
 		where: {
 			userId,
 			isCurrent: true,
+			databaseConfig: {
+				organisationId,
+			},
 		},
 	});
 	let hasAssignedCurrentToNewShare = false;
