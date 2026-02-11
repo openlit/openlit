@@ -6,13 +6,21 @@ export const ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN = [
 
 export const CRON_JOB_ROUTES = ["/api/evaluation/auto"];
 
-// Routes that are accessible without completing onboarding
-export const ONBOARDING_WHITELIST_ROUTES = [
-	"/onboarding",
-	"/api/organisation",
-	"/api/user/complete-onboarding",
-	"/api/user/profile",
-];
+// Non-API routes that are accessible without completing onboarding
+export const ONBOARDING_WHITELIST_ROUTES = ["/onboarding"];
+
+// API routes that are accessible without completing onboarding.
+// Prefix entries must include a trailing slash to avoid overmatching sibling routes.
+export const ONBOARDING_WHITELIST_API_ROUTES = {
+	exact: {
+		GET: ["/api/organisation", "/api/organisation/invitation", "/api/user/profile"],
+		POST: ["/api/organisation", "/api/user/complete-onboarding"],
+	},
+	prefix: {
+		POST: ["/api/organisation/current/", "/api/organisation/invitation/"],
+		DELETE: ["/api/organisation/invitation/"],
+	},
+} as const;
 
 // Route format is methodtype: routepathregex[]
 export const RESTRICTED_DEMO_ACCOUNT_ROUTES: Record<string, string[]> = {

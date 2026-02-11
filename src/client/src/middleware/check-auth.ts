@@ -11,6 +11,7 @@ import {
 	ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN,
 	CRON_JOB_ROUTES,
 	ONBOARDING_WHITELIST_ROUTES,
+	ONBOARDING_WHITELIST_API_ROUTES,
 } from "@/constants/route";
 
 export default function checkAuth(next: NextMiddleware) {
@@ -34,9 +35,30 @@ export default function checkAuth(next: NextMiddleware) {
 				const isAuthPage =
 					pathname.startsWith("/login") || pathname.startsWith("/register");
 				const isApiPage = pathname.startsWith("/api");
-				const isOnboardingWhitelisted = ONBOARDING_WHITELIST_ROUTES.some(
-					(route) => pathname.startsWith(route)
+				const method = request.method.toUpperCase();
+				const isOnboardingWhitelistedPage = ONBOARDING_WHITELIST_ROUTES.includes(
+					pathname
 				);
+				const exactApiRoutes: readonly string[] =
+					method in ONBOARDING_WHITELIST_API_ROUTES.exact
+						? ONBOARDING_WHITELIST_API_ROUTES.exact[
+								method as keyof typeof ONBOARDING_WHITELIST_API_ROUTES.exact
+							]
+						: [];
+				const prefixApiRoutes: readonly string[] =
+					method in ONBOARDING_WHITELIST_API_ROUTES.prefix
+						? ONBOARDING_WHITELIST_API_ROUTES.prefix[
+								method as keyof typeof ONBOARDING_WHITELIST_API_ROUTES.prefix
+							]
+						: [];
+				const isOnboardingWhitelistedApi =
+					isApiPage &&
+					(exactApiRoutes.includes(pathname) ||
+						prefixApiRoutes.some((route: string) =>
+							pathname.startsWith(route)
+						));
+				const isOnboardingWhitelisted =
+					isOnboardingWhitelistedPage || isOnboardingWhitelistedApi;
 				if (isAuthPage) {
 					if (isAuth) {
 						// Check if user needs onboarding
