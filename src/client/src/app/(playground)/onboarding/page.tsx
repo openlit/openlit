@@ -51,7 +51,7 @@ export default function OnboardingPage() {
 
 	const setCurrentOrgAndComplete = async (orgId: string) => {
 		// Prevent multiple calls
-		if (isCompleting) return;
+		if (isCompleting) return false;
 		setIsCompleting(true);
 
 		// Set current org via API directly (skip DB config fetch/ping for speed)
@@ -60,7 +60,7 @@ export default function OnboardingPage() {
 		);
 		if (setOrgErr) {
 			setIsCompleting(false);
-			return;
+			return false;
 		}
 
 		// Mark onboarding complete
@@ -69,54 +69,65 @@ export default function OnboardingPage() {
 		);
 		if (completeErr) {
 			setIsCompleting(false);
-			return;
+			return false;
 		}
 
 		// Refresh JWT token and redirect — home page AppInit will load DB configs
 		await updateSession();
 		window.location.href = DEFAULT_LOGGED_IN_ROUTE;
+		return true;
 	};
 
 	const handleCreateOrganisation = async () => {
 		if (!orgName.trim() || isCompleting) return;
 
 		setIsCreating(true);
-		const [err, result] = await asaw(
-			postData({ url: "/api/organisation", data: { name: orgName.trim() } })
-		);
+		try {
+			const [err, result] = await asaw(
+				postData({ url: "/api/organisation", data: { name: orgName.trim() } })
+			);
 
-		if (err || !result?.id) {
+			if (err || !result?.id) {
+				return;
+			}
+
+			await setCurrentOrgAndComplete(result.id);
+		} finally {
 			setIsCreating(false);
-			return;
 		}
-
-		await setCurrentOrgAndComplete(result.id);
 	};
 
 	const handleSkip = async () => {
 		if (isCompleting) return;
 
 		setIsSkipping(true);
-		const [err, result] = await asaw(
-			postData({
-				url: "/api/organisation",
-				data: { name: messages.PERSONAL_ORGANISATION },
-			})
-		);
+		try {
+			const [err, result] = await asaw(
+				postData({
+					url: "/api/organisation",
+					data: { name: messages.PERSONAL_ORGANISATION },
+				})
+			);
 
-		if (err || !result?.id) {
+			if (err || !result?.id) {
+				return;
+			}
+
+			await setCurrentOrgAndComplete(result.id);
+		} finally {
 			setIsSkipping(false);
-			return;
 		}
-
-		await setCurrentOrgAndComplete(result.id);
 	};
 
 	const handleSelectOrganisation = async (orgId: string) => {
 		if (isCompleting) return;
 
 		setIsSelectingOrg(orgId);
-		await setCurrentOrgAndComplete(orgId);
+		try {
+			await setCurrentOrgAndComplete(orgId);
+		} finally {
+			setIsSelectingOrg(null);
+		}
 	};
 
 	const handleAcceptInvitation = async (invitationId: string) => {

@@ -545,14 +545,14 @@ export default function OrganisationSettingsPage() {
 																		{messages.LEAVE_ORGANISATION_CONFIRMATION}
 																	</AlertDialogDescription>
 																</AlertDialogHeader>
-																<AlertDialogFooter>
-																	<AlertDialogCancel>
-																		{messages.CANCEL}
-																	</AlertDialogCancel>
-																	<AlertDialogAction onClick={handleLeaveOrg}>
-																		{messages.DELETE}
-																	</AlertDialogAction>
-																</AlertDialogFooter>
+															<AlertDialogFooter>
+																<AlertDialogCancel>
+																	{messages.CANCEL}
+																</AlertDialogCancel>
+																<AlertDialogAction onClick={handleLeaveOrg}>
+																	{messages.LEAVE}
+																</AlertDialogAction>
+															</AlertDialogFooter>
 															</AlertDialogContent>
 														</AlertDialog>
 													)}

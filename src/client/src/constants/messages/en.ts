@@ -352,6 +352,7 @@ export const CONFIGURED = "Configured";
 export const SELECTED = "Selected";
 export const CANCEL = "Cancel";
 export const DELETE = "Delete";
+export const LEAVE = "Leave";
 export const CLOSE = "Close";
 export const ACTIONS = "Actions";
 export const JOIN = "Join";
