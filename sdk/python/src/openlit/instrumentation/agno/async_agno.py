@@ -780,7 +780,8 @@ def async_workflow_run_wrap(
                 async for event in result:
                     yield event
             else:
-                yield await result
+                # Test
+                return await result
             return
 
         workflow_name = getattr(instance, "name", "unknown_workflow")
