@@ -297,3 +297,58 @@ def eval_metric_attributes(verdict, score, validator, classification, explanatio
         SemanticConvention.EVAL_CLASSIFICATION: classification,
         SemanticConvention.EVAL_EXPLANATION: explanation,
     }
+
+
+def emit_evaluation_event(
+    event_provider,
+    evaluation_name,
+    score_value,
+    score_label,
+    explanation,
+    response_id=None,
+):
+    """
+    Emit gen_ai.evaluation.result event.
+
+    Args:
+        event_provider: The OTel event provider
+        evaluation_name: Name of evaluation (hallucination, bias_detection, toxicity_detection)
+        score_value: Numerical score 0.0-1.0
+        score_label: Human-readable label (yes/no or pass/fail)
+        explanation: Brief explanation of evaluation result
+        response_id: Optional response ID for correlation
+    """
+    try:
+        if not event_provider:
+            return
+
+        from openlit.__helpers import otel_event
+        from openlit.semcov import SemanticConvention
+
+        # Build event attributes per OTel spec
+        attributes = {
+            SemanticConvention.GEN_AI_EVALUATION_NAME: evaluation_name,
+            SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE: float(score_value),
+            SemanticConvention.GEN_AI_EVALUATION_SCORE_LABEL: score_label,
+        }
+
+        # Add recommended attributes
+        if explanation:
+            attributes[SemanticConvention.GEN_AI_EVALUATION_EXPLANATION] = explanation
+        if response_id:
+            attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
+
+        # Create and emit event
+        event = otel_event(
+            name=SemanticConvention.GEN_AI_EVALUATION_RESULT,
+            attributes=attributes,
+            body="",  # Per spec, all data in attributes
+        )
+
+        event_provider.emit(event)
+
+    except Exception as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning("Failed to emit evaluation event: %s", e, exc_info=True)

@@ -38,6 +38,17 @@ class SemanticConvention:
     GEN_AI_TOOL_MESSAGE = "gen_ai.tools.message"
     GEN_AI_CHOICE = "gen_ai.choice"
 
+    # GenAI Event Names (OTel Semconv v1.29+)
+    GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS = (
+        "gen_ai.client.inference.operation.details"
+    )
+
+    # GenAI Content Attributes (OTel Semconv v1.29+)
+    GEN_AI_INPUT_MESSAGES = "gen_ai.input.messages"
+    GEN_AI_OUTPUT_MESSAGES = "gen_ai.output.messages"
+    GEN_AI_SYSTEM_INSTRUCTIONS = "gen_ai.system_instructions"
+    GEN_AI_TOOL_DEFINITIONS = "gen_ai.tool.definitions"
+
     # GenAI Request Attributes (OTel Semconv)
     GEN_AI_OPERATION = "gen_ai.operation.name"
     GEN_AI_SYSTEM = "gen_ai.system"
@@ -758,6 +769,13 @@ class SemanticConvention:
     EVAL_CLASSIFICATION = "evals.classification"
     EVAL_VALIDATOR = "evals.validator"
     EVAL_EXPLANATION = "evals.explanation"
+
+    # GenAI Evaluation Event (OTel Semconv)
+    GEN_AI_EVALUATION_RESULT = "gen_ai.evaluation.result"
+    GEN_AI_EVALUATION_NAME = "gen_ai.evaluation.name"
+    GEN_AI_EVALUATION_SCORE_VALUE = "gen_ai.evaluation.score.value"
+    GEN_AI_EVALUATION_SCORE_LABEL = "gen_ai.evaluation.score.label"
+    GEN_AI_EVALUATION_EXPLANATION = "gen_ai.evaluation.explanation"
 
     # === FRAMEWORK OPERATIONS (Generic attributes for all RAG/AI frameworks) ===
 

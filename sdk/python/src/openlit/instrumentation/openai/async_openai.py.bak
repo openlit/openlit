@@ -19,7 +19,7 @@ from openlit.instrumentation.openai.utils import (
 from openlit.semcov import SemanticConvention
 
 
-def chat_completions(
+def async_chat_completions(
     version,
     environment,
     application_name,
@@ -31,12 +31,12 @@ def chat_completions(
     event_provider=None,
 ):
     """
-    Generates a telemetry wrapper for OpenAI chat completions.
+    Generates a telemetry wrapper for OpenAI async chat completions.
     """
 
-    class TracedSyncStream:
+    class TracedAsyncStream:
         """
-        Wrapper for streaming responses to collect telemetry.
+        Wrapper for async streaming responses to collect telemetry.
         """
 
         def __init__(
@@ -69,26 +69,26 @@ def chat_completions(
             self._server_port = server_port
             self._event_provider = event_provider
 
-        def __enter__(self):
-            self.__wrapped__.__enter__()
+        async def __aenter__(self):
+            await self.__wrapped__.__aenter__()
             return self
 
-        def __exit__(self, exc_type, exc_value, traceback):
-            self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+        async def __aexit__(self, exc_type, exc_value, traceback):
+            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
 
-        def __iter__(self):
+        def __aiter__(self):
             return self
 
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
-        def __next__(self):
+        async def __anext__(self):
             try:
-                chunk = self.__wrapped__.__next__()
+                chunk = await self.__wrapped__.__anext__()
                 process_chat_chunk(self, chunk)
                 return chunk
-            except StopIteration:
+            except StopAsyncIteration:
                 try:
                     with self._span:
                         process_streaming_chat_response(
@@ -106,9 +106,9 @@ def chat_completions(
                     handle_exception(self._span, e)
                 raise
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the OpenAI chat completions call.
+        Wraps the OpenAI async chat completions call.
         """
 
         streaming = kwargs.get("stream", False)
@@ -120,23 +120,17 @@ def chat_completions(
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         if streaming:
-            awaited_wrapped = wrapped(*args, **kwargs)
+            awaited_wrapped = await wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            return TracedSyncStream(
-                awaited_wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                event_provider,
+            return TracedAsyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port, event_provider
             )
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
-                response = wrapped(*args, **kwargs)
+                response = await wrapped(*args, **kwargs)
 
                 try:
                     response = process_chat_response(
@@ -165,7 +159,7 @@ def chat_completions(
     return wrapper
 
 
-def responses(
+def async_responses(
     version,
     environment,
     application_name,
@@ -175,15 +169,14 @@ def responses(
     metrics,
     disable_metrics,
     event_provider=None,
-    **kwargs,
 ):
     """
-    Generates a telemetry wrapper for OpenAI responses API.
+    Generates a telemetry wrapper for OpenAI async responses API.
     """
 
-    class TracedSyncStream:
+    class TracedAsyncStream:
         """
-        Wrapper for streaming responses to collect telemetry.
+        Wrapper for async streaming responses to collect telemetry.
         """
 
         def __init__(
@@ -220,26 +213,26 @@ def responses(
             self._server_port = server_port
             self._event_provider = event_provider
 
-        def __enter__(self):
-            self.__wrapped__.__enter__()
+        async def __aenter__(self):
+            await self.__wrapped__.__aenter__()
             return self
 
-        def __exit__(self, exc_type, exc_value, traceback):
-            self.__wrapped__.__exit__(exc_type, exc_value, traceback)
+        async def __aexit__(self, exc_type, exc_value, traceback):
+            await self.__wrapped__.__aexit__(exc_type, exc_value, traceback)
 
-        def __iter__(self):
+        def __aiter__(self):
             return self
 
         def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
             return getattr(self.__wrapped__, name)
 
-        def __next__(self):
+        async def __anext__(self):
             try:
-                chunk = self.__wrapped__.__next__()
+                chunk = await self.__wrapped__.__anext__()
                 process_response_chunk(self, chunk)
                 return chunk
-            except StopIteration:
+            except StopAsyncIteration:
                 try:
                     with self._span:
                         process_streaming_response_response(
@@ -257,9 +250,9 @@ def responses(
                     handle_exception(self._span, e)
                 raise
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the OpenAI responses API call.
+        Wraps the OpenAI async responses API call.
         """
 
         streaming = kwargs.get("stream", False)
@@ -271,23 +264,17 @@ def responses(
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
 
         if streaming:
-            awaited_wrapped = wrapped(*args, **kwargs)
+            awaited_wrapped = await wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
-            return TracedSyncStream(
-                awaited_wrapped,
-                span,
-                span_name,
-                kwargs,
-                server_address,
-                server_port,
-                event_provider,
+            return TracedAsyncStream(
+                awaited_wrapped, span, span_name, kwargs, server_address, server_port, event_provider
             )
 
         else:
             with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
                 start_time = time.time()
-                response = wrapped(*args, **kwargs)
+                response = await wrapped(*args, **kwargs)
 
                 try:
                     response = process_response_response(
@@ -316,7 +303,7 @@ def responses(
     return wrapper
 
 
-def chat_completions_parse(
+def async_chat_completions_parse(
     version,
     environment,
     application_name,
@@ -328,12 +315,12 @@ def chat_completions_parse(
     event_provider=None,
 ):
     """
-    Generates a telemetry wrapper for OpenAI chat completions parse.
+    Generates a telemetry wrapper for OpenAI async chat completions parse.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the OpenAI chat completions parse call.
+        Wraps the OpenAI async chat completions parse call.
         """
 
         server_address, server_port = set_server_address_and_port(
@@ -345,7 +332,7 @@ def chat_completions_parse(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 response = process_chat_response(
@@ -374,7 +361,7 @@ def chat_completions_parse(
     return wrapper
 
 
-def embedding(
+def async_embedding(
     version,
     environment,
     application_name,
@@ -384,15 +371,14 @@ def embedding(
     metrics,
     disable_metrics,
     event_provider=None,
-    **kwargs,
 ):
     """
-    Generates a telemetry wrapper for OpenAI embeddings.
+    Generates a telemetry wrapper for OpenAI async embeddings.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the OpenAI embeddings call.
+        Wraps the OpenAI async embeddings call.
         """
 
         server_address, server_port = set_server_address_and_port(
@@ -406,7 +392,7 @@ def embedding(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
 
             try:
                 response = process_embedding_response(
@@ -423,7 +409,6 @@ def embedding(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    event_provider=event_provider,
                     **kwargs,
                 )
 
@@ -435,7 +420,7 @@ def embedding(
     return wrapper
 
 
-def image_generate(
+def async_image_generate(
     version,
     environment,
     application_name,
@@ -445,15 +430,14 @@ def image_generate(
     metrics,
     disable_metrics,
     event_provider=None,
-    **kwargs,
 ):
     """
-    Generates a telemetry wrapper for OpenAI image generation.
+    Generates a telemetry wrapper for OpenAI async image generation.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the OpenAI image generation call.
+        Wraps the OpenAI async image generation call.
         """
 
         server_address, server_port = set_server_address_and_port(
@@ -465,7 +449,7 @@ def image_generate(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             end_time = time.time()
 
             try:
@@ -484,7 +468,6 @@ def image_generate(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    event_provider=event_provider,
                     **kwargs,
                 )
 
@@ -496,7 +479,7 @@ def image_generate(
     return wrapper
 
 
-def image_variatons(
+def async_image_variations(
     version,
     environment,
     application_name,
@@ -508,12 +491,12 @@ def image_variatons(
     event_provider=None,
 ):
     """
-    Generates a telemetry wrapper for OpenAI image variations.
+    Generates a telemetry wrapper for OpenAI async image variations.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the OpenAI image variations call.
+        Wraps the OpenAI async image variations call.
         """
 
         server_address, server_port = set_server_address_and_port(
@@ -525,7 +508,7 @@ def image_variatons(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             end_time = time.time()
 
             try:
@@ -544,7 +527,6 @@ def image_variatons(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    event_provider=event_provider,
                     **kwargs,
                 )
 
@@ -556,7 +538,7 @@ def image_variatons(
     return wrapper
 
 
-def audio_create(
+def async_audio_create(
     version,
     environment,
     application_name,
@@ -568,12 +550,12 @@ def audio_create(
     event_provider=None,
 ):
     """
-    Generates a telemetry wrapper for OpenAI audio creation.
+    Generates a telemetry wrapper for OpenAI async audio creation.
     """
 
-    def wrapper(wrapped, instance, args, kwargs):
+    async def wrapper(wrapped, instance, args, kwargs):
         """
-        Wraps the OpenAI audio creation call.
+        Wraps the OpenAI async audio creation call.
         """
 
         server_address, server_port = set_server_address_and_port(
@@ -585,7 +567,7 @@ def audio_create(
 
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
-            response = wrapped(*args, **kwargs)
+            response = await wrapped(*args, **kwargs)
             end_time = time.time()
 
             try:
@@ -604,7 +586,6 @@ def audio_create(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
-                    event_provider=event_provider,
                     **kwargs,
                 )
 

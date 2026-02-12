@@ -3,6 +3,7 @@ OpenAI OpenTelemetry instrumentation utility functions
 """
 
 import time
+import logging
 
 from opentelemetry.trace import Status, StatusCode
 
@@ -20,8 +21,11 @@ from openlit.__helpers import (
     record_audio_metrics,
     record_image_metrics,
     common_span_attributes,
+    otel_event,
 )
 from openlit.semcov import SemanticConvention
+
+logger = logging.getLogger(__name__)
 
 
 def handle_not_given(value, default=None):
@@ -85,6 +89,423 @@ def format_content(messages):
             formatted_messages.append(f"{role}: {content}")
 
     return "\n".join(formatted_messages)
+
+
+def build_input_messages(messages):
+    """
+    Convert OpenAI request messages to OTel input message structure.
+    Follows https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-input-messages.json
+
+    Args:
+        messages: OpenAI messages array from request
+
+    Returns:
+        List of ChatMessage objects with role and parts
+    """
+    if not messages:
+        return []
+
+    # Handle string input (simple case)
+    if isinstance(messages, str):
+        return [{"role": "user", "parts": [{"type": "text", "content": messages}]}]
+
+    otel_messages = []
+
+    for message in messages:
+        try:
+            # Extract role
+            role = (
+                message.get("role", "user")
+                if isinstance(message, dict)
+                else getattr(message, "role", "user")
+            )
+
+            # Extract content
+            content = (
+                message.get("content", "")
+                if isinstance(message, dict)
+                else getattr(message, "content", "")
+            )
+
+            # Build parts array
+            parts = []
+
+            if isinstance(content, list):
+                # Multi-part content
+                for item in content:
+                    item_type = (
+                        item.get("type")
+                        if isinstance(item, dict)
+                        else getattr(item, "type", None)
+                    )
+
+                    # Chat completions format
+                    if item_type == "text":
+                        text_content = (
+                            item.get("text", "")
+                            if isinstance(item, dict)
+                            else getattr(item, "text", "")
+                        )
+                        if text_content:
+                            parts.append({"type": "text", "content": text_content})
+
+                    elif item_type == "image_url":
+                        image_url_obj = (
+                            item.get("image_url", {})
+                            if isinstance(item, dict)
+                            else getattr(item, "image_url", {})
+                        )
+                        if isinstance(image_url_obj, dict):
+                            url = image_url_obj.get("url", "")
+                        else:
+                            url = getattr(image_url_obj, "url", "")
+
+                        # Skip data URIs
+                        if url and not url.startswith("data:"):
+                            parts.append(
+                                {"type": "uri", "modality": "image", "uri": url}
+                            )
+
+                    # Responses API format
+                    elif item_type == "input_text":
+                        text_content = (
+                            item.get("text", "")
+                            if isinstance(item, dict)
+                            else getattr(item, "text", "")
+                        )
+                        if text_content:
+                            parts.append({"type": "text", "content": text_content})
+
+                    elif item_type == "input_image":
+                        image_url = (
+                            item.get("image_url", "")
+                            if isinstance(item, dict)
+                            else getattr(item, "image_url", "")
+                        )
+                        if image_url and not image_url.startswith("data:"):
+                            parts.append(
+                                {"type": "uri", "modality": "image", "uri": image_url}
+                            )
+
+                    # Tool call response (assistant sending tool results)
+                    elif item_type == "tool_call":
+                        tool_call_obj = (
+                            item
+                            if isinstance(item, dict)
+                            else {
+                                "id": getattr(item, "id", ""),
+                                "name": getattr(item, "name", ""),
+                                "arguments": getattr(item, "arguments", {}),
+                            }
+                        )
+                        parts.append(
+                            {
+                                "type": "tool_call",
+                                "id": tool_call_obj.get("id", ""),
+                                "name": tool_call_obj.get("name", ""),
+                                "arguments": tool_call_obj.get("arguments", {}),
+                            }
+                        )
+
+            elif isinstance(content, str) and content:
+                # Simple string content
+                parts.append({"type": "text", "content": content})
+
+            # Handle tool_call_id for tool role messages
+            if role == "tool":
+                tool_call_id = (
+                    message.get("tool_call_id", "")
+                    if isinstance(message, dict)
+                    else getattr(message, "tool_call_id", "")
+                )
+                tool_content = content if isinstance(content, str) else str(content)
+                # For tool responses, use tool_call_response part type
+                parts = [
+                    {
+                        "type": "tool_call_response",
+                        "id": tool_call_id,
+                        "response": tool_content,
+                    }
+                ]
+
+            if parts:  # Only add message if it has content
+                otel_message = {"role": role, "parts": parts}
+
+                # Add optional name if present
+                name = (
+                    message.get("name")
+                    if isinstance(message, dict)
+                    else getattr(message, "name", None)
+                )
+                if name:
+                    otel_message["name"] = name
+
+                otel_messages.append(otel_message)
+
+        except Exception as e:
+            logger.warning("Failed to process input message: %s", e, exc_info=True)
+            continue
+
+    return otel_messages
+
+
+def build_output_messages(response_text, finish_reason, tool_calls=None):
+    """
+    Convert OpenAI response to OTel output message structure.
+    Follows https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-output-messages.json
+
+    Args:
+        response_text: Response text from model
+        finish_reason: Finish reason from OpenAI
+        tool_calls: Optional tool calls from response
+
+    Returns:
+        List with single OutputMessage (for choice 0)
+    """
+    parts = []
+
+    try:
+        # Add text content if present
+        if response_text:
+            parts.append({"type": "text", "content": response_text})
+
+        # Add tool calls if present
+        if tool_calls:
+            if isinstance(tool_calls, list):
+                for tool_call in tool_calls:
+                    try:
+                        # Extract tool call data
+                        if isinstance(tool_call, dict):
+                            tool_id = tool_call.get("id", "")
+                            tool_name = tool_call.get("name", "")
+                            tool_args = tool_call.get("arguments", {})
+                        else:
+                            tool_id = getattr(tool_call, "id", "")
+                            tool_name = getattr(tool_call, "name", "")
+                            tool_args = getattr(tool_call, "arguments", {})
+
+                        # Parse arguments if it's a string
+                        if isinstance(tool_args, str):
+                            try:
+                                import json
+
+                                tool_args = json.loads(tool_args)
+                            except:
+                                tool_args = {"raw": tool_args}
+
+                        parts.append(
+                            {
+                                "type": "tool_call",
+                                "id": tool_id,
+                                "name": tool_name,
+                                "arguments": tool_args,
+                            }
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to process tool call: %s", e, exc_info=True
+                        )
+                        continue
+            elif isinstance(tool_calls, str):
+                # Tool calls stored as string (comma-separated names)
+                # Just add as text note
+                pass
+
+        # Map OpenAI finish reasons to OTel finish reasons
+        finish_reason_map = {
+            "stop": "stop",
+            "length": "length",
+            "content_filter": "content_filter",
+            "tool_calls": "tool_call",
+            "function_call": "tool_call",
+        }
+
+        otel_finish_reason = finish_reason_map.get(
+            finish_reason, finish_reason or "stop"
+        )
+
+        return [
+            {"role": "assistant", "parts": parts, "finish_reason": otel_finish_reason}
+        ]
+
+    except Exception as e:
+        logger.warning("Failed to build output messages: %s", e, exc_info=True)
+        # Return minimal valid structure
+        return [{"role": "assistant", "parts": [], "finish_reason": "stop"}]
+
+
+def build_tool_definitions(tools):
+    """
+    Extract tool/function definitions from request.
+
+    Args:
+        tools: Tools array from OpenAI request
+
+    Returns:
+        List of tool definition objects or None
+    """
+    if not tools:
+        return None
+
+    try:
+        tool_definitions = []
+
+        for tool in tools:
+            try:
+                if isinstance(tool, dict):
+                    # Extract function definition
+                    if tool.get("type") == "function" and "function" in tool:
+                        func = tool["function"]
+                        tool_definitions.append(
+                            {
+                                "type": "function",
+                                "name": func.get("name", ""),
+                                "description": func.get("description", ""),
+                                "parameters": func.get("parameters", {}),
+                            }
+                        )
+                else:
+                    # Handle object format
+                    if getattr(tool, "type", None) == "function":
+                        func = getattr(tool, "function", None)
+                        if func:
+                            tool_definitions.append(
+                                {
+                                    "type": "function",
+                                    "name": getattr(func, "name", ""),
+                                    "description": getattr(func, "description", ""),
+                                    "parameters": getattr(func, "parameters", {}),
+                                }
+                            )
+            except Exception as e:
+                logger.warning(
+                    "Failed to process tool definition: %s", e, exc_info=True
+                )
+                continue
+
+        return tool_definitions if tool_definitions else None
+
+    except Exception as e:
+        logger.warning("Failed to build tool definitions: %s", e, exc_info=True)
+        return None
+
+
+def emit_inference_event(
+    event_provider,
+    operation_name,
+    request_model,
+    response_model,
+    input_messages=None,
+    output_messages=None,
+    tool_definitions=None,
+    server_address=None,
+    server_port=None,
+    **extra_attrs,
+):
+    """
+    Emit gen_ai.client.inference.operation.details event.
+
+    Args:
+        event_provider: The OTel event provider
+        operation_name: Operation type (chat, embeddings, etc.)
+        request_model: Model from request
+        response_model: Model from response
+        input_messages: Structured input messages (optional)
+        output_messages: Structured output messages (optional)
+        tool_definitions: Tool definitions (optional)
+        server_address: Server address (optional)
+        server_port: Server port (optional)
+        **extra_attrs: Additional attributes (response_id, finish_reasons, etc.)
+    """
+    try:
+        if not event_provider:
+            return
+
+        # Build event attributes
+        attributes = {
+            SemanticConvention.GEN_AI_OPERATION: operation_name,
+        }
+
+        # Add model attributes
+        if request_model:
+            attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = request_model
+        if response_model:
+            attributes[SemanticConvention.GEN_AI_RESPONSE_MODEL] = response_model
+
+        # Add server attributes
+        if server_address:
+            attributes[SemanticConvention.SERVER_ADDRESS] = server_address
+        if server_port:
+            attributes[SemanticConvention.SERVER_PORT] = server_port
+
+        # Add message attributes (structured format required for events per OTel spec)
+        if input_messages is not None:
+            attributes[SemanticConvention.GEN_AI_INPUT_MESSAGES] = input_messages
+        if output_messages is not None:
+            attributes[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = output_messages
+
+        # Add tool definitions
+        if tool_definitions is not None:
+            attributes[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = tool_definitions
+
+        # Add extra attributes with proper mapping to semantic conventions
+        for key, value in extra_attrs.items():
+            if value is not None:
+                # Map common keys to semantic conventions
+                if key == "response_id":
+                    attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = value
+                elif key == "finish_reasons":
+                    attributes[SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON] = value
+                elif key == "output_type":
+                    attributes[SemanticConvention.GEN_AI_OUTPUT_TYPE] = value
+                elif key == "conversation_id":
+                    # Note: OpenAI doesn't provide conversation_id, but included for completeness
+                    attributes["gen_ai.conversation.id"] = value
+                elif key == "temperature":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE] = value
+                elif key == "max_tokens":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] = value
+                elif key == "top_p":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_TOP_P] = value
+                elif key == "frequency_penalty":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY] = (
+                        value
+                    )
+                elif key == "presence_penalty":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY] = (
+                        value
+                    )
+                elif key == "stop_sequences":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES] = value
+                elif key == "seed":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_SEED] = value
+                elif key == "choice_count" or key == "n":
+                    # Only add if not 1 (per spec: conditionally required if ≠1)
+                    if value != 1:
+                        attributes["gen_ai.request.choice.count"] = value
+                elif key == "input_tokens":
+                    attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] = value
+                elif key == "output_tokens":
+                    attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] = value
+                elif key == "cache_creation_input_tokens":
+                    attributes["gen_ai.usage.cache_creation.input_tokens"] = value
+                elif key == "cache_read_input_tokens":
+                    attributes["gen_ai.usage.cache_read.input_tokens"] = value
+                else:
+                    # Pass through any other attributes as-is
+                    attributes[key] = value
+
+        # Create and emit event
+        event = otel_event(
+            name=SemanticConvention.GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS,
+            attributes=attributes,
+            body="",  # Per spec, all data in attributes
+        )
+
+        event_provider.emit(event)
+
+    except Exception as e:
+        logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
 def process_chat_chunk(scope, chunk):
@@ -262,6 +683,7 @@ def common_response_logic(
     disable_metrics,
     version,
     is_stream,
+    event_provider=None,
 ):
     """
     Process responses API request and generate Telemetry
@@ -400,19 +822,41 @@ def common_response_logic(
             SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
         )
 
-        # To be removed once the change to span_attributes (from span events) is complete
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
-            },
-        )
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
-            },
-        )
+        # Emit inference event
+        if event_provider:
+            try:
+                input_msgs = build_input_messages(input_data)
+                output_msgs = build_output_messages(
+                    scope._llmresponse,
+                    scope._finish_reason,
+                    scope._response_tools
+                    if hasattr(scope, "_response_tools")
+                    else None,
+                )
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                    request_model=request_model,
+                    response_model=scope._response_model,
+                    input_messages=input_msgs,
+                    output_messages=output_msgs,
+                    tool_definitions=None,  # Responses API doesn't expose tools upfront
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    response_id=scope._response_id,
+                    finish_reasons=[scope._finish_reason],
+                    output_type="text",
+                    temperature=handle_not_given(scope._kwargs.get("temperature"), 1.0),
+                    max_tokens=handle_not_given(
+                        scope._kwargs.get("max_output_tokens"), -1
+                    ),
+                    top_p=handle_not_given(scope._kwargs.get("top_p"), 1.0),
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
+            except Exception as e:
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 
@@ -447,6 +891,7 @@ def process_streaming_response_response(
     capture_message_content=False,
     disable_metrics=False,
     version="",
+    event_provider=None,
 ):
     """
     Process streaming responses API response and generate telemetry.
@@ -462,6 +907,7 @@ def process_streaming_response_response(
         disable_metrics,
         version,
         is_stream=True,
+        event_provider=event_provider,
     )
 
 
@@ -479,6 +925,7 @@ def process_response_response(
     capture_message_content=False,
     disable_metrics=False,
     version="1.0.0",
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -551,6 +998,7 @@ def process_response_response(
         disable_metrics,
         version,
         is_stream=False,
+        event_provider=event_provider,
     )
 
     return response
@@ -566,6 +1014,7 @@ def common_chat_logic(
     disable_metrics,
     version,
     is_stream,
+    event_provider=None,
 ):
     """
     Process chat request and generate Telemetry
@@ -720,19 +1169,58 @@ def common_chat_logic(
             SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
         )
 
-        # To be removed once the change to span_attributes (from span events) is complete
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
-            },
-        )
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
-            },
-        )
+        # Emit inference event
+        if event_provider:
+            try:
+                # Get messages from kwargs (could be chat completions or responses API)
+                if (
+                    hasattr(scope, "_operation_type")
+                    and scope._operation_type == "responses"
+                ):
+                    input_data = scope._kwargs.get("input", "")
+                    input_msgs = build_input_messages(input_data)
+                else:
+                    input_msgs = build_input_messages(scope._kwargs.get("messages", []))
+
+                output_msgs = build_output_messages(
+                    scope._llmresponse,
+                    scope._finish_reason,
+                    scope._tools if hasattr(scope, "_tools") else None,
+                )
+                tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                    request_model=request_model,
+                    response_model=scope._response_model,
+                    input_messages=input_msgs,
+                    output_messages=output_msgs,
+                    tool_definitions=tool_defs,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    response_id=scope._response_id,
+                    finish_reasons=[scope._finish_reason],
+                    output_type="text"
+                    if isinstance(scope._llmresponse, str)
+                    else "json",
+                    temperature=handle_not_given(scope._kwargs.get("temperature"), 1.0),
+                    max_tokens=handle_not_given(scope._kwargs.get("max_tokens"), -1),
+                    top_p=handle_not_given(scope._kwargs.get("top_p"), 1.0),
+                    frequency_penalty=handle_not_given(
+                        scope._kwargs.get("frequency_penalty"), 0.0
+                    ),
+                    presence_penalty=handle_not_given(
+                        scope._kwargs.get("presence_penalty"), 0.0
+                    ),
+                    stop_sequences=handle_not_given(scope._kwargs.get("stop"), []),
+                    seed=str(handle_not_given(scope._kwargs.get("seed"), "")),
+                    choice_count=scope._kwargs.get("n", 1),
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
+            except Exception as e:
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 
@@ -767,6 +1255,7 @@ def process_streaming_chat_response(
     capture_message_content=False,
     disable_metrics=False,
     version="",
+    event_provider=None,
 ):
     """
     Process streaming chat response and generate telemetry.
@@ -782,6 +1271,7 @@ def process_streaming_chat_response(
         disable_metrics,
         version,
         is_stream=True,
+        event_provider=event_provider,
     )
 
 
@@ -799,6 +1289,7 @@ def process_chat_response(
     capture_message_content=False,
     disable_metrics=False,
     version="1.0.0",
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -853,6 +1344,7 @@ def process_chat_response(
         disable_metrics,
         version,
         is_stream=False,
+        event_provider=event_provider,
     )
 
     return response
@@ -868,6 +1360,7 @@ def common_embedding_logic(
     capture_message_content,
     disable_metrics,
     version,
+    event_provider=None,
 ):
     """
     Common logic for processing embedding operations.
@@ -924,6 +1417,41 @@ def common_embedding_logic(
             SemanticConvention.GEN_AI_CONTENT_PROMPT, formatted_content
         )
 
+        # Emit inference event
+        if event_provider:
+            try:
+                # Build input messages with text content
+                if isinstance(input_data, list):
+                    input_msgs = [
+                        {
+                            "role": "user",
+                            "parts": [{"type": "text", "content": str(item)}],
+                        }
+                        for item in input_data
+                    ]
+                else:
+                    input_msgs = [
+                        {
+                            "role": "user",
+                            "parts": [{"type": "text", "content": str(input_data)}],
+                        }
+                    ]
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                    request_model=request_model,
+                    response_model=request_model,
+                    input_messages=input_msgs,
+                    output_messages=None,  # Embeddings don't have text output
+                    tool_definitions=None,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    input_tokens=scope._input_tokens,
+                )
+            except Exception as e:
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+
     scope._span.set_status(Status(StatusCode.OK))
 
     # Record metrics
@@ -955,6 +1483,7 @@ def common_image_logic(
     capture_message_content,
     disable_metrics,
     version,
+    event_provider=None,
 ):
     """
     Common logic for processing image operations.
@@ -1065,18 +1594,61 @@ def common_image_logic(
                     SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT, revised_prompts
                 )
 
-            # Add revised prompt events for detailed tracking
-            for i, image in enumerate(images_data):
-                if image.get("revised_prompt"):
-                    scope._span.add_event(
-                        name=SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT,
-                        attributes={
-                            SemanticConvention.GEN_AI_CONTENT_REVISED_PROMPT: image[
-                                "revised_prompt"
-                            ],
-                            "image_index": i,
-                        },
-                    )
+        # Emit inference event
+        if event_provider:
+            try:
+                # Build input messages with text prompt
+                input_msgs = (
+                    [{"role": "user", "parts": [{"type": "text", "content": prompt}]}]
+                    if prompt
+                    else []
+                )
+
+                # Build output messages with revised prompts as text parts
+                output_msgs = []
+                if images_data:
+                    for image in images_data:
+                        parts = []
+                        # Add revised prompt if available
+                        if image.get("revised_prompt"):
+                            parts.append(
+                                {"type": "text", "content": image["revised_prompt"]}
+                            )
+                        # Add image URL if available (not base64)
+                        if image.get("url"):
+                            parts.append(
+                                {
+                                    "type": "uri",
+                                    "modality": "image",
+                                    "uri": image["url"],
+                                }
+                            )
+
+                        if parts:
+                            output_msgs.append(
+                                {
+                                    "role": "assistant",
+                                    "parts": parts,
+                                    "finish_reason": "stop",
+                                }
+                            )
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE,
+                    request_model=request_model,
+                    response_model=request_model,
+                    input_messages=input_msgs,
+                    output_messages=output_msgs if output_msgs else None,
+                    tool_definitions=None,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    response_id=str(response_created) if response_created else None,
+                    output_type="image",
+                    choice_count=scope._kwargs.get("n", 1),
+                )
+            except Exception as e:
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 
@@ -1108,6 +1680,7 @@ def common_audio_logic(
     capture_message_content,
     disable_metrics,
     version,
+    event_provider=None,
 ):
     """
     Common logic for processing audio operations.
@@ -1156,6 +1729,44 @@ def common_audio_logic(
         input_text = scope._kwargs.get("input", "")
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, input_text)
 
+        # Emit inference event
+        if event_provider:
+            try:
+                # Build input messages with text content
+                input_msgs = (
+                    [
+                        {
+                            "role": "user",
+                            "parts": [{"type": "text", "content": input_text}],
+                        }
+                    ]
+                    if input_text
+                    else []
+                )
+
+                # Audio output doesn't have text response, just indicate audio generation
+                output_msgs = [
+                    {
+                        "role": "assistant",
+                        "parts": [{"type": "text", "content": "[audio generated]"}],
+                        "finish_reason": "stop",
+                    }
+                ]
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
+                    request_model=request_model,
+                    response_model=request_model,
+                    input_messages=input_msgs,
+                    output_messages=output_msgs,
+                    tool_definitions=None,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                )
+            except Exception as e:
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+
     scope._span.set_status(Status(StatusCode.OK))
 
     # Record metrics
@@ -1191,6 +1802,7 @@ def process_audio_response(
     capture_message_content=False,
     disable_metrics=False,
     version="1.0.0",
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -1217,6 +1829,7 @@ def process_audio_response(
         capture_message_content,
         disable_metrics,
         version,
+        event_provider=event_provider,
     )
 
     return response
@@ -1236,6 +1849,7 @@ def process_embedding_response(
     capture_message_content=False,
     disable_metrics=False,
     version="1.0.0",
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -1264,6 +1878,7 @@ def process_embedding_response(
         capture_message_content,
         disable_metrics,
         version,
+        event_provider=event_provider,
     )
 
     return response
@@ -1284,6 +1899,7 @@ def process_image_response(
     capture_message_content=False,
     disable_metrics=False,
     version="1.0.0",
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -1312,6 +1928,7 @@ def process_image_response(
         capture_message_content,
         disable_metrics,
         version,
+        event_provider=event_provider,
     )
 
     return response

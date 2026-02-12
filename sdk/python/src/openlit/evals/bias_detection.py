@@ -127,6 +127,7 @@ class BiasDetector:
         custom_categories: Optional[Dict[str, str]] = None,
         collect_metrics: Optional[bool] = False,
         threshold_score: Optional[float] = 0.5,
+        event_provider=None,
     ):
         """
         Initializes the Bias detector with specified LLM settings, custom rules, and categories.
@@ -151,6 +152,7 @@ class BiasDetector:
         self.collect_metrics = collect_metrics
         self.custom_categories = custom_categories
         self.threshold_score = threshold_score
+        self.event_provider = event_provider
         self.system_prompt = get_system_prompt(
             self.custom_categories, self.threshold_score
         )
@@ -196,5 +198,18 @@ class BiasDetector:
                 result.explanation,
             )
             eval_counter.add(1, attributes)
+
+        # Emit evaluation event
+        if self.event_provider:
+            from openlit.evals.utils import emit_evaluation_event
+
+            emit_evaluation_event(
+                event_provider=self.event_provider,
+                evaluation_name=result.evaluation,
+                score_value=result.score,
+                score_label=result_verdict,
+                explanation=result.explanation,
+                response_id=None,
+            )
 
         return result
