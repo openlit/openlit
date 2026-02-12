@@ -383,6 +383,14 @@ def emit_inference_event(
                     attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] = value
                 elif key == "output_tokens":
                     attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] = value
+                elif key == "cache_creation_input_tokens":
+                    attributes[
+                        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS
+                    ] = value
+                elif key == "cache_read_input_tokens":
+                    attributes[
+                        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS
+                    ] = value
 
         # Create and emit event
         event = otel_event(
@@ -415,7 +423,15 @@ def process_chunk(scope, chunk):
     # Collect message IDs and input token from events
     if chunked.get("type") == "message_start":
         scope._response_id = chunked.get("message").get("id")
-        scope._input_tokens = chunked.get("message").get("usage").get("input_tokens")
+        message_usage = chunked.get("message").get("usage", {})
+        scope._input_tokens = message_usage.get("input_tokens", 0)
+        # Extract cache tokens from message_start event
+        scope._cache_creation_input_tokens = message_usage.get(
+            "cache_creation_input_tokens", 0
+        )
+        scope._cache_read_input_tokens = message_usage.get(
+            "cache_read_input_tokens", 0
+        )
         scope._response_model = chunked.get("message").get("model")
         scope._response_role = chunked.get("message").get("role")
 
@@ -579,6 +595,14 @@ def common_chat_logic(
                     stop_sequences=scope._kwargs.get("stop_sequences"),
                     input_tokens=scope._input_tokens,
                     output_tokens=scope._output_tokens,
+                    cache_creation_input_tokens=scope._cache_creation_input_tokens
+                    if hasattr(scope, "_cache_creation_input_tokens")
+                    and scope._cache_creation_input_tokens > 0
+                    else None,
+                    cache_read_input_tokens=scope._cache_read_input_tokens
+                    if hasattr(scope, "_cache_read_input_tokens")
+                    and scope._cache_read_input_tokens > 0
+                    else None,
                 )
             except Exception as e:
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
@@ -673,8 +697,14 @@ def process_chat_response(
     scope._span = span
     scope._llmresponse = response_dict.get("content", [{}])[0].get("text", "")
     scope._response_role = response_dict.get("role", "assistant")
-    scope._input_tokens = response_dict.get("usage").get("input_tokens")
-    scope._output_tokens = response_dict.get("usage").get("output_tokens")
+
+    # Extract usage including cache tokens (Anthropic prompt caching)
+    usage = response_dict.get("usage", {})
+    scope._input_tokens = usage.get("input_tokens", 0)
+    scope._output_tokens = usage.get("output_tokens", 0)
+    scope._cache_creation_input_tokens = usage.get("cache_creation_input_tokens", 0)
+    scope._cache_read_input_tokens = usage.get("cache_read_input_tokens", 0)
+
     scope._response_model = response_dict.get("model", "")
     scope._finish_reason = response_dict.get("stop_reason", "")
     scope._response_id = response_dict.get("id", "")

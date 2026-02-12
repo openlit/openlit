@@ -390,7 +390,11 @@ def emit_inference_event(
                     attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] = value
                 elif key == "reasoning_tokens":
                     # Google-specific: thoughts/reasoning tokens
-                    attributes["gen_ai.usage.reasoning_tokens"] = value
+                    attributes[SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS] = value
+                elif key == "cache_read_input_tokens":
+                    attributes[
+                        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS
+                    ] = value
 
         # Create and emit event
         event = otel_event(
@@ -421,16 +425,18 @@ def process_chunk(self, chunk):
     chunked = response_as_dict(chunk)
 
     self._response_id = str(chunked.get("response_id"))
-    self._input_tokens = chunked.get("usage_metadata").get("prompt_token_count")
+
+    # Extract usage including cache tokens (Google prompt caching)
+    usage_metadata = chunked.get("usage_metadata", {})
+    self._input_tokens = usage_metadata.get("prompt_token_count", 0)
+    self._output_tokens = usage_metadata.get("candidates_token_count", 0)
+    self._reasoning_tokens = usage_metadata.get("thoughts_token_count") or 0
+    self._cache_read_input_tokens = usage_metadata.get("cached_content_token_count", 0)
+
     self._response_model = chunked.get("model_version")
 
     if chunk.text:
         self._llmresponse += str(chunk.text)
-
-    self._output_tokens = chunked.get("usage_metadata").get("candidates_token_count")
-    self._reasoning_tokens = (
-        chunked.get("usage_metadata").get("thoughts_token_count") or 0
-    )
     self._finish_reason = str(chunked.get("candidates")[0].get("finish_reason"))
 
     try:
@@ -594,6 +600,10 @@ def common_chat_logic(
                     input_tokens=scope._input_tokens,
                     output_tokens=scope._output_tokens,
                     reasoning_tokens=scope._reasoning_tokens,
+                    cache_read_input_tokens=scope._cache_read_input_tokens
+                    if hasattr(scope, "_cache_read_input_tokens")
+                    and scope._cache_read_input_tokens > 0
+                    else None,
                 )
             except Exception as e:
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
@@ -689,13 +699,14 @@ def process_chat_response(
     self._end_time = time.time()
     self._span = span
     self._llmresponse = str(response.text)
-    self._input_tokens = response_dict.get("usage_metadata").get("prompt_token_count")
-    self._output_tokens = response_dict.get("usage_metadata").get(
-        "candidates_token_count"
-    )
-    self._reasoning_tokens = (
-        response_dict.get("usage_metadata").get("thoughts_token_count") or 0
-    )
+
+    # Extract usage including cache tokens (Google prompt caching)
+    usage_metadata = response_dict.get("usage_metadata", {})
+    self._input_tokens = usage_metadata.get("prompt_token_count", 0)
+    self._output_tokens = usage_metadata.get("candidates_token_count", 0)
+    self._reasoning_tokens = usage_metadata.get("thoughts_token_count") or 0
+    self._cache_read_input_tokens = usage_metadata.get("cached_content_token_count", 0)
+
     self._response_model = response_dict.get("model_version")
     self._timestamps = []
     self._ttft, self._tbt = self._end_time - self._start_time, 0

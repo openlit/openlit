@@ -482,15 +482,21 @@ def emit_inference_event(
                 elif key in ("choice_count", "n"):
                     # Only add if not 1 (per spec: conditionally required if ≠1)
                     if value != 1:
-                        attributes["gen_ai.request.choice.count"] = value
+                        attributes[SemanticConvention.GEN_AI_REQUEST_CHOICE_COUNT] = (
+                            value
+                        )
                 elif key == "input_tokens":
                     attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] = value
                 elif key == "output_tokens":
                     attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] = value
                 elif key == "cache_creation_input_tokens":
-                    attributes["gen_ai.usage.cache_creation.input_tokens"] = value
+                    attributes[
+                        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS
+                    ] = value
                 elif key == "cache_read_input_tokens":
-                    attributes["gen_ai.usage.cache_read.input_tokens"] = value
+                    attributes[
+                        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS
+                    ] = value
                 else:
                     # Pass through any other attributes as-is
                     attributes[key] = value
@@ -1218,6 +1224,10 @@ def common_chat_logic(
                     choice_count=scope._kwargs.get("n", 1),
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
+                    cache_read_input_tokens=scope._cache_read_input_tokens
+                    if hasattr(scope, "_cache_read_input_tokens")
+                    and scope._cache_read_input_tokens > 0
+                    else None,
                 )
             except Exception as e:
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
@@ -1310,6 +1320,11 @@ def process_chat_response(
     scope._response_model = response_dict.get("model", "")
     scope._input_tokens = response_dict.get("usage", {}).get("prompt_tokens", 0)
     scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
+
+    # Extract cache tokens (OpenAI prompt caching)
+    prompt_tokens_details = response_dict.get("usage", {}).get("prompt_tokens_details", {})
+    scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
+
     scope._timestamps = []
     scope._ttft, scope._tbt = scope._end_time - scope._start_time, 0
     scope._server_address, scope._server_port = server_address, server_port
