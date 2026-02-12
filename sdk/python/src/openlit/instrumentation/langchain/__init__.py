@@ -40,6 +40,7 @@ class SpanHolder:
         "model_name",
         "model_parameters",
         "prompt_content",
+        "input_messages",
     )
 
     def __init__(self, span, token=None, start_time=None):
@@ -56,6 +57,7 @@ class SpanHolder:
         self.model_name = "unknown"
         self.model_parameters: Dict[str, Any] = {}
         self.prompt_content = ""
+        self.input_messages: List[Dict[str, Any]] = []
 
     def get_duration(self) -> float:
         """Calculate duration from start time to now."""
@@ -172,6 +174,202 @@ def _extract_model_from_repr(
         if match:
             return match.group(1)
     return None
+
+
+def build_input_messages_from_langchain(messages):
+    """
+    Convert LangChain messages to OTel structured input message format.
+
+    Args:
+        messages: List of LangChain message lists (typically [[msg1, msg2, ...]])
+
+    Returns:
+        List of ChatMessage objects with role and parts
+    """
+    try:
+        structured_messages = []
+
+        # LangChain wraps messages in nested lists
+        for msg_list in messages:
+            for msg in msg_list:
+                # Extract role and content from LangChain message
+                role = getattr(msg, "type", "user")
+                content = getattr(msg, "content", str(msg))
+
+                # Map LangChain roles to OTel roles
+                role_mapping = {
+                    "system": "system",
+                    "human": "user",
+                    "ai": "assistant",
+                    "tool": "tool",
+                    "function": "tool",
+                }
+                otel_role = role_mapping.get(role, "user")
+
+                # Build structured message with parts
+                structured_msg = {
+                    "role": otel_role,
+                    "parts": [{"type": "text", "content": str(content)}],
+                }
+                structured_messages.append(structured_msg)
+
+        return structured_messages
+    except Exception as e:
+        # Return empty list on error to prevent instrumentation breakage
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.debug("Error building input messages from LangChain: %s", e)
+        return []
+
+
+def build_input_messages_from_prompts(prompts):
+    """
+    Convert LangChain prompts (strings) to OTel structured input message format.
+
+    Args:
+        prompts: List of prompt strings
+
+    Returns:
+        List of ChatMessage objects with role and parts
+    """
+    try:
+        structured_messages = []
+
+        for prompt_list in prompts:
+            # prompts is typically a list of lists
+            prompt_text = (
+                prompt_list if isinstance(prompt_list, str) else str(prompt_list)
+            )
+
+            structured_msg = {
+                "role": "user",
+                "parts": [{"type": "text", "content": prompt_text}],
+            }
+            structured_messages.append(structured_msg)
+
+        return structured_messages
+    except Exception as e:
+        # Return empty list on error to prevent instrumentation breakage
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.debug("Error building input messages from prompts: %s", e)
+        return []
+
+
+def build_output_messages_langchain(completion_content, finish_reason="stop"):
+    """
+    Convert LangChain completion content to OTel structured output message format.
+
+    Args:
+        completion_content: The completion text content
+        finish_reason: The finish reason (default: "stop")
+
+    Returns:
+        List with single OutputMessage containing response
+    """
+    try:
+        if not completion_content:
+            return []
+
+        output_msg = {
+            "role": "assistant",
+            "parts": [{"type": "text", "content": str(completion_content)}],
+            "finish_reason": finish_reason,
+        }
+
+        return [output_msg]
+    except Exception as e:
+        # Return empty list on error to prevent instrumentation breakage
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.debug("Error building output messages: %s", e)
+        return []
+
+
+def emit_inference_event_langchain(
+    event_provider,
+    operation_name,
+    request_model,
+    response_model,
+    input_messages,
+    output_messages,
+    server_address,
+    server_port,
+    **extra_attrs,
+):
+    """
+    Emit gen_ai.client.inference.operation.details event for LangChain operations.
+
+    Args:
+        event_provider: The OTel event provider
+        operation_name: The operation name (e.g., "chat")
+        request_model: The request model name
+        response_model: The response model name
+        input_messages: Structured input messages
+        output_messages: Structured output messages
+        server_address: Server address
+        server_port: Server port
+        **extra_attrs: Additional attributes (temperature, tokens, etc.)
+    """
+    try:
+        if not event_provider:
+            return
+
+        from openlit.__helpers import otel_event
+        from openlit.semcov import SemanticConvention
+
+        # Build event attributes per OTel spec
+        attributes = {
+            SemanticConvention.GEN_AI_OPERATION: operation_name,
+            SemanticConvention.GEN_AI_REQUEST_MODEL: request_model,
+            SemanticConvention.SERVER_ADDRESS: server_address,
+            SemanticConvention.SERVER_PORT: server_port,
+        }
+
+        # Add response model if different from request
+        if response_model and response_model != request_model:
+            attributes[SemanticConvention.GEN_AI_RESPONSE_MODEL] = response_model
+
+        # Add input/output messages
+        if input_messages:
+            attributes[SemanticConvention.GEN_AI_INPUT_MESSAGES] = input_messages
+        if output_messages:
+            attributes[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = output_messages
+
+        # Add optional attributes
+        optional_attrs = {
+            "temperature": SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
+            "max_tokens": SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
+            "top_p": SemanticConvention.GEN_AI_REQUEST_TOP_P,
+            "top_k": SemanticConvention.GEN_AI_REQUEST_TOP_K,
+            "frequency_penalty": SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+            "presence_penalty": SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
+            "input_tokens": SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+            "output_tokens": SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
+            "finish_reasons": SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+        }
+
+        for key, attr_name in optional_attrs.items():
+            if key in extra_attrs and extra_attrs[key] is not None:
+                attributes[attr_name] = extra_attrs[key]
+
+        # Create and emit event
+        event = otel_event(
+            name=SemanticConvention.GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS,
+            attributes=attributes,
+            body="",  # Per spec, all data in attributes
+        )
+
+        event_provider.emit(event)
+
+    except Exception as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
 def extract_model_name(
@@ -339,6 +537,7 @@ def _create_callback_handler_class(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Create and return an OpenLITCallbackHandler class configured with the given parameters.
@@ -376,6 +575,7 @@ def _create_callback_handler_class(
             self._capture_message_content = capture_message_content
             self._metrics = metrics
             self._disable_metrics = disable_metrics
+            self._event_provider = event_provider
             self.spans: Dict[UUID, SpanHolder] = {}
             self.run_inline = True
 
@@ -795,6 +995,15 @@ def _create_callback_handler_class(
                     )
                     self.spans[run_id].input_tokens = general_tokens(prompt_str)
 
+                    # Store structured prompts for event emission
+                    try:
+                        structured_prompts = build_input_messages_from_prompts(prompts)
+                        self.spans[run_id].input_messages = structured_prompts
+                    except Exception as prompt_err:
+                        logger.debug(
+                            "Error building structured prompts: %s", prompt_err
+                        )
+
             except Exception as e:
                 logger.debug("Error in on_llm_start: %s", e)
 
@@ -850,6 +1059,13 @@ def _create_callback_handler_class(
                         span.set_attribute(
                             SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_str
                         )
+
+                    # Store structured messages for event emission
+                    try:
+                        structured_msgs = build_input_messages_from_langchain(messages)
+                        self.spans[run_id].input_messages = structured_msgs
+                    except Exception as msg_err:
+                        logger.debug("Error building structured messages: %s", msg_err)
 
             except Exception as e:
                 logger.debug("Error in on_chat_model_start: %s", e)
@@ -1021,6 +1237,51 @@ def _create_callback_handler_class(
                         SemanticConvention.GEN_AI_CONTENT_COMPLETION,
                         completion_content[:5000],
                     )
+
+                # Emit OTel log event
+                if self._event_provider and self._capture_message_content:
+                    try:
+                        # Get stored input messages
+                        input_msgs = (
+                            holder.input_messages if holder.input_messages else []
+                        )
+
+                        # Build output messages
+                        output_msgs = build_output_messages_langchain(
+                            completion_content
+                        )
+
+                        # Extract model parameters
+                        model_params = (
+                            holder.model_parameters if holder.model_parameters else {}
+                        )
+
+                        emit_inference_event_langchain(
+                            event_provider=self._event_provider,
+                            operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            request_model=model_name,
+                            response_model=response_model
+                            if response.llm_output
+                            else model_name,
+                            input_messages=input_msgs,
+                            output_messages=output_msgs,
+                            server_address="localhost",
+                            server_port=8080,
+                            temperature=model_params.get("temperature"),
+                            max_tokens=model_params.get("max_tokens"),
+                            top_p=model_params.get("top_p"),
+                            top_k=model_params.get("top_k"),
+                            frequency_penalty=model_params.get("frequency_penalty"),
+                            presence_penalty=model_params.get("presence_penalty"),
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                        )
+                    except Exception as event_err:
+                        logger.warning(
+                            "Failed to emit inference event: %s",
+                            event_err,
+                            exc_info=True,
+                        )
 
                 # Always set token attributes
                 span.set_attribute(
@@ -1460,6 +1721,7 @@ class LangChainInstrumentor(BaseInstrumentor):
         capture_message_content = kwargs.get("capture_message_content", False)
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics", False)
+        event_provider = kwargs.get("event_provider")
 
         handler_class = _create_callback_handler_class(
             tracer,
@@ -1470,6 +1732,7 @@ class LangChainInstrumentor(BaseInstrumentor):
             capture_message_content,
             metrics,
             disable_metrics,
+            event_provider,
         )
 
         if handler_class is None:
