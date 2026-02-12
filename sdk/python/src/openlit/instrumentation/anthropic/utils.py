@@ -429,9 +429,7 @@ def process_chunk(scope, chunk):
         scope._cache_creation_input_tokens = message_usage.get(
             "cache_creation_input_tokens", 0
         )
-        scope._cache_read_input_tokens = message_usage.get(
-            "cache_read_input_tokens", 0
-        )
+        scope._cache_read_input_tokens = message_usage.get("cache_read_input_tokens", 0)
         scope._response_model = chunked.get("message").get("model")
         scope._response_role = chunked.get("message").get("role")
 

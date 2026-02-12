@@ -1322,7 +1322,9 @@ def process_chat_response(
     scope._output_tokens = response_dict.get("usage", {}).get("completion_tokens", 0)
 
     # Extract cache tokens (OpenAI prompt caching)
-    prompt_tokens_details = response_dict.get("usage", {}).get("prompt_tokens_details", {})
+    prompt_tokens_details = response_dict.get("usage", {}).get(
+        "prompt_tokens_details", {}
+    )
     scope._cache_read_input_tokens = prompt_tokens_details.get("cached_tokens", 0)
 
     scope._timestamps = []
