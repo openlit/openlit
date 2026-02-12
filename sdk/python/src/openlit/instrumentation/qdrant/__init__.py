@@ -63,6 +63,7 @@ class QdrantInstrumentor(BaseInstrumentor):
         disable_metrics = kwargs.get("disable_metrics")
 
         # Import QdrantClient to check method availability
+        # pylint: disable=import-outside-toplevel
         from qdrant_client import QdrantClient, AsyncQdrantClient
 
         # Wrap sync operations (only if method exists in this version)
