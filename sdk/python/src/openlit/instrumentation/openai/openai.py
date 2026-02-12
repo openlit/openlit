@@ -108,10 +108,6 @@ def chat_completions(
         """
 
         streaming = kwargs.get("stream", False)
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -252,10 +248,6 @@ def responses(
         """
 
         streaming = kwargs.get("stream", False)
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -321,10 +313,6 @@ def chat_completions_parse(
         Wraps the OpenAI chat completions parse call.
         """
 
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
-
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -381,10 +369,6 @@ def embedding(
         """
         Wraps the OpenAI embeddings call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -445,10 +429,6 @@ def image_generate(
         Wraps the OpenAI image generation call.
         """
 
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
-
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -507,10 +487,6 @@ def image_variatons(
         Wraps the OpenAI image variations call.
         """
 
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
-
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -568,10 +544,6 @@ def audio_create(
         """
         Wraps the OpenAI audio creation call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443

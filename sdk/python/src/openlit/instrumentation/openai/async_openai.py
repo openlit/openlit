@@ -108,10 +108,6 @@ def async_chat_completions(
         """
 
         streaming = kwargs.get("stream", False)
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -251,10 +247,6 @@ def async_responses(
         """
 
         streaming = kwargs.get("stream", False)
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -320,10 +312,6 @@ def async_chat_completions_parse(
         Wraps the OpenAI async chat completions parse call.
         """
 
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
-
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -379,10 +367,6 @@ def async_embedding(
         """
         Wraps the OpenAI async embeddings call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -442,10 +426,6 @@ def async_image_generate(
         Wraps the OpenAI async image generation call.
         """
 
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
-
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -504,10 +484,6 @@ def async_image_variations(
         Wraps the OpenAI async image variations call.
         """
 
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
-
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -565,10 +541,6 @@ def async_audio_create(
         """
         Wraps the OpenAI async audio creation call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
