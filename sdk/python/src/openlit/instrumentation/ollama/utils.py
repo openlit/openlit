@@ -44,6 +44,158 @@ def format_content(messages):
     return "\n".join(formatted_messages)
 
 
+def build_input_messages(messages):
+    """
+    Convert Ollama messages to OTel input message structure.
+    Ollama uses OpenAI-compatible message format.
+    """
+    structured_messages = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        parts = []
+        content = msg.get("content", "")
+
+        if isinstance(content, str):
+            parts.append({"type": "text", "content": content})
+        elif isinstance(content, list):
+            for part in content:
+                if part.get("type") == "text":
+                    parts.append({"type": "text", "content": part.get("text", "")})
+                elif part.get("type") == "image_url":
+                    image_url = part.get("image_url", {}).get("url", "")
+                    if not image_url.startswith("data:"):
+                        parts.append({"type": "uri", "modality": "image", "uri": image_url})
+
+        # Handle tool calls
+        if "tool_calls" in msg:
+            for tool_call in msg.get("tool_calls", []):
+                parts.append({
+                    "type": "tool_call",
+                    "id": tool_call.get("id", ""),
+                    "name": tool_call.get("function", {}).get("name", ""),
+                    "arguments": tool_call.get("function", {}).get("arguments", {}),
+                })
+
+        # Handle tool responses
+        if role == "tool" and "tool_call_id" in msg:
+            parts.append({
+                "type": "tool_call_response",
+                "id": msg.get("tool_call_id", ""),
+                "response": content,
+            })
+
+        if parts:
+            structured_messages.append({"role": role, "parts": parts})
+
+    return structured_messages
+
+
+def build_output_messages(response_text, finish_reason, tool_calls=None):
+    """
+    Convert Ollama response to OTel output message structure.
+    Maps Ollama finish reasons to OTel standard.
+    """
+    parts = []
+    if response_text:
+        parts.append({"type": "text", "content": response_text})
+
+    if tool_calls:
+        for tool_call in tool_calls:
+            parts.append({
+                "type": "tool_call",
+                "id": tool_call.get("id", ""),
+                "name": tool_call.get("function", {}).get("name", ""),
+                "arguments": tool_call.get("function", {}).get("arguments", {}),
+            })
+
+    # Ollama uses done_reason field - map to OTel standard
+    finish_reason_map = {
+        "stop": "stop",
+        "length": "max_tokens",
+        "tool_calls": "tool_calls",
+        "content_filter": "content_filter",
+    }
+
+    otel_finish_reason = finish_reason_map.get(finish_reason, finish_reason)
+    return [{"role": "assistant", "parts": parts, "finish_reason": otel_finish_reason}]
+
+
+def build_tool_definitions(tools):
+    """
+    Extract tool definitions from Ollama request.
+    Returns tool definitions or None if not present.
+    """
+    return tools if tools else None
+
+
+def emit_inference_event(
+    event_provider,
+    operation_name,
+    request_model,
+    response_model,
+    input_messages=None,
+    output_messages=None,
+    tool_definitions=None,
+    server_address=None,
+    server_port=None,
+    **extra_attrs
+):
+    """
+    Centralized function to emit gen_ai.client.inference.operation.details event.
+    Uses Ollama-specific defaults (localhost:11434).
+    """
+    try:
+        if not event_provider:
+            return
+
+        from openlit.__helpers import otel_event
+
+        attributes = {SemanticConvention.GEN_AI_OPERATION_NAME: operation_name}
+
+        if request_model:
+            attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = request_model
+        if response_model:
+            attributes[SemanticConvention.GEN_AI_RESPONSE_MODEL] = response_model
+        if server_address:
+            attributes["server.address"] = server_address
+        if server_port:
+            attributes["server.port"] = server_port
+        if input_messages:
+            attributes[SemanticConvention.GEN_AI_INPUT_MESSAGES] = input_messages
+        if output_messages:
+            attributes[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = output_messages
+        if tool_definitions:
+            attributes[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = tool_definitions
+
+        # Map extra attributes to semantic conventions
+        attr_mapping = {
+            "response_id": SemanticConvention.GEN_AI_RESPONSE_ID,
+            "finish_reasons": SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
+            "temperature": SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
+            "max_tokens": SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
+            "top_p": SemanticConvention.GEN_AI_REQUEST_TOP_P,
+            "top_k": SemanticConvention.GEN_AI_REQUEST_TOP_K,
+            "repeat_penalty": SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
+            "input_tokens": SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
+            "output_tokens": SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
+        }
+
+        for key, value in extra_attrs.items():
+            if value is not None and key in attr_mapping:
+                attributes[attr_mapping[key]] = value
+
+        event = otel_event(
+            name=SemanticConvention.GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS,
+            attributes=attributes,
+            body="",
+        )
+        event_provider.emit(event)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+
+
 def process_chunk(self, chunk):
     """
     Process a chunk of response data and update state.
@@ -117,6 +269,7 @@ def common_chat_logic(
     capture_message_content,
     disable_metrics,
     version,
+    event_provider=None,
 ):
     """
     Process chat request and generate Telemetry
@@ -224,19 +377,40 @@ def common_chat_logic(
             SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
         )
 
-        # To be removed once the change to span_attributes (from span events) is complete
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
-            },
-        )
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
-            },
-        )
+        # Emit OTel log event
+        if event_provider:
+            try:
+                json_body = scope._kwargs.get("json", {}) or {}
+                input_msgs = build_input_messages(json_body.get("messages", scope._kwargs.get("messages", [])))
+                output_msgs = build_output_messages(scope._llmresponse, scope._finish_reason, scope._tools)
+                tool_defs = build_tool_definitions(json_body.get("tools", scope._kwargs.get("tools")))
+
+                # Extract options for parameters
+                options = json_body.get("options", scope._kwargs.get("options", {}))
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                    request_model=request_model,
+                    response_model=scope._response_model,
+                    input_messages=input_msgs,
+                    output_messages=output_msgs,
+                    tool_definitions=tool_defs,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    finish_reasons=[scope._finish_reason],
+                    temperature=options.get("temperature"),
+                    max_tokens=options.get("max_tokens"),
+                    top_p=options.get("top_p"),
+                    top_k=options.get("top_k"),
+                    repeat_penalty=options.get("repeat_penalty"),
+                    input_tokens=scope._input_tokens,
+                    output_tokens=scope._output_tokens,
+                )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 
@@ -272,6 +446,7 @@ def common_generate_logic(
     capture_message_content,
     disable_metrics,
     version,
+    event_provider=None,
 ):
     """
     Process generate request and generate Telemetry
@@ -378,19 +553,42 @@ def common_generate_logic(
             SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
         )
 
-        # To be removed once the change to span_attributes (from span events) is complete
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
-            },
-        )
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
-            },
-        )
+        # Emit OTel log event
+        if event_provider:
+            try:
+                json_body = scope._kwargs.get("json", {}) or {}
+
+                # For generate operation, input is a prompt string, not messages
+                input_msgs = [{"role": "user", "parts": [{"type": "text", "content": prompt}]}]
+                output_msgs = build_output_messages(scope._llmresponse, scope._finish_reason, scope._tools)
+                tool_defs = build_tool_definitions(json_body.get("tools", scope._kwargs.get("tools")))
+
+                # Extract options for parameters
+                options = json_body.get("options", scope._kwargs.get("options", {}))
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION,
+                    request_model=request_model,
+                    response_model=scope._response_model,
+                    input_messages=input_msgs,
+                    output_messages=output_msgs,
+                    tool_definitions=tool_defs,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    finish_reasons=[scope._finish_reason],
+                    temperature=options.get("temperature"),
+                    max_tokens=options.get("max_tokens"),
+                    top_p=options.get("top_p"),
+                    top_k=options.get("top_k"),
+                    repeat_penalty=options.get("repeat_penalty"),
+                    input_tokens=scope._input_tokens,
+                    output_tokens=scope._output_tokens,
+                )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 
@@ -426,6 +624,7 @@ def common_embedding_logic(
     capture_message_content,
     disable_metrics,
     version,
+    event_provider=None,
 ):
     """
     Process embedding request and generate Telemetry
@@ -471,6 +670,40 @@ def common_embedding_logic(
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_val)
 
+        # Emit OTel log event
+        if event_provider:
+            try:
+                # For embeddings, input is text strings, output is empty
+                if isinstance(prompt_val, str):
+                    input_text = [prompt_val]
+                elif isinstance(prompt_val, list):
+                    input_text = prompt_val
+                else:
+                    input_text = [str(prompt_val)]
+
+                # Create simple text input messages
+                input_msgs = [
+                    {"role": "user", "parts": [{"type": "text", "content": text}]}
+                    for text in input_text
+                ]
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                    request_model=request_model,
+                    response_model=request_model,
+                    input_messages=input_msgs,
+                    output_messages=[],  # Embeddings don't have text output
+                    tool_definitions=None,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    input_tokens=input_tokens,
+                )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+
     scope._span.set_status(Status(StatusCode.OK))
 
     # Metrics
@@ -501,6 +734,7 @@ def process_streaming_chat_response(
     capture_message_content=False,
     disable_metrics=False,
     version="",
+    event_provider=None,
 ):
     """
     Process streaming chat request and generate Telemetry
@@ -516,6 +750,7 @@ def process_streaming_chat_response(
         capture_message_content,
         disable_metrics,
         version,
+        event_provider,
     )
 
 
@@ -533,6 +768,7 @@ def process_chat_response(
     capture_message_content=False,
     disable_metrics=False,
     version="1.0.0",
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -572,6 +808,7 @@ def process_chat_response(
         capture_message_content,
         disable_metrics,
         version,
+        event_provider,
     )
 
     return response
@@ -586,6 +823,7 @@ def process_streaming_generate_response(
     capture_message_content=False,
     disable_metrics=False,
     version="",
+    event_provider=None,
 ):
     """
     Process streaming generate request and generate Telemetry
@@ -601,6 +839,7 @@ def process_streaming_generate_response(
         capture_message_content,
         disable_metrics,
         version,
+        event_provider,
     )
 
 
@@ -618,6 +857,7 @@ def process_generate_response(
     capture_message_content=False,
     disable_metrics=False,
     version="1.0.0",
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -657,6 +897,7 @@ def process_generate_response(
         capture_message_content,
         disable_metrics,
         version,
+        event_provider,
     )
 
     return response
@@ -676,6 +917,7 @@ def process_embedding_response(
     capture_message_content=False,
     disable_metrics=False,
     version="1.0.0",
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -705,6 +947,7 @@ def process_embedding_response(
         capture_message_content,
         disable_metrics,
         version,
+        event_provider,
     )
 
     return response
