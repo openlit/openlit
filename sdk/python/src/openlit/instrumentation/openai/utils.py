@@ -479,7 +479,7 @@ def emit_inference_event(
                     attributes[SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES] = value
                 elif key == "seed":
                     attributes[SemanticConvention.GEN_AI_REQUEST_SEED] = value
-                elif key == "choice_count" or key == "n":
+                elif key in ("choice_count", "n"):
                     # Only add if not 1 (per spec: conditionally required if ≠1)
                     if value != 1:
                         attributes["gen_ai.request.choice.count"] = value

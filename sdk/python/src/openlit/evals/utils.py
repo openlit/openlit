@@ -323,7 +323,6 @@ def emit_evaluation_event(
             return
 
         from openlit.__helpers import otel_event
-        from openlit.semcov import SemanticConvention
 
         # Build event attributes per OTel spec
         attributes = {
@@ -348,7 +347,4 @@ def emit_evaluation_event(
         event_provider.emit(event)
 
     except Exception as e:
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.warning("Failed to emit evaluation event: %s", e, exc_info=True)
