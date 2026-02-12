@@ -28,6 +28,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
         capture_message_content = kwargs.get("capture_message_content", False)
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics")
+        event_provider = kwargs.get("event_provider")
 
         # sync
         wrap_function_wrapper(
@@ -42,6 +43,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -58,6 +60,7 @@ class AnthropicInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
