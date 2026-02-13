@@ -513,6 +513,10 @@
             "promptPrice": 0.0005,
             "completionPrice": 0.0015
         },
+        "grok-2": {
+            "promptPrice": 0.0005,
+            "completionPrice": 0.0015
+        },
         "grok-vision-beta": {
             "promptPrice": 0.0005,
             "completionPrice": 0.0015

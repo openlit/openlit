@@ -665,6 +665,14 @@ const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 				capabilities: ["streaming", "real-time"],
 			},
 			{
+				id: "grok-2",
+				displayName: "Grok 2",
+				contextWindow: 131072,
+				inputPricePerMToken: 5.0,
+				outputPricePerMToken: 15.0,
+				capabilities: ["streaming", "real-time"],
+			},
+			{
 				id: "grok-vision-beta",
 				displayName: "Grok Vision Beta",
 				contextWindow: 8192,
