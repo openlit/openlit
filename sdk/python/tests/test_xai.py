@@ -46,7 +46,7 @@ def test_sync_xai_chat_completions():
 
     try:
         response = sync_client.chat.completions.create(
-            model="grok-beta",
+            model="grok-2",
             messages=[
                 {"role": "user", "content": "Hi"},
             ],
@@ -73,7 +73,7 @@ async def test_async_xai_chat_completions():
 
     try:
         response = await async_client.chat.completions.create(
-            model="grok-beta",
+            model="grok-2",
             messages=[
                 {"role": "user", "content": "Hi"},
             ],
