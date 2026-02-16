@@ -28,6 +28,7 @@ def async_chat_completions(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI async chat completions.
@@ -46,6 +47,7 @@ def async_chat_completions(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -65,6 +67,7 @@ def async_chat_completions(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
@@ -97,6 +100,7 @@ def async_chat_completions(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -108,10 +112,6 @@ def async_chat_completions(
         """
 
         streaming = kwargs.get("stream", False)
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -124,7 +124,13 @@ def async_chat_completions(
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
             return TracedAsyncStream(
-                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                event_provider,
             )
 
         else:
@@ -147,6 +153,7 @@ def async_chat_completions(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
@@ -167,6 +174,7 @@ def async_responses(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI async responses API.
@@ -185,6 +193,7 @@ def async_responses(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -208,6 +217,7 @@ def async_responses(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
@@ -240,6 +250,7 @@ def async_responses(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -251,10 +262,6 @@ def async_responses(
         """
 
         streaming = kwargs.get("stream", False)
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -267,7 +274,13 @@ def async_responses(
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
             return TracedAsyncStream(
-                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                event_provider,
             )
 
         else:
@@ -290,6 +303,7 @@ def async_responses(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
@@ -310,6 +324,7 @@ def async_chat_completions_parse(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI async chat completions parse.
@@ -319,10 +334,6 @@ def async_chat_completions_parse(
         """
         Wraps the OpenAI async chat completions parse call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -350,6 +361,7 @@ def async_chat_completions_parse(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 
@@ -370,6 +382,7 @@ def async_embedding(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI async embeddings.
@@ -379,10 +392,6 @@ def async_embedding(
         """
         Wraps the OpenAI async embeddings call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -432,6 +441,7 @@ def async_image_generate(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI async image generation.
@@ -441,10 +451,6 @@ def async_image_generate(
         """
         Wraps the OpenAI async image generation call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -494,6 +500,7 @@ def async_image_variations(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI async image variations.
@@ -503,10 +510,6 @@ def async_image_variations(
         """
         Wraps the OpenAI async image variations call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -556,6 +559,7 @@ def async_audio_create(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI async audio creation.
@@ -565,10 +569,6 @@ def async_audio_create(
         """
         Wraps the OpenAI async audio creation call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return await wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
