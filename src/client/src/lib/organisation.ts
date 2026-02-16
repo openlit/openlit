@@ -45,21 +45,6 @@ async function generateUniqueOrganisationSlug(
 }
 
 /**
- * Check if a user is the owner of an organisation
- */
-async function isOrganisationOwner(
-	organisationId: string,
-	userId: string
-): Promise<boolean> {
-	const organisation = await prisma.organisation.findUnique({
-		where: { id: organisationId },
-		select: { createdByUserId: true },
-	});
-
-	return organisation?.createdByUserId === userId;
-}
-
-/**
  * Check if a user has admin or owner role in an organisation
  */
 async function hasAdminOrOwnerRole(
@@ -588,6 +573,17 @@ export async function removeUserFromOrganisation(
 		}
 	}
 
+	// Remove user from all database configs in this organisation
+	await prisma.databaseConfigUser.deleteMany({
+		where: {
+			userId,
+			databaseConfig: {
+				organisationId,
+			},
+		},
+	});
+
+	// Remove user from organisation
 	await prisma.organisationUser.delete({
 		where: {
 			organisationId_userId: {
@@ -697,13 +693,11 @@ export async function updateMemberRole(
 	// Only admins and owners can update roles
 	const hasPermission =
 		currentUserRole === "owner" || currentUserRole === "admin";
-	throwIfError(!hasPermission, getMessage().ONLY_OWNER_CAN_UPDATE_ROLES);
+	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_OR_OWNER_CAN_UPDATE_ROLES);
 
-	// Only owner can change admin roles or promote to admin
-	if (
-		targetUserRole === "admin" ||
-		role === "admin"
-	) {
+	// Only owner can change admin roles (demote admin to member)
+	// Admins can promote members to admin
+	if (targetUserRole === "admin") {
 		throwIfError(
 			currentUserRole !== "owner",
 			getMessage().CANNOT_CHANGE_ADMIN_ROLE
