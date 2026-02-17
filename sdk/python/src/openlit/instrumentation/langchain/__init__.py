@@ -216,9 +216,6 @@ def build_input_messages_from_langchain(messages):
         return structured_messages
     except Exception as e:
         # Return empty list on error to prevent instrumentation breakage
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.debug("Error building input messages from LangChain: %s", e)
         return []
 
@@ -251,9 +248,6 @@ def build_input_messages_from_prompts(prompts):
         return structured_messages
     except Exception as e:
         # Return empty list on error to prevent instrumentation breakage
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.debug("Error building input messages from prompts: %s", e)
         return []
 
@@ -282,9 +276,6 @@ def build_output_messages_langchain(completion_content, finish_reason="stop"):
         return [output_msg]
     except Exception as e:
         # Return empty list on error to prevent instrumentation breakage
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.debug("Error building output messages: %s", e)
         return []
 
@@ -366,9 +357,6 @@ def emit_inference_event_langchain(
         event_provider.emit(event)
 
     except Exception as e:
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
@@ -1256,13 +1244,18 @@ def _create_callback_handler_class(
                             holder.model_parameters if holder.model_parameters else {}
                         )
 
+                        # Determine response model
+                        response_model = model_name
+                        if response.llm_output:
+                            response_model = response.llm_output.get(
+                                "model_name"
+                            ) or response.llm_output.get("model", model_name)
+
                         emit_inference_event_langchain(
                             event_provider=self._event_provider,
                             operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
                             request_model=model_name,
-                            response_model=response_model
-                            if response.llm_output
-                            else model_name,
+                            response_model=response_model,
                             input_messages=input_msgs,
                             output_messages=output_msgs,
                             server_address="localhost",
@@ -1301,12 +1294,15 @@ def _create_callback_handler_class(
                 )
                 span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
-                # Set response model
-                response_model = model_name
+                # Set response model (if not already set in event emission above)
+                if "response_model" not in locals():
+                    response_model = model_name
+                    if response.llm_output:
+                        response_model = response.llm_output.get(
+                            "model_name"
+                        ) or response.llm_output.get("model", model_name)
+
                 if response.llm_output:
-                    response_model = response.llm_output.get(
-                        "model_name"
-                    ) or response.llm_output.get("model", model_name)
                     span.set_attribute(
                         SemanticConvention.GEN_AI_RESPONSE_MODEL, response_model
                     )

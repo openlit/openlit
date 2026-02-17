@@ -15,6 +15,7 @@ from openlit.__helpers import (
     common_span_attributes,
     record_completion_metrics,
     record_embedding_metrics,
+    otel_event,
 )
 from openlit.semcov import SemanticConvention
 
@@ -195,9 +196,6 @@ def emit_inference_event(
     try:
         if not event_provider:
             return
-
-        from openlit.__helpers import otel_event
-        from openlit.semcov import SemanticConvention
 
         # Build base attributes
         attributes = {

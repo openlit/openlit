@@ -14,6 +14,7 @@ from openlit.__helpers import (
     record_completion_metrics,
     common_span_attributes,
     handle_exception,
+    otel_event,
 )
 from openlit.semcov import SemanticConvention
 
@@ -221,9 +222,6 @@ def emit_inference_event(
     try:
         if not event_provider:
             return
-
-        from openlit.__helpers import otel_event
-        from openlit.semcov import SemanticConvention
 
         # Build base attributes
         attributes = {
@@ -437,6 +435,7 @@ def common_chat_logic(
                     scope._finish_reason,
                     tool_calls=None,  # No tool support yet
                 )
+                # pylint: disable=assignment-from-none
                 tool_defs = build_tool_definitions(
                     scope._kwargs.get("toolConfig", {}).get("tools")
                 )
