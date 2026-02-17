@@ -72,6 +72,343 @@ def format_content(messages):
     return prompt
 
 
+def build_input_messages(contents, system_instruction=None):
+    """
+    Convert Google AI Studio contents to OTel input message structure.
+
+    Args:
+        contents: Contents array from Google AI Studio request
+        system_instruction: Optional system instruction
+
+    Returns:
+        List of ChatMessage objects with role and parts
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    if not contents:
+        return []
+
+    otel_messages = []
+
+    # Add system instruction first if present
+    if system_instruction:
+        system_text = ""
+        if isinstance(system_instruction, str):
+            system_text = system_instruction
+        elif hasattr(system_instruction, "parts"):
+            # Extract text from parts
+            for part in system_instruction.parts:
+                if hasattr(part, "text") and part.text:
+                    system_text += part.text
+
+        if system_text:
+            otel_messages.append(
+                {"role": "system", "parts": [{"type": "text", "content": system_text}]}
+            )
+
+    for content in contents:
+        try:
+            # Extract role - Google uses "user" and "model"
+            role = getattr(content, "role", "user")
+            if role == "model":
+                role = "assistant"
+
+            parts_list = []
+
+            # Google already uses "parts" structure
+            if hasattr(content, "parts"):
+                for part in content.parts:
+                    # Text content
+                    if hasattr(part, "text") and part.text:
+                        parts_list.append({"type": "text", "content": part.text})
+
+                    # File data with URI (skip inline_data to avoid data URIs)
+                    if hasattr(part, "file_data") and part.file_data:
+                        file_uri = getattr(part.file_data, "file_uri", None)
+                        mime_type = getattr(part.file_data, "mime_type", "")
+                        if file_uri and not file_uri.startswith("data:"):
+                            modality = (
+                                "image"
+                                if "image" in mime_type
+                                else "video"
+                                if "video" in mime_type
+                                else "file"
+                            )
+                            parts_list.append(
+                                {"type": "uri", "modality": modality, "uri": file_uri}
+                            )
+
+                    # Function call (tool call from assistant)
+                    if hasattr(part, "function_call") and part.function_call:
+                        fc = part.function_call
+                        parts_list.append(
+                            {
+                                "type": "tool_call",
+                                "id": "",  # Google doesn't provide ID
+                                "name": getattr(fc, "name", ""),
+                                "arguments": dict(getattr(fc, "args", {})),
+                            }
+                        )
+
+                    # Function response (tool result from user)
+                    if hasattr(part, "function_response") and part.function_response:
+                        fr = part.function_response
+                        parts_list.append(
+                            {
+                                "type": "tool_call_response",
+                                "id": "",  # Google doesn't provide ID
+                                "response": str(getattr(fr, "response", "")),
+                            }
+                        )
+
+            if parts_list:
+                otel_messages.append({"role": role, "parts": parts_list})
+
+        except Exception as e:
+            logger.warning("Failed to process input message: %s", e, exc_info=True)
+            continue
+
+    return otel_messages
+
+
+def build_output_messages(response_text, finish_reason, function_calls=None):
+    """
+    Convert Google AI Studio response to OTel output message structure.
+
+    Args:
+        response_text: Response text from model
+        finish_reason: Finish reason from Google (STOP, MAX_TOKENS, SAFETY, etc.)
+        function_calls: Optional function calls dict from response
+
+    Returns:
+        List with single OutputMessage
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    parts = []
+
+    try:
+        # Add text content if present
+        if response_text:
+            parts.append({"type": "text", "content": response_text})
+
+        # Add function calls if present
+        if function_calls:
+            parts.append(
+                {
+                    "type": "tool_call",
+                    "id": "",  # Google doesn't provide IDs
+                    "name": function_calls.get("name", ""),
+                    "arguments": function_calls.get("args", {}),
+                }
+            )
+
+        # Map Google finish reasons to OTel standard
+        finish_reason_map = {
+            "STOP": "stop",
+            "MAX_TOKENS": "max_tokens",
+            "SAFETY": "content_filter",
+            "RECITATION": "content_filter",
+            "OTHER": "other",
+            "FINISH_REASON_UNSPECIFIED": "other",
+        }
+
+        otel_finish_reason = finish_reason_map.get(
+            finish_reason.upper() if finish_reason else "", finish_reason or "stop"
+        )
+
+        return [
+            {"role": "assistant", "parts": parts, "finish_reason": otel_finish_reason}
+        ]
+
+    except Exception as e:
+        logger.warning("Failed to build output messages: %s", e, exc_info=True)
+        return [{"role": "assistant", "parts": [], "finish_reason": "stop"}]
+
+
+def build_tool_definitions(tools):
+    """
+    Extract tool/function definitions from Google AI Studio request.
+
+    Args:
+        tools: Tools from Google AI Studio request
+
+    Returns:
+        List of tool definition objects or None
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    if not tools:
+        return None
+
+    try:
+        tool_definitions = []
+
+        # Google uses function_declarations
+        if hasattr(tools, "function_declarations"):
+            for func_decl in tools.function_declarations:
+                try:
+                    # Convert Google schema to OTel format
+                    params = {}
+                    if hasattr(func_decl, "parameters"):
+                        params = {
+                            "type": getattr(func_decl.parameters, "type", "object"),
+                            "properties": dict(
+                                getattr(func_decl.parameters, "properties", {})
+                            ),
+                            "required": list(
+                                getattr(func_decl.parameters, "required", [])
+                            ),
+                        }
+
+                    tool_definitions.append(
+                        {
+                            "type": "function",
+                            "name": getattr(func_decl, "name", ""),
+                            "description": getattr(func_decl, "description", ""),
+                            "parameters": params,
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to process tool definition: %s", e, exc_info=True
+                    )
+                    continue
+        elif isinstance(tools, list):
+            # Handle list format
+            for tool in tools:
+                if isinstance(tool, dict) and "function_declarations" in tool:
+                    for func_decl in tool["function_declarations"]:
+                        tool_definitions.append(
+                            {
+                                "type": "function",
+                                "name": func_decl.get("name", ""),
+                                "description": func_decl.get("description", ""),
+                                "parameters": func_decl.get("parameters", {}),
+                            }
+                        )
+
+        return tool_definitions if tool_definitions else None
+
+    except Exception as e:
+        logger.warning("Failed to build tool definitions: %s", e, exc_info=True)
+        return None
+
+
+def emit_inference_event(
+    event_provider,
+    operation_name,
+    request_model,
+    response_model,
+    input_messages=None,
+    output_messages=None,
+    tool_definitions=None,
+    server_address=None,
+    server_port=None,
+    **extra_attrs,
+):
+    """
+    Emit gen_ai.client.inference.operation.details event.
+
+    Args:
+        event_provider: The OTel event provider
+        operation_name: Operation type (chat)
+        request_model: Model from request
+        response_model: Model from response
+        input_messages: Structured input messages
+        output_messages: Structured output messages
+        tool_definitions: Tool definitions
+        server_address: Server address
+        server_port: Server port
+        **extra_attrs: Additional attributes (temperature, max_tokens, etc.)
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        if not event_provider:
+            return
+
+        from openlit.__helpers import otel_event
+
+        # Build event attributes
+        attributes = {
+            SemanticConvention.GEN_AI_OPERATION: operation_name,
+        }
+
+        # Add model attributes
+        if request_model:
+            attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = request_model
+        if response_model:
+            attributes[SemanticConvention.GEN_AI_RESPONSE_MODEL] = response_model
+
+        # Add server attributes
+        if server_address:
+            attributes[SemanticConvention.SERVER_ADDRESS] = server_address
+        if server_port:
+            attributes[SemanticConvention.SERVER_PORT] = server_port
+
+        # Add messages
+        if input_messages is not None:
+            attributes[SemanticConvention.GEN_AI_INPUT_MESSAGES] = input_messages
+        if output_messages is not None:
+            attributes[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = output_messages
+
+        # Add tool definitions
+        if tool_definitions is not None:
+            attributes[SemanticConvention.GEN_AI_TOOL_DEFINITIONS] = tool_definitions
+
+        # Map extra attributes
+        for key, value in extra_attrs.items():
+            if value is not None:
+                if key == "response_id":
+                    attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = value
+                elif key == "finish_reasons":
+                    attributes[SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON] = value
+                elif key == "output_type":
+                    attributes[SemanticConvention.GEN_AI_OUTPUT_TYPE] = value
+                elif key == "temperature":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_TEMPERATURE] = value
+                elif key in ("max_tokens", "max_output_tokens"):
+                    attributes[SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS] = value
+                elif key == "top_p":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_TOP_P] = value
+                elif key == "top_k":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_TOP_K] = value
+                elif key == "stop_sequences":
+                    attributes[SemanticConvention.GEN_AI_REQUEST_STOP_SEQUENCES] = value
+                elif key == "input_tokens":
+                    attributes[SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS] = value
+                elif key == "output_tokens":
+                    attributes[SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS] = value
+                elif key == "reasoning_tokens":
+                    # Google-specific: thoughts/reasoning tokens
+                    attributes[SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS] = value
+                elif key == "cache_read_input_tokens":
+                    attributes[
+                        SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS
+                    ] = value
+
+        # Create and emit event
+        event = otel_event(
+            name=SemanticConvention.GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS,
+            attributes=attributes,
+            body="",
+        )
+
+        event_provider.emit(event)
+
+    except Exception as e:
+        logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+
+
 def process_chunk(self, chunk):
     """
     Process a chunk of response data and update state.
@@ -88,16 +425,18 @@ def process_chunk(self, chunk):
     chunked = response_as_dict(chunk)
 
     self._response_id = str(chunked.get("response_id"))
-    self._input_tokens = chunked.get("usage_metadata").get("prompt_token_count")
+
+    # Extract usage including cache tokens (Google prompt caching)
+    usage_metadata = chunked.get("usage_metadata", {})
+    self._input_tokens = usage_metadata.get("prompt_token_count", 0)
+    self._output_tokens = usage_metadata.get("candidates_token_count", 0)
+    self._reasoning_tokens = usage_metadata.get("thoughts_token_count") or 0
+    self._cache_read_input_tokens = usage_metadata.get("cached_content_token_count", 0)
+
     self._response_model = chunked.get("model_version")
 
     if chunk.text:
         self._llmresponse += str(chunk.text)
-
-    self._output_tokens = chunked.get("usage_metadata").get("candidates_token_count")
-    self._reasoning_tokens = (
-        chunked.get("usage_metadata").get("thoughts_token_count") or 0
-    )
     self._finish_reason = str(chunked.get("candidates")[0].get("finish_reason"))
 
     try:
@@ -121,6 +460,7 @@ def common_chat_logic(
     disable_metrics,
     version,
     is_stream,
+    event_provider=None,
 ):
     """
     Process chat request and generate Telemetry
@@ -213,24 +553,60 @@ def common_chat_logic(
             SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("args", ""))
         )
 
-    # To be removed one the change to span_attributes (from span events) is complete
+    # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
         scope._span.set_attribute(
             SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
         )
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
-            },
-        )
-        scope._span.add_event(
-            name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
-            attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
-            },
-        )
+
+        # Emit inference event
+        if event_provider:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            try:
+                input_msgs = build_input_messages(
+                    scope._kwargs.get("contents", []),
+                    system_instruction=getattr(
+                        inference_config, "system_instruction", None
+                    ),
+                )
+                output_msgs = build_output_messages(
+                    scope._llmresponse,
+                    scope._finish_reason,
+                    function_calls=scope._tools,
+                )
+                tool_defs = build_tool_definitions(
+                    getattr(inference_config, "tools", None)
+                )
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                    request_model=request_model,
+                    response_model=scope._response_model,
+                    input_messages=input_msgs,
+                    output_messages=output_msgs,
+                    tool_definitions=tool_defs,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    finish_reasons=[scope._finish_reason],
+                    temperature=getattr(inference_config, "temperature", None),
+                    max_output_tokens=getattr(inference_config, "max_tokens", None),
+                    top_p=getattr(inference_config, "top_p", None),
+                    top_k=getattr(inference_config, "top_k", None),
+                    stop_sequences=getattr(inference_config, "stop_sequences", None),
+                    input_tokens=scope._input_tokens,
+                    output_tokens=scope._output_tokens,
+                    reasoning_tokens=scope._reasoning_tokens,
+                    cache_read_input_tokens=scope._cache_read_input_tokens
+                    if hasattr(scope, "_cache_read_input_tokens")
+                    and scope._cache_read_input_tokens > 0
+                    else None,
+                )
+            except Exception as e:
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 
@@ -273,6 +649,7 @@ def process_streaming_chat_response(
     capture_message_content=False,
     disable_metrics=False,
     version="",
+    event_provider=None,
 ):
     """
     Process chat request and generate Telemetry
@@ -288,6 +665,7 @@ def process_streaming_chat_response(
         disable_metrics,
         version,
         is_stream=True,
+        event_provider=event_provider,
     )
 
 
@@ -308,6 +686,7 @@ def process_chat_response(
     capture_message_content=False,
     disable_metrics=False,
     version="1.0.0",
+    event_provider=None,
 ):
     """
     Process chat request and generate Telemetry
@@ -320,13 +699,14 @@ def process_chat_response(
     self._end_time = time.time()
     self._span = span
     self._llmresponse = str(response.text)
-    self._input_tokens = response_dict.get("usage_metadata").get("prompt_token_count")
-    self._output_tokens = response_dict.get("usage_metadata").get(
-        "candidates_token_count"
-    )
-    self._reasoning_tokens = (
-        response_dict.get("usage_metadata").get("thoughts_token_count") or 0
-    )
+
+    # Extract usage including cache tokens (Google prompt caching)
+    usage_metadata = response_dict.get("usage_metadata", {})
+    self._input_tokens = usage_metadata.get("prompt_token_count", 0)
+    self._output_tokens = usage_metadata.get("candidates_token_count", 0)
+    self._reasoning_tokens = usage_metadata.get("thoughts_token_count") or 0
+    self._cache_read_input_tokens = usage_metadata.get("cached_content_token_count", 0)
+
     self._response_model = response_dict.get("model_version")
     self._timestamps = []
     self._ttft, self._tbt = self._end_time - self._start_time, 0
@@ -354,6 +734,7 @@ def process_chat_response(
         disable_metrics,
         version,
         is_stream=False,
+        event_provider=event_provider,
     )
 
     return response

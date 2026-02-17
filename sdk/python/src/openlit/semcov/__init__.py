@@ -56,6 +56,7 @@ class SemanticConvention:
     GEN_AI_ENDPOINT = "gen_ai.endpoint"
     GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
     GEN_AI_REQUEST_SEED = "gen_ai.request.seed"
+    GEN_AI_REQUEST_CHOICE_COUNT = "gen_ai.request.choice.count"
     GEN_AI_REQUEST_ENCODING_FORMATS = "gen_ai.request.encoding_formats"
     GEN_AI_REQUEST_FREQUENCY_PENALTY = "gen_ai.request.frequency_penalty"
     GEN_AI_REQUEST_MAX_TOKENS = "gen_ai.request.max_tokens"
@@ -64,6 +65,9 @@ class SemanticConvention:
     GEN_AI_REQUEST_TEMPERATURE = "gen_ai.request.temperature"
     GEN_AI_REQUEST_TOP_K = "gen_ai.request.top_k"
     GEN_AI_REQUEST_TOP_P = "gen_ai.request.top_p"
+
+    # GenAI Conversation Attributes (OTel Semconv)
+    GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
 
     # GenAI Response Attributes (OTel Semconv)
     GEN_AI_TOKEN_TYPE = "gen_ai.token.type"
@@ -74,6 +78,10 @@ class SemanticConvention:
     GEN_AI_USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
     GEN_AI_USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
     GEN_AI_USAGE_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens"
+    GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS = (
+        "gen_ai.usage.cache_creation.input_tokens"
+    )
+    GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS = "gen_ai.usage.cache_read.input_tokens"
     GEN_AI_USAGE_READ_UNITS = "gen_ai.usage.read_units"
     GEN_AI_USAGE_RERANK_UNITS = "gen_ai.usage.rerank_units"
     GEN_AI_TOOL_CALL_ID = "gen_ai.tool.call.id"
