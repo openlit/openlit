@@ -16,6 +16,7 @@ from openlit.__helpers import (
     create_metrics_attributes,
     common_span_attributes,
     record_completion_metrics,
+    otel_event,
 )
 from openlit.semcov import SemanticConvention
 
@@ -147,8 +148,6 @@ def emit_inference_event(
     try:
         if not event_provider:
             return
-
-        from openlit.__helpers import otel_event
 
         attributes = {SemanticConvention.GEN_AI_OPERATION_NAME: operation_name}
 
