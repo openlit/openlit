@@ -65,25 +65,31 @@ def build_input_messages(messages):
                 elif part.get("type") == "image_url":
                     image_url = part.get("image_url", {}).get("url", "")
                     if not image_url.startswith("data:"):
-                        parts.append({"type": "uri", "modality": "image", "uri": image_url})
+                        parts.append(
+                            {"type": "uri", "modality": "image", "uri": image_url}
+                        )
 
         # Handle tool calls
         if "tool_calls" in msg:
             for tool_call in msg.get("tool_calls", []):
-                parts.append({
-                    "type": "tool_call",
-                    "id": tool_call.get("id", ""),
-                    "name": tool_call.get("function", {}).get("name", ""),
-                    "arguments": tool_call.get("function", {}).get("arguments", {}),
-                })
+                parts.append(
+                    {
+                        "type": "tool_call",
+                        "id": tool_call.get("id", ""),
+                        "name": tool_call.get("function", {}).get("name", ""),
+                        "arguments": tool_call.get("function", {}).get("arguments", {}),
+                    }
+                )
 
         # Handle tool responses
         if role == "tool" and "tool_call_id" in msg:
-            parts.append({
-                "type": "tool_call_response",
-                "id": msg.get("tool_call_id", ""),
-                "response": content,
-            })
+            parts.append(
+                {
+                    "type": "tool_call_response",
+                    "id": msg.get("tool_call_id", ""),
+                    "response": content,
+                }
+            )
 
         if parts:
             structured_messages.append({"role": role, "parts": parts})
@@ -102,12 +108,14 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
 
     if tool_calls:
         for tool_call in tool_calls:
-            parts.append({
-                "type": "tool_call",
-                "id": tool_call.get("id", ""),
-                "name": tool_call.get("function", {}).get("name", ""),
-                "arguments": tool_call.get("function", {}).get("arguments", {}),
-            })
+            parts.append(
+                {
+                    "type": "tool_call",
+                    "id": tool_call.get("id", ""),
+                    "name": tool_call.get("function", {}).get("name", ""),
+                    "arguments": tool_call.get("function", {}).get("arguments", {}),
+                }
+            )
 
     # Ollama uses done_reason field - map to OTel standard
     finish_reason_map = {
@@ -139,7 +147,7 @@ def emit_inference_event(
     tool_definitions=None,
     server_address=None,
     server_port=None,
-    **extra_attrs
+    **extra_attrs,
 ):
     """
     Centralized function to emit gen_ai.client.inference.operation.details event.
@@ -191,6 +199,7 @@ def emit_inference_event(
         event_provider.emit(event)
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
@@ -380,9 +389,15 @@ def common_chat_logic(
         if event_provider:
             try:
                 json_body = scope._kwargs.get("json", {}) or {}
-                input_msgs = build_input_messages(json_body.get("messages", scope._kwargs.get("messages", [])))
-                output_msgs = build_output_messages(scope._llmresponse, scope._finish_reason, scope._tools)
-                tool_defs = build_tool_definitions(json_body.get("tools", scope._kwargs.get("tools")))
+                input_msgs = build_input_messages(
+                    json_body.get("messages", scope._kwargs.get("messages", []))
+                )
+                output_msgs = build_output_messages(
+                    scope._llmresponse, scope._finish_reason, scope._tools
+                )
+                tool_defs = build_tool_definitions(
+                    json_body.get("tools", scope._kwargs.get("tools"))
+                )
 
                 # Extract options for parameters
                 options = json_body.get("options", scope._kwargs.get("options", {}))
@@ -408,6 +423,7 @@ def common_chat_logic(
                 )
             except Exception as e:
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
@@ -558,9 +574,15 @@ def common_generate_logic(
                 json_body = scope._kwargs.get("json", {}) or {}
 
                 # For generate operation, input is a prompt string, not messages
-                input_msgs = [{"role": "user", "parts": [{"type": "text", "content": prompt}]}]
-                output_msgs = build_output_messages(scope._llmresponse, scope._finish_reason, scope._tools)
-                tool_defs = build_tool_definitions(json_body.get("tools", scope._kwargs.get("tools")))
+                input_msgs = [
+                    {"role": "user", "parts": [{"type": "text", "content": prompt}]}
+                ]
+                output_msgs = build_output_messages(
+                    scope._llmresponse, scope._finish_reason, scope._tools
+                )
+                tool_defs = build_tool_definitions(
+                    json_body.get("tools", scope._kwargs.get("tools"))
+                )
 
                 # Extract options for parameters
                 options = json_body.get("options", scope._kwargs.get("options", {}))
@@ -586,6 +608,7 @@ def common_generate_logic(
                 )
             except Exception as e:
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
@@ -700,6 +723,7 @@ def common_embedding_logic(
                 )
             except Exception as e:
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
