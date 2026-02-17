@@ -252,10 +252,13 @@ export async function shareDBConfig({
 					canShare: false,
 				},
 			}) => {
+				// Normalize email to lowercase for case-insensitive comparison
+				const normalizedEmail = email.toLowerCase().trim();
+				
 				const [, user] = await asaw(
 					prisma.user.findUnique({
 						where: {
-							email,
+							email: normalizedEmail,
 						},
 					})
 				);
@@ -275,12 +278,12 @@ export async function shareDBConfig({
 						return [, { success: true }];
 					}
 
-					return [`Already shared to ${email}`, { success: false }];
+					return [`Already shared to ${normalizedEmail}`, { success: false }];
 				} else {
 					const [createErr] = await asaw(
 						prisma.databaseConfigInvitedUser.create({
 							data: {
-								email,
+								email: normalizedEmail,
 								databaseConfigId: id,
 								canEdit: dbUserConfig.canEdit && permissions.canEdit,
 								canDelete: dbUserConfig.canDelete && permissions.canDelete,

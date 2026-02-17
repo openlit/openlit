@@ -24,6 +24,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import CreateOrganisationDialog from "./create-organisation-dialog";
 import getMessage from "@/constants/messages";
+import { CLIENT_EVENTS } from "@/constants/events";
 
 export default function OrganisationSwitch() {
 	const posthog = usePostHog();
@@ -36,7 +37,7 @@ export default function OrganisationSwitch() {
 	const onClickItem = (id: string) => {
 		if (id === currentOrg?.id) return;
 		changeActiveOrganisation(id, () => {
-			posthog?.capture("organisation_switched");
+			posthog?.capture(CLIENT_EVENTS.ORGANISATION_SWITCHED);
 		});
 	};
 

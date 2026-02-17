@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { fetchDatabaseConfigList, pingActiveDatabaseConfig } from "./database-config";
 import { OrganisationWithMeta } from "@/types/store/organisation";
 import getMessage from "@/constants/messages";
+import { CLIENT_EVENTS } from "@/constants/events";
+import posthog from "posthog-js";
 
 export const fetchOrganisationList = async () => {
 	useRootStore.getState().organisation.setIsLoading(true);
@@ -96,6 +98,9 @@ export const createOrganisation = async (
 		id: "organisation-create",
 	});
 
+	// Track event
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_CREATED);
+
 	// Refetch organisation list
 	await fetchOrganisationList();
 
@@ -134,6 +139,9 @@ export const updateOrganisation = async (
 		id: "organisation-update",
 	});
 
+	// Track event
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_UPDATED);
+
 	// Refetch organisation list
 	await fetchOrganisationList();
 	successCb?.();
@@ -160,6 +168,9 @@ export const deleteOrganisation = async (
 	toast.success(messages.ORGANISATION_DELETED, {
 		id: "organisation-delete",
 	});
+
+	// Track event
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_DELETED);
 
 	// Refetch organisation list
 	await fetchOrganisationList();
@@ -201,6 +212,12 @@ export const inviteToOrganisation = async (
 				id: "organisation-invite",
 			}
 		);
+		// Track partial success
+		posthog?.capture(CLIENT_EVENTS.ORGANISATION_MEMBER_INVITED, {
+			success_count: successCount,
+			fail_count: failCount,
+			status: "partial"
+		});
 	} else if (failCount > 0) {
 		const firstError = results.find((r) => r.error)?.error;
 		toast.error(firstError || messages.INVITATION_FAILED, {
@@ -210,6 +227,11 @@ export const inviteToOrganisation = async (
 	} else {
 		toast.success(messages.INVITATIONS_SENT, {
 			id: "organisation-invite",
+		});
+		// Track success
+		posthog?.capture(CLIENT_EVENTS.ORGANISATION_MEMBER_INVITED, {
+			count: successCount,
+			status: "success"
 		});
 	}
 
@@ -239,6 +261,9 @@ export const acceptInvitation = async (
 		id: "organisation-invitation",
 	});
 
+	// Track event
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_INVITATION_ACCEPTED);
+
 	// Refetch organisations and invitations
 	await fetchOrganisationList();
 	await fetchPendingInvitations();
@@ -266,6 +291,9 @@ export const declineInvitation = async (
 	toast.success(messages.INVITATION_DECLINED, {
 		id: "organisation-invitation",
 	});
+
+	// Track event
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_INVITATION_DECLINED);
 
 	// Refetch invitations
 	await fetchPendingInvitations();
@@ -295,6 +323,9 @@ export const removeOrganisationMember = async (
 		id: "organisation-member",
 	});
 
+	// Track event
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_MEMBER_REMOVED);
+
 	successCb?.();
 };
 
@@ -319,6 +350,9 @@ export const cancelOrganisationInvitation = async (
 	toast.success(messages.INVITATION_CANCELLED, {
 		id: "organisation-invitation-cancel",
 	});
+
+	// Track event
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_INVITATION_CANCELLED);
 
 	successCb?.();
 };
@@ -347,6 +381,11 @@ export const updateMemberRole = async (
 
 	toast.success(messages.MEMBER_ROLE_UPDATED, {
 		id: "organisation-member-role",
+	});
+
+	// Track event
+	posthog?.capture(CLIENT_EVENTS.ORGANISATION_MEMBER_ROLE_UPDATED, {
+		new_role: role
 	});
 
 	successCb?.();

@@ -321,9 +321,12 @@ export async function inviteUserToOrganisation(
 	const hasPermission = await hasAdminOrOwnerRole(organisationId, user!.id);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_INVITE);
 
+	// Normalize email to lowercase for case-insensitive comparison
+	const normalizedEmail = email.toLowerCase().trim();
+
 	// Check if user already exists
 	const existingUser = await prisma.user.findUnique({
-		where: { email },
+		where: { email: normalizedEmail },
 	});
 
 	if (existingUser) {
@@ -362,7 +365,7 @@ export async function inviteUserToOrganisation(
 		where: {
 			organisationId_email: {
 				organisationId,
-				email,
+				email: normalizedEmail,
 			},
 		},
 	});
@@ -375,7 +378,7 @@ export async function inviteUserToOrganisation(
 	await prisma.organisationInvitedUser.create({
 		data: {
 			organisationId,
-			email,
+			email: normalizedEmail,
 			invitedByUserId: user!.id,
 		},
 	});
@@ -390,9 +393,12 @@ export async function getPendingInvitationsForUser() {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
+	// Normalize email to lowercase for case-insensitive comparison
+	const normalizedEmail = user!.email.toLowerCase().trim();
+
 	const invitations = await prisma.organisationInvitedUser.findMany({
 		where: {
-			email: user!.email,
+			email: normalizedEmail,
 		},
 		include: {
 			organisation: true,
@@ -420,8 +426,13 @@ export async function acceptInvitation(invitationId: string) {
 	});
 
 	throwIfError(!invitation, getMessage().INVITATION_NOT_FOUND);
+	
+	// Normalize both emails to lowercase for case-insensitive comparison
+	const normalizedInvitationEmail = invitation!.email.toLowerCase().trim();
+	const normalizedUserEmail = user!.email.toLowerCase().trim();
+	
 	throwIfError(
-		invitation!.email !== user!.email,
+		normalizedInvitationEmail !== normalizedUserEmail,
 		getMessage().INVITATION_NOT_FOR_YOU
 	);
 
@@ -458,8 +469,13 @@ export async function declineInvitation(invitationId: string) {
 	});
 
 	throwIfError(!invitation, getMessage().INVITATION_NOT_FOUND);
+	
+	// Normalize both emails to lowercase for case-insensitive comparison
+	const normalizedInvitationEmail = invitation!.email.toLowerCase().trim();
+	const normalizedUserEmail = user!.email.toLowerCase().trim();
+	
 	throwIfError(
-		invitation!.email !== user!.email,
+		normalizedInvitationEmail !== normalizedUserEmail,
 		getMessage().INVITATION_NOT_FOR_YOU
 	);
 
@@ -477,8 +493,11 @@ export async function moveInvitationsToMembership(
 	email: string,
 	userId: string
 ) {
+	// Normalize email to lowercase for case-insensitive comparison
+	const normalizedEmail = email.toLowerCase().trim();
+	
 	const invitations = await prisma.organisationInvitedUser.findMany({
-		where: { email },
+		where: { email: normalizedEmail },
 	});
 
 	for (const invitation of invitations) {
@@ -573,6 +592,18 @@ export async function removeUserFromOrganisation(
 		}
 	}
 
+	// Check if this is the user's current organisation
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId,
+				userId,
+			},
+		},
+	});
+
+	const wasCurrentOrg = membership?.isCurrent;
+
 	// Remove user from all database configs in this organisation
 	await prisma.databaseConfigUser.deleteMany({
 		where: {
@@ -592,6 +623,29 @@ export async function removeUserFromOrganisation(
 			},
 		},
 	});
+
+	// If this was the user's current org, set another org as current
+	if (wasCurrentOrg) {
+		const remainingOrgs = await prisma.organisationUser.findFirst({
+			where: {
+				userId,
+			},
+			orderBy: {
+				createdAt: "asc", // Set the oldest org as current
+			},
+		});
+
+		if (remainingOrgs) {
+			await prisma.organisationUser.update({
+				where: {
+					id: remainingOrgs.id,
+				},
+				data: {
+					isCurrent: true,
+				},
+			});
+		}
+	}
 
 	return { success: true };
 }
