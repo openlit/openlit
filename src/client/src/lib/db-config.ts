@@ -16,6 +16,36 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	// Get current organisation
 	const currentOrg = await getCurrentOrganisation();
 
+	// Auto-migrate orphaned configs: If user has a current org, move any orphaned configs
+	// they have access to into that org. This handles edge cases where migration didn't run
+	// or new orphaned configs were created.
+	if (currentOrg?.id) {
+		const userOrphanedLinks = await prisma.databaseConfigUser.findMany({
+			where: {
+				userId: user.id,
+				databaseConfig: {
+					organisationId: null,
+				},
+			},
+			select: { databaseConfigId: true },
+		});
+
+		if (userOrphanedLinks.length > 0) {
+			const orphanedConfigIds = userOrphanedLinks.map(
+				(link) => link.databaseConfigId
+			);
+
+			await prisma.databaseConfig.updateMany({
+				where: { id: { in: orphanedConfigIds } },
+				data: { organisationId: currentOrg.id },
+			});
+
+			consoleLog(
+				`Auto-migrated ${orphanedConfigIds.length} orphaned configs for user ${user.id} to org ${currentOrg.id}`
+			);
+		}
+	}
+
 	if (currentOnly) {
 		const dbConfig = await prisma.databaseConfigUser.findFirst({
 			where: {

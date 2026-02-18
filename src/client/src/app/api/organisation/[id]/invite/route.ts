@@ -1,6 +1,9 @@
 import { inviteUserToOrganisation } from "@/lib/organisation";
 import asaw from "@/utils/asaw";
 
+// Basic email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function POST(
 	request: Request,
 	{ params }: { params: Promise<{ id: string }> }
@@ -17,9 +20,28 @@ export async function POST(
 
 	const results = await Promise.all(
 		emails.map(async (email: string) => {
-			const [err, res] = await asaw(inviteUserToOrganisation(id, email));
+			// Validate email format and content before processing
+			const trimmedEmail = typeof email === "string" ? email.trim() : "";
+			
+			if (!trimmedEmail) {
+				return {
+					email: email,
+					error: "Email cannot be empty",
+					result: null,
+				};
+			}
+
+			if (!EMAIL_REGEX.test(trimmedEmail)) {
+				return {
+					email: trimmedEmail,
+					error: "Invalid email format",
+					result: null,
+				};
+			}
+
+			const [err, res] = await asaw(inviteUserToOrganisation(id, trimmedEmail));
 			return {
-				email,
+				email: trimmedEmail,
 				error: err ? String(err).replace(/^Error:\s*/, "") : null,
 				result: res,
 			};

@@ -321,8 +321,19 @@ export async function inviteUserToOrganisation(
 	const hasPermission = await hasAdminOrOwnerRole(organisationId, user!.id);
 	throwIfError(!hasPermission, getMessage().ONLY_ADMIN_CAN_INVITE);
 
-	// Normalize email to lowercase for case-insensitive comparison
+	// Validate and normalize email
 	const normalizedEmail = email.toLowerCase().trim();
+	
+	// Validate email is not empty
+	if (!normalizedEmail) {
+		throw new Error("Email cannot be empty");
+	}
+	
+	// Validate email format
+	const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	if (!EMAIL_REGEX.test(normalizedEmail)) {
+		throw new Error("Invalid email format");
+	}
 
 	// Check if user already exists
 	const existingUser = await prisma.user.findUnique({

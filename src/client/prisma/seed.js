@@ -97,29 +97,29 @@ async function main() {
 }
 
 // Migration logic for existing installations
-// Migrates orphaned configs the seed user has access to, then ensures
+// Migrates ALL orphaned configs into the default org, then ensures
 // all users sharing configs in the default org are also members.
 async function migrateExistingData(defaultOrgId, seedUserId) {
-	// Step 1: Move orphaned DB configs the seed user has access to into the default org
-	const seedUserOrphanedLinks = await prisma.databaseConfigUser.findMany({
+	// Step 1: Move ALL orphaned DB configs into the default org
+	// This ensures no user loses access to their configs when they join/create an org
+	const allOrphanedConfigs = await prisma.databaseConfig.findMany({
 		where: {
-			userId: seedUserId,
-			databaseConfig: {
-				organisationId: null,
-			},
+			organisationId: null,
 		},
-		select: { databaseConfigId: true },
+		select: { id: true },
 	});
 
-	if (seedUserOrphanedLinks.length > 0) {
-		const orphanedConfigIds = seedUserOrphanedLinks.map(
-			(link) => link.databaseConfigId
-		);
+	if (allOrphanedConfigs.length > 0) {
+		const orphanedConfigIds = allOrphanedConfigs.map((config) => config.id);
 
 		await prisma.databaseConfig.updateMany({
 			where: { id: { in: orphanedConfigIds } },
 			data: { organisationId: defaultOrgId },
 		});
+
+		console.log(
+			`Migrated ${orphanedConfigIds.length} orphaned database configs to default organisation`
+		);
 	}
 
 	// Step 2: Find ALL configs now in the default org and ensure shared users are members
