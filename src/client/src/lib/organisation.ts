@@ -329,8 +329,9 @@ export async function inviteUserToOrganisation(
 		throw new Error("Email cannot be empty");
 	}
 	
-	// Validate email format
-	const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	// Validate email format - using a safer regex pattern that avoids ReDoS
+	// This pattern is more restrictive but safe from catastrophic backtracking
+	const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 	if (!EMAIL_REGEX.test(normalizedEmail)) {
 		throw new Error("Invalid email format");
 	}

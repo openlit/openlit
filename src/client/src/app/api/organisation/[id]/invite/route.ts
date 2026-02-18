@@ -1,8 +1,9 @@
 import { inviteUserToOrganisation } from "@/lib/organisation";
 import asaw from "@/utils/asaw";
 
-// Basic email validation regex
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Email validation regex - using a safer pattern that avoids ReDoS vulnerability
+// This pattern is more restrictive but safe from catastrophic backtracking
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
 export async function POST(
 	request: Request,
