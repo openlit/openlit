@@ -299,10 +299,45 @@ export async function deleteOrganisation(id: string) {
 		getMessage().ORGANISATION_CANNOT_DELETE_WITH_MEMBERS
 	);
 
+	// Check if this is the user's current organisation before deletion
+	const membership = await prisma.organisationUser.findUnique({
+		where: {
+			organisationId_userId: {
+				organisationId: id,
+				userId: user!.id,
+			},
+		},
+	});
+
+	const wasCurrentOrg = membership?.isCurrent;
+
 	// Delete the organisation (cascade will handle members)
 	await prisma.organisation.delete({
 		where: { id },
 	});
+
+	// If this was the user's current org, set another org as current
+	if (wasCurrentOrg) {
+		const remainingOrgs = await prisma.organisationUser.findFirst({
+			where: {
+				userId: user!.id,
+			},
+			orderBy: {
+				createdAt: "asc", // Set the oldest org as current
+			},
+		});
+
+		if (remainingOrgs) {
+			await prisma.organisationUser.update({
+				where: {
+					id: remainingOrgs.id,
+				},
+				data: {
+					isCurrent: true,
+				},
+			});
+		}
+	}
 
 	return { success: true };
 }

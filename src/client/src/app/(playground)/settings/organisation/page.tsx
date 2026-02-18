@@ -317,64 +317,76 @@ export default function OrganisationSettingsPage() {
 					</TabsList>
 
 					<TabsContent value="details" className="space-y-4 mt-0">
-						<div className="space-y-3 py-4">
-							<div className="space-y-1.5">
-								<Label htmlFor="org-name" className="text-sm">
-									{messages.ORGANISATION_NAME}
-								</Label>
-								<div className="flex gap-2">
-									<Input
-										id="org-name"
-										value={orgName}
-										onChange={(e) => setOrgName(e.target.value)}
-										className="h-9"
-									/>
-									<Button
-										onClick={handleSaveName}
-										disabled={
-											isSaving ||
-											!orgName.trim() ||
-											orgName === currentOrg.name
-										}
-										size="sm"
-										className="h-9"
-									>
-										<Save className="h-3.5 w-3.5 mr-1.5" />
-										{isSaving ? messages.SAVING : messages.SAVE}
-									</Button>
-								</div>
-							</div>
-
-							<div className="space-y-1.5">
-								<Label htmlFor="invite-email" className="text-sm">
-									{messages.INVITE_NEW_MEMBER}
-								</Label>
-								<div className="flex gap-2">
-									<Input
-										id="invite-email"
-										placeholder="email@example.com"
-										type="email"
-										value={inviteEmail}
-										onChange={(e) => setInviteEmail(e.target.value)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												handleInvite();
+						{hasAdminPermissions ? (
+							<div className="space-y-3 py-4">
+								<div className="space-y-1.5">
+									<Label htmlFor="org-name" className="text-sm">
+										{messages.ORGANISATION_NAME}
+									</Label>
+									<div className="flex gap-2">
+										<Input
+											id="org-name"
+											value={orgName}
+											onChange={(e) => setOrgName(e.target.value)}
+											className="h-9"
+										/>
+										<Button
+											onClick={handleSaveName}
+											disabled={
+												isSaving ||
+												!orgName.trim() ||
+												orgName === currentOrg.name
 											}
-										}}
-										className="h-9"
-									/>
-									<Button
-										onClick={handleInvite}
-										disabled={isInviting || !inviteEmail.trim()}
-										size="sm"
-										className="h-9"
-									>
-										<UserPlus className="h-3.5 w-3.5 mr-1.5" />
-										{isInviting ? messages.INVITING : messages.INVITE}
-									</Button>
+											size="sm"
+											className="h-9"
+										>
+											<Save className="h-3.5 w-3.5 mr-1.5" />
+											{isSaving ? messages.SAVING : messages.SAVE}
+										</Button>
+									</div>
+								</div>
+
+								<div className="space-y-1.5">
+									<Label htmlFor="invite-email" className="text-sm">
+										{messages.INVITE_NEW_MEMBER}
+									</Label>
+									<div className="flex gap-2">
+										<Input
+											id="invite-email"
+											placeholder="email@example.com"
+											type="email"
+											value={inviteEmail}
+											onChange={(e) => setInviteEmail(e.target.value)}
+											onKeyDown={(e) => {
+												if (e.key === "Enter") {
+													handleInvite();
+												}
+											}}
+											className="h-9"
+										/>
+										<Button
+											onClick={handleInvite}
+											disabled={isInviting || !inviteEmail.trim()}
+											size="sm"
+											className="h-9"
+										>
+											<UserPlus className="h-3.5 w-3.5 mr-1.5" />
+											{isInviting ? messages.INVITING : messages.INVITE}
+										</Button>
+									</div>
 								</div>
 							</div>
-						</div>
+						) : (
+							<div className="py-4">
+								<Card className="border-stone-200 dark:border-stone-800">
+									<CardContent className="pt-6">
+										<p className="text-sm text-muted-foreground">
+											{messages.INSUFFICIENT_PERMISSIONS}
+										</p>
+									</CardContent>
+								</Card>
+							</div>
+						)}
 
 						{isCreator && (
 							<div className="border-t border-stone-200 dark:border-stone-800 pt-4 px-4 pb-4">
