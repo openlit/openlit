@@ -54,14 +54,63 @@ async function main() {
 	};
 
 	if (environmentDBConfig.host && environmentDBConfig.port) {
-		// Delete any orphaned "Default DB" config to avoid unique constraint violation
-		// when upserting with the new organisationId
-		await prisma.databaseConfig.deleteMany({
+		// First, migrate any orphaned "Default DB" configs to the default org
+		// This must happen before deleteMany to avoid foreign key constraint violations
+		// from databaseconfiguser records that reference these configs
+		const orphanedDefaultDBConfigs = await prisma.databaseConfig.findMany({
 			where: {
 				name: "Default DB",
 				organisationId: null,
 			},
 		});
+
+		if (orphanedDefaultDBConfigs.length > 0) {
+			// Check if a "Default DB" config already exists in the default org
+			const existingDefaultDB = await prisma.databaseConfig.findUnique({
+				where: {
+					name_organisationId: {
+						name: "Default DB",
+						organisationId: defaultOrg.id,
+					},
+				},
+			});
+
+			if (existingDefaultDB) {
+				// If one exists, we need to handle the orphaned configs
+				// Delete only orphaned configs that have no databaseconfiguser references
+				for (const orphanedConfig of orphanedDefaultDBConfigs) {
+					const hasReferences = await prisma.databaseConfigUser.findFirst({
+						where: { databaseConfigId: orphanedConfig.id },
+					});
+
+					if (!hasReferences) {
+						// Safe to delete - no foreign key constraints
+						await prisma.databaseConfig.delete({
+							where: { id: orphanedConfig.id },
+						});
+					} else {
+						// Has references - migrate it by updating to a unique name
+						// Use a timestamp-based suffix to ensure uniqueness
+						await prisma.databaseConfig.update({
+							where: { id: orphanedConfig.id },
+							data: {
+								name: `Default DB (${orphanedConfig.id.slice(0, 8)})`,
+								organisationId: defaultOrg.id,
+							},
+						});
+					}
+				}
+			} else {
+				// No existing "Default DB" in default org - safe to migrate all orphaned ones
+				await prisma.databaseConfig.updateMany({
+					where: {
+						name: "Default DB",
+						organisationId: null,
+					},
+					data: { organisationId: defaultOrg.id },
+				});
+			}
+		}
 
 		const dbConfig = await prisma.databaseConfig.upsert({
 			where: {

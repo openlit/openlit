@@ -6,7 +6,7 @@ import { throwIfError } from "@/utils/error";
 /**
  * Generate a URL-safe slug from a name
  */
-export function generateOrganisationSlug(name: string): string {
+function generateOrganisationSlug(name: string): string {
 	const baseSlug = name
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")

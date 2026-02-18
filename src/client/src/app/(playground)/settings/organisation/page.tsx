@@ -210,10 +210,16 @@ export default function OrganisationSettingsPage() {
 
 		await removeOrganisationMember(currentOrg.id, currentUserId, async () => {
 			await fetchOrganisationList();
-			// Switch to another org if available
-			const updatedList = useRootStore.getState().organisation.list || [];
-			if (updatedList.length > 0) {
-				await changeActiveOrganisation(updatedList[0].id);
+			// The server already sets the correct current org based on organisationUser.createdAt
+			// Only switch if no current org was set (edge case)
+			const state = useRootStore.getState().organisation;
+			const newCurrent = state.current;
+			if (!newCurrent && state.list && state.list.length > 0) {
+				// Fallback: use the org marked as current by the server, or first one if none marked
+				const serverSelected = state.list.find((org) => org.isCurrent) || state.list[0];
+				if (serverSelected) {
+					await changeActiveOrganisation(serverSelected.id);
+				}
 			}
 		});
 	};
@@ -222,11 +228,16 @@ export default function OrganisationSettingsPage() {
 		if (!currentOrg) return;
 
 		await deleteOrganisation(currentOrg.id, async () => {
-			// Switch to another org if available
-			// Note: fetchOrganisationList() is already called by deleteOrganisation()
-			const updatedList = useRootStore.getState().organisation.list || [];
-			if (updatedList.length > 0) {
-				await changeActiveOrganisation(updatedList[0].id);
+			// The server already sets the correct current org based on organisationUser.createdAt
+			// Only switch if no current org was set (edge case)
+			const state = useRootStore.getState().organisation;
+			const newCurrent = state.current;
+			if (!newCurrent && state.list && state.list.length > 0) {
+				// Fallback: use the org marked as current by the server, or first one if none marked
+				const serverSelected = state.list.find((org) => org.isCurrent) || state.list[0];
+				if (serverSelected) {
+					await changeActiveOrganisation(serverSelected.id);
+				}
 			}
 		});
 	};
