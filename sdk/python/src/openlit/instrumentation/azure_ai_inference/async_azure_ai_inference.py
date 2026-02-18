@@ -30,6 +30,7 @@ def async_complete(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI function call
@@ -48,6 +49,7 @@ def async_complete(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
             **args,
         ):
             self.__wrapped__ = wrapped
@@ -72,6 +74,7 @@ def async_complete(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
@@ -88,6 +91,7 @@ def async_complete(
                 capture_message_content,
                 disable_metrics,
                 version,
+                event_provider=self._event_provider,
             )
 
         def __aiter__(self):
@@ -119,7 +123,13 @@ def async_complete(
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
             return TracedAsyncStream(
-                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                event_provider=event_provider,
             )
 
         else:
@@ -140,6 +150,7 @@ def async_complete(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 
@@ -157,6 +168,7 @@ def async_embed(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI embedding function call
@@ -195,6 +207,7 @@ def async_embed(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 

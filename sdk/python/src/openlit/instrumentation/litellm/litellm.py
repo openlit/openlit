@@ -23,6 +23,7 @@ def completion(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI function call
@@ -41,6 +42,7 @@ def completion(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
             **args,
         ):
             self.__wrapped__ = wrapped
@@ -63,6 +65,7 @@ def completion(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -95,6 +98,7 @@ def completion(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=self._event_provider,
                     )
                     # End the span after processing
                     self._span.end()
@@ -123,7 +127,13 @@ def completion(
             awaited_wrapped = wrapped(*args, **kwargs)
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
             return TracedSyncStream(
-                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                event_provider=event_provider,
             )
         else:
             # Handling for non-streaming responses
@@ -146,6 +156,7 @@ def completion(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
@@ -166,6 +177,7 @@ def embedding(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI embedding function call
@@ -203,6 +215,7 @@ def embedding(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 

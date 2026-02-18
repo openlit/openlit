@@ -17,76 +17,169 @@ Quick reference for mapping provider-specific parameters to OpenTelemetry Gen-AI
 
 | OTel Attribute | Constant | Type | Description | Example |
 |----------------|----------|------|-------------|---------|
-| `gen_ai.operation` | `GEN_AI_OPERATION` | string | Type of operation | `"chat"`, `"completion"`, `"embedding"` |
-| `gen_ai.request.model` | `GEN_AI_REQUEST_MODEL` | string | Model requested | `"gpt-4"`, `"claude-3-opus"` |
-| `gen_ai.response.model` | `GEN_AI_RESPONSE_MODEL` | string | Model that responded | `"gpt-4-0613"` |
+| `gen_ai.operation.name` | `GEN_AI_OPERATION_NAME` | string | **REQUIRED** - Name of the operation being performed | `"chat"`, `"completion"`, `"embedding"` |
 
 ---
 
-## Content Attributes (Chat/Completions)
+## Conditionally Required Attributes (Inference)
 
-| OTel Attribute | Constant | Type | Description | Format |
-|----------------|----------|------|-------------|--------|
-| `gen_ai.input.messages` | `GEN_AI_INPUT_MESSAGES` | array | Structured input messages | See [Input Message Schema](#input-message-schema) |
-| `gen_ai.output.messages` | `GEN_AI_OUTPUT_MESSAGES` | array | Structured output messages | See [Output Message Schema](#output-message-schema) |
-| `gen_ai.system_instructions` | `GEN_AI_SYSTEM_INSTRUCTIONS` | string | System prompt (alternative to messages) | `"You are a helpful assistant"` |
-| `gen_ai.tool.definitions` | `GEN_AI_TOOL_DEFINITIONS` | array | Available tool/function definitions | See [Tool Definition Schema](#tool-definition-schema) |
+These attributes MUST be included when the specified condition is met:
 
----
-
-## Request Parameters (Optional)
-
-| OTel Attribute | Constant | Type | Provider Parameter | Default |
-|----------------|----------|------|-------------------|---------|
-| `gen_ai.request.temperature` | `GEN_AI_REQUEST_TEMPERATURE` | double | `temperature` | Provider-specific |
-| `gen_ai.request.max_tokens` | `GEN_AI_REQUEST_MAX_TOKENS` | int | `max_tokens`, `max_completion_tokens` | Provider-specific |
-| `gen_ai.request.top_p` | `GEN_AI_REQUEST_TOP_P` | double | `top_p` | 1.0 |
-| `gen_ai.request.top_k` | `GEN_AI_REQUEST_TOP_K` | int | `top_k` | Provider-specific |
-| `gen_ai.request.frequency_penalty` | `GEN_AI_REQUEST_FREQUENCY_PENALTY` | double | `frequency_penalty` | 0.0 |
-| `gen_ai.request.presence_penalty` | `GEN_AI_REQUEST_PRESENCE_PENALTY` | double | `presence_penalty` | 0.0 |
-| `gen_ai.request.stop_sequences` | `GEN_AI_REQUEST_STOP_SEQUENCES` | array[string] | `stop` | `[]` |
-| `gen_ai.request.seed` | `GEN_AI_REQUEST_SEED` | int | `seed` | None |
+| OTel Attribute | Constant | Type | Condition | Description | Example |
+|----------------|----------|------|-----------|-------------|---------|
+| `error.type` | `ERROR_TYPE` | string | If operation ended in error | Error class/type describing the error | `"timeout"`, `"rate_limit"` |
+| `gen_ai.conversation.id` | `GEN_AI_CONVERSATION_ID` | string | When readily available | Identifies the conversation/session | `"session-abc123"` |
+| `gen_ai.output.type` | `GEN_AI_OUTPUT_TYPE` | string | When applicable | Requested content type | `"text"`, `"json_object"` |
+| `gen_ai.request.choice.count` | `GEN_AI_REQUEST_CHOICE_COUNT` | int | If available and ≠ 1 | Number of choices requested | `3` |
+| `gen_ai.request.model` | `GEN_AI_REQUEST_MODEL` | string | If available | Model name being called | `"gpt-4"`, `"claude-3-opus"` |
+| `gen_ai.request.seed` | `GEN_AI_REQUEST_SEED` | int | If seed was provided | Seed for deterministic generation | `42` |
+| `server.port` | `SERVER_PORT` | int | If server.address is set | Server port number | `443` |
 
 ---
 
-## Response Metadata (Recommended)
+## Recommended Attributes (Inference)
+
+These attributes SHOULD be included when available:
+
+### Request Parameters
 
 | OTel Attribute | Constant | Type | Description | Example |
 |----------------|----------|------|-------------|---------|
+| `gen_ai.request.frequency_penalty` | `GEN_AI_REQUEST_FREQUENCY_PENALTY` | double | Frequency penalty setting | `0.5` |
+| `gen_ai.request.max_tokens` | `GEN_AI_REQUEST_MAX_TOKENS` | int | Maximum tokens to generate | `1024` |
+| `gen_ai.request.presence_penalty` | `GEN_AI_REQUEST_PRESENCE_PENALTY` | double | Presence penalty setting | `0.3` |
+| `gen_ai.request.stop_sequences` | `GEN_AI_REQUEST_STOP_SEQUENCES` | string[] | Sequences where model stops | `["END", "\n\n"]` |
+| `gen_ai.request.temperature` | `GEN_AI_REQUEST_TEMPERATURE` | double | Temperature setting | `0.7` |
+| `gen_ai.request.top_p` | `GEN_AI_REQUEST_TOP_P` | double | Top-p (nucleus) sampling | `0.9` |
+
+### Response Metadata
+
+| OTel Attribute | Constant | Type | Description | Example |
+|----------------|----------|------|-------------|---------|
+| `gen_ai.response.finish_reasons` | `GEN_AI_RESPONSE_FINISH_REASONS` | string[] | Reasons model stopped | `["stop"]`, `["max_tokens"]` |
 | `gen_ai.response.id` | `GEN_AI_RESPONSE_ID` | string | Unique response identifier | `"chatcmpl-123"` |
-| `gen_ai.response.finish_reasons` | `GEN_AI_RESPONSE_FINISH_REASONS` | array[string] | Why generation stopped | `["stop"]`, `["max_tokens"]` |
-| `gen_ai.response.choice_count` | `GEN_AI_RESPONSE_CHOICE_COUNT` | int | Number of choices returned | `1` |
-| `gen_ai.response.output_type` | `GEN_AI_RESPONSE_OUTPUT_TYPE` | string | Output format type | `"text"`, `"json_object"` |
+| `gen_ai.response.model` | `GEN_AI_RESPONSE_MODEL` | string | Model that generated response | `"gpt-4-0613"` |
 
----
+### Usage Metrics
 
-## Usage Metrics (Recommended)
+| OTel Attribute | Constant | Type | Description | Example |
+|----------------|----------|------|-------------|---------|
+| `gen_ai.usage.cache_creation.input_tokens` | `GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS` | int | Input tokens written to cache | `512` |
+| `gen_ai.usage.cache_read.input_tokens` | `GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS` | int | Input tokens served from cache | `256` |
+| `gen_ai.usage.input_tokens` | `GEN_AI_USAGE_INPUT_TOKENS` | int | Total tokens in prompt | `128` |
+| `gen_ai.usage.output_tokens` | `GEN_AI_USAGE_OUTPUT_TOKENS` | int | Tokens in response | `64` |
 
-| OTel Attribute | Constant | Type | Description |
-|----------------|----------|------|-------------|
-| `gen_ai.usage.input_tokens` | `GEN_AI_USAGE_INPUT_TOKENS` | int | Tokens in input/prompt |
-| `gen_ai.usage.output_tokens` | `GEN_AI_USAGE_OUTPUT_TOKENS` | int | Tokens in output/completion |
-
----
-
-## Server Attributes (Recommended)
+### Server Information
 
 | OTel Attribute | Type | Description | Example |
 |----------------|------|-------------|---------|
-| `server.address` | string | API server hostname/IP | `"api.openai.com"`, `"api.anthropic.com"` |
-| `server.port` | int | API server port | `443` |
+| `server.address` | string | GenAI server hostname/IP | `"api.openai.com"`, `"api.anthropic.com"` |
 
 ---
 
-## Evaluation Attributes
+## Opt-In Attributes (Content - Chat/Completions)
 
-| OTel Attribute | Constant | Type | Required | Description | Example |
-|----------------|----------|------|----------|-------------|---------|
-| `gen_ai.evaluation.name` | `GEN_AI_EVALUATION_NAME` | string | Yes | Type of evaluation | `"hallucination"`, `"bias_detection"` |
-| `gen_ai.evaluation.score.value` | `GEN_AI_EVALUATION_SCORE_VALUE` | double | Conditional | Numerical score (0.0-1.0) | `0.85` |
-| `gen_ai.evaluation.score.label` | `GEN_AI_EVALUATION_SCORE_LABEL` | string | Conditional | Human-readable label | `"yes"`, `"no"`, `"pass"`, `"fail"` |
-| `gen_ai.evaluation.explanation` | `GEN_AI_EVALUATION_EXPLANATION` | string | Recommended | Brief explanation | `"The output contains factual inaccuracies"` |
-| `gen_ai.response.id` | `GEN_AI_RESPONSE_ID` | string | Recommended | Response being evaluated | `"chatcmpl-123"` |
+These attributes contain sensitive content and MUST only be included when explicitly enabled via `capture_message_content=True`:
+
+| OTel Attribute | Constant | Type | Description | Format |
+|----------------|----------|------|-------------|--------|
+| `gen_ai.input.messages` | `GEN_AI_INPUT_MESSAGES` | array | Chat history provided to model as input | See [Input Message Schema](#input-message-schema) |
+| `gen_ai.output.messages` | `GEN_AI_OUTPUT_MESSAGES` | array | Messages returned by model (responses) | See [Output Message Schema](#output-message-schema) |
+| `gen_ai.system_instructions` | `GEN_AI_SYSTEM_INSTRUCTIONS` | string or array | System message/instructions separate from chat | `"You are a helpful assistant"` |
+| `gen_ai.tool.definitions` | `GEN_AI_TOOL_DEFINITIONS` | array | List of tool/function definitions available | See [Tool Definition Schema](#tool-definition-schema) |
+
+**Important:** These attributes contain user data and MUST only be set when `capture_message_content=True`.
+
+---
+
+## Evaluation Event Attributes
+
+### Event: `gen_ai.evaluation.result`
+
+#### Required Attributes
+
+| OTel Attribute | Constant | Type | Description | Example |
+|----------------|----------|------|-------------|---------|
+| `gen_ai.evaluation.name` | `GEN_AI_EVALUATION_NAME` | string | **REQUIRED** - Evaluation metric name used | `"hallucination"`, `"bias_detection"`, `"toxicity"` |
+
+#### Conditionally Required Attributes
+
+| OTel Attribute | Constant | Type | Condition | Description | Example |
+|----------------|----------|------|-----------|-------------|---------|
+| `error.type` | `ERROR_TYPE` | string | If operation ended in error | Error type for failed evaluation | `"api_error"` |
+| `gen_ai.evaluation.score.label` | `GEN_AI_EVALUATION_SCORE_LABEL` | string | At least one of label/value required | Human-readable evaluation label | `"yes"`, `"no"`, `"pass"`, `"fail"` |
+| `gen_ai.evaluation.score.value` | `GEN_AI_EVALUATION_SCORE_VALUE` | double | At least one of label/value required | Numeric evaluation score | `0.85` |
+
+**Note:** Either `score.label` or `score.value` (or both) MUST be present for the evaluation to be meaningful.
+
+#### Recommended Attributes
+
+| OTel Attribute | Constant | Type | Description | Example |
+|----------------|----------|------|-------------|---------|
+| `gen_ai.evaluation.explanation` | `GEN_AI_EVALUATION_EXPLANATION` | string | Free-form explanation for assigned score | `"The output contains factual inaccuracies"` |
+| `gen_ai.response.id` | `GEN_AI_RESPONSE_ID` | string | Links evaluation to specific GenAI response | `"chatcmpl-123"` |
+
+---
+
+## Attribute Requirement Levels
+
+Understanding when to include attributes is critical for OTel compliance:
+
+### Required
+- **MUST** be included in every event
+- Missing required attributes makes the event non-compliant
+- Example: `gen_ai.operation.name`
+
+### Conditionally Required
+- **MUST** be included when the specified condition is met
+- The condition describes when the attribute becomes mandatory
+- Examples:
+  - `error.type` - Required IF the operation ended in error
+  - `server.port` - Required IF `server.address` is set
+  - `gen_ai.request.seed` - Required IF a seed was provided in the request
+
+### Recommended
+- **SHOULD** be included when the information is available
+- Improves observability but not strictly required
+- Examples: `gen_ai.response.id`, `gen_ai.usage.input_tokens`
+
+### Opt-In
+- **MUST NOT** be included by default (contains sensitive data)
+- Only include when user explicitly enables via configuration flag
+- Examples: `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.tool.definitions`
+- Check: `if capture_message_content and event_provider:`
+
+### Implementation Guidelines
+
+```python
+# Required - always include
+attributes = {
+    "gen_ai.operation.name": "chat",  # REQUIRED
+}
+
+# Conditionally Required - check condition first
+if error_occurred:
+    attributes["error.type"] = error_type  # REQUIRED when condition met
+
+if server_address:
+    attributes["server.address"] = server_address
+    attributes["server.port"] = server_port  # REQUIRED when server.address set
+
+if seed is not None:
+    attributes["gen_ai.request.seed"] = seed  # REQUIRED when provided
+
+# Recommended - include when available
+if response_id:
+    attributes["gen_ai.response.id"] = response_id  # RECOMMENDED
+
+if input_tokens is not None:
+    attributes["gen_ai.usage.input_tokens"] = input_tokens  # RECOMMENDED
+
+# Opt-In - only when explicitly enabled
+if capture_message_content and event_provider:
+    attributes["gen_ai.input.messages"] = input_messages  # OPT-IN
+    attributes["gen_ai.output.messages"] = output_messages  # OPT-IN
+```
 
 ---
 
@@ -337,106 +430,169 @@ tool_definitions = [
 
 ### OpenAI / Azure OpenAI
 
-| OpenAI Parameter | OTel Attribute | Notes |
-|------------------|----------------|-------|
-| `messages` | `gen_ai.input.messages` | Transform to structured format |
-| `model` | `gen_ai.request.model` | Direct mapping |
-| `temperature` | `gen_ai.request.temperature` | Direct mapping |
-| `max_tokens` | `gen_ai.request.max_tokens` | Direct mapping |
-| `top_p` | `gen_ai.request.top_p` | Direct mapping |
-| `frequency_penalty` | `gen_ai.request.frequency_penalty` | Direct mapping |
-| `presence_penalty` | `gen_ai.request.presence_penalty` | Direct mapping |
-| `stop` | `gen_ai.request.stop_sequences` | Direct mapping |
-| `seed` | `gen_ai.request.seed` | Direct mapping |
-| `tools` | `gen_ai.tool.definitions` | Direct mapping |
-| `response_format.type` | `gen_ai.response.output_type` | Direct mapping |
+Request mapping:
+| OpenAI Parameter | OTel Attribute | Required Level | Notes |
+|------------------|----------------|----------------|-------|
+| `messages` | `gen_ai.input.messages` | Opt-In | Transform to structured format |
+| `model` | `gen_ai.request.model` | Conditionally Required | Direct mapping |
+| `temperature` | `gen_ai.request.temperature` | Recommended | Direct mapping |
+| `max_tokens` / `max_completion_tokens` | `gen_ai.request.max_tokens` | Recommended | Direct mapping |
+| `top_p` | `gen_ai.request.top_p` | Recommended | Direct mapping |
+| `frequency_penalty` | `gen_ai.request.frequency_penalty` | Recommended | Direct mapping |
+| `presence_penalty` | `gen_ai.request.presence_penalty` | Recommended | Direct mapping |
+| `stop` | `gen_ai.request.stop_sequences` | Recommended | Direct mapping |
+| `seed` | `gen_ai.request.seed` | Conditionally Required | Include if provided |
+| `n` | `gen_ai.request.choice.count` | Conditionally Required | Include if ≠ 1 |
+| `tools` / `functions` | `gen_ai.tool.definitions` | Opt-In | Direct mapping |
+| `response_format.type` | `gen_ai.output.type` | Conditionally Required | When applicable |
 
 Response mapping:
-| OpenAI Field | OTel Attribute |
-|--------------|----------------|
-| `id` | `gen_ai.response.id` |
-| `model` | `gen_ai.response.model` |
-| `choices[0].message.content` | Part of `gen_ai.output.messages` |
-| `choices[0].message.tool_calls` | Part of `gen_ai.output.messages` |
-| `choices[0].finish_reason` | Part of `gen_ai.output.messages[0].finish_reason` |
-| `usage.prompt_tokens` | `gen_ai.usage.input_tokens` |
-| `usage.completion_tokens` | `gen_ai.usage.output_tokens` |
+| OpenAI Field | OTel Attribute | Required Level | Notes |
+|--------------|----------------|----------------|-------|
+| `id` | `gen_ai.response.id` | Recommended | Direct mapping |
+| `model` | `gen_ai.response.model` | Recommended | Direct mapping |
+| `choices[0].message.content` | Part of `gen_ai.output.messages` | Opt-In | Text content |
+| `choices[0].message.tool_calls` | Part of `gen_ai.output.messages` | Opt-In | Tool calls |
+| `choices[0].finish_reason` | Part of `gen_ai.output.messages[0].finish_reason` | Recommended | Map: length→max_tokens |
+| `usage.prompt_tokens` | `gen_ai.usage.input_tokens` | Recommended | Direct mapping |
+| `usage.completion_tokens` | `gen_ai.usage.output_tokens` | Recommended | Direct mapping |
+| `usage.prompt_tokens_details.cached_tokens` | `gen_ai.usage.cache_read.input_tokens` | Recommended | Cached input tokens |
+| `system_fingerprint` | Custom attribute | Optional | OpenAI-specific backend configuration identifier |
 
 ### Anthropic
 
-| Anthropic Parameter | OTel Attribute | Notes |
-|---------------------|----------------|-------|
-| `messages` | `gen_ai.input.messages` | Transform to structured format |
-| `system` | `gen_ai.system_instructions` | Single string (not in messages array) |
-| `model` | `gen_ai.request.model` | Direct mapping |
-| `temperature` | `gen_ai.request.temperature` | Direct mapping |
-| `max_tokens` | `gen_ai.request.max_tokens` | Direct mapping |
-| `top_p` | `gen_ai.request.top_p` | Direct mapping |
-| `top_k` | `gen_ai.request.top_k` | Direct mapping |
-| `stop_sequences` | `gen_ai.request.stop_sequences` | Direct mapping |
-| `tools` | `gen_ai.tool.definitions` | Transform if needed |
+Request mapping:
+| Anthropic Parameter | OTel Attribute | Required Level | Notes |
+|---------------------|----------------|----------------|-------|
+| `messages` | `gen_ai.input.messages` | Opt-In | Transform to structured format |
+| `system` | `gen_ai.system_instructions` | Opt-In | Single string (not in messages array) |
+| `model` | `gen_ai.request.model` | Conditionally Required | Direct mapping |
+| `temperature` | `gen_ai.request.temperature` | Recommended | Direct mapping |
+| `max_tokens` | `gen_ai.request.max_tokens` | Recommended | Direct mapping |
+| `top_p` | `gen_ai.request.top_p` | Recommended | Direct mapping |
+| `top_k` | `gen_ai.request.top_k` | Recommended | Direct mapping (Anthropic-specific) |
+| `stop_sequences` | `gen_ai.request.stop_sequences` | Recommended | Direct mapping |
+| `tools` | `gen_ai.tool.definitions` | Opt-In | Transform if needed |
 
 Response mapping:
-| Anthropic Field | OTel Attribute |
-|-----------------|----------------|
-| `id` | `gen_ai.response.id` |
-| `model` | `gen_ai.response.model` |
-| `content[0].text` | Part of `gen_ai.output.messages` |
-| `content[*].type="tool_use"` | Part of `gen_ai.output.messages` |
-| `stop_reason` | Map to `gen_ai.output.messages[0].finish_reason` |
-| `usage.input_tokens` | `gen_ai.usage.input_tokens` |
-| `usage.output_tokens` | `gen_ai.usage.output_tokens` |
+| Anthropic Field | OTel Attribute | Required Level |
+|-----------------|----------------|----------------|
+| `id` | `gen_ai.response.id` | Recommended |
+| `model` | `gen_ai.response.model` | Recommended |
+| `content[0].text` | Part of `gen_ai.output.messages` | Opt-In |
+| `content[*].type="tool_use"` | Part of `gen_ai.output.messages` | Opt-In |
+| `stop_reason` | Map to `gen_ai.output.messages[0].finish_reason` | Recommended |
+| `usage.input_tokens` | `gen_ai.usage.input_tokens` | Recommended |
+| `usage.output_tokens` | `gen_ai.usage.output_tokens` | Recommended |
+| `usage.cache_creation_input_tokens` | `gen_ai.usage.cache_creation.input_tokens` | Recommended |
+| `usage.cache_read_input_tokens` | `gen_ai.usage.cache_read.input_tokens` | Recommended |
 
 ### Google (Gemini)
 
-| Google Parameter | OTel Attribute | Notes |
-|------------------|----------------|-------|
-| `contents` | `gen_ai.input.messages` | Already uses "parts" structure |
-| `systemInstruction` | `gen_ai.system_instructions` | Direct mapping |
-| `model` | `gen_ai.request.model` | Extract from full name |
-| `generationConfig.temperature` | `gen_ai.request.temperature` | Direct mapping |
-| `generationConfig.maxOutputTokens` | `gen_ai.request.max_tokens` | Direct mapping |
-| `generationConfig.topP` | `gen_ai.request.top_p` | Direct mapping |
-| `generationConfig.topK` | `gen_ai.request.top_k` | Direct mapping |
-| `generationConfig.stopSequences` | `gen_ai.request.stop_sequences` | Direct mapping |
-| `tools` | `gen_ai.tool.definitions` | Transform `function_declarations` |
+Request mapping:
+| Google Parameter | OTel Attribute | Required Level | Notes |
+|------------------|----------------|----------------|-------|
+| `contents` | `gen_ai.input.messages` | Opt-In | Already uses "parts" structure, map role "model"→"assistant" |
+| `systemInstruction` | `gen_ai.system_instructions` | Opt-In | Direct mapping |
+| `model` | `gen_ai.request.model` | Conditionally Required | Extract from full name (e.g., "models/gemini-pro" → "gemini-pro") |
+| `generationConfig.temperature` | `gen_ai.request.temperature` | Recommended | Direct mapping |
+| `generationConfig.maxOutputTokens` | `gen_ai.request.max_tokens` | Recommended | Direct mapping |
+| `generationConfig.topP` | `gen_ai.request.top_p` | Recommended | Direct mapping |
+| `generationConfig.topK` | `gen_ai.request.top_k` | Recommended | Direct mapping |
+| `generationConfig.stopSequences` | `gen_ai.request.stop_sequences` | Recommended | Direct mapping |
+| `generationConfig.seed` | `gen_ai.request.seed` | Conditionally Required | Include if provided |
+| `tools` | `gen_ai.tool.definitions` | Opt-In | Transform `function_declarations` |
 
 Response mapping:
-| Google Field | OTel Attribute |
-|--------------|----------------|
-| Response doesn't have ID | `gen_ai.response.id` = None |
-| Extracted from request | `gen_ai.response.model` |
-| `candidates[0].content.parts[0].text` | Part of `gen_ai.output.messages` |
-| `candidates[0].content.parts[*].functionCall` | Part of `gen_ai.output.messages` |
-| `candidates[0].finishReason` | Map to `gen_ai.output.messages[0].finish_reason` |
-| `usageMetadata.promptTokenCount` | `gen_ai.usage.input_tokens` |
-| `usageMetadata.candidatesTokenCount` | `gen_ai.usage.output_tokens` |
+| Google Field | OTel Attribute | Required Level | Notes |
+|--------------|----------------|----------------|-------|
+| N/A | `gen_ai.response.id` | Recommended | Google doesn't provide response IDs - set to None |
+| Extracted from request | `gen_ai.response.model` | Recommended | Use request model |
+| `candidates[0].content.parts[0].text` | Part of `gen_ai.output.messages` | Opt-In | Text content |
+| `candidates[0].content.parts[*].functionCall` | Part of `gen_ai.output.messages` | Opt-In | Tool calls (no IDs provided) |
+| `candidates[0].finishReason` | Map to `gen_ai.output.messages[0].finish_reason` | Recommended | Map: STOP→stop, MAX_TOKENS→max_tokens, SAFETY→content_filter |
+| `usageMetadata.promptTokenCount` | `gen_ai.usage.input_tokens` | Recommended | Direct mapping |
+| `usageMetadata.candidatesTokenCount` | `gen_ai.usage.output_tokens` | Recommended | Direct mapping |
+| `usageMetadata.cachedContentTokenCount` | `gen_ai.usage.cache_read.input_tokens` | Recommended | Cached input tokens |
+| `usageMetadata.thoughtsTokenCount` | Custom attribute | Recommended | Google-specific reasoning tokens (not in OTel spec yet) |
 
 ### Cohere
 
-| Cohere Parameter | OTel Attribute | Notes |
-|------------------|----------------|-------|
-| `message` | `gen_ai.input.messages` | Transform to array with user role |
-| `chat_history` | `gen_ai.input.messages` | Combine with message |
-| `preamble` | `gen_ai.system_instructions` | Direct mapping |
-| `model` | `gen_ai.request.model` | Direct mapping |
-| `temperature` | `gen_ai.request.temperature` | Direct mapping |
-| `max_tokens` | `gen_ai.request.max_tokens` | Direct mapping |
-| `p` | `gen_ai.request.top_p` | Direct mapping |
-| `k` | `gen_ai.request.top_k` | Direct mapping |
-| `stop_sequences` | `gen_ai.request.stop_sequences` | Direct mapping |
-| `tools` | `gen_ai.tool.definitions` | Transform format |
+Request mapping:
+| Cohere Parameter | OTel Attribute | Required Level | Notes |
+|------------------|----------------|----------------|-------|
+| `message` | `gen_ai.input.messages` | Opt-In | Transform to array with user role |
+| `chat_history` | `gen_ai.input.messages` | Opt-In | Combine with message |
+| `preamble` | `gen_ai.system_instructions` | Opt-In | Direct mapping |
+| `model` | `gen_ai.request.model` | Conditionally Required | Direct mapping |
+| `temperature` | `gen_ai.request.temperature` | Recommended | Direct mapping |
+| `max_tokens` | `gen_ai.request.max_tokens` | Recommended | Direct mapping |
+| `p` | `gen_ai.request.top_p` | Recommended | Direct mapping (Cohere uses 'p' instead of 'top_p') |
+| `k` | `gen_ai.request.top_k` | Recommended | Direct mapping (Cohere uses 'k' instead of 'top_k') |
+| `stop_sequences` | `gen_ai.request.stop_sequences` | Recommended | Direct mapping |
+| `seed` | `gen_ai.request.seed` | Conditionally Required | Include if provided |
+| `tools` | `gen_ai.tool.definitions` | Opt-In | Transform format |
 
 Response mapping:
-| Cohere Field | OTel Attribute |
-|--------------|----------------|
-| `generation_id` | `gen_ai.response.id` |
-| From request | `gen_ai.response.model` |
-| `text` | Part of `gen_ai.output.messages` |
-| `tool_calls` | Part of `gen_ai.output.messages` |
-| `finish_reason` | Map to `gen_ai.output.messages[0].finish_reason` |
-| `meta.tokens.input_tokens` | `gen_ai.usage.input_tokens` |
-| `meta.tokens.output_tokens` | `gen_ai.usage.output_tokens` |
+| Cohere Field | OTel Attribute | Required Level | Notes |
+|--------------|----------------|----------------|-------|
+| `generation_id` | `gen_ai.response.id` | Recommended | Direct mapping |
+| From request | `gen_ai.response.model` | Recommended | Echo request model |
+| `text` | Part of `gen_ai.output.messages` | Opt-In | Text content |
+| `tool_calls` | Part of `gen_ai.output.messages` | Opt-In | Tool calls |
+| `finish_reason` | Map to `gen_ai.output.messages[0].finish_reason` | Recommended | Map: COMPLETE→stop, MAX_TOKENS→max_tokens |
+| `meta.tokens.input_tokens` | `gen_ai.usage.input_tokens` | Recommended | Direct mapping |
+| `meta.tokens.output_tokens` | `gen_ai.usage.output_tokens` | Recommended | Direct mapping |
+
+---
+
+## Missing Attributes to Add
+
+Based on the OTel Gen-AI semantic conventions, these attributes are currently missing from our implementation and should be added:
+
+### High Priority (Conditionally Required)
+
+| Attribute | Type | Condition | Current Status | Implementation Notes |
+|-----------|------|-----------|----------------|---------------------|
+| `gen_ai.conversation.id` | string | When readily available | ❌ Not implemented | Add when session/conversation tracking is available |
+| `gen_ai.output.type` | string | When applicable | ❌ Not implemented | Extract from `response_format.type` (OpenAI), add to emit_inference_event() |
+| `gen_ai.request.choice.count` | int | If available and ≠ 1 | ❌ Not implemented | Extract from `n` parameter (OpenAI), add to emit_inference_event() |
+| `error.type` | string | If operation failed | ❌ Not implemented | Capture error class in exception handlers, add to event attributes |
+
+### Medium Priority (Recommended)
+
+| Attribute | Type | Current Status | Implementation Notes |
+|-----------|------|----------------|---------------------|
+| `gen_ai.request.frequency_penalty` | double | ✅ Partially | Only in OpenAI, add to Anthropic/Google event emission |
+| `gen_ai.request.presence_penalty` | double | ✅ Partially | Only in OpenAI, add to event emission |
+| `gen_ai.usage.cache_creation.input_tokens` | int | ❌ Not implemented | Anthropic provides this, add to emit_inference_event() |
+| `gen_ai.usage.cache_read.input_tokens` | int | ❌ Not implemented | Anthropic & OpenAI provide this, add to emit_inference_event() |
+
+### Implementation Checklist
+
+**For OpenAI:**
+- [ ] Add `gen_ai.output.type` from `response_format.type`
+- [ ] Add `gen_ai.request.choice.count` from `n` parameter
+- [ ] Add `gen_ai.usage.cache_read.input_tokens` from `usage.prompt_tokens_details.cached_tokens`
+- [ ] Add `gen_ai.request.frequency_penalty` to event emission
+- [ ] Add `gen_ai.request.presence_penalty` to event emission
+- [ ] Add error handling with `error.type` attribute
+
+**For Anthropic:**
+- [ ] Add `gen_ai.usage.cache_creation.input_tokens` from `usage.cache_creation_input_tokens`
+- [ ] Add `gen_ai.usage.cache_read.input_tokens` from `usage.cache_read_input_tokens`
+- [ ] Add error handling with `error.type` attribute
+
+**For Google AI Studio:**
+- [ ] Add `gen_ai.usage.cache_read.input_tokens` from `usageMetadata.cachedContentTokenCount`
+- [ ] Add `gen_ai.request.seed` when provided
+- [ ] Add error handling with `error.type` attribute
+
+**All Providers:**
+- [ ] Add `gen_ai.conversation.id` extraction when session tracking is available
+- [ ] Implement error.type capture in exception handlers
+- [ ] Update emit_inference_event() signature to accept new attributes
+- [ ] Update SemanticConvention constants for new attributes
 
 ---
 
@@ -499,19 +655,47 @@ emit_inference_event(
 
 ## Validation Checklist
 
-When implementing event emission:
+When implementing event emission, verify:
 
-- [ ] Event name is exactly `gen_ai.client.inference.operation.details`
+### Event Structure
+- [ ] Event name is exactly `gen_ai.client.inference.operation.details` (inference) or `gen_ai.evaluation.result` (evaluation)
+- [ ] Event body is empty string (all data in attributes per OTel spec)
+- [ ] Using OTel EventLoggerProvider (not span events)
+
+### Required Attributes
+- [ ] `gen_ai.operation.name` always present (inference events)
+- [ ] `gen_ai.evaluation.name` always present (evaluation events)
+
+### Conditionally Required Attributes
+- [ ] `error.type` included if operation failed
+- [ ] `server.port` included if `server.address` is set
+- [ ] `gen_ai.request.seed` included if seed was provided
+- [ ] `gen_ai.evaluation.score.label` or `gen_ai.evaluation.score.value` present (at least one)
+
+### Recommended Attributes
+- [ ] Request parameters included when available (`temperature`, `max_tokens`, `top_p`, etc.)
+- [ ] Response metadata included when available (`response_id`, `finish_reasons`, `response_model`)
+- [ ] Usage metrics included when available (`input_tokens`, `output_tokens`, cache tokens)
+- [ ] Server information included when known (`server.address`, `server.port`)
+
+### Opt-In Attributes (Content)
+- [ ] Content attributes ONLY included when `capture_message_content=True`
 - [ ] Input messages are structured objects (not JSON strings)
 - [ ] Output messages are structured objects (not JSON strings)
-- [ ] No data URIs in image references (only HTTP/HTTPS)
-- [ ] All required attributes present
-- [ ] Finish reasons mapped to OTel standard values
+- [ ] No data URIs in image references (only HTTP/HTTPS URLs)
 - [ ] Tool definitions included when tools are used
-- [ ] Request parameters included when available
-- [ ] Response metadata included when available
-- [ ] Usage tokens included when available
-- [ ] Server address/port included when known
+- [ ] System instructions included when present
+
+### Message Format
+- [ ] Input messages follow [OTel input schema](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-input-messages.json)
+- [ ] Output messages follow [OTel output schema](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-output-messages.json)
+- [ ] Finish reasons mapped to OTel standard values (not provider-specific)
+- [ ] Message parts use correct types: `text`, `uri`, `tool_call`, `tool_call_response`
+
+### Error Handling
+- [ ] Event emission wrapped in try/except (never raises)
+- [ ] Silent failures with warning logs
+- [ ] Instrumentation continues even if event emission fails
 
 ---
 
@@ -524,4 +708,15 @@ When implementing event emission:
 
 ---
 
-**Last Updated:** 2026-02-12
+## Summary of Requirement Levels
+
+| Level | Symbol | Meaning | Example |
+|-------|--------|---------|---------|
+| **Required** | 🔴 | MUST be present in every event | `gen_ai.operation.name` |
+| **Conditionally Required** | 🟡 | MUST be present when condition met | `error.type` (if error occurred) |
+| **Recommended** | 🟢 | SHOULD be present when available | `gen_ai.response.id`, `gen_ai.usage.input_tokens` |
+| **Opt-In** | 🔵 | Only when explicitly enabled (sensitive data) | `gen_ai.input.messages`, `gen_ai.output.messages` |
+
+---
+
+**Last Updated:** 2026-02-12 (Expanded with complete OTel attribute requirements)
