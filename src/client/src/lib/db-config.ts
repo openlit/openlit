@@ -141,37 +141,85 @@ export const upsertDBConfig = async (
 
 	if (existingDBName?.id) throw new Error("DB config Name already exists");
 
-	const whereObject: any = {};
-	if (id) whereObject.id = id;
-	else if (currentOrg?.id) {
-		whereObject.name_organisationId = {
-			name: dbConfig.name,
-			organisationId: currentOrg.id,
-		};
-	} else {
-		whereObject.name_organisationId = {
-			name: dbConfig.name,
-			organisationId: null,
-		};
-	}
-
 	if (id) {
 		await checkPermissionForDbAction(user!.id, id, "EDIT");
 	}
 
-	const [err, createddbConfig] = await asaw(
-		prisma.databaseConfig.upsert({
-			where: whereObject,
-			create: {
-				...(dbConfig as any),
-				createdByUserId: user!.id,
-				organisationId: currentOrg?.id,
+	let createddbConfig: DatabaseConfig;
+	
+	// When updating by id, use upsert with id
+	if (id) {
+		const whereObject = { id };
+		const [err, result] = await asaw(
+			prisma.databaseConfig.upsert({
+				where: whereObject,
+				create: {
+					...(dbConfig as any),
+					createdByUserId: user!.id,
+					organisationId: currentOrg?.id,
+				},
+				update: {
+					...dbConfig,
+				},
+			})
+		);
+		if (err) throw err;
+		createddbConfig = result;
+	}
+	// When creating with an organisation, use compound unique constraint
+	else if (currentOrg?.id) {
+		const whereObject = {
+			name_organisationId: {
+				name: dbConfig.name,
+				organisationId: currentOrg.id,
 			},
-			update: {
-				...dbConfig,
+		};
+		const [err, result] = await asaw(
+			prisma.databaseConfig.upsert({
+				where: whereObject,
+				create: {
+					...(dbConfig as any),
+					createdByUserId: user!.id,
+					organisationId: currentOrg.id,
+				},
+				update: {
+					...dbConfig,
+				},
+			})
+		);
+		if (err) throw err;
+		createddbConfig = result;
+	}
+	// When creating without organisation (null organisationId), 
+	// Prisma doesn't support null in compound unique constraints, 
+	// so we use findFirst + create/update pattern
+	else {
+		const existing = await prisma.databaseConfig.findFirst({
+			where: {
+				name: dbConfig.name,
+				organisationId: null,
 			},
-		})
-	);
+		});
+		
+		if (existing) {
+			// Update existing config
+			createddbConfig = await prisma.databaseConfig.update({
+				where: { id: existing.id },
+				data: {
+					...dbConfig,
+				},
+			});
+		} else {
+			// Create new config
+			createddbConfig = await prisma.databaseConfig.create({
+				data: {
+					...(dbConfig as any),
+					createdByUserId: user!.id,
+					organisationId: null,
+				},
+			});
+		}
+	}
 
 	if (!id) {
 		await addDatabaseConfigUserEntry(user!.id, createddbConfig.id, {

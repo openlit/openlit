@@ -54,6 +54,15 @@ async function main() {
 	};
 
 	if (environmentDBConfig.host && environmentDBConfig.port) {
+		// Delete any orphaned "Default DB" config to avoid unique constraint violation
+		// when upserting with the new organisationId
+		await prisma.databaseConfig.deleteMany({
+			where: {
+				name: "Default DB",
+				organisationId: null,
+			},
+		});
+
 		const dbConfig = await prisma.databaseConfig.upsert({
 			where: {
 				name_organisationId: {

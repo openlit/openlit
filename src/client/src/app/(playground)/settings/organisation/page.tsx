@@ -124,6 +124,11 @@ export default function OrganisationSettingsPage() {
 	const [hasFetchedOrgs, setHasFetchedOrgs] = useState(false);
 
 	const isCreator = currentOrg?.createdByUserId === currentUserId;
+	
+	// Get current user's role and permissions
+	const currentUserMember = members.find(m => m.id === currentUserId);
+	const currentUserRole = currentUserMember?.role;
+	const hasAdminPermissions = currentUserRole === 'owner' || currentUserRole === 'admin';
 
 	// Fetch organisations on mount
 	useEffect(() => {
@@ -461,7 +466,7 @@ export default function OrganisationSettingsPage() {
 														<Crown className="h-3 w-3 mr-1" />
 														{messages.OWNER}
 													</Badge>
-												) : isCreator ? (
+												) : hasAdminPermissions ? (
 													<Select
 														value={member.role}
 														onValueChange={(value) =>
@@ -490,7 +495,7 @@ export default function OrganisationSettingsPage() {
 											</TableCell>
 											<TableCell className="py-2 text-right">
 												<div className="flex justify-end gap-1">
-													{!member.isCreator && isCreator && (
+													{!member.isCreator && hasAdminPermissions && (
 														<AlertDialog>
 															<AlertDialogTrigger asChild>
 																<Button
