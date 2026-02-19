@@ -727,6 +727,41 @@ def common_embedding_logic(
                 logger = logging.getLogger(__name__)
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
+        # Emit OTel log event
+        if event_provider:
+            try:
+                # For embeddings, input is text strings, output is empty
+                if isinstance(prompt_val, str):
+                    input_text = [prompt_val]
+                elif isinstance(prompt_val, list):
+                    input_text = prompt_val
+                else:
+                    input_text = [str(prompt_val)]
+
+                # Create simple text input messages
+                input_msgs = [
+                    {"role": "user", "parts": [{"type": "text", "content": text}]}
+                    for text in input_text
+                ]
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                    request_model=request_model,
+                    response_model=request_model,
+                    input_messages=input_msgs,
+                    output_messages=[],  # Embeddings don't have text output
+                    tool_definitions=None,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    input_tokens=input_tokens,
+                )
+            except Exception as e:
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
+
     scope._span.set_status(Status(StatusCode.OK))
 
     # Metrics
