@@ -234,7 +234,7 @@ def process_chunk(self, chunk):
 def record_embedding_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -252,7 +252,7 @@ def record_embedding_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
@@ -380,9 +380,9 @@ def common_chat_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # Emit OTel log event
@@ -563,9 +563,9 @@ def common_generate_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # Emit OTel log event
@@ -690,7 +690,42 @@ def common_embedding_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_val)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_val)
+
+        # Emit OTel log event
+        if event_provider:
+            try:
+                # For embeddings, input is text strings, output is empty
+                if isinstance(prompt_val, str):
+                    input_text = [prompt_val]
+                elif isinstance(prompt_val, list):
+                    input_text = prompt_val
+                else:
+                    input_text = [str(prompt_val)]
+
+                # Create simple text input messages
+                input_msgs = [
+                    {"role": "user", "parts": [{"type": "text", "content": text}]}
+                    for text in input_text
+                ]
+
+                emit_inference_event(
+                    event_provider=event_provider,
+                    operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                    request_model=request_model,
+                    response_model=request_model,
+                    input_messages=input_msgs,
+                    output_messages=[],  # Embeddings don't have text output
+                    tool_definitions=None,
+                    server_address=scope._server_address,
+                    server_port=scope._server_port,
+                    input_tokens=input_tokens,
+                )
+            except Exception as e:
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
         # Emit OTel log event
         if event_provider:

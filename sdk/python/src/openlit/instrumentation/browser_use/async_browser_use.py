@@ -451,7 +451,7 @@ async def _create_detailed_step_span(
         ) as step_span:
             # Basic step information
             step_span.set_attribute(
-                SemanticConvention.GEN_AI_SYSTEM,
+                SemanticConvention.GEN_AI_PROVIDER_NAME,
                 SemanticConvention.GEN_AI_SYSTEM_BROWSER_USE,
             )
             step_span.set_attribute(SemanticConvention.GEN_AI_OPERATION, "step")
@@ -627,7 +627,7 @@ async def _create_individual_action_spans(
                 ) as action_span:
                     # Basic action information
                     action_span.set_attribute(
-                        SemanticConvention.GEN_AI_SYSTEM,
+                        SemanticConvention.GEN_AI_PROVIDER_NAME,
                         SemanticConvention.GEN_AI_SYSTEM_BROWSER_USE,
                     )
                     action_span.set_attribute(

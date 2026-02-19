@@ -3,7 +3,7 @@ export default class SemanticConvention {
   static ATTR_DEPLOYMENT_ENVIRONMENT = 'deployment.environment'
   // GenAI General
   static GEN_AI_ENDPOINT = 'gen_ai.endpoint';
-  static GEN_AI_SYSTEM = 'gen_ai.system';
+  static GEN_AI_PROVIDER_NAME = 'gen_ai.system';
   static GEN_AI_ENVIRONMENT = 'gen_ai.environment';
   static GEN_AI_APPLICATION_NAME = 'gen_ai.application_name';
   static GEN_AI_OPERATION = 'gen_ai.operation.name';
@@ -73,9 +73,9 @@ export default class SemanticConvention {
   static GEN_AI_RESPONSE_SYSTEM_FINGERPRINT = 'gen_ai.response.system_fingerprint';
 
   // GenAI Content
-  static GEN_AI_CONTENT_PROMPT = 'gen_ai.prompt';
+  static GEN_AI_INPUT_MESSAGES = 'gen_ai.prompt';
   static GEN_AI_CONTENT_PROMPT_EVENT = 'gen_ai.content.prompt';
-  static GEN_AI_CONTENT_COMPLETION = 'gen_ai.completion';
+  static GEN_AI_OUTPUT_MESSAGES = 'gen_ai.completion';
   static GEN_AI_CONTENT_COMPLETION_EVENT = 'gen_ai.content.completion';
   static GEN_AI_CONTENT_REVISED_PROMPT = 'gen_ai.content.revised_prompt';
   

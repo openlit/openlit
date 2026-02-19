@@ -154,7 +154,8 @@ def _handle_stream(
     span.set_attribute("telemetry.sdk.name", "openlit")
     span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
     span.set_attribute(
-        SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH
+        SemanticConvention.GEN_AI_PROVIDER_NAME,
+        SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
     )
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, endpoint)
     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, "unknown")
@@ -266,7 +267,7 @@ def _finalize_stream_span(span, execution_state, capture_message_content, start_
             execution_state["final_response"][:500],
         )
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             execution_state["final_response"][:1000],
         )
 
@@ -415,7 +416,7 @@ def wrap_add_node(
                     ) as span:
                         start_time = time.time()
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_SYSTEM,
+                            SemanticConvention.GEN_AI_PROVIDER_NAME,
                             SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
                         )
                         span.set_attribute(
@@ -471,7 +472,7 @@ def wrap_add_node(
                     ) as span:
                         start_time = time.time()
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_SYSTEM,
+                            SemanticConvention.GEN_AI_PROVIDER_NAME,
                             SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
                         )
                         span.set_attribute(

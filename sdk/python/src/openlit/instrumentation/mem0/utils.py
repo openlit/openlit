@@ -137,7 +137,7 @@ def set_mem0_span_attributes(
     # Batch core attributes for performance
     core_attributes = {
         TELEMETRY_SDK_NAME: "openlit",
-        SemanticConvention.GEN_AI_SYSTEM: SemanticConvention.GEN_AI_SYSTEM_MEM0,
+        SemanticConvention.GEN_AI_PROVIDER_NAME: SemanticConvention.GEN_AI_SYSTEM_MEM0,
         SemanticConvention.GEN_AI_ENDPOINT: operation_name,
         DEPLOYMENT_ENVIRONMENT: ctx.environment,
         SERVICE_NAME: ctx.application_name,
@@ -288,7 +288,7 @@ def set_mem0_content_attributes(
                 if isinstance(ctx.messages, (list, dict))
                 else str(ctx.messages)
             )
-            span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, content)
+            span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, content)
 
         if response and "search" in operation_name:
             content = (
@@ -296,6 +296,6 @@ def set_mem0_content_attributes(
                 if isinstance(response, (dict, list))
                 else str(response)
             )
-            span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, content)
+            span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content)
     except Exception as e:
         logger.debug("Failed to capture content: %s", e)

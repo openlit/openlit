@@ -51,7 +51,7 @@ class SemanticConvention:
 
     # GenAI Request Attributes (OTel Semconv)
     GEN_AI_OPERATION = "gen_ai.operation.name"
-    GEN_AI_SYSTEM = "gen_ai.system"
+    GEN_AI_PROVIDER_NAME = "gen_ai.provider.name"
     GEN_AI_OUTPUT_TYPE = "gen_ai.output.type"
     GEN_AI_ENDPOINT = "gen_ai.endpoint"
     GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
@@ -337,9 +337,9 @@ class SemanticConvention:
 
     # GenAI Content
     GEN_AI_CONTENT_PROMPT_EVENT = "gen_ai.content.prompt"
-    GEN_AI_CONTENT_PROMPT = "gen_ai.prompt"
+    GEN_AI_INPUT_MESSAGES = "gen_ai.input.messages"
     GEN_AI_CONTENT_COMPLETION_EVENT = "gen_ai.content.completion"
-    GEN_AI_CONTENT_COMPLETION = "gen_ai.completion"
+    GEN_AI_OUTPUT_MESSAGES = "gen_ai.output.messages"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
     GEN_AI_CONTENT_REASONING = "gen_ai.content.reasoning"
 
@@ -955,7 +955,7 @@ class SemanticConvention:
     # === ENHANCED SEMANTIC CONVENTIONS FOR COMPREHENSIVE INSTRUMENTATION ===
 
     # Message structure attributes (reuse existing prompt for input, add output messages)
-    # Note: For input messages, we reuse GEN_AI_CONTENT_PROMPT for consistency
+    # Note: For input messages, we reuse GEN_AI_INPUT_MESSAGES for consistency
     GEN_AI_OUTPUT_MESSAGES = "gen_ai.output_messages"
     GEN_AI_MESSAGE_ROLE = "gen_ai.message.role"
     GEN_AI_MESSAGE_CONTENT = "gen_ai.message.content"

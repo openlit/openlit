@@ -553,10 +553,10 @@ def common_chat_logic(
     # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, formatted_messages
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, formatted_messages
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # Emit inference event

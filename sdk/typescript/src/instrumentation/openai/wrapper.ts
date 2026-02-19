@@ -311,7 +311,7 @@ class OpenAIWrapper extends BaseWrapper {
       }
 
       const prompt = formattedMessages.join('\n');
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
     }
     // Request Params attributes : End
 
@@ -449,13 +449,13 @@ class OpenAIWrapper extends BaseWrapper {
       
       if (n === 1) {
         span.setAttribute(
-          SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+          SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
           completionContent
         );
       } else {
         let i = 0;
         while (i < n) {
-          const attribute_name = `${SemanticConvention.GEN_AI_CONTENT_COMPLETION}.${i}`;
+          const attribute_name = `${SemanticConvention.GEN_AI_OUTPUT_MESSAGES}.${i}`;
           span.setAttribute(attribute_name, result.choices[i].message.content || '');
           i += 1;
         }
@@ -463,7 +463,7 @@ class OpenAIWrapper extends BaseWrapper {
       
       // Add events for backward compatibility
       span.addEvent(SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT, {
-        [SemanticConvention.GEN_AI_CONTENT_COMPLETION]: completionContent,
+        [SemanticConvention.GEN_AI_OUTPUT_MESSAGES]: completionContent,
       });
     }
 
@@ -529,7 +529,7 @@ class OpenAIWrapper extends BaseWrapper {
             }
             if (traceContent) {
               const formattedInput = typeof input === 'string' ? input : JSON.stringify(input);
-              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, formattedInput);
+              span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, formattedInput);
             }
 
             // Request Params attributes : End
@@ -699,7 +699,7 @@ class OpenAIWrapper extends BaseWrapper {
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_STYLE, style);
 
             if (traceContent) {
-              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+              span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
             }
             // Request Params attributes : End
 
@@ -792,7 +792,7 @@ class OpenAIWrapper extends BaseWrapper {
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IMAGE_STYLE, style);
 
             if (traceContent) {
-              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+              span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
             }
             // Request Params attributes : End
 
@@ -877,7 +877,7 @@ class OpenAIWrapper extends BaseWrapper {
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_AUDIO_SPEED, speed);
 
             if (traceContent) {
-              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, input);
+              span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, input);
             }
             // Request Params attributes : End
 
@@ -1150,7 +1150,7 @@ class OpenAIWrapper extends BaseWrapper {
     }
 
     if (traceContent) {
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
     }
 
     span.setAttribute(
@@ -1252,11 +1252,11 @@ class OpenAIWrapper extends BaseWrapper {
     // Content
     if (traceContent) {
       // Set completion content - use actual text or empty string if only tool calls
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, completionText);
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completionText);
       
       // Add events for backward compatibility
       span.addEvent(SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT, {
-        [SemanticConvention.GEN_AI_CONTENT_COMPLETION]: completionText,
+        [SemanticConvention.GEN_AI_OUTPUT_MESSAGES]: completionText,
       });
     }
 

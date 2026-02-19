@@ -194,7 +194,8 @@ def set_span_attributes(
     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_name)
     span.set_attribute(
-        SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_PYDANTIC_AI
+        SemanticConvention.GEN_AI_PROVIDER_NAME,
+        SemanticConvention.GEN_AI_SYSTEM_PYDANTIC_AI,
     )
 
     # Set agent name if meaningful
@@ -249,7 +250,7 @@ def add_message_tracking(span, messages: List[Dict], message_type: str = "input"
         # Set message attributes
         if message_type == "input":
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_PROMPT, json.dumps(formatted_messages)
+                SemanticConvention.GEN_AI_INPUT_MESSAGES, json.dumps(formatted_messages)
             )
         else:
             span.set_attribute(
@@ -318,7 +319,7 @@ def execute_with_error_handling(
         # Add completion content if requested
         if capture_completion and hasattr(response, "data"):
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION, str(response.data)
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES, str(response.data)
             )
 
         span.set_status(Status(StatusCode.OK))
@@ -461,7 +462,7 @@ def add_business_intelligence_attributes(
         # Enhanced content capture
         if capture_message_content and hasattr(response, "output") and response.output:
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION, str(response.output)
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES, str(response.output)
             )
 
     except Exception as e:
@@ -789,7 +790,7 @@ def common_internal_node(
         # Set basic attributes
         span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
         span.set_attribute(
-            SemanticConvention.GEN_AI_SYSTEM,
+            SemanticConvention.GEN_AI_PROVIDER_NAME,
             SemanticConvention.GEN_AI_SYSTEM_PYDANTIC_AI,
         )
         span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
@@ -816,7 +817,7 @@ def common_internal_node(
             )
         if context_info["user_input"]:
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_PROMPT, context_info["user_input"]
+                SemanticConvention.GEN_AI_INPUT_MESSAGES, context_info["user_input"]
             )
         if context_info["tool_info"]:
             span.set_attribute(

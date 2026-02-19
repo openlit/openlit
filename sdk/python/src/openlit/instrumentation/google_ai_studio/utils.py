@@ -484,7 +484,7 @@ def common_chat_logic(
         SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
     )
     scope._span.set_attribute(
-        SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_GEMINI
+        SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_GEMINI
     )
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
     scope._span.set_attribute(SemanticConvention.SERVER_PORT, scope._server_port)
@@ -555,9 +555,9 @@ def common_chat_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # Emit inference event

@@ -264,22 +264,22 @@ def common_chat_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
+                SemanticConvention.GEN_AI_INPUT_MESSAGES: prompt,
             },
         )
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES: scope._llmresponse,
             },
         )
 
@@ -462,13 +462,13 @@ def common_embedding_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, str(inputs))
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, str(inputs))
 
         # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: str(inputs),
+                SemanticConvention.GEN_AI_INPUT_MESSAGES: str(inputs),
             },
         )
 

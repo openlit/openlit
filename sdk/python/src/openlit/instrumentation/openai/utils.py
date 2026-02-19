@@ -823,9 +823,9 @@ def common_response_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # Emit inference event
@@ -1170,9 +1170,9 @@ def common_chat_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # Emit inference event
@@ -1431,7 +1431,7 @@ def common_embedding_logic(
             else str(input_data)
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, formatted_content
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, formatted_content
         )
 
         # Emit inference event
@@ -1596,7 +1596,7 @@ def common_image_logic(
     if capture_message_content:
         # Always collect the original prompt
         prompt = scope._kwargs.get("prompt", "")
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
 
         # Collect and set revised prompts if available
         if images_data:
@@ -1744,7 +1744,7 @@ def common_audio_logic(
     # Span Attributes for Content
     if capture_message_content:
         input_text = scope._kwargs.get("input", "")
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, input_text)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, input_text)
 
         # Emit inference event
         if event_provider:
