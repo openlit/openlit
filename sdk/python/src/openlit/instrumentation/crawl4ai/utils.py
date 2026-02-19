@@ -203,7 +203,8 @@ def set_crawl_attributes(
     # Core framework attributes
     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     span.set_attribute(
-        SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_CRAWL4AI
+        SemanticConvention.GEN_AI_PROVIDER_NAME,
+        SemanticConvention.GEN_AI_SYSTEM_CRAWL4AI,
     )
 
     # Map operation to semantic convention

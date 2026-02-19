@@ -46,7 +46,9 @@ def common_span_attributes(
 
     scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, gen_ai_operation)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, GEN_AI_PROVIDER_NAME)
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_PROVIDER_NAME, GEN_AI_PROVIDER_NAME
+    )
     scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
     scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)

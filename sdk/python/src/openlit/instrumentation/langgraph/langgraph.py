@@ -154,7 +154,8 @@ def _handle_stream(
     span.set_attribute("telemetry.sdk.name", "openlit")
     span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
     span.set_attribute(
-        SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH
+        SemanticConvention.GEN_AI_PROVIDER_NAME,
+        SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
     )
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, endpoint)
     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, "unknown")

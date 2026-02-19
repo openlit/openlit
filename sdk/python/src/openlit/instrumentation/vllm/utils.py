@@ -139,9 +139,7 @@ def common_chat_logic(
     # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completion
-        )
+        scope._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completion)
 
         # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(

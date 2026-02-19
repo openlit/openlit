@@ -194,7 +194,8 @@ def set_span_attributes(
     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_name)
     span.set_attribute(
-        SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_PYDANTIC_AI
+        SemanticConvention.GEN_AI_PROVIDER_NAME,
+        SemanticConvention.GEN_AI_SYSTEM_PYDANTIC_AI,
     )
 
     # Set agent name if meaningful

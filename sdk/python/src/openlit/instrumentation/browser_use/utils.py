@@ -244,7 +244,8 @@ def set_span_attributes(
 
     # Core framework attributes
     span.set_attribute(
-        SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_BROWSER_USE
+        SemanticConvention.GEN_AI_PROVIDER_NAME,
+        SemanticConvention.GEN_AI_SYSTEM_BROWSER_USE,
     )
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_name)
 

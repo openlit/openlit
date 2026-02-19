@@ -207,14 +207,10 @@ def process_agent_request(
         if capture_message_content:
             if hasattr(response, "content") and response.content:
                 content = str(response.content)[:2000]
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content
-                )
+                span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content)
             elif hasattr(response, "message") and response.message:
                 content = str(response.message)[:2000]
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content
-                )
+                span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content)
 
         # Capture additional response metadata
         if hasattr(response, "metrics"):
