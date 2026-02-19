@@ -29,6 +29,7 @@ def send_message(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for VertexAI messages to collect metrics.
@@ -56,6 +57,8 @@ def send_message(
             self._llmresponse = ""
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._kwargs = kwargs
             self._start_time = time.time()
             self._end_time = None
@@ -98,6 +101,7 @@ def send_message(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -148,6 +152,7 @@ def send_message(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 

@@ -2,21 +2,25 @@
 Google AI Studio OpenTelemetry instrumentation utility functions
 """
 
+import json
+import logging
 import time
-from opentelemetry.sdk.resources import (
-    SERVICE_NAME,
-    TELEMETRY_SDK_NAME,
-    DEPLOYMENT_ENVIRONMENT,
-)
+
 from opentelemetry.trace import Status, StatusCode
+
 from openlit.__helpers import (
     calculate_ttft,
     response_as_dict,
     calculate_tbt,
     get_chat_model_cost,
-    create_metrics_attributes,
+    common_span_attributes,
+    general_tokens,
+    otel_event,
+    record_completion_metrics,
 )
 from openlit.semcov import SemanticConvention
+
+logger = logging.getLogger(__name__)
 
 
 def format_content(messages):
@@ -75,6 +79,7 @@ def format_content(messages):
 def build_input_messages(contents, system_instruction=None):
     """
     Convert Google AI Studio contents to OTel input message structure.
+    Follows gen-ai-input-messages schema.
 
     Args:
         contents: Contents array from Google AI Studio request
@@ -83,9 +88,6 @@ def build_input_messages(contents, system_instruction=None):
     Returns:
         List of ChatMessage objects with role and parts
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
 
     if not contents:
         return []
@@ -176,6 +178,7 @@ def build_input_messages(contents, system_instruction=None):
 def build_output_messages(response_text, finish_reason, function_calls=None):
     """
     Convert Google AI Studio response to OTel output message structure.
+    Follows gen-ai-output-messages schema.
 
     Args:
         response_text: Response text from model
@@ -185,9 +188,6 @@ def build_output_messages(response_text, finish_reason, function_calls=None):
     Returns:
         List with single OutputMessage
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
 
     parts = []
 
@@ -240,10 +240,6 @@ def build_tool_definitions(tools):
     Returns:
         List of tool definition objects or None
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     if not tools:
         return None
 
@@ -301,6 +297,27 @@ def build_tool_definitions(tools):
         return None
 
 
+def _set_span_messages_as_array(span, input_messages, output_messages):
+    """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
+    try:
+        if input_messages is not None:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_INPUT_MESSAGES,
+                json.dumps(input_messages)
+                if isinstance(input_messages, list)
+                else input_messages,
+            )
+        if output_messages is not None:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                json.dumps(output_messages)
+                if isinstance(output_messages, list)
+                else output_messages,
+            )
+    except Exception as e:
+        logger.warning("Failed to set span message attributes: %s", e, exc_info=True)
+
+
 def emit_inference_event(
     event_provider,
     operation_name,
@@ -328,15 +345,9 @@ def emit_inference_event(
         server_port: Server port
         **extra_attrs: Additional attributes (temperature, max_tokens, etc.)
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     try:
         if not event_provider:
             return
-
-        from openlit.__helpers import otel_event
 
         # Build event attributes
         attributes = {
@@ -395,6 +406,16 @@ def emit_inference_event(
                     attributes[
                         SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS
                     ] = value
+                elif key == "cache_creation_input_tokens":
+                    attributes[
+                        SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS
+                    ] = value
+                elif key == "system_instructions":
+                    attributes[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = value
+                elif key == "error_type":
+                    attributes[SemanticConvention.ERROR_TYPE] = value
+                else:
+                    attributes[key] = value
 
         # Create and emit event
         event = otel_event(
@@ -409,45 +430,57 @@ def emit_inference_event(
         logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
-def process_chunk(self, chunk):
+def process_chunk(scope, chunk):
     """
     Process a chunk of response data and update state.
     """
 
     end_time = time.time()
-    # Record the timestamp for the current chunk
-    self._timestamps.append(end_time)
+    scope._timestamps.append(end_time)
 
-    if len(self._timestamps) == 1:
-        # Calculate time to first chunk
-        self._ttft = calculate_ttft(self._timestamps, self._start_time)
+    if len(scope._timestamps) == 1:
+        scope._ttft = calculate_ttft(scope._timestamps, scope._start_time)
 
     chunked = response_as_dict(chunk)
 
-    self._response_id = str(chunked.get("response_id"))
+    scope._response_id = str(chunked.get("response_id", ""))
 
-    # Extract usage including cache tokens (Google prompt caching)
-    usage_metadata = chunked.get("usage_metadata", {})
-    self._input_tokens = usage_metadata.get("prompt_token_count", 0)
-    self._output_tokens = usage_metadata.get("candidates_token_count", 0)
-    self._reasoning_tokens = usage_metadata.get("thoughts_token_count") or 0
-    self._cache_read_input_tokens = usage_metadata.get("cached_content_token_count", 0)
+    # Handle token usage including reasoning tokens and cached tokens
+    usage_metadata = chunked.get("usage_metadata") or {}
+    scope._input_tokens = usage_metadata.get("prompt_token_count", 0) or 0
+    scope._output_tokens = usage_metadata.get("candidates_token_count", 0) or 0
+    scope._reasoning_tokens = usage_metadata.get("thoughts_token_count", 0) or 0
+    scope._cache_read_input_tokens = (
+        usage_metadata.get("cached_content_token_count", 0) or 0
+    )
+    scope._cache_creation_input_tokens = (
+        usage_metadata.get("cache_creation_input_tokens", 0) or 0
+    )
 
-    self._response_model = chunked.get("model_version")
+    scope._response_model = chunked.get("model_version")
 
-    if chunk.text:
-        self._llmresponse += str(chunk.text)
-    self._finish_reason = str(chunked.get("candidates")[0].get("finish_reason"))
+    if getattr(chunk, "text", None):
+        scope._llmresponse += str(chunk.text)
+    candidates = chunked.get("candidates") or []
+    if candidates:
+        scope._finish_reason = str(candidates[0].get("finish_reason", ""))
 
     try:
-        self._tools = (
-            chunked.get("candidates", [])[0]
-            .get("content", {})
-            .get("parts", [])[0]
-            .get("function_call", "")
-        )
-    except:
-        self._tools = None
+        c0 = (chunked.get("candidates") or [{}])[0]
+        parts = (c0.get("content") or {}).get("parts") or []
+        fc = parts[0].get("function_call") if parts else None
+        scope._tools = fc
+    except (IndexError, KeyError, TypeError):
+        scope._tools = None
+
+
+def _get_config_value(config, key):
+    """Get value from config (dict or object)."""
+    if config is None:
+        return None
+    if isinstance(config, dict):
+        return config.get(key)
+    return getattr(config, key, None)
 
 
 def common_chat_logic(
@@ -473,26 +506,37 @@ def common_chat_logic(
     prompt = format_content(scope._kwargs.get("contents", ""))
     request_model = scope._kwargs.get("model", "gemini-2.0-flash")
 
-    cost = get_chat_model_cost(
-        request_model, pricing_info, scope._input_tokens, scope._output_tokens
-    )
+    # Calculate tokens and cost
+    if hasattr(scope, "_input_tokens") and scope._input_tokens is not None:
+        input_tokens = scope._input_tokens
+        output_tokens = scope._output_tokens
+    else:
+        input_tokens = general_tokens(prompt)
+        output_tokens = general_tokens(scope._llmresponse)
 
-    # Set Span attributes (OTel Semconv)
-    scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_OPERATION,
+    cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
+
+    # Common Span Attributes
+    common_span_attributes(
+        scope,
         SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+        SemanticConvention.GEN_AI_SYSTEM_GEMINI,
+        scope._server_address,
+        scope._server_port,
+        request_model,
+        scope._response_model,
+        environment,
+        application_name,
+        is_stream,
+        scope._tbt,
+        scope._ttft,
+        version,
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_GEMINI
-    )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
-    scope._span.set_attribute(SemanticConvention.SERVER_PORT, scope._server_port)
-    scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, scope._server_address)
 
-    inference_config = scope._kwargs.get("config", {})
+    inference_config = scope._kwargs.get("config") or {}
 
-    attributes = [
+    # Span Attributes for Request parameters
+    req_attrs = [
         (SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY, "frequency_penalty"),
         (SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, "max_tokens"),
         (SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY, "presence_penalty"),
@@ -501,86 +545,141 @@ def common_chat_logic(
         (SemanticConvention.GEN_AI_REQUEST_TOP_P, "top_p"),
         (SemanticConvention.GEN_AI_REQUEST_TOP_K, "top_k"),
     ]
-
-    # Set each attribute if the corresponding value exists and is not None
-    for attribute, key in attributes:
-        # Use getattr to get the attribute value from the object
-        value = getattr(inference_config, key, None)
+    for attribute, key in req_attrs:
+        value = _get_config_value(inference_config, key)
         if value is not None:
             scope._span.set_attribute(attribute, value)
 
+    # Span Attributes for Response parameters
+    if getattr(scope, "_response_id", None):
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id
+        )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
     )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_RESPONSE_MODEL, scope._response_model
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS, scope._reasoning_tokens
-    )
-
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_OUTPUT_TYPE,
         "text" if isinstance(scope._llmresponse, str) else "json",
     )
 
-    scope._span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
-    scope._span.set_attribute(SERVICE_NAME, application_name)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, is_stream)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, scope._tbt)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, scope._ttft)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+    # Span Attributes for Tools
+    if hasattr(scope, "_tools") and scope._tools:
+        tools = scope._tools if isinstance(scope._tools, dict) else {}
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_NAME, tools.get("name", "")
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(tools.get("id", ""))
+        )
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_TOOL_ARGS, str(tools.get("args", ""))
+        )
+
+    # Span Attributes for Cost and Tokens
     scope._span.set_attribute(
-        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
-        scope._input_tokens + scope._output_tokens + scope._reasoning_tokens,
+        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
     )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, input_tokens + output_tokens
+    )
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
 
-    if scope._tools:
+    # Reasoning tokens
+    if (
+        hasattr(scope, "_reasoning_tokens")
+        and scope._reasoning_tokens
+        and scope._reasoning_tokens > 0
+    ):
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_NAME, scope._tools.get("name", "")
-        )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_CALL_ID, str(scope._tools.get("id", ""))
-        )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_ARGS, str(scope._tools.get("args", ""))
+            "gen_ai.usage.reasoning_tokens", scope._reasoning_tokens
         )
 
-    # Span Attributes for Content
+    # OTel cached token attributes (set even when 0)
+    if hasattr(scope, "_cache_read_input_tokens"):
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+            scope._cache_read_input_tokens,
+        )
+    if hasattr(scope, "_cache_creation_input_tokens"):
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+            scope._cache_creation_input_tokens,
+        )
+
+    # Span Attributes for Content (OTel: array structure for gen_ai.input.messages / gen_ai.output.messages)
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
+        system_instruction = _get_config_value(inference_config, "system_instruction")
+        input_msgs = build_input_messages(
+            scope._kwargs.get("contents", []),
+            system_instruction=system_instruction,
         )
+        output_msgs = build_output_messages(
+            scope._llmresponse,
+            scope._finish_reason,
+            function_calls=scope._tools if hasattr(scope, "_tools") else None,
+        )
+        _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        # gen_ai.system_instructions (Google: from config.system_instruction)
+        if system_instruction:
+            system_text = ""
+            if isinstance(system_instruction, str):
+                system_text = system_instruction
+            elif hasattr(system_instruction, "parts"):
+                for part in system_instruction.parts:
+                    if hasattr(part, "text") and part.text:
+                        system_text += part.text
+            if system_text:
+                system_instr = [{"type": "text", "content": system_text}]
+                scope._span.set_attribute(
+                    SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                    json.dumps(system_instr),
+                )
 
         # Emit inference event
         if event_provider:
-            import logging
-
-            logger = logging.getLogger(__name__)
             try:
-                input_msgs = build_input_messages(
-                    scope._kwargs.get("contents", []),
-                    system_instruction=getattr(
-                        inference_config, "system_instruction", None
-                    ),
-                )
-                output_msgs = build_output_messages(
-                    scope._llmresponse,
-                    scope._finish_reason,
-                    function_calls=scope._tools,
-                )
                 tool_defs = build_tool_definitions(
-                    getattr(inference_config, "tools", None)
+                    _get_config_value(inference_config, "tools")
                 )
-
+                output_type = "text" if isinstance(scope._llmresponse, str) else "json"
+                extra = {
+                    "response_id": getattr(scope, "_response_id", None),
+                    "finish_reasons": [scope._finish_reason],
+                    "output_type": output_type,
+                    "temperature": _get_config_value(inference_config, "temperature"),
+                    "max_tokens": _get_config_value(inference_config, "max_tokens"),
+                    "top_p": _get_config_value(inference_config, "top_p"),
+                    "top_k": _get_config_value(inference_config, "top_k"),
+                    "stop_sequences": _get_config_value(
+                        inference_config, "stop_sequences"
+                    ),
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cache_read_input_tokens": getattr(
+                        scope, "_cache_read_input_tokens", 0
+                    ),
+                    "cache_creation_input_tokens": getattr(
+                        scope, "_cache_creation_input_tokens", 0
+                    ),
+                }
+                if hasattr(scope, "_reasoning_tokens") and scope._reasoning_tokens:
+                    extra["reasoning_tokens"] = scope._reasoning_tokens
+                if system_instruction:
+                    system_text = ""
+                    if isinstance(system_instruction, str):
+                        system_text = system_instruction
+                    elif hasattr(system_instruction, "parts"):
+                        for part in system_instruction.parts:
+                            if hasattr(part, "text") and part.text:
+                                system_text += part.text
+                    if system_text:
+                        extra["system_instructions"] = [
+                            {"type": "text", "content": system_text}
+                        ]
                 emit_inference_event(
                     event_provider=event_provider,
                     operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -591,57 +690,37 @@ def common_chat_logic(
                     tool_definitions=tool_defs,
                     server_address=scope._server_address,
                     server_port=scope._server_port,
-                    finish_reasons=[scope._finish_reason],
-                    temperature=getattr(inference_config, "temperature", None),
-                    max_output_tokens=getattr(inference_config, "max_tokens", None),
-                    top_p=getattr(inference_config, "top_p", None),
-                    top_k=getattr(inference_config, "top_k", None),
-                    stop_sequences=getattr(inference_config, "stop_sequences", None),
-                    input_tokens=scope._input_tokens,
-                    output_tokens=scope._output_tokens,
-                    reasoning_tokens=scope._reasoning_tokens,
-                    cache_read_input_tokens=scope._cache_read_input_tokens
-                    if hasattr(scope, "_cache_read_input_tokens")
-                    and scope._cache_read_input_tokens > 0
-                    else None,
+                    **extra,
                 )
             except Exception as e:
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
     scope._span.set_status(Status(StatusCode.OK))
 
+    # Record metrics
     if not disable_metrics:
-        metrics_attributes = create_metrics_attributes(
-            service_name=application_name,
-            deployment_environment=environment,
-            operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-            system=SemanticConvention.GEN_AI_SYSTEM_GEMINI,
-            request_model=request_model,
-            server_address=scope._server_address,
-            server_port=scope._server_port,
-            response_model=scope._response_model,
-        )
-
-        metrics["genai_client_operation_duration"].record(
-            scope._end_time - scope._start_time, metrics_attributes
-        )
-        metrics["genai_server_tbt"].record(scope._tbt, metrics_attributes)
-        metrics["genai_server_ttft"].record(scope._ttft, metrics_attributes)
-        metrics["genai_requests"].add(1, metrics_attributes)
-        metrics["genai_completion_tokens"].add(scope._output_tokens, metrics_attributes)
-        metrics["genai_prompt_tokens"].add(scope._input_tokens, metrics_attributes)
-        metrics["genai_reasoning_tokens"].add(
-            scope._reasoning_tokens, metrics_attributes
-        )
-        metrics["genai_cost"].record(cost, metrics_attributes)
-        metrics["genai_client_usage_tokens"].record(
-            scope._input_tokens + scope._output_tokens + scope._reasoning_tokens,
-            metrics_attributes,
+        record_completion_metrics(
+            metrics,
+            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+            SemanticConvention.GEN_AI_SYSTEM_GEMINI,
+            scope._server_address,
+            scope._server_port,
+            request_model,
+            scope._response_model,
+            environment,
+            application_name,
+            scope._start_time,
+            scope._end_time,
+            input_tokens,
+            output_tokens,
+            cost,
+            scope._tbt,
+            scope._ttft,
         )
 
 
 def process_streaming_chat_response(
-    self,
+    scope,
     pricing_info,
     environment,
     application_name,
@@ -652,11 +731,11 @@ def process_streaming_chat_response(
     event_provider=None,
 ):
     """
-    Process chat request and generate Telemetry
+    Process streaming chat response and generate telemetry.
     """
 
     common_chat_logic(
-        self,
+        scope,
         pricing_info,
         environment,
         application_name,
@@ -700,28 +779,34 @@ def process_chat_response(
     self._span = span
     self._llmresponse = str(response.text)
 
-    # Extract usage including cache tokens (Google prompt caching)
-    usage_metadata = response_dict.get("usage_metadata", {})
-    self._input_tokens = usage_metadata.get("prompt_token_count", 0)
-    self._output_tokens = usage_metadata.get("candidates_token_count", 0)
-    self._reasoning_tokens = usage_metadata.get("thoughts_token_count") or 0
-    self._cache_read_input_tokens = usage_metadata.get("cached_content_token_count", 0)
+    # Handle token usage including reasoning tokens and cached tokens
+    usage_metadata = response_dict.get("usage_metadata") or {}
+    self._input_tokens = usage_metadata.get("prompt_token_count", 0) or 0
+    self._output_tokens = usage_metadata.get("candidates_token_count", 0) or 0
+    self._reasoning_tokens = usage_metadata.get("thoughts_token_count", 0) or 0
+    self._cache_read_input_tokens = (
+        usage_metadata.get("cached_content_token_count", 0) or 0
+    )
+    self._cache_creation_input_tokens = (
+        usage_metadata.get("cache_creation_input_tokens", 0) or 0
+    )
 
+    self._response_id = str(response_dict.get("response_id", ""))
     self._response_model = response_dict.get("model_version")
     self._timestamps = []
     self._ttft, self._tbt = self._end_time - self._start_time, 0
     self._server_address, self._server_port = server_address, server_port
     self._kwargs = kwargs
-    self._finish_reason = str(response_dict.get("candidates")[0].get("finish_reason"))
+    candidates = response_dict.get("candidates") or []
+    self._finish_reason = (
+        str(candidates[0].get("finish_reason", "")) if candidates else ""
+    )
 
     try:
-        self._tools = (
-            response_dict.get("candidates", [])[0]
-            .get("content", {})
-            .get("parts", [])[0]
-            .get("function_call", "")
-        )
-    except:
+        c0 = (response_dict.get("candidates") or [{}])[0]
+        parts = (c0.get("content") or {}).get("parts") or []
+        self._tools = parts[0].get("function_call") if parts else None
+    except (IndexError, KeyError, TypeError):
         self._tools = None
 
     common_chat_logic(

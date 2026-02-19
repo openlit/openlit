@@ -18,6 +18,7 @@ def pipeline_wrapper(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI function call
@@ -56,6 +57,7 @@ def pipeline_wrapper(
                 capture_message_content=capture_message_content,
                 disable_metrics=disable_metrics,
                 version=version,
+                event_provider=event_provider,
             )
 
         return response

@@ -174,6 +174,12 @@ def handle_exception(span, e):
 
     span.record_exception(e)
     span.set_status(Status(StatusCode.ERROR))
+    # OTel gen-ai: conditionally required error.type (low-cardinality identifier)
+    try:
+        error_type = type(e).__name__ or "_OTHER"
+    except Exception:
+        error_type = "_OTHER"
+    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
 
 
 def calculate_ttft(timestamps: List[float], start_time: float) -> float:
