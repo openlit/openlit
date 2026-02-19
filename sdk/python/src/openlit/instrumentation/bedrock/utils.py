@@ -518,7 +518,7 @@ def common_chat_logic(
             try:
                 tool_defs = build_tool_definitions(
                     (scope._kwargs.get("toolConfig") or {}).get("tools")
-                )
+                ) or []
                 output_type = "text" if isinstance(scope._llmresponse, str) else "json"
                 extra = {
                     "response_id": getattr(scope, "_response_id", None),

@@ -339,8 +339,6 @@ def common_chat_logic(
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
     json_body = scope._kwargs.get("json", {}) or {}
-    messages = json_body.get("messages", scope._kwargs.get("messages", ""))
-    prompt = format_content(messages)
     request_model = json_body.get("model") or scope._kwargs.get("model", "llama3.2")
     options = json_body.get("options", scope._kwargs.get("options", {}))
 

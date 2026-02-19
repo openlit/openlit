@@ -363,7 +363,6 @@ def common_chat_logic(
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
 
-    prompt = format_content(scope._kwargs.get("messages", []))
     request_model = scope._kwargs.get("model", "openai/gpt-4o")
 
     cost = get_chat_model_cost(

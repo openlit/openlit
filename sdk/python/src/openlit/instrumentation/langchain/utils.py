@@ -13,7 +13,6 @@ from openlit.__helpers import (
     common_span_attributes,
     get_chat_model_cost,
     record_completion_metrics,
-    calculate_ttft,
     calculate_tbt,
     general_tokens,
     otel_event,

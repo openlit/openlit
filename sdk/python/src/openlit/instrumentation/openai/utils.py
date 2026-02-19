@@ -288,10 +288,8 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
                         # Parse arguments if it's a string
                         if isinstance(tool_args, str):
                             try:
-                                import json
-
                                 tool_args = json.loads(tool_args)
-                            except:
+                            except Exception:
                                 tool_args = {"raw": tool_args}
 
                         parts.append(
