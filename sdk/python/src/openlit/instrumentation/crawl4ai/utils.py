@@ -203,7 +203,7 @@ def set_crawl_attributes(
     # Core framework attributes
     span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     span.set_attribute(
-        SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_CRAWL4AI
+        SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_CRAWL4AI
     )
 
     # Map operation to semantic convention
@@ -507,12 +507,12 @@ def capture_message_content_if_enabled(
     try:
         # Capture input URL(s) as prompt
         if ctx.url and ctx.url != "unknown":
-            span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, ctx.url)
+            span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, ctx.url)
         elif ctx.urls:
             urls_str = ", ".join(ctx.urls[:5])  # Limit to first 5 URLs
             if len(ctx.urls) > 5:
                 urls_str += f" and {len(ctx.urls) - 5} more"
-            span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, urls_str)
+            span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, urls_str)
 
         # Capture output content based on response type
         if response is None:
@@ -522,19 +522,19 @@ def capture_message_content_if_enabled(
             # For batch responses, capture summary
             completion_summary = f"Crawled {len(response)} URLs"
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion_summary
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completion_summary
             )
         else:
             # For single responses, capture markdown content (limited)
             if hasattr(response, "markdown") and response.markdown:
                 formatted_content = format_content(response.markdown, max_length=2000)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, formatted_content
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, formatted_content
                 )
             elif hasattr(response, "html") and response.html:
                 formatted_content = format_content(response.html, max_length=1000)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, formatted_content
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, formatted_content
                 )
 
     except Exception as e:
@@ -799,14 +799,14 @@ def capture_extraction_content(
             if isinstance(extraction_input, str):
                 input_content = format_content(extraction_input, max_length=1000)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_PROMPT, input_content
+                    SemanticConvention.GEN_AI_INPUT_MESSAGES, input_content
                 )
             elif hasattr(extraction_input, "__iter__"):
                 # Handle list/tuple of inputs
                 combined_input = " ".join(str(item)[:200] for item in extraction_input)
                 input_content = format_content(combined_input, max_length=1000)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_PROMPT, input_content
+                    SemanticConvention.GEN_AI_INPUT_MESSAGES, input_content
                 )
 
         # Capture extraction output as completion
@@ -815,13 +815,13 @@ def capture_extraction_content(
                 # Format structured output
                 output_summary = f"Extracted {len(extraction_output) if hasattr(extraction_output, '__len__') else 1} items"
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, output_summary
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, output_summary
                 )
             else:
                 # Handle string output
                 output_content = format_content(str(extraction_output), max_length=1000)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, output_content
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, output_content
                 )
 
     except Exception as e:

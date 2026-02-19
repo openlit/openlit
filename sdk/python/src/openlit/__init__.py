@@ -582,7 +582,7 @@ def trace(wrapped):
             try:
                 response = wrapped(*args, **kwargs)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, response or ""
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, response or ""
                 )
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
@@ -639,7 +639,7 @@ class TracedSpan:
             result: The result to be set as an attribute on the span.
         """
 
-        self._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, result)
+        self._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, result)
 
     def set_metadata(self, metadata: Dict):
         """

@@ -849,7 +849,7 @@ def _create_callback_handler_class(
                 span = self._create_span(run_id, parent_run_id, span_name)
 
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(span, operation_type)
@@ -903,7 +903,7 @@ def _create_callback_handler_class(
                         record_framework_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             environment=self._environment,
@@ -965,7 +965,7 @@ def _create_callback_handler_class(
                     run_id, parent_run_id, span_name, SpanKind.CLIENT
                 )
 
-                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, provider)
+                span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
                 )
@@ -979,7 +979,7 @@ def _create_callback_handler_class(
                 if self._capture_message_content and prompts:
                     prompt_str = "\n".join(prompts)[:5000]
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_str
+                        SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_str
                     )
                     self.spans[run_id].input_tokens = general_tokens(prompt_str)
 
@@ -1017,7 +1017,7 @@ def _create_callback_handler_class(
                     run_id, parent_run_id, span_name, SpanKind.CLIENT
                 )
 
-                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, provider)
+                span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
                 )
@@ -1045,7 +1045,7 @@ def _create_callback_handler_class(
                     # Set prompt attribute if capturing content
                     if self._capture_message_content:
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_str
+                            SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_str
                         )
 
                     # Store structured messages for event emission
@@ -1222,7 +1222,7 @@ def _create_callback_handler_class(
                 # Set completion content attribute
                 if completion_content and self._capture_message_content:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
                         completion_content[:5000],
                     )
 
@@ -1313,7 +1313,7 @@ def _create_callback_handler_class(
                         record_completion_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             request_model=model_name,
@@ -1379,7 +1379,7 @@ def _create_callback_handler_class(
                 span = self._create_span(run_id, parent_run_id, span_name)
 
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(
@@ -1427,7 +1427,7 @@ def _create_callback_handler_class(
                         record_framework_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             environment=self._environment,
@@ -1486,7 +1486,7 @@ def _create_callback_handler_class(
                 span = self._create_span(run_id, parent_run_id, span_name)
 
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(
@@ -1542,7 +1542,7 @@ def _create_callback_handler_class(
                         record_framework_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             environment=self._environment,

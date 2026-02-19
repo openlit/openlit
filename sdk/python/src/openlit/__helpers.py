@@ -218,7 +218,7 @@ def create_metrics_attributes(
         SERVICE_NAME: service_name,
         DEPLOYMENT_ENVIRONMENT: deployment_environment,
         SemanticConvention.GEN_AI_OPERATION: operation,
-        SemanticConvention.GEN_AI_SYSTEM: system,
+        SemanticConvention.GEN_AI_PROVIDER_NAME: system,
         SemanticConvention.GEN_AI_REQUEST_MODEL: request_model,
         SemanticConvention.SERVER_ADDRESS: server_address,
         SemanticConvention.SERVER_PORT: server_port,
@@ -423,7 +423,7 @@ def format_and_concatenate(messages):
 def common_span_attributes(
     scope,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -441,7 +441,7 @@ def common_span_attributes(
 
     scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, gen_ai_operation)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, gen_ai_system)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, GEN_AI_PROVIDER_NAME)
     scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
     scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
     if request_model:
@@ -463,7 +463,7 @@ def common_span_attributes(
 def record_completion_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -484,7 +484,7 @@ def record_completion_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
@@ -507,7 +507,7 @@ def record_completion_metrics(
 def record_embedding_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -525,7 +525,7 @@ def record_embedding_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
@@ -543,7 +543,7 @@ def record_embedding_metrics(
 def record_audio_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -560,7 +560,7 @@ def record_audio_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
@@ -576,7 +576,7 @@ def record_audio_metrics(
 def record_image_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -593,7 +593,7 @@ def record_image_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
@@ -649,7 +649,7 @@ def common_framework_span_attributes(
 
     scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, framework_system)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, framework_system)
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, endpoint)
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_MODEL,
@@ -813,7 +813,7 @@ def record_mcp_metrics(
 def record_framework_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     environment,
@@ -827,7 +827,7 @@ def record_framework_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model="unknown",

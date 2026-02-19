@@ -289,7 +289,7 @@ def common_llamaindex_logic(
         )
         if capture_message_content:
             scope._span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_PROMPT, str(query_text)
+                SemanticConvention.GEN_AI_INPUT_MESSAGES, str(query_text)
             )
 
         # Query analysis
@@ -314,7 +314,7 @@ def common_llamaindex_logic(
         )
         if capture_message_content:
             scope._span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_PROMPT, str(query_text)
+                SemanticConvention.GEN_AI_INPUT_MESSAGES, str(query_text)
             )
 
         # Retrieval configuration analysis

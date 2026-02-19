@@ -244,7 +244,7 @@ def set_span_attributes(
 
     # Core framework attributes
     span.set_attribute(
-        SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_BROWSER_USE
+        SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_BROWSER_USE
     )
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_name)
 
@@ -368,13 +368,13 @@ def process_response(
         if capture_message_content:
             if isinstance(response, str):
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, response[:1000]
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, response[:1000]
                 )
             elif hasattr(response, "__dict__"):
                 try:
                     content = json.dumps(response.__dict__, default=str)[:1000]
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_COMPLETION, content
+                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content
                     )
                 except (TypeError, ValueError):
                     pass

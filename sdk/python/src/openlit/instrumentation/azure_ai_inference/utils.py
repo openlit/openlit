@@ -486,9 +486,9 @@ def common_chat_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # Add reasoning content if available
@@ -736,7 +736,7 @@ def common_embedding_logic(
     # Span Attributes for Content
     if capture_message_content:
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT,
+            SemanticConvention.GEN_AI_INPUT_MESSAGES,
             str(scope._kwargs.get("input", "")),
         )
 

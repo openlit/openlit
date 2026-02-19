@@ -234,7 +234,7 @@ def process_chunk(self, chunk):
 def record_embedding_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -252,7 +252,7 @@ def record_embedding_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
@@ -380,9 +380,9 @@ def common_chat_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # Emit OTel log event
@@ -563,9 +563,9 @@ def common_generate_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # Emit OTel log event
@@ -690,7 +690,7 @@ def common_embedding_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_val)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_val)
 
         # Emit OTel log event
         if event_provider:

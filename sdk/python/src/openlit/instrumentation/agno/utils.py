@@ -147,18 +147,18 @@ def process_agent_request(
     if args and args[0]:
         if capture_message_content:
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_PROMPT, str(args[0])[:1000]
+                SemanticConvention.GEN_AI_INPUT_MESSAGES, str(args[0])[:1000]
             )
 
     # agno 2.x versions agent.run use input instead of args[0]
     if kwargs and kwargs.get("input", None) and capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, str(kwargs["input"])[:1000]
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, str(kwargs["input"])[:1000]
         )
     # agno 2.x versions team.run use input_message instead of args[0]
     if kwargs and kwargs.get("input_message", None) and capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT,
+            SemanticConvention.GEN_AI_INPUT_MESSAGES,
             str(kwargs["input_message"])[:1000],
         )
 
@@ -208,12 +208,12 @@ def process_agent_request(
             if hasattr(response, "content") and response.content:
                 content = str(response.content)[:2000]
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, content
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content
                 )
             elif hasattr(response, "message") and response.message:
                 content = str(response.message)[:2000]
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, content
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content
                 )
 
         # Capture additional response metadata

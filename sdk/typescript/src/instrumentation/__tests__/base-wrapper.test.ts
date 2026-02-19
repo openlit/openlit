@@ -65,7 +65,7 @@ describe('BaseWrapper.setBaseSpanAttributes', () => {
     expect(span.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_COST, 0.99);
     expect(span.setStatus).toHaveBeenCalled();
     expect(Metrics.genaiRequests!.add).toHaveBeenCalledWith(1, expect.objectContaining({
-      [SemanticConvention.GEN_AI_SYSTEM]: 'openai',
+      [SemanticConvention.GEN_AI_PROVIDER_NAME]: 'openai',
       [SemanticConvention.GEN_AI_REQUEST_USER]: 'user1',
       [SemanticConvention.GEN_AI_REQUEST_MODEL]: 'gpt-4',
     }));
