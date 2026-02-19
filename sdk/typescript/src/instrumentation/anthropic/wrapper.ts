@@ -238,7 +238,7 @@ export default class AnthropicWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
     if (traceContent) {
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
     }
     // Request Params attributes : End
 
@@ -255,7 +255,7 @@ export default class AnthropicWrapper extends BaseWrapper {
 
     if (traceContent) {
       span.setAttribute(
-        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
         result.content?.[0]?.text || ''
       );
     }

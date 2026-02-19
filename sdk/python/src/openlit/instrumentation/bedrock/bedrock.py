@@ -22,6 +22,7 @@ def converse(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for AWS Bedrock converse calls.
@@ -67,6 +68,7 @@ def converse(
                         disable_metrics=disable_metrics,
                         version=version,
                         llm_config=llm_config,
+                        event_provider=event_provider,
                         **method_kwargs,
                     )
 
@@ -99,6 +101,7 @@ def converse_stream(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for AWS Bedrock converse_stream calls.
@@ -117,6 +120,7 @@ def converse_stream(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
             **args,
         ):
             self.__wrapped_response = wrapped_response
@@ -145,6 +149,7 @@ def converse_stream(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         def __enter__(self):
             if hasattr(self.__wrapped_stream, "__enter__"):
@@ -195,6 +200,7 @@ def converse_stream(
                             disable_metrics=disable_metrics,
                             version=version,
                             llm_config=llm_config,
+                            event_provider=self._event_provider,
                         )
 
                 except Exception as e:
@@ -232,6 +238,7 @@ def converse_stream(
                 method_kwargs,
                 server_address,
                 server_port,
+                event_provider=event_provider,
             )
 
         # Get the original client instance from the wrapper

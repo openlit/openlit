@@ -224,10 +224,10 @@ def common_chat_logic(
     # Set span attributes for prompts and generations
     if capture_message_content:
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, formatted_messages
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, formatted_messages
         )
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
     # Record metrics
@@ -235,7 +235,7 @@ def common_chat_logic(
         record_completion_metrics(
             metrics=metrics,
             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
             server_address=scope._server_address,
             server_port=scope._server_port,
             request_model=request_model,
@@ -485,7 +485,7 @@ def process_translate_response(
     # Translation response attributes
     if response_dict.get("translated_text"):
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             response_dict.get("translated_text"),
         )
 
@@ -504,7 +504,7 @@ def process_translate_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, kwargs.get("input", "")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("input", "")
         )
 
     span.set_status(Status(StatusCode.OK))
@@ -521,7 +521,7 @@ def process_translate_response(
         record_completion_metrics(
             metrics=metrics,
             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_TRANSLATE,
-            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
             server_address=server_address,
             server_port=server_port,
             request_model=request_model,
@@ -626,7 +626,7 @@ def process_speech_to_text_response(
     # Speech-to-text response attributes
     if response_dict.get("transcript"):
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             response_dict.get("transcript"),
         )
 
@@ -660,7 +660,7 @@ def process_speech_to_text_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, kwargs.get("file", "audio_file")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("file", "audio_file")
         )
 
     span.set_status(Status(StatusCode.OK))
@@ -675,7 +675,7 @@ def process_speech_to_text_response(
         record_audio_metrics(
             metrics=metrics,
             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT,
-            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
             server_address=server_address,
             server_port=server_port,
             request_model=request_model,
@@ -793,7 +793,7 @@ def process_text_to_speech_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, kwargs.get("inputs", "")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("inputs", "")
         )
 
     span.set_status(Status(StatusCode.OK))
@@ -807,7 +807,7 @@ def process_text_to_speech_response(
         record_audio_metrics(
             metrics=metrics,
             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_TO_SPEECH,
-            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
             server_address=server_address,
             server_port=server_port,
             request_model=request_model,
@@ -915,7 +915,7 @@ def process_transliterate_response(
     # Transliterate response attributes
     if response_dict.get("transliterated_text"):
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             response_dict.get("transliterated_text"),
         )
 
@@ -934,7 +934,7 @@ def process_transliterate_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, kwargs.get("input", "")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("input", "")
         )
 
     span.set_status(Status(StatusCode.OK))
@@ -951,7 +951,7 @@ def process_transliterate_response(
         record_completion_metrics(
             metrics=metrics,
             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_TRANSLITERATE,
-            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
             server_address=server_address,
             server_port=server_port,
             request_model=request_model,
@@ -1057,14 +1057,14 @@ def process_language_identification_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, kwargs.get("input", "")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("input", "")
         )
         # For language identification, the "completion" would be the detected language/script
         detected_info = (
             f"Language: {response_dict.get('language_code', 'unknown')}, "
             f"Script: {response_dict.get('script_code', 'unknown')}"
         )
-        span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, detected_info)
+        span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, detected_info)
 
     span.set_status(Status(StatusCode.OK))
 
@@ -1077,7 +1077,7 @@ def process_language_identification_response(
         record_completion_metrics(
             metrics=metrics,
             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_LANGUAGE_IDENTIFICATION,
-            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
             server_address=server_address,
             server_port=server_port,
             request_model=request_model,
@@ -1170,7 +1170,7 @@ def process_speech_to_text_translate_response(
     # Speech-to-text translate response attributes
     if response_dict.get("transcript"):
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             response_dict.get("transcript"),
         )
 
@@ -1198,7 +1198,7 @@ def process_speech_to_text_translate_response(
     # Set content attributes if capture is enabled
     if capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, kwargs.get("file", "audio_file")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, kwargs.get("file", "audio_file")
         )
 
     span.set_status(Status(StatusCode.OK))
@@ -1213,7 +1213,7 @@ def process_speech_to_text_translate_response(
         record_audio_metrics(
             metrics=metrics,
             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT_TRANSLATE,
-            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_SARVAM,
             server_address=server_address,
             server_port=server_port,
             request_model=request_model,

@@ -38,13 +38,25 @@ class SemanticConvention:
     GEN_AI_TOOL_MESSAGE = "gen_ai.tools.message"
     GEN_AI_CHOICE = "gen_ai.choice"
 
+    # GenAI Event Names (OTel Semconv v1.29+)
+    GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS = (
+        "gen_ai.client.inference.operation.details"
+    )
+
+    # GenAI Content Attributes (OTel Semconv v1.29+)
+    GEN_AI_INPUT_MESSAGES = "gen_ai.input.messages"
+    GEN_AI_OUTPUT_MESSAGES = "gen_ai.output.messages"
+    GEN_AI_SYSTEM_INSTRUCTIONS = "gen_ai.system_instructions"
+    GEN_AI_TOOL_DEFINITIONS = "gen_ai.tool.definitions"
+
     # GenAI Request Attributes (OTel Semconv)
     GEN_AI_OPERATION = "gen_ai.operation.name"
-    GEN_AI_SYSTEM = "gen_ai.system"
+    GEN_AI_PROVIDER_NAME = "gen_ai.provider.name"
     GEN_AI_OUTPUT_TYPE = "gen_ai.output.type"
     GEN_AI_ENDPOINT = "gen_ai.endpoint"
     GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
     GEN_AI_REQUEST_SEED = "gen_ai.request.seed"
+    GEN_AI_REQUEST_CHOICE_COUNT = "gen_ai.request.choice.count"
     GEN_AI_REQUEST_ENCODING_FORMATS = "gen_ai.request.encoding_formats"
     GEN_AI_REQUEST_FREQUENCY_PENALTY = "gen_ai.request.frequency_penalty"
     GEN_AI_REQUEST_MAX_TOKENS = "gen_ai.request.max_tokens"
@@ -53,6 +65,9 @@ class SemanticConvention:
     GEN_AI_REQUEST_TEMPERATURE = "gen_ai.request.temperature"
     GEN_AI_REQUEST_TOP_K = "gen_ai.request.top_k"
     GEN_AI_REQUEST_TOP_P = "gen_ai.request.top_p"
+
+    # GenAI Conversation Attributes (OTel Semconv)
+    GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
 
     # GenAI Response Attributes (OTel Semconv)
     GEN_AI_TOKEN_TYPE = "gen_ai.token.type"
@@ -63,6 +78,10 @@ class SemanticConvention:
     GEN_AI_USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
     GEN_AI_USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
     GEN_AI_USAGE_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens"
+    GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS = (
+        "gen_ai.usage.cache_creation.input_tokens"
+    )
+    GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS = "gen_ai.usage.cache_read.input_tokens"
     GEN_AI_USAGE_READ_UNITS = "gen_ai.usage.read_units"
     GEN_AI_USAGE_RERANK_UNITS = "gen_ai.usage.rerank_units"
     GEN_AI_TOOL_CALL_ID = "gen_ai.tool.call.id"
@@ -318,9 +337,9 @@ class SemanticConvention:
 
     # GenAI Content
     GEN_AI_CONTENT_PROMPT_EVENT = "gen_ai.content.prompt"
-    GEN_AI_CONTENT_PROMPT = "gen_ai.prompt"
+    GEN_AI_INPUT_MESSAGES = "gen_ai.input.messages"
     GEN_AI_CONTENT_COMPLETION_EVENT = "gen_ai.content.completion"
-    GEN_AI_CONTENT_COMPLETION = "gen_ai.completion"
+    GEN_AI_OUTPUT_MESSAGES = "gen_ai.output.messages"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
     GEN_AI_CONTENT_REASONING = "gen_ai.content.reasoning"
 
@@ -759,6 +778,13 @@ class SemanticConvention:
     EVAL_VALIDATOR = "evals.validator"
     EVAL_EXPLANATION = "evals.explanation"
 
+    # GenAI Evaluation Event (OTel Semconv)
+    GEN_AI_EVALUATION_RESULT = "gen_ai.evaluation.result"
+    GEN_AI_EVALUATION_NAME = "gen_ai.evaluation.name"
+    GEN_AI_EVALUATION_SCORE_VALUE = "gen_ai.evaluation.score.value"
+    GEN_AI_EVALUATION_SCORE_LABEL = "gen_ai.evaluation.score.label"
+    GEN_AI_EVALUATION_EXPLANATION = "gen_ai.evaluation.explanation"
+
     # === FRAMEWORK OPERATIONS (Generic attributes for all RAG/AI frameworks) ===
 
     # Document Processing
@@ -929,7 +955,7 @@ class SemanticConvention:
     # === ENHANCED SEMANTIC CONVENTIONS FOR COMPREHENSIVE INSTRUMENTATION ===
 
     # Message structure attributes (reuse existing prompt for input, add output messages)
-    # Note: For input messages, we reuse GEN_AI_CONTENT_PROMPT for consistency
+    # Note: For input messages, we reuse GEN_AI_INPUT_MESSAGES for consistency
     GEN_AI_OUTPUT_MESSAGES = "gen_ai.output_messages"
     GEN_AI_MESSAGE_ROLE = "gen_ai.message.role"
     GEN_AI_MESSAGE_CONTENT = "gen_ai.message.content"

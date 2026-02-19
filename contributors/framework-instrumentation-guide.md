@@ -281,7 +281,7 @@ span.set_attribute("gen_ai.system", "pydantic_ai")
 from openlit.semcov import SemanticConvention
 
 span.set_attribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT)
-span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_PYDANTIC_AI)
+span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_PYDANTIC_AI)
 
 # Check existing constants first:
 # - GEN_AI_OPERATION_TYPE_* 
@@ -495,7 +495,7 @@ class OpenLITTracingProcessor(FrameworkProcessor):
 ```python
 def _set_span_attributes(self, span, data):
     # Standard framework attributes
-    span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, "framework_name")
+    span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, "framework_name")
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION_NAME, operation_name)
     
     # Model information (critical for business intelligence)
@@ -697,7 +697,7 @@ def set_span_attributes(span, operation_name: str, ctx: FrameworkInstrumentation
     
     # Set core attributes using cached context
     span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_name)
-    span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_FRAMEWORK)
+    span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_FRAMEWORK)
     span.set_attribute(SemanticConvention.GEN_AI_AGENT_NAME, ctx.agent_name)
     span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, ctx.model_name)
     
@@ -1322,7 +1322,7 @@ if __name__ == "__main__":
 
 ```python
 # Always use semantic conventions
-span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, "framework_name")
+span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, "framework_name")
 span.set_attribute(SemanticConvention.GEN_AI_OPERATION_NAME, operation_name)
 span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model)
 
@@ -1343,8 +1343,8 @@ span.set_attribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens)
 span.set_attribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration)
 
 # Content capture with MIME types
-span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, content)
-span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, response)
+span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, content)
+span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, response)
 ```
 
 ## Quality Checklist

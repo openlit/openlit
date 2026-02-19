@@ -44,6 +44,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
         capture_message_content = kwargs.get("capture_message_content", False)
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics")
+        event_provider = kwargs.get("event_provider")
 
         # chat completions
         wrap_function_wrapper(
@@ -58,6 +59,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -73,6 +75,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -89,6 +92,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -104,6 +108,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -120,6 +125,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -135,6 +141,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -151,6 +158,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -166,6 +174,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -182,6 +191,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -197,6 +207,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -213,6 +224,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -228,6 +240,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -244,6 +257,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -259,6 +273,7 @@ class OpenAIInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
