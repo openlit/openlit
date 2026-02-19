@@ -55,6 +55,8 @@ def chat(
             self._tools = []
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_role = ""
             self._span_name = span_name
             self._args = args
@@ -146,7 +148,6 @@ def chat(
                 try:
                     response = process_chat_response(
                         response=response,
-                        gen_ai_endpoint="ollama.chat",
                         pricing_info=pricing_info,
                         server_port=server_port,
                         server_address=server_address,
@@ -209,6 +210,8 @@ def generate(
             self._tools = []
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_role = ""
             self._span_name = span_name
             self._args = args
@@ -300,7 +303,6 @@ def generate(
                 try:
                     response = process_generate_response(
                         response=response,
-                        gen_ai_endpoint="ollama.generate",
                         pricing_info=pricing_info,
                         server_port=server_port,
                         server_address=server_address,

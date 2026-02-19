@@ -26,6 +26,7 @@ def chat(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI function call
@@ -55,6 +56,8 @@ def chat(
             self._tools = None
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._args = args
             self._kwargs = kwargs
             self._start_time = time.time()
@@ -98,6 +101,7 @@ def chat(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=event_provider,
                         )
 
                 except Exception as e:
@@ -146,6 +150,7 @@ def chat(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 

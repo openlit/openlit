@@ -26,6 +26,7 @@ def async_chat(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI chat function call
@@ -60,6 +61,7 @@ def async_chat(
                 capture_message_content=capture_message_content,
                 disable_metrics=disable_metrics,
                 version=version,
+                event_provider=event_provider,
                 **kwargs,
             )
 
@@ -77,6 +79,7 @@ def async_chat_stream(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI chat_stream function call
@@ -95,6 +98,7 @@ def async_chat_stream(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
             **args,
         ):
             self.__wrapped__ = wrapped
@@ -108,6 +112,9 @@ def async_chat_stream(
             self._tool_plan = ""
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
+            self._event_provider = event_provider
 
             self._args = args
             self._kwargs = kwargs
@@ -152,6 +159,7 @@ def async_chat_stream(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
 
                 except Exception as e:
@@ -176,7 +184,13 @@ def async_chat_stream(
         span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
         return TracedAsyncStream(
-            awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            awaited_wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider=event_provider,
         )
 
     return wrapper

@@ -110,8 +110,12 @@ def generate_stream(
             self._span_name = span_name
             self._llmresponse = ""
             self._finish_reason = ""
-            self._output_tokens = ""
-            self._input_tokens = ""
+            self._response_id = ""
+            self._input_tokens = 0
+            self._output_tokens = 0
+            self._reasoning_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_model = ""
             self._tools = None
 

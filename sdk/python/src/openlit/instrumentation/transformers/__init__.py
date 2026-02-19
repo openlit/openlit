@@ -28,6 +28,7 @@ class TransformersInstrumentor(BaseInstrumentor):
         pricing_info = kwargs.get("pricing_info")
         capture_message_content = kwargs.get("capture_message_content")
         disable_metrics = kwargs.get("disable_metrics")
+        event_provider = kwargs.get("event_provider")
         version = importlib.metadata.version("transformers")
 
         wrap_function_wrapper(
@@ -42,6 +43,7 @@ class TransformersInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
