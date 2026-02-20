@@ -15,7 +15,7 @@ export default class OllamaWrapper extends BaseWrapper {
     });
 
     span.setAttribute(TELEMETRY_SDK_NAME, SDK_NAME);
-    span.setAttribute(SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC);
+    span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC);
     span.setAttribute(SemanticConvention.GEN_AI_ENDPOINT, genAIEndpoint);
     span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment);
     span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, applicationName);
@@ -248,7 +248,7 @@ export default class OllamaWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
     if (traceContent) {
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
     }
     // Request Params attributes : End
 
@@ -264,7 +264,7 @@ export default class OllamaWrapper extends BaseWrapper {
       // Format 'messages' into a single string
       const { message = {} } = result;
       const messageString = `${message.role}: ${message.content}`;
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, messageString);
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, messageString);
     }
   }
 }

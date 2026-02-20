@@ -44,6 +44,7 @@ class SarvamInstrumentor(BaseInstrumentor):
         capture_message_content = kwargs.get("capture_message_content", False)
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics")
+        event_provider = kwargs.get("event_provider")
 
         # Chat completions - sync
         try:
@@ -59,6 +60,7 @@ class SarvamInstrumentor(BaseInstrumentor):
                     capture_message_content,
                     metrics,
                     disable_metrics,
+                    event_provider=event_provider,
                 ),
             )
         except Exception:
@@ -78,6 +80,7 @@ class SarvamInstrumentor(BaseInstrumentor):
                     capture_message_content,
                     metrics,
                     disable_metrics,
+                    event_provider=event_provider,
                 ),
             )
         except Exception:

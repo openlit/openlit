@@ -31,6 +31,7 @@ class CohereInstrumentor(BaseInstrumentor):
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
+        event_provider = kwargs.get("event_provider")
         version = importlib.metadata.version("cohere")
 
         # sync chat completions
@@ -46,6 +47,7 @@ class CohereInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -62,6 +64,7 @@ class CohereInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -94,6 +97,7 @@ class CohereInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -110,6 +114,7 @@ class CohereInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 

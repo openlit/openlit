@@ -48,7 +48,7 @@ export default class CohereWrapper extends BaseWrapper {
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, encoding_format);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_EMBEDDING_DIMENSION, dimensions);
             if (traceContent) {
-              span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, JSON.stringify(texts));
+              span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, JSON.stringify(texts));
             }
             // Request Params attributes : End
             span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, response.id);
@@ -239,7 +239,7 @@ export default class CohereWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
 
     if (traceContent) {
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, message);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, message);
     }
     // Request Params attributes : End
 
@@ -283,10 +283,10 @@ export default class CohereWrapper extends BaseWrapper {
     }
 
     if (tools) {
-      span.setAttribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, 'Function called with tools');
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, 'Function called with tools');
     } else {
       if (traceContent) {
-        span.setAttribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, result.text);
+        span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, result.text);
       }
     }
 

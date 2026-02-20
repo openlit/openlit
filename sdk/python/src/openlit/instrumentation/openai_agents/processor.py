@@ -100,7 +100,7 @@ class OpenLITTracingProcessor(TracingProcessor):
                 span_name,
                 kind=SpanKind.CLIENT,
                 attributes={
-                    SemanticConvention.GEN_AI_SYSTEM: "openai_agents",
+                    SemanticConvention.GEN_AI_PROVIDER_NAME: "openai_agents",
                     SemanticConvention.GEN_AI_OPERATION: SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
                     "trace.id": trace_id,
                     "trace.name": name,
@@ -236,7 +236,7 @@ class OpenLITTracingProcessor(TracingProcessor):
                 kind=SpanKind.CLIENT,
                 context=context,
                 attributes={
-                    SemanticConvention.GEN_AI_SYSTEM: "openai_agents",
+                    SemanticConvention.GEN_AI_PROVIDER_NAME: "openai_agents",
                     SemanticConvention.GEN_AI_OPERATION: operation_type,
                     "span.type": span_type,
                     "span.id": getattr(span_data, "span_id", ""),

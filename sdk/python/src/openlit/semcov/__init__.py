@@ -8,6 +8,51 @@ The purpose is to standardize the semantics for easier integration, analytics, a
 """
 
 
+# Helper function to safely extract OTel attribute values
+def _get_otel_attr(obj, attr_name, fallback_string):
+    """
+    Safely extract attribute value from OTel semantic convention object.
+    Handles both direct string attributes and objects with .value property.
+    """
+    if obj is None:
+        return fallback_string
+
+    try:
+        attr = getattr(obj, attr_name, None)
+        if attr is None:
+            return fallback_string
+        # If it has .value property (some versions), use that
+        if hasattr(attr, "value"):
+            return attr.value
+        # Otherwise use the attribute directly (it's already a string)
+        return str(attr)
+    except Exception:
+        return fallback_string
+
+
+# Import official OpenTelemetry semantic conventions (TIER 1)
+HAS_OFFICIAL_OTEL_SEMCONV = False
+OTelGenAIAttributes = None
+OTelServerAttributes = None
+OTelErrorAttributes = None
+
+try:
+    from opentelemetry.semconv._incubating.attributes import (
+        gen_ai_attributes as OTelGenAIAttributes,
+    )
+    from opentelemetry.semconv._incubating.attributes import (
+        server_attributes as OTelServerAttributes,
+    )
+    from opentelemetry.semconv._incubating.attributes import (
+        error_attributes as OTelErrorAttributes,
+    )
+
+    HAS_OFFICIAL_OTEL_SEMCONV = True
+except ImportError:
+    # Fallback if opentelemetry-semconv is not installed
+    pass
+
+
 class SemanticConvention:
     """
     The SemanticConvention class provides a centralized repository of constant values that
@@ -16,12 +61,24 @@ class SemanticConvention:
     parameters, usage metrics, response attributes, and integrations with external AI and
     database systems. It is designed to facilitate consistency and understandability across
     the application's data logging and processing functionalities.
+
+    TIER 1: Official OTel Standard Attributes (imported from opentelemetry.semconv)
+    TIER 2: OpenAI-Specific and Provider-Specific Attributes
+    TIER 3: OpenLIT Custom Extensions (cost tracking, metrics, etc.)
     """
 
-    # General Attributes (OTel Semconv)
-    SERVER_PORT = "server.port"
-    SERVER_ADDRESS = "server.address"
-    ERROR_TYPE = "error.type"
+    # ==========================================
+    # TIER 1: Official OTel Standard Attributes
+    # ==========================================
+
+    # Server Attributes (OTel Semconv)
+    SERVER_ADDRESS = _get_otel_attr(
+        OTelServerAttributes, "SERVER_ADDRESS", "server.address"
+    )
+    SERVER_PORT = _get_otel_attr(OTelServerAttributes, "SERVER_PORT", "server.port")
+
+    # Error Attributes (OTel Semconv)
+    ERROR_TYPE = _get_otel_attr(OTelErrorAttributes, "ERROR_TYPE", "error.type")
 
     # GenAI Metric Names (OTel Semconv)
     GEN_AI_CLIENT_TOKEN_USAGE = "gen_ai.client.token.usage"
@@ -50,43 +107,91 @@ class SemanticConvention:
     GEN_AI_TOOL_DEFINITIONS = "gen_ai.tool.definitions"
 
     # GenAI Request Attributes (OTel Semconv)
-    GEN_AI_OPERATION = "gen_ai.operation.name"
-    GEN_AI_SYSTEM = "gen_ai.system"
-    GEN_AI_OUTPUT_TYPE = "gen_ai.output.type"
-    GEN_AI_ENDPOINT = "gen_ai.endpoint"
-    GEN_AI_REQUEST_MODEL = "gen_ai.request.model"
-    GEN_AI_REQUEST_SEED = "gen_ai.request.seed"
-    GEN_AI_REQUEST_CHOICE_COUNT = "gen_ai.request.choice.count"
-    GEN_AI_REQUEST_ENCODING_FORMATS = "gen_ai.request.encoding_formats"
-    GEN_AI_REQUEST_FREQUENCY_PENALTY = "gen_ai.request.frequency_penalty"
-    GEN_AI_REQUEST_MAX_TOKENS = "gen_ai.request.max_tokens"
-    GEN_AI_REQUEST_PRESENCE_PENALTY = "gen_ai.request.presence_penalty"
-    GEN_AI_REQUEST_STOP_SEQUENCES = "gen_ai.request.stop_sequences"
-    GEN_AI_REQUEST_TEMPERATURE = "gen_ai.request.temperature"
-    GEN_AI_REQUEST_TOP_K = "gen_ai.request.top_k"
-    GEN_AI_REQUEST_TOP_P = "gen_ai.request.top_p"
-
-    # GenAI Conversation Attributes (OTel Semconv)
-    GEN_AI_CONVERSATION_ID = "gen_ai.conversation.id"
-
-    # GenAI Response Attributes (OTel Semconv)
-    GEN_AI_TOKEN_TYPE = "gen_ai.token.type"
-    GEN_AI_RESPONSE_FINISH_REASON = "gen_ai.response.finish_reasons"
-    GEN_AI_RESPONSE_ID = "gen_ai.response.id"
-    GEN_AI_RESPONSE_MODEL = "gen_ai.response.model"
-
-    GEN_AI_USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
-    GEN_AI_USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
-    GEN_AI_USAGE_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens"
-    GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS = (
-        "gen_ai.usage.cache_creation.input_tokens"
+    GEN_AI_OPERATION = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_OPERATION_NAME", "gen_ai.operation.name"
     )
-    GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS = "gen_ai.usage.cache_read.input_tokens"
-    GEN_AI_USAGE_READ_UNITS = "gen_ai.usage.read_units"
-    GEN_AI_USAGE_RERANK_UNITS = "gen_ai.usage.rerank_units"
-    GEN_AI_TOOL_CALL_ID = "gen_ai.tool.call.id"
-    GEN_AI_TOOL_NAME = "gen_ai.tool.name"
-    GEN_AI_TOOL_ARGS = "gen_ai.tool.args"
+    GEN_AI_PROVIDER_NAME = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_PROVIDER_NAME", "gen_ai.provider.name"
+    )
+    GEN_AI_OUTPUT_TYPE = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_OUTPUT_TYPE", "gen_ai.output.type"
+    )
+    GEN_AI_REQUEST_MODEL = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_REQUEST_MODEL", "gen_ai.request.model"
+    )
+    GEN_AI_REQUEST_SEED = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_REQUEST_SEED", "gen_ai.request.seed"
+    )
+    GEN_AI_REQUEST_CHOICE_COUNT = _get_otel_attr(
+        OTelGenAIAttributes,
+        "GEN_AI_REQUEST_CHOICE_COUNT",
+        "gen_ai.request.choice.count",
+    )
+    GEN_AI_REQUEST_ENCODING_FORMATS = _get_otel_attr(
+        OTelGenAIAttributes,
+        "GEN_AI_REQUEST_ENCODING_FORMATS",
+        "gen_ai.request.encoding_formats",
+    )
+    GEN_AI_EMBEDDINGS_DIMENSION_COUNT = "gen_ai.embeddings.dimension.count"
+    GEN_AI_REQUEST_FREQUENCY_PENALTY = _get_otel_attr(
+        OTelGenAIAttributes,
+        "GEN_AI_REQUEST_FREQUENCY_PENALTY",
+        "gen_ai.request.frequency_penalty",
+    )
+    GEN_AI_REQUEST_MAX_TOKENS = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_REQUEST_MAX_TOKENS", "gen_ai.request.max_tokens"
+    )
+    GEN_AI_REQUEST_PRESENCE_PENALTY = _get_otel_attr(
+        OTelGenAIAttributes,
+        "GEN_AI_REQUEST_PRESENCE_PENALTY",
+        "gen_ai.request.presence_penalty",
+    )
+    GEN_AI_REQUEST_STOP_SEQUENCES = _get_otel_attr(
+        OTelGenAIAttributes,
+        "GEN_AI_REQUEST_STOP_SEQUENCES",
+        "gen_ai.request.stop_sequences",
+    )
+    GEN_AI_REQUEST_TEMPERATURE = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_REQUEST_TEMPERATURE", "gen_ai.request.temperature"
+    )
+    GEN_AI_REQUEST_TOP_K = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_REQUEST_TOP_K", "gen_ai.request.top_k"
+    )
+    GEN_AI_REQUEST_TOP_P = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_REQUEST_TOP_P", "gen_ai.request.top_p"
+    )
+    GEN_AI_CONVERSATION_ID = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_CONVERSATION_ID", "gen_ai.conversation.id"
+    )
+    GEN_AI_RESPONSE_FINISH_REASON = _get_otel_attr(
+        OTelGenAIAttributes,
+        "GEN_AI_RESPONSE_FINISH_REASONS",
+        "gen_ai.response.finish_reasons",
+    )
+    GEN_AI_RESPONSE_ID = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_RESPONSE_ID", "gen_ai.response.id"
+    )
+    GEN_AI_RESPONSE_MODEL = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_RESPONSE_MODEL", "gen_ai.response.model"
+    )
+    GEN_AI_USAGE_INPUT_TOKENS = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_USAGE_INPUT_TOKENS", "gen_ai.usage.input_tokens"
+    )
+    GEN_AI_USAGE_OUTPUT_TOKENS = _get_otel_attr(
+        OTelGenAIAttributes, "GEN_AI_USAGE_OUTPUT_TOKENS", "gen_ai.usage.output_tokens"
+    )
+    GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS = _get_otel_attr(
+        OTelGenAIAttributes,
+        "GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS",
+        "gen_ai.usage.cache_creation.input_tokens",
+    )
+    GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS = _get_otel_attr(
+        OTelGenAIAttributes,
+        "GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS",
+        "gen_ai.usage.cache_read.input_tokens",
+    )
+
+    GEN_AI_ENDPOINT = "gen_ai.endpoint"
 
     # GenAI Operation Types (OTel Semconv)
     GEN_AI_OPERATION_TYPE_TEXT_COMPLETION = "text_completion"
@@ -149,10 +254,21 @@ class SemanticConvention:
     GEN_AI_SYSTEM_VERTEXAI = "vertex_ai"
     GEN_AI_SYSTEM_XAI = "xai"
 
-    # GenAI OpenAI Attributes (OTel Semconv)
-    GEN_AI_REQUEST_SERVICE_TIER = "gen_ai.request.service_tier"
-    GEN_AI_RESPONSE_SERVICE_TIER = "gen_ai.response.service_tier"
-    GEN_AI_RESPONSE_SYSTEM_FINGERPRINT = "gen_ai.response.system_fingerprint"
+    # ==========================================
+    # TIER 2: OpenAI-Specific OTel Attributes
+    # ==========================================
+
+    # From official OTel OpenAI convention documentation
+    # https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/openai.md
+    OPENAI_REQUEST_SERVICE_TIER = "openai.request.service_tier"
+    OPENAI_RESPONSE_SERVICE_TIER = "openai.response.service_tier"
+    OPENAI_RESPONSE_SYSTEM_FINGERPRINT = "openai.response.system_fingerprint"
+    OPENAI_API_TYPE = "openai.api.type"  # "chat_completions" or "responses"
+
+    # Backward compatibility aliases (deprecated, use OPENAI_* instead)
+    GEN_AI_REQUEST_SERVICE_TIER = OPENAI_REQUEST_SERVICE_TIER
+    GEN_AI_RESPONSE_SERVICE_TIER = OPENAI_RESPONSE_SERVICE_TIER
+    GEN_AI_RESPONSE_SYSTEM_FINGERPRINT = OPENAI_RESPONSE_SYSTEM_FINGERPRINT
 
     # GenAI System Names (Extra)
     GEN_AI_SYSTEM_HUGGING_FACE = "huggingface"
@@ -329,23 +445,34 @@ class SemanticConvention:
     GEN_AI_APPLICATION_NAME = "gen_ai.application_name"
     GEN_AI_SDK_VERSION = "gen_ai.sdk.version"
 
-    # GenAI Response Attributes (Extra)
+    # ==========================================
+    # TIER 3: OpenLIT Custom Extensions
+    # ==========================================
+    # These attributes are specific to OpenLIT and not part of the OTel semantic
+    # conventions specification. They extend the standard conventions for cost
+    # tracking, metrics, framework integration, and other openlit-specific features.
+
+    # GenAI Response Attributes (Extra/Custom)
     GEN_AI_USAGE_TOTAL_TOKENS = "gen_ai.usage.total_tokens"
     GEN_AI_USAGE_COST = "gen_ai.usage.cost"
+    GEN_AI_USAGE_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens"
     GEN_AI_RESPONSE_IMAGE = "gen_ai.response.image"
     GEN_AI_TOOL_CALLS = "gen_ai.response.tool_calls"
 
     # GenAI Content
     GEN_AI_CONTENT_PROMPT_EVENT = "gen_ai.content.prompt"
-    GEN_AI_CONTENT_PROMPT = "gen_ai.prompt"
+    GEN_AI_INPUT_MESSAGES = "gen_ai.input.messages"
     GEN_AI_CONTENT_COMPLETION_EVENT = "gen_ai.content.completion"
-    GEN_AI_CONTENT_COMPLETION = "gen_ai.completion"
+    GEN_AI_OUTPUT_MESSAGES = "gen_ai.output.messages"
     GEN_AI_CONTENT_REVISED_PROMPT = "gen_ai.content.revised_prompt"
     GEN_AI_CONTENT_REASONING = "gen_ai.content.reasoning"
 
     # Tool Attributes (LangChain/Framework Support)
     GEN_AI_TOOL_INPUT = "gen_ai.tool.input"
     GEN_AI_TOOL_OUTPUT = "gen_ai.tool.output"
+    GEN_AI_TOOL_NAME = "gen_ai.tool.name"
+    GEN_AI_TOOL_CALL_ID = "gen_ai.tool.call.id"
+    GEN_AI_TOOL_ARGS = "gen_ai.tool.args"
 
     # Retrieval Attributes (LangChain Retriever Support)
     GEN_AI_RETRIEVAL_QUERY = "gen_ai.retrieval.query"
@@ -955,8 +1082,8 @@ class SemanticConvention:
     # === ENHANCED SEMANTIC CONVENTIONS FOR COMPREHENSIVE INSTRUMENTATION ===
 
     # Message structure attributes (reuse existing prompt for input, add output messages)
-    # Note: For input messages, we reuse GEN_AI_CONTENT_PROMPT for consistency
-    GEN_AI_OUTPUT_MESSAGES = "gen_ai.output_messages"
+    # Note: OTel spec uses gen_ai.output.messages (with dot); do not override with wrong key
+    # GEN_AI_OUTPUT_MESSAGES is defined above as "gen_ai.output.messages"
     GEN_AI_MESSAGE_ROLE = "gen_ai.message.role"
     GEN_AI_MESSAGE_CONTENT = "gen_ai.message.content"
 

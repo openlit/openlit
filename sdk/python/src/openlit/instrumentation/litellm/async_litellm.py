@@ -56,6 +56,8 @@ def acompletion(
             self._tools = None
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._args = args
             self._kwargs = kwargs
             self._start_time = time.time()

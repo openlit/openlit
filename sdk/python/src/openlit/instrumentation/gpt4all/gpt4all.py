@@ -23,6 +23,7 @@ def generate(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI function call
@@ -43,6 +44,7 @@ def generate(
             server_address,
             server_port,
             request_model,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -59,6 +61,9 @@ def generate(
             self._server_address = server_address
             self._server_port = server_port
             self._tools = None
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
+            self._event_provider = event_provider
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -93,6 +98,7 @@ def generate(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
 
                 except Exception as e:
@@ -131,6 +137,7 @@ def generate(
                 server_address,
                 server_port,
                 request_model,
+                event_provider=event_provider,
             )
 
         # Handling for non-streaming responses
@@ -156,6 +163,7 @@ def generate(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                     )
 
                 except Exception as e:

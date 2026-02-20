@@ -17,6 +17,11 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.trace import set_span_in_context
 from wrapt import wrap_function_wrapper
 
+from openlit.instrumentation.langchain.utils import (
+    build_input_messages,
+    common_chat_logic,
+)
+
 # Initialize logger
 logger = logging.getLogger(__name__)
 
@@ -41,6 +46,10 @@ class SpanHolder:
         "model_parameters",
         "prompt_content",
         "input_messages",
+        "cache_read_input_tokens",
+        "cache_creation_input_tokens",
+        "input_messages_raw",
+        "prompts",
     )
 
     def __init__(self, span, token=None, start_time=None):
@@ -58,6 +67,10 @@ class SpanHolder:
         self.model_parameters: Dict[str, Any] = {}
         self.prompt_content = ""
         self.input_messages: List[Dict[str, Any]] = []
+        self.cache_read_input_tokens = 0
+        self.cache_creation_input_tokens = 0
+        self.input_messages_raw: Any = None
+        self.prompts: List[Any] = []
 
     def get_duration(self) -> float:
         """Calculate duration from start time to now."""
@@ -174,190 +187,6 @@ def _extract_model_from_repr(
         if match:
             return match.group(1)
     return None
-
-
-def build_input_messages_from_langchain(messages):
-    """
-    Convert LangChain messages to OTel structured input message format.
-
-    Args:
-        messages: List of LangChain message lists (typically [[msg1, msg2, ...]])
-
-    Returns:
-        List of ChatMessage objects with role and parts
-    """
-    try:
-        structured_messages = []
-
-        # LangChain wraps messages in nested lists
-        for msg_list in messages:
-            for msg in msg_list:
-                # Extract role and content from LangChain message
-                role = getattr(msg, "type", "user")
-                content = getattr(msg, "content", str(msg))
-
-                # Map LangChain roles to OTel roles
-                role_mapping = {
-                    "system": "system",
-                    "human": "user",
-                    "ai": "assistant",
-                    "tool": "tool",
-                    "function": "tool",
-                }
-                otel_role = role_mapping.get(role, "user")
-
-                # Build structured message with parts
-                structured_msg = {
-                    "role": otel_role,
-                    "parts": [{"type": "text", "content": str(content)}],
-                }
-                structured_messages.append(structured_msg)
-
-        return structured_messages
-    except Exception as e:
-        # Return empty list on error to prevent instrumentation breakage
-        logger.debug("Error building input messages from LangChain: %s", e)
-        return []
-
-
-def build_input_messages_from_prompts(prompts):
-    """
-    Convert LangChain prompts (strings) to OTel structured input message format.
-
-    Args:
-        prompts: List of prompt strings
-
-    Returns:
-        List of ChatMessage objects with role and parts
-    """
-    try:
-        structured_messages = []
-
-        for prompt_list in prompts:
-            # prompts is typically a list of lists
-            prompt_text = (
-                prompt_list if isinstance(prompt_list, str) else str(prompt_list)
-            )
-
-            structured_msg = {
-                "role": "user",
-                "parts": [{"type": "text", "content": prompt_text}],
-            }
-            structured_messages.append(structured_msg)
-
-        return structured_messages
-    except Exception as e:
-        # Return empty list on error to prevent instrumentation breakage
-        logger.debug("Error building input messages from prompts: %s", e)
-        return []
-
-
-def build_output_messages_langchain(completion_content, finish_reason="stop"):
-    """
-    Convert LangChain completion content to OTel structured output message format.
-
-    Args:
-        completion_content: The completion text content
-        finish_reason: The finish reason (default: "stop")
-
-    Returns:
-        List with single OutputMessage containing response
-    """
-    try:
-        if not completion_content:
-            return []
-
-        output_msg = {
-            "role": "assistant",
-            "parts": [{"type": "text", "content": str(completion_content)}],
-            "finish_reason": finish_reason,
-        }
-
-        return [output_msg]
-    except Exception as e:
-        # Return empty list on error to prevent instrumentation breakage
-        logger.debug("Error building output messages: %s", e)
-        return []
-
-
-def emit_inference_event_langchain(
-    event_provider,
-    operation_name,
-    request_model,
-    response_model,
-    input_messages,
-    output_messages,
-    server_address,
-    server_port,
-    **extra_attrs,
-):
-    """
-    Emit gen_ai.client.inference.operation.details event for LangChain operations.
-
-    Args:
-        event_provider: The OTel event provider
-        operation_name: The operation name (e.g., "chat")
-        request_model: The request model name
-        response_model: The response model name
-        input_messages: Structured input messages
-        output_messages: Structured output messages
-        server_address: Server address
-        server_port: Server port
-        **extra_attrs: Additional attributes (temperature, tokens, etc.)
-    """
-    try:
-        if not event_provider:
-            return
-
-        from openlit.__helpers import otel_event
-        from openlit.semcov import SemanticConvention
-
-        # Build event attributes per OTel spec
-        attributes = {
-            SemanticConvention.GEN_AI_OPERATION: operation_name,
-            SemanticConvention.GEN_AI_REQUEST_MODEL: request_model,
-            SemanticConvention.SERVER_ADDRESS: server_address,
-            SemanticConvention.SERVER_PORT: server_port,
-        }
-
-        # Add response model if different from request
-        if response_model and response_model != request_model:
-            attributes[SemanticConvention.GEN_AI_RESPONSE_MODEL] = response_model
-
-        # Add input/output messages
-        if input_messages:
-            attributes[SemanticConvention.GEN_AI_INPUT_MESSAGES] = input_messages
-        if output_messages:
-            attributes[SemanticConvention.GEN_AI_OUTPUT_MESSAGES] = output_messages
-
-        # Add optional attributes
-        optional_attrs = {
-            "temperature": SemanticConvention.GEN_AI_REQUEST_TEMPERATURE,
-            "max_tokens": SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS,
-            "top_p": SemanticConvention.GEN_AI_REQUEST_TOP_P,
-            "top_k": SemanticConvention.GEN_AI_REQUEST_TOP_K,
-            "frequency_penalty": SemanticConvention.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-            "presence_penalty": SemanticConvention.GEN_AI_REQUEST_PRESENCE_PENALTY,
-            "input_tokens": SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
-            "output_tokens": SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-            "finish_reasons": SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-        }
-
-        for key, attr_name in optional_attrs.items():
-            if key in extra_attrs and extra_attrs[key] is not None:
-                attributes[attr_name] = extra_attrs[key]
-
-        # Create and emit event
-        event = otel_event(
-            name=SemanticConvention.GEN_AI_CLIENT_INFERENCE_OPERATION_DETAILS,
-            attributes=attributes,
-            body="",  # Per spec, all data in attributes
-        )
-
-        event_provider.emit(event)
-
-    except Exception as e:
-        logger.warning("Failed to emit inference event: %s", e, exc_info=True)
 
 
 def extract_model_name(
@@ -540,8 +369,6 @@ def _create_callback_handler_class(
 
     from openlit.__helpers import (
         general_tokens,
-        get_chat_model_cost,
-        record_completion_metrics,
         record_framework_metrics,
         calculate_ttft,
         calculate_tbt,
@@ -653,6 +480,7 @@ def _create_callback_handler_class(
 
         def _extract_from_generations(
             self,
+            holder,
             response,
             input_tokens: int,
             output_tokens: int,
@@ -675,9 +503,9 @@ def _create_callback_handler_class(
                     ):
                         completion_content = gen_content
 
-                    # Extract usage from message
+                    # Extract usage from message (pass holder for cache tokens)
                     tokens = self._extract_message_usage(
-                        gen, input_tokens, output_tokens
+                        gen, input_tokens, output_tokens, holder=holder
                     )
                     input_tokens, output_tokens = tokens
 
@@ -735,7 +563,7 @@ def _create_callback_handler_class(
             return result
 
         def _extract_message_usage(
-            self, gen, input_tokens: int, output_tokens: int
+            self, gen, input_tokens: int, output_tokens: int, holder: Any = None
         ) -> tuple:
             """
             Extract token usage from message metadata.
@@ -743,13 +571,15 @@ def _create_callback_handler_class(
             - usage_metadata (standard LangChain)
             - response_metadata.usage (Bedrock-Anthropic)
             - response_metadata.amazon-bedrock-invocationMetrics (Bedrock-Titan)
+            When holder is provided, also sets holder.cache_read_input_tokens and
+            holder.cache_creation_input_tokens from usage when present.
             """
             if not hasattr(gen, "message") or not gen.message:
                 return input_tokens, output_tokens
 
             msg = gen.message
 
-            # Check usage_metadata (standard LangChain, Ollama)
+            # Handle token usage including reasoning tokens and cached tokens
             if hasattr(msg, "usage_metadata") and msg.usage_metadata:
                 usage = msg.usage_metadata
                 input_tokens = (
@@ -762,12 +592,61 @@ def _create_callback_handler_class(
                     or usage.get("completion_tokens")
                     or output_tokens
                 )
+                if holder is not None:
+                    # OpenAI-style: prompt_tokens_details.cached_tokens / input_tokens_details.cache_creation_tokens
+                    prompt_details = (
+                        usage.get("prompt_tokens_details")
+                        or usage.get("input_tokens_details")
+                        or {}
+                    )
+                    cached = prompt_details.get("cached_tokens", 0) or 0
+                    input_details = usage.get("input_tokens_details") or {}
+                    creation = input_details.get("cache_creation_tokens", 0) or 0
+                    # LangChain usage_metadata: input_token_details.cache_read / cache_creation
+                    langchain_input = usage.get("input_token_details") or {}
+                    if cached == 0:
+                        cached = langchain_input.get("cache_read", 0) or 0
+                    if creation == 0:
+                        creation = langchain_input.get("cache_creation", 0) or 0
+                    holder.cache_read_input_tokens = cached
+                    holder.cache_creation_input_tokens = creation
 
-            # Check response_metadata (Bedrock, etc.)
+            # Check response_metadata (Bedrock, OpenAI via LangChain, etc.)
             if hasattr(msg, "response_metadata") and msg.response_metadata:
                 metadata = msg.response_metadata
                 if isinstance(metadata, dict):
-                    # Bedrock-Anthropic style
+                    # OpenAI-style (e.g. LangChain OpenAI): token_usage with prompt_tokens_details
+                    token_usage = metadata.get("token_usage")
+                    if token_usage:
+                        input_tokens = (
+                            token_usage.get("prompt_tokens")
+                            or token_usage.get("input_tokens")
+                            or input_tokens
+                        )
+                        output_tokens = (
+                            token_usage.get("completion_tokens")
+                            or token_usage.get("output_tokens")
+                            or output_tokens
+                        )
+                        if holder is not None:
+                            prompt_details = (
+                                token_usage.get("prompt_tokens_details")
+                                or token_usage.get("input_tokens_details")
+                                or {}
+                            )
+                            if holder.cache_read_input_tokens == 0:
+                                holder.cache_read_input_tokens = (
+                                    prompt_details.get("cached_tokens", 0) or 0
+                                )
+                            input_details = (
+                                token_usage.get("input_tokens_details") or {}
+                            )
+                            if holder.cache_creation_input_tokens == 0:
+                                holder.cache_creation_input_tokens = (
+                                    input_details.get("cache_creation_tokens", 0) or 0
+                                )
+
+                    # Bedrock-Anthropic style: usage with inputTokens/outputTokens
                     if "usage" in metadata:
                         usage = metadata["usage"]
                         input_tokens = usage.get(
@@ -849,7 +728,7 @@ def _create_callback_handler_class(
                 span = self._create_span(run_id, parent_run_id, span_name)
 
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(span, operation_type)
@@ -903,7 +782,7 @@ def _create_callback_handler_class(
                         record_framework_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             environment=self._environment,
@@ -965,7 +844,7 @@ def _create_callback_handler_class(
                     run_id, parent_run_id, span_name, SpanKind.CLIENT
                 )
 
-                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, provider)
+                span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
                 )
@@ -975,17 +854,18 @@ def _create_callback_handler_class(
                 # Store model info for later
                 self.spans[run_id].model_name = model_name
                 self.spans[run_id].model_parameters = model_params
+                self.spans[run_id].prompts = prompts if prompts else []
 
                 if self._capture_message_content and prompts:
                     prompt_str = "\n".join(prompts)[:5000]
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_str
+                        SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_str
                     )
                     self.spans[run_id].input_tokens = general_tokens(prompt_str)
 
                     # Store structured prompts for event emission
                     try:
-                        structured_prompts = build_input_messages_from_prompts(prompts)
+                        structured_prompts = build_input_messages(prompts)
                         self.spans[run_id].input_messages = structured_prompts
                     except Exception as prompt_err:
                         logger.debug(
@@ -1017,7 +897,7 @@ def _create_callback_handler_class(
                     run_id, parent_run_id, span_name, SpanKind.CLIENT
                 )
 
-                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, provider)
+                span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
                 )
@@ -1038,19 +918,20 @@ def _create_callback_handler_class(
                             formatted.append(f"{role}: {content}")
                     prompt_str = "\n".join(formatted)[:5000]
 
-                    # Store prompt for token estimation
+                    # Store prompt for token estimation and raw messages for common_chat_logic
                     self.spans[run_id].prompt_content = prompt_str
                     self.spans[run_id].input_tokens = general_tokens(prompt_str)
+                    self.spans[run_id].input_messages_raw = messages
 
                     # Set prompt attribute if capturing content
                     if self._capture_message_content:
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_str
+                            SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_str
                         )
 
                     # Store structured messages for event emission
                     try:
-                        structured_msgs = build_input_messages_from_langchain(messages)
+                        structured_msgs = build_input_messages(messages)
                         self.spans[run_id].input_messages = structured_msgs
                     except Exception as msg_err:
                         logger.debug("Error building structured messages: %s", msg_err)
@@ -1155,35 +1036,26 @@ def _create_callback_handler_class(
                 if is_streaming:
                     ttft = calculate_ttft(holder.token_timestamps, holder.start_time)
                     tbt = calculate_tbt(holder.token_timestamps)
-                    span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
-                    span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True
-                    )
-                else:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_REQUEST_IS_STREAM, False
-                    )
 
-                # Extract response content
+                # Extract response content and token usage
                 input_tokens = holder.input_tokens
                 output_tokens = 0
-                completion_content = ""
-                model_name = holder.model_name
-
-                # Get completion from streaming content first
                 completion_content = self._join_streaming_content(
                     holder.streaming_content
                 )
+                model_name = holder.model_name
 
-                # Extract from response.generations (works for streaming and non-streaming)
                 input_tokens, output_tokens, completion_content = (
                     self._extract_from_generations(
-                        response, input_tokens, output_tokens, completion_content
+                        holder,
+                        response,
+                        input_tokens,
+                        output_tokens,
+                        completion_content,
                     )
                 )
 
-                # Try to get token usage from llm_output as another fallback
+                # Handle token usage including reasoning tokens and cached tokens
                 if response.llm_output:
                     token_usage = response.llm_output.get(
                         "token_usage"
@@ -1199,16 +1071,30 @@ def _create_callback_handler_class(
                             or token_usage.get("output_tokens")
                             or output_tokens
                         )
+                        # OpenAI-style: prompt_tokens_details / input_tokens_details
+                        prompt_details = (
+                            token_usage.get("prompt_tokens_details")
+                            or token_usage.get("input_tokens_details")
+                            or {}
+                        )
+                        cached = prompt_details.get("cached_tokens", 0) or 0
+                        input_details = token_usage.get("input_tokens_details") or {}
+                        creation = input_details.get("cache_creation_tokens", 0) or 0
+                        # LangChain streaming: usage often in llm_output with input_token_details
+                        langchain_input = token_usage.get("input_token_details") or {}
+                        if cached == 0:
+                            cached = langchain_input.get("cache_read", 0) or 0
+                        if creation == 0:
+                            creation = langchain_input.get("cache_creation", 0) or 0
+                        holder.cache_read_input_tokens = cached
+                        holder.cache_creation_input_tokens = creation
 
-                # Calculate tokens from content if not available from metadata
-                # (Similar to OpenAI instrumentation approach)
                 try:
                     if output_tokens == 0 and completion_content:
                         output_tokens = general_tokens(completion_content)
                 except Exception as token_err:
                     logger.debug("Error calculating output tokens: %s", token_err)
 
-                # If we still don't have input tokens, estimate from prompt
                 try:
                     if (
                         input_tokens == 0
@@ -1219,117 +1105,53 @@ def _create_callback_handler_class(
                 except Exception as input_err:
                     logger.debug("Error calculating input tokens: %s", input_err)
 
-                # Set completion content attribute
-                if completion_content and self._capture_message_content:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-                        completion_content[:5000],
-                    )
-
-                # Emit OTel log event
-                if self._event_provider and self._capture_message_content:
-                    try:
-                        # Get stored input messages
-                        input_msgs = (
-                            holder.input_messages if holder.input_messages else []
-                        )
-
-                        # Build output messages
-                        output_msgs = build_output_messages_langchain(
-                            completion_content
-                        )
-
-                        # Extract model parameters
-                        model_params = (
-                            holder.model_parameters if holder.model_parameters else {}
-                        )
-
-                        # Determine response model
-                        response_model = model_name
-                        if response.llm_output:
-                            response_model = response.llm_output.get(
-                                "model_name"
-                            ) or response.llm_output.get("model", model_name)
-
-                        emit_inference_event_langchain(
-                            event_provider=self._event_provider,
-                            operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-                            request_model=model_name,
-                            response_model=response_model,
-                            input_messages=input_msgs,
-                            output_messages=output_msgs,
-                            server_address="localhost",
-                            server_port=8080,
-                            temperature=model_params.get("temperature"),
-                            max_tokens=model_params.get("max_tokens"),
-                            top_p=model_params.get("top_p"),
-                            top_k=model_params.get("top_k"),
-                            frequency_penalty=model_params.get("frequency_penalty"),
-                            presence_penalty=model_params.get("presence_penalty"),
-                            input_tokens=input_tokens,
-                            output_tokens=output_tokens,
-                        )
-                    except Exception as event_err:
-                        logger.warning(
-                            "Failed to emit inference event: %s",
-                            event_err,
-                            exc_info=True,
-                        )
-
-                # Always set token attributes
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
-                )
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens
-                )
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-                    input_tokens + output_tokens,
-                )
-
-                # Calculate cost
-                cost = get_chat_model_cost(
-                    model_name, self._pricing_info, input_tokens, output_tokens
-                )
-                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-
-                # Set response model (if not already set in event emission above)
-                if "response_model" not in locals():
-                    response_model = model_name
-                    if response.llm_output:
-                        response_model = response.llm_output.get(
-                            "model_name"
-                        ) or response.llm_output.get("model", model_name)
-
+                response_model = model_name
                 if response.llm_output:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_RESPONSE_MODEL, response_model
-                    )
+                    response_model = response.llm_output.get(
+                        "model_name"
+                    ) or response.llm_output.get("model", model_name)
 
-                # Record metrics (like OpenAI instrumentation)
-                if not self._disable_metrics and self._metrics:
-                    try:
-                        record_completion_metrics(
-                            metrics=self._metrics,
-                            gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
-                            server_address="localhost",
-                            server_port=8080,
-                            request_model=model_name,
-                            response_model=response_model,
-                            environment=self._environment,
-                            application_name=self._application_name,
-                            start_time=holder.start_time,
-                            end_time=end_time,
-                            input_tokens=input_tokens,
-                            output_tokens=output_tokens,
-                            cost=cost,
-                            tbt=tbt,
-                            ttft=ttft,
-                        )
-                    except Exception as e:
-                        logger.debug("Error recording LLM metrics: %s", e)
+                # Build scope and run common_chat_logic (OTel span/event/metrics)
+                scope = type("Scope", (), {})()
+                scope._span = span
+                scope._kwargs = holder.model_parameters or {}
+                scope._model_parameters = holder.model_parameters or {}
+                scope._start_time = holder.start_time
+                scope._end_time = end_time
+                scope._server_address = "localhost"
+                scope._server_port = 8080
+                scope._response_model = response_model
+                scope._response_id = (response.llm_output or {}).get("id") or None
+                scope._llmresponse = completion_content or ""
+                scope._finish_reason = "stop"
+                scope._tools = None
+                scope._input_tokens = input_tokens
+                scope._output_tokens = output_tokens
+                scope._cache_read_input_tokens = getattr(
+                    holder, "cache_read_input_tokens", 0
+                )
+                scope._cache_creation_input_tokens = getattr(
+                    holder, "cache_creation_input_tokens", 0
+                )
+                scope._timestamps = holder.token_timestamps
+                scope._tbt = tbt
+                scope._ttft = ttft
+                scope._request_model = model_name
+                scope._input_messages_raw = getattr(holder, "input_messages_raw", None)
+                scope._prompts = getattr(holder, "prompts", [])
+
+                common_chat_logic(
+                    scope,
+                    self._pricing_info,
+                    self._environment,
+                    self._application_name,
+                    self._metrics,
+                    self._capture_message_content,
+                    self._disable_metrics,
+                    self._version,
+                    is_streaming,
+                    self._event_provider,
+                )
 
                 self._end_span(run_id)
 
@@ -1379,7 +1201,7 @@ def _create_callback_handler_class(
                 span = self._create_span(run_id, parent_run_id, span_name)
 
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(
@@ -1427,7 +1249,7 @@ def _create_callback_handler_class(
                         record_framework_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             environment=self._environment,
@@ -1486,7 +1308,7 @@ def _create_callback_handler_class(
                 span = self._create_span(run_id, parent_run_id, span_name)
 
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(
@@ -1542,7 +1364,7 @@ def _create_callback_handler_class(
                         record_framework_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             environment=self._environment,

@@ -52,6 +52,8 @@ def messages(
             self._finish_reason = ""
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._tool_arguments = ""
             self._tool_id = ""
             self._tool_name = ""

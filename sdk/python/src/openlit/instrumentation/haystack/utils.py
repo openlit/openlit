@@ -395,7 +395,7 @@ def process_haystack_response(
                 replies = value["replies"]
                 if replies and capture_message_content:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
                         str(replies[0])[:500],
                     )
                 break

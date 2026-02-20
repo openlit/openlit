@@ -127,14 +127,14 @@ def common_agent_logic(
     if capture_message_content and hasattr(scope, "_chat_history"):
         chat_content = format_content(scope._chat_history)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, chat_content
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, chat_content
         )
 
         # To be removed once the change to span_attributes (from span events) is complete
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: chat_content,
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES: chat_content,
             },
         )
 
@@ -402,7 +402,7 @@ def process_agent_receive(
 
     # Content capture for received message
     if capture_message_content:
-        span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, str(message))
+        span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, str(message))
 
     common_agent_logic(
         scope,
@@ -465,7 +465,7 @@ def process_agent_send(
 
     # Content capture for sent message
     if capture_message_content:
-        span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, str(message))
+        span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, str(message))
 
     common_agent_logic(
         scope,
@@ -536,7 +536,7 @@ def process_groupchat_operation(
 
     # Content capture for GroupChat
     if capture_message_content and messages:
-        span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, str(messages))
+        span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, str(messages))
 
     # Use framework operation type for GroupChat
     common_agent_logic(

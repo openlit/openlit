@@ -2,6 +2,8 @@
 Anthropic OpenTelemetry instrumentation utility functions
 """
 
+import json
+import logging
 import time
 
 from opentelemetry.trace import Status, StatusCode
@@ -13,8 +15,12 @@ from openlit.__helpers import (
     get_chat_model_cost,
     record_completion_metrics,
     common_span_attributes,
+    general_tokens,
+    otel_event,
 )
 from openlit.semcov import SemanticConvention
+
+logger = logging.getLogger(__name__)
 
 
 def format_content(messages):
@@ -53,6 +59,7 @@ def format_content(messages):
 def build_input_messages(messages, system=None):
     """
     Convert Anthropic request messages to OTel input message structure.
+    Follows gen-ai-input-messages schema.
 
     Args:
         messages: Anthropic messages array from request
@@ -61,10 +68,6 @@ def build_input_messages(messages, system=None):
     Returns:
         List of ChatMessage objects with role and parts
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     if not messages:
         return []
 
@@ -189,6 +192,7 @@ def build_input_messages(messages, system=None):
 def build_output_messages(response_text, finish_reason, tool_calls=None):
     """
     Convert Anthropic response to OTel output message structure.
+    Follows gen-ai-output-messages schema.
 
     Args:
         response_text: Response text from model
@@ -198,10 +202,6 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
     Returns:
         List with single OutputMessage
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     parts = []
 
     try:
@@ -223,9 +223,9 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
         # Map Anthropic finish reasons to OTel standard
         finish_reason_map = {
             "end_turn": "stop",
-            "max_tokens": "max_tokens",
+            "max_tokens": "length",
             "stop_sequence": "stop",
-            "tool_use": "tool_calls",
+            "tool_use": "tool_call",
         }
 
         otel_finish_reason = finish_reason_map.get(
@@ -251,10 +251,6 @@ def build_tool_definitions(tools):
     Returns:
         List of tool definition objects or None
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     if not tools:
         return None
 
@@ -296,6 +292,27 @@ def build_tool_definitions(tools):
         return None
 
 
+def _set_span_messages_as_array(span, input_messages, output_messages):
+    """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
+    try:
+        if input_messages is not None:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_INPUT_MESSAGES,
+                json.dumps(input_messages)
+                if isinstance(input_messages, list)
+                else input_messages,
+            )
+        if output_messages is not None:
+            span.set_attribute(
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                json.dumps(output_messages)
+                if isinstance(output_messages, list)
+                else output_messages,
+            )
+    except Exception as e:
+        logger.warning("Failed to set span message attributes: %s", e, exc_info=True)
+
+
 def emit_inference_event(
     event_provider,
     operation_name,
@@ -323,15 +340,9 @@ def emit_inference_event(
         server_port: Server port
         **extra_attrs: Additional attributes (temperature, max_tokens, etc.)
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     try:
         if not event_provider:
             return
-
-        from openlit.__helpers import otel_event
 
         # Build event attributes
         attributes = {
@@ -391,6 +402,13 @@ def emit_inference_event(
                     attributes[
                         SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS
                     ] = value
+                elif key == "system_instructions":
+                    attributes[SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS] = value
+                elif key == "error_type":
+                    attributes[SemanticConvention.ERROR_TYPE] = value
+                else:
+                    # Pass through any other attributes as-is
+                    attributes[key] = value
 
         # Create and emit event
         event = otel_event(
@@ -420,36 +438,48 @@ def process_chunk(scope, chunk):
 
     chunked = response_as_dict(chunk)
 
-    # Collect message IDs and input token from events
+    # Collect message IDs and input token from events (message_start: message.usage)
     if chunked.get("type") == "message_start":
-        scope._response_id = chunked.get("message").get("id")
-        message_usage = chunked.get("message").get("usage", {})
-        scope._input_tokens = message_usage.get("input_tokens", 0)
-        # Extract cache tokens from message_start event
-        scope._cache_creation_input_tokens = message_usage.get(
-            "cache_creation_input_tokens", 0
+        message = chunked.get("message") or {}
+        message_usage = message.get("usage") or {}
+        scope._response_id = message.get("id")
+        scope._input_tokens = message_usage.get("input_tokens", 0) or 0
+        # Extract cache tokens from message_start event (default 0 when absent)
+        scope._cache_creation_input_tokens = (
+            message_usage.get("cache_creation_input_tokens", 0) or 0
         )
-        scope._cache_read_input_tokens = message_usage.get("cache_read_input_tokens", 0)
-        scope._response_model = chunked.get("message").get("model")
-        scope._response_role = chunked.get("message").get("role")
+        scope._cache_read_input_tokens = (
+            message_usage.get("cache_read_input_tokens", 0) or 0
+        )
+        scope._response_model = message.get("model")
+        scope._response_role = message.get("role")
 
     # Collect message IDs and aggregated response from events
     if chunked.get("type") == "content_block_delta":
-        if chunked.get("delta").get("text"):
-            scope._llmresponse += chunked.get("delta").get("text")
-        elif chunked.get("delta").get("partial_json"):
-            scope._tool_arguments += chunked.get("delta").get("partial_json")
+        delta = chunked.get("delta") or {}
+        if delta.get("text"):
+            scope._llmresponse += delta.get("text", "")
+        elif delta.get("partial_json"):
+            scope._tool_arguments += delta.get("partial_json", "")
 
     if chunked.get("type") == "content_block_start":
-        if chunked.get("content_block").get("id"):
-            scope._tool_id = chunked.get("content_block").get("id")
-        if chunked.get("content_block").get("name"):
-            scope._tool_name = chunked.get("content_block").get("name")
+        content_block = chunked.get("content_block") or {}
+        if content_block.get("id"):
+            scope._tool_id = content_block.get("id")
+        if content_block.get("name"):
+            scope._tool_name = content_block.get("name")
 
-    # Collect output tokens and stop reason from events
+    # Collect output tokens and stop reason from events (message_delta: top-level usage, delta)
     if chunked.get("type") == "message_delta":
-        scope._output_tokens = chunked.get("usage").get("output_tokens")
-        scope._finish_reason = chunked.get("delta").get("stop_reason")
+        usage = chunked.get("usage") or {}
+        delta = chunked.get("delta") or {}
+        scope._output_tokens = usage.get("output_tokens", 0) or 0
+        scope._finish_reason = delta.get("stop_reason") or scope._finish_reason
+        # message_delta carries final usage; update cache token counts when present
+        scope._cache_creation_input_tokens = (
+            usage.get("cache_creation_input_tokens", 0) or 0
+        )
+        scope._cache_read_input_tokens = usage.get("cache_read_input_tokens", 0) or 0
 
 
 def common_chat_logic(
@@ -472,12 +502,18 @@ def common_chat_logic(
     if len(scope._timestamps) > 1:
         scope._tbt = calculate_tbt(scope._timestamps)
 
-    formatted_messages = format_content(scope._kwargs.get("messages", []))
+    prompt = format_content(scope._kwargs.get("messages", []))
     request_model = scope._kwargs.get("model", "claude-3-5-sonnet-latest")
 
-    cost = get_chat_model_cost(
-        request_model, pricing_info, scope._input_tokens, scope._output_tokens
-    )
+    # Calculate tokens and cost
+    if hasattr(scope, "_input_tokens") and scope._input_tokens is not None:
+        input_tokens = scope._input_tokens
+        output_tokens = scope._output_tokens
+    else:
+        input_tokens = general_tokens(prompt)
+        output_tokens = general_tokens(scope._llmresponse)
+
+    cost = get_chat_model_cost(request_model, pricing_info, input_tokens, output_tokens)
 
     # Common Span Attributes
     common_span_attributes(
@@ -517,7 +553,10 @@ def common_chat_logic(
     )
 
     # Span Attributes for Response parameters
-    scope._span.set_attribute(SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id)
+    if scope._response_id:
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_RESPONSE_ID, scope._response_id
+        )
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [scope._finish_reason]
     )
@@ -526,22 +565,8 @@ def common_chat_logic(
         "text" if isinstance(scope._llmresponse, str) else "json",
     )
 
-    # Span Attributes for Cost and Tokens
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, scope._input_tokens
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, scope._output_tokens
-    )
-    scope._span.set_attribute(
-        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
-        scope._input_tokens + scope._output_tokens,
-    )
-    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-
-    # Handle tool calls if present
-    if scope._tool_calls:
-        # Optimized tool handling - extract name, id, and arguments
+    # Span Attributes for Tools
+    if hasattr(scope, "_tool_calls") and scope._tool_calls:
         tool_name = scope._tool_calls.get("name", "")
         tool_id = scope._tool_calls.get("id", "")
         tool_args = scope._tool_calls.get("input", "")
@@ -550,30 +575,77 @@ def common_chat_logic(
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_CALL_ID, tool_id)
         scope._span.set_attribute(SemanticConvention.GEN_AI_TOOL_ARGS, str(tool_args))
 
-    # Span Attributes for Content
+    # Span Attributes for Cost and Tokens
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens
+    )
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE,
+        input_tokens + output_tokens,
+    )
+    scope._span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
+
+    # OTel cached token attributes (set even when 0)
+    if hasattr(scope, "_cache_read_input_tokens"):
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+            scope._cache_read_input_tokens,
+        )
+    if hasattr(scope, "_cache_creation_input_tokens"):
+        scope._span.set_attribute(
+            SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+            scope._cache_creation_input_tokens,
+        )
+
+    # Span Attributes for Content (OTel: array structure for gen_ai.input.messages / gen_ai.output.messages)
     if capture_message_content:
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_PROMPT, formatted_messages
+        input_msgs = build_input_messages(
+            scope._kwargs.get("messages", []),
+            system=scope._kwargs.get("system"),
         )
-        scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+        output_msgs = build_output_messages(
+            scope._llmresponse,
+            scope._finish_reason,
+            scope._tool_calls if hasattr(scope, "_tool_calls") else None,
         )
+        _set_span_messages_as_array(scope._span, input_msgs, output_msgs)
+        # gen_ai.system_instructions (Anthropic: from request system)
+        system_raw = scope._kwargs.get("system")
+        if system_raw:
+            system_instr = [{"type": "text", "content": system_raw}]
+            scope._span.set_attribute(
+                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
+                json.dumps(system_instr),
+            )
 
         # Emit inference event
         if event_provider:
-            import logging
-
-            logger = logging.getLogger(__name__)
             try:
-                input_msgs = build_input_messages(
-                    scope._kwargs.get("messages", []),
-                    system=scope._kwargs.get("system"),
-                )
-                output_msgs = build_output_messages(
-                    scope._llmresponse, scope._finish_reason, scope._tool_calls
-                )
                 tool_defs = build_tool_definitions(scope._kwargs.get("tools"))
-
+                output_type = "text" if isinstance(scope._llmresponse, str) else "json"
+                extra = {
+                    "response_id": scope._response_id,
+                    "finish_reasons": [scope._finish_reason],
+                    "output_type": output_type,
+                    "temperature": scope._kwargs.get("temperature"),
+                    "max_tokens": scope._kwargs.get("max_tokens"),
+                    "top_p": scope._kwargs.get("top_p"),
+                    "top_k": scope._kwargs.get("top_k"),
+                    "stop_sequences": scope._kwargs.get("stop_sequences"),
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cache_read_input_tokens": getattr(
+                        scope, "_cache_read_input_tokens", 0
+                    ),
+                    "cache_creation_input_tokens": getattr(
+                        scope, "_cache_creation_input_tokens", 0
+                    ),
+                }
+                if system_raw:
+                    extra["system_instructions"] = system_instr
                 emit_inference_event(
                     event_provider=event_provider,
                     operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -584,23 +656,7 @@ def common_chat_logic(
                     tool_definitions=tool_defs,
                     server_address=scope._server_address,
                     server_port=scope._server_port,
-                    response_id=scope._response_id,
-                    finish_reasons=[scope._finish_reason],
-                    temperature=scope._kwargs.get("temperature"),
-                    max_tokens=scope._kwargs.get("max_tokens"),
-                    top_p=scope._kwargs.get("top_p"),
-                    top_k=scope._kwargs.get("top_k"),
-                    stop_sequences=scope._kwargs.get("stop_sequences"),
-                    input_tokens=scope._input_tokens,
-                    output_tokens=scope._output_tokens,
-                    cache_creation_input_tokens=scope._cache_creation_input_tokens
-                    if hasattr(scope, "_cache_creation_input_tokens")
-                    and scope._cache_creation_input_tokens > 0
-                    else None,
-                    cache_read_input_tokens=scope._cache_read_input_tokens
-                    if hasattr(scope, "_cache_read_input_tokens")
-                    and scope._cache_read_input_tokens > 0
-                    else None,
+                    **extra,
                 )
             except Exception as e:
                 logger.warning("Failed to emit inference event: %s", e, exc_info=True)
@@ -621,8 +677,8 @@ def common_chat_logic(
             application_name,
             scope._start_time,
             scope._end_time,
-            scope._input_tokens,
-            scope._output_tokens,
+            input_tokens,
+            output_tokens,
             cost,
             scope._tbt,
             scope._ttft,
@@ -696,7 +752,7 @@ def process_chat_response(
     scope._llmresponse = response_dict.get("content", [{}])[0].get("text", "")
     scope._response_role = response_dict.get("role", "assistant")
 
-    # Extract usage including cache tokens (Anthropic prompt caching)
+    # Handle token usage including reasoning tokens and cached tokens
     usage = response_dict.get("usage", {})
     scope._input_tokens = usage.get("input_tokens", 0)
     scope._output_tokens = usage.get("output_tokens", 0)

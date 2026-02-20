@@ -33,7 +33,7 @@ export default class BaseWrapper {
     });
 
     span.setAttribute(TELEMETRY_SDK_NAME, SDK_NAME);
-    span.setAttribute(SemanticConvention.GEN_AI_SYSTEM, aiSystem);
+    span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, aiSystem);
     span.setAttribute(SemanticConvention.GEN_AI_ENDPOINT, genAIEndpoint);
     span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment);
     span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, applicationName);
@@ -57,7 +57,7 @@ export default class BaseWrapper {
     const duration = BaseWrapper.getSpanAttribute(span, 'duration') ?? BaseWrapper.getSpanAttribute(span, 'gen_ai.duration');
     const attributes = {
       [ATTR_SERVICE_NAME]: applicationName,
-      [SemanticConvention.GEN_AI_SYSTEM]: aiSystem,
+      [SemanticConvention.GEN_AI_PROVIDER_NAME]: aiSystem,
       [SemanticConvention.GEN_AI_ENDPOINT]: genAIEndpoint,
       [SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT]: environment,
       [SemanticConvention.GEN_AI_REQUEST_MODEL]: model,
