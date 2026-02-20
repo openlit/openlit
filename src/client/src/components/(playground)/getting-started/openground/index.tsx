@@ -14,7 +14,7 @@ export default function OpengroundGettingStarted() {
           {getMessage().GET_STARTED_WITH_OPENGROUND_DESCRIPTION}
         </p>
 
-        <OpengroundHeader  validateResponse={false} className='flex mb-8 items-center justify-center' />
+        <OpengroundHeader  validateResponse={false} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {getMessage().GET_STARTED_WITH_OPENGROUND_FEATURE_DETAILS.map((item) => (

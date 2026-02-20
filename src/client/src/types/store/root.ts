@@ -4,6 +4,7 @@ import { DatabaseConfigStore } from "@/types/store/database-config";
 import { OpengroundStore } from "@/types/store/openground";
 import { PageStore } from "@/types/store/page";
 import { DashboardStore } from "./dashboards";
+import { OrganisationStore } from "./organisation";
 
 export type RootStore = {
 	user: UserStore;
@@ -12,4 +13,5 @@ export type RootStore = {
 	openground: OpengroundStore;
 	page: PageStore;
 	dashboards: DashboardStore;
+	organisation: OrganisationStore;
 };

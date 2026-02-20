@@ -42,21 +42,23 @@ model Session {
 }
 
 model User {
-  id               String               @id @default(uuid())
-  name             String?
-  email            String               @unique
-  emailVerified    DateTime?            @map("email_verified")
-  password         String?
-  image            String?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-  accounts         Account[]
-  sessions         Session[]
-  dbConfigs        DatabaseConfigUser[]
-  createdDBConfigs DatabaseConfig[]
-  createdApiKeys   APIKeys[]            @relation("createdByUser")
-  deletedApiKeys   APIKeys[]            @relation("deletedByUser")
-  opengrounds      OpenGround[]
+  id                     String               @id @default(uuid())
+  name                   String?
+  email                  String               @unique
+  emailVerified          DateTime?            @map("email_verified")
+  password               String?
+  image                  String?
+  hasCompletedOnboarding Boolean              @default(false) @map("has_completed_onboarding")
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  accounts               Account[]
+  sessions               Session[]
+  dbConfigs              DatabaseConfigUser[]
+  createdDBConfigs       DatabaseConfig[]
+  createdApiKeys         APIKeys[]            @relation("createdByUser")
+  deletedApiKeys         APIKeys[]            @relation("deletedByUser")
+  opengrounds            OpenGround[]
+  organisations          OrganisationUser[]
 
   @@map("users")
 }
@@ -71,6 +73,48 @@ model VerificationRequest {
 
   @@unique([identifier, token])
   @@map("verificationrequest")
+}
+
+// Organisation
+model Organisation {
+  id              String                    @id @default(cuid())
+  name            String
+  slug            String                    @unique
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  createdByUserId String                    @map("created_by_user_id")
+  members         OrganisationUser[]
+  invitedUsers    OrganisationInvitedUser[]
+  databaseConfigs DatabaseConfig[]
+
+  @@map("organisations")
+}
+
+model OrganisationUser {
+  id             String       @id @default(cuid())
+  organisationId String       @map("organisation_id")
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("member")
+  isCurrent      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organisationId, userId])
+  @@map("organisation_users")
+}
+
+model OrganisationInvitedUser {
+  id              String       @id @default(cuid())
+  organisationId  String       @map("organisation_id")
+  organisation    Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  email           String
+  invitedByUserId String       @map("invited_by_user_id")
+  createdAt       DateTime     @default(now())
+
+  @@unique([organisationId, email])
+  @@map("organisation_invited_users")
 }
 
 // Database Config
@@ -89,11 +133,13 @@ model DatabaseConfig {
   updatedAt       DateTime                    @updatedAt
   createdByUserId String                      @map("user_id")
   createdByUser   User                        @relation(fields: [createdByUserId], references: [id])
+  organisationId  String?                     @map("organisation_id")
+  organisation    Organisation?               @relation(fields: [organisationId], references: [id])
   dbInvitedUsers  DatabaseConfigInvitedUser[]
   apiKeys         APIKeys[]
   opengrounds     OpenGround[]
 
-  @@unique([name])
+  @@unique([name, organisationId])
   @@map("databaseconfig")
 }
 

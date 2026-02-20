@@ -4,6 +4,7 @@ import asaw from "@/utils/asaw";
 import { getCurrentUser } from "./session";
 import { User } from "@prisma/client";
 import { moveSharedDBConfigToDBUser } from "./db-config";
+import { moveInvitationsToMembership } from "./organisation";
 import getMessage from "@/constants/messages";
 
 function exclude<User extends Record<string, unknown>, K extends keyof User>(
@@ -25,9 +26,13 @@ export const getUserByEmail = async ({
 	selectPassword?: boolean;
 }) => {
 	if (!email) throw new Error("No email Provided");
+	
+	// Normalize email to lowercase for case-insensitive comparison
+	const normalizedEmail = email.toLowerCase().trim();
+	
 	const user = await prisma.user.findUnique({
 		where: {
-			email,
+			email: normalizedEmail,
 		},
 	});
 
@@ -65,20 +70,25 @@ export const createNewUser = async (
 	},
 	options?: { selectPassword?: boolean }
 ) => {
-	const [, existingUser] = await asaw(getUserByEmail({ email }));
+	// Normalize email to lowercase for case-insensitive comparison
+	const normalizedEmail = email.toLowerCase().trim();
+	
+	const [, existingUser] = await asaw(getUserByEmail({ email: normalizedEmail }));
 	if (existingUser) throw new Error("User already exists! Please signin!");
 
 	const hashedPassword = getHashedPassword(password);
 
 	let createdUser = await prisma.user.create({
 		data: {
-			email,
+			email: normalizedEmail,
 			password: hashedPassword,
+			hasCompletedOnboarding: false,
 		},
 	});
 
 	if (createdUser?.id) {
-		await moveSharedDBConfigToDBUser(email, createdUser.id);
+		await moveSharedDBConfigToDBUser(normalizedEmail, createdUser.id);
+		await moveInvitationsToMembership(normalizedEmail, createdUser.id);
 		return exclude(createdUser, options?.selectPassword ? [] : undefined);
 	}
 
