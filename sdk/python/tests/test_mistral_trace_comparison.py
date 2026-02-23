@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """
 Cross-Language Trace Comparison Test for Mistral
 
@@ -8,10 +9,9 @@ with TypeScript traces.
 import os
 import pytest
 from mistralai import Mistral
-import openlit
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
 from opentelemetry.sdk.trace import TracerProvider
-from trace_comparison_utils import normalize_python_span
+import openlit
 
 
 # Initialize OpenLIT with in-memory exporter for testing
@@ -34,20 +34,20 @@ def test_mistral_trace_structure():
     """
     if not os.getenv("MISTRAL_API_KEY"):
         pytest.skip("MISTRAL_API_KEY not set")
-    
+
     messages = [
         {
             "role": "user",
             "content": "What is Mistral AI?",
         }
     ]
-    
+
     response = client.chat.complete(
         model="open-mistral-7b",
         messages=messages,
         max_tokens=10,
     )
-    
+
     # Verify response structure
     assert hasattr(response, 'id')
     assert hasattr(response, 'model')
@@ -61,12 +61,12 @@ def test_mistral_embedding_trace_structure():
     """
     if not os.getenv("MISTRAL_API_KEY"):
         pytest.skip("MISTRAL_API_KEY not set")
-    
+
     response = client.embeddings.create(
         model="mistral-embed",
         input="Test embedding",
     )
-    
+
     # Verify response structure
     assert hasattr(response, 'model')
     assert hasattr(response, 'data')
