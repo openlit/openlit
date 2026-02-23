@@ -239,7 +239,7 @@ export default class CohereWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
 
     if (traceContent) {
-      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, message);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, OpenLitHelper.buildInputMessages([{ role: 'user', content: message }]));
     }
     // Request Params attributes : End
 
@@ -265,6 +265,9 @@ export default class CohereWrapper extends BaseWrapper {
       aiSystem: CohereWrapper.aiSystem,
     });
 
+    // Response model
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, model);
+
     span.setAttribute(
       SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
       result.meta.billedUnits.inputTokens
@@ -277,17 +280,17 @@ export default class CohereWrapper extends BaseWrapper {
       SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
       result.meta.billedUnits.inputTokens + result.meta.billedUnits.outputTokens
     );
+    span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, result.meta.billedUnits.inputTokens + result.meta.billedUnits.outputTokens);
 
     if (result.finishReason) {
-      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, result.finishReason);
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [result.finishReason]);
     }
 
-    if (tools) {
-      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, 'Function called with tools');
-    } else {
-      if (traceContent) {
-        span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, result.text);
-      }
+    if (traceContent) {
+      span.setAttribute(
+        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+        OpenLitHelper.buildOutputMessages(result.text || '', result.finishReason || 'stop')
+      );
     }
 
     // Return metric parameters instead of recording metrics directly

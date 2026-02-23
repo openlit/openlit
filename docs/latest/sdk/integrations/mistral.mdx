@@ -1,25 +1,36 @@
 ---
-title: 'Monitor Mistral using OpenTelemetry'
+title: 'Monitor Mistral AI using OpenTelemetry'
 sidebarTitle: 'Mistral'
 ---
 
 import IntegrationMethods from '/snippets/integration-methods.mdx';
 
-OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using Mistral models. This includes tracking performance, token usage, costs, and how users interact with the application.
+OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applications built using models from Mistral AI. This includes tracking performance, token usage, costs, and how users interact with the application.
 
 Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
 
-The integration is compatible with  
-- Mistral Python SDK client `>= 1.0.0` 
+The integration is compatible with:
+- Mistral AI Python SDK client `>= 1.0.0`
+- Mistral AI TypeScript/JavaScript SDK client `>= 1.0.0`
 
 ## Get started 
 
 <Steps>
   <Step title="Install OpenLIT">
     Open your command line or terminal and run:
-    ```shell
-    pip install openlit
-    ```
+    
+    <Tabs>
+      <Tab title="Python">
+        ```shell
+        pip install openlit
+        ```
+      </Tab>
+      <Tab title="TypeScript">
+        ```shell
+        npm install openlit
+        ```
+      </Tab>
+    </Tabs>
   </Step>
   <IntegrationMethods />
 </Steps>

@@ -39,12 +39,13 @@ export default class OpenlitAnthropicInstrumentation extends InstrumentationBase
 
   protected _patch(moduleExports: typeof Anthropic) {
     try {
-      if (isWrapped(moduleExports.Anthropic.Messages.prototype.create)) {
-        this._unwrap(moduleExports.Anthropic.Messages.prototype, 'create');
+      const AnthropicClass = (moduleExports as any).Anthropic ?? moduleExports;
+      if (isWrapped(AnthropicClass.Messages.prototype.create)) {
+        this._unwrap(AnthropicClass.Messages.prototype, 'create');
       }
 
       this._wrap(
-        moduleExports.Anthropic.Messages.prototype,
+        AnthropicClass.Messages.prototype,
         'create',
         AnthropicWrapper._patchMessageCreate(this.tracer)
       );
@@ -54,6 +55,7 @@ export default class OpenlitAnthropicInstrumentation extends InstrumentationBase
   }
 
   protected _unpatch(moduleExports: typeof Anthropic) {
-    this._unwrap(moduleExports.Anthropic.Messages.prototype, 'create');
+    const AnthropicClass = (moduleExports as any).Anthropic ?? moduleExports;
+    this._unwrap(AnthropicClass.Messages.prototype, 'create');
   }
 }

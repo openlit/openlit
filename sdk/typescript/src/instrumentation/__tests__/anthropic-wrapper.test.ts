@@ -104,7 +104,7 @@ describe('AnthropicWrapper', () => {
       );
       expect(setAttributeSpy).toHaveBeenCalledWith(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-        'stop'
+        ['stop']
       );
     });
   });

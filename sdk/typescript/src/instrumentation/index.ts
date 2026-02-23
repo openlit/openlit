@@ -5,12 +5,22 @@ import { TracerProvider } from '@opentelemetry/api';
 import OpenAIInstrumentation from './openai';
 import AnthropicInstrumentation from './anthropic';
 import CohereInstrumentation from './cohere';
+import GroqInstrumentation from './groq';
+import MistralInstrumentation from './mistral';
+import GoogleAIInstrumentation from './google-ai';
+import TogetherInstrumentation from './together';
+import OllamaInstrumentation from './ollama';
 
 export default class Instrumentations {
   static availableInstrumentations: OpenlitInstrumentations = {
     openai: new OpenAIInstrumentation(),
     anthropic: new AnthropicInstrumentation(),
     cohere: new CohereInstrumentation(),
+    groq: new GroqInstrumentation(),
+    mistral: new MistralInstrumentation(),
+    'google-ai': new GoogleAIInstrumentation(),
+    together: new TogetherInstrumentation(),
+    ollama: new OllamaInstrumentation(),
   };
 
   static setup(

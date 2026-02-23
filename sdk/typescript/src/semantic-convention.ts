@@ -73,10 +73,11 @@ export default class SemanticConvention {
   static GEN_AI_RESPONSE_SYSTEM_FINGERPRINT = 'gen_ai.response.system_fingerprint';
 
   // GenAI Content
-  static GEN_AI_INPUT_MESSAGES = 'gen_ai.prompt';
+  static GEN_AI_INPUT_MESSAGES = 'gen_ai.input.messages';
+  static GEN_AI_OUTPUT_MESSAGES = 'gen_ai.output.messages';
   static GEN_AI_CONTENT_PROMPT_EVENT = 'gen_ai.content.prompt';
-  static GEN_AI_OUTPUT_MESSAGES = 'gen_ai.completion';
   static GEN_AI_CONTENT_COMPLETION_EVENT = 'gen_ai.content.completion';
+  static GEN_AI_SYSTEM_INSTRUCTIONS = 'gen_ai.system.instructions';
   static GEN_AI_CONTENT_REVISED_PROMPT = 'gen_ai.content.revised_prompt';
   
   // Tool attributes

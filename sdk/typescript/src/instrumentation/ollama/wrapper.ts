@@ -1,30 +1,11 @@
-import { Span, SpanKind, SpanStatusCode, Tracer, context, trace } from '@opentelemetry/api';
+import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import { SDK_NAME, TELEMETRY_SDK_NAME } from '../../constant';
-import BaseWrapper from '../base-wrapper';
+import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
 export default class OllamaWrapper extends BaseWrapper {
-  static setBaseSpanAttributes(
-    span: any,
-    { genAIEndpoint, model, user, cost, environment, applicationName }: any
-  ) {
-    span.setAttributes({
-      [TELEMETRY_SDK_NAME]: SDK_NAME,
-    });
-
-    span.setAttribute(TELEMETRY_SDK_NAME, SDK_NAME);
-    span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC);
-    span.setAttribute(SemanticConvention.GEN_AI_ENDPOINT, genAIEndpoint);
-    span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment);
-    span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, applicationName);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model);
-    span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, user);
-    if (cost !== undefined) span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, cost);
-
-    span.setStatus({ code: SpanStatusCode.OK });
-  }
+  static aiSystem = 'ollama';
 
   static _patchChat(tracer: Tracer): any {
     const genAIEndpoint = 'ollama.chat';
@@ -71,8 +52,9 @@ export default class OllamaWrapper extends BaseWrapper {
     response: any;
     span: Span;
   }) {
+    let metricParams: BaseSpanAttributes | undefined;
     try {
-      await OllamaWrapper._chatCommonSetter({
+      metricParams = await OllamaWrapper._chatCommonSetter({
         args,
         genAIEndpoint,
         result: response,
@@ -83,6 +65,9 @@ export default class OllamaWrapper extends BaseWrapper {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      if (metricParams) {
+        BaseWrapper.recordMetrics(span, metricParams);
+      }
     }
   }
 
@@ -97,70 +82,57 @@ export default class OllamaWrapper extends BaseWrapper {
     response: any;
     span: Span;
   }) {
+    let metricParams: BaseSpanAttributes | undefined;
+    const timestamps: number[] = [];
+    const startTime = Date.now();
     try {
-      const result = {
-        id: '0',
+      const result: any = {
         model: '',
-        stop_reason: '',
-        content: [
-          {
-            text: '',
-            role: '',
-          },
-        ],
-        usage: {
-          input_tokens: 0,
-          output_tokens: 0,
-          total_tokens: 0,
-        },
+        message: { role: 'assistant', content: '' },
+        done_reason: '',
+        prompt_eval_count: 0,
+        eval_count: 0,
       };
+
       for await (const chunk of response) {
-        switch (chunk.type) {
-          case 'content_block_delta':
-            result.content[0].text += chunk.delta?.text ?? '';
-            break;
-          case 'message_stop':
-            break;
-
-          case 'content_block_stop':
-            break;
-
-          case 'message_start':
-            if (chunk.message) {
-              result.id = chunk.message.id;
-              result.model = chunk.message.model;
-              result.content[0].role = chunk.message.role;
-              result.usage.input_tokens += Number(chunk.message.usage?.input_tokens) ?? 0;
-              result.usage.output_tokens += Number(chunk.message.usage?.output_tokens) ?? 0;
-              result.stop_reason = chunk.message?.stop_reason ?? '';
-            }
-            break;
-
-          case 'content_block_start':
-            result.content[0].text = chunk.content_block?.text ?? '';
-            break;
-          case 'message_delta':
-            result.stop_reason = chunk.delta?.stop_reason ?? '';
-            result.usage.output_tokens += Number(chunk.usage?.output_tokens) ?? 0;
-            break;
+        timestamps.push(Date.now());
+        result.model = chunk.model || result.model;
+        if (chunk.message?.content) {
+          result.message.content += chunk.message.content;
+          result.message.role = chunk.message.role || result.message.role;
+        }
+        if (chunk.done) {
+          result.done_reason = chunk.done_reason || '';
+          result.prompt_eval_count = chunk.prompt_eval_count || 0;
+          result.eval_count = chunk.eval_count || 0;
         }
 
         yield chunk;
       }
 
-      result.usage.total_tokens = result.usage.output_tokens + result.usage.input_tokens;
+      const ttft = timestamps.length > 0 ? (timestamps[0] - startTime) / 1000 : 0;
+      let tbt = 0;
+      if (timestamps.length > 1) {
+        const timeDiffs = timestamps.slice(1).map((t, i) => t - timestamps[i]);
+        tbt = timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length / 1000;
+      }
 
-      await OllamaWrapper._chatCommonSetter({
+      metricParams = await OllamaWrapper._chatCommonSetter({
         args,
         genAIEndpoint,
         result,
         span,
+        ttft,
+        tbt,
       });
       return response;
     } catch (e: any) {
       OpenLitHelper.handleException(span, e);
     } finally {
       span.end();
+      if (metricParams) {
+        BaseWrapper.recordMetrics(span, metricParams);
+      }
     }
   }
 
@@ -169,14 +141,16 @@ export default class OllamaWrapper extends BaseWrapper {
     genAIEndpoint,
     result,
     span,
+    ttft = 0,
+    tbt = 0,
   }: {
     args: any[];
     genAIEndpoint: string;
     result: any;
     span: Span;
+    ttft?: number;
+    tbt?: number;
   }) {
-    const applicationName = OpenlitConfig.applicationName;
-    const environment = OpenlitConfig.environment;
     const traceContent = OpenlitConfig.traceContent;
     const {
       messages,
@@ -187,34 +161,8 @@ export default class OllamaWrapper extends BaseWrapper {
       top_k,
       user,
       stream = false,
-      stop_reason,
     } = args[0];
 
-    // Format 'messages' into a single string
-    const messagePrompt = messages || '';
-    const formattedMessages = [];
-
-    for (const message of messagePrompt) {
-      const role = message.role;
-      const content = message.content;
-
-      if (Array.isArray(content)) {
-        const contentStr = content
-          .map((item) => {
-            if ('type' in item) {
-              return `${item.type}: ${item.text ? item.text : item.image_url}`;
-            } else {
-              return `text: ${item.text}`;
-            }
-          })
-          .join(', ');
-        formattedMessages.push(`${role}: ${contentStr}`);
-      } else {
-        formattedMessages.push(`${role}: ${content}`);
-      }
-    }
-
-    const prompt = formattedMessages.join('\n');
     span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_ID, result.id);
 
@@ -222,8 +170,8 @@ export default class OllamaWrapper extends BaseWrapper {
 
     const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
 
-    const promptTokens = result.prompt_eval_count;
-    const completionTokens = result.eval_count;
+    const promptTokens = result.prompt_eval_count || 0;
+    const completionTokens = result.eval_count || 0;
     const totalTokens = promptTokens + completionTokens;
 
     // Calculate cost of the operation
@@ -234,9 +182,11 @@ export default class OllamaWrapper extends BaseWrapper {
       model,
       user,
       cost,
-      applicationName,
-      environment,
+      aiSystem: OllamaWrapper.aiSystem,
     });
+
+    // Response model
+    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, model);
 
     // Request Params attributes : Start
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p);
@@ -244,27 +194,42 @@ export default class OllamaWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_tokens);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
 
-    span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, stop_reason);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SEED, seed);
     if (traceContent) {
-      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, OpenLitHelper.buildInputMessages(messages || []));
     }
     // Request Params attributes : End
 
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, promptTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, completionTokens);
     span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, totalTokens);
+    span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, totalTokens);
 
     if (result.done_reason) {
-      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, result.done_reason);
+      span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [result.done_reason]);
+    }
+
+    // TTFT and TBT metrics
+    if (ttft > 0) {
+      span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
+    }
+    if (tbt > 0) {
+      span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
     }
 
     if (traceContent) {
-      // Format 'messages' into a single string
       const { message = {} } = result;
-      const messageString = `${message.role}: ${message.content}`;
-      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, messageString);
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+        OpenLitHelper.buildOutputMessages(message.content || '', result.done_reason || 'stop'));
     }
+
+    return {
+      genAIEndpoint,
+      model,
+      user,
+      cost,
+      aiSystem: OllamaWrapper.aiSystem,
+    };
   }
 }
