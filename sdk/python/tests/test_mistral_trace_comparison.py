@@ -64,7 +64,7 @@ def test_mistral_embedding_trace_structure():
 
     response = client.embeddings.create(
         model="mistral-embed",
-        input="Test embedding",
+        inputs="Test embedding",
     )
 
     # Verify response structure
