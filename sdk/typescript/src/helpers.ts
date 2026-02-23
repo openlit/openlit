@@ -8,9 +8,8 @@ export default class OpenLitHelper {
     try {
       const encoding = encodingForModel(model as TiktokenModel);
       return encoding.encode(text).length;
-    } catch (error) {
-      console.error(`Error in openaiTokens: ${error}`);
-      throw error;
+    } catch {
+      return OpenLitHelper.generalTokens(text);
     }
   }
 
@@ -105,6 +104,104 @@ export default class OpenLitHelper {
     } catch (error) {
       console.error(`Unexpected error occurred while fetching pricing info: ${error}`);
       return {};
+    }
+  }
+
+  /**
+   * Build OTel-spec input messages JSON string from provider messages array.
+   * Format: [{"role": "user", "parts": [{"type": "text", "content": "..."}]}]
+   */
+  static buildInputMessages(messages: any[], system?: string): string {
+    try {
+      const otelMessages: any[] = [];
+
+      if (system) {
+        otelMessages.push({ role: 'system', parts: [{ type: 'text', content: system }] });
+      }
+
+      for (const msg of messages || []) {
+        const role = msg.role || 'user';
+        const content = msg.content;
+        const parts: any[] = [];
+
+        if (typeof content === 'string' && content) {
+          parts.push({ type: 'text', content });
+        } else if (Array.isArray(content)) {
+          for (const item of content) {
+            const t = item.type;
+            if (t === 'text') {
+              parts.push({ type: 'text', content: item.text || '' });
+            } else if (t === 'image_url') {
+              const url = item.image_url?.url || '';
+              if (url && !url.startsWith('data:')) {
+                parts.push({ type: 'uri', modality: 'image', uri: url });
+              }
+            } else if (t === 'image') {
+              // Anthropic image format
+              const url = item.source?.url || '';
+              if (url && !url.startsWith('data:')) {
+                parts.push({ type: 'uri', modality: 'image', uri: url });
+              }
+            } else if (t === 'tool_use') {
+              parts.push({ type: 'tool_call', id: item.id || '', name: item.name || '', arguments: item.input || {} });
+            } else if (t === 'tool_result') {
+              parts.push({ type: 'tool_call_response', id: item.tool_use_id || '', response: typeof item.content === 'string' ? item.content : JSON.stringify(item.content || '') });
+            }
+          }
+        }
+
+        // Handle tool_calls in message (OpenAI assistant format)
+        if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+          for (const tc of msg.tool_calls) {
+            let args = tc.function?.arguments || {};
+            if (typeof args === 'string') {
+              try { args = JSON.parse(args); } catch { args = { raw: args }; }
+            }
+            parts.push({ type: 'tool_call', id: tc.id || '', name: tc.function?.name || '', arguments: args });
+          }
+        }
+
+        if (parts.length > 0) {
+          otelMessages.push({ role, parts });
+        }
+      }
+
+      return JSON.stringify(otelMessages);
+    } catch {
+      return '[]';
+    }
+  }
+
+  /**
+   * Build OTel-spec output messages JSON string from provider response.
+   * Format: [{"role": "assistant", "parts": [{"type": "text", "content": "..."}], "finish_reason": "stop"}]
+   */
+  static buildOutputMessages(text: string, finishReason: string, toolCalls?: any[]): string {
+    try {
+      const parts: any[] = [];
+
+      if (text) {
+        parts.push({ type: 'text', content: text });
+      }
+
+      if (toolCalls && toolCalls.length > 0) {
+        for (const tc of toolCalls) {
+          let args = tc.function?.arguments || tc.arguments || {};
+          if (typeof args === 'string') {
+            try { args = JSON.parse(args); } catch { args = { raw: args }; }
+          }
+          parts.push({
+            type: 'tool_call',
+            id: tc.id || '',
+            name: tc.function?.name || tc.name || '',
+            arguments: args,
+          });
+        }
+      }
+
+      return JSON.stringify([{ role: 'assistant', parts, finish_reason: finishReason || 'stop' }]);
+    } catch {
+      return '[]';
     }
   }
 

@@ -286,32 +286,7 @@ class OpenAIWrapper extends BaseWrapper {
     }
 
     if (traceContent) {
-      // Format 'messages' into a single string
-      const messagePrompt = messages || [];
-      const formattedMessages = [];
-
-      for (const message of messagePrompt) {
-        const role = message.role;
-        const content = message.content;
-
-        if (Array.isArray(content)) {
-          const contentStr = content
-            .map((item) => {
-              if ('type' in item) {
-                return `${item.type}: ${item.text ? item.text : item.image_url}`;
-              } else {
-                return `text: ${item.text}`;
-              }
-            })
-            .join(', ');
-          formattedMessages.push(`${role}: ${contentStr}`);
-        } else {
-          formattedMessages.push(`${role}: ${content}`);
-        }
-      }
-
-      const prompt = formattedMessages.join('\n');
-      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, OpenLitHelper.buildInputMessages(messages || []));
     }
     // Request Params attributes : End
 
@@ -444,27 +419,13 @@ class OpenAIWrapper extends BaseWrapper {
 
     // Content
     if (traceContent) {
-      // Format completion content - use actual content or empty string if only tool calls
-      const completionContent = result.choices[0].message.content || '';
-      
-      if (n === 1) {
-        span.setAttribute(
-          SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-          completionContent
-        );
-      } else {
-        let i = 0;
-        while (i < n) {
-          const attribute_name = `${SemanticConvention.GEN_AI_OUTPUT_MESSAGES}.${i}`;
-          span.setAttribute(attribute_name, result.choices[i].message.content || '');
-          i += 1;
-        }
-      }
-      
-      // Add events for backward compatibility
-      span.addEvent(SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT, {
-        [SemanticConvention.GEN_AI_OUTPUT_MESSAGES]: completionContent,
-      });
+      const toolCalls = result.choices[0].message.tool_calls;
+      const outputJson = OpenLitHelper.buildOutputMessages(
+        result.choices[0].message.content || '',
+        result.choices[0].finish_reason || 'stop',
+        toolCalls
+      );
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, outputJson);
     }
 
     return {
@@ -1109,48 +1070,23 @@ class OpenAIWrapper extends BaseWrapper {
       stream = false,
     } = args[0];
 
-    // Format input for prompt
-    let prompt = '';
-    if (typeof input === 'string') {
-      prompt = input;
-    } else if (Array.isArray(input)) {
-      const formattedMessages = [];
-      for (const item of input) {
-        const role = item.role || 'user';
-        const content = item.content;
-        
-        if (typeof content === 'string') {
-          formattedMessages.push(`${role}: ${content}`);
-        } else if (Array.isArray(content)) {
-          const contentParts = content
-            .map((part: any) => {
-              if (part.type === 'input_text') {
-                return `text: ${part.text || ''}`;
-              } else if (part.type === 'input_image' && part.image_url && !part.image_url.startsWith('data:')) {
-                return `image_url: ${part.image_url}`;
-              }
-              return '';
-            })
-            .filter(Boolean)
-            .join(', ');
-          formattedMessages.push(`${role}: ${contentParts}`);
-        }
-      }
-      prompt = formattedMessages.join('\n');
-    }
+    // Normalize Responses API input to messages array for buildInputMessages
+    const responsesMessages = typeof input === 'string'
+      ? [{ role: 'user', content: input }]
+      : (Array.isArray(input) ? input : []);
 
     // Request Params attributes
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TEMPERATURE, temperature);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_TOP_P, top_p);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, max_output_tokens || -1);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
-    
+
     if (reasoning?.effort) {
       span.setAttribute('gen_ai.request.reasoning_effort', reasoning.effort);
     }
 
     if (traceContent) {
-      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt);
+      span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, OpenLitHelper.buildInputMessages(responsesMessages));
     }
 
     span.setAttribute(
@@ -1251,13 +1187,8 @@ class OpenAIWrapper extends BaseWrapper {
 
     // Content
     if (traceContent) {
-      // Set completion content - use actual text or empty string if only tool calls
-      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completionText);
-      
-      // Add events for backward compatibility
-      span.addEvent(SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT, {
-        [SemanticConvention.GEN_AI_OUTPUT_MESSAGES]: completionText,
-      });
+      span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+        OpenLitHelper.buildOutputMessages(completionText, result.status || 'stop'));
     }
 
     return {
