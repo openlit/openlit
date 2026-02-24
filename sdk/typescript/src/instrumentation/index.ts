@@ -10,6 +10,11 @@ import MistralInstrumentation from './mistral';
 import GoogleAIInstrumentation from './google-ai';
 import TogetherInstrumentation from './together';
 import OllamaInstrumentation from './ollama';
+import VercelAIInstrumentation from './vercel-ai';
+import LangChainInstrumentation from './langchain';
+import PineconeInstrumentation from './pinecone';
+import BedrockInstrumentation from './bedrock';
+import LlamaIndexInstrumentation from './llamaindex';
 
 export default class Instrumentations {
   static availableInstrumentations: OpenlitInstrumentations = {
@@ -21,6 +26,11 @@ export default class Instrumentations {
     'google-ai': new GoogleAIInstrumentation(),
     together: new TogetherInstrumentation(),
     ollama: new OllamaInstrumentation(),
+    'vercel-ai': new VercelAIInstrumentation(),
+    langchain: new LangChainInstrumentation(),
+    pinecone: new PineconeInstrumentation(),
+    bedrock: new BedrockInstrumentation(),
+    llamaindex: new LlamaIndexInstrumentation(),
   };
 
   static setup(

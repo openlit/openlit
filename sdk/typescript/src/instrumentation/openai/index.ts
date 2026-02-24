@@ -19,7 +19,7 @@ export default class OpenlitOpenAIInstrumentation extends InstrumentationBase {
   protected init(): void | InstrumentationModuleDefinition | InstrumentationModuleDefinition[] {
     const module = new InstrumentationNodeModuleDefinition(
       'openai',
-      ['>=3.1.0 <5'],
+      ['>=3.1.0'],
       (moduleExports) => {
         this._patch(moduleExports);
         return moduleExports;
