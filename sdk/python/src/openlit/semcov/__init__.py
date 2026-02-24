@@ -49,7 +49,7 @@ try:
 
     HAS_OFFICIAL_OTEL_SEMCONV = True
 except ImportError:
-    # Fallback if opentelemetry-semconv is not installed
+    # Fallback if opentelemetry-semantic-conventions is not installed
     pass
 
 
