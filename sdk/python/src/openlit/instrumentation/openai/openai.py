@@ -4,7 +4,12 @@ Module for monitoring OpenAI API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.__helpers import (
+    handle_exception,
+    set_server_address_and_port,
+    record_completion_metrics,
+    record_embedding_metrics,
+)
 from openlit.instrumentation.openai.utils import (
     process_chat_chunk,
     process_response_chunk,
@@ -159,6 +164,27 @@ def chat_completions(
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        err_type = type(e).__name__ or "_OTHER"
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                            server_address,
+                            server_port,
+                            request_model,
+                            kwargs.get("model", "unknown"),
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=err_type,
+                        )
 
                 return response
 
@@ -310,6 +336,27 @@ def responses(
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        err_type = type(e).__name__ or "_OTHER"
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                            server_address,
+                            server_port,
+                            request_model,
+                            kwargs.get("model", "unknown"),
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=err_type,
+                        )
 
                 return response
 
@@ -368,6 +415,26 @@ def chat_completions_parse(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 
@@ -429,6 +496,23 @@ def embedding(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_embedding_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 
@@ -490,6 +574,26 @@ def image_generate(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        end_time,
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 
@@ -550,6 +654,26 @@ def image_variatons(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        end_time,
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 
@@ -610,6 +734,26 @@ def audio_create(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        end_time,
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 

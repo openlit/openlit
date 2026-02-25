@@ -486,6 +486,12 @@ def common_chat_logic(
 
     # Metrics
     if not disable_metrics:
+        inter_chunk_durations = None
+        if getattr(scope, "_timestamps", None) and len(scope._timestamps) > 1:
+            inter_chunk_durations = [
+                scope._timestamps[i] - scope._timestamps[i - 1]
+                for i in range(1, len(scope._timestamps))
+            ]
         record_completion_metrics(
             metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -503,6 +509,8 @@ def common_chat_logic(
             cost,
             scope._tbt,
             scope._ttft,
+            is_stream=is_stream,
+            time_per_chunk_observations=inter_chunk_durations,
         )
 
 
