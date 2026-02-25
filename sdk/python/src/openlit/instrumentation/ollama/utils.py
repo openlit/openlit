@@ -15,9 +15,9 @@ from openlit.__helpers import (
     general_tokens,
     get_chat_model_cost,
     get_embed_model_cost,
-    create_metrics_attributes,
     common_span_attributes,
     record_completion_metrics,
+    record_embedding_metrics,
     otel_event,
 )
 from openlit.semcov import SemanticConvention
@@ -281,42 +281,6 @@ def process_chunk(self, chunk):
         self._cache_creation_input_tokens = 0
         self._response_model = chunked.get("model", "")
         self._finish_reason = chunked.get("done_reason", "")
-
-
-def record_embedding_metrics(
-    metrics,
-    gen_ai_operation,
-    GEN_AI_PROVIDER_NAME,
-    server_address,
-    server_port,
-    request_model,
-    response_model,
-    environment,
-    application_name,
-    start_time,
-    end_time,
-    cost,
-    input_tokens,
-):
-    """
-    Record embedding metrics for the operation.
-    Delegates to the OTel-compliant helper function.
-    """
-    record_embedding_metrics(
-        metrics=metrics,
-        gen_ai_operation=gen_ai_operation,
-        GEN_AI_PROVIDER_NAME=GEN_AI_PROVIDER_NAME,
-        server_address=server_address,
-        server_port=server_port,
-        request_model=request_model,
-        response_model=response_model,
-        environment=environment,
-        application_name=application_name,
-        start_time=start_time,
-        end_time=end_time,
-        input_tokens=input_tokens,
-        cost=cost,
-    )
 
 
 def common_chat_logic(
@@ -808,8 +772,8 @@ def common_embedding_logic(
             application_name,
             scope._start_time,
             scope._end_time,
-            cost,
             input_tokens,
+            cost,
         )
 
 
