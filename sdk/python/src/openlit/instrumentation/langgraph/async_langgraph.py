@@ -485,8 +485,5 @@ def _record_checkpoint_metrics(
         if "genai_client_operation_duration" in metrics:
             metrics["genai_client_operation_duration"].record(duration, attributes)
 
-        if "genai_requests" in metrics:
-            metrics["genai_requests"].add(1, attributes)
-
     except Exception:
         pass

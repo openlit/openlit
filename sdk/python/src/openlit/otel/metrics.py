@@ -133,6 +133,13 @@ _MCP_PAYLOAD_SIZE_BUCKETS = [
     5242880,  # 5MB
 ]
 
+# Client-side streaming metrics buckets (OTel semconv: same as operation.duration)
+_GEN_AI_CLIENT_OPERATION_TIME_TO_FIRST_CHUNK = _GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS
+
+_GEN_AI_CLIENT_OPERATION_TIME_PER_OUTPUT_CHUNK = (
+    _GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS
+)
+
 
 def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_headers):
     """
@@ -249,36 +256,33 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 unit="s",
                 explicit_bucket_boundaries_advisory=_GEN_AI_SERVER_TFTT,
             ),
+            "genai_client_time_to_first_chunk": meter.create_histogram(
+                name=SemanticConvention.GEN_AI_CLIENT_OPERATION_TIME_TO_FIRST_CHUNK,
+                description="Time from client request to first response chunk (OTel compliant)",
+                unit="s",
+                explicit_bucket_boundaries_advisory=_GEN_AI_CLIENT_OPERATION_TIME_TO_FIRST_CHUNK,
+            ),
+            "genai_client_time_per_output_chunk": meter.create_histogram(
+                name=SemanticConvention.GEN_AI_CLIENT_OPERATION_TIME_PER_OUTPUT_CHUNK,
+                description="Time between consecutive response chunks from client perspective (OTel compliant)",
+                unit="s",
+                explicit_bucket_boundaries_advisory=_GEN_AI_CLIENT_OPERATION_TIME_PER_OUTPUT_CHUNK,
+            ),
+            "genai_server_request_duration": meter.create_histogram(
+                name=SemanticConvention.GEN_AI_SERVER_REQUEST_DURATION,
+                description="Total server-side processing time from request receipt to response transmission",
+                unit="s",
+                explicit_bucket_boundaries_advisory=_GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS,
+            ),
             "db_client_operation_duration": meter.create_histogram(
                 name=SemanticConvention.DB_CLIENT_OPERATION_DURATION,
                 description="DB operation duration",
                 unit="s",
                 explicit_bucket_boundaries_advisory=_DB_CLIENT_OPERATION_DURATION_BUCKETS,
             ),
-            # Extra
-            "genai_requests": meter.create_counter(
-                name=SemanticConvention.GEN_AI_REQUESTS,
-                description="Number of requests to GenAI",
-                unit="1",
-            ),
-            "genai_prompt_tokens": meter.create_counter(
-                name=SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS,
-                description="Number of prompt tokens processed.",
-                unit="1",
-            ),
-            "genai_completion_tokens": meter.create_counter(
-                name=SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS,
-                description="Number of completion tokens processed.",
-                unit="1",
-            ),
-            "genai_reasoning_tokens": meter.create_counter(
-                name=SemanticConvention.GEN_AI_USAGE_REASONING_TOKENS,
-                description="Number of reasoning thought tokens processed.",
-                unit="1",
-            ),
             "genai_cost": meter.create_histogram(
                 name=SemanticConvention.GEN_AI_USAGE_COST,
-                description="The distribution of GenAI request costs.",
+                description="The distribution of GenAI request costs (OpenLIT vendor extension; not part of OTel GenAI semconv).",
                 unit="USD",
             ),
             "db_requests": meter.create_counter(

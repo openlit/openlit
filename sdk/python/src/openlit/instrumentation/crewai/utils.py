@@ -588,10 +588,6 @@ def _record_crewai_metrics(
                 duration_ms / 1000, attributes
             )
 
-        # Record operation count
-        if "genai_requests" in metrics:
-            metrics["genai_requests"].add(1, attributes)
-
     except Exception:
         # Graceful degradation
         pass

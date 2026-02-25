@@ -7,6 +7,7 @@ import time
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
+    record_completion_metrics,
 )
 from openlit.instrumentation.vertexai.utils import (
     process_chunk,
@@ -158,6 +159,26 @@ def send_message(
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_VERTEXAI,
+                            server_address,
+                            server_port,
+                            request_model,
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
 
                 return response
 

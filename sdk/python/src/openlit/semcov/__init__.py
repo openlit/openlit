@@ -84,9 +84,34 @@ class SemanticConvention:
     GEN_AI_CLIENT_TOKEN_USAGE = "gen_ai.client.token.usage"
     DB_CLIENT_TOKEN_USAGE = "db.client.token.usage"
     GEN_AI_CLIENT_OPERATION_DURATION = "gen_ai.client.operation.duration"
+    GEN_AI_CLIENT_OPERATION_TIME_TO_FIRST_CHUNK = (
+        "gen_ai.client.operation.time_to_first_chunk"
+    )
+    GEN_AI_CLIENT_OPERATION_TIME_PER_OUTPUT_CHUNK = (
+        "gen_ai.client.operation.time_per_output_chunk"
+    )
     GEN_AI_SERVER_REQUEST_DURATION = "gen_ai.server.request.duration"
     GEN_AI_SERVER_TBT = "gen_ai.server.time_per_output_token"
     GEN_AI_SERVER_TTFT = "gen_ai.server.time_to_first_token"
+
+    # GenAI Token Type Attribute (OTel Semconv - required for token usage metric)
+    GEN_AI_TOKEN_TYPE = "gen_ai.token.type"
+    GEN_AI_TOKEN_TYPE_INPUT = "input"
+    GEN_AI_TOKEN_TYPE_OUTPUT = "output"
+    # For spans/attributes only; do NOT use for gen_ai.client.token.usage metric
+    # (semconv allows only "input" and "output" on that metric).
+    GEN_AI_TOKEN_TYPE_REASONING = "reasoning"
+
+    # Error Type Values (OTel Semconv - conditional for operation failures)
+    ERROR_TYPE_UNAVAILABLE = "unavailable"
+    ERROR_TYPE_AUTHENTICATION = "authentication"
+    ERROR_TYPE_TIMEOUT = "timeout"
+    ERROR_TYPE_RATE_LIMITED = "rate_limited"
+    ERROR_TYPE_PERMISSION = "permission"
+    ERROR_TYPE_NOT_FOUND = "not_found"
+    ERROR_TYPE_INVALID_REQUEST = "invalid_request"
+    ERROR_TYPE_SERVER_ERROR = "server_error"
+    ERROR_TYPE_UNAUTHORIZED = "unauthorized"
 
     # GenAI Event Names (OTel Semconv)
     GEN_AI_USER_MESSAGE = "gen_ai.user.message"
@@ -173,12 +198,6 @@ class SemanticConvention:
     )
     GEN_AI_RESPONSE_MODEL = _get_otel_attr(
         OTelGenAIAttributes, "GEN_AI_RESPONSE_MODEL", "gen_ai.response.model"
-    )
-    GEN_AI_USAGE_INPUT_TOKENS = _get_otel_attr(
-        OTelGenAIAttributes, "GEN_AI_USAGE_INPUT_TOKENS", "gen_ai.usage.input_tokens"
-    )
-    GEN_AI_USAGE_OUTPUT_TOKENS = _get_otel_attr(
-        OTelGenAIAttributes, "GEN_AI_USAGE_OUTPUT_TOKENS", "gen_ai.usage.output_tokens"
     )
     GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS = _get_otel_attr(
         OTelGenAIAttributes,
@@ -439,7 +458,6 @@ class SemanticConvention:
     GEN_AI_HUB_OWNER = "gen_ai.hub.owner"
     GEN_AI_HUB_REPO = "gen_ai.hub.repo"
     GEN_AI_RETRIEVAL_SOURCE = "gen_ai.retrieval.source"
-    GEN_AI_REQUESTS = "gen_ai.total.requests"
     GEN_AI_DATA_SOURCES = "gen_ai.data_source_count"
     GEN_AI_ENVIRONMENT = "gen_ai.environment"
     GEN_AI_APPLICATION_NAME = "gen_ai.application_name"
@@ -454,8 +472,11 @@ class SemanticConvention:
 
     # GenAI Response Attributes (Extra/Custom)
     GEN_AI_USAGE_TOTAL_TOKENS = "gen_ai.usage.total_tokens"
-    GEN_AI_USAGE_COST = "gen_ai.usage.cost"
-    GEN_AI_USAGE_REASONING_TOKENS = "gen_ai.usage.reasoning_tokens"
+    GEN_AI_USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
+    GEN_AI_USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
+    GEN_AI_USAGE_COST = (
+        "gen_ai.usage.cost"  # OpenLIT vendor extension; not OTel GenAI semconv
+    )
     GEN_AI_RESPONSE_IMAGE = "gen_ai.response.image"
     GEN_AI_TOOL_CALLS = "gen_ai.response.tool_calls"
 

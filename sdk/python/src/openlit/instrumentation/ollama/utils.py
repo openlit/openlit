@@ -300,23 +300,23 @@ def record_embedding_metrics(
 ):
     """
     Record embedding metrics for the operation.
+    Delegates to the OTel-compliant helper function.
     """
-
-    attributes = create_metrics_attributes(
-        operation=gen_ai_operation,
-        system=GEN_AI_PROVIDER_NAME,
+    record_embedding_metrics(
+        metrics=metrics,
+        gen_ai_operation=gen_ai_operation,
+        GEN_AI_PROVIDER_NAME=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
         response_model=response_model,
-        service_name=application_name,
-        deployment_environment=environment,
+        environment=environment,
+        application_name=application_name,
+        start_time=start_time,
+        end_time=end_time,
+        input_tokens=input_tokens,
+        cost=cost,
     )
-    metrics["genai_client_usage_tokens"].record(input_tokens, attributes)
-    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
-    metrics["genai_requests"].add(1, attributes)
-    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-    metrics["genai_cost"].record(cost, attributes)
 
 
 def common_chat_logic(
@@ -485,6 +485,12 @@ def common_chat_logic(
 
     # Span status and metrics
     if not disable_metrics:
+        inter_chunk_durations = None
+        if getattr(scope, "_timestamps", None) and len(scope._timestamps) > 1:
+            inter_chunk_durations = [
+                scope._timestamps[i] - scope._timestamps[i - 1]
+                for i in range(1, len(scope._timestamps))
+            ]
         record_completion_metrics(
             metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -502,6 +508,8 @@ def common_chat_logic(
             cost,
             scope._tbt,
             scope._ttft,
+            is_stream=is_stream,
+            time_per_chunk_observations=inter_chunk_durations,
         )
 
 
@@ -672,6 +680,12 @@ def common_generate_logic(
 
     # Span status and metrics
     if not disable_metrics:
+        inter_chunk_durations = None
+        if getattr(scope, "_timestamps", None) and len(scope._timestamps) > 1:
+            inter_chunk_durations = [
+                scope._timestamps[i] - scope._timestamps[i - 1]
+                for i in range(1, len(scope._timestamps))
+            ]
         record_completion_metrics(
             metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION,
@@ -689,6 +703,8 @@ def common_generate_logic(
             cost,
             scope._tbt,
             scope._ttft,
+            is_stream=is_stream,
+            time_per_chunk_observations=inter_chunk_durations,
         )
 
 
