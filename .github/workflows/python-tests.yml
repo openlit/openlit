@@ -5,13 +5,16 @@ on:
     branches: [ "main" ]
     paths:
       - 'sdk/python/**'
-  pull_request_target:
+  pull_request:
     branches: [ "main" ]
     paths:
       - 'sdk/python/**'
   workflow_dispatch:
   schedule:
     - cron: '0 0 1-31/15 * *'
+
+permissions:
+  contents: read
 
 env:
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -50,8 +53,6 @@ jobs:
     steps:
     - name: Checkout base code
       uses: actions/checkout@v5
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v6
