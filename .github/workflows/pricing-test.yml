@@ -5,13 +5,16 @@ on:
       branches: [ "main" ]
       paths:
       - 'assets/pricing.json'
-    pull_request_target:
+    pull_request:
       branches: [ "main" ]
       paths:
       - 'assets/pricing.json'
     workflow_dispatch:
     schedule:
       - cron: '0 0 1-31/15 * *'
+
+permissions:
+  contents: read
 
 jobs:
   validate-pricing:
@@ -20,8 +23,6 @@ jobs:
     steps:
       - name: Checkout base code
         uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Validate JSON structure
         id: validate
