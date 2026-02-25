@@ -178,7 +178,8 @@
                 ]
               },
               "latest/sdk/configuration",
-              "latest/sdk/instrumentation-methods"
+              "latest/sdk/instrumentation-methods",
+              "latest/sdk/go-overview"
             ]
           },
           {
@@ -201,8 +202,10 @@
                 "icon": "robot",
                 "pages": [
                   "latest/sdk/integrations/openai",
+                  "latest/sdk/integrations/go-openai",
                   "latest/sdk/integrations/ollama",
                   "latest/sdk/integrations/anthropic",
+                  "latest/sdk/integrations/go-anthropic",
                   "latest/sdk/integrations/deepseek",
                   "latest/sdk/integrations/gpt4all",
                   "latest/sdk/integrations/cohere",

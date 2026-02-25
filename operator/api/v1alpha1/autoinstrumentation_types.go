@@ -37,6 +37,10 @@ type AutoInstrumentationSpec struct {
 	// +optional
 	Python *PythonInstrumentation `json:"python,omitempty"`
 
+	// Go defines Go-specific instrumentation configuration
+	// +optional
+	Go *GoInstrumentation `json:"go,omitempty"`
+
 	// OTLP defines OpenTelemetry Protocol configuration
 	// +kubebuilder:validation:Required
 	OTLP OTLPConfig `json:"otlp"`
@@ -62,6 +66,17 @@ type PythonInstrumentation struct {
 	// Instrumentation defines instrumentation configuration
 	// +optional
 	Instrumentation *InstrumentationSettings `json:"instrumentation,omitempty"`
+}
+
+// GoInstrumentation defines Go-specific instrumentation settings
+type GoInstrumentation struct {
+	// Image is the container image for Go SDK injection
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// Env defines environment variables to inject
+	// +optional
+	Env []EnvVar `json:"env,omitempty"`
 }
 
 // EnvVar represents an environment variable to be injected

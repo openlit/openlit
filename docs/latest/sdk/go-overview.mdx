@@ -1,0 +1,143 @@
+---
+title: 'Go SDK Overview'
+sidebarTitle: 'Go SDK Overview'
+icon: 'golang'
+description: 'OpenTelemetry-native observability for Go AI applications. Monitor OpenAI and Anthropic with automatic token tracking, cost calculation, and distributed tracing.'
+---
+
+The OpenLIT Go SDK provides **OpenTelemetry-native observability** for Go applications using LLM APIs. It wraps your provider clients with lightweight instrumentation that automatically collects traces, metrics, and cost data without requiring any changes to your application logic.
+
+## Supported providers
+
+<CardGroup cols={2}>
+  <Card title="OpenAI" icon="robot">
+    Chat completions, streaming, embeddings, and image generation — with full token usage and cost tracking.
+  </Card>
+  <Card title="Anthropic" icon="robot">
+    Claude messages and streaming — with cache token tracking and full OpenTelemetry semantic conventions.
+  </Card>
+</CardGroup>
+
+## What gets collected
+
+Every instrumented call automatically records:
+
+- **Distributed traces** — spans with request/response details, model name, token counts, and cost
+- **OTel metrics** — `gen_ai.client.token.usage`, `gen_ai.client.operation.duration`, `gen_ai.server.time_to_first_token`, `gen_ai.server.time_per_output_token`, `gen_ai.server.request.duration`
+- **Streaming metrics** — time-to-first-chunk and per-chunk latency observations
+- **Cost tracking** — automatic cost calculation using the built-in pricing data
+
+## Installation
+
+<Tabs>
+  <Tab title="Latest Version">
+    ```shell
+    go get github.com/openlit/openlit/sdk/go
+    ```
+  </Tab>
+  <Tab title="Specific Version">
+    ```shell
+    go get github.com/openlit/openlit/sdk/go@v1.2.3
+    ```
+    Replace `v1.2.3` with the version you want to install.
+  </Tab>
+</Tabs>
+
+## Quick start
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+
+    openlit "github.com/openlit/openlit/sdk/go"
+    "github.com/openlit/openlit/sdk/go/instrumentation/openai"
+)
+
+func main() {
+    // 1. Initialize OpenLIT (once, at startup)
+    if err := openlit.Init(openlit.Config{
+        OtlpEndpoint:    "http://127.0.0.1:4318",
+        ApplicationName: "my-ai-app",
+        Environment:     "production",
+    }); err != nil {
+        log.Fatal(err)
+    }
+    defer openlit.Shutdown(context.Background())
+
+    // 2. Create an instrumented client
+    client := openai.NewClient("your-openai-api-key")
+
+    // 3. Use it exactly like a normal client
+    resp, err := client.CreateChatCompletion(context.Background(), openai.ChatCompletionRequest{
+        Model: "gpt-4o",
+        Messages: []openai.Message{
+            {Role: "user", Content: "Hello, world!"},
+        },
+        MaxTokens: 100,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Println(resp.Choices[0].Message.Content)
+}
+```
+
+Replace `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` for a local OpenLIT deployment.
+
+## Configuration
+
+Pass a `Config` struct to `openlit.Init()`:
+
+| Field | Environment Variable | Description | Default |
+|-------|---------------------|-------------|---------|
+| `OtlpEndpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP backend URL | `http://127.0.0.1:4318` |
+| `OtlpHeaders` | — | Additional HTTP headers for OTLP requests | `{}` |
+| `ApplicationName` | — | Name of your application | `default` |
+| `Environment` | — | Deployment environment label | `default` |
+| `ServiceVersion` | — | Service version string | `""` |
+| `DisableTracing` | — | Disable trace collection | `false` |
+| `DisableMetrics` | — | Disable metrics collection | `false` |
+| `DisableBatch` | — | Disable batch export (useful for testing) | `false` |
+| `DisableCaptureMessageContent` | — | Omit prompt/completion text from spans | `false` |
+| `DetailedTracing` | — | Enable component-level tracing detail | `false` |
+| `DisablePricingFetch` | — | Skip fetching remote pricing data | `false` |
+| `PricingEndpoint` | — | URL for custom pricing JSON | built-in |
+| `PricingInfo` | — | In-process pricing overrides | `{}` |
+| `TraceExporterTimeout` | — | Timeout for trace exports | `10s` |
+| `MetricExporterTimeout` | — | Timeout for metric exports | `10s` |
+| `MetricExportInterval` | — | Interval for metric exports | `30s` |
+
+### Via environment variable
+
+```go
+// If OTEL_EXPORTER_OTLP_ENDPOINT is set, no endpoint config is needed
+openlit.Init(openlit.Config{
+    ApplicationName: "my-ai-app",
+})
+```
+
+```shell
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
+```
+
+## Getting started
+
+<CardGroup cols={2}>
+  <Card title="OpenAI Integration" href="/latest/sdk/integrations/go-openai" icon="robot">
+    Monitor chat completions, streaming, embeddings, and image generation
+  </Card>
+  <Card title="Anthropic Integration" href="/latest/sdk/integrations/go-anthropic" icon="robot">
+    Monitor Claude messages and streaming with cache token tracking
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon="link">
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon="bolt">
+    Configure the OpenLIT SDK according to your requirements
+  </Card>
+</CardGroup>

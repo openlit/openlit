@@ -1,0 +1,76 @@
+name: Go SDK Release
+
+on:
+  push:
+    tags:
+      - 'go-*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/go-}" >> $GITHUB_OUTPUT
+      
+      - name: Run tests
+        working-directory: ./sdk/go
+        run: go test -v ./...
+      
+      - name: Build
+        working-directory: ./sdk/go
+        run: go build -v ./...
+      
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Extract changelog for this version
+          if [ -f "sdk/go/CHANGELOG.md" ]; then
+            awk '/^## \[${{ steps.get_version.outputs.VERSION }}\]/{flag=1;next}/^## \[/{flag=0}flag' sdk/go/CHANGELOG.md > /tmp/changelog.md
+          else
+            echo "Release ${{ steps.get_version.outputs.VERSION }}" > /tmp/changelog.md
+          fi
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Go SDK v${{ steps.get_version.outputs.VERSION }}
+          body_path: /tmp/changelog.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Announce on Slack
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "🎉 OpenLIT Go SDK v${{ steps.get_version.outputs.VERSION }} has been released!",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*OpenLIT Go SDK v${{ steps.get_version.outputs.VERSION }}* has been released!\n\n📦 Install: `go get github.com/openlit/openlit/sdk/go@v${{ steps.get_version.outputs.VERSION }}`\n🔗 <https://github.com/openlit/openlit/releases/tag/go-${{ steps.get_version.outputs.VERSION }}|View Release Notes>"
+                  }
+                }
+              ]
+            }
