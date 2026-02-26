@@ -1,6 +1,7 @@
 import { SidebarItemProps } from "@/types/sidebar";
 import {
 	BookKey,
+	BookOpen,
 	BookText,
 	Component,
 	Home,
@@ -9,6 +10,7 @@ import {
 	MonitorCog,
 	MonitorPlay,
 	ShieldAlert,
+	SlidersHorizontal,
 	TextQuote
 } from "lucide-react";
 import DatabaseConfigSwitch from "@/components/(playground)/sidebar/database-config-switch";
@@ -77,6 +79,18 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 			icon: <BookKey className={ICON_CLASSES} />,
 			text: "Vault",
 			link: "/vault",
+			type: "action",
+		},
+		{
+			icon: <BookOpen className={ICON_CLASSES} />,
+			text: "Contexts",
+			link: "/context",
+			type: "action",
+		},
+		{
+			icon: <SlidersHorizontal className={ICON_CLASSES} />,
+			text: "Rule Engine",
+			link: "/rule-engine",
 			type: "action",
 		},
 		{

@@ -2,6 +2,7 @@ export const DEFAULT_LOGGED_IN_ROUTE = "/home";
 export const ALLOWED_OPENLIT_ROUTES_WITHOUT_TOKEN = [
 	"/api/prompt/get-compiled",
 	"/api/vault/get-secrets",
+	"/api/rule-engine/evaluate",
 ];
 
 export const CRON_JOB_ROUTES = ["/api/evaluation/auto"];

@@ -5,6 +5,7 @@ import CreateVaultMigration from "./create-vault-migration";
 import CreateCustomDashboardsMigration from "./create-custom-dashboards-migration";
 import CreateOpengroundMigration from "./create-openground-migration";
 import CreateOpengroundCustomModelsMigration from "./create-openground-custom-models-migration";
+import CreateRuleEngineMigration from "./create-rule-engine-migration";
 
 export default async function migrations(databaseConfigId?: string) {
 	return Promise.all([
@@ -15,5 +16,6 @@ export default async function migrations(databaseConfigId?: string) {
 		CreateCustomDashboardsMigration(databaseConfigId),
 		CreateOpengroundMigration(databaseConfigId),
 		CreateOpengroundCustomModelsMigration(databaseConfigId),
+		CreateRuleEngineMigration(databaseConfigId),
 	]);
 }

@@ -468,6 +468,37 @@ export const INVITATION_DECLINE_FAILED = "Failed to decline invitation";
 export const INVITATION_CANCEL_FAILED = "Failed to cancel invitation";
 export const INVITED = "Invited";
 
+// Rule Engine
+export const RULE_CREATED = "Rule created successfully!";
+export const RULE_UPDATED = "Rule updated successfully!";
+export const RULE_DELETED = "Rule deleted successfully!";
+export const RULE_NOT_FOUND = "Rule not found!";
+export const RULE_NOT_CREATED = "Rule cannot be created!";
+export const RULE_NOT_UPDATED = "Rule cannot be updated!";
+export const RULE_NOT_DELETED = "Error deleting rule!";
+export const RULE_NAME_REQUIRED = "Rule name is required!";
+export const RULE_CONDITION_GROUP_ADDED = "Condition group added successfully!";
+export const RULE_CONDITION_GROUP_NOT_ADDED = "Condition group cannot be added!";
+export const RULE_ENTITY_ASSOCIATED = "Entity associated with rule successfully!";
+export const RULE_ENTITY_NOT_ASSOCIATED = "Entity cannot be associated with rule!";
+export const RULE_ENTITY_DELETED = "Rule entity association deleted successfully!";
+export const RULE_ENTITY_NOT_DELETED = "Error deleting rule entity association!";
+export const RULE_CONDITION_FIELD_REQUIRED = "Condition field is required!";
+export const RULE_CONDITION_OPERATOR_REQUIRED = "Condition operator is required!";
+export const RULE_CONDITION_VALUE_REQUIRED = "Condition value is required!";
+export const RULE_ENTITY_TYPE_INVALID = "Invalid entity type!";
+
+// Context
+export const CONTEXT_CREATED = "Context created successfully!";
+export const CONTEXT_UPDATED = "Context updated successfully!";
+export const CONTEXT_DELETED = "Context deleted successfully!";
+export const CONTEXT_NOT_FOUND = "Context not found!";
+export const CONTEXT_NOT_CREATED = "Context cannot be created!";
+export const CONTEXT_NOT_UPDATED = "Context cannot be updated!";
+export const CONTEXT_NOT_DELETED = "Error deleting context!";
+export const CONTEXT_NAME_REQUIRED = "Context name is required!";
+export const CONTEXT_CONTENT_REQUIRED = "Context content is required!";
+
 // Onboarding
 export const ONBOARDING_WELCOME = "Welcome to OpenLIT";
 export const ONBOARDING_SUBTITLE = "Let's get you set up with an organisation";

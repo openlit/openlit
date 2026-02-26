@@ -1,0 +1,86 @@
+---
+title: 'Organisation'
+description: 'Manage multi-tenant workspaces, invite team members, and control access with role-based permissions'
+icon: 'building'
+---
+
+Organisations in OpenLIT let you group team members under a shared workspace, each connected to its own ClickHouse database configuration. All resources — dashboards, prompts, rules, contexts, and secrets — are scoped per organisation, giving teams full isolation and control.
+
+## Key features
+
+- **Workspace isolation**: Each organisation maintains its own database configuration and resource space.
+- **Role-based access control**: Assign **Admin** or **Member** roles to control who can manage settings and invite others.
+- **Email invitations**: Invite teammates by email. Invitations can be accepted or declined from the notification panel.
+- **Multiple organisations**: A single user can belong to multiple organisations and switch between them at any time.
+- **Member management**: Admins can view all members, update roles, and remove users from the organisation.
+
+## Get started
+
+<Steps>
+  <Step title="Create an organisation">
+    Set up your first workspace in minutes.
+    1. Navigate to **Settings → Organisation** in OpenLIT.
+    2. Click **Create Organisation**.
+    3. Enter a name for your organisation and confirm.
+
+    Your new organisation is created and set as the active workspace.
+  </Step>
+  <Step title="Invite team members">
+    Bring your team into the workspace.
+    1. Go to **Settings → Organisation → Members**.
+    2. Click **Invite Members**.
+    3. Enter one or more email addresses and select a role (**Admin** or **Member**).
+    4. Click **Send Invites**.
+
+    Invited users receive an email with a link to accept and join the organisation.
+  </Step>
+  <Step title="Accept an invitation">
+    When you receive an invitation:
+    1. Open the link in the invitation email or log in to OpenLIT.
+    2. A notification will show the pending invitation.
+    3. Click **Accept** to join, or **Decline** to dismiss.
+
+    Once accepted, the organisation appears in your workspace switcher.
+  </Step>
+  <Step title="Manage members and roles">
+    Admins have full control over member management.
+    1. Navigate to **Settings → Organisation → Members**.
+    2. View all active members and pending invitations.
+    3. Change a member's role between **Admin** and **Member** using the role dropdown.
+    4. Remove a member by clicking the remove icon next to their name.
+    5. Cancel a pending invitation by clicking **Cancel** next to the invite.
+  </Step>
+  <Step title="Switch organisations">
+    If you belong to multiple organisations:
+    1. Click the organisation name in the top navigation bar.
+    2. Select the organisation you want to switch to from the dropdown.
+
+    All resources update to reflect the selected organisation's data.
+  </Step>
+</Steps>
+
+## Roles and permissions
+
+| Action | Admin | Member |
+|--------|-------|--------|
+| View dashboards, traces, prompts | ✅ | ✅ |
+| Create / edit resources | ✅ | ✅ |
+| Invite members | ✅ | ❌ |
+| Change member roles | ✅ | ❌ |
+| Remove members | ✅ | ❌ |
+| Delete organisation | ✅ | ❌ |
+| Manage database configuration | ✅ | ❌ |
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Manage LLM secrets" href="/latest/openlit/developer-resources/vault" icon='vault'>
+    Centrally store LLM API keys that applications can retrieve remotely without restarts
+  </Card>
+  <Card title="Manage prompts" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
+    Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+  <Card title="Multiple databases" href="/latest/openlit/developer-resources/multiple-db" icon='database'>
+    Connect and switch between multiple ClickHouse database configurations
+  </Card>
+</CardGroup>

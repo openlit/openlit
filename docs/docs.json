@@ -55,7 +55,8 @@
                 ]
               },
               "latest/openlit/configuration",
-              "latest/openlit/oauth"
+              "latest/openlit/oauth",
+              "latest/openlit/organisation"
             ]
           },
           {
@@ -126,7 +127,9 @@
             "group": "Prompts and Experiments",
             "pages": [
               "latest/openlit/prompts-experiments/prompt-hub",
-              "latest/openlit/prompts-experiments/openground"
+              "latest/openlit/prompts-experiments/openground",
+              "latest/openlit/prompts-experiments/context",
+              "latest/openlit/prompts-experiments/rule-engine"
             ]
           },
           {
@@ -150,6 +153,12 @@
                     "group": "Vault",
                     "pages": [
                       "latest/openlit/developer-resources/api-reference/endpoint/vault/get"
+                    ]
+                  },
+                  {
+                    "group": "Rule Engine",
+                    "pages": [
+                      "latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate"
                     ]
                   }
                 ]
