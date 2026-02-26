@@ -151,16 +151,7 @@ class BiasDetector:
         )
         self.custom_categories = custom_categories
         self.threshold_score = threshold_score
-        # Auto-retrieve event_provider from OpenlitConfig if not explicitly provided
-        if event_provider is None:
-            try:
-                from openlit import OpenlitConfig
-
-                self.event_provider = OpenlitConfig.event_provider
-            except (ImportError, AttributeError):
-                self.event_provider = None
-        else:
-            self.event_provider = event_provider
+        self.event_provider = event_provider
         self.system_prompt = get_system_prompt(
             self.custom_categories, self.threshold_score
         )
@@ -184,6 +175,16 @@ class BiasDetector:
         Returns:
             JsonOutput: The result containing score, evaluation, classification, explanation, and verdict of bias detection.
         """
+        # Lazy-retrieve event_provider from OpenlitConfig if not explicitly provided
+        # (import at call time to avoid cyclic import at module init time)
+        event_provider = self.event_provider
+        if event_provider is None:
+            try:
+                from openlit import OpenlitConfig
+
+                event_provider = OpenlitConfig.event_provider
+            except (ImportError, AttributeError):
+                event_provider = None
 
         try:
             llm_prompt = format_prompt(self.system_prompt, prompt, contexts, text)
@@ -202,7 +203,7 @@ class BiasDetector:
             )
 
             # Emit evaluation event with OTel-compliant semantic label
-            if self.event_provider:
+            if event_provider:
                 from openlit.evals.utils import emit_evaluation_event
 
                 # Map verdict to pass/fail per OTel spec
@@ -211,7 +212,7 @@ class BiasDetector:
                 )
 
                 emit_evaluation_event(
-                    event_provider=self.event_provider,
+                    event_provider=event_provider,
                     evaluation_name=result.evaluation,
                     score_value=result.score,
                     score_label=score_label,
@@ -225,11 +226,11 @@ class BiasDetector:
             logger.error("Bias detection failed: %s", e, exc_info=True)
 
             # Emit error event if provider available
-            if self.event_provider:
+            if event_provider:
                 from openlit.evals.utils import emit_evaluation_event
 
                 emit_evaluation_event(
-                    event_provider=self.event_provider,
+                    event_provider=event_provider,
                     evaluation_name="bias_detection",
                     error_type="provider_error"
                     if "provider" in str(e).lower()
