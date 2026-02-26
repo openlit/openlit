@@ -1,4 +1,4 @@
-# pylint: disable=duplicate-code, line-too-long, too-few-public-methods, too-many-instance-attributes
+# pylint: disable=duplicate-code, line-too-long, too-few-public-methods, too-many-instance-attributes, cyclic-import
 """
 Module for finding Toxicity in text.
 """
@@ -148,7 +148,9 @@ class ToxicityDetector:
         )
         self.custom_categories = custom_categories
         self.threshold_score = threshold_score
-        self.event_provider = event_provider
+        # Note: event_provider parameter retained for explicit passing, but defaults to
+        # auto-retrieval from OpenlitConfig via get_event_provider() in measure()
+        self._explicit_event_provider = event_provider
         self.system_prompt = get_system_prompt(
             self.custom_categories, self.threshold_score
         )
@@ -172,16 +174,10 @@ class ToxicityDetector:
         Returns:
             JsonOutput: The result containing score, evaluation, classification, explanation, and verdict of toxicity detection.
         """
-        # Lazy-retrieve event_provider from OpenlitConfig if not explicitly provided
-        # (import at call time to avoid cyclic import at module init time)
-        event_provider = self.event_provider
-        if event_provider is None:
-            try:
-                from openlit import OpenlitConfig
+        from openlit.evals.utils import get_event_provider
 
-                event_provider = OpenlitConfig.event_provider
-            except (ImportError, AttributeError):
-                event_provider = None
+        # Use explicitly passed provider if available, else auto-retrieve from config
+        event_provider = self._explicit_event_provider or get_event_provider()
 
         try:
             llm_prompt = format_prompt(self.system_prompt, prompt, contexts, text)

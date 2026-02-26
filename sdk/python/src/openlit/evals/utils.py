@@ -250,6 +250,27 @@ def parse_llm_response(response) -> JsonOutput:
         )
 
 
+def get_event_provider():
+    """
+    Safely retrieve the event provider from OpenLIT's global configuration.
+
+    This function enables evaluators to auto-wire event emission without storing
+    references that cause cyclic imports. The provider is retrieved at call time,
+    allowing OpenLIT initialization to complete before evaluation measure() calls.
+
+    Returns:
+        The event provider if OpenLIT has been initialized with telemetry, else None.
+    """
+    try:
+        # pylint: disable=cyclic-import
+        # (Import is inside function body, executed only after openlit.init())
+        from openlit import OpenlitConfig
+
+        return OpenlitConfig.event_provider
+    except (ImportError, AttributeError):
+        return None
+
+
 def emit_evaluation_event(
     event_provider,
     evaluation_name,
