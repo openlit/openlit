@@ -1,0 +1,222 @@
+---
+title: 'Monitor Claude using OpenTelemetry (Go)'
+sidebarTitle: 'Anthropic (Go)'
+---
+
+OpenLIT uses OpenTelemetry instrumentation to help you monitor Go applications built with Anthropic models. This includes tracking performance, token usage (including prompt cache tokens), costs, and how users interact with the application.
+
+The Go SDK wraps your Anthropic client with an `InstrumentedClient` that automatically emits traces and metrics for every API call — with zero changes to your application logic.
+
+The integration supports:
+- Messages (standard and streaming)
+- Prompt caching token tracking (`cache_creation_input_tokens`, `cache_read_input_tokens`)
+- Tool use
+
+## Get started
+
+<Steps>
+  <Step title="Install the Go SDK">
+    Open your terminal and run:
+
+    <Tabs>
+      <Tab title="Latest Version">
+        ```shell
+        go get github.com/openlit/openlit/sdk/go
+        ```
+      </Tab>
+      <Tab title="Specific Version">
+        ```shell
+        go get github.com/openlit/openlit/sdk/go@v1.2.3
+        ```
+        Replace `v1.2.3` with the version you want to install.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Initialize OpenLIT">
+    Add this once at the start of your application (e.g. in `main()`):
+
+    <Tabs>
+      <Tab title="Via Config Struct">
+        ```go
+        import (
+            "context"
+            openlit "github.com/openlit/openlit/sdk/go"
+        )
+
+        if err := openlit.Init(openlit.Config{
+            OtlpEndpoint:    "YOUR_OTEL_ENDPOINT",
+            ApplicationName: "my-ai-app",
+            Environment:     "production",
+        }); err != nil {
+            log.Fatal(err)
+        }
+        defer openlit.Shutdown(context.Background())
+        ```
+      </Tab>
+      <Tab title="Via Environment Variable">
+        ```go
+        import (
+            "context"
+            openlit "github.com/openlit/openlit/sdk/go"
+        )
+
+        if err := openlit.Init(openlit.Config{
+            ApplicationName: "my-ai-app",
+        }); err != nil {
+            log.Fatal(err)
+        }
+        defer openlit.Shutdown(context.Background())
+        ```
+
+        Then set your OTLP endpoint via environment variable:
+        ```shell
+        export OTEL_EXPORTER_OTLP_ENDPOINT=YOUR_OTEL_ENDPOINT
+        ```
+      </Tab>
+    </Tabs>
+
+    **Replace** `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` for a local OpenLIT deployment.
+  </Step>
+
+  <Step title="Create an instrumented client">
+    Replace your existing Anthropic client creation with the OpenLIT instrumented client:
+
+    ```go
+    import "github.com/openlit/openlit/sdk/go/instrumentation/anthropic"
+
+    client := anthropic.NewClient("your-anthropic-api-key")
+    ```
+
+    Optional configuration:
+    ```go
+    // Custom API version or base URL
+    client := anthropic.NewClient("your-api-key",
+        anthropic.WithAPIVersion("2023-06-01"),
+        anthropic.WithBaseURL("https://api.anthropic.com/v1"),
+    )
+    ```
+  </Step>
+
+  <Step title="Use the client">
+    Use the instrumented client exactly as you would a normal Anthropic client:
+
+    **Message:**
+    ```go
+    resp, err := client.CreateMessage(ctx, anthropic.MessageRequest{
+        Model:     "claude-opus-4-5",
+        MaxTokens: 256,
+        System:    "You are a helpful assistant.",
+        Messages: []anthropic.Message{
+            {Role: "user", Content: "What is OpenTelemetry?"},
+        },
+    })
+    if err != nil {
+        return err
+    }
+
+    for _, block := range resp.Content {
+        if block.Type == "text" {
+            fmt.Println(block.Text)
+        }
+    }
+    ```
+
+    **Streaming:**
+    ```go
+    stream, err := client.CreateMessageStream(ctx, anthropic.MessageRequest{
+        Model:     "claude-opus-4-5",
+        MaxTokens: 1024,
+        Messages: []anthropic.Message{
+            {Role: "user", Content: "Tell me a story."},
+        },
+    })
+    if err != nil {
+        return err
+    }
+    defer stream.Close()
+
+    for {
+        event, err := stream.Recv()
+        if err == io.EOF {
+            break
+        }
+        if err != nil {
+            return err
+        }
+        if event.Type == "content_block_delta" && event.Delta != nil {
+            fmt.Print(event.Delta.Text)
+        }
+    }
+    ```
+
+    **Tool use:**
+    ```go
+    resp, err := client.CreateMessage(ctx, anthropic.MessageRequest{
+        Model:     "claude-opus-4-5",
+        MaxTokens: 512,
+        Messages: []anthropic.Message{
+            {Role: "user", Content: "What is the weather in San Francisco?"},
+        },
+        Tools: []anthropic.Tool{
+            {
+                Name:        "get_weather",
+                Description: "Get the current weather in a location",
+                InputSchema: map[string]interface{}{
+                    "type": "object",
+                    "properties": map[string]interface{}{
+                        "location": map[string]interface{}{
+                            "type":        "string",
+                            "description": "The city and state",
+                        },
+                    },
+                    "required": []string{"location"},
+                },
+            },
+        },
+    })
+    ```
+  </Step>
+</Steps>
+
+## What gets collected
+
+Every call to the instrumented client automatically records:
+
+| Data | Attribute |
+|------|-----------|
+| Operation name | `gen_ai.operation.name` |
+| Model requested | `gen_ai.request.model` |
+| Model used | `gen_ai.response.model` |
+| Response ID | `gen_ai.response.id` |
+| Input tokens | `gen_ai.usage.input_tokens` |
+| Output tokens | `gen_ai.usage.output_tokens` |
+| Cache creation tokens | `gen_ai.usage.prompt_tokens_details.cache_write` |
+| Cache read tokens | `gen_ai.usage.prompt_tokens_details.cache_read` |
+| Estimated cost | `gen_ai.usage.cost` |
+| Finish reason | `gen_ai.response.finish_reasons` |
+| Tool calls | `gen_ai.tool.name`, `gen_ai.tool.call.id` |
+| Time to first token | `gen_ai.server.time_to_first_token` (streaming) |
+| Time per output token | `gen_ai.server.time_per_output_token` (streaming) |
+
+Metrics emitted:
+- `gen_ai.client.token.usage` — token usage histogram (input/output)
+- `gen_ai.client.operation.duration` — total operation duration
+- `gen_ai.server.time_to_first_token` — TTFT for streaming
+- `gen_ai.client.operation.time_to_first_chunk` — client-side TTFT
+- `gen_ai.client.operation.time_per_output_chunk` — per-chunk latency
+- `gen_ai.server.request.duration` — estimated server processing time
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Go SDK Overview" href="/latest/sdk/go-overview" icon="golang">
+    Full configuration reference and setup guide
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon="bolt">
+    Configure the OpenLIT SDK according to your requirements
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon="link">
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>
