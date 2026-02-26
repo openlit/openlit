@@ -7,6 +7,7 @@ export async function GET(request: Request) {
 	const filters = {
 		rule_id: searchParams.get("rule_id") || undefined,
 		entity_type: searchParams.get("entity_type") || undefined,
+		entity_id: searchParams.get("entity_id") || undefined,
 	};
 
 	const { err, data }: any = await getRuleEntities(filters);

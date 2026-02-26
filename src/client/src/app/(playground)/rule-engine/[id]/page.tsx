@@ -49,6 +49,7 @@ export default function RuleDetailPage() {
 	const [newEntityId, setNewEntityId] = useState("");
 	const [entityOptions, setEntityOptions] = useState<{ id: string; name: string }[]>([]);
 	const [isFetchingOptions, setIsFetchingOptions] = useState(false);
+	const [entityTitles, setEntityTitles] = useState<Record<string, string>>({});
 
 	const { fireRequest: fetchRuleReq, data: rule, isLoading } =
 		useFetchWrapper<RuleDetail>();
@@ -59,6 +60,8 @@ export default function RuleDetailPage() {
 	const { fireRequest: fireAddEntity, isLoading: isAddingEntity } = useFetchWrapper();
 	const { fireRequest: fireDeleteEntity } = useFetchWrapper();
 	const { fireRequest: fireEntityOptions } = useFetchWrapper();
+	const { fireRequest: fetchContextTitle } = useFetchWrapper();
+	const { fireRequest: fetchPromptTitle } = useFetchWrapper();
 
 	const fetchEntityOptions = useCallback((type: string) => {
 		if (type !== "context" && type !== "prompt") {
@@ -123,13 +126,56 @@ export default function RuleDetailPage() {
 		});
 	}, [ruleId]);
 
+	const fetchEntityTitle = useCallback(async (entityType: string, entityId: string) => {
+		if (entityType === "context") {
+			fetchContextTitle({
+				requestType: "GET",
+				url: `/api/context/${entityId}`,
+				successCb: (data: any) => {
+					const ctx = Array.isArray(data) ? data[0] : data;
+					if (ctx?.name) {
+						setEntityTitles((prev) => ({
+							...prev,
+							[`${entityType}:${entityId}`]: ctx.name,
+						}));
+					}
+				},
+				failureCb: () => {},
+			});
+		} else if (entityType === "prompt") {
+			fetchPromptTitle({
+				requestType: "GET",
+				url: `/api/prompt/get/${entityId}`,
+				responseDataKey: "data.[0]",
+				successCb: (data: any) => {
+					if (data?.name) {
+						setEntityTitles((prev) => ({
+							...prev,
+							[`${entityType}:${entityId}`]: data.name,
+						}));
+					}
+				},
+				failureCb: () => {},
+			});
+		}
+	}, []);
+
 	const fetchEntities = useCallback(() => {
 		fetchEntitiesReq({
 			requestType: "GET",
 			url: `/api/rule-engine/entities?rule_id=${ruleId}`,
+			successCb: (data: any) => {
+				const entityList = Array.isArray(data) ? data : [];
+				// Fetch titles for all entities asynchronously
+				entityList.forEach((entity: any) => {
+					if (entity.entity_type === "context" || entity.entity_type === "prompt") {
+						fetchEntityTitle(entity.entity_type, entity.entity_id);
+					}
+				});
+			},
 			failureCb: () => {},
 		});
-	}, [ruleId]);
+	}, [ruleId, fetchEntityTitle]);
 
 	useEffect(() => {
 		fetchRule();
@@ -201,6 +247,10 @@ export default function RuleDetailPage() {
 				toast.success("Entity associated!", { id: "rule-entity" });
 				setNewEntityId("");
 				fetchEntities();
+				// Fetch title for the newly added entity
+				if (newEntityType === "context" || newEntityType === "prompt") {
+					fetchEntityTitle(newEntityType, newEntityId.trim());
+				}
 			},
 			failureCb: (err?: string) => {
 				toast.error(err || "Failed to associate entity", { id: "rule-entity" });
@@ -413,7 +463,7 @@ export default function RuleDetailPage() {
 													className="text-sm text-stone-700 dark:text-stone-300 hover:text-primary dark:hover:text-primary truncate font-medium"
 													onClick={(e) => e.stopPropagation()}
 												>
-													{entity.entity_id}
+													{entityTitles[`${entity.entity_type}:${entity.entity_id}`] || entity.entity_id}
 												</Link>
 											) : entity.entity_type === "prompt" ? (
 												<Link
@@ -421,7 +471,7 @@ export default function RuleDetailPage() {
 													className="text-sm text-stone-700 dark:text-stone-300 hover:text-primary dark:hover:text-primary truncate font-medium"
 													onClick={(e) => e.stopPropagation()}
 												>
-													{entity.entity_id}
+													{entityTitles[`${entity.entity_type}:${entity.entity_id}`] || entity.entity_id}
 												</Link>
 											) : (
 												<span className="font-mono text-xs text-stone-700 dark:text-stone-300 truncate">

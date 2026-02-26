@@ -173,7 +173,7 @@ export default function ConditionBuilder({
 		<div className="flex flex-col gap-3">
 			{groups.map((group, groupIdx) => (
 				<div key={groupIdx}
-					className="rounded-lg border-2 border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-900/50 p-3">
+					className="rounded-lg border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 p-3">
 					{/* Group header */}
 					<div className="flex items-center justify-between mb-3">
 						<div className="flex items-center gap-2">
