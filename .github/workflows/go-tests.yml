@@ -12,6 +12,9 @@ on:
     paths:
       - 'sdk/go/**'
 
+permissions:
+  contents: read
+
 jobs:
   test-go-sdk:
     runs-on: ubuntu-latest

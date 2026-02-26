@@ -55,22 +55,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Announce on Slack
-        if: success()
-        uses: slackapi/slack-github-action@v1
-        with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          payload: |
-            {
-              "text": "🎉 OpenLIT Go SDK v${{ steps.get_version.outputs.VERSION }} has been released!",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*OpenLIT Go SDK v${{ steps.get_version.outputs.VERSION }}* has been released!\n\n📦 Install: `go get github.com/openlit/openlit/sdk/go@v${{ steps.get_version.outputs.VERSION }}`\n🔗 <https://github.com/openlit/openlit/releases/tag/go-${{ steps.get_version.outputs.VERSION }}|View Release Notes>"
-                  }
-                }
-              ]
-            }
