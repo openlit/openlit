@@ -47,7 +47,7 @@ jobs:
           fi
       
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: Go SDK v${{ steps.get_version.outputs.VERSION }}
           body_path: /tmp/changelog.md
