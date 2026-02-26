@@ -3,6 +3,7 @@
 Module for finding Toxicity in text.
 """
 
+import logging
 from typing import Optional, List, Dict
 from openlit.evals.utils import (
     setup_provider,
@@ -10,9 +11,9 @@ from openlit.evals.utils import (
     format_prompt,
     llm_response,
     parse_llm_response,
-    eval_metrics,
-    eval_metric_attributes,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def get_system_prompt(
@@ -120,7 +121,6 @@ class ToxicityDetector:
         model: Optional[str] = None,
         base_url: Optional[str] = None,
         custom_categories: Optional[Dict[str, str]] = None,
-        collect_metrics: Optional[bool] = False,
         threshold_score: Optional[float] = 0.5,
         event_provider=None,
     ):
@@ -146,10 +146,18 @@ class ToxicityDetector:
         self.api_key, self.model, self.base_url = setup_provider(
             provider, api_key, model, base_url
         )
-        self.collect_metrics = collect_metrics
         self.custom_categories = custom_categories
         self.threshold_score = threshold_score
-        self.event_provider = event_provider
+        # Auto-retrieve event_provider from OpenlitConfig if not explicitly provided
+        if event_provider is None:
+            try:
+                from openlit import OpenlitConfig
+
+                self.event_provider = OpenlitConfig.event_provider
+            except (ImportError, AttributeError):
+                self.event_provider = None
+        else:
+            self.event_provider = event_provider
         self.system_prompt = get_system_prompt(
             self.custom_categories, self.threshold_score
         )
@@ -159,6 +167,7 @@ class ToxicityDetector:
         prompt: Optional[str] = "",
         contexts: Optional[List[str]] = "",
         text: Optional[str] = None,
+        response_id: Optional[str] = None,
     ) -> JsonOutput:
         """
         Detects toxicity in AI output using LLM or custom rules.
@@ -167,46 +176,69 @@ class ToxicityDetector:
             prompt (Optional[str]): The prompt provided by the user.
             contexts (Optional[List[str]]): A list of context sentences relevant to the task.
             text (Optional[str]): The text to analyze.
+            response_id (Optional[str]): The unique identifier for the completion being evaluated.
 
         Returns:
             JsonOutput: The result containing score, evaluation, classification, explanation, and verdict of toxicity detection.
         """
 
-        llm_prompt = format_prompt(self.system_prompt, prompt, contexts, text)
-        response = llm_response(self.provider, llm_prompt, self.model, self.base_url)
-        llm_result = parse_llm_response(response)
-        result_verdict = "yes" if llm_result.score > self.threshold_score else "no"
-
-        result = JsonOutput(
-            score=llm_result.score,
-            evaluation=llm_result.evaluation,
-            classification=llm_result.classification,
-            explanation=llm_result.explanation,
-            verdict=result_verdict,
-        )
-
-        if self.collect_metrics:
-            eval_counter = eval_metrics()
-            attributes = eval_metric_attributes(
-                result_verdict,
-                result.score,
-                result.evaluation,
-                result.classification,
-                result.explanation,
+        try:
+            llm_prompt = format_prompt(self.system_prompt, prompt, contexts, text)
+            response = llm_response(
+                self.provider, llm_prompt, self.model, self.base_url
             )
-            eval_counter.add(1, attributes)
+            llm_result = parse_llm_response(response)
+            result_verdict = "yes" if llm_result.score > self.threshold_score else "no"
 
-        # Emit evaluation event
-        if self.event_provider:
-            from openlit.evals.utils import emit_evaluation_event
-
-            emit_evaluation_event(
-                event_provider=self.event_provider,
-                evaluation_name=result.evaluation,
-                score_value=result.score,
-                score_label=result_verdict,
-                explanation=result.explanation,
-                response_id=None,
+            result = JsonOutput(
+                score=llm_result.score,
+                evaluation=llm_result.evaluation,
+                classification=llm_result.classification,
+                explanation=llm_result.explanation,
+                verdict=result_verdict,
             )
 
-        return result
+            # Emit evaluation event with OTel-compliant semantic label
+            if self.event_provider:
+                from openlit.evals.utils import emit_evaluation_event
+
+                # Map verdict to pass/fail per OTel spec
+                score_label = (
+                    "pass" if llm_result.score <= self.threshold_score else "fail"
+                )
+
+                emit_evaluation_event(
+                    event_provider=self.event_provider,
+                    evaluation_name=result.evaluation,
+                    score_value=result.score,
+                    score_label=score_label,
+                    explanation=result.explanation,
+                    response_id=response_id,
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error("Toxicity detection failed: %s", e, exc_info=True)
+
+            # Emit error event if provider available
+            if self.event_provider:
+                from openlit.evals.utils import emit_evaluation_event
+
+                emit_evaluation_event(
+                    event_provider=self.event_provider,
+                    evaluation_name="toxicity_detection",
+                    error_type="provider_error"
+                    if "provider" in str(e).lower()
+                    else "unknown",
+                    response_id=response_id,
+                )
+
+            # Return neutral result to allow continued processing
+            return JsonOutput(
+                score=0.0,
+                evaluation="toxicity_detection",
+                classification="error",
+                explanation=f"Evaluation failed: {str(e)}",
+                verdict="no",
+            )
