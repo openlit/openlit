@@ -6,8 +6,6 @@ import os
 import logging
 from typing import Optional, Tuple, List
 from pydantic import BaseModel
-from opentelemetry.metrics import get_meter
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from anthropic import Anthropic
 from openai import OpenAI
 from openlit.semcov import SemanticConvention
@@ -252,71 +250,47 @@ def parse_llm_response(response) -> JsonOutput:
         )
 
 
-def eval_metrics():
+def get_event_provider():
     """
-    Initializes OpenTelemetry meter and counter.
+    Safely retrieve the event provider from OpenLIT's global configuration.
+
+    This function enables evaluators to auto-wire event emission without storing
+    references that cause cyclic imports. The provider is retrieved at call time,
+    allowing OpenLIT initialization to complete before evaluation measure() calls.
 
     Returns:
-        counter: The initialized telemetry counter.
+        The event provider if OpenLIT has been initialized with telemetry, else None.
     """
+    try:
+        # pylint: disable=cyclic-import
+        # (Import is inside function body, executed only after openlit.init())
+        from openlit import OpenlitConfig
 
-    meter = get_meter(
-        __name__,
-        "0.1.0",
-        schema_url="https://opentelemetry.io/schemas/1.11.0",
-    )
-
-    guard_requests = meter.create_counter(
-        name=SemanticConvention.EVAL_REQUESTS,
-        description="Counter for evaluation requests",
-        unit="1",
-    )
-
-    return guard_requests
-
-
-def eval_metric_attributes(verdict, score, validator, classification, explanation):
-    """
-    Initializes OpenTelemetry attributes for metrics.
-
-    Args:
-        score (float): The name of the attribute for eval Score.
-        validator (str): The name of the attribute for eval.
-        classification (str): The name of the attribute for eval classification.
-        explaination (str): The name of the attribute for eval explanation.
-
-    Returns:
-        counter: The initialized telemetry counter.
-    """
-
-    return {
-        TELEMETRY_SDK_NAME: "openlit",
-        SemanticConvention.EVAL_VERDICT: verdict,
-        SemanticConvention.EVAL_SCORE: score,
-        SemanticConvention.EVAL_VALIDATOR: validator,
-        SemanticConvention.EVAL_CLASSIFICATION: classification,
-        SemanticConvention.EVAL_EXPLANATION: explanation,
-    }
+        return OpenlitConfig.event_provider
+    except (ImportError, AttributeError):
+        return None
 
 
 def emit_evaluation_event(
     event_provider,
     evaluation_name,
-    score_value,
-    score_label,
-    explanation,
+    score_value=None,
+    score_label=None,
+    explanation=None,
     response_id=None,
+    error_type=None,
 ):
     """
-    Emit gen_ai.evaluation.result event.
+    Emit gen_ai.evaluation.result event per OTel semantic conventions.
 
     Args:
         event_provider: The OTel event provider
         evaluation_name: Name of evaluation (hallucination, bias_detection, toxicity_detection)
-        score_value: Numerical score 0.0-1.0
-        score_label: Human-readable label (yes/no or pass/fail)
-        explanation: Brief explanation of evaluation result
-        response_id: Optional response ID for correlation
+        score_value: Numerical score 0.0-1.0 (conditionally required)
+        score_label: Human-readable label (yes/no or pass/fail) (conditionally required)
+        explanation: Brief explanation of evaluation result (recommended)
+        response_id: Optional response ID for correlation (recommended when available)
+        error_type: Error type if evaluation failed (conditionally required if error occurs)
     """
     try:
         if not event_provider:
@@ -324,24 +298,36 @@ def emit_evaluation_event(
 
         from openlit.__helpers import otel_event
 
-        # Build event attributes per OTel spec
+        # Build event attributes per OTel semantic convention spec
         attributes = {
             SemanticConvention.GEN_AI_EVALUATION_NAME: evaluation_name,
-            SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE: float(score_value),
-            SemanticConvention.GEN_AI_EVALUATION_SCORE_LABEL: score_label,
         }
 
-        # Add recommended attributes
+        # If error occurred, record error.type instead of score attributes
+        if error_type:
+            attributes[SemanticConvention.ERROR_TYPE] = error_type
+        else:
+            # Record evaluation score and label (conditionally required if no error)
+            if score_value is not None:
+                attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE] = float(
+                    score_value
+                )
+            if score_label:
+                attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_LABEL] = (
+                    score_label
+                )
+
+        # Add recommended attributes when available
         if explanation:
             attributes[SemanticConvention.GEN_AI_EVALUATION_EXPLANATION] = explanation
         if response_id:
             attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
 
-        # Create and emit event
+        # Create and emit event per OTel spec
         event = otel_event(
             name=SemanticConvention.GEN_AI_EVALUATION_RESULT,
             attributes=attributes,
-            body="",  # Per spec, all data in attributes
+            body="",  # Per spec, all data must be in attributes, body is empty
         )
 
         event_provider.emit(event)

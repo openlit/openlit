@@ -918,15 +918,9 @@ class SemanticConvention:
     GUARD_VALIDATOR = "guard.validator"
     GUARD_EXPLANATION = "guard.explanation"
 
-    # Evals
-    EVAL_REQUESTS = "evals.requests"
-    EVAL_VERDICT = "evals.verdict"
-    EVAL_SCORE = "evals.score"
-    EVAL_CLASSIFICATION = "evals.classification"
-    EVAL_VALIDATOR = "evals.validator"
-    EVAL_EXPLANATION = "evals.explanation"
-
-    # GenAI Evaluation Event (OTel Semconv)
+    # GenAI Evaluation Event (OTel Semantic Convention)
+    # Per OpenTelemetry semantic conventions for generative AI
+    # https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-events.md#event-gen_aievaluationresult
     GEN_AI_EVALUATION_RESULT = "gen_ai.evaluation.result"
     GEN_AI_EVALUATION_NAME = "gen_ai.evaluation.name"
     GEN_AI_EVALUATION_SCORE_VALUE = "gen_ai.evaluation.score.value"
