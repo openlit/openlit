@@ -82,6 +82,7 @@ class OpenlitConfig:
         # Database instrumentation options
         cls.capture_parameters = False
         cls.enable_sqlcommenter = False
+        cls.evals_logs_export = True
 
     @classmethod
     def update_config(
@@ -100,6 +101,7 @@ class OpenlitConfig:
         detailed_tracing,
         capture_parameters=False,
         enable_sqlcommenter=False,
+        evals_logs_export=True,
     ):
         """
         Updates the configuration based on provided parameters.
@@ -120,6 +122,7 @@ class OpenlitConfig:
             detailed_tracing (bool): Flag to enable detailed component-level tracing.
             capture_parameters (bool): Capture database query parameters (security risk).
             enable_sqlcommenter (bool): Inject trace context as SQL comments.
+            evals_logs_export (bool): Emit evaluation results as OTEL Log Records instead of OTEL Events.
         """
         cls.environment = environment
         cls.application_name = application_name
@@ -135,6 +138,7 @@ class OpenlitConfig:
         cls.detailed_tracing = detailed_tracing
         cls.capture_parameters = capture_parameters
         cls.enable_sqlcommenter = enable_sqlcommenter
+        cls.evals_logs_export = evals_logs_export
 
 
 def module_exists(module_name):
@@ -229,6 +233,7 @@ def init(
     collect_system_metrics=False,
     capture_parameters=False,
     enable_sqlcommenter=False,
+    evals_logs_export=True,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -308,6 +313,8 @@ def init(
             capture_parameters = env_config["capture_parameters"]
         if enable_sqlcommenter is False and "enable_sqlcommenter" in env_config:
             enable_sqlcommenter = env_config["enable_sqlcommenter"]
+        if evals_logs_export is True and "evals_logs_export" in env_config:
+            evals_logs_export = env_config["evals_logs_export"]
 
     except ImportError:
         # Fallback if config module is not available - continue without env var support
@@ -392,6 +399,7 @@ def init(
             detailed_tracing,
             capture_parameters,
             enable_sqlcommenter,
+            evals_logs_export,
         )
 
         # Create instrumentor instances dynamically
