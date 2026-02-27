@@ -6,6 +6,8 @@ import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
 class MistralWrapper extends BaseWrapper {
   static aiSystem = 'mistral';
+  static serverAddress = 'api.mistral.ai';
+  static serverPort = 443;
   
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'mistral.chat.completions';
@@ -292,6 +294,8 @@ class MistralWrapper extends BaseWrapper {
       user,
       cost,
       aiSystem: MistralWrapper.aiSystem,
+      serverAddress: MistralWrapper.serverAddress,
+      serverPort: MistralWrapper.serverPort,
     });
 
     // Response model
@@ -399,6 +403,8 @@ class MistralWrapper extends BaseWrapper {
               user,
               cost,
               aiSystem: MistralWrapper.aiSystem,
+              serverAddress: MistralWrapper.serverAddress,
+              serverPort: MistralWrapper.serverPort,
             });
 
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [encoding_format]);

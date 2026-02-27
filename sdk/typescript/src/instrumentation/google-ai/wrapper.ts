@@ -6,6 +6,8 @@ import BaseWrapper from '../base-wrapper';
 
 class GoogleAIWrapper extends BaseWrapper {
   static aiSystem = 'google_ai_studio';
+  static serverAddress = 'generativelanguage.googleapis.com';
+  static serverPort = 443;
   
   static _patchGenerateContent(tracer: Tracer): any {
     const genAIEndpoint = 'google.generativeai.models.generate_content';
@@ -265,6 +267,8 @@ class GoogleAIWrapper extends BaseWrapper {
       user: undefined,
       cost,
       aiSystem: GoogleAIWrapper.aiSystem,
+      serverAddress: GoogleAIWrapper.serverAddress,
+      serverPort: GoogleAIWrapper.serverPort,
     });
 
     // Response model

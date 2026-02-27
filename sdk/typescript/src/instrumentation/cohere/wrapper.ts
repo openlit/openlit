@@ -7,6 +7,8 @@ import BaseWrapper from '../base-wrapper';
 
 export default class CohereWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_COHERE;
+  static serverAddress = 'api.cohere.com';
+  static serverPort = 443;
   static _patchEmbed(tracer: Tracer): any {
     const genAIEndpoint = 'cohere.embed';
     const traceContent = OpenlitConfig.traceContent;
@@ -164,6 +166,8 @@ export default class CohereWrapper extends BaseWrapper {
     span: Span;
   }): AsyncGenerator<unknown, any, unknown> {
     let metricParams;
+    const timestamps: number[] = [];
+    const startTime = Date.now();
     try {
       let result = {
         response_id: '',
@@ -177,11 +181,20 @@ export default class CohereWrapper extends BaseWrapper {
         },
       };
       for await (const chunk of response) {
+        timestamps.push(Date.now());
         if (chunk.eventType === 'stream-end') {
           result = chunk.response;
         }
 
         yield chunk;
+      }
+
+      // Calculate TTFT and TBT
+      const ttft = timestamps.length > 0 ? (timestamps[0] - startTime) / 1000 : 0;
+      let tbt = 0;
+      if (timestamps.length > 1) {
+        const timeDiffs = timestamps.slice(1).map((t, i) => t - timestamps[i]);
+        tbt = timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length / 1000;
       }
 
       metricParams = await CohereWrapper._chatCommonSetter({
@@ -190,6 +203,8 @@ export default class CohereWrapper extends BaseWrapper {
         result,
         span,
         stream: true,
+        ttft,
+        tbt,
       });
 
       return result;
@@ -210,12 +225,16 @@ export default class CohereWrapper extends BaseWrapper {
     result,
     span,
     stream,
+    ttft = 0,
+    tbt = 0,
   }: {
     args: any[];
     genAIEndpoint: string;
     result: any;
     span: Span;
     stream: boolean;
+    ttft?: number;
+    tbt?: number;
   }) {
     const traceContent = OpenlitConfig.traceContent;
     const {
@@ -263,6 +282,8 @@ export default class CohereWrapper extends BaseWrapper {
       user,
       cost,
       aiSystem: CohereWrapper.aiSystem,
+      serverAddress: CohereWrapper.serverAddress,
+      serverPort: CohereWrapper.serverPort,
     });
 
     // Response model
@@ -281,6 +302,14 @@ export default class CohereWrapper extends BaseWrapper {
       result.meta.billedUnits.inputTokens + result.meta.billedUnits.outputTokens
     );
     span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, result.meta.billedUnits.inputTokens + result.meta.billedUnits.outputTokens);
+
+    // TTFT and TBT streaming metrics
+    if (ttft > 0) {
+      span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
+    }
+    if (tbt > 0) {
+      span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
+    }
 
     if (result.finishReason) {
       span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [result.finishReason]);

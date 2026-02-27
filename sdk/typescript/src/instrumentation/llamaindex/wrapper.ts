@@ -57,7 +57,7 @@ class LlamaIndexWrapper extends BaseWrapper {
 
             const { address, port } = LlamaIndexWrapper._extractServerInfo(this);
 
-            LlamaIndexWrapper.setBaseSpanAttributes(span, { genAIEndpoint, model: modelId, cost, aiSystem });
+            LlamaIndexWrapper.setBaseSpanAttributes(span, { genAIEndpoint, model: modelId, cost, aiSystem, serverAddress: address, serverPort: port });
 
             span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
@@ -126,7 +126,7 @@ class LlamaIndexWrapper extends BaseWrapper {
 
             const { address, port } = LlamaIndexWrapper._extractServerInfo(this);
 
-            LlamaIndexWrapper.setBaseSpanAttributes(span, { genAIEndpoint, model: modelId, cost, aiSystem });
+            LlamaIndexWrapper.setBaseSpanAttributes(span, { genAIEndpoint, model: modelId, cost, aiSystem, serverAddress: address, serverPort: port });
 
             span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
@@ -188,7 +188,7 @@ class LlamaIndexWrapper extends BaseWrapper {
 
             const { address, port } = LlamaIndexWrapper._extractServerInfo(llm || this);
 
-            LlamaIndexWrapper.setBaseSpanAttributes(span, { genAIEndpoint, model: modelId, aiSystem });
+            LlamaIndexWrapper.setBaseSpanAttributes(span, { genAIEndpoint, model: modelId, aiSystem, serverAddress: address, serverPort: port });
 
             span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
@@ -260,7 +260,7 @@ class LlamaIndexWrapper extends BaseWrapper {
 
             const { address, port } = LlamaIndexWrapper._extractServerInfo(llm || this);
 
-            LlamaIndexWrapper.setBaseSpanAttributes(span, { genAIEndpoint, model: modelId, aiSystem });
+            LlamaIndexWrapper.setBaseSpanAttributes(span, { genAIEndpoint, model: modelId, aiSystem, serverAddress: address, serverPort: port });
 
             span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);

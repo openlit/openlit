@@ -6,6 +6,8 @@ import BaseWrapper from '../base-wrapper';
 
 class TogetherWrapper extends BaseWrapper {
   static aiSystem = 'together';
+  static serverAddress = 'api.together.xyz';
+  static serverPort = 443;
   
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'together.chat.completions';
@@ -287,6 +289,8 @@ class TogetherWrapper extends BaseWrapper {
       user,
       cost,
       aiSystem: TogetherWrapper.aiSystem,
+      serverAddress: TogetherWrapper.serverAddress,
+      serverPort: TogetherWrapper.serverPort,
     });
 
     // Response model

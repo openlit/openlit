@@ -94,6 +94,8 @@ class BedrockWrapper extends BaseWrapper {
           model: modelId,
           cost,
           aiSystem: BedrockWrapper.aiSystem,
+          serverAddress: BEDROCK_SERVER_ADDRESS,
+          serverPort: BEDROCK_SERVER_PORT,
         });
 
         span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
@@ -110,9 +112,9 @@ class BedrockWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.SERVER_PORT, BEDROCK_SERVER_PORT);
 
         if (cacheReadTokens > 0)
-          span.setAttribute(SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ, cacheReadTokens);
+          span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
         if (cacheWriteTokens > 0)
-          span.setAttribute(SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE, cacheWriteTokens);
+          span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS, cacheWriteTokens);
 
         const requestId = response.$metadata?.requestId;
         if (requestId)
@@ -183,13 +185,16 @@ class BedrockWrapper extends BaseWrapper {
     let cacheReadTokens = 0;
     let cacheWriteTokens = 0;
     let firstChunkTime: number | null = null;
+    const chunkTimestamps: number[] = [];
 
     const originalStream: AsyncIterable<any> = response.stream;
 
     async function* wrappedStream() {
       try {
         for await (const event of originalStream) {
-          if (firstChunkTime === null) firstChunkTime = Date.now();
+          const now = Date.now();
+          if (firstChunkTime === null) firstChunkTime = now;
+          chunkTimestamps.push(now);
 
           if (event.contentBlockDelta?.delta?.text)
             llmResponse += event.contentBlockDelta.delta.text;
@@ -208,6 +213,11 @@ class BedrockWrapper extends BaseWrapper {
         try {
           const duration = (Date.now() - startTime) / 1000;
           const ttft = firstChunkTime !== null ? (firstChunkTime - startTime) / 1000 : 0;
+          let tbt = 0;
+          if (chunkTimestamps.length > 1) {
+            const timeDiffs = chunkTimestamps.slice(1).map((t, i) => t - chunkTimestamps[i]);
+            tbt = timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length / 1000;
+          }
           const totalTokens = inputTokens + outputTokens;
 
           const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
@@ -230,14 +240,15 @@ class BedrockWrapper extends BaseWrapper {
           span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [finishReason]);
           span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT);
           span.setAttribute(SemanticConvention.GEN_AI_CLIENT_OPERATION_DURATION, duration);
-          span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
+          if (ttft > 0) span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
+          if (tbt > 0) span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
           span.setAttribute(SemanticConvention.SERVER_ADDRESS, BEDROCK_SERVER_ADDRESS);
           span.setAttribute(SemanticConvention.SERVER_PORT, BEDROCK_SERVER_PORT);
 
           if (cacheReadTokens > 0)
-            span.setAttribute(SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ, cacheReadTokens);
+            span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, cacheReadTokens);
           if (cacheWriteTokens > 0)
-            span.setAttribute(SemanticConvention.GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE, cacheWriteTokens);
+            span.setAttribute(SemanticConvention.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS, cacheWriteTokens);
 
           const requestId = response.$metadata?.requestId;
           if (requestId)
@@ -356,6 +367,8 @@ class BedrockWrapper extends BaseWrapper {
           model: modelId,
           cost,
           aiSystem: BedrockWrapper.aiSystem,
+          serverAddress: BEDROCK_SERVER_ADDRESS,
+          serverPort: BEDROCK_SERVER_PORT,
         });
 
         span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);

@@ -57,6 +57,9 @@ export default class SemanticConvention {
   static GEN_AI_USAGE_COMPLETION_TOKENS_DETAILS_REASONING = 'gen_ai.usage.completion_tokens_details.reasoning';
   static GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_READ = 'gen_ai.usage.prompt_tokens_details.cache_read';
   static GEN_AI_USAGE_PROMPT_TOKENS_DETAILS_CACHE_WRITE = 'gen_ai.usage.prompt_tokens_details.cache_write';
+  // OTel semconv standard cache token attribute names (aligned with Python SDK)
+  static GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS = 'gen_ai.usage.cache_creation.input_tokens';
+  static GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS = 'gen_ai.usage.cache_read.input_tokens';
 
   // GenAI Response
   static GEN_AI_RESPONSE_ID = 'gen_ai.response.id';
@@ -162,6 +165,9 @@ export default class SemanticConvention {
   static DB_UPDATE_VALUES = 'db.update.values';
   static DB_UPDATE_ID = 'db.update.id';
   static GEN_AI_CLIENT_OPERATION_DURATION = 'gen_ai.client.operation.duration';
+  static GEN_AI_CLIENT_OPERATION_TIME_TO_FIRST_CHUNK = 'gen_ai.client.operation.time_to_first_chunk';
+  static GEN_AI_CLIENT_OPERATION_TIME_PER_OUTPUT_CHUNK = 'gen_ai.client.operation.time_per_output_chunk';
+  static GEN_AI_SERVER_REQUEST_DURATION = 'gen_ai.server.request.duration';
   static GEN_AI_CLIENT_TOKEN_USAGE = 'gen_ai.client.token.usage';
   static GEN_AI_SERVER_TBT = 'gen_ai.server.time_per_output_token';
   static GEN_AI_SERVER_TTFT = 'gen_ai.server.time_to_first_token';
