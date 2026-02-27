@@ -251,6 +251,8 @@ class OpenLITCallbackHandler {
         model: responseModel,
         cost,
         aiSystem: SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+        serverAddress: 'localhost',
+        serverPort: 80,
       });
 
       const metricParams: BaseSpanAttributes = {
@@ -258,6 +260,8 @@ class OpenLITCallbackHandler {
         model: responseModel,
         cost,
         aiSystem: SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+        serverAddress: 'localhost',
+        serverPort: 80,
       };
       span.setStatus({ code: 1 });
       span.end();

@@ -146,6 +146,9 @@ function compareAttributes(
     'gen_ai.endpoint',
     'gen_ai.environment',
     'gen_ai.application_name',
+    'server.address',
+    'server.port',
+    'gen_ai.sdk.version',
   ];
   
   for (const key of allKeys) {
