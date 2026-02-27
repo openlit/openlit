@@ -145,13 +145,13 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     if base_url is None:
         base_url = "https://api.openai.com/v1"
 
-    response = client.beta.chat.completions.parse(
+    response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "user", "content": prompt},
         ],
         temperature=0.0,
-        response_format=JsonOutput,
+        response_format={"type": "json_object"},
     )
     return response.choices[0].message.content
 
@@ -303,6 +303,9 @@ def emit_evaluation_event(
     ``openlit.init()``, emits as an OTel Log Record instead (useful for
     backends like Grafana Loki that handle logs better than events).
 
+    Both paths carry the same keys and value types; the only difference is
+    the transport (event attributes vs JSON string in the log body).
+
     Args:
         event_provider: The OTel event provider
         evaluation_name: Name of evaluation (hallucination, bias_detection, toxicity_detection)
@@ -316,34 +319,33 @@ def emit_evaluation_event(
         if not event_provider:
             return
 
-        # Build attributes per OTel semantic convention spec
         attributes = {
             SemanticConvention.GEN_AI_EVALUATION_NAME: evaluation_name,
         }
 
-        # If error occurred, record error.type instead of score attributes
         if error_type:
             attributes[SemanticConvention.ERROR_TYPE] = error_type
         else:
             if score_value is not None:
-                attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE] = float(
-                    score_value
-                )
+                attributes[
+                    SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE
+                ] = float(score_value)
             if score_label:
                 attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_LABEL] = (
                     score_label
                 )
 
         if explanation:
-            attributes[SemanticConvention.GEN_AI_EVALUATION_EXPLANATION] = explanation
+            attributes[SemanticConvention.GEN_AI_EVALUATION_EXPLANATION] = (
+                explanation
+            )
         if response_id:
             attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
 
         if get_otel_logs_config():
-            log_body = attributes.pop(
-                SemanticConvention.GEN_AI_EVALUATION_EXPLANATION, ""
-            )
-            _emit_as_log_record(attributes, log_body)
+            import json
+
+            _emit_as_log_record(json.dumps(attributes))
         else:
             _emit_as_event(event_provider, attributes)
 
@@ -363,7 +365,7 @@ def _emit_as_event(event_provider, attributes):
     event_provider.emit(event)
 
 
-def _emit_as_log_record(attributes, body=""):
+def _emit_as_log_record(body):
     """Emit evaluation result as an OTel Log Record via LoggingHandler."""
     import logging as stdlib_logging
     from opentelemetry._logs import get_logger_provider
@@ -378,4 +380,4 @@ def _emit_as_log_record(attributes, body=""):
         otel_logger.addHandler(handler)
         otel_logger.setLevel(stdlib_logging.DEBUG)
 
-    otel_logger.info(body, extra=attributes)
+    otel_logger.info(body)
