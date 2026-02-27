@@ -110,10 +110,10 @@ PARAMETER_CONFIG = {
         "cli_help": "Inject OpenTelemetry trace context as SQL comments for database log correlation",
         "cli_type": bool,
     },
-    "otel_logs": {
+    "evals_logs_export": {
         "default": True,
-        "env_var": "OPENLIT_OTEL_LOGS",
-        "cli_help": "Emit telemetry as OTEL Log Records instead of OTEL Events",
+        "env_var": "OPENLIT_EVALS_LOGS_EXPORT",
+        "cli_help": "Emit evaluation results as OTEL Log Records instead of OTEL Events",
         "cli_type": bool,
     },
     # Parameters that are not exposed via CLI (internal use only)

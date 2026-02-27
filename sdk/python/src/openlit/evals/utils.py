@@ -271,9 +271,9 @@ def get_event_provider():
         return None
 
 
-def get_otel_logs_config():
+def get_evals_logs_export_config():
     """
-    Safely retrieve the otel_logs flag from OpenLIT's global configuration.
+    Safely retrieve the evals_logs_export flag from OpenLIT's global configuration.
 
     Returns:
         True if OTEL Log Records should be used instead of Events, else False.
@@ -282,9 +282,9 @@ def get_otel_logs_config():
         # pylint: disable=cyclic-import
         from openlit import OpenlitConfig
 
-        return getattr(OpenlitConfig, "otel_logs", False)
+        return getattr(OpenlitConfig, "evals_logs_export", True)
     except (ImportError, AttributeError):
-        return False
+        return True
 
 
 def emit_evaluation_event(
@@ -299,9 +299,9 @@ def emit_evaluation_event(
     """
     Emit gen_ai.evaluation.result as an OTel Event or OTel Log Record.
 
-    By default, emits as an OTel Event. When ``otel_logs=True`` is set in
-    ``openlit.init()``, emits as an OTel Log Record instead (useful for
-    backends like Grafana Loki that handle logs better than events).
+    By default, emits as an OTel Log Record. When ``evals_logs_export=False``
+    is set in ``openlit.init()``, emits as an OTel Event instead (useful for
+    backends that support events natively).
 
     Both paths carry the same keys and value types; the only difference is
     the transport (event attributes vs JSON string in the log body).
@@ -342,7 +342,7 @@ def emit_evaluation_event(
         if response_id:
             attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
 
-        if get_otel_logs_config():
+        if get_evals_logs_export_config():
             import json
 
             _emit_as_log_record(json.dumps(attributes))
