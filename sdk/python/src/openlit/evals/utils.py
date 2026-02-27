@@ -327,24 +327,20 @@ def emit_evaluation_event(
             attributes[SemanticConvention.ERROR_TYPE] = error_type
         else:
             if score_value is not None:
-                attributes[
-                    SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE
-                ] = float(score_value)
+                attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE] = float(
+                    score_value
+                )
             if score_label:
                 attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_LABEL] = (
                     score_label
                 )
 
         if explanation:
-            attributes[SemanticConvention.GEN_AI_EVALUATION_EXPLANATION] = (
-                explanation
-            )
+            attributes[SemanticConvention.GEN_AI_EVALUATION_EXPLANATION] = explanation
         if response_id:
             attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
 
         if get_evals_logs_export_config():
-            import json
-
             _emit_as_log_record(json.dumps(attributes))
         else:
             _emit_as_event(event_provider, attributes)
@@ -367,17 +363,16 @@ def _emit_as_event(event_provider, attributes):
 
 def _emit_as_log_record(body):
     """Emit evaluation result as an OTel Log Record via LoggingHandler."""
-    import logging as stdlib_logging
     from opentelemetry._logs import get_logger_provider
     from opentelemetry.sdk._logs import LoggingHandler
 
-    otel_logger = stdlib_logging.getLogger("openlit.evals.otel")
+    otel_logger = logging.getLogger("openlit.evals.otel")
     if not any(isinstance(h, LoggingHandler) for h in otel_logger.handlers):
         handler = LoggingHandler(
-            level=stdlib_logging.DEBUG,
+            level=logging.DEBUG,
             logger_provider=get_logger_provider(),
         )
         otel_logger.addHandler(handler)
-        otel_logger.setLevel(stdlib_logging.DEBUG)
+        otel_logger.setLevel(logging.DEBUG)
 
     otel_logger.info(body)
