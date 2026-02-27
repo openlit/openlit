@@ -362,17 +362,13 @@ def _emit_as_event(event_provider, attributes):
 
 
 def _emit_as_log_record(body):
-    """Emit evaluation result as an OTel Log Record via LoggingHandler."""
-    from opentelemetry._logs import get_logger_provider
-    from opentelemetry.sdk._logs import LoggingHandler
+    """Emit evaluation result as an OTel Log Record via the Logger API directly."""
+    from opentelemetry._logs import get_logger_provider, LogRecord, SeverityNumber
 
-    otel_logger = logging.getLogger("openlit.evals.otel")
-    if not any(isinstance(h, LoggingHandler) for h in otel_logger.handlers):
-        handler = LoggingHandler(
-            level=logging.DEBUG,
-            logger_provider=get_logger_provider(),
+    otel_logger = get_logger_provider().get_logger("openlit.evals")
+    otel_logger.emit(
+        LogRecord(
+            body=body,
+            severity_number=SeverityNumber.INFO,
         )
-        otel_logger.addHandler(handler)
-        otel_logger.setLevel(logging.DEBUG)
-
-    otel_logger.info(body)
+    )
