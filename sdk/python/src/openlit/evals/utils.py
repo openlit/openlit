@@ -271,6 +271,22 @@ def get_event_provider():
         return None
 
 
+def get_otel_logs_config():
+    """
+    Safely retrieve the otel_logs flag from OpenLIT's global configuration.
+
+    Returns:
+        True if OTEL Log Records should be used instead of Events, else False.
+    """
+    try:
+        # pylint: disable=cyclic-import
+        from openlit import OpenlitConfig
+
+        return getattr(OpenlitConfig, "otel_logs", False)
+    except (ImportError, AttributeError):
+        return False
+
+
 def emit_evaluation_event(
     event_provider,
     evaluation_name,
@@ -281,7 +297,11 @@ def emit_evaluation_event(
     error_type=None,
 ):
     """
-    Emit gen_ai.evaluation.result event per OTel semantic conventions.
+    Emit gen_ai.evaluation.result as an OTel Event or OTel Log Record.
+
+    By default, emits as an OTel Event. When ``otel_logs=True`` is set in
+    ``openlit.init()``, emits as an OTel Log Record instead (useful for
+    backends like Grafana Loki that handle logs better than events).
 
     Args:
         event_provider: The OTel event provider
@@ -296,9 +316,7 @@ def emit_evaluation_event(
         if not event_provider:
             return
 
-        from openlit.__helpers import otel_event
-
-        # Build event attributes per OTel semantic convention spec
+        # Build attributes per OTel semantic convention spec
         attributes = {
             SemanticConvention.GEN_AI_EVALUATION_NAME: evaluation_name,
         }
@@ -307,7 +325,6 @@ def emit_evaluation_event(
         if error_type:
             attributes[SemanticConvention.ERROR_TYPE] = error_type
         else:
-            # Record evaluation score and label (conditionally required if no error)
             if score_value is not None:
                 attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE] = float(
                     score_value
@@ -317,20 +334,48 @@ def emit_evaluation_event(
                     score_label
                 )
 
-        # Add recommended attributes when available
         if explanation:
             attributes[SemanticConvention.GEN_AI_EVALUATION_EXPLANATION] = explanation
         if response_id:
             attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
 
-        # Create and emit event per OTel spec
-        event = otel_event(
-            name=SemanticConvention.GEN_AI_EVALUATION_RESULT,
-            attributes=attributes,
-            body="",  # Per spec, all data must be in attributes, body is empty
-        )
-
-        event_provider.emit(event)
+        if get_otel_logs_config():
+            log_body = attributes.pop(
+                SemanticConvention.GEN_AI_EVALUATION_EXPLANATION, ""
+            )
+            _emit_as_log_record(attributes, log_body)
+        else:
+            _emit_as_event(event_provider, attributes)
 
     except Exception as e:
         logger.warning("Failed to emit evaluation event: %s", e, exc_info=True)
+
+
+def _emit_as_event(event_provider, attributes):
+    """Emit evaluation result as an OTel Event (default path)."""
+    from openlit.__helpers import otel_event
+
+    event = otel_event(
+        name=SemanticConvention.GEN_AI_EVALUATION_RESULT,
+        attributes=attributes,
+        body="",
+    )
+    event_provider.emit(event)
+
+
+def _emit_as_log_record(attributes, body=""):
+    """Emit evaluation result as an OTel Log Record via LoggingHandler."""
+    import logging as stdlib_logging
+    from opentelemetry._logs import get_logger_provider
+    from opentelemetry.sdk._logs import LoggingHandler
+
+    otel_logger = stdlib_logging.getLogger("openlit.evals.otel")
+    if not any(isinstance(h, LoggingHandler) for h in otel_logger.handlers):
+        handler = LoggingHandler(
+            level=stdlib_logging.DEBUG,
+            logger_provider=get_logger_provider(),
+        )
+        otel_logger.addHandler(handler)
+        otel_logger.setLevel(stdlib_logging.DEBUG)
+
+    otel_logger.info(body, extra=attributes)
