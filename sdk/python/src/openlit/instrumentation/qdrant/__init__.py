@@ -13,6 +13,7 @@ from openlit.instrumentation.qdrant.async_qdrant import async_general_wrap
 _instruments = ("qdrant-client >= 1.16.0",)
 
 # Operations to wrap for both sync and async clients
+# Note: Some methods are version-dependent and will be filtered at runtime
 QDRANT_OPERATIONS = [
     ("create_collection", "qdrant.create_collection"),
     ("delete_collection", "qdrant.delete_collection"),
@@ -29,10 +30,17 @@ QDRANT_OPERATIONS = [
     ("delete", "qdrant.delete"),
     ("retrieve", "qdrant.retrieve"),
     ("scroll", "qdrant.scroll"),
+    # Deprecated in v1.13.0, removed in v1.16.0 (replaced by query_points)
+    ("search", "qdrant.search"),
+    # Deprecated in v1.13.0, removed in v1.16.0 (replaced by query_points_groups)
+    ("search_groups", "qdrant.search_groups"),
+    # Deprecated in v1.13.0, removed in v1.16.0 (replaced by query_batch_points)
+    ("recommend", "qdrant.recommend"),
     ("create_payload_index", "qdrant.create_payload_index"),
+    # New methods added in v1.13.0+
     ("query_points", "qdrant.query_points"),
-    ("query_batch_points", "qdrant.query_batch_points"),
     ("query_points_groups", "qdrant.query_points_groups"),
+    ("query_batch_points", "qdrant.query_batch_points"),
 ]
 
 
@@ -54,8 +62,16 @@ class QdrantInstrumentor(BaseInstrumentor):
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics")
 
-        # Wrap sync operations
+        # Import QdrantClient to check method availability
+        # pylint: disable=import-outside-toplevel
+        from qdrant_client import QdrantClient, AsyncQdrantClient
+
+        # Wrap sync operations (only if method exists in this version)
         for method_name, endpoint in QDRANT_OPERATIONS:
+            # Check if method exists on QdrantClient before attempting to wrap
+            if not hasattr(QdrantClient, method_name):
+                continue
+
             wrap_function_wrapper(
                 "qdrant_client",
                 f"QdrantClient.{method_name}",
@@ -72,8 +88,12 @@ class QdrantInstrumentor(BaseInstrumentor):
                 ),
             )
 
-        # Wrap async operations
+        # Wrap async operations (only if method exists in this version)
         for method_name, endpoint in QDRANT_OPERATIONS:
+            # Check if method exists on AsyncQdrantClient before attempting to wrap
+            if not hasattr(AsyncQdrantClient, method_name):
+                continue
+
             wrap_function_wrapper(
                 "qdrant_client",
                 f"AsyncQdrantClient.{method_name}",
