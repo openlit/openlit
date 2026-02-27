@@ -111,7 +111,7 @@ PARAMETER_CONFIG = {
         "cli_type": bool,
     },
     "otel_logs": {
-        "default": False,
+        "default": True,
         "env_var": "OPENLIT_OTEL_LOGS",
         "cli_help": "Emit telemetry as OTEL Log Records instead of OTEL Events",
         "cli_type": bool,

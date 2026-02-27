@@ -82,7 +82,7 @@ class OpenlitConfig:
         # Database instrumentation options
         cls.capture_parameters = False
         cls.enable_sqlcommenter = False
-        cls.otel_logs = False
+        cls.otel_logs = True
 
     @classmethod
     def update_config(
@@ -101,7 +101,7 @@ class OpenlitConfig:
         detailed_tracing,
         capture_parameters=False,
         enable_sqlcommenter=False,
-        otel_logs=False,
+        otel_logs=True,
     ):
         """
         Updates the configuration based on provided parameters.
@@ -233,7 +233,7 @@ def init(
     collect_system_metrics=False,
     capture_parameters=False,
     enable_sqlcommenter=False,
-    otel_logs=False,
+    otel_logs=True,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -313,7 +313,7 @@ def init(
             capture_parameters = env_config["capture_parameters"]
         if enable_sqlcommenter is False and "enable_sqlcommenter" in env_config:
             enable_sqlcommenter = env_config["enable_sqlcommenter"]
-        if otel_logs is False and "otel_logs" in env_config:
+        if otel_logs is True and "otel_logs" in env_config:
             otel_logs = env_config["otel_logs"]
 
     except ImportError:
