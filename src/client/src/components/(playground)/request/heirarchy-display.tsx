@@ -1,7 +1,7 @@
 import { useRequest } from "./request-context";
 
 import React, { useEffect, useState } from "react";
-import { FolderTree, Zap, Clock, Activity, Minus, Plus } from "lucide-react";
+import { FolderTree, Zap, Clock, Activity, Minus, Plus, ListTree, GanttChart, Network } from "lucide-react";
 import {
 	findSpanInHierarchyLodash,
 	getNormalizedTraceAttribute,
@@ -13,6 +13,10 @@ import { TraceMapping } from "@/constants/traces";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
+import TimelineView from "./components/timeline-view";
+import NodeGraph from "./components/node-graph";
+
+type ViewMode = "tree" | "timeline" | "graph";
 
 interface TreeNodeProps {
 	span: TraceHeirarchySpan;
@@ -165,10 +169,17 @@ export function TreeNode({ span, level, isLast = false, parentPath = [] }: TreeN
 
 const DEFAULT_WIDTH = 46;
 
+const VIEW_TABS: { mode: ViewMode; icon: React.ReactNode; label: string }[] = [
+	{ mode: "tree", icon: <ListTree className="h-3.5 w-3.5" />, label: "Tree" },
+	{ mode: "timeline", icon: <GanttChart className="h-3.5 w-3.5" />, label: "Timeline" },
+	{ mode: "graph", icon: <Network className="h-3.5 w-3.5" />, label: "Graph" },
+];
+
 export default function HeirarchyDisplay() {
 	const [request] = useRequest();
 	const { data, fireRequest, isLoading, error } = useFetchWrapper();
 	const [accordionValue, setAccordionValue] = useState("");
+	const [viewMode, setViewMode] = useState<ViewMode>("tree");
 
 	useEffect(() => {
 		if (!isLoading) {
@@ -233,19 +244,44 @@ export default function HeirarchyDisplay() {
 						</div>
 					</AccordionTrigger>
 					<AccordionContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down transition-all h-full pb-0" parentClassName="h-full w-full">
-						<ScrollArea className="h-full w-full">
-							<div className="p-3">
-								<div className="mb-3 pb-2 border-b border-stone-200 dark:border-stone-700">
-									<h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
-										Trace Execution Flow
-									</h3>
-									<p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-										Click spans to view details
-									</p>
-								</div>
-								<TreeNode span={record} level={0} />
+						<div className="flex flex-col h-full">
+							{/* View mode tab strip */}
+							<div className="flex items-center gap-1 px-3 py-2 border-b border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 shrink-0">
+								{VIEW_TABS.map(({ mode, icon, label }) => (
+									<button
+										key={mode}
+										onClick={() => setViewMode(mode)}
+										className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+											viewMode === mode
+												? "bg-primary/10 text-primary dark:bg-primary/10 dark:text-primary"
+												: "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800"
+										}`}
+									>
+										{icon}
+										{label}
+									</button>
+								))}
 							</div>
-						</ScrollArea>
+
+							{/* Header */}
+							<div className="px-3 pt-2 pb-1 shrink-0 border-b border-stone-200 dark:border-stone-700">
+								<h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
+									Trace Execution Flow
+								</h3>
+								<p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+									Click spans to view details
+								</p>
+							</div>
+
+							{/* Content */}
+							<ScrollArea className="flex-1 min-h-0">
+								<div className="p-3">
+									{viewMode === "tree" && <TreeNode span={record} level={0} />}
+									{viewMode === "timeline" && <TimelineView record={record} />}
+									{viewMode === "graph" && <NodeGraph record={record} />}
+								</div>
+							</ScrollArea>
+						</div>
 					</AccordionContent>
 				</AccordionItem>
 			</Accordion>

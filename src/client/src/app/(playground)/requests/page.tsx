@@ -1,8 +1,9 @@
 "use client";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
 	RequestProvider,
 	useRequest,
+	useRequestNavigation,
 } from "@/components/(playground)/request/request-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import RequestDetails from "@/components/(playground)/request/request-details";
@@ -19,6 +20,7 @@ import TracingGettingStarted from "@/components/(playground)/getting-started/tra
 
 function RequestPage() {
 	const [, updateRequest] = useRequest();
+	const { setItems } = useRequestNavigation();
 
 	const onClick = (item: any) => {
 		!isLoading && updateRequest(item);
@@ -61,7 +63,14 @@ function RequestPage() {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [filter, pingStatus]);
 
-	const normalizedData = ((data as any)?.records || []).map(normalizeTrace);
+	const normalizedData = useMemo(
+		() => ((data as any)?.records || []).map(normalizeTrace),
+		[data]
+	);
+
+	useEffect(() => {
+		setItems(normalizedData);
+	}, [normalizedData, setItems]);
 
 	// Show getting started when there's no trace data AND initial fetch is complete
 	if (existData === false && !isLoadingExist && isFetchedExist) {

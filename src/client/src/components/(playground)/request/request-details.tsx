@@ -1,4 +1,4 @@
-import { useRequest } from "@/components/(playground)/request/request-context";
+import { useRequest, useRequestNavigation } from "@/components/(playground)/request/request-context";
 import Image from "next/image";
 import { isArray, isNil, isPlainObject } from "lodash";
 import {
@@ -8,7 +8,7 @@ import {
 	normalizeTrace,
 } from "@/helpers/client/trace";
 import { ReverseTraceMapping, TraceMapping } from "@/constants/traces";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, X, DollarSign, Zap, Clock, Cpu, ChevronLeft, ChevronRight } from "lucide-react";
 import {
 	Sheet,
 	SheetContent,
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/sheet";
 import { objectEntries, objectKeys } from "@/utils/object";
 import { ValueOf } from "@/types/util";
-import { useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,15 +27,109 @@ import InfoPill from "./components/info-pill";
 import CodeItem from "./components/code-item";
 import TabsContentData from "./components/tabs-content";
 import ExtraTabs from "./components/extra-tabs";
+import AttributesTab from "./components/attributes-tab";
+
+// Root-level TraceRow scalar fields that are already shown elsewhere in the UI and
+// should NOT be duplicated as info pills.
+const REDUNDANT_ROOT_FIELDS = new Set([
+	"TraceId",    // shown in header as short trace ID chip
+	"SpanName",   // shown in header as the panel title
+	"StatusCode", // shown in header as status badge
+	"Duration",   // shown in metric card
+	"TraceState", // almost always empty
+]);
+
+function StatusBadge({ statusCode }: { statusCode?: string }) {
+	const isError =
+		statusCode === "STATUS_CODE_ERROR" || statusCode === "Error";
+	return (
+		<span
+			className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+				isError
+					? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+					: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+			}`}
+		>
+			<span
+				className={`w-1.5 h-1.5 rounded-full ${
+					isError ? "bg-red-500" : "bg-green-500"
+				}`}
+			/>
+			{isError ? "Error" : "OK"}
+		</span>
+	);
+}
+
+function MetricCard({
+	icon,
+	label,
+	value,
+}: {
+	icon: ReactNode;
+	label: string;
+	value: string | number | undefined;
+}) {
+	return (
+		<div className="flex flex-col gap-1 px-3 py-2 bg-stone-100 dark:bg-stone-800 rounded-lg min-w-[100px] shrink-0">
+			<div className="flex items-center gap-1.5 text-stone-500 dark:text-stone-400">
+				{icon}
+				<span className="text-xs font-medium">{label}</span>
+			</div>
+			<span className="text-sm font-semibold text-stone-800 dark:text-stone-200 truncate">
+				{value ?? "—"}
+			</span>
+		</div>
+	);
+}
+
+function LoadingSkeleton() {
+	return (
+		<div className="flex flex-col gap-4 p-4 animate-pulse">
+			{/* Header skeleton */}
+			<div className="flex gap-2 items-center">
+				<div className="h-5 w-5 rounded-full bg-stone-300 dark:bg-stone-700" />
+				<div className="h-4 w-32 rounded bg-stone-300 dark:bg-stone-700" />
+				<div className="h-4 w-48 rounded bg-stone-300 dark:bg-stone-700" />
+			</div>
+			{/* Metrics strip skeleton */}
+			<div className="flex gap-2">
+				{[1, 2, 3, 4].map((i) => (
+					<div
+						key={i}
+						className="h-14 w-28 rounded-lg bg-stone-300 dark:bg-stone-700"
+					/>
+				))}
+			</div>
+			{/* Pills skeleton */}
+			<div className="flex flex-wrap gap-2">
+				{[1, 2, 3, 4, 5, 6].map((i) => (
+					<div
+						key={i}
+						className="h-7 w-24 rounded bg-stone-300 dark:bg-stone-700"
+					/>
+				))}
+			</div>
+		</div>
+	);
+}
 
 export default function RequestDetails() {
 	const [isOpen, setIsOpen] = useState(false);
 	const [request, updateRequest] = useRequest();
+	const { currentIndex, items, navigatePrev, navigateNext } = useRequestNavigation();
 	const { data, fireRequest, isLoading } = useFetchWrapper();
+
+	// Cache the last successfully loaded record so navigation never flickers to a skeleton.
+	// While a new fetch is in-flight we keep showing the stale data at reduced opacity.
+	const [displayData, setDisplayData] = useState<{
+		item: TransformedTraceRow;
+		rawRecord: TraceRow;
+	} | null>(null);
 
 	const onClose = () => {
 		updateRequest(null);
 		setIsOpen(false);
+		setDisplayData(null);
 	};
 
 	const fetchData = useCallback(async () => {
@@ -57,6 +151,17 @@ export default function RequestDetails() {
 		}
 	}, [request?.spanId, fetchData]);
 
+	// Commit successful fetches into the display cache
+	useEffect(() => {
+		const record = (data as { record?: TraceRow })?.record;
+		if (record?.TraceId && !isLoading) {
+			setDisplayData({
+				item: normalizeTrace(record),
+				rawRecord: record,
+			});
+		}
+	}, [data, isLoading]);
+
 	useEffect(() => {
 		if (isOpen) {
 			// Pushing the change to the end of the call stack
@@ -70,20 +175,20 @@ export default function RequestDetails() {
 		}
 	}, [isOpen]);
 
-	const isFetchingData =
-		!(data as { record?: TraceRow })?.record?.TraceId || isLoading;
+	// Show the skeleton only on the very first open (nothing cached yet).
+	// On subsequent navigations keep the old content visible while the new fetch runs.
+	const isFirstLoad = isLoading && !displayData;
+	const isTransitioning = isLoading && !!displayData;
 
-	const normalizedItem: TransformedTraceRow | null = isFetchingData
-		? null
-		: normalizeTrace((data as { record: TraceRow }).record);
+	const normalizedItem: TransformedTraceRow | null = displayData?.item ?? null;
+	const rawRecord: TraceRow | null = displayData?.rawRecord ?? null;
 
 	const extraTabs = normalizedItem
 		? getExtraTabsContentTypes(normalizedItem)
 		: [];
 	const tabKeys: string[] = [...extraTabs];
-	const reducedData = isFetchingData
-		? { arrays: [], objects: [], values: [] }
-		: objectEntries((data as { record: TraceRow }).record || {}).reduce(
+	const reducedData = rawRecord
+		? objectEntries(rawRecord || {}).reduce(
 				(
 					acc: {
 						arrays: [keyof TraceRow, ValueOf<TraceRow>][];
@@ -109,55 +214,144 @@ export default function RequestDetails() {
 					return acc;
 				},
 				{ arrays: [], objects: [], values: [] }
-		  );
+		  )
+		: { arrays: [], objects: [], values: [] };
+	tabKeys.push("OpenTelemetry Details");
+
+	// Derived display values for metrics strip
+	const parsedCost = parseFloat(normalizedItem?.cost as string);
+	const costValue =
+		isFinite(parsedCost) && parsedCost > 0
+			? `$${parsedCost.toFixed(6)}`
+			: undefined;
+	const parsedTokens = Number(normalizedItem?.totalTokens);
+	const tokensValue =
+		isFinite(parsedTokens) && parsedTokens > 0
+			? String(parsedTokens)
+			: undefined;
+	const parsedDuration = parseFloat(normalizedItem?.requestDuration as string);
+	const durationValue = isFinite(parsedDuration)
+		? `${parsedDuration.toFixed(2)}s`
+		: undefined;
+	const modelValue =
+		normalizedItem?.model && normalizedItem.model !== "-"
+			? String(normalizedItem.model)
+			: undefined;
+
+	// Trace ID (short display)
+	const traceId = rawRecord?.TraceId;
+	const shortTraceId = traceId ? `${traceId.slice(0, 8)}…` : undefined;
 
 	return (
 		<Sheet open={isOpen}>
 			<SheetContent
-				className="max-w-none sm:max-w-none w-2/5 p-0 gap-0 flex flex-col border-l border-stone-200 dark:border-stone-800 top-[57px] h-auto focus-visible:outline-none"
+				className="max-w-none sm:max-w-none w-[55%] p-0 gap-0 flex flex-col border-l border-stone-200 dark:border-stone-800 top-[57px] h-auto focus-visible:outline-none"
 				displayOverlay={false}
 				displayClose={false}
 			>
-				<SheetHeader className="flex-row bg-stone-950 px-3 py-2 items-center space-y-0">
-					<SheetTitle className="text-stone-200 text-md font-bold leading-7 capitalize grow pr-3">
-						{isFetchingData || !normalizedItem
-							? "..."
+				<SheetHeader className="flex-row bg-stone-950 px-3 py-2 items-center space-y-0 gap-2 flex-wrap">
+					<SheetTitle className="text-stone-200 text-md font-bold leading-7 capitalize grow pr-1 truncate">
+						{!normalizedItem
+							? "Loading…"
 							: normalizedItem.spanName}
 					</SheetTitle>
+					{normalizedItem && (
+						<>
+							<StatusBadge statusCode={normalizedItem.statusCode as string} />
+							{shortTraceId && (
+								<span className="text-xs text-stone-400 font-mono bg-stone-800 px-1.5 py-0.5 rounded">
+									{shortTraceId}
+								</span>
+							)}
+						</>
+					)}
+					{currentIndex >= 0 && (
+						<div className="flex items-center gap-0.5 shrink-0">
+							<button
+								onClick={navigatePrev}
+								disabled={currentIndex <= 0}
+								className="p-1 rounded text-stone-400 hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+								title="Previous item"
+							>
+								<ChevronLeft className="h-4 w-4" />
+							</button>
+							<span className="text-xs text-stone-500 tabular-nums min-w-[3rem] text-center">
+								{currentIndex + 1} / {items.length}
+							</span>
+							<button
+								onClick={navigateNext}
+								disabled={currentIndex >= items.length - 1}
+								className="p-1 rounded text-stone-400 hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+								title="Next item"
+							>
+								<ChevronRight className="h-4 w-4" />
+							</button>
+						</div>
+					)}
 					<X
 						className="text-stone-200 shrink-0 mt-0 space-y-0 cursor-pointer"
 						onClick={onClose}
 					/>
 				</SheetHeader>
-				{isFetchingData || !normalizedItem ? (
-					<div className="flex flex-col items-center justify-center h-full text-3xl">
-						...
-					</div>
-				) : (
-					<div className="flex flex-col gap-0 overflow-y-scroll bg-stone-100 dark:bg-stone-900 grow pb-4">
-						<div className="flex items-start flex-wrap gap-1 p-4 bg-stone-200 dark:bg-stone-100/[0.15]">
-							{reducedData.values.map(([key, value]) => {
-								const reverseKey = ReverseTraceMapping[key];
-								const normalizedValue = `${
-									reverseKey ? TraceMapping[reverseKey].valuePrefix || "" : ""
-								}${
-									reverseKey
-										? getNormalizedTraceAttribute(reverseKey, value)
-										: value
-								}${
-									reverseKey ? TraceMapping[reverseKey].valueSuffix || "" : ""
-								}`;
-								return (
-									!isNil(value) &&
-									value.toString().length > 0 && (
-										<InfoPill
-											key={key}
-											title={reverseKey ? TraceMapping[reverseKey].label : key}
-											value={normalizedValue}
-										/>
-									)
-								);
-							})}
+
+				{isFirstLoad ? (
+					<LoadingSkeleton />
+				) : !normalizedItem ? null : (
+					<div
+						className={`flex flex-col gap-0 overflow-y-scroll bg-stone-100 dark:bg-stone-900 grow pb-4 transition-opacity duration-200 ${
+							isTransitioning ? "opacity-40" : "opacity-100"
+						}`}
+					>
+						{/* Key metrics strip */}
+						<div className="shrink-0 flex items-center gap-2 px-4 py-3 overflow-x-auto bg-white dark:bg-stone-950 border-b border-stone-200 dark:border-stone-800">
+							<MetricCard
+								icon={<DollarSign className="h-3.5 w-3.5" />}
+								label="Cost"
+								value={costValue}
+							/>
+							<MetricCard
+								icon={<Zap className="h-3.5 w-3.5" />}
+								label="Total Tokens"
+								value={tokensValue}
+							/>
+							<MetricCard
+								icon={<Clock className="h-3.5 w-3.5" />}
+								label="Duration"
+								value={durationValue}
+							/>
+							<MetricCard
+								icon={<Cpu className="h-3.5 w-3.5" />}
+								label="Model"
+								value={modelValue}
+							/>
+						</div>
+
+						{/* Info pills — root-level span metadata (context, correlation IDs, scope) */}
+						<div className="shrink-0 flex items-start flex-wrap gap-1 p-4 bg-stone-200 dark:bg-stone-100/[0.15]">
+							{reducedData.values
+								.filter(([key]) => !REDUNDANT_ROOT_FIELDS.has(key as string))
+								.map(([key, value]) => {
+									const reverseKey = ReverseTraceMapping[key];
+									const normalizedValue = `${
+										reverseKey ? TraceMapping[reverseKey].valuePrefix || "" : ""
+									}${
+										reverseKey
+											? getNormalizedTraceAttribute(reverseKey, value)
+											: value
+									}${
+										reverseKey ? TraceMapping[reverseKey].valueSuffix || "" : ""
+									}`;
+									return (
+										!isNil(value) &&
+										value.toString().length > 0 && (
+											<InfoPill
+												key={key}
+												title={reverseKey ? TraceMapping[reverseKey].label : key}
+												value={normalizedValue}
+											/>
+										)
+									);
+								})}
 							{CODE_ITEM_DISPLAY_KEYS.map(
 								(key) =>
 									normalizedItem[key] && (
@@ -191,10 +385,9 @@ export default function RequestDetails() {
 									</span>
 								</a>
 							)}
-							{/* Image */}
 						</div>
 
-						<Tabs className="" defaultValue={tabKeys[0].toString()}>
+						<Tabs className="" defaultValue={tabKeys[0]?.toString()}>
 							<TabsList className="h-auto flex overflow-auto justify-start w-full rounded-none pt-2 bg-transparent dark:bg-transparent px-0">
 								{tabKeys.map((key) => {
 									return (
@@ -208,6 +401,14 @@ export default function RequestDetails() {
 									);
 								})}
 							</TabsList>
+							<TabsContent value="OpenTelemetry Details" className="mt-0">
+								{rawRecord?.SpanAttributes ? (
+									<AttributesTab
+										normalizedItem={normalizedItem}
+										spanAttributes={rawRecord.SpanAttributes}
+									/>
+								) : null}
+							</TabsContent>
 							{extraTabs.map((tab) => {
 								return (
 									<TabsContent value={tab.toString()} key={tab.toString()}>

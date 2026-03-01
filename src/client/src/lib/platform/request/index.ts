@@ -213,12 +213,14 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 								${getTraceMappingKeyFullPath("spanId")},
 								${getTraceMappingKeyFullPath("spanName")},
 								${getTraceMappingKeyFullPath("requestDuration")},
+								Timestamp,
+								StatusCode,
 								0 AS level
 						FROM
 								${OTEL_TRACES_TABLE_NAME}
 						WHERE
 								SpanId = '${id}' -- Starting SpanId
-						
+
 						UNION ALL
 
 						SELECT
@@ -227,6 +229,8 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 								ot.${getTraceMappingKeyFullPath("spanId")},
 								ot.${getTraceMappingKeyFullPath("spanName")},
 								ot.${getTraceMappingKeyFullPath("requestDuration")},
+								ot.Timestamp,
+								ot.StatusCode,
 								th.level + 1 AS level
 						FROM
 								${OTEL_TRACES_TABLE_NAME} ot
