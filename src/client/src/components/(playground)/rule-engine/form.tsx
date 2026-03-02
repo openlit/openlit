@@ -8,9 +8,29 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { InfoIcon } from "lucide-react";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
+import getMessage from "@/constants/messages";
+
+function FieldInfo({ text }: { text: string }) {
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<InfoIcon className="w-3.5 h-3.5 text-stone-400 cursor-help inline ml-1 align-middle" />
+			</TooltipTrigger>
+			<TooltipContent side="top" className="max-w-[220px] text-xs">
+				{text}
+			</TooltipContent>
+		</Tooltip>
+	);
+}
 
 export default function RuleForm({
 	entityId,
@@ -23,6 +43,7 @@ export default function RuleForm({
 	children: JSX.Element;
 	successCallback?: () => void;
 }) {
+	const messages = getMessage();
 	const [isOpen, setIsOpen] = useState(false);
 	const [groupOperator, setGroupOperator] = useState<string>("AND");
 	const [status, setStatus] = useState<string>("ACTIVE");
@@ -32,7 +53,7 @@ export default function RuleForm({
 	const createRule: FormBuilderEvent = useCallback(
 		(event, formdata) => {
 			event.preventDefault();
-			toast.loading("Creating rule...", { id: "rule-engine" });
+			toast.loading(messages.RULE_CREATING, { id: "rule-engine" });
 
 			const payload = {
 				name: formdata.name,
@@ -59,18 +80,18 @@ export default function RuleForm({
 							url: "/api/rule-engine/entities",
 							successCb: () => {
 								toast.success(
-									`Rule created and linked to ${entityType}`,
+									`${messages.RULE_CREATE_AND_LINK_TO} ${entityType}`,
 									{ id: "rule-engine" }
 								);
 							},
 							failureCb: () => {
-								toast.success("Rule created successfully!", {
+								toast.success(messages.RULE_CREATED, {
 									id: "rule-engine",
 								});
 							},
 						});
 					} else {
-						toast.success("Rule created successfully!", {
+						toast.success(messages.RULE_CREATED, {
 							id: "rule-engine",
 						});
 					}
@@ -81,7 +102,7 @@ export default function RuleForm({
 					}
 				},
 				failureCb: (err?: string) => {
-					toast.error(err || "Creation of rule failed!", {
+					toast.error(err || messages.RULE_CREATE_FAILED, {
 						id: "rule-engine",
 					});
 				},
@@ -92,56 +113,61 @@ export default function RuleForm({
 
 	const formFields: FieldProps[] = [
 		{
-			label: "Name",
+			label: `${messages.NAME} *`,
 			inputKey: "rule-name",
 			fieldType: "INPUT",
 			fieldTypeProps: {
 				type: "text",
 				name: "name",
-				placeholder: "My Rule",
+				placeholder: messages.RULE_NAME_PLACEHOLDER,
 				defaultValue: "",
+				required: true,
 			},
+			description: <FieldInfo text={messages.RULE_NAME_INFO} />,
 		},
 		{
-			label: "Description",
+			label: messages.RULE_DESCRIPTION_LABEL,
 			inputKey: "rule-description",
 			fieldType: "TEXTAREA",
 			fieldTypeProps: {
 				name: "description",
-				placeholder: "Optional description",
+				placeholder: messages.RULE_DESCRIPTION_PLACEHOLDER,
 				defaultValue: "",
 				rows: 2,
 			} as any,
+			description: <FieldInfo text={messages.RULE_DESCRIPTION_INFO} />,
 		},
 		{
-			label: "Group Operator",
+			label: `${messages.RULE_GROUP_OPERATOR_LABEL} *`,
 			inputKey: "rule-group_operator",
 			fieldType: "SELECT",
 			fieldTypeProps: {
 				name: "group_operator",
-				placeholder: "Select operator",
+				placeholder: messages.PLEASE_SELECT,
 				defaultValue: "AND",
 				options: [
-					{ value: "AND", label: "AND" },
-					{ value: "OR", label: "OR" },
+					{ value: "AND", label: messages.RULE_GROUP_OPERATOR_AND },
+					{ value: "OR", label: messages.RULE_GROUP_OPERATOR_OR },
 				],
 				onChange: setGroupOperator,
 			} as any,
+			description: <FieldInfo text={messages.RULE_GROUP_OPERATOR_INFO} />,
 		},
 		{
-			label: "Status",
+			label: `${messages.STATUS} *`,
 			inputKey: "rule-status",
 			fieldType: "SELECT",
 			fieldTypeProps: {
 				name: "status",
-				placeholder: "Select status",
+				placeholder: messages.PLEASE_SELECT,
 				defaultValue: "ACTIVE",
 				options: [
-					{ value: "ACTIVE", label: "Active" },
-					{ value: "INACTIVE", label: "Inactive" },
+					{ value: "ACTIVE", label: messages.ACTIVE },
+					{ value: "INACTIVE", label: messages.RULE_INACTIVE },
 				],
 				onChange: setStatus,
 			} as any,
+			description: <FieldInfo text={messages.RULE_STATUS_INFO} />,
 		},
 	];
 
@@ -152,8 +178,8 @@ export default function RuleForm({
 				<DialogHeader>
 					<DialogTitle className="text-stone-900 dark:text-stone-100">
 						{entityId
-							? `Create rule and link to ${entityType}`
-							: "Create a new rule"}
+							? `${messages.RULE_CREATE_AND_LINK_TO} ${entityType}`
+							: messages.RULE_CREATE_NEW}
 					</DialogTitle>
 				</DialogHeader>
 				<div className="flex items-center overflow-y-auto">
@@ -162,7 +188,7 @@ export default function RuleForm({
 						fields={formFields}
 						isLoading={isLoading}
 						onSubmit={createRule}
-						submitButtonText="Create rule"
+						submitButtonText={messages.RULE_CREATE_SUBMIT}
 					/>
 				</div>
 			</DialogContent>

@@ -488,6 +488,101 @@ export const RULE_CONDITION_OPERATOR_REQUIRED = "Condition operator is required!
 export const RULE_CONDITION_VALUE_REQUIRED = "Condition value is required!";
 export const RULE_ENTITY_TYPE_INVALID = "Invalid entity type!";
 
+// Rule Engine – UI labels & feedback
+export const RULE_LOAD_FAILED = "Failed to load rule";
+export const RULE_UPDATE_FAILED = "Failed to update rule";
+export const RULE_CONDITIONS_SAVED = "Conditions saved!";
+export const RULE_CONDITIONS_SAVE_FAILED = "Failed to save conditions";
+export const RULE_CREATING = "Creating rule...";
+export const RULE_CREATE_FAILED = "Creation of rule failed!";
+export const RULE_ENTITY_ID_REQUIRED = "Entity ID is required";
+export const RULE_ENTITY_ALREADY_ASSOCIATED = "This entity is already associated with the rule";
+export const RULE_ENTITY_ASSOCIATE_FAILED = "Failed to associate entity";
+export const RULE_ENTITY_REMOVE_FAILED = "Failed to remove entity";
+export const RULE_ENTITY_REMOVED = "Entity removed";
+export const RULE_ENGINE_BREADCRUMB = "Rule Engine";
+export const RULE_CONDITION_GROUPS_TITLE = "Condition Groups";
+export const RULE_SAVE_CONDITIONS = "Save Conditions";
+export const RULE_CREATE_BUTTON = "Create Rule";
+export const RULE_CREATED_BY = "Created by";
+export const RULE_INACTIVE = "Inactive";
+
+// Rule Engine – info section
+export const RULE_DESCRIPTION_LABEL = "Description";
+export const RULE_DESCRIPTION_PLACEHOLDER = "What does this rule do?";
+export const RULE_DESCRIPTION_INFO = "Optional. Explain the purpose and intent of this rule.";
+export const RULE_GROUP_OPERATOR_LABEL = "Group Operator";
+export const RULE_GROUP_OPERATOR_INFO = "AND requires all condition groups to match. OR requires at least one group to match.";
+export const RULE_GROUP_OPERATOR_AND = "AND – all groups match";
+export const RULE_GROUP_OPERATOR_OR = "OR – any group matches";
+export const RULE_STATUS_INFO = "Only ACTIVE rules are evaluated during rule engine execution.";
+
+// Rule Engine – create form
+export const RULE_CREATE_NEW = "Create a new rule";
+export const RULE_CREATE_AND_LINK_TO = "Create rule and link to";
+export const RULE_CREATE_SUBMIT = "Create rule";
+export const RULE_NAME_PLACEHOLDER = "e.g. High cost alert";
+export const RULE_NAME_INFO = "A unique, descriptive name to identify this rule.";
+
+// Rule Engine – preview section
+export const RULE_PREVIEW_TITLE = "Rule Preview";
+export const RULE_PREVIEW_TOOLTIP = "Shows the top 5 matched traces from the last 100 records — just to verify the rule is working correctly.";
+export const RULE_PREVIEW_RUN = "Run Preview";
+export const RULE_PREVIEW_RUNNING = "Running\u2026";
+export const RULE_PREVIEW_EMPTY = "Click \u201cRun Preview\u201d to test your saved rule conditions against recent traces.";
+export const RULE_PREVIEW_NO_MATCHES = "No matching traces found in the last 100 records.";
+export const RULE_PREVIEW_FAILED = "Preview failed";
+
+// Rule Engine – entities card
+export const RULE_ASSOCIATED_ENTITIES = "Associated Entities";
+export const RULE_NO_ENTITIES = "No entities associated yet.";
+export const RULE_ASSOCIATE_NEW_ENTITY = "Associate New Entity";
+export const RULE_ASSOCIATE = "Associate";
+export const RULE_REMOVE_ENTITY_TITLE = "Remove entity association?";
+export const RULE_REMOVE_ENTITY_SUBTITLE = "This will remove the link between the rule and this entity.";
+
+// Rule Engine – condition builder
+export const RULE_NO_CONDITION_GROUPS = "No condition groups yet.";
+export const RULE_ADD_FIRST_GROUP = "Add First Group";
+export const RULE_ADD_GROUP = "Add Group";
+export const RULE_ADD_CONDITION = "Add Condition";
+export const RULE_WITHIN_GROUP = "within group";
+export const RULE_FIELD_VALUES_INFO = "Top 100 values from traces. Press Enter to add a custom value.";
+export const RULE_FIELD_VALUES_LOADING = "Loading values\u2026";
+export const RULE_FIELD_VALUES_SEARCH = "Search or type value\u2026";
+export const RULE_FIELD_VALUES_NO_MATCH = "No matching values";
+export const RULE_FIELD_PLACEHOLDER = "Field";
+export const RULE_OPERATOR_PLACEHOLDER = "Op";
+export const RULE_VALUE_PLACEHOLDER = "Value";
+
+// Rule Engine – condition field labels & descriptions
+export const RULE_FIELD_SERVICE_NAME = "Service Name";
+export const RULE_FIELD_SERVICE_NAME_DESC = "The service name reported by the SDK.";
+export const RULE_FIELD_SPAN_NAME = "Span Name";
+export const RULE_FIELD_SPAN_NAME_DESC = "The operation or span name.";
+export const RULE_FIELD_SPAN_KIND = "Span Kind";
+export const RULE_FIELD_SPAN_KIND_DESC = "CLIENT, SERVER, INTERNAL, etc.";
+export const RULE_FIELD_DURATION = "Duration (ms)";
+export const RULE_FIELD_DURATION_DESC = "Span duration in milliseconds.";
+export const RULE_FIELD_STATUS_CODE = "Status Code";
+export const RULE_FIELD_STATUS_CODE_DESC = "Span status: OK, ERROR, or UNSET.";
+export const RULE_FIELD_DEPLOYMENT_ENV = "Deployment Env";
+export const RULE_FIELD_DEPLOYMENT_ENV_DESC = "Deployment environment (e.g. production, staging).";
+export const RULE_FIELD_SERVICE_NAME_OTEL = "Service Name (OTel)";
+export const RULE_FIELD_SERVICE_NAME_OTEL_DESC = "OTel resource attribute: service.name.";
+export const RULE_FIELD_GEN_AI_SYSTEM = "Gen AI System";
+export const RULE_FIELD_GEN_AI_SYSTEM_DESC = "AI provider identifier (e.g. openai, anthropic).";
+export const RULE_FIELD_MODEL = "Model";
+export const RULE_FIELD_MODEL_DESC = "LLM model name (e.g. gpt-4o, claude-3-5-sonnet).";
+export const RULE_FIELD_INPUT_TOKENS = "Input Tokens";
+export const RULE_FIELD_INPUT_TOKENS_DESC = "Number of prompt/input tokens used.";
+export const RULE_FIELD_OUTPUT_TOKENS = "Output Tokens";
+export const RULE_FIELD_OUTPUT_TOKENS_DESC = "Number of completion/output tokens generated.";
+export const RULE_FIELD_TOTAL_COST = "Total Cost ($)";
+export const RULE_FIELD_TOTAL_COST_DESC = "Total cost of the request in USD.";
+export const RULE_FIELD_TEMPERATURE = "Temperature";
+export const RULE_FIELD_TEMPERATURE_DESC = "Sampling temperature used for the request (0\u20132).";
+
 // Context
 export const CONTEXT_CREATED = "Context created successfully!";
 export const CONTEXT_UPDATED = "Context updated successfully!";
