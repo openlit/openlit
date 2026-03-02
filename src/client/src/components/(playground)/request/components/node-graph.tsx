@@ -116,7 +116,7 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 	collectEdges(record);
 
 	return (
-		<div className="w-full overflow-auto">
+		<div>
 			<svg
 				width={svgWidth}
 				height={svgHeight}

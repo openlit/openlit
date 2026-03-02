@@ -38,9 +38,16 @@ export interface FilterConfig {
 	customFilters?: CustomFilter[];
 }
 
+export type AttributeKeys = {
+	spanAttributeKeys: string[];
+	resourceAttributeKeys: string[];
+};
+
 export type FilterStore = {
 	details: FilterType;
 	config?: FilterConfig;
+	attributeKeys?: AttributeKeys;
 	updateFilter: (key: string, value: any, extraParams?: any) => void;
 	updateConfig: (config: FilterConfig) => void;
+	updateAttributeKeys: (keys: AttributeKeys) => void;
 };

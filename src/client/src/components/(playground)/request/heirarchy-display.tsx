@@ -11,7 +11,6 @@ import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { TraceMapping } from "@/constants/traces";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeablePanel } from "@/components/ui/resizeable-panel";
 import TimelineView from "./components/timeline-view";
 import NodeGraph from "./components/node-graph";
@@ -274,13 +273,13 @@ export default function HeirarchyDisplay() {
 							</div>
 
 							{/* Content */}
-							<ScrollArea className="flex-1 min-h-0">
-								<div className="p-3">
+							<div className="flex-1 min-h-0 overflow-auto">
+								<div className="p-3 min-w-fit">
 									{viewMode === "tree" && <TreeNode span={record} level={0} />}
 									{viewMode === "timeline" && <TimelineView record={record} />}
 									{viewMode === "graph" && <NodeGraph record={record} />}
 								</div>
-							</ScrollArea>
+							</div>
 						</div>
 					</AccordionContent>
 				</AccordionItem>

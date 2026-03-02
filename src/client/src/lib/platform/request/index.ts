@@ -277,3 +277,32 @@ export async function getRequestExist() {
 	const query = `SELECT COUNT(*) AS total_requests FROM ${OTEL_TRACES_TABLE_NAME}`;
 	return dataCollector({ query });
 }
+
+export async function getAttributeKeys(params: MetricParams) {
+	const spanKeysQuery = `
+		SELECT DISTINCT arrayJoin(mapKeys(SpanAttributes)) AS key
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params)}
+		ORDER BY key
+		LIMIT 500
+	`;
+
+	const resourceKeysQuery = `
+		SELECT DISTINCT arrayJoin(mapKeys(ResourceAttributes)) AS key
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params)}
+		ORDER BY key
+		LIMIT 500
+	`;
+
+	const [spanResult, resourceResult] = await Promise.all([
+		dataCollector({ query: spanKeysQuery }),
+		dataCollector({ query: resourceKeysQuery }),
+	]);
+
+	return {
+		err: spanResult.err || resourceResult.err,
+		spanAttributeKeys: (spanResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
+		resourceAttributeKeys: (resourceResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
+	};
+}
