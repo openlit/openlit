@@ -111,6 +111,7 @@ export default class SemanticConvention {
   static GEN_AI_OUTPUT_TYPE_SPEECH = 'speech';
 
   static GEN_AI_SYSTEM_HUGGING_FACE = 'huggingface';
+  static GEN_AI_SYSTEM_REPLICATE = 'replicate';
   static GEN_AI_SYSTEM_OPENAI = 'openai';
   static GEN_AI_SYSTEM_AZURE_OPENAI = 'az.ai.openai';
   static GEN_AI_SYSTEM_ANTHROPIC = 'anthropic';
@@ -128,17 +129,20 @@ export default class SemanticConvention {
   static DB_SYSTEM_NAME = 'db.system.name';
   static DB_SYSTEM_CHROMA = 'chroma';
   static DB_SYSTEM_PINECONE = 'pinecone';
+  static DB_SYSTEM_QDRANT = 'qdrant';
+  static DB_SYSTEM_MILVUS = 'milvus';
   static DB_COLLECTION_NAME = 'db.collection.name';
   static DB_OPERATION = 'db.operation';
   static DB_OPERATION_NAME = 'db.operation.name';
   static DB_OPERATION_CREATE_INDEX = 'create_index';
+  static DB_OPERATION_INSERT = 'INSERT';
   static DB_OPERATION_QUERY = 'QUERY';
   static DB_OPERATION_DELETE = 'DELETE';
   static DB_OPERATION_UPDATE = 'UPDATE';
   static DB_OPERATION_UPSERT = 'UPSERT';
-  static DB_OPERATION_GET = 'get';
-  static DB_OPERATION_ADD = 'add';
-  static DB_OPERATION_PEEK = 'peek';
+  static DB_OPERATION_GET = 'GET';
+  static DB_OPERATION_ADD = 'ADD';
+  static DB_OPERATION_PEEK = 'PEEK';
   static DB_OPERATION_SEARCH = 'SEARCH';
   static DB_OPERATION_FETCH = 'FETCH';
   static DB_ID_COUNT = 'db.ids_count';
