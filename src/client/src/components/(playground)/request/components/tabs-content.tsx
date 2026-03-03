@@ -9,11 +9,11 @@ export default function TabsContent({
 	dataKey: string;
 	dataValue: Record<string, any> | string[] | Record<string, any>[];
 }) {
-	return isArray(dataValue)
+	const content = isArray(dataValue)
 		? dataValue.map((datumValue, index) => (
-				<section key={`${dataKey}-${index}`}>
+				<section key={`${dataKey}-${index}`} className="flex flex-col">
 					{index !== 0 ? (
-						<div className="py-1 px-2 dark:bg-stone-800"></div>
+						<div className="h-px bg-stone-200 dark:bg-stone-700" />
 					) : null}
 					{isPlainObject(datumValue) ? (
 						objectEntries(datumValue).map(([key, value]) => (
@@ -31,4 +31,6 @@ export default function TabsContent({
 		: objectEntries(dataValue).map(([key, value]) => (
 				<ContentDataItem key={key} dataKey={key} dataValue={value} />
 		  ));
+
+	return <div className="flex flex-col">{content}</div>;
 }

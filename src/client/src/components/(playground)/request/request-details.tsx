@@ -245,12 +245,12 @@ export default function RequestDetails() {
 	return (
 		<Sheet open={isOpen}>
 			<SheetContent
-				className="max-w-none sm:max-w-none w-[55%] p-0 gap-0 flex flex-col border-l border-stone-200 dark:border-stone-800 top-[57px] h-auto focus-visible:outline-none"
+				className="max-w-none sm:max-w-none w-[55%] p-0 gap-0 flex flex-col border-l border-stone-200 dark:border-stone-800 top-2 bottom-2 h-auto focus-visible:outline-none"
 				displayOverlay={false}
 				displayClose={false}
 			>
-				<SheetHeader className="flex-row bg-stone-950 px-3 py-2 items-center space-y-0 gap-2 flex-wrap">
-					<SheetTitle className="text-stone-200 text-md font-bold leading-7 capitalize grow pr-1 truncate">
+				<SheetHeader className="flex-row bg-stone-100 dark:bg-stone-900 px-3 py-1.5 items-center space-y-0 gap-2 flex-wrap">
+					<SheetTitle className="text-stone-900 dark:text-stone-200 text-md font-bold leading-7 capitalize grow pr-1 truncate">
 						{!normalizedItem
 							? "Loading…"
 							: normalizedItem.spanName}
@@ -259,7 +259,7 @@ export default function RequestDetails() {
 						<>
 							<StatusBadge statusCode={normalizedItem.statusCode as string} />
 							{shortTraceId && (
-								<span className="text-xs text-stone-400 font-mono bg-stone-800 px-1.5 py-0.5 rounded">
+								<span className="text-xs text-stone-600 dark:text-stone-400 font-mono bg-stone-200 dark:bg-stone-800 px-1.5 py-0.5 rounded">
 									{shortTraceId}
 								</span>
 							)}
@@ -270,18 +270,18 @@ export default function RequestDetails() {
 							<button
 								onClick={navigatePrev}
 								disabled={currentIndex <= 0}
-								className="p-1 rounded text-stone-400 hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+								className="p-1 rounded text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 								title="Previous item"
 							>
 								<ChevronLeft className="h-4 w-4" />
 							</button>
-							<span className="text-xs text-stone-500 tabular-nums min-w-[3rem] text-center">
+							<span className="text-xs text-stone-600 dark:text-stone-500 tabular-nums min-w-[3rem] text-center">
 								{currentIndex + 1} / {items.length}
 							</span>
 							<button
 								onClick={navigateNext}
 								disabled={currentIndex >= items.length - 1}
-								className="p-1 rounded text-stone-400 hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+								className="p-1 rounded text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
 								title="Next item"
 							>
 								<ChevronRight className="h-4 w-4" />
@@ -289,7 +289,7 @@ export default function RequestDetails() {
 						</div>
 					)}
 					<X
-						className="text-stone-200 shrink-0 mt-0 space-y-0 cursor-pointer"
+						className="text-stone-800 dark:text-stone-200 shrink-0 mt-0 space-y-0 cursor-pointer"
 						onClick={onClose}
 					/>
 				</SheetHeader>

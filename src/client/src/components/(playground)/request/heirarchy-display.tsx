@@ -111,7 +111,7 @@ export function TreeNode({ span, level, isLast = false, parentPath = [] }: TreeN
 						className={`flex items-center justify-center w-5 h-5 rounded border
 							 ${isSelected
 								? "text-primary/[0.5] dark:text-primary/[0.5] border-primary/[0.5] dark:border-primary/[0.5]"
-								: "text-stone-400 dark:text-stone-700 border-stone-400 dark:border-stone-700 "
+								: "text-stone-400 dark:text-stone-700 border-stone-400 dark:border-stone-800 "
 							}
 							`}
 						aria-label={isExpanded ? 'Collapse' : 'Expand'}
@@ -219,12 +219,12 @@ export default function HeirarchyDisplay() {
 			minWidth={DEFAULT_WIDTH}
 			maxWidth={700}
 			handlePosition="left"
-			className="absolute left-0 top-0 -translate-x-full h-full bg-stone-100 dark:bg-stone-900 border border-stone-200 border-t-0 dark:border-stone-800 border-r-0 shadow-lg"
+			className="absolute left-0 top-0 -translate-x-full h-full bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 border-t-0  shadow-lg"
 		>
 			<Accordion type="single" collapsible className="flex flex-1 h-full" value={accordionValue}>
 				<AccordionItem value="debug" className="border-0 flex flex-1 w-full">
 					<AccordionTrigger
-						className="flex flex-col items-center gap-3 px-3 py-6 hover:no-underline hover:bg-stone-100 dark:hover:bg-stone-900 [&[data-state=open]]:bg-stone-100 dark:[&[data-state=open]]:bg-stone-900/50 [&[data-state=open]>svg]:rotate-90 [&[data-state=closed]>svg]:rotate-[-90deg] border-r border-stone-200 dark:border-stone-700 transition-colors"
+						className="flex flex-col items-center gap-3 px-3 py-6 hover:no-underline hover:bg-stone-100 dark:hover:bg-stone-900 [&[data-state=open]]:bg-stone-100 dark:[&[data-state=open]]:bg-stone-900/50 [&[data-state=open]>svg]:rotate-90 [&[data-state=closed]>svg]:rotate-[-90deg] border-r border-stone-200 dark:border-stone-800 transition-colors"
 						onClick={() => setAccordionValue(accordionValue === "debug" ? "" : "debug")}
 					>
 						<div className="flex flex-col items-center gap-3">
@@ -245,7 +245,7 @@ export default function HeirarchyDisplay() {
 					<AccordionContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down transition-all h-full pb-0" parentClassName="h-full w-full">
 						<div className="flex flex-col h-full">
 							{/* View mode tab strip */}
-							<div className="flex items-center gap-1 px-3 py-2 border-b border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900 shrink-0">
+							<div className="flex items-center gap-1 px-3 py-2 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900 shrink-0">
 								{VIEW_TABS.map(({ mode, icon, label }) => (
 									<button
 										key={mode}
@@ -263,7 +263,7 @@ export default function HeirarchyDisplay() {
 							</div>
 
 							{/* Header */}
-							<div className="px-3 pt-2 pb-1 shrink-0 border-b border-stone-200 dark:border-stone-700">
+							<div className="px-3 pt-2 pb-1 shrink-0 border-b border-stone-200 dark:border-stone-800">
 								<h3 className="text-sm font-semibold text-stone-900 dark:text-stone-100">
 									Trace Execution Flow
 								</h3>
