@@ -133,10 +133,9 @@ class BedrockWrapper extends BaseWrapper {
             OpenLitHelper.buildInputMessages(messages, systemText)
           );
           if (systemText) {
-            span.setAttribute(
-              SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-              JSON.stringify([{ type: 'text', content: systemText }])
-            );
+            const systemStr = JSON.stringify([{ type: 'text', content: systemText }]);
+            span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, systemStr);
+            span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS_OTEL, systemStr);
           }
           const outputText =
             response.output?.message?.content?.map((c: any) => c.text || '').join('') || '';
@@ -267,10 +266,9 @@ class BedrockWrapper extends BaseWrapper {
               OpenLitHelper.buildInputMessages(messages, systemText)
             );
             if (systemText) {
-              span.setAttribute(
-                SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS,
-                JSON.stringify([{ type: 'text', content: systemText }])
-              );
+              const systemStr = JSON.stringify([{ type: 'text', content: systemText }]);
+              span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, systemStr);
+              span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS_OTEL, systemStr);
             }
             span.setAttribute(
               SemanticConvention.GEN_AI_OUTPUT_MESSAGES,

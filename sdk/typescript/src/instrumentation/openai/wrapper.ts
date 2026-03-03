@@ -417,7 +417,9 @@ class OpenAIWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs);
       }
       if (toolTypes.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypes.join(', '));
+        const toolTypesStr = toolTypes.join(', ');
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
       }
     }
 
@@ -1090,7 +1092,7 @@ class OpenAIWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
 
     if (reasoning?.effort) {
-      span.setAttribute('gen_ai.request.reasoning_effort', reasoning.effort);
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_REASONING_EFFORT, reasoning.effort);
     }
 
     if (traceContent) {
@@ -1191,7 +1193,9 @@ class OpenAIWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs.join(', '));
       }
       if (toolTypes.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypes.join(', '));
+        const toolTypesStr = toolTypes.join(', ');
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
       }
     }
 

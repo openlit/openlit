@@ -1,5 +1,5 @@
 import OpenlitConfig from '../config';
-import { SDK_NAME, SDK_VERSION, TELEMETRY_SDK_NAME } from '../constant';
+import { SDK_NAME, SDK_VERSION } from '../constant';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import SemanticConvention from '../semantic-convention';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
@@ -30,12 +30,9 @@ export default class BaseWrapper {
       throw new Error("[Openlit] OpenlitConfig.environment is not set. Please check your configuration.");
     }
 
-    span.setAttributes({
-      [TELEMETRY_SDK_NAME]: SDK_NAME,
-    });
 
-    span.setAttribute(TELEMETRY_SDK_NAME, SDK_NAME);
     span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, aiSystem);
+    span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL, aiSystem);
     span.setAttribute(SemanticConvention.GEN_AI_ENDPOINT, genAIEndpoint);
     span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment);
     span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, applicationName);
@@ -63,10 +60,11 @@ export default class BaseWrapper {
 
     const inputTokens = BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS);
     const outputTokens = BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS);
-    const duration = BaseWrapper.getSpanAttribute(span, 'duration') ?? BaseWrapper.getSpanAttribute(span, 'gen_ai.duration');
+    const duration = BaseWrapper.getSpanAttribute(span, 'duration') ?? BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_DURATION_LEGACY);
     const attributes = {
       [ATTR_SERVICE_NAME]: applicationName,
       [SemanticConvention.GEN_AI_PROVIDER_NAME]: aiSystem,
+      [SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL]: aiSystem,
       [SemanticConvention.GEN_AI_ENDPOINT]: genAIEndpoint,
       [SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT]: environment,
       [SemanticConvention.GEN_AI_REQUEST_MODEL]: model,

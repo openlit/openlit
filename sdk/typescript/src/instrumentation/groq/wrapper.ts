@@ -369,7 +369,9 @@ class GroqWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs);
       }
       if (toolTypes.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypes.join(', '));
+        const toolTypesStr = toolTypes.join(', ');
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
       }
     }
 
