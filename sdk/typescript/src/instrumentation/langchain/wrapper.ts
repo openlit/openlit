@@ -104,6 +104,7 @@ class OpenLITCallbackHandler {
       );
 
       span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider);
+      span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL, provider);
       span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT);
       span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, OpenlitConfig.environment || '');
       span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, OpenlitConfig.applicationName || '');
@@ -286,6 +287,7 @@ class OpenLITCallbackHandler {
       );
 
       span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN);
+      span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL, SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN);
       span.setAttribute(SemanticConvention.GEN_AI_OPERATION, SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK);
       span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, OpenlitConfig.environment || '');
       span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, OpenlitConfig.applicationName || '');
