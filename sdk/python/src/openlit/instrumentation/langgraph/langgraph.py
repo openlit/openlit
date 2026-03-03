@@ -165,7 +165,9 @@ def _handle_stream(
             span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
             span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
             span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
-            span.set_attribute(SemanticConvention.GEN_AI_APPLICATION_NAME, application_name)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+            )
             span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
             span.set_attribute(SemanticConvention.LANGGRAPH_EXECUTION_MODE, "stream")
             span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True)
@@ -188,7 +190,9 @@ def _handle_stream(
                         content = get_message_content(msg)
                         role = get_message_role(msg)
                         if content:
-                            span.set_attribute(f"gen_ai.prompt.{i}.content", content[:500])
+                            span.set_attribute(
+                                f"gen_ai.prompt.{i}.content", content[:500]
+                            )
                             span.set_attribute(f"gen_ai.prompt.{i}.role", role)
 
             try:
@@ -217,8 +221,8 @@ def _handle_stream(
                                         content = get_message_content(msg)
                                         if content:
                                             execution_state["final_response"] = (
-                                                (execution_state["final_response"] or "") + content
-                                            )
+                                                execution_state["final_response"] or ""
+                                            ) + content
 
                     # Handle tuple format for some stream modes:
                     # - (node_name_str, value_dict) for stream_mode="updates" etc.
@@ -227,7 +231,11 @@ def _handle_stream(
                         if isinstance(chunk[0], str):
                             # Format: (node_name, value) — node_name is a plain string
                             node_name, value = chunk[0], chunk[1]
-                            if node_name not in ("__start__", "__end__", "__interrupt__"):
+                            if node_name not in (
+                                "__start__",
+                                "__end__",
+                                "__interrupt__",
+                            ):
                                 if node_name not in execution_state["executed_nodes"]:
                                     execution_state["executed_nodes"].append(node_name)
                             if isinstance(value, dict) and "messages" in value:
@@ -238,8 +246,8 @@ def _handle_stream(
                                         content = get_message_content(msg)
                                         if content:
                                             execution_state["final_response"] = (
-                                                (execution_state["final_response"] or "") + content
-                                            )
+                                                execution_state["final_response"] or ""
+                                            ) + content
                         else:
                             # Format: (message_object, metadata_dict) for stream_mode="messages"
                             # chunk[0] is a LangChain message (AIMessage, HumanMessage, etc.)
@@ -250,16 +258,18 @@ def _handle_stream(
                                 if (
                                     node_name
                                     and isinstance(node_name, str)
-                                    and node_name not in ("__start__", "__end__", "__interrupt__")
-                                    and node_name not in execution_state["executed_nodes"]
+                                    and node_name
+                                    not in ("__start__", "__end__", "__interrupt__")
+                                    and node_name
+                                    not in execution_state["executed_nodes"]
                                 ):
                                     execution_state["executed_nodes"].append(node_name)
                             execution_state["message_count"] += 1
                             content = get_message_content(message_obj)
                             if content:
                                 execution_state["final_response"] = (
-                                    (execution_state["final_response"] or "") + content
-                                )
+                                    execution_state["final_response"] or ""
+                                ) + content
 
                     yield chunk
 

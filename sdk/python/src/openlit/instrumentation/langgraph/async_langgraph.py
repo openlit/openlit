@@ -281,8 +281,8 @@ def _process_stream_chunk(chunk, execution_state, stream_mode):
                             content = get_message_content(msg)
                             if content:
                                 execution_state["final_response"] = (
-                                    (execution_state["final_response"] or "") + content
-                                )
+                                    execution_state["final_response"] or ""
+                                ) + content
                 elif key == "messages" and isinstance(chunk_value, list):
                     # Direct messages in chunk
                     execution_state["message_count"] += len(chunk_value)
@@ -290,8 +290,8 @@ def _process_stream_chunk(chunk, execution_state, stream_mode):
                         content = get_message_content(msg)
                         if content:
                             execution_state["final_response"] = (
-                                (execution_state["final_response"] or "") + content
-                            )
+                                execution_state["final_response"] or ""
+                            ) + content
 
         # Handle tuple format for some stream modes:
         # - (node_name_str, value_dict) for stream_mode="updates" etc.
@@ -311,8 +311,8 @@ def _process_stream_chunk(chunk, execution_state, stream_mode):
                             content = get_message_content(msg)
                             if content:
                                 execution_state["final_response"] = (
-                                    (execution_state["final_response"] or "") + content
-                                )
+                                    execution_state["final_response"] or ""
+                                ) + content
             else:
                 # Format: (message_object, metadata_dict) for stream_mode="messages"
                 # chunk[0] is a LangChain message (AIMessage, HumanMessage, etc.)
@@ -331,8 +331,8 @@ def _process_stream_chunk(chunk, execution_state, stream_mode):
                 content = get_message_content(message_obj)
                 if content:
                     execution_state["final_response"] = (
-                        (execution_state["final_response"] or "") + content
-                    )
+                        execution_state["final_response"] or ""
+                    ) + content
 
     except Exception:
         # Don't fail on chunk processing errors
