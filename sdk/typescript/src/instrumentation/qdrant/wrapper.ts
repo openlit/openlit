@@ -46,7 +46,7 @@ class QdrantWrapper extends BaseWrapper {
               span.setAttribute(SemanticConvention.DB_FILTER, JSON.stringify(params.filter));
             }
             if (params.with_payload !== undefined) {
-              span.setAttribute('db.with_payload', String(params.with_payload));
+              span.setAttribute(SemanticConvention.DB_WITH_PAYLOAD, String(params.with_payload));
             }
 
             const resultCount = Array.isArray(response) ? response.length : 0;

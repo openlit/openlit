@@ -50,7 +50,7 @@ class MilvusWrapper extends BaseWrapper {
               span.setAttribute(SemanticConvention.DB_FILTER, params.expr || params.filter);
             }
             if (params.output_fields) {
-              span.setAttribute('db.output_fields', JSON.stringify(params.output_fields));
+              span.setAttribute(SemanticConvention.DB_OUTPUT_FIELDS, JSON.stringify(params.output_fields));
             }
 
             const resultCount = response?.results?.length || 0;
@@ -218,7 +218,7 @@ class MilvusWrapper extends BaseWrapper {
               span.setAttribute(SemanticConvention.DB_QUERY_LIMIT, params.limit);
             }
             if (params.output_fields) {
-              span.setAttribute('db.output_fields', JSON.stringify(params.output_fields));
+              span.setAttribute(SemanticConvention.DB_OUTPUT_FIELDS, JSON.stringify(params.output_fields));
             }
 
             const resultCount = response?.data?.length || 0;
