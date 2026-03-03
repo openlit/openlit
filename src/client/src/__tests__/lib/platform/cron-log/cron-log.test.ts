@@ -68,6 +68,22 @@ describe('getCronLogs', () => {
     expect(countQuery).toContain("run_status = 'success'");
   });
 
+  it('adds startDate and endDate WHERE conditions when provided (covers lines 54-62)', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 2 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    const startDate = new Date('2024-01-01T00:00:00Z');
+    const endDate = new Date('2024-01-31T23:59:59Z');
+
+    await getCronLogs({ startDate, endDate } as any);
+
+    const { query: countQuery } = (dataCollector as jest.Mock).mock.calls[0][0];
+    expect(countQuery).toContain('parseDateTimeBestEffort');
+    expect(countQuery).toContain(startDate.toISOString());
+    expect(countQuery).toContain(endDate.toISOString());
+  });
+
   it('throws when count query errors', async () => {
     (dataCollector as jest.Mock).mockResolvedValueOnce({ data: null, err: 'DB error' });
     await expect(getCronLogs()).rejects.toBe('DB error');

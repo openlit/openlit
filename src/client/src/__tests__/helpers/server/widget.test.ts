@@ -1,7 +1,16 @@
+jest.mock('@/utils/sanitizer', () => ({
+  __esModule: true,
+  default: {
+    sanitizeObject: jest.fn((obj: any) => JSON.parse(JSON.stringify(obj))),
+  },
+}));
+
+import Sanitizer from '@/utils/sanitizer';
 import {
   escapeSingleQuotes,
   normalizeWidgetToServer,
   normalizeWidgetToClient,
+  sanitizeWidget,
   unsanitizeWidget,
 } from '@/helpers/server/widget';
 
@@ -127,5 +136,71 @@ describe('unsanitizeWidget', () => {
     const widget = { id: 'w1', config: 'SELECT 1 FROM table', properties: '' } as any;
     const result = unsanitizeWidget(widget);
     expect(result.config).toBe('SELECT 1 FROM table');
+  });
+});
+
+describe('sanitizeWidget', () => {
+  beforeEach(() => {
+    (Sanitizer.sanitizeObject as jest.Mock).mockImplementation((obj: any) =>
+      JSON.parse(JSON.stringify(obj))
+    );
+  });
+
+  it('calls Sanitizer.sanitizeObject with the widget', () => {
+    const widget = { id: 'w1', config: { query: 'SELECT 1' }, properties: {} } as any;
+    sanitizeWidget(widget);
+    expect(Sanitizer.sanitizeObject).toHaveBeenCalledWith(widget);
+  });
+
+  it('replaces double single-quotes with single quotes in query', () => {
+    const widget = { id: 'w1', config: { query: "it''s fine" }, properties: {} } as any;
+    const result = sanitizeWidget(widget);
+    expect(result.config.query).toContain("it's fine");
+  });
+
+  it('replaces escaped single-quotes with single quotes in query', () => {
+    const widget = { id: 'w1', config: { query: "it\\'s fine" }, properties: {} } as any;
+    const result = sanitizeWidget(widget);
+    expect(result.config.query).toContain("it's fine");
+  });
+
+  it('replaces escaped newlines with actual newlines in query', () => {
+    const widget = { id: 'w1', config: { query: 'line1\\nline2' }, properties: {} } as any;
+    const result = sanitizeWidget(widget);
+    expect(result.config.query).toBe('line1\nline2');
+  });
+
+  it('replaces escaped tabs with actual tabs in query', () => {
+    const widget = { id: 'w1', config: { query: 'col1\\tcol2' }, properties: {} } as any;
+    const result = sanitizeWidget(widget);
+    expect(result.config.query).toBe('col1\tcol2');
+  });
+
+  it('replaces double single-quotes with single quotes in content', () => {
+    const widget = { id: 'w1', config: { content: "it''s fine" }, properties: {} } as any;
+    const result = sanitizeWidget(widget);
+    expect(result.config.content).toContain("it's fine");
+  });
+
+  it('replaces escaped newlines and tabs in content', () => {
+    const widget = {
+      id: 'w1',
+      config: { content: 'line1\\nline2\\tend' },
+      properties: {},
+    } as any;
+    const result = sanitizeWidget(widget);
+    expect(result.config.content).toBe('line1\nline2\tend');
+  });
+
+  it('returns sanitized widget unchanged when config has no query or content', () => {
+    const widget = { id: 'w1', config: { title: 'test' }, properties: {} } as any;
+    const result = sanitizeWidget(widget);
+    expect(result.config.title).toBe('test');
+  });
+
+  it('returns sanitized widget unchanged when config is absent', () => {
+    const widget = { id: 'w1', properties: {} } as any;
+    const result = sanitizeWidget(widget);
+    expect(result).not.toHaveProperty('config');
   });
 });

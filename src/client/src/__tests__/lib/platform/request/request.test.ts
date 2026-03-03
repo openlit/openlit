@@ -103,6 +103,32 @@ describe('getRequests', () => {
     const { query } = (dataCollector as jest.Mock).mock.calls[1][0];
     expect(query).toContain('ORDER BY Timestamp ASC');
   });
+
+  it('applies toFloat64OrZero ORDER BY for cost sorting', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'gen_ai.usage.cost', direction: 'DESC' },
+    });
+    const { query } = (dataCollector as jest.Mock).mock.calls[1][0];
+    expect(query).toContain('toFloat64OrZero(gen_ai.usage.cost)');
+  });
+
+  it('applies toInt32OrZero ORDER BY for tokens sorting', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ total: 5 }], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getRequests({
+      ...baseParams,
+      sorting: { type: 'gen_ai.usage.prompt_tokens', direction: 'ASC' },
+    });
+    const { query } = (dataCollector as jest.Mock).mock.calls[1][0];
+    expect(query).toContain('toInt32OrZero(gen_ai.usage.prompt_tokens)');
+  });
 });
 
 describe('getRequestViaSpanId', () => {
@@ -134,6 +160,33 @@ describe('getHeirarchyViaSpanId', () => {
     (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
     const result = await getHeirarchyViaSpanId('span-1');
     expect(result.err).toBe('Error in fetching heirarchy');
+  });
+
+  it('executes downward query when upward span is found and returns hierarchy', async () => {
+    const rootSpan = { SpanId: 'root-span', ParentSpanId: '', TraceId: 't1' };
+    const childSpan = { SpanId: 'child-span', ParentSpanId: 'root-span', TraceId: 't1' };
+
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [rootSpan], err: null })   // upward query
+      .mockResolvedValueOnce({ data: [rootSpan, childSpan], err: null }); // downward query
+
+    const result = await getHeirarchyViaSpanId('child-span');
+    expect(dataCollector).toHaveBeenCalledTimes(2);
+    expect(result.err).toBeNull();
+    expect(result.record).toBeDefined();
+  });
+
+  it('returns hierarchy error when downward query returns empty data', async () => {
+    const rootSpan = { SpanId: 'root-span', ParentSpanId: '', TraceId: 't1' };
+
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [rootSpan], err: null })
+      .mockResolvedValueOnce({ data: [], err: 'DB error' });
+
+    const result = await getHeirarchyViaSpanId('child-span');
+    expect(dataCollector).toHaveBeenCalledTimes(2);
+    // err from downward query is propagated
+    expect(result.err).toBeTruthy();
   });
 });
 

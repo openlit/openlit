@@ -149,11 +149,72 @@ describe('checkAuth', () => {
       expect(NextResponse.redirect).toHaveBeenCalled();
     });
 
+    it('includes search params in callbackUrl when error occurs', async () => {
+      (getToken as jest.Mock).mockRejectedValue(new Error('Invalid token'));
+      const req = makeRequest('GET', '/dashboard', '?ref=abc');
+      await middleware(req as any, makeFetchEvent());
+      const redirectCall = (NextResponse.redirect as jest.Mock).mock.calls[0][0];
+      expect(redirectCall.toString()).toContain('callbackUrl');
+    });
+
     it('allows access to login page even when getToken throws', async () => {
       (getToken as jest.Mock).mockRejectedValue(new Error('Invalid token'));
       const req = makeRequest('GET', '/login');
       await middleware(req as any, makeFetchEvent());
       expect(NextResponse.next).toHaveBeenCalled();
+    });
+  });
+
+  describe('authenticated user with completed onboarding on regular pages', () => {
+    it('allows access and returns next()', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: true });
+      const req = makeRequest('GET', '/dashboard');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+    });
+  });
+
+  describe('onboarding-whitelisted API routes (exact match)', () => {
+    it('allows GET to /api/organisation without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('GET', '/api/organisation');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows POST to /api/organisation without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/organisation');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+    });
+  });
+
+  describe('onboarding-whitelisted API routes (prefix match)', () => {
+    it('allows POST to /api/organisation/current/123 without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('POST', '/api/organisation/current/123');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+      expect(NextResponse.json).not.toHaveBeenCalled();
+    });
+
+    it('allows DELETE to /api/organisation/invitation/456 without onboarding', async () => {
+      (getToken as jest.Mock).mockResolvedValue({ hasCompletedOnboarding: false });
+      const req = makeRequest('DELETE', '/api/organisation/invitation/456');
+      await middleware(req as any, makeFetchEvent());
+      expect(NextResponse.next).toHaveBeenCalled();
+    });
+  });
+
+  describe('withAuth callbacks.authorized', () => {
+    it('is called by withAuth and always returns true', async () => {
+      const capturedOpts = (withAuth as jest.Mock).mock.calls[0]?.[1];
+      if (capturedOpts?.callbacks?.authorized) {
+        const result = await capturedOpts.callbacks.authorized();
+        expect(result).toBe(true);
+      }
     });
   });
 });

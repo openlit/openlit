@@ -154,6 +154,24 @@ describe('useFetchWrapper', () => {
     expect(result.current.data).toEqual(mockData);
   });
 
+  it('handles thrown string error (covers line 54)', async () => {
+    mockGetData.mockRejectedValue('plain string error');
+    const failureCb = jest.fn();
+
+    const { result } = renderHook(() => useFetchWrapper());
+
+    await act(async () => {
+      await result.current.fireRequest({
+        url: '/api/test',
+        requestType: 'GET',
+        failureCb,
+      });
+    });
+
+    expect(result.current.error).toBeTruthy();
+    expect(failureCb).toHaveBeenCalled();
+  });
+
   it('resets error to null on new request', async () => {
     // First request fails
     mockGetData.mockRejectedValueOnce(new Error('fail'));

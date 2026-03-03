@@ -3,6 +3,9 @@ import {
   floatParser,
   getTraceMappingKeyFullPath,
   getExtraTabsContentTypes,
+  getNormalizedTraceAttribute,
+  normalizeTrace,
+  findSpanInHierarchyLodash,
 } from '@/helpers/client/trace';
 
 describe('integerParser', () => {
@@ -94,5 +97,133 @@ describe('getExtraTabsContentTypes', () => {
   it('returns empty array when type is undefined', () => {
     const trace = {} as any;
     expect(getExtraTabsContentTypes(trace)).toEqual([]);
+  });
+});
+
+describe('getNormalizedTraceAttribute', () => {
+  it('parses integer type attributes', () => {
+    // promptTokens has type: "integer"
+    const result = getNormalizedTraceAttribute('promptTokens', '100');
+    expect(result).toBe(100);
+  });
+
+  it('parses float type attributes', () => {
+    // requestDuration has type: "float" with offset: 10e-10
+    const result = getNormalizedTraceAttribute('requestDuration', '1.5');
+    expect(typeof result).toBe('string');
+    // result is (1.5 * 10e-10).toFixed(10) — a small number string
+    expect(parseFloat(result as string)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('parses round type attributes', () => {
+    // cost has type: "round"
+    const result = getNormalizedTraceAttribute('cost', 0.0012345);
+    expect(typeof result).toBe('string');
+  });
+
+  it('parses date type attributes', () => {
+    // time has type: "date"
+    const result = getNormalizedTraceAttribute('time', '2024-01-15T10:30:00.000Z');
+    expect(typeof result).toBe('string');
+    expect(result as string).toContain('2024');
+  });
+
+  it('returns string value for text type (no special type)', () => {
+    // provider has type: "string"
+    const result = getNormalizedTraceAttribute('provider', 'openai');
+    expect(result).toBe('openai');
+  });
+
+  it('returns defaultValue "-" when traceValue is falsy for a key with defaultValue', () => {
+    // cost has defaultValue: "-"
+    const result = getNormalizedTraceAttribute('cost', '');
+    expect(result).toBe('-');
+  });
+
+  it('returns defaultValue "-" when traceValue is null for a key with defaultValue', () => {
+    // promptTokens has defaultValue: "-"
+    const result = getNormalizedTraceAttribute('promptTokens', null);
+    expect(result).toBe('-');
+  });
+
+  it('returns undefined when traceValue is falsy for a key with no defaultValue', () => {
+    // provider has no defaultValue field
+    const result = getNormalizedTraceAttribute('provider', '');
+    expect(result).toBeUndefined();
+  });
+});
+
+describe('normalizeTrace', () => {
+  it('maps TraceRow fields to TransformedTraceRow', () => {
+    const trace = {
+      SpanId: 'span-1',
+      Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: {
+        'gen_ai.system': 'openai',
+        'gen_ai.request.model': 'gpt-4',
+        'gen_ai.usage.prompt_tokens': '100',
+        'gen_ai.usage.completion_tokens': '50',
+      },
+    } as any;
+
+    const result = normalizeTrace(trace);
+    expect(result).toHaveProperty('provider');
+    expect(result).toHaveProperty('model');
+    expect(result.provider).toBe('openai');
+    expect(result.model).toBe('gpt-4');
+  });
+
+  it('fills in defaultValues for missing attributes', () => {
+    const trace = {
+      SpanId: 'span-2',
+      Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: {},
+    } as any;
+
+    const result = normalizeTrace(trace);
+    // Keys with defaultValue get '-', keys without defaultValue get undefined
+    expect(result.cost).toBe('-');
+    expect(result.promptTokens).toBe('-');
+  });
+});
+
+describe('findSpanInHierarchyLodash', () => {
+  const hierarchy = {
+    SpanId: 'root',
+    children: [
+      {
+        SpanId: 'child-1',
+        children: [
+          { SpanId: 'grandchild-1', children: [] },
+        ],
+      },
+      { SpanId: 'child-2', children: [] },
+    ],
+  } as any;
+
+  it('finds the root span', () => {
+    const result = findSpanInHierarchyLodash(hierarchy, 'root');
+    expect(result?.SpanId).toBe('root');
+  });
+
+  it('finds a direct child span', () => {
+    const result = findSpanInHierarchyLodash(hierarchy, 'child-2');
+    expect(result?.SpanId).toBe('child-2');
+  });
+
+  it('finds a grandchild span', () => {
+    const result = findSpanInHierarchyLodash(hierarchy, 'grandchild-1');
+    expect(result).toBeDefined();
+  });
+
+  it('returns undefined when span not found', () => {
+    const result = findSpanInHierarchyLodash(hierarchy, 'nonexistent');
+    expect(result).toBeUndefined();
+  });
+
+  it('returns undefined for leaf node with no children', () => {
+    const leaf = { SpanId: 'leaf', children: [] } as any;
+    const result = findSpanInHierarchyLodash(leaf, 'other');
+    expect(result).toBeUndefined();
   });
 });

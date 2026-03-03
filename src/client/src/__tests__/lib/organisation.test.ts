@@ -190,6 +190,53 @@ describe('createOrganisation', () => {
       'Unable to generate a unique organisation slug'
     );
   });
+
+  it('migrates orphaned DB configs to new org on creation', async () => {
+    (prisma.organisation.create as jest.Mock).mockResolvedValue(mockOrg);
+    (prisma.organisationUser.create as jest.Mock).mockResolvedValue({});
+
+    // migrateUserConfigsToOrganisation: orphaned configs exist
+    (prisma.databaseConfigUser.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ databaseConfigId: 'cfg1' }])  // userConfigLinks
+      .mockResolvedValueOnce([{ userId: 'u3' }]);              // sharedUserLinks
+    (prisma.databaseConfig.updateMany as jest.Mock).mockResolvedValue({});
+
+    // For the shared user u3:
+    (prisma.organisationUser.findUnique as jest.Mock).mockResolvedValueOnce(null); // no existing membership
+    (prisma.organisationUser.findFirst as jest.Mock).mockResolvedValueOnce(null);  // no current org
+    // shareOrganisationDatabaseConfigs for u3: no configs in the org yet
+    (prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.user.update as jest.Mock).mockResolvedValue({});
+
+    const result = await createOrganisation('My Org');
+    expect(result).toBeDefined();
+    expect(prisma.databaseConfig.updateMany).toHaveBeenCalled();
+    expect(prisma.organisationUser.create).toHaveBeenCalledTimes(2); // owner + u3 member
+  });
+
+  it('updates existing membership when shared user has no current org', async () => {
+    (prisma.organisation.create as jest.Mock).mockResolvedValue(mockOrg);
+    (prisma.organisationUser.create as jest.Mock).mockResolvedValue({});
+
+    // migrateUserConfigsToOrganisation:
+    (prisma.databaseConfigUser.findMany as jest.Mock)
+      .mockResolvedValueOnce([{ databaseConfigId: 'cfg1' }])
+      .mockResolvedValueOnce([{ userId: 'u4' }]);
+    (prisma.databaseConfig.updateMany as jest.Mock).mockResolvedValue({});
+
+    // u4 already a member BUT has no current org
+    (prisma.organisationUser.findUnique as jest.Mock).mockResolvedValueOnce({ id: 'ou4' }); // existing membership
+    (prisma.organisationUser.findFirst as jest.Mock).mockResolvedValueOnce(null);  // no current org
+    (prisma.organisationUser.update as jest.Mock).mockResolvedValue({});
+    (prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.user.update as jest.Mock).mockResolvedValue({});
+
+    const result = await createOrganisation('My Org');
+    expect(result).toBeDefined();
+    expect(prisma.organisationUser.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { isCurrent: true } })
+    );
+  });
 });
 
 describe('getOrganisationsByUser', () => {
@@ -377,6 +424,13 @@ describe('inviteUserToOrganisation', () => {
     );
   });
 
+  it('throws when email is empty after trimming', async () => {
+    (prisma.organisationUser.findUnique as jest.Mock).mockResolvedValue({ role: 'owner' });
+    await expect(inviteUserToOrganisation('org1', '   ')).rejects.toThrow(
+      'Email cannot be empty'
+    );
+  });
+
   it('throws when email is invalid', async () => {
     (prisma.organisationUser.findUnique as jest.Mock).mockResolvedValue({ role: 'owner' });
     await expect(inviteUserToOrganisation('org1', 'not-an-email')).rejects.toThrow(
@@ -486,6 +540,58 @@ describe('acceptInvitation', () => {
       })
     );
     expect(prisma.organisationInvitedUser.delete).toHaveBeenCalled();
+  });
+
+  it('shares existing org database configs with new member on acceptance', async () => {
+    (prisma.organisationInvitedUser.findUnique as jest.Mock).mockResolvedValue({
+      id: 'inv2',
+      email: 'user@example.com',
+      organisationId: 'org1',
+    });
+    (prisma.organisationUser.create as jest.Mock).mockResolvedValue({});
+    (prisma.organisationInvitedUser.delete as jest.Mock).mockResolvedValue({});
+
+    // shareOrganisationDatabaseConfigs: returns configs to share
+    (prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([
+      { id: 'cfg1' },
+    ]);
+    // existingCurrentConfig → null (user has no current config in this org)
+    (prisma.databaseConfigUser.findFirst as jest.Mock).mockResolvedValue(null);
+    // existingAccess → null (user doesn't have access yet)
+    (prisma.databaseConfigUser.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.databaseConfigUser.create as jest.Mock).mockResolvedValue({});
+
+    const result = await acceptInvitation('inv2');
+    expect(result).toEqual({ success: true });
+    expect(prisma.databaseConfigUser.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ databaseConfigId: 'cfg1', userId: 'u1', isCurrent: true }),
+      })
+    );
+  });
+
+  it('does not assign isCurrent when user already has a current db config in org', async () => {
+    (prisma.organisationInvitedUser.findUnique as jest.Mock).mockResolvedValue({
+      id: 'inv3',
+      email: 'user@example.com',
+      organisationId: 'org1',
+    });
+    (prisma.organisationUser.create as jest.Mock).mockResolvedValue({});
+    (prisma.organisationInvitedUser.delete as jest.Mock).mockResolvedValue({});
+
+    (prisma.databaseConfig.findMany as jest.Mock).mockResolvedValue([{ id: 'cfg2' }]);
+    // existingCurrentConfig → already has a current one
+    (prisma.databaseConfigUser.findFirst as jest.Mock).mockResolvedValue({ id: 'existing-dcu' });
+    (prisma.databaseConfigUser.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.databaseConfigUser.create as jest.Mock).mockResolvedValue({});
+
+    const result = await acceptInvitation('inv3');
+    expect(result).toEqual({ success: true });
+    expect(prisma.databaseConfigUser.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ isCurrent: false }),
+      })
+    );
   });
 });
 
@@ -601,6 +707,70 @@ describe('removeUserFromOrganisation', () => {
     const result = await removeUserFromOrganisation('org1', 'u2');
     expect(result).toEqual({ success: true });
   });
+
+  it('throws when admin tries to remove another admin', async () => {
+    (prisma.organisation.findUnique as jest.Mock).mockResolvedValue({
+      id: 'org1',
+      createdByUserId: 'owner-id',
+    });
+    (prisma.organisationUser.findUnique as jest.Mock)
+      .mockResolvedValueOnce({ role: 'admin' })  // currentUserRole (getUserRoleInOrganisation)
+      .mockResolvedValueOnce({ role: 'admin' }); // targetUserRole (getUserRoleInOrganisation)
+
+    await expect(removeUserFromOrganisation('org1', 'u2')).rejects.toThrow(
+      'Cannot remove admin/owner'
+    );
+  });
+
+  it('throws when trying to remove the organisation creator', async () => {
+    (prisma.organisation.findUnique as jest.Mock).mockResolvedValue({
+      id: 'org1',
+      createdByUserId: 'creator-id',
+    });
+    (prisma.organisationUser.findUnique as jest.Mock)
+      .mockResolvedValueOnce({ role: 'owner' })   // currentUserRole
+      .mockResolvedValueOnce({ role: 'member' }); // targetUserRole
+
+    await expect(removeUserFromOrganisation('org1', 'creator-id')).rejects.toThrow(
+      'Cannot remove admin/owner'
+    );
+  });
+
+  it('sets another org as current when removing user from their current org', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u2', email: 'member@example.com' });
+    (prisma.organisation.findUnique as jest.Mock).mockResolvedValue({
+      id: 'org1',
+      createdByUserId: 'u1',
+    });
+    (prisma.organisationUser.findUnique as jest.Mock).mockResolvedValue({ isCurrent: true });
+    (prisma.databaseConfigUser.deleteMany as jest.Mock).mockResolvedValue({});
+    (prisma.organisationUser.delete as jest.Mock).mockResolvedValue({});
+    (prisma.organisationUser.findFirst as jest.Mock).mockResolvedValue({ id: 'ou3' });
+    (prisma.organisationUser.update as jest.Mock).mockResolvedValue({});
+
+    const result = await removeUserFromOrganisation('org1', 'u2');
+    expect(result).toEqual({ success: true });
+    expect(prisma.organisationUser.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { isCurrent: true } })
+    );
+  });
+
+  it('handles no remaining orgs after removing user from current org', async () => {
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: 'u2', email: 'member@example.com' });
+    (prisma.organisation.findUnique as jest.Mock).mockResolvedValue({
+      id: 'org1',
+      createdByUserId: 'u1',
+    });
+    (prisma.organisationUser.findUnique as jest.Mock).mockResolvedValue({ isCurrent: true });
+    (prisma.databaseConfigUser.deleteMany as jest.Mock).mockResolvedValue({});
+    (prisma.organisationUser.delete as jest.Mock).mockResolvedValue({});
+    (prisma.organisationUser.findFirst as jest.Mock).mockResolvedValue(null); // no remaining orgs
+
+    const result = await removeUserFromOrganisation('org1', 'u2');
+    expect(result).toEqual({ success: true });
+    // update should NOT have been called (no remaining org to set as current)
+    expect(prisma.organisationUser.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('getOrganisationMembers', () => {
@@ -670,6 +840,17 @@ describe('updateMemberRole', () => {
 
     const result = await updateMemberRole('org1', 'u2', 'admin');
     expect(result).toEqual({ success: true });
+  });
+
+  it('throws when admin tries to change role of another admin', async () => {
+    (prisma.organisation.findUnique as jest.Mock).mockResolvedValue(mockOrg);
+    (prisma.organisationUser.findUnique as jest.Mock)
+      .mockResolvedValueOnce({ role: 'admin' })  // currentUserRole (admin, not owner)
+      .mockResolvedValueOnce({ role: 'admin' }); // targetUserRole (also admin)
+
+    await expect(updateMemberRole('org1', 'u2', 'member')).rejects.toThrow(
+      'Cannot change admin role'
+    );
   });
 });
 

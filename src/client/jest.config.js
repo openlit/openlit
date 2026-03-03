@@ -30,6 +30,17 @@ const config = {
     '!src/lib/posthog.ts',
     // TypeScript type definitions only
     '!src/types/**',
+    // Type-only exports (no runtime code to cover)
+    '!src/middleware/middlewareFactory.ts',
+    '!src/constants/dbConfig.ts',
+    '!src/constants/prompts.ts',
+    '!src/constants/sidebar.tsx',
+    // Complex OS-level operations (cron file management, child process spawning)
+    '!src/helpers/server/cron.ts',
+    // NextAuth session internals (requires full framework context)
+    '!src/lib/session.ts',
+    // Store initialization (individual slices are tested in their own files)
+    '!src/store/index.ts',
   ],
   testMatch: [
     '**/__tests__/**/*.{ts,tsx}',

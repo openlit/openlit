@@ -1,8 +1,14 @@
+jest.mock('@/store', () => ({
+  useRootStore: jest.fn(),
+}));
+
 import {
   getDashboardType,
   getVisibilityColumnsOfPage,
   setPageData,
+  usePageHeader,
 } from '@/selectors/page';
+import { useRootStore } from '@/store';
 
 const makeState = (overrides: Record<string, any> = {}) =>
   ({
@@ -58,5 +64,19 @@ describe('setPageData', () => {
   it('returns the setData function from state', () => {
     const state = makeState();
     expect(setPageData(state)).toBe(state.page.setData);
+  });
+});
+
+describe('usePageHeader', () => {
+  it('calls useRootStore twice and returns header and setHeader', () => {
+    const mockHeader = { title: 'Dashboard', breadcrumbs: [] };
+    const mockSetHeader = jest.fn();
+    (useRootStore as jest.Mock)
+      .mockReturnValueOnce(mockHeader)
+      .mockReturnValueOnce(mockSetHeader);
+    const result = usePageHeader();
+    expect(result.header).toBe(mockHeader);
+    expect(result.setHeader).toBe(mockSetHeader);
+    expect(useRootStore).toHaveBeenCalledTimes(2);
   });
 });

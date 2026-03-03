@@ -30,6 +30,21 @@ describe('extractRouteParams', () => {
     );
     expect(result.id).toBe('some-run');
   });
+
+  it('extracts uuid when regex source contains escaped brackets (\\[0-9a-f\\])', () => {
+    // Use a regex whose .source includes \[0-9a-f\] to trigger the UUID extraction branch
+    const regex = new RegExp('.+\\[0-9a-f\\].+');
+    const pathname = '/d/[0-9a-f]/123e4567-e89b-12d3-a456-426614174000';
+    const result = extractRouteParams(pathname, regex);
+    expect(result.id).toBe('123e4567-e89b-12d3-a456-426614174000');
+  });
+
+  it('returns empty id when regex source has escaped brackets but pathname has no UUID', () => {
+    const regex = new RegExp('.+\\[0-9a-f\\].+');
+    const pathname = '/d/[0-9a-f]/no-uuid-here';
+    const result = extractRouteParams(pathname, regex);
+    expect(result.id).toBeUndefined();
+  });
 });
 
 describe('generatePageHeader', () => {
@@ -110,6 +125,72 @@ describe('generatePageHeader', () => {
       title: 'Settings',
       href: '/settings',
     });
+  });
+
+  it('generates breadcrumbs for /dashboards/board', () => {
+    const header = generatePageHeader('/dashboards/board');
+    expect(header.title).toBe('Board');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Dashboards', href: '/dashboards' });
+  });
+
+  it('generates breadcrumbs for /dashboards/explorer', () => {
+    const header = generatePageHeader('/dashboards/explorer');
+    expect(header.title).toBe('Explorer');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Dashboards', href: '/dashboards' });
+  });
+
+  it('generates breadcrumbs for /dashboards/widget', () => {
+    const header = generatePageHeader('/dashboards/widget');
+    expect(header.title).toBe('Widget');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Dashboards', href: '/dashboards' });
+  });
+
+  it('generates correct header for /openground', () => {
+    const header = generatePageHeader('/openground');
+    expect(header.title).toBe('Openground');
+    expect(header.breadcrumbs).toEqual([]);
+  });
+
+  it('generates correct title for /openground/new', () => {
+    const header = generatePageHeader('/openground/new');
+    expect(typeof header.title).toBe('string');
+    expect(header.breadcrumbs.length).toBeGreaterThan(0);
+  });
+
+  it('generates correct title for /openground/models', () => {
+    const header = generatePageHeader('/openground/models');
+    expect(typeof header.title).toBe('string');
+    expect(header.breadcrumbs.length).toBeGreaterThan(0);
+  });
+
+  it('generates title for /openground/:id (non-special path)', () => {
+    const header = generatePageHeader('/openground/run-123');
+    expect(typeof header.title).toBe('string');
+    expect(header.breadcrumbs.length).toBeGreaterThan(0);
+  });
+
+  it('generates correct header for /settings', () => {
+    const header = generatePageHeader('/settings');
+    expect(header.title).toBe('Settings');
+    expect(header.breadcrumbs).toEqual([]);
+  });
+
+  it('generates breadcrumbs for /settings/evaluation', () => {
+    const header = generatePageHeader('/settings/evaluation');
+    expect(header.title).toBe('Evaluation Settings');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/settings' });
+  });
+
+  it('generates breadcrumbs for /settings/database-config', () => {
+    const header = generatePageHeader('/settings/database-config');
+    expect(header.title).toBe('Database Config');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Settings', href: '/settings' });
+  });
+
+  it('generates breadcrumbs for /fleet-hub/:id', () => {
+    const header = generatePageHeader('/fleet-hub/agent-1');
+    expect(header.title).toBe('Fleet Hub');
+    expect(header.breadcrumbs).toContainEqual({ title: 'Fleet Hub', href: '/fleet-hub' });
   });
 
   it('falls back gracefully for unknown routes', () => {

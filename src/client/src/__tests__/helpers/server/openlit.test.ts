@@ -152,6 +152,12 @@ describe('OpenLitHelper', () => {
       const cost = OpenLitHelper.getAudioModelCost('unknown-tts', 'hello');
       expect(Number.isNaN(cost)).toBe(true);
     });
+
+    it('returns 0 and logs error when pricingInfo is null (covers catch block lines 72-74)', () => {
+      OpenLitHelper.pricingInfo = null;
+      const cost = OpenLitHelper.getAudioModelCost('tts-1', 'hello');
+      expect(cost).toBe(0);
+    });
   });
 
   describe('fetchPricingInfo', () => {

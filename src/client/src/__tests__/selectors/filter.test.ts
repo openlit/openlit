@@ -1,9 +1,15 @@
+jest.mock('@/store', () => ({
+  useRootStore: jest.fn(),
+}));
+
 import {
   getFilterDetails,
   getUpdateFilter,
   getFilterConfig,
   getUpdateConfig,
+  useFilters,
 } from '@/selectors/filter';
+import { useRootStore } from '@/store';
 
 const mockFilterDetails = {
   timeLimit: { type: '24H', start: new Date(), end: new Date() },
@@ -64,5 +70,21 @@ describe('getUpdateConfig', () => {
   it('returns the updateConfig function from state', () => {
     const state = makeState();
     expect(getUpdateConfig(state)).toBe(state.filter.updateConfig);
+  });
+});
+
+describe('useFilters', () => {
+  it('calls useRootStore and returns filter slice', () => {
+    const mockFilter = {
+      details: mockFilterDetails,
+      config: undefined,
+      updateFilter: jest.fn(),
+      updateConfig: jest.fn(),
+    };
+    (useRootStore as jest.Mock).mockImplementation((selector: (s: any) => any) => {
+      return selector({ filter: mockFilter });
+    });
+    const result = useFilters();
+    expect(result).toBe(mockFilter);
   });
 });

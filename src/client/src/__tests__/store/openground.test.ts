@@ -199,4 +199,30 @@ describe('opengroundStoreSlice', () => {
       expect(evaluatedResponse.isLoading).toBe(false);
     });
   });
+
+  describe('loadAvailableProviders', () => {
+    it('updates availableProviders when fetch succeeds', async () => {
+      const providers = [{ name: 'openai' }, { name: 'anthropic' }];
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(providers),
+      });
+      await store.getState().openground.loadAvailableProviders();
+      expect(store.getState().openground.availableProviders).toEqual(providers);
+    });
+
+    it('does not update availableProviders when fetch returns ok=false', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false });
+      await store.getState().openground.loadAvailableProviders();
+      expect(store.getState().openground.availableProviders).toEqual([]);
+    });
+
+    it('handles fetch network error gracefully', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+      await expect(
+        store.getState().openground.loadAvailableProviders()
+      ).resolves.toBeUndefined();
+      expect(store.getState().openground.availableProviders).toEqual([]);
+    });
+  });
 });

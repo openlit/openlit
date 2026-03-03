@@ -36,6 +36,12 @@ describe('dataCollector', () => {
       expect(result.err).toBe('Connection error');
       expect(result.data).toEqual([]);
     });
+
+    it('uses getDBConfigById when dbConfigId is provided', async () => {
+      (asaw as jest.Mock).mockResolvedValue(['DB config error', null]);
+      const result = await dataCollector({ query: 'SELECT 1' }, 'query', 'db-config-id');
+      expect(result.err).toBe('DB config error');
+    });
   });
 
   describe('query mode', () => {
@@ -73,6 +79,50 @@ describe('dataCollector', () => {
       const result = await dataCollector({ query: 'SELECT 1' });
       expect(result.err).toBe('acquire failed');
     });
+
+    it('executes query and returns json data on success', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      const mockResultObj = { json: jest.fn() };
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])    // getDBConfigByUser
+        .mockResolvedValueOnce([null, mockClient])      // pool.acquire
+        .mockResolvedValueOnce([null, mockResultObj])   // client.query
+        .mockResolvedValueOnce([null, [{ col: 1 }]]);   // result.json
+
+      const result = await dataCollector({ query: 'SELECT 1' });
+      expect(result.data).toEqual([{ col: 1 }]);
+      expect(result.err).toBeNull();
+    });
+
+    it('applies readonly setting when enable_readonly is true', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      const mockResultObj = { json: jest.fn() };
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce([null, mockResultObj])
+        .mockResolvedValueOnce([null, []]);
+
+      const result = await dataCollector({ query: 'SELECT 1', enable_readonly: true });
+      expect(result.data).toEqual([]);
+    });
+
+    it('returns error fallback when client.query call fails', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce(['query failed', null]); // client.query fails, result is null
+
+      const result = await dataCollector({ query: 'SELECT 1' });
+      expect(result.err).toBeTruthy();
+    });
   });
 
   describe('insert mode', () => {
@@ -86,6 +136,33 @@ describe('dataCollector', () => {
 
       const result = await dataCollector({ values: [{ col: 1 }] }, 'insert');
       expect(result.err).toBe('No table specified!');
+    });
+
+    it('performs insert and returns data on success', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      const insertResult = { query_id: 'qid-123' };
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce([null, insertResult]); // client.insert succeeds
+
+      const result = await dataCollector({ table: 'test_table', values: [{ col: 1 }] }, 'insert');
+      expect(result.data).toBe(insertResult);
+    });
+
+    it('returns error fallback when insert fails', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce(['insert failed', null]);
+
+      const result = await dataCollector({ table: 'test_table', values: [{ col: 1 }] }, 'insert');
+      expect(result.err).toBeTruthy();
     });
   });
 
@@ -101,6 +178,33 @@ describe('dataCollector', () => {
       const result = await dataCollector({}, 'exec');
       expect(result.err).toBe('No query specified!');
     });
+
+    it('performs exec and returns data on success', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      const execResult = { query_id: 'exec-qid' };
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce([null, execResult]);
+
+      const result = await dataCollector({ query: 'CREATE TABLE t (c UInt8)' }, 'exec');
+      expect(result.data).toBe(execResult);
+    });
+
+    it('returns error fallback when exec fails', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce(['exec failed', null]);
+
+      const result = await dataCollector({ query: 'CREATE TABLE t (c UInt8)' }, 'exec');
+      expect(result.err).toBeTruthy();
+    });
   });
 
   describe('command mode', () => {
@@ -114,6 +218,32 @@ describe('dataCollector', () => {
 
       const result = await dataCollector({}, 'command');
       expect(result.err).toBe('No query specified!');
+    });
+
+    it('returns success message when command result has query_id', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce([null, { query_id: 'cmd-qid' }]);
+
+      const result = await dataCollector({ query: 'DROP TABLE IF EXISTS t' }, 'command');
+      expect(result.data).toBe('Query executed successfully!');
+    });
+
+    it('returns error fallback when command result has no query_id', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce([null, {}]); // no query_id
+
+      const result = await dataCollector({ query: 'DROP TABLE IF EXISTS t' }, 'command');
+      expect(result.err).toBeTruthy();
     });
   });
 
