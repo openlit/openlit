@@ -96,12 +96,23 @@ class AgnoInstrumentor(BaseInstrumentor):
         # Patch OpenTelemetry's context detach to suppress benign errors in async/threaded scenarios
         self._patch_otel_context_detach()
 
+        # Detect agno version for method name compatibility.
+        # agno < 2.5.3 used private methods (_run, _arun, _arun_stream, _run_tool).
+        # agno >= 2.5.3 replaced them with public methods (run, arun) and removed _run_tool.
+        try:
+            from agno.agent.agent import Agent as _AgnoAgent
+        except ImportError:
+            _AgnoAgent = None
+
+        _has_private_run = _AgnoAgent is not None and hasattr(_AgnoAgent, "_run")
+
         # Workflow Operations (Always Instrumented)
+        _run_method = "_run" if _has_private_run else "run"
         wrap_function_wrapper(
             "agno.agent.agent",
-            "Agent._run",
+            f"Agent.{_run_method}",
             agent_run_wrap(
-                "agent._run",
+                f"agent.{_run_method}",
                 version,
                 environment,
                 application_name,
@@ -129,29 +140,32 @@ class AgnoInstrumentor(BaseInstrumentor):
             ),
         )
 
-        # CRITICAL: Agent._run_tool is the bridge between agent and tool execution
-        wrap_function_wrapper(
-            "agno.agent.agent",
-            "Agent._run_tool",
-            agent_run_tool_wrap(
-                "agent._run_tool",
-                version,
-                environment,
-                application_name,
-                tracer,
-                pricing_info,
-                capture_message_content,
-                metrics,
-                disable_metrics,
-            ),
-        )
+        # CRITICAL: Agent._run_tool is the bridge between agent and tool execution.
+        # Removed in agno >= 2.5.3 — only wrap if it exists.
+        if _AgnoAgent is not None and hasattr(_AgnoAgent, "_run_tool"):
+            wrap_function_wrapper(
+                "agno.agent.agent",
+                "Agent._run_tool",
+                agent_run_tool_wrap(
+                    "agent._run_tool",
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
+            )
 
         # Async Operations
+        _arun_method = "_arun" if _has_private_run else "arun"
         wrap_function_wrapper(
             "agno.agent.agent",
-            "Agent._arun",
+            f"Agent.{_arun_method}",
             async_agent_run_wrap(
-                "agent._arun",
+                f"agent.{_arun_method}",
                 version,
                 environment,
                 application_name,
@@ -163,21 +177,23 @@ class AgnoInstrumentor(BaseInstrumentor):
             ),
         )
 
-        wrap_function_wrapper(
-            "agno.agent.agent",
-            "Agent._arun_stream",
-            async_agent_run_stream_wrap(
-                "agent._arun_stream",
-                version,
-                environment,
-                application_name,
-                tracer,
-                pricing_info,
-                capture_message_content,
-                metrics,
-                disable_metrics,
-            ),
-        )
+        # Agent._arun_stream removed in agno >= 2.5.3 (streaming merged into arun).
+        if _AgnoAgent is not None and hasattr(_AgnoAgent, "_arun_stream"):
+            wrap_function_wrapper(
+                "agno.agent.agent",
+                "Agent._arun_stream",
+                async_agent_run_stream_wrap(
+                    "agent._arun_stream",
+                    version,
+                    environment,
+                    application_name,
+                    tracer,
+                    pricing_info,
+                    capture_message_content,
+                    metrics,
+                    disable_metrics,
+                ),
+            )
 
         wrap_function_wrapper(
             "agno.agent.agent",
