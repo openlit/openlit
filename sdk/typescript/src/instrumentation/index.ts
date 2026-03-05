@@ -15,6 +15,11 @@ import LangChainInstrumentation from './langchain';
 import PineconeInstrumentation from './pinecone';
 import BedrockInstrumentation from './bedrock';
 import LlamaIndexInstrumentation from './llamaindex';
+import HuggingFaceInstrumentation from './huggingface';
+import ReplicateInstrumentation from './replicate';
+import ChromaInstrumentation from './chroma';
+import QdrantInstrumentation from './qdrant';
+import MilvusInstrumentation from './milvus';
 
 export default class Instrumentations {
   static availableInstrumentations: OpenlitInstrumentations = {
@@ -31,6 +36,11 @@ export default class Instrumentations {
     pinecone: new PineconeInstrumentation(),
     bedrock: new BedrockInstrumentation(),
     llamaindex: new LlamaIndexInstrumentation(),
+    huggingface: new HuggingFaceInstrumentation(),
+    replicate: new ReplicateInstrumentation(),
+    chroma: new ChromaInstrumentation(),
+    qdrant: new QdrantInstrumentation(),
+    milvus: new MilvusInstrumentation(),
   };
 
   static setup(

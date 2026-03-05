@@ -261,7 +261,7 @@ class MistralWrapper extends BaseWrapper {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, user);
     }
     if (safe_prompt !== undefined) {
-      span.setAttribute('gen_ai.request.safe_prompt', safe_prompt);
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_SAFE_PROMPT, safe_prompt);
     }
 
     if (traceContent) {
@@ -347,7 +347,9 @@ class MistralWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs);
       }
       if (toolTypes.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypes.join(', '));
+        const toolTypesStr = toolTypes.join(', ');
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
       }
     }
 

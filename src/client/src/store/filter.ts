@@ -2,6 +2,7 @@ import { merge, set } from "lodash";
 import { addDays, addMonths, addWeeks } from "date-fns";
 import { lens } from "@dhmk/zustand-lens";
 import {
+	AttributeKeys,
 	FilterConfig,
 	FilterSorting,
 	FilterStore,
@@ -126,7 +127,7 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 			details: {
 				...merge(getStore().details, object),
 				selectedConfig:
-					resetConfig || extraParams?.clearFilter
+					extraParams?.clearFilter
 						? {}
 						: object.selectedConfig
 						? object.selectedConfig
@@ -137,5 +138,8 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 	},
 	updateConfig: (config: FilterConfig) => {
 		setStore({ config });
+	},
+	updateAttributeKeys: (attributeKeys: AttributeKeys) => {
+		setStore({ attributeKeys });
 	},
 }));

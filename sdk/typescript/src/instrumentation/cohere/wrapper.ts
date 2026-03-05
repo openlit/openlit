@@ -2,7 +2,6 @@ import { Span, SpanKind, Tracer, context, trace } from '@opentelemetry/api';
 import OpenlitConfig from '../../config';
 import OpenLitHelper from '../../helpers';
 import SemanticConvention from '../../semantic-convention';
-import { SDK_NAME, TELEMETRY_SDK_NAME } from '../../constant';
 import BaseWrapper from '../base-wrapper';
 
 export default class CohereWrapper extends BaseWrapper {
@@ -19,10 +18,6 @@ export default class CohereWrapper extends BaseWrapper {
         return context.with(trace.setSpan(context.active(), span), async () => {
           try {
             const response = await originalMethod.apply(this, args);
-            span.setAttributes({
-              [TELEMETRY_SDK_NAME]: SDK_NAME,
-            });
-
             const model = response.model || 'embed-english-v2.0';
             const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
             const cost = OpenLitHelper.getEmbedModelCost(

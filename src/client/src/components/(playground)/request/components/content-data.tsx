@@ -9,19 +9,15 @@ export default function ContentDataItem({
 	dataValue?: string;
 }) {
 	return (
-		<div
-			className={`grid ${
-				dataValue ? "grid-cols-2" : ""
-			} px-4 py-2 group cursor-pointer dark:bg-stone-700 dark:border-stone-800 dark:last:border-stone-800 odd:bg-stone-200/[0.4] even:bg-stone-200/[0.8] dark:odd:bg-stone-700/[0.4] dark:even:bg-stone-700/[0.8]`}
-		>
-			<div className="break-all pr-2 text-stone-500 dark:text-stone-300">
+		<div className="flex items-start gap-3 px-4 py-2 border-b border-stone-100 dark:border-stone-800/60 last:border-0 hover:bg-stone-50 dark:hover:bg-stone-800/30 transition-colors">
+			<span className="w-44 shrink-0 text-xs text-stone-500 dark:text-stone-400 pt-px leading-relaxed">
 				{dataKey}
-			</div>
-			{!(isNil(dataValue) || dataValue === "") && (
-				<div className="break-all pl-2 group-hover:text-stone-950  dark:group-hover:text-stone-100">
+			</span>
+			{!(isNil(dataValue) || dataValue === "") ? (
+				<span className="text-xs text-stone-800 dark:text-stone-200 break-all leading-relaxed flex-1 min-w-0">
 					<JsonViewer value={dataValue} />
-				</div>
-			)}
+				</span>
+			) : null}
 		</div>
 	);
 }

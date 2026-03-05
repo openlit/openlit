@@ -39,7 +39,7 @@ def async_agent_run_wrap(
     Wrap Agno Agent.arun method with comprehensive async instrumentation using process functions only.
     """
 
-    async def wrapper(wrapped, instance, args, kwargs):
+    def wrapper(wrapped, instance, args, kwargs):
         # Extract agent name for span naming with fallback to agent_id
         agent_name = (
             getattr(instance, "name", None)
@@ -48,18 +48,145 @@ def async_agent_run_wrap(
         )
         span_name = f"agent {agent_name}"
 
-        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-            start_time = time.time()
-            response = await wrapped(*args, **kwargs)
+        # agno >= 2.5.3: Agent.arun(stream=True) returns an async generator directly,
+        # not a coroutine. We use a plain def wrapper (not async def) so we can return
+        # either an async gen or a coroutine transparently — an async def wrapper always
+        # wraps its return value inside a new coroutine, breaking the async gen path.
+        if kwargs.get("stream", False):
+            return _arun_stream_wrapper(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                span_name,
+                tracer,
+                pricing_info,
+                environment,
+                application_name,
+                metrics,
+                capture_message_content,
+                disable_metrics,
+                version,
+            )
 
+        # Non-streaming: return the coroutine from the inner async function directly.
+        return _arun_wrapper(
+            wrapped,
+            instance,
+            args,
+            kwargs,
+            span_name,
+            tracer,
+            pricing_info,
+            environment,
+            application_name,
+            metrics,
+            capture_message_content,
+            disable_metrics,
+            version,
+        )
+
+    return wrapper
+
+
+async def _arun_wrapper(
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    span_name,
+    tracer,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+):
+    """Coroutine helper for the non-streaming Agent.arun path."""
+    with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+        start_time = time.time()
+        response = await wrapped(*args, **kwargs)
+        try:
+            process_agent_request(
+                span,
+                instance,
+                args,
+                kwargs,
+                response,
+                start_time,
+                pricing_info,
+                environment,
+                application_name,
+                metrics,
+                capture_message_content,
+                disable_metrics,
+                version,
+                SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
+            )
+            span.set_status(Status(StatusCode.OK))
+        except Exception as e:
+            handle_exception(span, e)
+            logger.error("Error in async agent.arun trace creation: %s", e)
+        return response
+
+
+async def _arun_stream_wrapper(
+    wrapped,
+    instance,
+    args,
+    kwargs,
+    span_name,
+    tracer,
+    pricing_info,
+    environment,
+    application_name,
+    metrics,
+    capture_message_content,
+    disable_metrics,
+    version,
+):
+    """
+    Async generator wrapper for Agent.arun(stream=True).
+    Keeps the span open for the full duration of iteration.
+    """
+    with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+        start_time = time.time()
+        final_response = None
+        try:
             try:
-                # Process request using utils function with ALL attributes from semcov
+                from agno.run.agent import RunOutput  # noqa: WPS433
+            except Exception:
+                RunOutput = None
+            yield_run_output = kwargs.get("yield_run_output", None) or kwargs.get(
+                "yield_run_response", None
+            )
+            new_kwargs = dict(kwargs)
+            new_kwargs["yield_run_output"] = True
+            async for response in wrapped(*args, **new_kwargs):
+                if RunOutput and isinstance(response, RunOutput):
+                    final_response = response
+                    if yield_run_output:
+                        yield response
+                else:
+                    yield response
+            if not RunOutput:
+                final_response = getattr(instance, "run_response", None)
+        except GeneratorExit:
+            pass
+        except Exception as e:
+            handle_exception(span, e)
+            logger.error("Error in async agent.arun stream: %s", e)
+            raise
+        finally:
+            try:
                 process_agent_request(
                     span,
                     instance,
                     args,
                     kwargs,
-                    response,
+                    final_response,
                     start_time,
                     pricing_info,
                     environment,
@@ -70,18 +197,10 @@ def async_agent_run_wrap(
                     version,
                     SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT,
                 )
-
-                # Mark span as successful
                 span.set_status(Status(StatusCode.OK))
-
             except Exception as e:
-                # Handle instrumentation exceptions - log but don't raise
                 handle_exception(span, e)
-                logger.error("Error in async agent.arun trace creation: %s", e)
-
-            return response
-
-    return wrapper
+                logger.error("Error in async agent.arun stream telemetry: %s", e)
 
 
 def async_agent_continue_run_wrap(
