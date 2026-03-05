@@ -78,6 +78,24 @@ describe('updateAgentConfig', () => {
     expect(result.err).toContain('Invalid config');
     expect(result.status).toBe(400);
   });
+
+  it('uses "Failed to save configuration" fallback when err has no message', async () => {
+    const errWithoutMessage = {};
+    (asaw as jest.Mock).mockResolvedValue([errWithoutMessage, null]);
+
+    const result = await updateAgentConfig('agent-1', '{}');
+    expect(result.err).toBe('Failed to save configuration');
+    expect(result.status).toBe(500);
+  });
+
+  it('uses HTTP status fallback when errorText is empty', async () => {
+    const mockResponse = { ok: false, status: 503, statusText: 'Service Unavailable', text: jest.fn().mockResolvedValue('') };
+    (asaw as jest.Mock).mockResolvedValue([null, mockResponse]);
+
+    const result = await updateAgentConfig('agent-1', '{}');
+    expect(result.err).toContain('503');
+    expect(result.status).toBe(503);
+  });
 });
 
 describe('updateTlsConnection', () => {

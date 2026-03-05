@@ -130,6 +130,22 @@ describe('upsertPromptVersion', () => {
       upsertPromptVersion({ promptId: 'p1' } as any)
     ).rejects.toThrow();
   });
+
+  it('uses versionErr.toString() in error message when versionErr is a string (covers line 73)', async () => {
+    // versionErr is a string → typeof versionErr?.toString === "function" → true → versionErr.toString() called
+    (dataCollector as jest.Mock).mockResolvedValue({ err: 'Version DB error', data: null });
+    await expect(
+      upsertPromptVersion({ promptId: 'p1' } as any)
+    ).rejects.toThrow('Version DB error');
+  });
+
+  it('uses versionErr.toString() in error message when versionErr is an Error object (covers line 73)', async () => {
+    const err = new Error('Version object error');
+    (dataCollector as jest.Mock).mockResolvedValue({ err, data: null });
+    await expect(
+      upsertPromptVersion({ promptId: 'p1' } as any)
+    ).rejects.toThrow('Version object error');
+  });
 });
 
 describe('updateDownloadDetails', () => {
@@ -149,6 +165,16 @@ describe('updateDownloadDetails', () => {
 
   it('returns true even when dataCollector fails (just logs)', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ err: 'DB error', data: null });
+    const result = await updateDownloadDetails({
+      promptId: 'p1',
+      versionId: 'v1',
+    } as any);
+    expect(result).toBe(true);
+  });
+
+  it('logs DOWNLOAD_INFO_NOT_SAVED when err is null but data has no query_id (covers line 105 fallback)', async () => {
+    // err is falsy, data is null → err || getMessage().DOWNLOAD_INFO_NOT_SAVED
+    (dataCollector as jest.Mock).mockResolvedValue({ err: null, data: null });
     const result = await updateDownloadDetails({
       promptId: 'p1',
       versionId: 'v1',

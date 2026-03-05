@@ -268,6 +268,15 @@ describe('upsertDBConfig', () => {
     (asaw as jest.Mock).mockResolvedValueOnce([new Error('DB error'), null]);
     await expect(upsertDBConfig(validConfig)).rejects.toThrow('DB error');
   });
+
+  it('throws when user lacks edit permission (covers line 509 in checkPermissionForDbAction)', async () => {
+    // checkPermissionForDbAction(userId, id, "EDIT") internally calls asaw(prisma.findFirst)
+    // mock that inner asaw to return a config with canEdit=false
+    (asaw as jest.Mock).mockResolvedValueOnce([null, { canEdit: false, canDelete: true, canShare: true }]);
+    await expect(upsertDBConfig(validConfig, 'db1')).rejects.toThrow(
+      "User doesn't have permission to edit the database config"
+    );
+  });
 });
 
 describe('deleteDBConfig', () => {

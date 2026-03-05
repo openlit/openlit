@@ -13,6 +13,7 @@ import {
   getRequestViaTraceId,
   getHeirarchyViaSpanId,
   getRequestExist,
+  getAttributeKeys,
 } from '@/lib/platform/request/index';
 import { dataCollector } from '@/lib/platform/common';
 
@@ -197,5 +198,49 @@ describe('getRequestExist', () => {
     const { query } = (dataCollector as jest.Mock).mock.calls[0][0];
     expect(query).toContain('total_requests');
     expect(query).toContain('otel_traces');
+  });
+});
+
+describe('getAttributeKeys', () => {
+  it('returns spanAttributeKeys and resourceAttributeKeys on success', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [{ key: 'gen_ai.system' }, { key: 'gen_ai.request.model' }], err: null })
+      .mockResolvedValueOnce({ data: [{ key: 'service.name' }], err: null });
+
+    const result = await getAttributeKeys(baseParams);
+    expect(dataCollector).toHaveBeenCalledTimes(2);
+    expect(result.spanAttributeKeys).toEqual(['gen_ai.system', 'gen_ai.request.model']);
+    expect(result.resourceAttributeKeys).toEqual(['service.name']);
+    expect(result.err).toBeNull();
+  });
+
+  it('returns empty arrays when data is null', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: null, err: null })
+      .mockResolvedValueOnce({ data: null, err: null });
+
+    const result = await getAttributeKeys(baseParams);
+    expect(result.spanAttributeKeys).toEqual([]);
+    expect(result.resourceAttributeKeys).toEqual([]);
+  });
+
+  it('propagates error from span query', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: null, err: 'span error' })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    const result = await getAttributeKeys(baseParams);
+    expect(result.err).toBe('span error');
+  });
+
+  it('queries use DISTINCT arrayJoin(mapKeys(...))', async () => {
+    (dataCollector as jest.Mock)
+      .mockResolvedValueOnce({ data: [], err: null })
+      .mockResolvedValueOnce({ data: [], err: null });
+
+    await getAttributeKeys(baseParams);
+    const [call1, call2] = (dataCollector as jest.Mock).mock.calls;
+    expect(call1[0].query).toContain('SpanAttributes');
+    expect(call2[0].query).toContain('ResourceAttributes');
   });
 });

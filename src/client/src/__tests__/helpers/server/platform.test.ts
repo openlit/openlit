@@ -246,6 +246,88 @@ describe('getFilterWhereCondition', () => {
     expect(result).toContain("'production'");
   });
 
+  it('adds SpanAttributes custom filter (covers lines 250-252)', () => {
+    const result = getFilterWhereCondition(
+      {
+        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+        selectedConfig: {
+          customFilters: [{ attributeType: 'SpanAttributes', key: 'gen_ai.system', value: 'openai' }],
+        },
+      } as any,
+      true
+    );
+    expect(result).toContain("SpanAttributes['gen_ai.system'] = 'openai'");
+  });
+
+  it('adds ResourceAttributes custom filter (covers lines 253-255)', () => {
+    const result = getFilterWhereCondition(
+      {
+        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+        selectedConfig: {
+          customFilters: [{ attributeType: 'ResourceAttributes', key: 'service.name', value: 'my-service' }],
+        },
+      } as any,
+      true
+    );
+    expect(result).toContain("ResourceAttributes['service.name'] = 'my-service'");
+  });
+
+  it('adds Field custom filter and strips unsafe chars (covers lines 256-261)', () => {
+    const result = getFilterWhereCondition(
+      {
+        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+        selectedConfig: {
+          customFilters: [{ attributeType: 'Field', key: 'SpanName', value: 'my-span' }],
+        },
+      } as any,
+      true
+    );
+    expect(result).toContain("SpanName = 'my-span'");
+  });
+
+  it('skips custom filter entry when key or value is empty (covers the key && value guard)', () => {
+    const result = getFilterWhereCondition(
+      {
+        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+        selectedConfig: {
+          customFilters: [
+            { attributeType: 'SpanAttributes', key: '', value: 'openai' },
+            { attributeType: 'SpanAttributes', key: 'gen_ai.system', value: '' },
+          ],
+        },
+      } as any,
+      true
+    );
+    expect(result).not.toContain("SpanAttributes[''");
+  });
+
+  it('skips Field custom filter when safeKey is empty after sanitization (covers the safeKey guard)', () => {
+    const result = getFilterWhereCondition(
+      {
+        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+        selectedConfig: {
+          customFilters: [{ attributeType: 'Field', key: '!!!', value: 'value' }],
+        },
+      } as any,
+      true
+    );
+    // key '!!!' becomes '' after stripping non-alphanumeric, so condition is not added
+    expect(result).not.toContain("= 'value'");
+  });
+
+  it("escapes single quotes in custom filter values (SQL injection protection)", () => {
+    const result = getFilterWhereCondition(
+      {
+        timeLimit: { start: new Date('2024-01-01'), end: new Date('2024-01-31') },
+        selectedConfig: {
+          customFilters: [{ attributeType: 'SpanAttributes', key: 'gen_ai.system', value: "it's" }],
+        },
+      } as any,
+      true
+    );
+    expect(result).toContain("= 'it''s'");
+  });
+
   it('adds notOrEmpty conditions', () => {
     const result = getFilterWhereCondition({
       notOrEmpty: [{ key: 'SpanAttributes' }, { key: 'ServiceName' }],
@@ -369,6 +451,13 @@ describe('getFilterPreviousParams', () => {
     const result = getFilterPreviousParams(filter as any);
     expect(result).toBeNull();
   });
+
+  it('returns unchanged filter when timeLimit is absent (covers || {} fallback on line 310)', () => {
+    const filter = { selectedConfig: {} };
+    const result = getFilterPreviousParams(filter as any);
+    // No timeLimit → no time shift, returned as-is
+    expect(result).toEqual(filter);
+  });
 });
 
 // ─── getFilterWhereConditionForGPU ─────────────────────────────────────────────
@@ -396,6 +485,11 @@ describe('getFilterWhereConditionForGPU', () => {
     const result = getFilterWhereConditionForGPU({
       timeLimit: { start: new Date() },
     } as any);
+    expect(result).toBe('');
+  });
+
+  it('returns empty string without throwing when filter is null (covers catch block on line 371)', () => {
+    const result = getFilterWhereConditionForGPU(null as any);
     expect(result).toBe('');
   });
 });

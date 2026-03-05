@@ -172,6 +172,25 @@ describe('useFetchWrapper', () => {
     expect(failureCb).toHaveBeenCalled();
   });
 
+  it('uses .error property when thrown object has no .message (covers line 56)', async () => {
+    const errorObj = { error: 'api error message' };
+    mockGetData.mockRejectedValue(errorObj);
+    const failureCb = jest.fn();
+
+    const { result } = renderHook(() => useFetchWrapper());
+
+    await act(async () => {
+      await result.current.fireRequest({
+        url: '/api/test',
+        requestType: 'GET',
+        failureCb,
+      });
+    });
+
+    expect(result.current.error).toBeTruthy();
+    expect(failureCb).toHaveBeenCalled();
+  });
+
   it('resets error to null on new request', async () => {
     // First request fails
     mockGetData.mockRejectedValueOnce(new Error('fail'));

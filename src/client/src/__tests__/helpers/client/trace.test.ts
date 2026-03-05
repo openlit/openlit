@@ -6,7 +6,11 @@ import {
   getNormalizedTraceAttribute,
   normalizeTrace,
   findSpanInHierarchyLodash,
+  getSpanDurationDisplay,
+  getSpanCostFormatted,
+  getSpanTooltipText,
 } from '@/helpers/client/trace';
+import { TraceMapping } from '@/constants/traces';
 
 describe('integerParser', () => {
   it('parses a string integer', () => {
@@ -48,6 +52,10 @@ describe('floatParser', () => {
   });
 });
 
+// Keys with array prefix/path added at runtime to cover dead-code-looking branches
+const ARRAY_PREFIX_KEY = '_test_array_prefix' as any;
+const ARRAY_PATH_WITH_PREFIX_KEY = '_test_array_path_prefix' as any;
+
 describe('getTraceMappingKeyFullPath', () => {
   it('returns the path string for a root key with no prefix', () => {
     // 'time' has path: "Timestamp", isRoot: true, no prefix
@@ -80,6 +88,60 @@ describe('getTraceMappingKeyFullPath', () => {
     // 'prompt' has array path, no prefix
     const result = getTraceMappingKeyFullPath('prompt', true);
     expect(Array.isArray(result)).toBe(true);
+  });
+
+  describe('array prefix and path branches (runtime-patched TraceMapping)', () => {
+    beforeAll(() => {
+      (TraceMapping as any)[ARRAY_PREFIX_KEY] = {
+        prefix: ['gen_ai', 'extra'],
+        path: 'value',
+        label: 'Test',
+        type: 'string',
+        isRoot: false,
+      };
+      (TraceMapping as any)[ARRAY_PATH_WITH_PREFIX_KEY] = {
+        prefix: 'gen_ai',
+        path: ['request', 'model'],
+        label: 'Test2',
+        type: 'string',
+        isRoot: false,
+      };
+    });
+
+    afterAll(() => {
+      delete (TraceMapping as any)[ARRAY_PREFIX_KEY];
+      delete (TraceMapping as any)[ARRAY_PATH_WITH_PREFIX_KEY];
+    });
+
+    it('handles array prefix with shouldReturnArray=true (covers lines 81-82)', () => {
+      const result = getTraceMappingKeyFullPath(ARRAY_PREFIX_KEY, true);
+      expect(Array.isArray(result)).toBe(true);
+      const arr = result as string[];
+      expect(arr).toContain('gen_ai');
+      expect(arr).toContain('extra');
+      expect(arr).toContain('value');
+    });
+
+    it('handles array prefix with shouldReturnArray=false (covers lines 96-97)', () => {
+      const result = getTraceMappingKeyFullPath(ARRAY_PREFIX_KEY);
+      expect(typeof result).toBe('string');
+      expect(result as string).toBe('gen_ai.extra.value');
+    });
+
+    it('handles string prefix with array path and shouldReturnArray=true (covers lines 87-88)', () => {
+      const result = getTraceMappingKeyFullPath(ARRAY_PATH_WITH_PREFIX_KEY, true);
+      expect(Array.isArray(result)).toBe(true);
+      const arr = result as string[];
+      expect(arr).toContain('gen_ai');
+      expect(arr).toContain('request');
+      expect(arr).toContain('model');
+    });
+
+    it('handles string prefix with array path and shouldReturnArray=false (covers lines 102-106)', () => {
+      const result = getTraceMappingKeyFullPath(ARRAY_PATH_WITH_PREFIX_KEY);
+      expect(typeof result).toBe('string');
+      expect(result as string).toBe('gen_ai.request.model');
+    });
   });
 });
 
@@ -124,6 +186,13 @@ describe('getNormalizedTraceAttribute', () => {
   it('parses date type attributes', () => {
     // time has type: "date"
     const result = getNormalizedTraceAttribute('time', '2024-01-15T10:30:00.000Z');
+    expect(typeof result).toBe('string');
+    expect(result as string).toContain('2024');
+  });
+
+  it('appends Z suffix when date string does not end with Z (covers line 36)', () => {
+    // date without Z suffix — the "Z" branch of the ternary
+    const result = getNormalizedTraceAttribute('time', '2024-01-15 10:30:00');
     expect(typeof result).toBe('string');
     expect(result as string).toContain('2024');
   });
@@ -184,6 +253,71 @@ describe('normalizeTrace', () => {
     // Keys with defaultValue get '-', keys without defaultValue get undefined
     expect(result.cost).toBe('-');
     expect(result.promptTokens).toBe('-');
+  });
+});
+
+describe('getSpanDurationDisplay', () => {
+  const makeSpan = (Duration: string) => ({ Duration, SpanId: 's', SpanName: 'test', Cost: 0, children: [] } as any);
+
+  it('returns formatted duration string', () => {
+    const result = getSpanDurationDisplay(makeSpan('1500000000'));
+    expect(typeof result).toBe('string');
+    expect(result).toContain('s');
+  });
+
+  it('returns "0.00s" for zero duration', () => {
+    const result = getSpanDurationDisplay(makeSpan('0'));
+    expect(result).toMatch(/0\.00/);
+  });
+});
+
+describe('getSpanCostFormatted', () => {
+  const makeSpan = (Cost: number | null) => ({ Cost, SpanId: 's', SpanName: 'test', Duration: '0', children: [] } as any);
+
+  it('returns formatted cost string when cost > 0', () => {
+    const result = getSpanCostFormatted(makeSpan(0.001234));
+    expect(result).toBe('$0.001234');
+  });
+
+  it('returns null when cost is 0', () => {
+    expect(getSpanCostFormatted(makeSpan(0))).toBeNull();
+  });
+
+  it('returns null when cost is null', () => {
+    expect(getSpanCostFormatted(makeSpan(null))).toBeNull();
+  });
+
+  it('returns null when cost is negative', () => {
+    expect(getSpanCostFormatted(makeSpan(-1))).toBeNull();
+  });
+
+  it('uses custom precision', () => {
+    const result = getSpanCostFormatted(makeSpan(0.1), 2);
+    expect(result).toBe('$0.10');
+  });
+});
+
+describe('getSpanTooltipText', () => {
+  const makeSpan = (SpanName: string, Cost: number | null, Duration: string) =>
+    ({ SpanName, Cost, Duration, SpanId: 's', children: [] } as any);
+
+  it('includes cost in tooltip when cost > 0', () => {
+    const result = getSpanTooltipText(makeSpan('my-span', 0.005, '1500000000'));
+    expect(result).toContain('my-span');
+    expect(result).toContain('Cost');
+    expect(result).toContain('Duration');
+  });
+
+  it('omits cost from tooltip when cost is null', () => {
+    const result = getSpanTooltipText(makeSpan('my-span', null, '1500000000'));
+    expect(result).toContain('my-span');
+    expect(result).toContain('Duration');
+    expect(result).not.toContain('Cost');
+  });
+
+  it('omits cost from tooltip when cost is 0', () => {
+    const result = getSpanTooltipText(makeSpan('no-cost', 0, '0'));
+    expect(result).not.toContain('Cost');
   });
 });
 

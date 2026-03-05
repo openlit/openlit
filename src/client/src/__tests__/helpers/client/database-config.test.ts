@@ -123,6 +123,16 @@ describe('changeActiveDatabaseConfig', () => {
     expect(toast.error).toHaveBeenCalled();
     expect(successCb).not.toHaveBeenCalled();
   });
+
+  it('shows error toast when data.err is set (err is null)', async () => {
+    (asaw as jest.Mock).mockResolvedValue([null, { err: 'Db config error from response' }]);
+    const successCb = jest.fn();
+
+    await changeActiveDatabaseConfig('db1', successCb);
+
+    expect(toast.error).toHaveBeenCalled();
+    expect(successCb).not.toHaveBeenCalled();
+  });
 });
 
 describe('deleteDatabaseConfig', () => {
@@ -138,6 +148,15 @@ describe('deleteDatabaseConfig', () => {
 
   it('shows error toast on failure', async () => {
     (asaw as jest.Mock).mockResolvedValue(['Delete failed', null]);
+
+    await deleteDatabaseConfig('db1');
+
+    expect(toast.error).toHaveBeenCalled();
+    expect(mockSetList).not.toHaveBeenCalled();
+  });
+
+  it('shows error toast when data.err is set (err is null)', async () => {
+    (asaw as jest.Mock).mockResolvedValue([null, { err: 'Delete conflict' }]);
 
     await deleteDatabaseConfig('db1');
 

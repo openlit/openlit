@@ -35,6 +35,24 @@ describe('insertCronLog', () => {
     expect(params.values).toHaveLength(1);
     expect(mode).toBe('insert');
   });
+
+  it('uses fallback defaults for missing optional fields (meta, errorStacktrace, duration)', async () => {
+    (dataCollector as jest.Mock).mockResolvedValue(mockInsertData);
+    const data = {
+      cronId: 'cron-2',
+      cronType: 'evaluation',
+      runStatus: 'failure',
+      startedAt: new Date('2024-01-01T00:00:00Z'),
+      finishedAt: new Date('2024-01-01T00:01:00Z'),
+      // meta, errorStacktrace, duration intentionally omitted
+    };
+    await insertCronLog(data as any, 'db-1');
+    const [params] = (dataCollector as jest.Mock).mock.calls[0];
+    const value = params.values[0];
+    expect(value.meta).toEqual({});
+    expect(value.error_stacktrace).toEqual({});
+    expect(value.duration).toBe(0);
+  });
 });
 
 describe('getCronLogs', () => {

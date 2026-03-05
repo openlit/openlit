@@ -7,6 +7,8 @@ import {
   getUpdateFilter,
   getFilterConfig,
   getUpdateConfig,
+  getAttributeKeys,
+  getUpdateAttributeKeys,
   useFilters,
 } from '@/selectors/filter';
 import { useRootStore } from '@/store';
@@ -70,6 +72,27 @@ describe('getUpdateConfig', () => {
   it('returns the updateConfig function from state', () => {
     const state = makeState();
     expect(getUpdateConfig(state)).toBe(state.filter.updateConfig);
+  });
+});
+
+describe('getAttributeKeys', () => {
+  it('returns attributeKeys from state', () => {
+    const attributeKeys = { spanAttributeKeys: ['gen_ai.system'], resourceAttributeKeys: [] };
+    const state = makeState({ attributeKeys });
+    expect(getAttributeKeys(state as any)).toBe(attributeKeys);
+  });
+
+  it('returns undefined when attributeKeys not set', () => {
+    const state = makeState();
+    expect(getAttributeKeys(state as any)).toBeUndefined();
+  });
+});
+
+describe('getUpdateAttributeKeys', () => {
+  it('returns the updateAttributeKeys function from state', () => {
+    const updateAttributeKeys = jest.fn();
+    const state = makeState({ updateAttributeKeys });
+    expect(getUpdateAttributeKeys(state as any)).toBe(updateAttributeKeys);
   });
 });
 

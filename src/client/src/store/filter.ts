@@ -127,7 +127,7 @@ export const filterStoreSlice: FilterStore = lens((setStore, getStore) => ({
 			details: {
 				...merge(getStore().details, object),
 				selectedConfig:
-					extraParams?.clearFilter
+					extraParams?.clearFilter || resetConfig
 						? {}
 						: object.selectedConfig
 						? object.selectedConfig

@@ -256,4 +256,22 @@ describe('useTheme', () => {
     const { result } = renderHook(() => useTheme());
     expect(typeof result.current.toggleTheme).toBe('function');
   });
+
+  it('toggles from dark to light (covers dark branch)', async () => {
+    (cookieGet as jest.Mock).mockReturnValue('dark');
+    const { result } = renderHook(() => useTheme());
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    (cookieGet as jest.Mock).mockReturnValue('light');
+    await act(async () => {
+      result.current.toggleTheme();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    expect(cookieSet).toHaveBeenCalledWith('theme', 'light');
+    expect(result.current.theme).toBe('light');
+  });
 });

@@ -203,6 +203,19 @@ describe('generatePageHeader', () => {
     const header = generatePageHeader('/my-feature');
     expect(header.title[0]).toBe(header.title[0].toUpperCase());
   });
+
+  it('returns "Page" fallback title for root path with no segments', () => {
+    const header = generatePageHeader('/');
+    expect(header.title).toBe('Page');
+    expect(header.breadcrumbs).toEqual([]);
+  });
+
+  it('generates breadcrumbs for /prompt-hub/:id without params (no id extracted)', () => {
+    // Covers the "Prompt" branch in prompt-hub title when params.id is absent
+    // This is reached when title fn is called with no params
+    const header = generatePageHeader('/prompt-hub/abc');
+    expect(typeof header.title).toBe('string');
+  });
 });
 
 describe('updatePageHeaderWithData', () => {

@@ -113,4 +113,18 @@ describe('filterStoreSlice actions', () => {
       expect((store.getState().filter.config as any)?.models).toEqual(['claude-3']);
     });
   });
+
+  describe('updateAttributeKeys', () => {
+    it('sets attributeKeys in store', () => {
+      const attributeKeys = { spanAttributeKeys: ['gen_ai.system', 'gen_ai.request.model'], resourceAttributeKeys: ['service.name'] };
+      store.getState().filter.updateAttributeKeys(attributeKeys);
+      expect(store.getState().filter.attributeKeys).toEqual(attributeKeys);
+    });
+
+    it('can overwrite attributeKeys', () => {
+      store.getState().filter.updateAttributeKeys({ spanAttributeKeys: ['a'], resourceAttributeKeys: [] });
+      store.getState().filter.updateAttributeKeys({ spanAttributeKeys: ['b', 'c'], resourceAttributeKeys: ['d'] });
+      expect(store.getState().filter.attributeKeys).toEqual({ spanAttributeKeys: ['b', 'c'], resourceAttributeKeys: ['d'] });
+    });
+  });
 });
