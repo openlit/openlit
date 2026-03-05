@@ -7,8 +7,6 @@ on:
       - 'src/client/**'
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
 
 permissions:
   contents: read
@@ -23,7 +21,7 @@ jobs:
         working-directory: src/client
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -54,7 +52,7 @@ jobs:
               statements.pct, branches.pct, functions.pct, lines.pct
             );
 
-            const icon       = overall > 90 ? '✅' : overall >= 80 ? '⚠️' : '❌';
+            const icon        = overall > 90 ? '✅' : overall >= 80 ? '⚠️' : '❌';
             const statusLabel = overall > 90 ? 'Great' : overall >= 80 ? 'Good' : 'Poor';
 
             const fmt = (pct) =>
@@ -112,7 +110,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
