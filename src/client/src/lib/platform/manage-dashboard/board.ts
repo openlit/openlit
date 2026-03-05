@@ -29,6 +29,10 @@ interface ImportBoardLayoutData {
 	layouts: {
 		lg: ImportLayout[];
 	};
+	/**
+	 * Widgets keyed by their identifier. If a widget lacks an 'id' property,
+	 * the Record key is used as the canonical identifier for layout.i mapping.
+	 */
 	widgets: Record<string, Omit<Widget, 'id'> & { id?: string }>;
 }
 
@@ -476,8 +480,9 @@ export async function importBoardLayout(data: ImportBoardLayoutData, databaseCon
 
 	const widgetIdMap = new Map<string, string>();
 
-	const updatedWidgets = Object.values(layoutConfig.widgets).map((widget) => {
-		const oldId = widget.id || crypto.randomUUID();
+	const updatedWidgets = Object.entries(layoutConfig.widgets).map(([recordKey, widget]) => {
+		// Use the Record key as oldId when widget.id is missing to ensure layout.i references resolve correctly
+		const oldId = widget.id || recordKey;
 		const newWidgetId = crypto.randomUUID();
 		widgetIdMap.set(oldId, newWidgetId);
 
