@@ -183,6 +183,38 @@ export const KNOWN_SPAN_ATTR_KEYS = new Set<string>(
 		})
 );
 
+/**
+ * Get formatted duration string for a hierarchy span (e.g. "1.20s").
+ */
+export function getSpanDurationDisplay(span: TraceHeirarchySpan): string {
+	const durationStr = parseFloat(
+		getNormalizedTraceAttribute("requestDuration", span.Duration) as string
+	).toFixed(2);
+	return `${durationStr}${TraceMapping.requestDuration.valueSuffix}`;
+}
+
+/**
+ * Get formatted cost string for a hierarchy span, or null if no cost.
+ */
+export function getSpanCostFormatted(
+	span: TraceHeirarchySpan,
+	precision = 6
+): string | null {
+	if (span.Cost == null || span.Cost <= 0) return null;
+	return `$${Number(span.Cost).toFixed(precision)}`;
+}
+
+/**
+ * Get tooltip text for a hierarchy span (name, duration, cost).
+ */
+export function getSpanTooltipText(span: TraceHeirarchySpan): string {
+	const durationDisplay = getSpanDurationDisplay(span);
+	const costStr = getSpanCostFormatted(span, 6);
+	return costStr
+		? `${span.SpanName}\nDuration: ${durationDisplay}\nCost: ${costStr}`
+		: `${span.SpanName}\nDuration: ${durationDisplay}`;
+}
+
 export function findSpanInHierarchyLodash(
 	hierarchy: TraceHeirarchySpan,
 	targetSpanId: string

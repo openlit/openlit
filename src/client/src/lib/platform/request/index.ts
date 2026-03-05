@@ -213,6 +213,7 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 								${getTraceMappingKeyFullPath("spanId")},
 								${getTraceMappingKeyFullPath("spanName")},
 								${getTraceMappingKeyFullPath("requestDuration")},
+								toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
 								Timestamp,
 								StatusCode,
 								0 AS level
@@ -229,6 +230,7 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 								ot.${getTraceMappingKeyFullPath("spanId")},
 								ot.${getTraceMappingKeyFullPath("spanName")},
 								ot.${getTraceMappingKeyFullPath("requestDuration")},
+								toFloat64OrZero(ot.SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
 								ot.Timestamp,
 								ot.StatusCode,
 								th.level + 1 AS level

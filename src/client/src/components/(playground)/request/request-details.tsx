@@ -27,7 +27,8 @@ import InfoPill from "./components/info-pill";
 import CodeItem from "./components/code-item";
 import TabsContentData from "./components/tabs-content";
 import ExtraTabs from "./components/extra-tabs";
-import AttributesTab from "./components/attributes-tab";
+import ResourceAttributesTab from "./components/resource-attributes-tab";
+import SpanAttributesTab from "./components/span-attributes-tab";
 
 // Root-level TraceRow scalar fields that are already shown elsewhere in the UI and
 // should NOT be duplicated as info pills.
@@ -216,7 +217,6 @@ export default function RequestDetails() {
 				{ arrays: [], objects: [], values: [] }
 		  )
 		: { arrays: [], objects: [], values: [] };
-	tabKeys.push("OpenTelemetry Details");
 
 	// Derived display values for metrics strip
 	const parsedCost = parseFloat(normalizedItem?.cost as string);
@@ -401,14 +401,6 @@ export default function RequestDetails() {
 									);
 								})}
 							</TabsList>
-							<TabsContent value="OpenTelemetry Details" className="mt-0">
-								{rawRecord?.SpanAttributes ? (
-									<AttributesTab
-										normalizedItem={normalizedItem}
-										spanAttributes={rawRecord.SpanAttributes}
-									/>
-								) : null}
-							</TabsContent>
 							{extraTabs.map((tab) => {
 								return (
 									<TabsContent value={tab.toString()} key={tab.toString()}>
@@ -423,10 +415,18 @@ export default function RequestDetails() {
 										key={key.toString()}
 										className="mt-0"
 									>
-										<TabsContentData
-											dataKey={key}
-											dataValue={value as Record<string, any>}
-										/>
+										{
+											key === "ResourceAttributes" ? (
+												<ResourceAttributesTab resourceAttributes={value as Record<string, any>} />
+											) : key === "SpanAttributes" ? (
+												<SpanAttributesTab normalizedItem={normalizedItem} spanAttributes={value as Record<string, string | number>} />
+											) : (
+												<TabsContentData
+													dataKey={key}
+													dataValue={value as string[] | Record<string, any>[]}
+												/>
+											)
+										}
 									</TabsContent>
 								);
 							})}

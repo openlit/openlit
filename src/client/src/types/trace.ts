@@ -150,5 +150,6 @@ export interface TraceHeirarchySpan {
 	Duration: number;
 	Timestamp?: string;
 	StatusCode?: string;
+	Cost?: number;
 	children?: TraceHeirarchySpan[];
 }

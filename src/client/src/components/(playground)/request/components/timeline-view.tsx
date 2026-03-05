@@ -2,6 +2,11 @@
 
 import { TraceHeirarchySpan } from "@/types/trace";
 import { useRequest } from "../request-context";
+import {
+	getSpanDurationDisplay,
+	getSpanCostFormatted,
+	getSpanTooltipText,
+} from "@/helpers/client/trace";
 
 interface FlatSpan {
 	span: TraceHeirarchySpan;
@@ -97,16 +102,20 @@ export default function TimelineView({
 					className="shrink-0 text-right pr-1 text-stone-500 dark:text-stone-400 font-medium"
 					style={{ width: `${DURATION_COL_PCT}%` }}
 				>
-					Dur.
+					s / $
 				</div>
 			</div>
 
 			{/* ── Span rows ── */}
-			<div className="flex flex-col gap-px">
+			<div className="flex flex-col gap-3">
 				{flatSpans.map(({ span, level }) => {
 					const isSelected = request?.spanId === span.SpanId;
 					const spanStartMs = parseTimestampMs(span.Timestamp);
 					const spanDurationMs = span.Duration / 1e6;
+
+					const durationDisplay = getSpanDurationDisplay(span);
+					const costDisplay = getSpanCostFormatted(span, 4);
+					const tooltipText = getSpanTooltipText(span);
 
 					let leftPct = 0;
 					let widthPct =
@@ -136,6 +145,7 @@ export default function TimelineView({
 									: "hover:bg-stone-200/60 dark:hover:bg-stone-800/60"
 							}`}
 							onClick={() => updateRequest({ spanId: span.SpanId })}
+							title={tooltipText}
 						>
 							{/* ── Name column ── */}
 							<div
@@ -151,7 +161,6 @@ export default function TimelineView({
 											? "text-primary font-medium"
 											: "text-stone-700 dark:text-stone-300"
 									}`}
-									title={span.SpanName}
 								>
 									{span.SpanName}
 								</span>
@@ -177,7 +186,6 @@ export default function TimelineView({
 										left: `${leftPct}%`,
 										width: `${widthPct}%`,
 									}}
-									title={`${span.SpanName}: ${formatDuration(span.Duration)}`}
 								/>
 							</div>
 
@@ -190,7 +198,9 @@ export default function TimelineView({
 								}`}
 								style={{ width: `${DURATION_COL_PCT}%` }}
 							>
-								{formatDuration(span.Duration)}
+								{costDisplay
+									? `${durationDisplay} / ${costDisplay}`
+									: durationDisplay}
 							</div>
 						</div>
 					);

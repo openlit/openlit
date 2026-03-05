@@ -2,6 +2,11 @@
 
 import { TraceHeirarchySpan } from "@/types/trace";
 import { useRequest } from "../request-context";
+import {
+	getSpanDurationDisplay,
+	getSpanCostFormatted,
+	getSpanTooltipText,
+} from "@/helpers/client/trace";
 
 const NODE_WIDTH = 160;
 const NODE_HEIGHT = 52;
@@ -12,13 +17,6 @@ interface NodeLayout {
 	span: TraceHeirarchySpan;
 	x: number;
 	y: number;
-}
-
-function formatDuration(durationNs: number): string {
-	const ms = durationNs / 1e6;
-	if (ms >= 1000) return `${(ms / 1000).toFixed(2)}s`;
-	if (ms >= 1) return `${ms.toFixed(1)}ms`;
-	return `${(durationNs / 1e3).toFixed(0)}µs`;
 }
 
 function getNodeStroke(durationNs: number, isSelected: boolean): string {
@@ -149,6 +147,9 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 					const ny = y + offsetY;
 					const stroke = getNodeStroke(span.Duration, isSelected);
 					const fill = getNodeFill(span.Duration, isSelected);
+					const durationDisplay = getSpanDurationDisplay(span);
+					const costDisplay = getSpanCostFormatted(span, 4);
+					const tooltipText = getSpanTooltipText(span);
 
 					return (
 						<g
@@ -156,6 +157,7 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 							onClick={() => updateRequest({ spanId: span.SpanId })}
 							style={{ cursor: "pointer" }}
 						>
+							<title>{tooltipText}</title>
 							<rect
 								x={nx}
 								y={ny}
@@ -185,7 +187,9 @@ export default function NodeGraph({ record }: { record: TraceHeirarchySpan }) {
 								fill={stroke}
 								opacity={0.9}
 							>
-								{formatDuration(span.Duration)}
+								{costDisplay
+									? `${durationDisplay} • ${costDisplay}`
+									: durationDisplay}
 							</text>
 						</g>
 					);
