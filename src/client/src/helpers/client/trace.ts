@@ -120,7 +120,100 @@ export const CODE_ITEM_DISPLAY_KEYS: TraceMappingKeyType[] = [
 	"retrievalSource",
 	/* Exception */
 	"statusMessage",
+	/* Long-text span attrs */
+	"systemInstructions",
+	"contentReasoning",
+	"toolArgs",
+	"dbQueryText",
 ];
+
+/**
+ * Span attribute keys to surface as individual InfoPills in the detail panel.
+ * These are non-root TraceMapping entries (i.e. sourced from SpanAttributes).
+ * Ordered so the most important attributes appear first.
+ */
+export const SPAN_ATTR_INFO_PILL_KEYS: TraceMappingKeyType[] = [
+	// Core LLM identifiers
+	"model", "provider", "type", "endpoint", "responseModel", "outputType",
+	// Request parameters
+	"temperature", "requestTopP", "requestTopK",
+	"requestFrequencyPenalty", "requestPresencePenalty",
+	"maxTokens", "randomSeed", "requestChoiceCount",
+	"requestIsStream", "requestUser", "requestToolChoice",
+	// Response
+	"responseId", "finishReason",
+	// Token usage
+	"promptTokens", "completionTokens", "totalTokens", "cost",
+	"cacheReadTokens", "cacheCreationTokens", "reasoningTokens",
+	// Streaming latency
+	"ttft", "tbt",
+	// Tool calls
+	"toolName", "toolCallId",
+	// Reasoning
+	"reasoningEffort",
+	// OpenAI-specific
+	"openaiApiType", "openaiRequestServiceTier", "openaiResponseServiceTier",
+	"openaiSystemFingerprint",
+	// Audio
+	"audioVoice", "audioFormat", "audioSpeed",
+	// Image
+	"imageSize", "imageQuality", "imageStyle",
+	// Embedding
+	"embeddingFormat", "embeddingDimension",
+	// Fine-tuning
+	"trainingFile", "validationFile", "fineTuneBatchSize",
+	"learningRateMultiplier", "fineTuneNEpochs", "fineTuneModelSuffix", "finetuneJobStatus",
+	// Vector DB
+	"operation", "system", "dbSystemName", "dbOperationName",
+	"collectionName", "nResults", "documentsCount", "idsCount", "vectorCount",
+	// Framework
+	"owner", "repo",
+];
+
+/**
+ * Set of all SpanAttribute dot-path keys that are already covered by TraceMapping.
+ * Any key in SpanAttributes that is NOT in this set is a custom user-defined attribute.
+ */
+export const KNOWN_SPAN_ATTR_KEYS = new Set<string>(
+	objectKeys(TraceMapping)
+		.filter((key) => !TraceMapping[key].isRoot)
+		.map((key) => {
+			const path = getTraceMappingKeyFullPath(key);
+			return Array.isArray(path) ? path.join(".") : (path as string);
+		})
+);
+
+/**
+ * Get formatted duration string for a hierarchy span (e.g. "1.20s").
+ */
+export function getSpanDurationDisplay(span: TraceHeirarchySpan): string {
+	const durationStr = parseFloat(
+		getNormalizedTraceAttribute("requestDuration", span.Duration) as string
+	).toFixed(2);
+	return `${durationStr}${TraceMapping.requestDuration.valueSuffix}`;
+}
+
+/**
+ * Get formatted cost string for a hierarchy span, or null if no cost.
+ */
+export function getSpanCostFormatted(
+	span: TraceHeirarchySpan,
+	precision = 6
+): string | null {
+	if (span.Cost == null || span.Cost <= 0) return null;
+	return `$${Number(span.Cost).toFixed(precision)}`;
+}
+
+/**
+ * Get tooltip text for a hierarchy span (name, duration, cost).
+ */
+export function getSpanTooltipText(span: TraceHeirarchySpan): string {
+	const durationDisplay = getSpanDurationDisplay(span);
+	const costStr = getSpanCostFormatted(span, 6);
+	return costStr
+		? `${span.SpanName}\nDuration: ${durationDisplay}\nCost: ${costStr}`
+		: `${span.SpanName}\nDuration: ${durationDisplay}`;
+}
 
 export function findSpanInHierarchyLodash(
 	hierarchy: TraceHeirarchySpan,
