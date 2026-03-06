@@ -1,7 +1,7 @@
 """
 OpenLIT Agent SRE Instrumentation
 
-Auto-instruments agent-sre (https://github.com/imran-siddique/agent-sre)
+Auto-instruments agent-sre (https://github.com/microsoft/agent-governance-toolkit)
 to capture SLO evaluations, chaos experiments, error budget events,
 and resilience scores as OpenTelemetry spans and metrics.
 """
