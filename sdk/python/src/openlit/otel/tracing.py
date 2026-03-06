@@ -9,11 +9,14 @@ from opentelemetry.sdk.resources import (
     SERVICE_NAME,
     TELEMETRY_SDK_NAME,
     DEPLOYMENT_ENVIRONMENT,
+    Resource,
 )
-from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+    ConsoleSpanExporter,
+)
 from openlit.__helpers import parse_exporters
 
 # pylint: disable=ungrouped-imports
