@@ -213,12 +213,15 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 								${getTraceMappingKeyFullPath("spanId")},
 								${getTraceMappingKeyFullPath("spanName")},
 								${getTraceMappingKeyFullPath("requestDuration")},
+								toFloat64OrZero(SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
+								Timestamp,
+								StatusCode,
 								0 AS level
 						FROM
 								${OTEL_TRACES_TABLE_NAME}
 						WHERE
 								SpanId = '${id}' -- Starting SpanId
-						
+
 						UNION ALL
 
 						SELECT
@@ -227,6 +230,9 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 								ot.${getTraceMappingKeyFullPath("spanId")},
 								ot.${getTraceMappingKeyFullPath("spanName")},
 								ot.${getTraceMappingKeyFullPath("requestDuration")},
+								toFloat64OrZero(ot.SpanAttributes['${getTraceMappingKeyFullPath("cost")}']) AS Cost,
+								ot.Timestamp,
+								ot.StatusCode,
 								th.level + 1 AS level
 						FROM
 								${OTEL_TRACES_TABLE_NAME} ot
@@ -272,4 +278,33 @@ export async function getHeirarchyViaSpanId(spanId: string) {
 export async function getRequestExist() {
 	const query = `SELECT COUNT(*) AS total_requests FROM ${OTEL_TRACES_TABLE_NAME}`;
 	return dataCollector({ query });
+}
+
+export async function getAttributeKeys(params: MetricParams) {
+	const spanKeysQuery = `
+		SELECT DISTINCT arrayJoin(mapKeys(SpanAttributes)) AS key
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params)}
+		ORDER BY key
+		LIMIT 500
+	`;
+
+	const resourceKeysQuery = `
+		SELECT DISTINCT arrayJoin(mapKeys(ResourceAttributes)) AS key
+		FROM ${OTEL_TRACES_TABLE_NAME}
+		WHERE ${getFilterWhereCondition(params)}
+		ORDER BY key
+		LIMIT 500
+	`;
+
+	const [spanResult, resourceResult] = await Promise.all([
+		dataCollector({ query: spanKeysQuery }),
+		dataCollector({ query: resourceKeysQuery }),
+	]);
+
+	return {
+		err: spanResult.err || resourceResult.err,
+		spanAttributeKeys: (spanResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
+		resourceAttributeKeys: (resourceResult.data as { key: string }[] | undefined)?.map((r) => r.key) ?? [],
+	};
 }

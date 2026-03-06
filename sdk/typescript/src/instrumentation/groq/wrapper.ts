@@ -6,6 +6,8 @@ import BaseWrapper from '../base-wrapper';
 
 class GroqWrapper extends BaseWrapper {
   static aiSystem = 'groq';
+  static serverAddress = 'api.groq.com';
+  static serverPort = 443;
   
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'groq.chat.completions';
@@ -306,6 +308,8 @@ class GroqWrapper extends BaseWrapper {
       user,
       cost,
       aiSystem: GroqWrapper.aiSystem,
+      serverAddress: GroqWrapper.serverAddress,
+      serverPort: GroqWrapper.serverPort,
     });
 
     // Response model
@@ -365,7 +369,9 @@ class GroqWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs);
       }
       if (toolTypes.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypes.join(', '));
+        const toolTypesStr = toolTypes.join(', ');
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
       }
     }
 

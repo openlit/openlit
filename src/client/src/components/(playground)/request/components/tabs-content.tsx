@@ -1,6 +1,6 @@
 import { objectEntries } from "@/utils/object";
 import { isArray, isPlainObject } from "lodash";
-import ContentDataItem from "./content-data";
+import { AttrRow } from "./attributes-tab";
 
 export default function TabsContent({
 	dataKey,
@@ -9,26 +9,36 @@ export default function TabsContent({
 	dataKey: string;
 	dataValue: Record<string, any> | string[] | Record<string, any>[];
 }) {
-	return isArray(dataValue)
+	const content = isArray(dataValue)
 		? dataValue.map((datumValue, index) => (
-				<section key={`${dataKey}-${index}`}>
-					{index !== 0 ? (
-						<div className="py-1 px-2 dark:bg-stone-800"></div>
-					) : null}
-					{isPlainObject(datumValue) ? (
-						objectEntries(datumValue).map(([key, value]) => (
-							<ContentDataItem
-								key={key.toString()}
-								dataKey={key.toString()}
-								dataValue={value}
-							/>
-						))
-					) : (
-						<ContentDataItem dataKey={datumValue} />
-					)}
-				</section>
-		  ))
+			<section key={`${dataKey}-${index}`} className="flex flex-col">
+				{index !== 0 ? (
+					<div className="h-px bg-stone-200 dark:bg-stone-700" />
+				) : null}
+				{isPlainObject(datumValue) ? (
+					objectEntries(datumValue).map(([key, value]) => (
+						<AttrRow
+							key={key.toString()}
+							label={key as string}
+							value={value.toString()}
+						/>
+					))
+				) : (
+					<AttrRow
+						key={datumValue.toString()}
+						label={datumValue as string}
+						value={""}
+					/>
+				)}
+			</section>
+		))
 		: objectEntries(dataValue).map(([key, value]) => (
-				<ContentDataItem key={key} dataKey={key} dataValue={value} />
-		  ));
+			<AttrRow
+				key={key.toString()}
+				label={value as string}
+				value={value as string || ""}
+			/>
+		));
+
+	return <div className="flex flex-col">{content}</div>;
 }

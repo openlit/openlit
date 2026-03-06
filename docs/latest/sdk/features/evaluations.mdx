@@ -22,6 +22,23 @@ The OpenLIT SDK provides tools to evaluate AI-generated text, ensuring it aligns
   </Card>
 </CardGroup>
 
+## Export configuration
+
+By default, evaluation results are emitted as **OTel Log Records**. If your backend supports OTel Events natively, you can switch to event-based export:
+
+```python
+import openlit
+
+# Use OTel Events instead of Log Records
+openlit.init(evals_logs_export=False)
+```
+
+| Parameter | Environment Variable | Description | Default |
+|-----------|---------------------|-------------|---------|
+| `evals_logs_export` | `OPENLIT_EVALS_LOGS_EXPORT` | Emit evaluation results as OTel Log Records instead of OTel Events | `True` |
+
+<Info>Both modes carry the same keys and value types — the only difference is the transport (event attributes vs JSON in the log body).</Info>
+
 ## Evaluations
 
 ### Hallucination Detection

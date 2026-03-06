@@ -92,6 +92,7 @@ class VercelAIWrapper extends BaseWrapper {
       return async function (this: any, ...args: any[]) {
         const span = tracer.startSpan(genAIEndpoint, { kind: SpanKind.CLIENT });
         const startTime = Date.now();
+        const chunkTimestamps: number[] = [];
 
         try {
           const response = await originalMethod.apply(this, args);
@@ -112,13 +113,46 @@ class VercelAIWrapper extends BaseWrapper {
             span.setAttribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, OpenLitHelper.buildInputMessages(messages));
           }
 
+          // Intercept textStream to capture per-chunk timestamps for TTFT/TBT
+          try {
+            const originalTextStream = response.textStream as ReadableStream<string>;
+            if (originalTextStream && typeof originalTextStream.getReader === 'function') {
+              const reader = originalTextStream.getReader();
+              const wrappedTextStream = new ReadableStream<string>({
+                async pull(controller) {
+                  const { done, value } = await reader.read();
+                  if (done) {
+                    controller.close();
+                  } else {
+                    chunkTimestamps.push(Date.now());
+                    controller.enqueue(value);
+                  }
+                },
+                cancel() {
+                  reader.cancel();
+                },
+              });
+              Object.defineProperty(response, 'textStream', {
+                value: wrappedTextStream,
+                writable: true,
+                configurable: true,
+              });
+            }
+          } catch (_) {
+            // Stream interception failed; TTFT/TBT won't be captured from textStream
+          }
+
           // Observe stream completion via usage promise
           Promise.resolve(response.usage)
             .then(async (usage: any) => {
               try {
-                const ttft = response.experimental_providerMetadata
-                  ? undefined
-                  : (Date.now() - startTime) / 1000;
+                const ttft = chunkTimestamps.length > 0 ? (chunkTimestamps[0] - startTime) / 1000 : 0;
+                let tbt = 0;
+                if (chunkTimestamps.length > 1) {
+                  const timeDiffs = chunkTimestamps.slice(1).map((t, i) => t - chunkTimestamps[i]);
+                  tbt = timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length / 1000;
+                }
+
                 const pricingInfo = await OpenlitConfig.updatePricingJson(OpenlitConfig.pricing_json);
                 const cost = OpenLitHelper.getChatModelCost(
                   modelId,
@@ -135,7 +169,8 @@ class VercelAIWrapper extends BaseWrapper {
                 span.setAttribute(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, usage?.totalTokens || 0);
                 span.setAttribute(SemanticConvention.GEN_AI_CLIENT_TOKEN_USAGE, usage?.totalTokens || 0);
                 span.setAttribute(SemanticConvention.GEN_AI_OUTPUT_TYPE, SemanticConvention.GEN_AI_OUTPUT_TYPE_TEXT);
-                if (ttft) span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
+                if (ttft > 0) span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft);
+                if (tbt > 0) span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt);
 
                 const finishReason = await Promise.resolve(response.finishReason).catch(() => 'stop');
                 span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, [finishReason || 'stop']);

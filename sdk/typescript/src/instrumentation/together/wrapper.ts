@@ -6,6 +6,8 @@ import BaseWrapper from '../base-wrapper';
 
 class TogetherWrapper extends BaseWrapper {
   static aiSystem = 'together';
+  static serverAddress = 'api.together.xyz';
+  static serverPort = 443;
   
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'together.chat.completions';
@@ -287,6 +289,8 @@ class TogetherWrapper extends BaseWrapper {
       user,
       cost,
       aiSystem: TogetherWrapper.aiSystem,
+      serverAddress: TogetherWrapper.serverAddress,
+      serverPort: TogetherWrapper.serverPort,
     });
 
     // Response model
@@ -341,7 +345,9 @@ class TogetherWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs);
       }
       if (toolTypes.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypes.join(', '));
+        const toolTypesStr = toolTypes.join(', ');
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
       }
     }
 

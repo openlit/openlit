@@ -6,6 +6,8 @@ import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
 class OpenAIWrapper extends BaseWrapper {
   static aiSystem = SemanticConvention.GEN_AI_SYSTEM_OPENAI;
+  static serverAddress = 'api.openai.com';
+  static serverPort = 443;
   static _patchChatCompletionCreate(tracer: Tracer): any {
     const genAIEndpoint = 'openai.resources.chat.completions';
     return (originalMethod: (...args: any[]) => any) => {
@@ -316,11 +318,13 @@ class OpenAIWrapper extends BaseWrapper {
       user,
       cost,
       aiSystem: OpenAIWrapper.aiSystem,
+      serverAddress: OpenAIWrapper.serverAddress,
+      serverPort: OpenAIWrapper.serverPort,
     });
 
     // Response model
     span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_MODEL, responseModel);
-    
+
     // OpenAI-specific attributes
     if (result.system_fingerprint) {
       span.setAttribute(SemanticConvention.GEN_AI_RESPONSE_SYSTEM_FINGERPRINT, result.system_fingerprint);
@@ -413,7 +417,9 @@ class OpenAIWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs);
       }
       if (toolTypes.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypes.join(', '));
+        const toolTypesStr = toolTypes.join(', ');
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
       }
     }
 
@@ -470,15 +476,11 @@ class OpenAIWrapper extends BaseWrapper {
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
+              serverAddress: OpenAIWrapper.serverAddress,
+              serverPort: OpenAIWrapper.serverPort,
             });
 
-            // Set missing critical attributes to match Python SDK
-            span.setAttribute(SemanticConvention.SERVER_ADDRESS, 'api.openai.com');
-            span.setAttribute(SemanticConvention.SERVER_PORT, 443);
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
-            span.setAttribute(SemanticConvention.GEN_AI_SERVER_TBT, 0);
-            span.setAttribute(SemanticConvention.GEN_AI_SERVER_TTFT, 0);
-            span.setAttribute(SemanticConvention.GEN_AI_SDK_VERSION, '1.7.0');
 
             // Request Params attributes : Start
             span.setAttribute(SemanticConvention.GEN_AI_REQUEST_ENCODING_FORMATS, [encoding_format]);
@@ -550,12 +552,14 @@ class OpenAIWrapper extends BaseWrapper {
               validation_file,
             } = args[0];
 
-            // Set base span attribues
+            // Set base span attributes
             OpenAIWrapper.setBaseSpanAttributes(span, {
               genAIEndpoint,
               model,
               user,
               aiSystem: OpenAIWrapper.aiSystem,
+              serverAddress: OpenAIWrapper.serverAddress,
+              serverPort: OpenAIWrapper.serverPort,
             });
 
             span.setAttribute(
@@ -652,6 +656,8 @@ class OpenAIWrapper extends BaseWrapper {
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
+              serverAddress: OpenAIWrapper.serverAddress,
+              serverPort: OpenAIWrapper.serverPort,
             });
 
             // Request Params attributes : Start
@@ -745,6 +751,8 @@ class OpenAIWrapper extends BaseWrapper {
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
+              serverAddress: OpenAIWrapper.serverAddress,
+              serverPort: OpenAIWrapper.serverPort,
             });
 
             // Request Params attributes : Start
@@ -827,6 +835,8 @@ class OpenAIWrapper extends BaseWrapper {
               user,
               cost,
               aiSystem: OpenAIWrapper.aiSystem,
+              serverAddress: OpenAIWrapper.serverAddress,
+              serverPort: OpenAIWrapper.serverPort,
             });
 
             // Request Params attributes : Start
@@ -1082,7 +1092,7 @@ class OpenAIWrapper extends BaseWrapper {
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, stream);
 
     if (reasoning?.effort) {
-      span.setAttribute('gen_ai.request.reasoning_effort', reasoning.effort);
+      span.setAttribute(SemanticConvention.GEN_AI_REQUEST_REASONING_EFFORT, reasoning.effort);
     }
 
     if (traceContent) {
@@ -1115,6 +1125,8 @@ class OpenAIWrapper extends BaseWrapper {
       user: '',
       cost,
       aiSystem: OpenAIWrapper.aiSystem,
+      serverAddress: OpenAIWrapper.serverAddress,
+      serverPort: OpenAIWrapper.serverPort,
     });
 
     // Response attributes
@@ -1181,7 +1193,9 @@ class OpenAIWrapper extends BaseWrapper {
         span.setAttribute(SemanticConvention.GEN_AI_TOOL_CALL_ARGUMENTS, toolArgs.join(', '));
       }
       if (toolTypes.length > 0) {
-        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypes.join(', '));
+        const toolTypesStr = toolTypes.join(', ');
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE, toolTypesStr);
+        span.setAttribute(SemanticConvention.GEN_AI_TOOL_TYPE_OTEL, toolTypesStr);
       }
     }
 

@@ -145,13 +145,13 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     if base_url is None:
         base_url = "https://api.openai.com/v1"
 
-    response = client.beta.chat.completions.parse(
+    response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "user", "content": prompt},
         ],
         temperature=0.0,
-        response_format=JsonOutput,
+        response_format={"type": "json_object"},
     )
     return response.choices[0].message.content
 
@@ -271,6 +271,22 @@ def get_event_provider():
         return None
 
 
+def get_evals_logs_export_config():
+    """
+    Safely retrieve the evals_logs_export flag from OpenLIT's global configuration.
+
+    Returns:
+        True if OTEL Log Records should be used instead of Events, else False.
+    """
+    try:
+        # pylint: disable=cyclic-import
+        from openlit import OpenlitConfig
+
+        return getattr(OpenlitConfig, "evals_logs_export", True)
+    except (ImportError, AttributeError):
+        return True
+
+
 def emit_evaluation_event(
     event_provider,
     evaluation_name,
@@ -281,7 +297,14 @@ def emit_evaluation_event(
     error_type=None,
 ):
     """
-    Emit gen_ai.evaluation.result event per OTel semantic conventions.
+    Emit gen_ai.evaluation.result as an OTel Event or OTel Log Record.
+
+    By default, emits as an OTel Log Record. When ``evals_logs_export=False``
+    is set in ``openlit.init()``, emits as an OTel Event instead (useful for
+    backends that support events natively).
+
+    Both paths carry the same keys and value types; the only difference is
+    the transport (event attributes vs JSON string in the log body).
 
     Args:
         event_provider: The OTel event provider
@@ -296,18 +319,13 @@ def emit_evaluation_event(
         if not event_provider:
             return
 
-        from openlit.__helpers import otel_event
-
-        # Build event attributes per OTel semantic convention spec
         attributes = {
             SemanticConvention.GEN_AI_EVALUATION_NAME: evaluation_name,
         }
 
-        # If error occurred, record error.type instead of score attributes
         if error_type:
             attributes[SemanticConvention.ERROR_TYPE] = error_type
         else:
-            # Record evaluation score and label (conditionally required if no error)
             if score_value is not None:
                 attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE] = float(
                     score_value
@@ -317,20 +335,40 @@ def emit_evaluation_event(
                     score_label
                 )
 
-        # Add recommended attributes when available
         if explanation:
             attributes[SemanticConvention.GEN_AI_EVALUATION_EXPLANATION] = explanation
         if response_id:
             attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
 
-        # Create and emit event per OTel spec
-        event = otel_event(
-            name=SemanticConvention.GEN_AI_EVALUATION_RESULT,
-            attributes=attributes,
-            body="",  # Per spec, all data must be in attributes, body is empty
-        )
-
-        event_provider.emit(event)
+        if get_evals_logs_export_config():
+            _emit_as_log_record(json.dumps(attributes))
+        else:
+            _emit_as_event(event_provider, attributes)
 
     except Exception as e:
         logger.warning("Failed to emit evaluation event: %s", e, exc_info=True)
+
+
+def _emit_as_event(event_provider, attributes):
+    """Emit evaluation result as an OTel Event (default path)."""
+    from openlit.__helpers import otel_event
+
+    event = otel_event(
+        name=SemanticConvention.GEN_AI_EVALUATION_RESULT,
+        attributes=attributes,
+        body="",
+    )
+    event_provider.emit(event)
+
+
+def _emit_as_log_record(body):
+    """Emit evaluation result as an OTel Log Record via the Logger API directly."""
+    from opentelemetry._logs import get_logger_provider, LogRecord, SeverityNumber
+
+    otel_logger = get_logger_provider().get_logger("openlit.evals")
+    otel_logger.emit(
+        LogRecord(
+            body=body,
+            severity_number=SeverityNumber.INFO,
+        )
+    )

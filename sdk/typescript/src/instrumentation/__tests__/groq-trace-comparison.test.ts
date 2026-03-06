@@ -61,6 +61,13 @@ describe('Groq Cross-Language Trace Comparison', () => {
       if (attrs.cost !== undefined) {
         span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, attrs.cost);
       }
+      if (attrs.serverAddress) {
+        span.setAttribute(SemanticConvention.SERVER_ADDRESS, attrs.serverAddress);
+      }
+      if (attrs.serverPort !== undefined) {
+        span.setAttribute(SemanticConvention.SERVER_PORT, attrs.serverPort);
+      }
+      span.setAttribute(SemanticConvention.GEN_AI_SDK_VERSION, '1.9.0');
     });
   });
 
@@ -119,6 +126,10 @@ describe('Groq Cross-Language Trace Comparison', () => {
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_MAX_TOKENS, 100);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, false);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON, ['stop']);
+      // Python SDK parity: server.address, server.port, gen_ai.sdk.version
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_ADDRESS, 'api.groq.com');
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_PORT, 443);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_SDK_VERSION, '1.9.0');
     });
 
     it('should set streaming attributes matching Python SDK', async () => {

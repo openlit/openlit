@@ -6,6 +6,8 @@ import BaseWrapper, { BaseSpanAttributes } from '../base-wrapper';
 
 export default class OllamaWrapper extends BaseWrapper {
   static aiSystem = 'ollama';
+  static serverAddress = '127.0.0.1';
+  static serverPort = 11434;
 
   static _patchChat(tracer: Tracer): any {
     const genAIEndpoint = 'ollama.chat';
@@ -183,6 +185,8 @@ export default class OllamaWrapper extends BaseWrapper {
       user,
       cost,
       aiSystem: OllamaWrapper.aiSystem,
+      serverAddress: OllamaWrapper.serverAddress,
+      serverPort: OllamaWrapper.serverPort,
     });
 
     // Response model

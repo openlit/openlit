@@ -47,6 +47,13 @@ describe('Mistral Cross-Language Trace Comparison', () => {
       if (attrs.cost !== undefined) {
         span.setAttribute(SemanticConvention.GEN_AI_USAGE_COST, attrs.cost);
       }
+      if (attrs.serverAddress) {
+        span.setAttribute(SemanticConvention.SERVER_ADDRESS, attrs.serverAddress);
+      }
+      if (attrs.serverPort !== undefined) {
+        span.setAttribute(SemanticConvention.SERVER_PORT, attrs.serverPort);
+      }
+      span.setAttribute(SemanticConvention.GEN_AI_SDK_VERSION, '1.9.0');
     });
   });
 
@@ -99,6 +106,10 @@ describe('Mistral Cross-Language Trace Comparison', () => {
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, 8);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, 15);
       expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS, 23);
+      // Python SDK parity: server.address, server.port, gen_ai.sdk.version
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_ADDRESS, 'api.mistral.ai');
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.SERVER_PORT, 443);
+      expect(mockSpan.setAttribute).toHaveBeenCalledWith(SemanticConvention.GEN_AI_SDK_VERSION, '1.9.0');
     });
   });
 

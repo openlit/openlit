@@ -1,21 +1,116 @@
 name: Test OpenLIT
 
 on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'src/client/**'
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
+  jest:
+    name: Jest Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/client
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run Jest tests
+        run: npm test -- --coverage --ci --coverageReporters=json-summary --coverageReporters=text
+
+      - name: Post coverage comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = JSON.parse(
+              fs.readFileSync('src/client/coverage/coverage-summary.json', 'utf8')
+            );
+            const { statements, branches, functions, lines } = summary.total;
+
+            const overall = Math.min(
+              statements.pct, branches.pct, functions.pct, lines.pct
+            );
+
+            const icon        = overall > 90 ? '✅' : overall >= 80 ? '⚠️' : '❌';
+            const statusLabel = overall > 90 ? 'Great' : overall >= 80 ? 'Good' : 'Poor';
+
+            const fmt = (pct) =>
+              `${pct > 90 ? '✅' : pct >= 80 ? '⚠️' : '❌'} ${pct}%`;
+
+            const MARKER = '<!-- jest-coverage-report -->';
+            const body = [
+              MARKER,
+              `## ${icon} Jest Coverage — ${statusLabel} (${overall}%)`,
+              '',
+              '| Metric     | Coverage |',
+              '|------------|----------|',
+              `| Statements | ${fmt(statements.pct)} |`,
+              `| Branches   | ${fmt(branches.pct)} |`,
+              `| Functions  | ${fmt(functions.pct)} |`,
+              `| Lines      | ${fmt(lines.pct)} |`,
+              '',
+              '> ✅ **Great**: >90% &nbsp;|&nbsp; ⚠️ **Good**: 80–90% &nbsp;|&nbsp; ❌ **Poor**: <80%',
+              ...(overall < 80
+                ? ['', '🚫 **This PR is blocked from merging: coverage is below the 80% threshold.**']
+                : []),
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find((c) => c.body.includes(MARKER));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+            if (overall < 80) {
+              core.setFailed(
+                `Test coverage ${overall}% is below the required 80% threshold.`
+              );
+            }
+
   build:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
