@@ -84,8 +84,8 @@ export default class Cron {
 				].join("\n");
 			}
 
-			// Apply the new crontab
-			execSync(`echo "${newCrontab}" | crontab -`);
+			// Apply the new crontab safely using stdin
+			execSync("crontab -", { input: newCrontab, encoding: "utf-8" });
 		} catch (error) {
 			throw error;
 		}
@@ -115,7 +115,8 @@ export default class Cron {
 				...lines.slice(endIdx),
 			].join("\n");
 
-			execSync(`echo "${newCrontab}" | crontab -`);
+			// Apply the new crontab safely using stdin
+			execSync("crontab -", { input: newCrontab, encoding: "utf-8" });
 		} catch (error) {
 			throw error;
 		}
