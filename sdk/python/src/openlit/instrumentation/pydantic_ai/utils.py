@@ -5,6 +5,7 @@ This version reduces code duplication and improves performance while maintaining
 
 import logging
 import json
+import time
 from typing import Dict, Any, Optional, List, Tuple
 from opentelemetry.sdk.resources import (
     SERVICE_NAME,
@@ -13,7 +14,12 @@ from opentelemetry.sdk.resources import (
 )
 from opentelemetry.trace import Status, StatusCode, SpanKind
 from opentelemetry import context as context_api
-from openlit.__helpers import handle_exception
+from openlit.__helpers import (
+    handle_exception,
+    set_agent_name,
+    reset_agent_name,
+    record_agent_duration,
+)
 from openlit.semcov import SemanticConvention
 
 # Try to import enhanced helpers for business intelligence
@@ -497,47 +503,64 @@ def common_agent_run(
     operation_type = SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
     span_name = f"{operation_type} {ctx.agent_name}"
 
-    with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-        # Set common attributes
-        set_span_attributes(
-            span=span,
-            operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
-            ctx=ctx,
-            lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE,
-            additional_attrs={
-                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: str(
-                    getattr(instance, "_system_prompts", "")
-                ),
-                SemanticConvention.GEN_AI_RESPONSE_MODEL: ctx.model_name,
-            },
-        )
-
-        # Add message tracking if enabled
-        if capture_message_content and ctx.messages:
-            add_message_tracking(span, ctx.messages, "input")
-
-        # Add tool tracking if tools exist
-        if ctx.tools:
-            add_tool_tracking(span, ctx.tools)
-
-        # Add model parameters if available
-        if ctx.model_params:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_REQUEST_PARAMETERS,
-                json.dumps(ctx.model_params),
+    # Set agent name in context so downstream LLM call metrics are tagged
+    agent_ctx_token = set_agent_name(ctx.agent_name)
+    start_time = time.time()
+    try:
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            # Set common attributes
+            set_span_attributes(
+                span=span,
+                operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
+                ctx=ctx,
+                lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE,
+                additional_attrs={
+                    SemanticConvention.GEN_AI_AGENT_DESCRIPTION: str(
+                        getattr(instance, "_system_prompts", "")
+                    ),
+                    SemanticConvention.GEN_AI_RESPONSE_MODEL: ctx.model_name,
+                },
             )
 
-        # Execute with error handling
-        response = execute_with_error_handling(
-            span, wrapped, args, kwargs, capture_completion=False
-        )
+            # Add message tracking if enabled
+            if capture_message_content and ctx.messages:
+                add_message_tracking(span, ctx.messages, "input")
 
-        # Add business intelligence
-        add_business_intelligence_attributes(
-            span, ctx.model_name, response, pricing_info, capture_message_content
-        )
+            # Add tool tracking if tools exist
+            if ctx.tools:
+                add_tool_tracking(span, ctx.tools)
 
-        return response
+            # Add model parameters if available
+            if ctx.model_params:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_REQUEST_PARAMETERS,
+                    json.dumps(ctx.model_params),
+                )
+
+            # Execute with error handling
+            response = execute_with_error_handling(
+                span, wrapped, args, kwargs, capture_completion=False
+            )
+
+            # Add business intelligence
+            add_business_intelligence_attributes(
+                span, ctx.model_name, response, pricing_info, capture_message_content
+            )
+
+            # Record agent-level duration metric
+            try:
+                from openlit import OpenlitConfig
+                record_agent_duration(
+                    getattr(OpenlitConfig, "metrics_dict", None),
+                    ctx.agent_name, time.time() - start_time,
+                    operation=operation_type,
+                )
+            except Exception:
+                pass
+
+            return response
+    finally:
+        reset_agent_name(agent_ctx_token)
 
 
 async def common_agent_run_async(
@@ -568,46 +591,63 @@ async def common_agent_run_async(
     operation_type = SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK
     span_name = f"{operation_type} {ctx.agent_name}"
 
-    with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-        # Set common attributes
-        set_span_attributes(
-            span=span,
-            operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
-            ctx=ctx,
-            lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE,
-            additional_attrs={
-                SemanticConvention.GEN_AI_AGENT_DESCRIPTION: str(
-                    getattr(instance, "_system_prompts", "")
-                ),
-                SemanticConvention.GEN_AI_RESPONSE_MODEL: ctx.model_name,
-            },
-        )
-
-        # Add message tracking if enabled
-        if capture_message_content and ctx.messages:
-            add_message_tracking(span, ctx.messages, "input")
-
-        # Add tool tracking if tools exist
-        if ctx.tools:
-            add_tool_tracking(span, ctx.tools)
-
-        # Add model parameters if available
-        if ctx.model_params:
-            span.set_attribute(
-                SemanticConvention.GEN_AI_REQUEST_PARAMETERS,
-                json.dumps(ctx.model_params),
+    # Set agent name in context so downstream LLM call metrics are tagged
+    agent_ctx_token = set_agent_name(ctx.agent_name)
+    start_time = time.time()
+    try:
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            # Set common attributes
+            set_span_attributes(
+                span=span,
+                operation_name=SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK,
+                ctx=ctx,
+                lifecycle_phase=SemanticConvention.GEN_AI_AGENT_LIFECYCLE_PHASE_EXECUTE,
+                additional_attrs={
+                    SemanticConvention.GEN_AI_AGENT_DESCRIPTION: str(
+                        getattr(instance, "_system_prompts", "")
+                    ),
+                    SemanticConvention.GEN_AI_RESPONSE_MODEL: ctx.model_name,
+                },
             )
 
-        # Execute async function
-        response = await wrapped(*args, **kwargs)
+            # Add message tracking if enabled
+            if capture_message_content and ctx.messages:
+                add_message_tracking(span, ctx.messages, "input")
 
-        # Add business intelligence
-        add_business_intelligence_attributes(
-            span, ctx.model_name, response, pricing_info, capture_message_content
-        )
+            # Add tool tracking if tools exist
+            if ctx.tools:
+                add_tool_tracking(span, ctx.tools)
 
-        span.set_status(Status(StatusCode.OK))
-        return response
+            # Add model parameters if available
+            if ctx.model_params:
+                span.set_attribute(
+                    SemanticConvention.GEN_AI_REQUEST_PARAMETERS,
+                    json.dumps(ctx.model_params),
+                )
+
+            # Execute async function
+            response = await wrapped(*args, **kwargs)
+
+            # Add business intelligence
+            add_business_intelligence_attributes(
+                span, ctx.model_name, response, pricing_info, capture_message_content
+            )
+
+            # Record agent-level duration metric
+            try:
+                from openlit import OpenlitConfig
+                record_agent_duration(
+                    getattr(OpenlitConfig, "metrics_dict", None),
+                    ctx.agent_name, time.time() - start_time,
+                    operation=operation_type,
+                )
+            except Exception:
+                pass
+
+            span.set_status(Status(StatusCode.OK))
+            return response
+    finally:
+        reset_agent_name(agent_ctx_token)
 
 
 def common_agent_create(

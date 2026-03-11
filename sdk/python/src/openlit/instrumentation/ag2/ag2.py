@@ -4,7 +4,13 @@ Module for monitoring AG2 API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.__helpers import (
+    handle_exception,
+    set_agent_name,
+    reset_agent_name,
+    record_agent_invocation,
+    set_server_address_and_port,
+)
 from openlit.instrumentation.ag2.utils import (
     process_agent_creation,
     process_agent_run,
@@ -338,33 +344,45 @@ def agent_send(
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK} {agent_name}"
 
-        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-            start_time = time.time()
-            response = wrapped(*args, **kwargs)
+        # Set agent name in context for downstream LLM call metrics
+        agent_ctx_token = set_agent_name(agent_name)
+        try:
+            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+                start_time = time.time()
+                response = wrapped(*args, **kwargs)
 
-            try:
-                process_agent_send(
-                    message=message,
-                    agent_name=agent_name,
-                    recipient_name=recipient_name,
-                    agent_instance=instance,
-                    pricing_info=pricing_info,
-                    server_port=server_port,
-                    server_address=server_address,
-                    environment=environment,
-                    application_name=application_name,
-                    metrics=metrics,
-                    start_time=start_time,
-                    span=span,
-                    capture_message_content=capture_message_content,
-                    disable_metrics=disable_metrics,
-                    version=version,
-                )
+                try:
+                    process_agent_send(
+                        message=message,
+                        agent_name=agent_name,
+                        recipient_name=recipient_name,
+                        agent_instance=instance,
+                        pricing_info=pricing_info,
+                        server_port=server_port,
+                        server_address=server_address,
+                        environment=environment,
+                        application_name=application_name,
+                        metrics=metrics,
+                        start_time=start_time,
+                        span=span,
+                        capture_message_content=capture_message_content,
+                        disable_metrics=disable_metrics,
+                        version=version,
+                    )
 
-            except Exception as e:
-                handle_exception(span, e)
+                except Exception as e:
+                    handle_exception(span, e)
 
-            return response
+                # Record agent invocation metric (outside try so it's
+                # recorded even if process_agent_send fails)
+                if not disable_metrics and metrics:
+                    record_agent_invocation(
+                        metrics, agent_name, recipient_name,
+                    )
+
+                return response
+        finally:
+            reset_agent_name(agent_ctx_token)
 
     return wrapper
 

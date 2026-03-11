@@ -344,6 +344,20 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 description="MCP operation success rate by operation type",
                 unit="1",
             ),
+            # Agent metrics (OpenLIT vendor extension)
+            "genai_agent_operation_duration": meter.create_histogram(
+                name=SemanticConvention.GEN_AI_AGENT_OPERATION_DURATION,
+                description="Total duration of an agent handling a request, including all LLM calls and tool executions",
+                unit="s",
+                explicit_bucket_boundaries_advisory=[
+                    0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300,
+                ],
+            ),
+            "genai_agent_invocations": meter.create_counter(
+                name=SemanticConvention.GEN_AI_AGENT_INVOCATIONS,
+                description="Number of times one agent invokes another agent",
+                unit="1",
+            ),
         }
 
         return metrics_dict, None

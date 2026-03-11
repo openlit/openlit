@@ -21,7 +21,13 @@ from openlit.semcov import SemanticConvention
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
 from openlit.otel.events import setup_events
-from openlit.__helpers import fetch_pricing_info, get_env_variable
+from openlit.__helpers import (
+    fetch_pricing_info,
+    get_env_variable,
+    set_agent_name as _set_agent_name,
+    reset_agent_name as _reset_agent_name,
+    record_agent_invocation as _record_agent_invocation,
+)
 from openlit._instrumentors import MODULE_NAME_MAP, get_all_instrumentors
 
 # Import GPU instrumentor separately as it doesn't follow the standard pattern
@@ -560,6 +566,41 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
     except requests.RequestException as error:
         logger.error("Error fetching secrets: '%s'", error)
         return None
+
+
+def log_agent_invocation(source, target, system=None):
+    """
+    Record that one agent invoked another.
+
+    Usage:
+        openlit.log_agent_invocation("orchestrator", "product_agent")
+    """
+    try:
+        metrics = OpenlitConfig.metrics_dict
+        if metrics:
+            _record_agent_invocation(metrics, source, target, system)
+    except Exception as e:
+        logger.debug("Failed to record agent invocation: %s", e)
+
+
+@contextmanager
+def agent_context(name):
+    """
+    Context manager that sets the current agent name for metric attribution.
+
+    Any LLM calls made within this context will have their metrics tagged
+    with gen_ai.agent.name=<name>.
+
+    Usage:
+        with openlit.agent_context("product_agent"):
+            # LLM calls here will be attributed to product_agent
+            client.messages.create(...)
+    """
+    token = _set_agent_name(name)
+    try:
+        yield
+    finally:
+        _reset_agent_name(token)
 
 
 def trace(wrapped):
