@@ -1,4 +1,5 @@
 import CreateEvaluationMigration from "./create-evaluation-migration";
+import CreateEvaluationTypeDefaultsMigration from "./create-evaluation-type-defaults-migration";
 import CreateCronLogMigration from "./create-cron-log-migration";
 import CreatePromptMigration from "./create-prompt-migration";
 import CreateVaultMigration from "./create-vault-migration";
@@ -12,6 +13,7 @@ export default async function migrations(databaseConfigId?: string) {
 		CreatePromptMigration(databaseConfigId),
 		CreateVaultMigration(databaseConfigId),
 		CreateEvaluationMigration(databaseConfigId),
+		CreateEvaluationTypeDefaultsMigration(databaseConfigId),
 		CreateCronLogMigration(databaseConfigId),
 		CreateCustomDashboardsMigration(databaseConfigId),
 		CreateOpengroundMigration(databaseConfigId),

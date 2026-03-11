@@ -9,6 +9,7 @@ import {
 	LayoutDashboard,
 	MonitorCog,
 	MonitorPlay,
+	SettingsIcon,
 	ShieldAlert,
 	SlidersHorizontal,
 	TextQuote
@@ -111,8 +112,8 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 		},
 		{
 			icon: <MonitorCog className={ICON_CLASSES} />,
-			text: "Evaluation Config",
-			link: "/settings/evaluation",
+			text: "Evaluations",
+			link: "/evaluations",
 			type: "action",
 		},
 		]
@@ -126,6 +127,12 @@ export const SIDEBAR_ITEMS: SidebarItemProps[] = [
 				icon: <Key className={ICON_CLASSES} />,
 				text: "Api Keys",
 				link: "/settings/api-keys",
+				type: "action",
+			},
+			{
+				icon: <SettingsIcon className={ICON_CLASSES} />,
+				text: "Manage Models",
+				link: "/settings/manage-models",
 				type: "action",
 			},
 		]

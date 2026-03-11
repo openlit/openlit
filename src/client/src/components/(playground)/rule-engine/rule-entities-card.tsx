@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { LinkIcon, PlusIcon, XIcon } from "lucide-react";
+import { LinkIcon, PlusIcon, XIcon, Layers } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -20,8 +20,15 @@ import { RuleEntity } from "@/types/rule-engine";
 import { Context } from "@/types/context";
 import { PromptList } from "@/types/prompt";
 import getMessage from "@/constants/messages";
+import { EVALUATION_TYPES } from "@/constants/evaluation-types";
 
-const ENTITY_TYPE_OPTIONS = ["context", "prompt", "dataset", "meta_config"] as const;
+const ENTITY_TYPE_OPTIONS = [
+	"context",
+	"prompt",
+	"dataset",
+	"meta_config",
+	"evaluation",
+] as const;
 
 export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 	const messages = getMessage();
@@ -31,8 +38,12 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 	const [newEntityId, setNewEntityId] = useState("");
 	const [entityOptions, setEntityOptions] = useState<{ id: string; name: string }[]>([]);
 	const [isFetchingOptions, setIsFetchingOptions] = useState(false);
+	const [evalTypesFromConfig, setEvalTypesFromConfig] = useState<
+		Array<{ id: string; rules?: Array<{ ruleId: string }> }>
+	>([]);
 
 	const { fireRequest: fetchEntitiesReq } = useFetchWrapper();
+	const { fireRequest: fetchEvalTypes } = useFetchWrapper();
 	const { fireRequest: fireAddEntity, isLoading: isAddingEntity } = useFetchWrapper();
 	const { fireRequest: fireDeleteEntity } = useFetchWrapper();
 	const { fireRequest: fireEntityOptions } = useFetchWrapper();
@@ -71,6 +82,14 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 					},
 					failureCb: () => {},
 				});
+			} else if (entityType === "evaluation") {
+				const et = EVALUATION_TYPES.find((e) => e.id === entityId);
+				if (et) {
+					setEntityTitles((prev) => ({
+						...prev,
+						[`${entityType}:${entityId}`]: et.label,
+					}));
+				}
 			}
 		},
 		[]
@@ -86,7 +105,8 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 				list.forEach((entity: any) => {
 					if (
 						entity.entity_type === "context" ||
-						entity.entity_type === "prompt"
+						entity.entity_type === "prompt" ||
+						entity.entity_type === "evaluation"
 					) {
 						fetchEntityTitle(entity.entity_type, entity.entity_id);
 					}
@@ -97,12 +117,17 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 	}, [ruleId, fetchEntityTitle]);
 
 	const fetchEntityOptions = useCallback((type: string) => {
-		if (type !== "context" && type !== "prompt") {
+		if (type !== "context" && type !== "prompt" && type !== "evaluation") {
 			setEntityOptions([]);
 			return;
 		}
 		setIsFetchingOptions(true);
-		if (type === "context") {
+		if (type === "evaluation") {
+			setEntityOptions(
+				EVALUATION_TYPES.map((e) => ({ id: e.id, name: e.label }))
+			);
+			setIsFetchingOptions(false);
+		} else if (type === "context") {
 			fireEntityOptions({
 				requestType: "GET",
 				url: "/api/context",
@@ -129,6 +154,18 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 
 	useEffect(() => {
 		fetchEntities();
+	}, [ruleId]);
+
+	useEffect(() => {
+		fetchEvalTypes({
+			requestType: "GET",
+			url: "/api/evaluation/types",
+			successCb: (data: any) => {
+				const types = data?.data ?? [];
+				setEvalTypesFromConfig(Array.isArray(types) ? types : []);
+			},
+			failureCb: () => setEvalTypesFromConfig([]),
+		});
 	}, [ruleId]);
 
 	useEffect(() => {
@@ -163,7 +200,11 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 				toast.success(messages.RULE_ENTITY_ASSOCIATED, { id: "rule-entity" });
 				setNewEntityId("");
 				fetchEntities();
-				if (newEntityType === "context" || newEntityType === "prompt") {
+				if (
+					newEntityType === "context" ||
+					newEntityType === "prompt" ||
+					newEntityType === "evaluation"
+				) {
 					fetchEntityTitle(newEntityType, newEntityId.trim());
 				}
 			},
@@ -201,6 +242,26 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 	);
 	const availableOptions = entityOptions.filter((o) => !linkedIds.has(o.id));
 
+	const evaluationEntities = entities.filter(
+		(e: any) => e.entity_type === "evaluation"
+	);
+	// Evaluation types that reference this rule from the Evaluation Types page config
+	const evalTypeIdsFromConfig = evalTypesFromConfig
+		.filter((t) =>
+			t.rules?.some((r) => r.ruleId === ruleId)
+		)
+		.map((t) => t.id);
+	// Merge: from rule entities + from config (dedupe by id)
+	const allEvalTypeIds = Array.from(
+		new Set([
+			...evaluationEntities.map((e: any) => e.entity_id),
+			...evalTypeIdsFromConfig,
+		])
+	);
+	const otherEntities = entities.filter(
+		(e: any) => e.entity_type !== "evaluation"
+	);
+
 	return (
 		<Card className="flex flex-col overflow-hidden border border-stone-200 dark:border-stone-800 basis-1/2">
 			<CardHeader className="p-4 pb-3 border-b border-stone-100 dark:border-stone-800">
@@ -209,6 +270,62 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="p-4 flex flex-col gap-4 flex-1 overflow-y-auto scrollbar-hidden">
+				{/* Evaluation types section: from rule entities + from Evaluation Types page config */}
+				{allEvalTypeIds.length > 0 && (
+					<div className="flex flex-col gap-2">
+						<p className="text-xs font-medium text-stone-500 dark:text-stone-400 flex items-center gap-1.5">
+							<Layers className="size-3.5" />
+							Evaluation types
+						</p>
+						<div className="flex flex-wrap gap-1.5">
+							{allEvalTypeIds.map((evalTypeId) => {
+								const entity = evaluationEntities.find(
+									(e: any) => e.entity_id === evalTypeId
+								);
+								const label =
+									entityTitles[`evaluation:${evalTypeId}`] ||
+									EVALUATION_TYPES.find((e) => e.id === evalTypeId)?.label ||
+									evalTypeId;
+								const fromConfig = !entity && evalTypeIdsFromConfig.includes(evalTypeId);
+								return (
+									<div
+										key={evalTypeId}
+										className="inline-flex items-center gap-1 rounded-md border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/50 px-2.5 py-1.5 group"
+									>
+										<Link
+											href="/evaluations/types"
+											className="text-sm text-stone-700 dark:text-stone-300 hover:text-primary dark:hover:text-primary transition-colors"
+											onClick={(e) => e.stopPropagation()}
+										>
+											{label}
+										</Link>
+										{fromConfig && (
+											<span className="text-[10px] text-stone-400 dark:text-stone-500">
+												(from config)
+											</span>
+										)}
+										{entity && (
+											<ConfirmationModal
+												handleYes={deleteEntity}
+												title={messages.RULE_REMOVE_ENTITY_TITLE}
+												subtitle={messages.RULE_REMOVE_ENTITY_SUBTITLE}
+												params={{ id: entity.id }}
+											>
+												<button
+													type="button"
+													className="text-stone-300 hover:text-red-500 dark:text-stone-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+												>
+													<XIcon className="w-3.5 h-3.5" />
+												</button>
+											</ConfirmationModal>
+										)}
+									</div>
+								);
+							})}
+						</div>
+					</div>
+				)}
+
 				{/* Entity list */}
 				{entities.length === 0 ? (
 					<div className="flex flex-col items-center justify-center py-6 gap-2">
@@ -219,7 +336,12 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 					</div>
 				) : (
 					<div className="flex flex-col gap-2">
-						{entities.map((entity: any) => (
+						{otherEntities.length > 0 && (
+							<>
+								<p className="text-xs font-medium text-stone-500 dark:text-stone-400">
+									Other entities
+								</p>
+								{otherEntities.map((entity: any) => (
 							<div
 								key={entity.id}
 								className="flex items-center justify-between rounded-md border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-900/50 px-3 py-2.5"
@@ -245,6 +367,16 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 										) : entity.entity_type === "prompt" ? (
 											<Link
 												href={`/prompt-hub/${entity.entity_id}`}
+												className="text-sm text-stone-700 dark:text-stone-300 hover:text-primary dark:hover:text-primary truncate font-medium"
+												onClick={(e) => e.stopPropagation()}
+											>
+												{entityTitles[
+													`${entity.entity_type}:${entity.entity_id}`
+												] || entity.entity_id}
+											</Link>
+										) : entity.entity_type === "evaluation" ? (
+											<Link
+												href="/evaluations/types"
 												className="text-sm text-stone-700 dark:text-stone-300 hover:text-primary dark:hover:text-primary truncate font-medium"
 												onClick={(e) => e.stopPropagation()}
 											>
@@ -279,6 +411,8 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 								</ConfirmationModal>
 							</div>
 						))}
+							</>
+						)}
 					</div>
 				)}
 
@@ -300,7 +434,9 @@ export default function RuleEntitiesCard({ ruleId }: { ruleId: string }) {
 						</SelectContent>
 					</Select>
 
-					{newEntityType === "context" || newEntityType === "prompt" ? (
+					{newEntityType === "context" ||
+					newEntityType === "prompt" ||
+					newEntityType === "evaluation" ? (
 						<Select
 							value={newEntityId}
 							onValueChange={setNewEntityId}

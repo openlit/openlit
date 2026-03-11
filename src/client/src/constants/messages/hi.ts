@@ -47,6 +47,63 @@ export const EVALUATION_CONFIG_UPDATING_FAILED =
 	"इवैल्यूएशन कॉन्फ़िगरेशन अपडेट विफल रहा!";
 export const EVALUATION_RUN_FAILURE = "इवैल्यूएशन चलाना विफल रहा!";
 
+// Evaluation Settings page
+export const EVALUATION_VAULT_KEY_NOT_FOUND = "वॉल्ट कुंजी नहीं मिली।";
+export const EVALUATION_CREATE_NEW = "नया बनाएं";
+export const EVALUATION_ENGINE_TITLE = "इवैल्यूएशन इंजन";
+export const EVALUATION_ENGINE_DESCRIPTION =
+	"इवैल्यूएशन फ्रेमवर्क चुनें। रूल इंजन कॉन्टेक्स्ट और इवैल्यूएशन टाइप मैनुअल और ऑटो दोनों रन के लिए लागू होते हैं।";
+export const EVALUATION_ENGINE_LABEL = "इंजन";
+export const EVALUATION_CONFIG_SECTION = "कॉन्फ़िगरेशन";
+export const EVALUATION_PROVIDER_LABEL = "प्रोवाइडर";
+export const EVALUATION_SELECT_PROVIDER = "प्रोवाइडर चुनें";
+export const EVALUATION_MODEL_LABEL = "मॉडल";
+export const EVALUATION_SELECT_MODEL = "मॉडल चुनें";
+export const EVALUATION_MODEL_PLACEHOLDER =
+	"उदाहरण: gpt-4o-mini या कस्टम मॉडल नाम";
+export const EVALUATION_MODEL_CUSTOM_HINT =
+	"सुझावों से चुनें या प्रोवाइडर द्वारा समर्थित कोई भी मॉडल नाम टाइप करें।";
+export const EVALUATION_SELECT_PROVIDER_FIRST = "पहले प्रोवाइडर चुनें";
+export const EVALUATION_API_KEY_VAULT = "API कुंजी (वॉल्ट)";
+export const EVALUATION_SELECT_VAULT_KEY = "वॉल्ट कुंजी चुनें";
+export const EVALUATION_AUTO_TITLE = "ऑटो इवैल्यूएशन";
+export const EVALUATION_AUTO_DESCRIPTION =
+	"डिफ़ॉल्ट रूप से Hallucination, Bias और Toxicity चलाता है। रूल इंजन ट्रेस का मूल्यांकन करता है, कॉन्टेक्स्ट लाता है और शेड्यूल पर इवैल्यूएशन चलाता है।";
+export const EVALUATION_ENABLE_AUTO = "ऑटो इवैल्यूएशन सक्षम करें";
+export const EVALUATION_ENABLE_AUTO_DESCRIPTION =
+	"शेड्यूल पर नए ट्रेस का मूल्यांकन करें";
+export const EVALUATION_CRON_SCHEDULE = "क्रॉन शेड्यूल";
+export const EVALUATION_CRON_PLACEHOLDER = "* * * * *";
+export const EVALUATION_CRON_HELP =
+	"मानक क्रॉन एक्सप्रेशन (उदाहरण: प्रति घंटे के लिए 0 * * * *)";
+export const EVALUATION_SAVING = "सहेज रहे हैं...";
+export const EVALUATION_SAVE_CHANGES = "बदलाव सहेजें";
+export const EVALUATION_CREATE_CONFIG = "कॉन्फ़िग बनाएं";
+export const EVALUATION_MANUAL_TITLE = "मैनुअल इवैल्यूएशन";
+export const EVALUATION_MANUAL_DESCRIPTION =
+	"ट्रेस रिक्वेस्ट विवरण से मैन्युअल रूप से इवैल्यूएशन चलाएं। मैनुअल रन source=manual के साथ ClickHouse में संग्रहीत होते हैं।";
+export const EVALUATION_MANUAL_STEP_1 =
+	"रिक्वेस्ट पर जाएं और चैट/कम्प्लीशन टाइप के साथ एक ट्रेस खोलें";
+export const EVALUATION_MANUAL_STEP_2 =
+	"ट्रेस विवरण में इवैल्यूएशन टैब पर क्लिक करें";
+export const EVALUATION_MANUAL_STEP_3 =
+	'इवैल्यूएशन चलाने के लिए "Run Evaluation" पर क्लिक करें';
+export const EVALUATION_GO_TO_REQUESTS = "रिक्वेस्ट पर जाएं";
+export const EVALUATION_MANUAL_AND_AUTO = "मैनुअल & ऑटो";
+export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
+	"मैनुअल और ऑटो इवैल्यूएशन रूल इंजन कॉन्टेक्स्ट का उपयोग करते हैं जब नियम ट्रेस से मेल खाते हैं। मैनुअल रन source=manual के साथ संग्रहीत होते हैं; ऑटो रन source=auto का उपयोग करते हैं।";
+
+// Manual feedback
+export const EVALUATION_MANUAL_FEEDBACK = "मैनुअल फीडबैक";
+export const EVALUATION_MANUAL_FEEDBACK_DESCRIPTION =
+	"इस प्रतिक्रिया पर अपना फीडबैक जोड़ें";
+export const EVALUATION_FEEDBACK_POSITIVE = "अच्छा";
+export const EVALUATION_FEEDBACK_NEGATIVE = "खराब";
+export const EVALUATION_FEEDBACK_NEUTRAL = "तटस्थ";
+export const EVALUATION_FEEDBACK_COMMENT_PLACEHOLDER = "वैकल्पिक टिप्पणी...";
+export const EVALUATION_FEEDBACK_SUBMIT = "फीडबैक सबमिट करें";
+export const EVALUATION_FEEDBACK_SAVED = "फीडबैक सहेजा गया!";
+
 // Traces
 export const TRACE_NOT_FOUND = "ट्रेस नहीं मिला!";
 export const TRACE_FETCHING_ERROR = "ट्रेस प्राप्त करने में त्रुटि!";

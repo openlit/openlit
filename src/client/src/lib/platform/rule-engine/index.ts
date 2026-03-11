@@ -302,11 +302,19 @@ export async function deleteRuleEntity(id: string) {
 	return [undefined, getMessage().RULE_ENTITY_DELETED];
 }
 
-export async function getRuleEntities(filters: { rule_id?: string; entity_type?: string; entity_id?: string } = {}) {
+export async function getRuleEntities(filters: {
+	rule_id?: string;
+	entity_type?: string;
+	entity_id?: string;
+	id?: string;
+} = {}) {
 	const user = await getCurrentUser();
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
 	const conditions: string[] = [];
+	if (filters.id) {
+		conditions.push(`id = '${Sanitizer.sanitizeValue(filters.id)}'`);
+	}
 	if (filters.rule_id) {
 		conditions.push(`rule_id = '${Sanitizer.sanitizeValue(filters.rule_id)}'`);
 	}

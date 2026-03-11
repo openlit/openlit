@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function SettingsEvaluationPage() {
+export default function EvaluationsPage() {
 	redirect("/evaluations/settings");
 }

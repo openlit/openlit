@@ -16,7 +16,12 @@ export type RuleConditionOperator =
 	| "lte"
 	| "between";
 export type RuleConditionDataType = "string" | "number" | "boolean";
-export type RuleEntityType = "context" | "prompt" | "dataset" | "meta_config";
+export type RuleEntityType =
+	| "context"
+	| "prompt"
+	| "dataset"
+	| "meta_config"
+	| "evaluation";
 
 export interface Rule {
 	id: string;

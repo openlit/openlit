@@ -47,6 +47,62 @@ export const EVALUATION_CONFIG_UPDATING_FAILED =
 	"Evaluation config updation failed!";
 export const EVALUATION_RUN_FAILURE = "Evaluation run failed!";
 
+// Evaluation Settings page
+export const EVALUATION_VAULT_KEY_NOT_FOUND = "Unable to find the vault key.";
+export const EVALUATION_CREATE_NEW = "Create new";
+export const EVALUATION_ENGINE_TITLE = "Evaluation Engine";
+export const EVALUATION_ENGINE_DESCRIPTION =
+	"Choose the evaluation framework. Rule engine context and evaluation types are applied for both manual and auto runs.";
+export const EVALUATION_ENGINE_LABEL = "Engine";
+export const EVALUATION_CONFIG_SECTION = "Configuration";
+export const EVALUATION_PROVIDER_LABEL = "Provider";
+export const EVALUATION_SELECT_PROVIDER = "Select provider";
+export const EVALUATION_MODEL_LABEL = "Model";
+export const EVALUATION_SELECT_MODEL = "Select model";
+export const EVALUATION_MODEL_PLACEHOLDER = "e.g. gpt-4o-mini or custom model name";
+export const EVALUATION_MODEL_CUSTOM_HINT =
+	"Select from suggestions or type any model name supported by the provider.";
+export const EVALUATION_SELECT_PROVIDER_FIRST = "Select provider first";
+export const EVALUATION_API_KEY_VAULT = "API Key (Vault)";
+export const EVALUATION_SELECT_VAULT_KEY = "Select vault key";
+export const EVALUATION_AUTO_TITLE = "Auto Evaluation";
+export const EVALUATION_AUTO_DESCRIPTION =
+	"Runs Hallucination, Bias, and Toxicity by default. Rule engine evaluates traces, fetches context, and runs evaluation on schedule.";
+export const EVALUATION_ENABLE_AUTO = "Enable auto evaluation";
+export const EVALUATION_ENABLE_AUTO_DESCRIPTION =
+	"Evaluate new traces on a schedule";
+export const EVALUATION_CRON_SCHEDULE = "Cron schedule";
+export const EVALUATION_CRON_PLACEHOLDER = "* * * * *";
+export const EVALUATION_CRON_HELP =
+	"Standard cron expression (e.g. 0 * * * * for hourly)";
+export const EVALUATION_SAVING = "Saving...";
+export const EVALUATION_SAVE_CHANGES = "Save Changes";
+export const EVALUATION_CREATE_CONFIG = "Create Config";
+export const EVALUATION_MANUAL_TITLE = "Manual Evaluation";
+export const EVALUATION_MANUAL_DESCRIPTION =
+	"Run evaluations manually from the trace request details. Manual runs are stored in ClickHouse with source=manual.";
+export const EVALUATION_MANUAL_STEP_1 =
+	"Go to Requests and open chat/completion trace";
+export const EVALUATION_MANUAL_STEP_2 =
+	"Click the Evaluation tab in the trace details";
+export const EVALUATION_MANUAL_STEP_3 =
+	'Click "Run Evaluation" to evaluate the trace';
+export const EVALUATION_GO_TO_REQUESTS = "Go to Requests";
+export const EVALUATION_MANUAL_AND_AUTO = "Manual & Auto";
+export const EVALUATION_MANUAL_AND_AUTO_DESCRIPTION =
+	"Manual and Auto evaluations use the Rule Engine context applied in evaluation types when rules match the trace. Manual runs are stored with source=manual; Auto runs are stored with source=auto.";
+
+// Manual feedback
+export const EVALUATION_MANUAL_FEEDBACK = "Manual Feedback";
+export const EVALUATION_MANUAL_FEEDBACK_DESCRIPTION =
+	"Add your feedback on this response";
+export const EVALUATION_FEEDBACK_POSITIVE = "Good";
+export const EVALUATION_FEEDBACK_NEGATIVE = "Bad";
+export const EVALUATION_FEEDBACK_NEUTRAL = "Neutral";
+export const EVALUATION_FEEDBACK_COMMENT_PLACEHOLDER = "Optional comment...";
+export const EVALUATION_FEEDBACK_SUBMIT = "Submit Feedback";
+export const EVALUATION_FEEDBACK_SAVED = "Feedback saved!";
+
 // Traces
 export const TRACE_NOT_FOUND = "Trace not found!";
 export const TRACE_FETCHING_ERROR = "Error fetching trace!";

@@ -1,6 +1,12 @@
 import { RuleConditionInput, RuleEntityInput, RuleEntityType, RuleInput } from "@/types/rule-engine";
 
-const VALID_ENTITY_TYPES: RuleEntityType[] = ["context", "prompt", "dataset", "meta_config"];
+const VALID_ENTITY_TYPES: RuleEntityType[] = [
+	"context",
+	"prompt",
+	"dataset",
+	"meta_config",
+	"evaluation",
+];
 const VALID_OPERATORS = [
 	"equals", "not_equals", "contains", "not_contains",
 	"starts_with", "ends_with", "regex", "in", "not_in",

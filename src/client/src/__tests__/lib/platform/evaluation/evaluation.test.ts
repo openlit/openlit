@@ -55,6 +55,9 @@ jest.mock('@/utils/asaw', () => jest.fn());
 jest.mock('@/helpers/server/trace', () => ({
   getTraceMappingKeyFullPath: jest.fn((key: string, _full?: boolean) => `SpanAttributes.${key}`),
 }));
+jest.mock('@/lib/platform/evaluation/rule-engine-context', () => ({
+  getContextFromRuleEngineForTrace: jest.fn().mockResolvedValue({ contextContents: [], matchingRuleIds: [] }),
+}));
 jest.mock('@/constants/traces', () => ({
   SUPPORTED_EVALUATION_OPERATIONS: ['llm', 'chat'],
 }));
@@ -71,6 +74,7 @@ import { getCurrentUser } from '@/lib/session';
 import { getEvaluationConfig, getEvaluationConfigById } from '@/lib/platform/evaluation/config';
 import { getLastRunCronLogByCronId, getLastFailureCronLogBySpanId, insertCronLog } from '@/lib/platform/cron-log';
 import { getDBConfigById } from '@/lib/db-config';
+import { getRequestViaSpanId } from '@/lib/platform/request';
 import asaw from '@/utils/asaw';
 import { spawn } from 'child_process';
 
@@ -113,6 +117,7 @@ beforeEach(() => {
   (getLastFailureCronLogBySpanId as jest.Mock).mockResolvedValue({ data: [] });
   (insertCronLog as jest.Mock).mockResolvedValue({ err: null });
   (getLastRunCronLogByCronId as jest.Mock).mockResolvedValue(null);
+  (getRequestViaSpanId as jest.Mock).mockResolvedValue({ record: { SpanId: 'span-1' } });
 });
 
 describe('getEvaluationsForSpanId', () => {
@@ -137,10 +142,11 @@ describe('getEvaluationsForSpanId', () => {
 
   it('returns config id when no evaluation data and config exists', async () => {
     (dataCollector as jest.Mock).mockResolvedValue({ data: [], err: null });
-    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'cfg-1' }]);
+    (asaw as jest.Mock).mockResolvedValueOnce([null, { id: 'cfg-1', databaseConfigId: 'db-1' }]);
 
     const result = await getEvaluationsForSpanId('span-1');
     expect(result.config).toBe('cfg-1');
+    expect(result.ruleContext).toBeDefined();
   });
 
   it('returns configErr when evaluation config not found', async () => {

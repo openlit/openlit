@@ -126,10 +126,10 @@ function ConditionValueInput({
 	const [inputValue, setInputValue] = useState(value);
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	const fieldValuesCache = useRootStore((s) => s.ruleEngine.fieldValuesCache);
-	const fieldValuesLoading = useRootStore((s) => s.ruleEngine.fieldValuesLoading);
-	const setFieldValues = useRootStore((s) => s.ruleEngine.setFieldValues);
-	const setFieldValuesLoading = useRootStore((s) => s.ruleEngine.setFieldValuesLoading);
+	const fieldValuesCache = useRootStore((s) => s.ruleEngine?.fieldValuesCache ?? {});
+	const fieldValuesLoading = useRootStore((s) => s.ruleEngine?.fieldValuesLoading ?? {});
+	const setFieldValues = useRootStore((s) => s.ruleEngine?.setFieldValues ?? (() => {}));
+	const setFieldValuesLoading = useRootStore((s) => s.ruleEngine?.setFieldValuesLoading ?? (() => {}));
 
 	const cached = fieldValuesCache[field] ?? null;
 	const isLoading = fieldValuesLoading[field] ?? false;

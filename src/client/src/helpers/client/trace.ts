@@ -9,11 +9,60 @@ import { objectKeys } from "@/utils/object";
 import { format } from "date-fns";
 import { find, get, round } from "lodash";
 
+/** Normalize raw record to TraceRow shape (handles snake_case from ClickHouse) */
+export function ensureTraceRowShape(record: any): TraceRow {
+	if (!record) return record;
+	const r = record as Record<string, unknown>;
+	return {
+		...record,
+		TraceId: r.TraceId ?? r.trace_id,
+		SpanId: r.SpanId ?? r.span_id,
+		ParentSpanId: r.ParentSpanId ?? r.parent_span_id ?? "",
+		SpanName: r.SpanName ?? r.span_name ?? "",
+		Timestamp: r.Timestamp ?? r.timestamp,
+		Duration: r.Duration ?? r.duration ?? "",
+		StatusCode: r.StatusCode ?? r.status_code ?? "",
+		StatusMessage: r.StatusMessage ?? r.status_message ?? "",
+		ServiceName: r.ServiceName ?? r.service_name ?? "",
+		SpanKind: (r.SpanKind ?? r.span_kind) as any,
+		TraceState: r.TraceState ?? r.trace_state ?? "",
+		ResourceAttributes: r.ResourceAttributes ?? r.resource_attributes ?? {},
+		SpanAttributes: r.SpanAttributes ?? r.span_attributes ?? {},
+		ScopeName: r.ScopeName ?? r.scope_name ?? "",
+		ScopeVersion: r.ScopeVersion ?? r.scope_version ?? "",
+		Events: r.Events ?? r.events ?? [],
+		Links: r.Links ?? r.links ?? [],
+	} as TraceRow;
+}
+
 export const integerParser = (value: string, offset?: number) =>
 	parseInt((value || "0") as string, 10) * (offset || 1);
 
 export const floatParser = (value: string, offset?: number) =>
 	parseFloat((value || "0") as string) * (offset || 1);
+
+/** Extract readable text from gen_ai.input.messages / gen_ai.output.messages JSON */
+function extractTextFromMessages(raw: unknown): string | undefined {
+	if (raw == null) return undefined;
+	let arr: Array<{ role?: string; parts?: Array<{ type?: string; content?: string }> }>;
+	try {
+		arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+	} catch {
+		return undefined;
+	}
+	if (!Array.isArray(arr)) return undefined;
+	const texts: string[] = [];
+	for (const msg of arr) {
+		const parts = msg?.parts;
+		if (!Array.isArray(parts)) continue;
+		for (const p of parts) {
+			if (p?.type === "text" && typeof p.content === "string") {
+				texts.push(p.content);
+			}
+		}
+	}
+	return texts.length > 0 ? texts.join("\n\n") : undefined;
+}
 
 export const getNormalizedTraceAttribute = (
 	traceKey: TraceMappingKeyType,
@@ -45,13 +94,34 @@ export const getNormalizedTraceAttribute = (
 };
 
 export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
+	const spanAttrs = item?.SpanAttributes ?? {};
+	const resourceAttrs = (item as any)?.ResourceAttributes ?? {};
 	return objectKeys(TraceMapping).reduce(
 		(acc: TransformedTraceRow, traceKey: TraceMappingKeyType) => {
 			let value: unknown;
-			if (TraceMapping[traceKey].isRoot) {
-				value = get(item, TraceMapping[traceKey].path);
+			const mapping = TraceMapping[traceKey];
+			if (mapping.isRoot) {
+				value = get(item, mapping.path);
+				// applicationName and environment live in ResourceAttributes, not at root
+				if (value == null && traceKey === "applicationName") {
+					value = resourceAttrs["service.name"];
+				} else if (value == null && traceKey === "environment") {
+					value = resourceAttrs["deployment.environment"];
+				} else if (value == null && traceKey === "prompt") {
+					value =
+						spanAttrs["gen_ai.content.prompt"] ??
+						spanAttrs["gen_ai.request.input"] ??
+						extractTextFromMessages(spanAttrs["gen_ai.input.messages"]);
+				} else if (value == null && traceKey === "response") {
+					value =
+						spanAttrs["gen_ai.content.completion"] ??
+						spanAttrs["gen_ai.response.output"] ??
+						extractTextFromMessages(spanAttrs["gen_ai.output.messages"]);
+				} else if (value == null && traceKey === "revisedPrompt") {
+					value = spanAttrs["gen_ai.content.revised_prompt"];
+				}
 			} else {
-				value = get(item.SpanAttributes, getTraceMappingKeyFullPath(traceKey));
+				value = get(spanAttrs, getTraceMappingKeyFullPath(traceKey));
 			}
 
 			acc[traceKey] = getNormalizedTraceAttribute(traceKey, value);
@@ -124,7 +194,7 @@ export const CODE_ITEM_DISPLAY_KEYS: TraceMappingKeyType[] = [
 	"systemInstructions",
 	"contentReasoning",
 	"toolArgs",
-	"dbQueryText",
+	"dbQueryText"
 ];
 
 /**

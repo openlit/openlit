@@ -7,8 +7,9 @@ import {
 	OPENLIT_RULES_TABLE_NAME,
 } from "./table-details";
 import { dataCollector } from "../common";
-import { getContextById } from "../context";
+import { OPENLIT_CONTEXTS_TABLE_NAME } from "../context/table-details";
 import { getCompiledPromptByDbConfig } from "../prompt/compiled";
+import Sanitizer from "@/utils/sanitizer";
 
 export async function evaluateRules(
 	{ fields, entity_type, include_entity_data, entity_inputs }: EvaluateInput,
@@ -139,7 +140,14 @@ ORDER BY rm.rule_id, re.entity_type;
 
 			try {
 				if (entity.entity_type === "context") {
-					const { data: ctxData } = await getContextById(entity.entity_id, databaseConfigId);
+					const safeId = Sanitizer.sanitizeValue(entity.entity_id);
+					const { data: ctxData } = await dataCollector(
+						{
+							query: `SELECT * FROM ${OPENLIT_CONTEXTS_TABLE_NAME} WHERE id = '${safeId}'`,
+						},
+						"query",
+						databaseConfigId
+					);
 					entity_data[key] = (ctxData as any[])?.[0] || null;
 				} else if (entity.entity_type === "prompt") {
 					entity_data[key] = await getCompiledPromptByDbConfig({
