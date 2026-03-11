@@ -11,22 +11,6 @@ export const EVALUATION_ENGINES = [
 		requiresModel: true,
 		requiresApiKey: true,
 	},
-	{
-		id: "deepcheck",
-		label: "DeepCheck",
-		description:
-			"DeepCheck cloud platform. Requires Python SDK or REST API. Coming soon for JS integration.",
-		requiresModel: false,
-		requiresApiKey: true,
-	},
-	{
-		id: "ragas",
-		label: "Ragas",
-		description:
-			"Ragas RAG evaluation (faithfulness, context precision). @iklovepolo/ragas-lib available for Node.js. Coming soon.",
-		requiresModel: true,
-		requiresApiKey: true,
-	},
 ] as const;
 
 export type EvaluationEngineId = (typeof EVALUATION_ENGINES)[number]["id"];
