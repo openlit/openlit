@@ -5,12 +5,7 @@ CrewAI sync wrapper using modern general_wrap pattern
 import time
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
-from openlit.__helpers import (
-    handle_exception,
-    set_agent_name,
-    reset_agent_name,
-    record_agent_duration,
-)
+from openlit.__helpers import handle_exception
 from openlit.instrumentation.crewai.utils import (
     process_crewai_response,
     OPERATION_MAP,
@@ -53,58 +48,35 @@ def general_wrap(
             operation_type, gen_ai_endpoint, instance, args, kwargs
         )
 
-        # Set agent name in context for agent operations so downstream
-        # LLM call metrics are tagged with gen_ai.agent.name
-        agent_name_for_ctx = None
-        agent_ctx_token = None
-        if gen_ai_endpoint.startswith("agent_") and gen_ai_endpoint != "agent___init__":
-            agent_name_for_ctx = (
-                getattr(instance, "name", None)
-                or getattr(instance, "role", None)
-            )
-            if agent_name_for_ctx:
-                agent_ctx_token = set_agent_name(agent_name_for_ctx)
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
+            response = wrapped(*args, **kwargs)
 
-        try:
-            with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
-                start_time = time.time()
-                response = wrapped(*args, **kwargs)
+            try:
+                # Process response and generate comprehensive telemetry
+                response = process_crewai_response(
+                    response,
+                    operation_type,
+                    server_address,
+                    server_port,
+                    environment,
+                    application_name,
+                    metrics,
+                    start_time,
+                    span,
+                    capture_message_content,
+                    disable_metrics,
+                    version,
+                    instance,
+                    args,
+                    endpoint=gen_ai_endpoint,
+                    **kwargs,
+                )
 
-                try:
-                    # Process response and generate comprehensive telemetry
-                    response = process_crewai_response(
-                        response,
-                        operation_type,
-                        server_address,
-                        server_port,
-                        environment,
-                        application_name,
-                        metrics,
-                        start_time,
-                        span,
-                        capture_message_content,
-                        disable_metrics,
-                        version,
-                        instance,
-                        args,
-                        endpoint=gen_ai_endpoint,
-                        **kwargs,
-                    )
+            except Exception as e:
+                handle_exception(span, e)
 
-                except Exception as e:
-                    handle_exception(span, e)
-
-                # Record agent-level duration metric
-                if agent_name_for_ctx and not disable_metrics and metrics:
-                    record_agent_duration(
-                        metrics, agent_name_for_ctx,
-                        time.time() - start_time, operation_type,
-                    )
-
-                return response
-        finally:
-            if agent_ctx_token is not None:
-                reset_agent_name(agent_ctx_token)
+            return response
 
     return wrapper
 
