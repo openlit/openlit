@@ -46,10 +46,40 @@ class LiteLLMInstrumentor(BaseInstrumentor):
                 event_provider,
             ),
         )
+        wrap_function_wrapper(
+            "litellm.main",
+            "completion",
+            completion(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
 
         # Async chat completions
         wrap_function_wrapper(
             "litellm",
+            "acompletion",
+            acompletion(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
+        wrap_function_wrapper(
+            "litellm.main",
             "acompletion",
             acompletion(
                 version,
@@ -80,10 +110,40 @@ class LiteLLMInstrumentor(BaseInstrumentor):
                 event_provider,
             ),
         )
+        wrap_function_wrapper(
+            "litellm.main",
+            "embedding",
+            embedding(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
 
         # Async embeddings
         wrap_function_wrapper(
             "litellm",
+            "aembedding",
+            aembedding(
+                version,
+                environment,
+                application_name,
+                tracer,
+                pricing_info,
+                capture_message_content,
+                metrics,
+                disable_metrics,
+                event_provider,
+            ),
+        )
+        wrap_function_wrapper(
+            "litellm.main",
             "aembedding",
             aembedding(
                 version,
