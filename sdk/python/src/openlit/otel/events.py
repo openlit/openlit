@@ -4,20 +4,19 @@ Setups up OpenTelemetry events emitter
 
 import os
 import logging
-from opentelemetry import _events, _logs
+from opentelemetry import _logs
 from opentelemetry.sdk.resources import (
     SERVICE_NAME,
     TELEMETRY_SDK_NAME,
     DEPLOYMENT_ENVIRONMENT,
 )
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk._events import EventLoggerProvider
 from opentelemetry.sdk._logs.export import (
     BatchLogRecordProcessor,
     SimpleLogRecordProcessor,
 )
 from opentelemetry.sdk._logs import LoggerProvider
-from opentelemetry.sdk._logs.export import ConsoleLogExporter
+from opentelemetry.sdk._logs.export import ConsoleLogRecordExporter
 from openlit.__helpers import parse_exporters
 
 # pylint: disable=ungrouped-imports
@@ -105,7 +104,7 @@ def setup_events(
                         logger_provider.add_log_record_processor(log_processor)
                         processors_added = True
                     elif exporter_name == "console":
-                        event_exporter = ConsoleLogExporter()
+                        event_exporter = ConsoleLogRecordExporter()
                         log_processor = SimpleLogRecordProcessor(event_exporter)
                         logger_provider.add_log_record_processor(log_processor)
                         processors_added = True
@@ -132,18 +131,16 @@ def setup_events(
                         else SimpleLogRecordProcessor(event_exporter)
                     )
                 else:
-                    event_exporter = ConsoleLogExporter()
+                    event_exporter = ConsoleLogRecordExporter()
                     log_processor = SimpleLogRecordProcessor(event_exporter)
 
                 logger_provider.add_log_record_processor(log_processor)
 
             _logs.set_logger_provider(logger_provider)
-            event_provider = EventLoggerProvider()
-            _events.set_event_logger_provider(event_provider)
 
             EVENTS_SET = True
 
-        return _events.get_event_logger(__name__)
+        return _logs.get_logger(__name__)
 
     # pylint: disable=bare-except
     except:
