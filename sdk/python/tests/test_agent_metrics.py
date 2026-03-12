@@ -489,3 +489,59 @@ class TestNestedAgentDetection:
         asyncio.run(run_test())
 
         assert not interference_detected, "Concurrent agents interfered with each other's context"
+
+
+# ---------------------------------------------------------------------------
+# 7. Agent error tracking on duration metric
+# ---------------------------------------------------------------------------
+
+class TestAgentErrorTracking:
+    """Tests that agent errors are recorded on the duration histogram via error_type."""
+
+    def test_duration_records_error_type_on_failure(self):
+        """record_agent_duration includes error.type when provided."""
+        fake_histogram = MagicMock()
+        metrics = {"genai_agent_operation_duration": fake_histogram}
+        record_agent_duration(
+            metrics, "failing_agent", 0.8,
+            operation="chat", error_type="ValueError",
+        )
+
+        fake_histogram.record.assert_called_once()
+        value, attrs = fake_histogram.record.call_args[0]
+        assert value == 0.8
+        assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "failing_agent"
+        assert attrs[SemanticConvention.ERROR_TYPE] == "ValueError"
+
+    def test_duration_no_error_type_on_success(self):
+        """record_agent_duration omits error.type when not provided."""
+        fake_histogram = MagicMock()
+        metrics = {"genai_agent_operation_duration": fake_histogram}
+        record_agent_duration(metrics, "good_agent", 1.2, operation="chat")
+
+        _, attrs = fake_histogram.record.call_args[0]
+        assert SemanticConvention.ERROR_TYPE not in attrs
+
+    def test_error_type_none_omitted(self):
+        """record_agent_duration omits error.type when explicitly None."""
+        fake_histogram = MagicMock()
+        metrics = {"genai_agent_operation_duration": fake_histogram}
+        record_agent_duration(
+            metrics, "agent", 1.0, error_type=None,
+        )
+
+        _, attrs = fake_histogram.record.call_args[0]
+        assert SemanticConvention.ERROR_TYPE not in attrs
+
+    def test_context_resets_after_error(self):
+        """Agent context is cleaned up even when the agent raises."""
+        assert get_agent_name() is None
+
+        try:
+            with openlit.agent_context("error_agent"):
+                assert get_agent_name() == "error_agent"
+                raise RuntimeError("agent failed")
+        except RuntimeError:
+            pass
+
+        assert get_agent_name() is None

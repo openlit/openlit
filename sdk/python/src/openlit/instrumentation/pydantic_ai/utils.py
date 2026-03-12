@@ -512,6 +512,7 @@ def common_agent_run(
     # Set agent name in context so downstream LLM call metrics are tagged
     agent_ctx_token = set_agent_name(ctx.agent_name)
     start_time = time.time()
+    error_type = None
     try:
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             # Set common attributes
@@ -553,23 +554,25 @@ def common_agent_run(
                 span, ctx.model_name, response, pricing_info, capture_message_content
             )
 
-            # Record agent-level duration metric and invocation
-            try:
-                from openlit import OpenlitConfig
-                metrics = getattr(OpenlitConfig, "metrics_dict", None)
-                record_agent_duration(
-                    metrics, ctx.agent_name, time.time() - start_time,
-                    operation=operation_type,
-                )
-                if parent_agent and parent_agent != ctx.agent_name:
-                    record_agent_invocation(
-                        metrics, parent_agent, ctx.agent_name,
-                    )
-            except Exception:
-                pass
-
             return response
+    except Exception as e:
+        error_type = type(e).__name__ or "_OTHER"
+        raise
     finally:
+        # Always record agent metrics (duration with error_type on failure)
+        try:
+            from openlit import OpenlitConfig
+            metrics = getattr(OpenlitConfig, "metrics_dict", None)
+            record_agent_duration(
+                metrics, ctx.agent_name, time.time() - start_time,
+                operation=operation_type, error_type=error_type,
+            )
+            if parent_agent and parent_agent != ctx.agent_name:
+                record_agent_invocation(
+                    metrics, parent_agent, ctx.agent_name,
+                )
+        except Exception:
+            pass
         reset_agent_name(agent_ctx_token)
 
 
@@ -607,6 +610,7 @@ async def common_agent_run_async(
     # Set agent name in context so downstream LLM call metrics are tagged
     agent_ctx_token = set_agent_name(ctx.agent_name)
     start_time = time.time()
+    error_type = None
     try:
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             # Set common attributes
@@ -646,24 +650,26 @@ async def common_agent_run_async(
                 span, ctx.model_name, response, pricing_info, capture_message_content
             )
 
-            # Record agent-level duration metric and invocation
-            try:
-                from openlit import OpenlitConfig
-                metrics = getattr(OpenlitConfig, "metrics_dict", None)
-                record_agent_duration(
-                    metrics, ctx.agent_name, time.time() - start_time,
-                    operation=operation_type,
-                )
-                if parent_agent and parent_agent != ctx.agent_name:
-                    record_agent_invocation(
-                        metrics, parent_agent, ctx.agent_name,
-                    )
-            except Exception:
-                pass
-
             span.set_status(Status(StatusCode.OK))
             return response
+    except Exception as e:
+        error_type = type(e).__name__ or "_OTHER"
+        raise
     finally:
+        # Always record agent metrics (duration with error_type on failure)
+        try:
+            from openlit import OpenlitConfig
+            metrics = getattr(OpenlitConfig, "metrics_dict", None)
+            record_agent_duration(
+                metrics, ctx.agent_name, time.time() - start_time,
+                operation=operation_type, error_type=error_type,
+            )
+            if parent_agent and parent_agent != ctx.agent_name:
+                record_agent_invocation(
+                    metrics, parent_agent, ctx.agent_name,
+                )
+        except Exception:
+            pass
         reset_agent_name(agent_ctx_token)
 
 
