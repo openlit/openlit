@@ -18,7 +18,9 @@ from openlit.__helpers import (
     handle_exception,
     set_agent_name,
     reset_agent_name,
+    get_agent_name,
     record_agent_duration,
+    record_agent_invocation,
 )
 from openlit.semcov import SemanticConvention
 
@@ -503,6 +505,10 @@ def common_agent_run(
     operation_type = SemanticConvention.GEN_AI_OPERATION_TYPE_AGENT
     span_name = f"{operation_type} {ctx.agent_name}"
 
+    # Detect agent-to-agent invocation: if there's already an agent in
+    # context, this agent is being invoked by that parent agent.
+    parent_agent = get_agent_name()
+
     # Set agent name in context so downstream LLM call metrics are tagged
     agent_ctx_token = set_agent_name(ctx.agent_name)
     start_time = time.time()
@@ -547,14 +553,18 @@ def common_agent_run(
                 span, ctx.model_name, response, pricing_info, capture_message_content
             )
 
-            # Record agent-level duration metric
+            # Record agent-level duration metric and invocation
             try:
                 from openlit import OpenlitConfig
+                metrics = getattr(OpenlitConfig, "metrics_dict", None)
                 record_agent_duration(
-                    getattr(OpenlitConfig, "metrics_dict", None),
-                    ctx.agent_name, time.time() - start_time,
+                    metrics, ctx.agent_name, time.time() - start_time,
                     operation=operation_type,
                 )
+                if parent_agent and parent_agent != ctx.agent_name:
+                    record_agent_invocation(
+                        metrics, parent_agent, ctx.agent_name,
+                    )
             except Exception:
                 pass
 
@@ -590,6 +600,9 @@ async def common_agent_run_async(
     # Determine span name
     operation_type = SemanticConvention.GEN_AI_OPERATION_TYPE_EXECUTE_AGENT_TASK
     span_name = f"{operation_type} {ctx.agent_name}"
+
+    # Detect agent-to-agent invocation
+    parent_agent = get_agent_name()
 
     # Set agent name in context so downstream LLM call metrics are tagged
     agent_ctx_token = set_agent_name(ctx.agent_name)
@@ -633,14 +646,18 @@ async def common_agent_run_async(
                 span, ctx.model_name, response, pricing_info, capture_message_content
             )
 
-            # Record agent-level duration metric
+            # Record agent-level duration metric and invocation
             try:
                 from openlit import OpenlitConfig
+                metrics = getattr(OpenlitConfig, "metrics_dict", None)
                 record_agent_duration(
-                    getattr(OpenlitConfig, "metrics_dict", None),
-                    ctx.agent_name, time.time() - start_time,
+                    metrics, ctx.agent_name, time.time() - start_time,
                     operation=operation_type,
                 )
+                if parent_agent and parent_agent != ctx.agent_name:
+                    record_agent_invocation(
+                        metrics, parent_agent, ctx.agent_name,
+                    )
             except Exception:
                 pass
 
