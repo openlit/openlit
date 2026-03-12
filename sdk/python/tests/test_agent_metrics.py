@@ -24,10 +24,8 @@ from openlit.__helpers import (
     get_agent_name,
     record_agent_duration,
     record_agent_invocation,
-    _current_agent_name,
 )
 from openlit.semcov import SemanticConvention
-from openlit.otel.metrics import setup_meter
 
 # Initialize OpenLIT with console exporters for testing
 openlit.init(
@@ -92,16 +90,16 @@ class TestAgentContext:
 class TestCreateMetricsAttributes:
     """Tests for agent name inclusion/exclusion on metric attributes."""
 
-    BASE_KWARGS = dict(
-        service_name="test-service",
-        deployment_environment="test",
-        operation="chat",
-        system="anthropic",
-        request_model="claude-haiku-4-5",
-        server_address="api.anthropic.com",
-        server_port=443,
-        response_model="claude-haiku-4-5",
-    )
+    BASE_KWARGS = {
+        "service_name": "test-service",
+        "deployment_environment": "test",
+        "operation": "chat",
+        "system": "anthropic",
+        "request_model": "claude-haiku-4-5",
+        "server_address": "api.anthropic.com",
+        "server_port": 443,
+        "response_model": "claude-haiku-4-5",
+    }
 
     def test_agent_name_included_when_in_context(self):
         """When include_agent_name=True and agent is set, attribute is present."""
