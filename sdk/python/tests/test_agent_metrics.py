@@ -14,8 +14,10 @@ These tests do not require any external API keys or services.
 """
 
 import asyncio
+from unittest.mock import MagicMock
 import openlit
 from openlit.__helpers import (
+    record_completion_metrics,
     create_metrics_attributes,
     set_agent_name,
     reset_agent_name,
@@ -45,8 +47,8 @@ class TestAgentContext:
         """agent_context sets the name and resets it on exit."""
         assert get_agent_name() is None
 
-        with openlit.agent_context("product_agent"):
-            assert get_agent_name() == "product_agent"
+        with openlit.agent_context("target_agent"):
+            assert get_agent_name() == "target_agent"
 
         assert get_agent_name() is None
 
@@ -135,6 +137,87 @@ class TestCreateMetricsAttributes:
 
         assert SemanticConvention.GEN_AI_AGENT_NAME not in attrs
 
+    def test_record_completion_metrics_includes_agent_name(self):
+        """record_completion_metrics tags all metrics with agent name when in context."""
+        fake_duration = MagicMock()
+        fake_tokens = MagicMock()
+        fake_cost = MagicMock()
+        fake_ttft = MagicMock()
+        fake_tbt = MagicMock()
+        fake_server_duration = MagicMock()
+        metrics = {
+            "genai_client_operation_duration": fake_duration,
+            "genai_client_usage_tokens": fake_tokens,
+            "genai_cost": fake_cost,
+            "genai_server_ttft": fake_ttft,
+            "genai_server_tbt": fake_tbt,
+            "genai_server_request_duration": fake_server_duration,
+        }
+
+        with openlit.agent_context("my_agent"):
+            record_completion_metrics(
+                metrics,
+                gen_ai_operation="chat",
+                GEN_AI_PROVIDER_NAME="anthropic",
+                server_address="api.anthropic.com",
+                server_port=443,
+                request_model="claude-haiku-4-5",
+                response_model="claude-haiku-4-5",
+                environment="test",
+                application_name="test-app",
+                start_time=0.0,
+                end_time=1.5,
+                input_tokens=100,
+                output_tokens=50,
+                cost=0.001,
+                tbt=0.01,
+                ttft=0.5,
+            )
+
+        # Duration metric should have agent name
+        _, duration_attrs = fake_duration.record.call_args[0]
+        assert duration_attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "my_agent"
+
+        # Token metrics should have agent name
+        token_calls = fake_tokens.record.call_args_list
+        for call in token_calls:
+            _, token_attrs = call[0]
+            assert token_attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "my_agent"
+
+    def test_record_completion_metrics_excludes_agent_name_without_context(self):
+        """record_completion_metrics omits agent name when no context is set."""
+        fake_duration = MagicMock()
+        metrics = {
+            "genai_client_operation_duration": fake_duration,
+            "genai_client_usage_tokens": MagicMock(),
+            "genai_cost": MagicMock(),
+            "genai_server_ttft": MagicMock(),
+            "genai_server_tbt": MagicMock(),
+            "genai_server_request_duration": MagicMock(),
+        }
+
+        record_completion_metrics(
+            metrics,
+            gen_ai_operation="chat",
+            GEN_AI_PROVIDER_NAME="anthropic",
+            server_address="api.anthropic.com",
+            server_port=443,
+            request_model="claude-haiku-4-5",
+            response_model="claude-haiku-4-5",
+            environment="test",
+            application_name="test-app",
+            start_time=0.0,
+            end_time=1.5,
+            input_tokens=100,
+            output_tokens=50,
+            cost=0.001,
+            tbt=None,
+            ttft=None,
+        )
+
+        _, duration_attrs = fake_duration.record.call_args[0]
+        assert SemanticConvention.GEN_AI_AGENT_NAME not in duration_attrs
+
 
 # ---------------------------------------------------------------------------
 # 3. record_agent_duration
@@ -144,10 +227,40 @@ class TestRecordAgentDuration:
     """Tests for record_agent_duration helper."""
 
     def test_records_with_correct_attributes(self):
-        """Duration is recorded with expected attributes."""
-        metrics = openlit.OpenlitConfig.metrics_dict
-        # Should not raise
+        """Duration is recorded with the expected agent name and operation."""
+        fake_histogram = MagicMock()
+        metrics = {"genai_agent_operation_duration": fake_histogram}
         record_agent_duration(metrics, "test_agent", 1.5, operation="chat")
+
+        fake_histogram.record.assert_called_once()
+        value, attrs = fake_histogram.record.call_args[0]
+        assert value == 1.5
+        assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "test_agent"
+        assert attrs[SemanticConvention.GEN_AI_OPERATION] == "chat"
+        assert SemanticConvention.GEN_AI_PROVIDER_NAME not in attrs
+
+    def test_records_with_system(self):
+        """System attribute is included when provided."""
+        fake_histogram = MagicMock()
+        metrics = {"genai_agent_operation_duration": fake_histogram}
+        record_agent_duration(
+            metrics, "test_agent", 2.0,
+            operation="invoke_agent", system="anthropic",
+        )
+
+        _, attrs = fake_histogram.record.call_args[0]
+        assert attrs[SemanticConvention.GEN_AI_PROVIDER_NAME] == "anthropic"
+
+    def test_records_with_error_type(self):
+        """Error type attribute is included when provided."""
+        fake_histogram = MagicMock()
+        metrics = {"genai_agent_operation_duration": fake_histogram}
+        record_agent_duration(
+            metrics, "test_agent", 0.5, error_type="ValueError",
+        )
+
+        _, attrs = fake_histogram.record.call_args[0]
+        assert attrs[SemanticConvention.ERROR_TYPE] == "ValueError"
 
     def test_noop_when_metrics_none(self):
         """Gracefully no-ops when metrics dict is None."""
@@ -156,16 +269,6 @@ class TestRecordAgentDuration:
     def test_noop_when_metrics_empty(self):
         """Gracefully no-ops when metrics dict is empty."""
         record_agent_duration({}, "test_agent", 1.5)
-
-    def test_with_system_and_error_type(self):
-        """Optional system and error_type attributes are accepted."""
-        metrics = openlit.OpenlitConfig.metrics_dict
-        record_agent_duration(
-            metrics, "test_agent", 2.0,
-            operation="invoke_agent",
-            system="anthropic",
-            error_type="ValueError",
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -176,9 +279,28 @@ class TestRecordAgentInvocation:
     """Tests for record_agent_invocation helper."""
 
     def test_records_with_correct_attributes(self):
-        """Invocation is recorded with source and target."""
-        metrics = openlit.OpenlitConfig.metrics_dict
-        record_agent_invocation(metrics, "orchestrator", "product_agent")
+        """Invocation is recorded with source and target attributes."""
+        fake_counter = MagicMock()
+        metrics = {"genai_agent_invocations": fake_counter}
+        record_agent_invocation(metrics, "dispatcher", "target_agent")
+
+        fake_counter.add.assert_called_once()
+        value, attrs = fake_counter.add.call_args[0]
+        assert value == 1
+        assert attrs[SemanticConvention.GEN_AI_AGENT_SOURCE] == "dispatcher"
+        assert attrs[SemanticConvention.GEN_AI_AGENT_TARGET] == "target_agent"
+        assert SemanticConvention.GEN_AI_PROVIDER_NAME not in attrs
+
+    def test_records_with_system(self):
+        """System attribute is included when provided."""
+        fake_counter = MagicMock()
+        metrics = {"genai_agent_invocations": fake_counter}
+        record_agent_invocation(
+            metrics, "dispatcher", "another_agent", system="anthropic",
+        )
+
+        _, attrs = fake_counter.add.call_args[0]
+        assert attrs[SemanticConvention.GEN_AI_PROVIDER_NAME] == "anthropic"
 
     def test_noop_when_metrics_none(self):
         """Gracefully no-ops when metrics dict is None."""
@@ -188,13 +310,6 @@ class TestRecordAgentInvocation:
         """Gracefully no-ops when metrics dict is empty."""
         record_agent_invocation({}, "a", "b")
 
-    def test_with_system(self):
-        """Optional system attribute is accepted."""
-        metrics = openlit.OpenlitConfig.metrics_dict
-        record_agent_invocation(
-            metrics, "orchestrator", "cart_agent", system="anthropic",
-        )
-
 
 # ---------------------------------------------------------------------------
 # 5. log_agent_invocation public API
@@ -203,13 +318,43 @@ class TestRecordAgentInvocation:
 class TestLogAgentInvocation:
     """Tests for the public openlit.log_agent_invocation() wrapper."""
 
-    def test_public_api_does_not_raise(self):
-        """Public API works without error."""
-        openlit.log_agent_invocation("orchestrator", "product_agent")
+    def test_delegates_to_counter(self):
+        """Public API records to the genai_agent_invocations counter."""
+        fake_counter = MagicMock()
+        original = openlit.OpenlitConfig.metrics_dict
+        openlit.OpenlitConfig.metrics_dict = {"genai_agent_invocations": fake_counter}
+        try:
+            openlit.log_agent_invocation("dispatcher", "target_agent")
 
-    def test_public_api_with_system(self):
-        """Public API accepts optional system parameter."""
-        openlit.log_agent_invocation("orchestrator", "cart_agent", system="openai")
+            fake_counter.add.assert_called_once()
+            value, attrs = fake_counter.add.call_args[0]
+            assert value == 1
+            assert attrs[SemanticConvention.GEN_AI_AGENT_SOURCE] == "dispatcher"
+            assert attrs[SemanticConvention.GEN_AI_AGENT_TARGET] == "target_agent"
+        finally:
+            openlit.OpenlitConfig.metrics_dict = original
+
+    def test_delegates_with_system(self):
+        """Public API passes system through to the counter."""
+        fake_counter = MagicMock()
+        original = openlit.OpenlitConfig.metrics_dict
+        openlit.OpenlitConfig.metrics_dict = {"genai_agent_invocations": fake_counter}
+        try:
+            openlit.log_agent_invocation("dispatcher", "another_agent", system="openai")
+
+            _, attrs = fake_counter.add.call_args[0]
+            assert attrs[SemanticConvention.GEN_AI_PROVIDER_NAME] == "openai"
+        finally:
+            openlit.OpenlitConfig.metrics_dict = original
+
+    def test_noop_when_no_metrics(self):
+        """Does not raise when metrics are not initialized."""
+        original = openlit.OpenlitConfig.metrics_dict
+        openlit.OpenlitConfig.metrics_dict = {}
+        try:
+            openlit.log_agent_invocation("a", "b")
+        finally:
+            openlit.OpenlitConfig.metrics_dict = original
 
 
 # ---------------------------------------------------------------------------
@@ -239,14 +384,14 @@ class TestNestedAgentDetection:
         """Multiple sequential child agents each see the same parent."""
         parents_seen = []
 
-        with openlit.agent_context("orchestrator"):
+        with openlit.agent_context("dispatcher"):
             for child_name in ["agent_a", "agent_b", "agent_c"]:
                 parent = get_agent_name()
                 parents_seen.append(parent)
                 with openlit.agent_context(child_name):
                     assert get_agent_name() == child_name
 
-        assert parents_seen == ["orchestrator", "orchestrator", "orchestrator"]
+        assert parents_seen == ["dispatcher", "dispatcher", "dispatcher"]
 
     def test_deeply_nested_agents(self):
         """Three levels of nesting: A → B → C."""
@@ -298,7 +443,7 @@ class TestNestedAgentDetection:
             results[name]["after"] = get_agent_name()
 
         async def run_test():
-            with openlit.agent_context("orchestrator"):
+            with openlit.agent_context("dispatcher"):
                 await asyncio.gather(
                     run_child("agent_b"),
                     run_child("agent_c"),
@@ -306,17 +451,17 @@ class TestNestedAgentDetection:
 
         asyncio.run(run_test())
 
-        # Both children should have seen "orchestrator" as parent
-        assert results["agent_b"]["parent_before"] == "orchestrator"
-        assert results["agent_c"]["parent_before"] == "orchestrator"
+        # Both children should have seen "dispatcher" as parent
+        assert results["agent_b"]["parent_before"] == "dispatcher"
+        assert results["agent_c"]["parent_before"] == "dispatcher"
 
         # During execution, each should see their own name
         assert results["agent_b"]["during"] == "agent_b"
         assert results["agent_c"]["during"] == "agent_c"
 
-        # After reset, both should see "orchestrator" restored
-        assert results["agent_b"]["after"] == "orchestrator"
-        assert results["agent_c"]["after"] == "orchestrator"
+        # After reset, both should see "dispatcher" restored
+        assert results["agent_b"]["after"] == "dispatcher"
+        assert results["agent_c"]["after"] == "dispatcher"
 
     def test_concurrent_async_agents_dont_interfere(self):
         """Setting agent name in one async task doesn't affect another."""
