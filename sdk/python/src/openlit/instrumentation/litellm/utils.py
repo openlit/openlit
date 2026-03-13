@@ -5,6 +5,7 @@ LiteLLM OpenTelemetry instrumentation utility functions
 import json
 import logging
 import time
+from urllib.parse import urlparse
 
 from opentelemetry.trace import Status, StatusCode
 
@@ -18,10 +19,62 @@ from openlit.__helpers import (
     record_completion_metrics,
     record_embedding_metrics,
     otel_event,
+    truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
+
+LITELLM_PROVIDER_HOSTS = {
+    "openai": "api.openai.com",
+    "azure": "azure.openai.com",
+    "anthropic": "api.anthropic.com",
+    "cohere": "api.cohere.com",
+    "ollama": "localhost",
+    "groq": "api.groq.com",
+    "mistral": "api.mistral.ai",
+    "together_ai": "api.together.xyz",
+    "vertex_ai": "aiplatform.googleapis.com",
+    "gemini": "generativelanguage.googleapis.com",
+    "bedrock": "bedrock-runtime.amazonaws.com",
+    "huggingface": "api-inference.huggingface.co",
+    "deepseek": "api.deepseek.com",
+    "fireworks_ai": "api.fireworks.ai",
+    "replicate": "api.replicate.com",
+    "ai21": "api.ai21.com",
+    "perplexity": "api.perplexity.ai",
+    "cerebras": "api.cerebras.ai",
+    "xai": "api.x.ai",
+    "sambanova": "api.sambanova.ai",
+}
+
+
+def get_litellm_server_address(instance, kwargs):
+    """
+    Resolve server address and port for LiteLLM calls.
+
+    LiteLLM uses module-level functions (not client instances), so the generic
+    set_server_address_and_port helper cannot extract a base_url. Instead we
+    check kwargs, module-level settings, and infer from the model prefix.
+    """
+    api_base = kwargs.get("api_base") or kwargs.get("base_url")
+    if not api_base:
+        api_base = getattr(instance, "api_base", None)
+
+    if api_base and isinstance(api_base, str):
+        if api_base.startswith(("http://", "https://")):
+            url = urlparse(api_base)
+            return (url.hostname or "unknown", url.port or 443)
+        return (api_base, 443)
+
+    model = kwargs.get("model", "")
+    provider = model.split("/", 1)[0] if "/" in model else ""
+    host = LITELLM_PROVIDER_HOSTS.get(provider)
+    if host:
+        port = 11434 if provider == "ollama" else 443
+        return (host, port)
+
+    return ("unknown", 443)
 
 
 def format_content(messages):
@@ -161,6 +214,8 @@ def build_tool_definitions(tools):
 def _set_span_messages_as_array(span, input_messages, output_messages):
     """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
     try:
+        truncate_message_content(input_messages)
+        truncate_message_content(output_messages)
         if input_messages is not None:
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,
@@ -321,9 +376,20 @@ def process_chunk(scope, chunk):
                         "arguments", ""
                     )
 
+    scope._response_id = chunked.get("id") or scope._response_id
+    scope._response_model = chunked.get("model") or scope._response_model
+    try:
+        scope._finish_reason = (
+            chunked.get("choices", [])[0].get("finish_reason") or scope._finish_reason
+        )
+    except (IndexError, AttributeError, TypeError):
+        pass
+    scope._response_service_tier = (
+        str(chunked.get("system_fingerprint", "")) or scope._response_service_tier
+    )
+
     if chunked.get("usage"):
         usage = chunked.get("usage", {})
-        # Handle token usage including reasoning tokens and cached tokens
         scope._input_tokens = usage.get("prompt_tokens", 0)
         scope._output_tokens = usage.get("completion_tokens", 0)
         prompt_tokens_details = usage.get(
@@ -333,13 +399,6 @@ def process_chunk(scope, chunk):
         scope._cache_creation_input_tokens = usage.get(
             "completion_tokens_details", {}
         ).get("cached_tokens", 0)
-        scope._response_id = chunked.get("id")
-        scope._response_model = chunked.get("model")
-        finish_reason = chunked.get("choices", [{}])[0].get("finish_reason")
-        # Only update finish_reason if it's not None (preserve previous valid value)
-        if finish_reason is not None:
-            scope._finish_reason = finish_reason
-        scope._response_service_tier = str(chunked.get("system_fingerprint", ""))
         scope._end_time = time.time()
 
 

@@ -5,7 +5,7 @@ LangGraph sync wrapper for instrumentation
 import time
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
-from openlit.__helpers import handle_exception
+from openlit.__helpers import handle_exception, truncate_content
 from openlit.instrumentation.langgraph.utils import (
     process_langgraph_response,
     OPERATION_MAP,
@@ -191,7 +191,7 @@ def _handle_stream(
                         role = get_message_role(msg)
                         if content:
                             span.set_attribute(
-                                f"gen_ai.prompt.{i}.content", content[:500]
+                                f"gen_ai.prompt.{i}.content", truncate_content(content)
                             )
                             span.set_attribute(f"gen_ai.prompt.{i}.role", role)
 
@@ -310,11 +310,11 @@ def _finalize_stream_span(span, execution_state, capture_message_content, start_
     if execution_state["final_response"] and capture_message_content:
         span.set_attribute(
             SemanticConvention.LANGGRAPH_FINAL_RESPONSE,
-            execution_state["final_response"][:500],
+            truncate_content(execution_state["final_response"]),
         )
         span.set_attribute(
             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-            execution_state["final_response"][:1000],
+            truncate_content(execution_state["final_response"]),
         )
 
     span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_STATUS, "success")

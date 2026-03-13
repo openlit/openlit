@@ -116,6 +116,12 @@ PARAMETER_CONFIG = {
         "cli_help": "Emit evaluation results as OTEL Log Records instead of OTEL Events",
         "cli_type": bool,
     },
+    "max_content_length": {
+        "default": None,
+        "env_var": "OPENLIT_MAX_CONTENT_LENGTH",
+        "cli_help": "Maximum character length for captured content (None = no limit)",
+        "cli_type": int,
+    },
     # Parameters that are not exposed via CLI (internal use only)
     "tracer": {
         "default": None,

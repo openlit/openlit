@@ -23,6 +23,7 @@ from openlit.__helpers import (
     record_image_metrics,
     common_span_attributes,
     otel_event,
+    truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -422,6 +423,8 @@ def build_system_instructions_from_messages(messages):
 def _set_span_messages_as_array(span, input_messages, output_messages):
     """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
     try:
+        truncate_message_content(input_messages)
+        truncate_message_content(output_messages)
         if input_messages is not None:
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,

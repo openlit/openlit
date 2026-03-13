@@ -11,6 +11,7 @@ from openlit.__helpers import (
     common_framework_span_attributes,
     handle_exception,
     get_chat_model_cost,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -315,7 +316,7 @@ class OpenLITTracingProcessor(TracingProcessor):
         if hasattr(agent_span, "instructions"):
             span.set_attribute(
                 SemanticConvention.GEN_AI_AGENT_DESCRIPTION,
-                str(agent_span.instructions)[:500],
+                truncate_content(agent_span.instructions),
             )
 
         if hasattr(agent_span, "model"):
@@ -328,13 +329,14 @@ class OpenLITTracingProcessor(TracingProcessor):
         # Set generation-specific attributes
         if hasattr(generation_span, "prompt"):
             span.set_attribute(
-                SemanticConvention.GEN_AI_PROMPT, str(generation_span.prompt)[:1000]
+                SemanticConvention.GEN_AI_PROMPT,
+                truncate_content(generation_span.prompt),
             )
 
         if hasattr(generation_span, "completion"):
             span.set_attribute(
                 SemanticConvention.GEN_AI_COMPLETION,
-                str(generation_span.completion)[:1000],
+                truncate_content(generation_span.completion),
             )
 
         if hasattr(generation_span, "usage"):
@@ -358,11 +360,13 @@ class OpenLITTracingProcessor(TracingProcessor):
 
         if hasattr(function_span, "arguments"):
             span.set_attribute(
-                "gen_ai.tool.arguments", str(function_span.arguments)[:500]
+                "gen_ai.tool.arguments", truncate_content(function_span.arguments)
             )
 
         if hasattr(function_span, "result"):
-            span.set_attribute("gen_ai.tool.result", str(function_span.result)[:500])
+            span.set_attribute(
+                "gen_ai.tool.result", truncate_content(function_span.result)
+            )
 
     def _process_handoff_span(self, span, handoff_span):
         """Process handoff span data."""
@@ -370,7 +374,9 @@ class OpenLITTracingProcessor(TracingProcessor):
             span.set_attribute("gen_ai.handoff.target_agent", handoff_span.target_agent)
 
         if hasattr(handoff_span, "reason"):
-            span.set_attribute("gen_ai.handoff.reason", str(handoff_span.reason)[:200])
+            span.set_attribute(
+                "gen_ai.handoff.reason", truncate_content(handoff_span.reason)
+            )
 
     def span_end(self, span_data, trace_id: str):
         """Handle span end events."""
