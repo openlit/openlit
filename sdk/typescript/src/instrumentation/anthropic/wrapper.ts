@@ -254,6 +254,7 @@ export default class AnthropicWrapper extends BaseWrapper {
     if (system) {
       const systemStr = typeof system === 'string' ? system : JSON.stringify(system);
       span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS, systemStr);
+      span.setAttribute(SemanticConvention.GEN_AI_SYSTEM_INSTRUCTIONS_OTEL, systemStr);
     }
 
     if (traceContent) {
