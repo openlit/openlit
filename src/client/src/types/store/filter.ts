@@ -19,6 +19,14 @@ export interface FilterType {
 	refreshRate: REFRESH_RATES;
 }
 
+export type CustomFilterAttributeType = "SpanAttributes" | "ResourceAttributes" | "Field";
+
+export type CustomFilter = {
+	attributeType: CustomFilterAttributeType;
+	key: string;
+	value: string;
+};
+
 export interface FilterConfig {
 	providers: string[];
 	maxCost: number;
@@ -27,11 +35,19 @@ export interface FilterConfig {
 	traceTypes: string[];
 	applicationNames: string[];
 	environments: string[];
+	customFilters?: CustomFilter[];
 }
+
+export type AttributeKeys = {
+	spanAttributeKeys: string[];
+	resourceAttributeKeys: string[];
+};
 
 export type FilterStore = {
 	details: FilterType;
 	config?: FilterConfig;
+	attributeKeys?: AttributeKeys;
 	updateFilter: (key: string, value: any, extraParams?: any) => void;
 	updateConfig: (config: FilterConfig) => void;
+	updateAttributeKeys: (keys: AttributeKeys) => void;
 };
