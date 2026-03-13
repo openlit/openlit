@@ -45,12 +45,12 @@ def setup_events(
     Args:
         application_name: Name of the application
         environment: Deployment environment
-        event_logger: Optional pre-configured event logger provider
+        event_logger: Optional pre-configured Logger instance
         otlp_endpoint: Optional OTLP endpoint for exporter
         otlp_headers: Optional headers for OTLP exporter
 
     Returns:
-        EventLoggerProvider: The configured event logger provider
+        Logger: The configured OTel Logger for emitting events as LogRecords
     """
     # If an external events_logger is provided, return it immediately.
     if event_logger:
@@ -142,6 +142,6 @@ def setup_events(
 
         return _logs.get_logger(__name__)
 
-    # pylint: disable=bare-except
-    except:
+    except Exception as e:
+        logger.error("Failed to setup OpenTelemetry events: %s", e, exc_info=True)
         return None

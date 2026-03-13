@@ -245,7 +245,7 @@ def init(
         environment (str): Deployment environment.
         application_name (str): Application name.
         tracer: Tracer instance (Optional).
-        event_logger: EventLoggerProvider instance (Optional).
+        event_logger: OTel Logger instance for emitting events (Optional).
         meter: OpenTelemetry Metrics Instance (Optional).
         otlp_endpoint (str): OTLP endpoint for exporter (Optional).
         otlp_headers (Dict[str, str]): OTLP headers for exporter (Optional).

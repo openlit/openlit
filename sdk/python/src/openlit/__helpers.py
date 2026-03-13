@@ -321,13 +321,14 @@ def set_server_address_and_port(
 
 def otel_event(name, attributes, body):
     """
-    Returns an OpenTelemetry Event object
+    Returns an OpenTelemetry LogRecord representing an event.
     """
 
     base_attrs = attributes or {}
     return LogRecord(
-        attributes={**base_attrs, "event.name": name},
+        attributes=base_attrs,
         body=body,
+        event_name=name,
     )
 
 
