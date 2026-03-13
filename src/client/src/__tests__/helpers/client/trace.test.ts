@@ -9,6 +9,7 @@ import {
   getSpanDurationDisplay,
   getSpanCostFormatted,
   getSpanTooltipText,
+  ensureTraceRowShape,
 } from '@/helpers/client/trace';
 import { TraceMapping } from '@/constants/traces';
 
@@ -359,5 +360,128 @@ describe('findSpanInHierarchyLodash', () => {
     const leaf = { SpanId: 'leaf', children: [] } as any;
     const result = findSpanInHierarchyLodash(leaf, 'other');
     expect(result).toBeUndefined();
+  });
+});
+
+describe('ensureTraceRowShape', () => {
+  it('returns record unchanged when all PascalCase fields already set', () => {
+    const input = {
+      TraceId: 'tid', SpanId: 'sid', ParentSpanId: 'pid', SpanName: 'name',
+      Timestamp: 'ts', Duration: '100', StatusCode: 'OK', StatusMessage: '',
+      ServiceName: 'svc', SpanKind: 'CLIENT', TraceState: '', ScopeName: '',
+      ScopeVersion: '', ResourceAttributes: {}, SpanAttributes: {}, Events: [], Links: [],
+    };
+    const result = ensureTraceRowShape(input as any);
+    expect(result.TraceId).toBe('tid');
+    expect(result.SpanId).toBe('sid');
+    expect(result.ServiceName).toBe('svc');
+  });
+
+  it('maps snake_case fields when PascalCase absent', () => {
+    const input = {
+      trace_id: 'tid2', span_id: 'sid2', span_name: 'n2',
+      timestamp: 'ts2', duration: '200', status_code: 'ERROR',
+      service_name: 'svc2', span_kind: 'SERVER',
+    };
+    const result = ensureTraceRowShape(input as any);
+    expect(result.TraceId).toBe('tid2');
+    expect(result.SpanId).toBe('sid2');
+    expect(result.SpanName).toBe('n2');
+    expect(result.StatusCode).toBe('ERROR');
+    expect(result.ServiceName).toBe('svc2');
+  });
+
+  it('defaults ParentSpanId to empty string when absent', () => {
+    const result = ensureTraceRowShape({ TraceId: 't', SpanId: 's' } as any);
+    expect(result.ParentSpanId).toBe('');
+  });
+
+  it('defaults ResourceAttributes to empty object when absent', () => {
+    const result = ensureTraceRowShape({ TraceId: 't', SpanId: 's' } as any);
+    expect(result.ResourceAttributes).toEqual({});
+  });
+
+  it('defaults Events and Links to empty arrays when absent', () => {
+    const result = ensureTraceRowShape({ TraceId: 't', SpanId: 's' } as any);
+    expect(result.Events).toEqual([]);
+    expect(result.Links).toEqual([]);
+  });
+
+  it('passes through null/undefined as-is', () => {
+    expect(ensureTraceRowShape(null as any)).toBeNull();
+    expect(ensureTraceRowShape(undefined as any)).toBeUndefined();
+  });
+});
+
+describe('extractTextFromMessages (via normalizeTrace)', () => {
+  it('extracts text parts from gen_ai.input.messages JSON string', () => {
+    const messages = JSON.stringify([
+      { role: 'user', parts: [{ type: 'text', content: 'Hello' }] },
+    ]);
+    const trace = {
+      SpanId: 'span-1',
+      Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.input.messages': messages },
+    } as any;
+    const result = normalizeTrace(trace);
+    expect(result.prompt).toBe('Hello');
+  });
+
+  it('extracts and joins multiple text parts', () => {
+    const messages = JSON.stringify([
+      { role: 'user', parts: [{ type: 'text', content: 'Part 1' }, { type: 'text', content: 'Part 2' }] },
+    ]);
+    const trace = {
+      SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.input.messages': messages },
+    } as any;
+    const result = normalizeTrace(trace);
+    expect(result.prompt).toContain('Part 1');
+    expect(result.prompt).toContain('Part 2');
+  });
+
+  it('skips non-text parts in messages', () => {
+    const messages = JSON.stringify([
+      { role: 'user', parts: [{ type: 'image', content: 'img-data' }, { type: 'text', content: 'text-only' }] },
+    ]);
+    const trace = {
+      SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.input.messages': messages },
+    } as any;
+    const result = normalizeTrace(trace);
+    expect(result.prompt).toBe('text-only');
+  });
+
+  it('returns undefined prompt when messages JSON is invalid', () => {
+    const trace = {
+      SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.input.messages': 'not-valid-json' },
+    } as any;
+    const result = normalizeTrace(trace);
+    expect(result.prompt).toBeUndefined();
+  });
+
+  it('returns undefined prompt when messages has no text parts', () => {
+    const messages = JSON.stringify([
+      { role: 'user', parts: [{ type: 'image', content: 'data' }] },
+    ]);
+    const trace = {
+      SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.input.messages': messages },
+    } as any;
+    const result = normalizeTrace(trace);
+    expect(result.prompt).toBeUndefined();
+  });
+
+  it('extracts response from gen_ai.output.messages', () => {
+    const messages = JSON.stringify([
+      { role: 'assistant', parts: [{ type: 'text', content: 'My response' }] },
+    ]);
+    const trace = {
+      SpanId: 's', Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: { 'gen_ai.output.messages': messages },
+    } as any;
+    const result = normalizeTrace(trace);
+    expect(result.response).toBe('My response');
   });
 });

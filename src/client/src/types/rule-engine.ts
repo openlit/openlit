@@ -19,8 +19,8 @@ export type RuleConditionDataType = "string" | "number" | "boolean";
 export type RuleEntityType =
 	| "context"
 	| "prompt"
-	| "dataset"
-	| "meta_config"
+	// | "dataset"
+	// | "meta_config"
 	| "evaluation";
 
 export interface Rule {

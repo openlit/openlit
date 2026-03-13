@@ -40,7 +40,10 @@ export async function POST(request: Request) {
 	}
 
 	// --- Validate entity_type ---
-	const VALID_ENTITY_TYPES = ["context", "prompt", "dataset", "meta_config"] as const;
+	const VALID_ENTITY_TYPES = [
+		"context", "prompt", "evaluation",
+		// "dataset", "meta_config",
+	] as const;
 	const entityType = body?.entity_type;
 	if (!entityType || !VALID_ENTITY_TYPES.includes(entityType)) {
 		return Response.json(

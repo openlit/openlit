@@ -3,8 +3,8 @@ import { RuleConditionInput, RuleEntityInput, RuleEntityType, RuleInput } from "
 const VALID_ENTITY_TYPES: RuleEntityType[] = [
 	"context",
 	"prompt",
-	"dataset",
-	"meta_config",
+	// "dataset",
+	// "meta_config",
 	"evaluation",
 ];
 const VALID_OPERATORS = [

@@ -115,7 +115,7 @@ export default function EvaluationSettingsPage() {
 
 	const currentEngine = EVALUATION_ENGINES.find((e) => e.id === engine);
 	const showModelSelect =
-		currentEngine?.requiresModel !== false ||
+		!!currentEngine?.requiresModel !== false &&
 		engine === "vercel" ||
 		engine === "litellm";
 

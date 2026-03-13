@@ -152,6 +152,23 @@ describe('dataCollector', () => {
       expect(result.data).toBe(insertResult);
     });
 
+    it('includes clickhouse_settings in insert params when provided', async () => {
+      const mockClient = makeClient();
+      const mockPool = { acquire: jest.fn(), release: jest.fn() };
+      (createClickhousePool as jest.Mock).mockReturnValue(mockPool);
+      (asaw as jest.Mock)
+        .mockResolvedValueOnce([null, mockDbConfig])
+        .mockResolvedValueOnce([null, mockClient])
+        .mockResolvedValueOnce([null, { query_id: 'qid' }]);
+
+      await dataCollector(
+        { table: 'test_table', values: [{ col: 1 }], clickhouse_settings: { async_insert: '1' } as any },
+        'insert'
+      );
+      const callArg = mockClient.insert.mock.calls[0][0];
+      expect(callArg.clickhouse_settings).toEqual({ async_insert: '1' });
+    });
+
     it('returns error fallback when insert fails', async () => {
       const mockClient = makeClient();
       const mockPool = { acquire: jest.fn(), release: jest.fn() };

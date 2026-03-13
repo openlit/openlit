@@ -25,8 +25,8 @@ import { EVALUATION_TYPES } from "@/constants/evaluation-types";
 const ENTITY_TYPE_OPTIONS = [
 	"context",
 	"prompt",
-	"dataset",
-	"meta_config",
+	// "dataset",
+	// "meta_config",
 	"evaluation",
 ] as const;
 

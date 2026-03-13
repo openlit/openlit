@@ -1,3 +1,7 @@
+jest.mock('@/lib/platform/evaluation/evaluation-type-defaults', () => ({
+  getEvaluationTypeDefaultPrompts: jest.fn().mockResolvedValue({}),
+  getEvaluationTypeDefaultPrompt: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('@/constants/messages', () => ({
   __esModule: true,
   default: jest.fn(() => ({
@@ -59,6 +63,7 @@ jest.mock('path', () => ({
 }));
 
 import { getEvaluationConfig, setEvaluationConfig, getEvaluationConfigById } from '@/lib/platform/evaluation/config';
+import { getEvaluationTypeDefaultPrompts } from '@/lib/platform/evaluation/evaluation-type-defaults';
 import { getDBConfigByUser } from '@/lib/db-config';
 import prisma from '@/lib/prisma';
 import asaw from '@/utils/asaw';
@@ -67,6 +72,7 @@ import { getSecretById } from '@/lib/platform/vault';
 import Cron from '@/helpers/server/cron';
 import getMessage from '@/constants/messages';
 import { randomUUID } from 'crypto';
+import { jsonParse } from '@/utils/json';
 
 const mockDBConfig = { id: 'db-1', name: 'test-db' };
 
@@ -115,6 +121,14 @@ beforeEach(() => {
 
   // Default getSecretById response
   (getSecretById as jest.Mock).mockResolvedValue({ data: [mockSecret] });
+
+  // Default evaluation-type-defaults response (needed by buildEvaluationTypesWithPrompts)
+  (getEvaluationTypeDefaultPrompts as jest.Mock).mockResolvedValue({});
+
+  // Re-apply jsonParse so that meta parsing in buildEvaluationTypesWithPrompts works
+  (jsonParse as jest.Mock).mockImplementation((v: string) => {
+    try { return JSON.parse(v); } catch { return {}; }
+  });
 });
 
 // ---------------------------------------------------------------------------
