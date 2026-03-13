@@ -216,7 +216,9 @@ async def _create_async_stream_wrapper(
                     content = get_message_content(msg)
                     role = get_message_role(msg)
                     if content:
-                        span.set_attribute(f"gen_ai.prompt.{i}.content", truncate_content(content, "prompt"))
+                        span.set_attribute(
+                            f"gen_ai.prompt.{i}.content", truncate_content(content)
+                        )
                         span.set_attribute(f"gen_ai.prompt.{i}.role", role)
 
         # Extract config information
@@ -364,11 +366,11 @@ def _finalize_async_stream_span(
     if execution_state["final_response"] and capture_message_content:
         span.set_attribute(
             SemanticConvention.LANGGRAPH_FINAL_RESPONSE,
-            truncate_content(execution_state["final_response"], "completion"),
+            truncate_content(execution_state["final_response"]),
         )
         span.set_attribute(
             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-            truncate_content(execution_state["final_response"], "completion"),
+            truncate_content(execution_state["final_response"]),
         )
 
     span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_STATUS, "success")

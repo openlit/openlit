@@ -127,7 +127,7 @@ def process_agent_request(
     if hasattr(instance, "instructions") and instance.instructions:
         span.set_attribute(
             SemanticConvention.GEN_AI_AGENT_INSTRUCTIONS,
-            truncate_content(instance.instructions, "agent_instructions"),
+            truncate_content(instance.instructions),
         )
 
     if hasattr(instance, "agent_id") and instance.agent_id:
@@ -135,32 +135,33 @@ def process_agent_request(
 
     if hasattr(instance, "description") and instance.description:
         span.set_attribute(
-            SemanticConvention.GEN_AI_AGENT_DESCRIPTION, truncate_content(instance.description, "agent_description")
+            SemanticConvention.GEN_AI_AGENT_DESCRIPTION,
+            truncate_content(instance.description),
         )
 
     if hasattr(instance, "introduction") and instance.introduction:
         span.set_attribute(
             SemanticConvention.GEN_AI_AGENT_INTRODUCTION,
-            truncate_content(instance.introduction, "agent_introduction"),
+            truncate_content(instance.introduction),
         )
 
     # Add request-specific attributes from args and kwargs
     if args and args[0]:
         if capture_message_content:
             span.set_attribute(
-                SemanticConvention.GEN_AI_INPUT_MESSAGES, truncate_content(args[0], "prompt")
+                SemanticConvention.GEN_AI_INPUT_MESSAGES, truncate_content(args[0])
             )
 
     # agno 2.x versions agent.run use input instead of args[0]
     if kwargs and kwargs.get("input", None) and capture_message_content:
         span.set_attribute(
-            SemanticConvention.GEN_AI_INPUT_MESSAGES, truncate_content(kwargs["input"], "prompt")
+            SemanticConvention.GEN_AI_INPUT_MESSAGES, truncate_content(kwargs["input"])
         )
     # agno 2.x versions team.run use input_message instead of args[0]
     if kwargs and kwargs.get("input_message", None) and capture_message_content:
         span.set_attribute(
             SemanticConvention.GEN_AI_INPUT_MESSAGES,
-            truncate_content(kwargs["input_message"], "prompt"),
+            truncate_content(kwargs["input_message"]),
         )
 
     # User and session information
@@ -207,10 +208,10 @@ def process_agent_request(
     if response:
         if capture_message_content:
             if hasattr(response, "content") and response.content:
-                content = truncate_content(response.content, "completion")
+                content = truncate_content(response.content)
                 span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content)
             elif hasattr(response, "message") and response.message:
-                content = truncate_content(response.message, "completion")
+                content = truncate_content(response.message)
                 span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content)
 
         # Capture additional response metadata
@@ -284,12 +285,13 @@ def process_tool_request(
     ):
         span.set_attribute(
             SemanticConvention.GEN_AI_TOOL_DESCRIPTION,
-            truncate_content(instance.function.description, "tool_description"),
+            truncate_content(instance.function.description),
         )
 
     if hasattr(instance, "arguments") and instance.arguments:
         span.set_attribute(
-            SemanticConvention.GEN_AI_TOOL_PARAMETERS, truncate_content(instance.arguments, "tool_parameters")
+            SemanticConvention.GEN_AI_TOOL_PARAMETERS,
+            truncate_content(instance.arguments),
         )
 
     # Set execution metrics
@@ -306,11 +308,12 @@ def process_tool_request(
         if capture_message_content:
             if hasattr(response, "result") and response.result:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_TOOL_OUTPUT, truncate_content(response.result, "tool_output")
+                    SemanticConvention.GEN_AI_TOOL_OUTPUT,
+                    truncate_content(response.result),
                 )
         if hasattr(response, "error") and response.error:
             span.set_attribute(
-                SemanticConvention.GEN_AI_TOOL_ERROR, truncate_content(response.error, "tool_error")
+                SemanticConvention.GEN_AI_TOOL_ERROR, truncate_content(response.error)
             )
 
 
@@ -373,7 +376,7 @@ def process_memory_request(
     # Add input data
     if args and capture_message_content:
         span.set_attribute(
-            "gen_ai.memory.input", truncate_content(args[0], "prompt") if args[0] else ""
+            "gen_ai.memory.input", truncate_content(args[0]) if args[0] else ""
         )
 
     # Add metadata from kwargs
@@ -382,7 +385,9 @@ def process_memory_request(
     if "agent_id" in kwargs:
         span.set_attribute("gen_ai.memory.agent_id", kwargs["agent_id"])
     if "metadata" in kwargs:
-        span.set_attribute("gen_ai.memory.metadata", truncate_content(kwargs["metadata"], "memory_metadata"))
+        span.set_attribute(
+            "gen_ai.memory.metadata", truncate_content(kwargs["metadata"])
+        )
 
     # Set execution metrics
     span.set_attribute("gen_ai.memory.operation.duration", execution_time)
@@ -535,7 +540,8 @@ def process_vectordb_request(
         if query:
             if isinstance(query, str):
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_VECTORDB_SEARCH_QUERY, truncate_content(query, "search_query")
+                    SemanticConvention.GEN_AI_VECTORDB_SEARCH_QUERY,
+                    truncate_content(query),
                 )
             elif hasattr(query, "__len__"):
                 span.set_attribute(
@@ -622,7 +628,8 @@ def process_knowledge_request(
         query = args[0] if args else None
         if query and capture_message_content:
             span.set_attribute(
-                SemanticConvention.GEN_AI_KNOWLEDGE_SEARCH_QUERY, truncate_content(query, "search_query")
+                SemanticConvention.GEN_AI_KNOWLEDGE_SEARCH_QUERY,
+                truncate_content(query),
             )
 
         limit = kwargs.get("limit", args[1] if len(args) > 1 else 5)
@@ -712,7 +719,7 @@ def process_workflow_request(
     if hasattr(instance, "description") and instance.description:
         span.set_attribute(
             SemanticConvention.GEN_AI_WORKFLOW_DESCRIPTION,
-            truncate_content(instance.description, "workflow_description"),
+            truncate_content(instance.description),
         )
 
     # Set execution metrics

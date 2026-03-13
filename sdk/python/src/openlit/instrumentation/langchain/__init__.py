@@ -737,9 +737,9 @@ def _create_callback_handler_class(
 
                 if self._capture_message_content and inputs:
                     try:
-                        input_str = truncate_content(json.dumps(inputs, default=str), "prompt")
+                        input_str = truncate_content(json.dumps(inputs, default=str))
                     except Exception:
-                        input_str = truncate_content(inputs, "prompt")
+                        input_str = truncate_content(inputs)
                     span.set_attribute(
                         SemanticConvention.GEN_AI_WORKFLOW_INPUT, input_str
                     )
@@ -770,9 +770,9 @@ def _create_callback_handler_class(
 
                 if self._capture_message_content and outputs:
                     try:
-                        output_str = truncate_content(json.dumps(outputs, default=str), "completion")
+                        output_str = truncate_content(json.dumps(outputs, default=str))
                     except Exception:
-                        output_str = truncate_content(outputs, "completion")
+                        output_str = truncate_content(outputs)
                     span.set_attribute(
                         SemanticConvention.GEN_AI_WORKFLOW_OUTPUT, output_str
                     )
@@ -813,7 +813,7 @@ def _create_callback_handler_class(
                     span = self.spans[run_id].span
                     span.set_attribute(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
-                        truncate_content(error, "tool_error"),
+                        truncate_content(error),
                     )
                 self._end_span(run_id, str(error))
             except Exception as e:
@@ -858,7 +858,7 @@ def _create_callback_handler_class(
                 self.spans[run_id].prompts = prompts if prompts else []
 
                 if self._capture_message_content and prompts:
-                    prompt_str = truncate_content("\n".join(prompts), "prompt")
+                    prompt_str = truncate_content("\n".join(prompts))
                     span.set_attribute(
                         SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_str
                     )
@@ -917,7 +917,7 @@ def _create_callback_handler_class(
                             role = getattr(msg, "type", "unknown")
                             content = getattr(msg, "content", str(msg))
                             formatted.append(f"{role}: {content}")
-                    prompt_str = truncate_content("\n".join(formatted), "prompt")
+                    prompt_str = truncate_content("\n".join(formatted))
 
                     # Store prompt for token estimation and raw messages for common_chat_logic
                     self.spans[run_id].prompt_content = prompt_str
@@ -1173,7 +1173,7 @@ def _create_callback_handler_class(
                     span = self.spans[run_id].span
                     span.set_attribute(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
-                        truncate_content(error, "tool_error"),
+                        truncate_content(error),
                     )
                 self._end_span(run_id, str(error))
             except Exception as e:
@@ -1212,7 +1212,8 @@ def _create_callback_handler_class(
 
                 if self._capture_message_content and input_str:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_TOOL_INPUT, truncate_content(input_str, "tool_parameters")
+                        SemanticConvention.GEN_AI_TOOL_INPUT,
+                        truncate_content(input_str),
                     )
 
             except Exception as e:
@@ -1241,7 +1242,7 @@ def _create_callback_handler_class(
 
                 if self._capture_message_content and output:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_TOOL_OUTPUT, truncate_content(output, "tool_output")
+                        SemanticConvention.GEN_AI_TOOL_OUTPUT, truncate_content(output)
                     )
 
                 # Record metrics
@@ -1280,7 +1281,7 @@ def _create_callback_handler_class(
                     span = self.spans[run_id].span
                     span.set_attribute(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
-                        truncate_content(error, "tool_error"),
+                        truncate_content(error),
                     )
                 self._end_span(run_id, str(error))
             except Exception as e:
@@ -1318,7 +1319,8 @@ def _create_callback_handler_class(
 
                 if self._capture_message_content and query:
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_RETRIEVAL_QUERY, truncate_content(query, "search_query")
+                        SemanticConvention.GEN_AI_RETRIEVAL_QUERY,
+                        truncate_content(query),
                     )
 
             except Exception as e:
@@ -1353,7 +1355,7 @@ def _create_callback_handler_class(
                     sample_docs = []
                     for doc in documents[:3]:
                         content = getattr(doc, "page_content", str(doc))
-                        sample_docs.append(truncate_content(content, "search_query"))
+                        sample_docs.append(truncate_content(content))
                     span.set_attribute(
                         SemanticConvention.GEN_AI_RETRIEVAL_DOCUMENTS,
                         "; ".join(sample_docs),
@@ -1395,7 +1397,7 @@ def _create_callback_handler_class(
                     span = self.spans[run_id].span
                     span.set_attribute(
                         SemanticConvention.GEN_AI_FRAMEWORK_ERROR_MESSAGE,
-                        truncate_content(error, "tool_error"),
+                        truncate_content(error),
                     )
                 self._end_span(run_id, str(error))
             except Exception as e:
@@ -1428,16 +1430,16 @@ def _create_callback_handler_class(
                         log = getattr(action, "log", "")
                         span.set_attribute(
                             SemanticConvention.GEN_AI_AGENT_ACTION_TOOL,
-                            truncate_content(tool, "prompt"),
+                            truncate_content(tool),
                         )
                         span.set_attribute(
                             SemanticConvention.GEN_AI_AGENT_ACTION_TOOL_INPUT,
-                            truncate_content(tool_input, "tool_parameters"),
+                            truncate_content(tool_input),
                         )
                         if log:
                             span.set_attribute(
                                 SemanticConvention.GEN_AI_AGENT_ACTION_LOG,
-                                truncate_content(log, "tool_output"),
+                                truncate_content(log),
                             )
             except Exception as e:
                 logger.debug("Error in on_agent_action: %s", e)
@@ -1460,12 +1462,12 @@ def _create_callback_handler_class(
                         log = getattr(finish, "log", "")
                         span.set_attribute(
                             SemanticConvention.GEN_AI_AGENT_FINISH_OUTPUT,
-                            truncate_content(output, "tool_output"),
+                            truncate_content(output),
                         )
                         if log:
                             span.set_attribute(
                                 SemanticConvention.GEN_AI_AGENT_FINISH_LOG,
-                                truncate_content(log, "tool_output"),
+                                truncate_content(log),
                             )
             except Exception as e:
                 logger.debug("Error in on_agent_finish: %s", e)

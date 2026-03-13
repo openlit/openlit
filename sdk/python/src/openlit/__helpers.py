@@ -24,37 +24,13 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 
-# Default per-field truncation limits matching the original hardcoded values.
-# Used for backward compatibility when ``max_content_length`` is not configured.
-_DEFAULT_LIMITS = {
-    "prompt": 5000,
-    "completion": 5000,
-    "tool_output": 5000,
-    "tool_error": 1000,
-    "tool_parameters": 5000,
-    "tool_description": 500,
-    "agent_instructions": 500,
-    "agent_description": 500,
-    "agent_introduction": 500,
-    "memory_input": 1000,
-    "memory_metadata": 500,
-    "search_query": 5000,
-    "workflow_description": 300,
-}
+def truncate_content(text):
+    """Return *text* as a string, optionally truncated to ``max_content_length``.
 
-
-def truncate_content(text, category="prompt"):
-    """Truncate *text* according to the global ``max_content_length`` setting.
-
-    When ``OpenlitConfig.max_content_length`` is set to a positive integer, it
-    overrides the per-category default.  A value of ``0`` or ``-1`` disables
-    truncation entirely.
-
-    ``category`` selects the default limit when no global override exists.
-    Valid categories are the keys of ``_DEFAULT_LIMITS``.
-
-    When content is actually truncated, an ellipsis (``...``) is appended to
-    signal that the value was cut.
+    By default (``max_content_length is None``), no truncation is applied.
+    When ``OpenlitConfig.max_content_length`` is set to a positive integer,
+    the string is truncated to that many characters with ``...`` appended.
+    A value of ``0`` or ``-1`` explicitly disables truncation (same as None).
     """
     # Lazy import to avoid circular dependency
     from openlit import OpenlitConfig  # noqa: E402
@@ -66,18 +42,35 @@ def truncate_content(text, category="prompt"):
         try:
             limit = int(raw_limit)
         except (TypeError, ValueError):
-            limit = None
-        if limit is not None:
-            if limit <= 0:
-                return s
-            if len(s) > limit:
-                return s[:limit] + "..."
             return s
-
-    default = _DEFAULT_LIMITS.get(category, 5000)
-    if len(s) > default:
-        return s[:default] + "..."
+        if limit <= 0:
+            return s
+        if len(s) > limit:
+            return s[:limit] + "..."
     return s
+
+
+def truncate_message_content(messages):
+    """Apply truncation to text content fields within OTel message structures.
+
+    Walks the standard ``[{"role": ..., "parts": [{"type": "text", "content": ...}]}]``
+    structure produced by ``build_input_messages`` / ``build_output_messages`` and
+    applies ``truncate_content`` to every text ``content`` and tool-call ``response``
+    field.  Operates in-place and returns *messages* for convenience.
+    """
+    if not isinstance(messages, list):
+        return messages
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        for part in msg.get("parts", []):
+            if not isinstance(part, dict):
+                continue
+            if "content" in part and isinstance(part["content"], str):
+                part["content"] = truncate_content(part["content"])
+            if "response" in part and isinstance(part["response"], str):
+                part["response"] = truncate_content(part["response"])
+    return messages
 
 
 def parse_exporters(env_var_name):

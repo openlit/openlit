@@ -83,7 +83,7 @@ class OpenlitConfig:
         cls.capture_parameters = False
         cls.enable_sqlcommenter = False
         cls.evals_logs_export = True
-        cls.max_content_length = None  # None = use per-field defaults
+        cls.max_content_length = None  # None = no truncation
 
     @classmethod
     def update_config(
@@ -262,8 +262,8 @@ def init(
         detailed_tracing (bool): Enable detailed component-level tracing for debugging and optimization.
                                 Defaults to False to use workflow-level tracing with minimal storage overhead.
         max_content_length (int): Maximum character length for captured content attributes (prompts,
-                                 completions, tool output, etc.). None uses per-field defaults.
-                                 Set to 0 or -1 to disable truncation entirely.
+                                 completions, tool output, etc.). None (default) means no truncation.
+                                 Set to a positive integer to truncate content to that length.
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     logger.info("Starting openLIT initialization...")

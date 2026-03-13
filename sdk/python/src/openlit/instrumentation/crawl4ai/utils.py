@@ -13,7 +13,7 @@ from opentelemetry.sdk.resources import (
     DEPLOYMENT_ENVIRONMENT,
 )
 
-from openlit.__helpers import handle_exception
+from openlit.__helpers import handle_exception, truncate_content
 from openlit.semcov import SemanticConvention
 
 # Initialize logger for logging potential issues and operations
@@ -487,14 +487,11 @@ def process_crawl_response(
 
 
 def format_content(content, max_length: int = 1000) -> str:
-    """Format content for tracing with length limits."""
+    """Format content for tracing, delegating to the global truncation config."""
     if content is None:
         return ""
 
-    content_str = str(content)
-    if len(content_str) > max_length:
-        return content_str[:max_length] + "..."
-    return content_str
+    return truncate_content(content)
 
 
 def capture_message_content_if_enabled(
@@ -804,7 +801,9 @@ def capture_extraction_content(
                 )
             elif hasattr(extraction_input, "__iter__"):
                 # Handle list/tuple of inputs
-                combined_input = " ".join(str(item)[:200] for item in extraction_input)
+                combined_input = " ".join(
+                    truncate_content(item) for item in extraction_input
+                )
                 input_content = format_content(combined_input, max_length=1000)
                 span.set_attribute(
                     SemanticConvention.GEN_AI_INPUT_MESSAGES, input_content

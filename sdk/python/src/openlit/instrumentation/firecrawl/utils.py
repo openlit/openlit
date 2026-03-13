@@ -498,7 +498,7 @@ def handle_firecrawl_error(span, error):
                 span.set_attribute("http.status_code", response.status_code)
             if hasattr(response, "text"):
                 span.set_attribute(
-                    "error.response_text", truncate_content(response.text, "tool_error")
+                    "error.response_text", truncate_content(response.text)
                 )  # Limit error text
 
         # Additional error categorization using standard patterns

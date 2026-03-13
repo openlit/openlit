@@ -6,7 +6,11 @@ import time
 import json
 from typing import Dict, Any
 from opentelemetry.trace import Status, StatusCode
-from openlit.__helpers import common_framework_span_attributes, record_framework_metrics, truncate_content
+from openlit.__helpers import (
+    common_framework_span_attributes,
+    record_framework_metrics,
+    truncate_content,
+)
 from openlit.semcov import SemanticConvention
 
 # Optimized operation mapping - minimal and fast
@@ -173,7 +177,7 @@ def extract_pipeline_metadata(instance, args, kwargs) -> Dict[str, Any]:
                         sanitized_input[key] = value
                     elif isinstance(value, dict):
                         sanitized_input[key] = {
-                            k: str(v)[:100] for k, v in value.items()
+                            k: truncate_content(v) for k, v in value.items()
                         }
                     else:
                         sanitized_input[key] = str(type(value)).__name__
@@ -396,7 +400,7 @@ def process_haystack_response(
                 if replies and capture_message_content:
                     span.set_attribute(
                         SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                        truncate_content(replies[0], "completion"),
+                        truncate_content(replies[0]),
                     )
                 break
 
@@ -435,7 +439,9 @@ def process_haystack_response(
             )
 
         if args and capture_message_content:
-            span.set_attribute(SemanticConvention.GEN_AI_PROMPT, truncate_content(args[0], "prompt"))
+            span.set_attribute(
+                SemanticConvention.GEN_AI_PROMPT, truncate_content(args[0])
+            )
 
         if isinstance(response, dict) and "replies" in response:
             replies = response["replies"]

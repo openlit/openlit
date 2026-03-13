@@ -79,18 +79,18 @@ class BrowserUseInstrumentationContext:
             if self.args and len(self.args) > 0:
                 first_arg = self.args[0]
                 if isinstance(first_arg, str):
-                    return first_arg[:200]  # Limit length
+                    return truncate_content(first_arg)
 
             # Check kwargs for task-related parameters
             for key in ["task", "instruction", "description"]:
                 if key in self.kwargs:
                     value = self.kwargs[key]
                     if isinstance(value, str):
-                        return value[:200]
+                        return truncate_content(value)
 
             # Check instance attributes
             if hasattr(self.instance, "task"):
-                return str(self.instance.task)[:200]
+                return truncate_content(self.instance.task)
 
             return "browser_automation_task"
         except (AttributeError, ValueError, TypeError):
@@ -369,11 +369,14 @@ def process_response(
         if capture_message_content:
             if isinstance(response, str):
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, truncate_content(response, "completion")
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                    truncate_content(response),
                 )
             elif hasattr(response, "__dict__"):
                 try:
-                    content = truncate_content(json.dumps(response.__dict__, default=str), "completion")
+                    content = truncate_content(
+                        json.dumps(response.__dict__, default=str)
+                    )
                     span.set_attribute(
                         SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content
                     )
@@ -391,18 +394,19 @@ def capture_agent_thoughts_and_state(span: Any, agent_output: Any) -> None:
         if hasattr(agent_output, "thinking") and agent_output.thinking:
             span.set_attribute(
                 SemanticConvention.GEN_AI_AGENT_THINKING,
-                truncate_content(agent_output.thinking, "completion"),
+                truncate_content(agent_output.thinking),
             )
 
         if hasattr(agent_output, "memory") and agent_output.memory:
             span.set_attribute(
-                SemanticConvention.GEN_AI_AGENT_MEMORY, truncate_content(agent_output.memory, "memory_metadata")
+                SemanticConvention.GEN_AI_AGENT_MEMORY,
+                truncate_content(agent_output.memory),
             )
 
         if hasattr(agent_output, "next_goal") and agent_output.next_goal:
             span.set_attribute(
                 SemanticConvention.GEN_AI_AGENT_NEXT_GOAL,
-                str(agent_output.next_goal)[:200],
+                truncate_content(agent_output.next_goal),
             )
 
         if (
@@ -411,7 +415,7 @@ def capture_agent_thoughts_and_state(span: Any, agent_output: Any) -> None:
         ):
             span.set_attribute(
                 SemanticConvention.GEN_AI_AGENT_EVALUATION,
-                str(agent_output.evaluation_previous_goal)[:200],
+                truncate_content(agent_output.evaluation_previous_goal),
             )
 
     except (AttributeError, ValueError, TypeError) as e:

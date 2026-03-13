@@ -206,7 +206,9 @@ def extract_llm_info_from_result(span, state, result):
                 content = get_message_content(msg)
                 role = get_message_role(msg)
                 if content:
-                    span.set_attribute(f"gen_ai.prompt.{i}.content", truncate_content(content, "prompt"))
+                    span.set_attribute(
+                        f"gen_ai.prompt.{i}.content", truncate_content(content)
+                    )
                     span.set_attribute(f"gen_ai.prompt.{i}.role", role)
 
         # Extract from result
@@ -271,7 +273,8 @@ def extract_llm_info_from_result(span, state, result):
                     content = get_message_content(last_msg)
                     if content:
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, truncate_content(content, "completion")
+                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                            truncate_content(content),
                         )
 
                 # Extract usage_metadata (alternative location)
@@ -310,7 +313,8 @@ def extract_llm_info_from_result(span, state, result):
                                 else str(tool_call.args)
                             )
                             span.set_attribute(
-                                f"gen_ai.tool_call.{j}.arguments", truncate_content(args_str, "tool_parameters")
+                                f"gen_ai.tool_call.{j}.arguments",
+                                truncate_content(args_str),
                             )
                         if hasattr(tool_call, "id"):
                             span.set_attribute(f"gen_ai.tool_call.{j}.id", tool_call.id)
@@ -576,10 +580,12 @@ def _process_invoke_response(span, response, capture_message_content):
                     content = get_message_content(last_msg)
                     if content and capture_message_content:
                         span.set_attribute(
-                            SemanticConvention.LANGGRAPH_FINAL_RESPONSE, truncate_content(content, "completion")
+                            SemanticConvention.LANGGRAPH_FINAL_RESPONSE,
+                            truncate_content(content),
                         )
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, truncate_content(content, "completion")
+                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
+                            truncate_content(content),
                         )
 
             # Try to extract LLM info

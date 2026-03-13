@@ -11,7 +11,11 @@ from typing import Any, List
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
 
-from openlit.__helpers import handle_exception, common_framework_span_attributes, truncate_content
+from openlit.__helpers import (
+    handle_exception,
+    common_framework_span_attributes,
+    truncate_content,
+)
 from openlit.instrumentation.browser_use.utils import (
     BrowserUseInstrumentationContext,
     get_operation_name,
@@ -474,19 +478,19 @@ async def _create_detailed_step_span(
                 if hasattr(model_output, "thinking") and model_output.thinking:
                     step_span.set_attribute(
                         SemanticConvention.GEN_AI_AGENT_THINKING,
-                        truncate_content(model_output.thinking, "completion"),
+                        truncate_content(model_output.thinking),
                     )
 
                 if hasattr(model_output, "memory") and model_output.memory:
                     step_span.set_attribute(
                         SemanticConvention.GEN_AI_AGENT_MEMORY,
-                        truncate_content(model_output.memory, "memory_metadata"),
+                        truncate_content(model_output.memory),
                     )
 
                 if hasattr(model_output, "next_goal") and model_output.next_goal:
                     step_span.set_attribute(
                         SemanticConvention.GEN_AI_AGENT_NEXT_GOAL,
-                        str(model_output.next_goal)[:200],
+                        truncate_content(model_output.next_goal),
                     )
 
                 if (
@@ -495,7 +499,7 @@ async def _create_detailed_step_span(
                 ):
                     step_span.set_attribute(
                         SemanticConvention.GEN_AI_AGENT_EVALUATION,
-                        str(model_output.evaluation_previous_goal)[:200],
+                        truncate_content(model_output.evaluation_previous_goal),
                     )
 
                 # Actions taken in this step
@@ -541,7 +545,8 @@ async def _create_detailed_step_span(
 
                 if hasattr(state, "title") and state.title:
                     step_span.set_attribute(
-                        SemanticConvention.GEN_AI_AGENT_PAGE_TITLE, state.title[:100]
+                        SemanticConvention.GEN_AI_AGENT_PAGE_TITLE,
+                        truncate_content(state.title),
                     )
 
                 # Tab information
@@ -574,7 +579,7 @@ async def _create_detailed_step_span(
                             error_count += 1
 
                     if hasattr(result, "error") and result.error:
-                        error_messages.append(str(result.error)[:100])
+                        error_messages.append(truncate_content(result.error))
 
                 step_span.set_attribute(
                     SemanticConvention.GEN_AI_AGENT_ACTIONS_SUCCESS_COUNT, success_count
@@ -662,7 +667,7 @@ async def _create_individual_action_spans(
                                 "num_pages",
                             ]:
                                 action_span.set_attribute(
-                                    f"gen_ai.action.{key}", str(value)[:200]
+                                    f"gen_ai.action.{key}", truncate_content(value)
                                 )
 
                         # Special handling for sensitive data
@@ -682,7 +687,7 @@ async def _create_individual_action_spans(
                                 )
                                 action_span.set_attribute(
                                     SemanticConvention.GEN_AI_ACTION_FILE_PATH,
-                                    str(file_path)[:100],
+                                    truncate_content(file_path),
                                 )
 
                     # Enhanced action result tracking
@@ -700,7 +705,7 @@ async def _create_individual_action_spans(
                         ):
                             action_span.set_attribute(
                                 SemanticConvention.GEN_AI_ACTION_ERROR,
-                                str(result.error)[:200],
+                                truncate_content(result.error),
                             )
                         if (
                             hasattr(result, "extracted_content")
@@ -722,7 +727,7 @@ async def _create_individual_action_spans(
                         if hasattr(step.state, "title") and step.state.title:
                             action_span.set_attribute(
                                 SemanticConvention.GEN_AI_BROWSER_PAGE_TITLE,
-                                step.state.title[:100],
+                                truncate_content(step.state.title),
                             )
                         if hasattr(step.state, "tabs") and step.state.tabs:
                             action_span.set_attribute(
@@ -806,7 +811,7 @@ def _process_enhanced_response(
             if final_result and capture_message_content:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_AGENT_FINAL_RESULT,
-                    truncate_content(final_result, "completion"),
+                    truncate_content(final_result),
                 )
 
             # Usage summary if available
@@ -847,7 +852,7 @@ def _process_enhanced_response(
                 if capture_message_content:
                     span.set_attribute(
                         SemanticConvention.GEN_AI_ACTION_ERROR,
-                        str(response.error)[:200],
+                        truncate_content(response.error),
                     )
 
     except Exception as e:

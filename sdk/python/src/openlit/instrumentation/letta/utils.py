@@ -169,7 +169,7 @@ def _set_letta_specific_attributes(span, kwargs, response, operation_type):
                 SemanticConvention.GEN_AI_AGENT_TYPE, response.agent_type
             )
         if hasattr(response, "system"):
-            instructions = truncate_content(response.system, "agent_instructions")
+            instructions = truncate_content(response.system)
             span.set_attribute(
                 SemanticConvention.GEN_AI_AGENT_INSTRUCTIONS, instructions
             )

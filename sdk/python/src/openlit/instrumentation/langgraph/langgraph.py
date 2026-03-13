@@ -191,7 +191,7 @@ def _handle_stream(
                         role = get_message_role(msg)
                         if content:
                             span.set_attribute(
-                                f"gen_ai.prompt.{i}.content", truncate_content(content, "prompt")
+                                f"gen_ai.prompt.{i}.content", truncate_content(content)
                             )
                             span.set_attribute(f"gen_ai.prompt.{i}.role", role)
 
@@ -310,11 +310,11 @@ def _finalize_stream_span(span, execution_state, capture_message_content, start_
     if execution_state["final_response"] and capture_message_content:
         span.set_attribute(
             SemanticConvention.LANGGRAPH_FINAL_RESPONSE,
-            truncate_content(execution_state["final_response"], "completion"),
+            truncate_content(execution_state["final_response"]),
         )
         span.set_attribute(
             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-            truncate_content(execution_state["final_response"], "completion"),
+            truncate_content(execution_state["final_response"]),
         )
 
     span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_STATUS, "success")
