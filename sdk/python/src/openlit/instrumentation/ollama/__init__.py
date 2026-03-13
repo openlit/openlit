@@ -64,6 +64,7 @@ class OllamaInstrumentor(BaseInstrumentor):
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
+        event_provider = kwargs.get("event_provider")
         version = importlib.metadata.version("ollama")
 
         # Build wrapper factories for chat and embeddings
@@ -76,6 +77,7 @@ class OllamaInstrumentor(BaseInstrumentor):
             capture_message_content,
             metrics,
             disable_metrics,
+            event_provider,
         )
         sync_generate_wrap = generate(
             version,
@@ -86,6 +88,7 @@ class OllamaInstrumentor(BaseInstrumentor):
             capture_message_content,
             metrics,
             disable_metrics,
+            event_provider,
         )
         sync_emb_wrap = embeddings(
             version,
@@ -96,6 +99,7 @@ class OllamaInstrumentor(BaseInstrumentor):
             capture_message_content,
             metrics,
             disable_metrics,
+            event_provider,
         )
         async_chat_wrap = async_chat(
             version,
@@ -106,6 +110,7 @@ class OllamaInstrumentor(BaseInstrumentor):
             capture_message_content,
             metrics,
             disable_metrics,
+            event_provider,
         )
         async_generate_wrap = async_generate(
             version,
@@ -116,6 +121,7 @@ class OllamaInstrumentor(BaseInstrumentor):
             capture_message_content,
             metrics,
             disable_metrics,
+            event_provider,
         )
         async_emb_wrap = async_embeddings(
             version,
@@ -126,6 +132,7 @@ class OllamaInstrumentor(BaseInstrumentor):
             capture_message_content,
             metrics,
             disable_metrics,
+            event_provider,
         )
 
         # Patch underlying request methods to ensure instrumentation regardless of import order

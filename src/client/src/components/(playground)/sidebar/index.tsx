@@ -16,6 +16,7 @@ import version from "../../../../package.json";
 import UserActions from "./user-actions";
 import { Accordion, AccordionTrigger, AccordionItem, AccordionContent } from "@/components/ui/accordion";
 import { PRIMARY_BACKGROUND } from "@/constants/common-classes";
+import getMessage from "@/constants/messages";
 
 const getIfSidebarItemClasses = (pathname: string, item: SidebarItemProps) => {
 	const commonClasses = "flex gap-2 group-data-[state=open]:w-auto group-data-[state=open]:justify-start p-2.5 font-normal ";
@@ -145,6 +146,7 @@ const SidebarItem = ({ item, className, pathname }: { item: SidebarItemProps, cl
 
 export default function Sidebar() {
 	const pathname = usePathname();
+	const messages = getMessage();
 	const [isExpanded, setIsExpanded] = useState<boolean>(true);
 
 	const toggleExpansion = () => setIsExpanded(e => !e);
@@ -168,7 +170,7 @@ export default function Sidebar() {
 					<span>OpenLIT</span>
 					<span className="text-xs font-normal text-primary/80 mt-1">({version.version})</span>
 				</p>
-				<Button variant="ghost" size="icon" aria-label="Expand" onClick={toggleExpansion} className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2 rounded-md h-auto w-auto text-stone-500 dark:text-stone-300 p-0.5 cursor-pointer bg-stone-50 hover:bg-stone-50 dark:bg-stone-900 dark:hover:bg-stone-900">
+				<Button variant="ghost" size="icon" aria-label={messages.EXPAND} onClick={toggleExpansion} className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2 rounded-md h-auto w-auto text-stone-500 dark:text-stone-300 p-0.5 cursor-pointer bg-stone-50 hover:bg-stone-50 dark:bg-stone-900 dark:hover:bg-stone-900">
 					{isExpanded ? <PanelRightOpen className="w-5 h-5" /> : <PanelRightClose className="w-5 h-5" />}
 				</Button>
 			</div>

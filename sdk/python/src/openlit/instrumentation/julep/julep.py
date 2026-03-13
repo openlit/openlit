@@ -78,7 +78,7 @@ def wrap_julep(
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT, gen_ai_endpoint)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_JULEP,
                 )
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)
@@ -116,7 +116,7 @@ def wrap_julep(
                         span.add_event(
                             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvention.GEN_AI_CONTENT_PROMPT: str(
+                                SemanticConvention.GEN_AI_INPUT_MESSAGES: str(
                                     kwargs.get("input", "")
                                 ),
                             },

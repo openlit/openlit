@@ -4,7 +4,12 @@ Module for monitoring OpenAI API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.__helpers import (
+    handle_exception,
+    set_server_address_and_port,
+    record_completion_metrics,
+    record_embedding_metrics,
+)
 from openlit.instrumentation.openai.utils import (
     process_chat_chunk,
     process_response_chunk,
@@ -28,6 +33,7 @@ def chat_completions(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI chat completions.
@@ -46,6 +52,7 @@ def chat_completions(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -65,6 +72,7 @@ def chat_completions(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -97,6 +105,7 @@ def chat_completions(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -108,10 +117,6 @@ def chat_completions(
         """
 
         streaming = kwargs.get("stream", False)
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -124,7 +129,13 @@ def chat_completions(
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
             return TracedSyncStream(
-                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                event_provider,
             )
 
         else:
@@ -147,11 +158,33 @@ def chat_completions(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        err_type = type(e).__name__ or "_OTHER"
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                            server_address,
+                            server_port,
+                            request_model,
+                            kwargs.get("model", "unknown"),
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=err_type,
+                        )
 
                 return response
 
@@ -167,6 +200,7 @@ def responses(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -186,6 +220,7 @@ def responses(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -209,6 +244,7 @@ def responses(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -241,6 +277,7 @@ def responses(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -252,10 +289,6 @@ def responses(
         """
 
         streaming = kwargs.get("stream", False)
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
         )
@@ -268,7 +301,13 @@ def responses(
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
             return TracedSyncStream(
-                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                event_provider,
             )
 
         else:
@@ -291,11 +330,33 @@ def responses(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        err_type = type(e).__name__ or "_OTHER"
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                            server_address,
+                            server_port,
+                            request_model,
+                            kwargs.get("model", "unknown"),
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=err_type,
+                        )
 
                 return response
 
@@ -311,6 +372,7 @@ def chat_completions_parse(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI chat completions parse.
@@ -320,10 +382,6 @@ def chat_completions_parse(
         """
         Wraps the OpenAI chat completions parse call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -351,11 +409,32 @@ def chat_completions_parse(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 
@@ -371,6 +450,7 @@ def embedding(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -381,10 +461,6 @@ def embedding(
         """
         Wraps the OpenAI embeddings call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -414,11 +490,29 @@ def embedding(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_embedding_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 
@@ -434,6 +528,7 @@ def image_generate(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
     **kwargs,
 ):
     """
@@ -444,10 +539,6 @@ def image_generate(
         """
         Wraps the OpenAI image generation call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -477,11 +568,32 @@ def image_generate(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        end_time,
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 
@@ -497,6 +609,7 @@ def image_variatons(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI image variations.
@@ -506,10 +619,6 @@ def image_variatons(
         """
         Wraps the OpenAI image variations call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -539,11 +648,32 @@ def image_variatons(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_IMAGE,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        end_time,
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 
@@ -559,6 +689,7 @@ def audio_create(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for OpenAI audio creation.
@@ -568,10 +699,6 @@ def audio_create(
         """
         Wraps the OpenAI audio creation call.
         """
-
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
 
         server_address, server_port = set_server_address_and_port(
             instance, "api.openai.com", 443
@@ -601,11 +728,32 @@ def audio_create(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_AUDIO,
+                        SemanticConvention.GEN_AI_SYSTEM_OPENAI,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        end_time,
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 

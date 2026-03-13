@@ -4,7 +4,11 @@ Module for monitoring Google AI Studio API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.__helpers import (
+    handle_exception,
+    set_server_address_and_port,
+    record_completion_metrics,
+)
 from openlit.instrumentation.google_ai_studio.utils import (
     process_chat_response,
     process_chunk,
@@ -22,6 +26,7 @@ def generate(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI function call
@@ -61,10 +66,31 @@ def generate(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                 )
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        SemanticConvention.GEN_AI_SYSTEM_GOOGLE_AI_STUDIO,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             # Return original response
             return response
@@ -81,6 +107,7 @@ def generate_stream(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI function call
@@ -99,6 +126,7 @@ def generate_stream(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
             **args,
         ):
             self.__wrapped__ = wrapped
@@ -106,8 +134,12 @@ def generate_stream(
             self._span_name = span_name
             self._llmresponse = ""
             self._finish_reason = ""
-            self._output_tokens = ""
-            self._input_tokens = ""
+            self._response_id = ""
+            self._input_tokens = 0
+            self._output_tokens = 0
+            self._reasoning_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_model = ""
             self._tools = None
 
@@ -120,6 +152,7 @@ def generate_stream(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -154,6 +187,7 @@ def generate_stream(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
 
                 except Exception as e:
@@ -176,7 +210,13 @@ def generate_stream(
         span = tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT)
 
         return TracedSyncStream(
-            awaited_wrapped, span, span_name, kwargs, server_address, server_port
+            awaited_wrapped,
+            span,
+            span_name,
+            kwargs,
+            server_address,
+            server_port,
+            event_provider,
         )
 
     return wrapper

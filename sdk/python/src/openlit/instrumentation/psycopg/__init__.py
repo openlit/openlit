@@ -404,14 +404,18 @@ class PsycopgInstrumentor(BaseInstrumentor):
                 # Create a bound wrapper for this instance
                 def make_bound_wrapper(orig, wrap, conn, async_mode):
                     if async_mode:
+
                         @functools.wraps(orig)
                         async def bound_wrapper(*args, **kw):
                             return await wrap(orig, conn, args, kw)
+
                         return bound_wrapper
                     else:
+
                         @functools.wraps(orig)
                         def bound_wrapper(*args, **kw):
                             return wrap(orig, conn, args, kw)
+
                         return bound_wrapper
 
                 setattr(
@@ -518,14 +522,18 @@ class PsycopgInstrumentor(BaseInstrumentor):
                 # Create a bound wrapper for this cursor instance
                 def make_cursor_wrapper(orig, wrap, cur, async_mode):
                     if async_mode:
+
                         @functools.wraps(orig)
                         async def bound_wrapper(*args, **kw):
                             return await wrap(orig, cur, args, kw)
+
                         return bound_wrapper
                     else:
+
                         @functools.wraps(orig)
                         def bound_wrapper(*args, **kw):
                             return wrap(orig, cur, args, kw)
+
                         return bound_wrapper
 
                 setattr(

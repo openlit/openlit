@@ -78,7 +78,7 @@ def wrap_controlflow(
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(SemanticConvention.GEN_AI_ENDPOINT, gen_ai_endpoint)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_CONTROLFLOW,
                 )
                 span.set_attribute(DEPLOYMENT_ENVIRONMENT, environment)

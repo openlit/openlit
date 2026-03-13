@@ -73,7 +73,7 @@ def dynamiq_wrap(
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_DYNAMIQ,
                 )
                 span.set_attribute(

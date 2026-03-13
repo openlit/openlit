@@ -24,19 +24,41 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 ## ⚡ Features
 
-- 🔎 **Auto Instrumentation**: Works with 30+ LLM providers and vector databases with just one line of code.
+- 🔎 **Auto Instrumentation**: Works with 12+ LLM providers, vector databases, and AI frameworks with just one line of code.
 - 🔭 **OpenTelemetry-Native Observability SDKs**: Vendor-neutral SDKs that can send traces and metrics to your existing observability tool like Prometheus and Jaeger.
 - 💲 **Cost Tracking for Custom and Fine-Tuned Models**: Pass custom pricing files for accurate budgeting of custom and fine-tuned models.
-- 🚀 **Suppport for OpenLIT Features**: Includes suppprt for prompt management and secrets management features available in OpenLIT.
+- 🚀 **Support for OpenLIT Features**: Includes support for prompt management and secrets management features available in OpenLIT.
 
 
 ## Auto Instrumentation Capabilities
 
-| LLMs                                                                  |
-| --------------------------------------------------------------------- | 
-| [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)       | [✅ ChromaDB](https://docs.openlit.io/latest/integrations/chromadb) | [✅ LiteLLM](https://docs.openlit.io/latest/integrations/litellm) |     |
-| [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic) |
-| [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere) |
+| LLMs                                                                                        |
+| ------------------------------------------------------------------------------------------- |
+| [✅ OpenAI](https://docs.openlit.io/latest/integrations/openai)                             |
+| [✅ Anthropic](https://docs.openlit.io/latest/integrations/anthropic)                       |
+| [✅ Cohere](https://docs.openlit.io/latest/integrations/cohere)                             |
+| [✅ Groq](https://docs.openlit.io/latest/integrations/groq)                                 |
+| [✅ Mistral](https://docs.openlit.io/latest/integrations/mistral)                           |
+| [✅ Google AI Studio](https://docs.openlit.io/latest/integrations/google-ai-studio)         |
+| [✅ Together AI](https://docs.openlit.io/latest/integrations/together)                      |
+| [✅ Ollama](https://docs.openlit.io/latest/integrations/ollama)                             |
+| [✅ AWS Bedrock](https://docs.openlit.io/latest/integrations/bedrock)                        |
+| [✅ Hugging Face](https://docs.openlit.io/latest/integrations/huggingface)                  |
+| [✅ Replicate](https://docs.openlit.io/latest/integrations/replicate)                      |
+| [✅ Azure OpenAI](https://docs.openlit.io/latest/integrations/azure-openai) *(via OpenAI SDK)* |
+
+| Vector Databases                                                                            |
+| ------------------------------------------------------------------------------------------- |
+| [✅ Chroma](https://docs.openlit.io/latest/integrations/chromadb)                           |
+| [✅ Pinecone](https://docs.openlit.io/latest/integrations/pinecone)                         |
+| [✅ Qdrant](https://docs.openlit.io/latest/integrations/qdrant)                             |
+| [✅ Milvus](https://docs.openlit.io/latest/integrations/milvus)                             |
+
+| Frameworks                                                                                  |
+| ------------------------------------------------------------------------------------------- |
+| [✅ LangChain](https://docs.openlit.io/latest/integrations/langchain)                       |
+| [✅ LlamaIndex](https://docs.openlit.io/latest/integrations/llama-index)                    |
+| [✅ Vercel AI SDK](https://docs.openlit.io/latest/integrations/vercel-ai)                   |
 
 ## Supported Destinations
 
@@ -56,9 +78,7 @@ This project proudly follows and maintains the [Semantic Conventions](https://gi
 
 ## Supported Metrics
 
-> **Note:** Metrics tracking in the TypeScript SDK is only available for Anthropic, Cohere, Ollama, and OpenAI integrations.
-
-The following metrics are supported:
+The following metrics are supported across all integrations:
 
 - **genaiClientUsageTokens**: Histogram for total input/output tokens used.
 - **genaiClientOperationDuration**: Histogram for GenAI operation duration.

@@ -20,11 +20,12 @@ export const config = {
 		"/exceptions",
 		"/prompt-hub",
 		"/vault",
-		"/settings",
+		"/settings/:path*",
 		"/telemetry-enabled",
 		"/home",
 		"/dashboards/:path*",
 		"/d/:path*",
-		"/fleet-hub"
+		"/fleet-hub",
+		"/onboarding"
 	],
 };

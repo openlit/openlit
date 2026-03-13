@@ -45,10 +45,6 @@ def agent_run_wrap(
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
 
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
-
         # Extract agent name for span naming with fallback to agent_id
         agent_name = (
             getattr(instance, "name", None)
@@ -112,10 +108,6 @@ def agent_run_tool_wrap(
     def wrapper(wrapped, instance, args, kwargs):
         # CRITICAL: Suppression check to prevent recursive instrumentation
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        # Check if tracer is available
-        if not tracer:
             return wrapped(*args, **kwargs)
 
         # Extract tool information for span naming
@@ -182,10 +174,6 @@ def agent_continue_run_wrap(
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
 
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
-
         agent_name = getattr(instance, "name", "unknown")
         span_name = f"continue {agent_name}"
 
@@ -243,10 +231,6 @@ def agent_add_tool_wrap(
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
 
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
-
         agent_name = getattr(instance, "name", "unknown")
         span_name = f"agent {agent_name}"
 
@@ -302,10 +286,6 @@ def session_memory_wrap(
     def wrapper(wrapped, instance, args, kwargs):
         # CRITICAL: Suppression check to prevent recursive instrumentation
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        # Check if tracer is available
-        if not tracer:
             return wrapped(*args, **kwargs)
 
         # Extract method name from endpoint
@@ -368,10 +348,6 @@ def model_run_function_call_wrap(
     def wrapper(wrapped, instance, args, kwargs):
         # CRITICAL: Suppression check to prevent recursive instrumentation
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        # Check if tracer is available
-        if not tracer:
             return wrapped(*args, **kwargs)
 
         # Extract function call information for span naming
@@ -448,10 +424,6 @@ def function_call_wrap(
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
 
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
-
         # Extract function information
         function_name = getattr(
             instance, "name", getattr(instance, "__name__", "unknown_function")
@@ -511,10 +483,6 @@ def toolkit_run_wrap(
     def wrapper(wrapped, instance, args, kwargs):
         # CRITICAL: Suppression check to prevent recursive instrumentation
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        # Check if tracer is available
-        if not tracer:
             return wrapped(*args, **kwargs)
 
         # Extract toolkit information
@@ -581,10 +549,6 @@ def function_entrypoint_wrap(
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
             return wrapped(*args, **kwargs)
 
-        # Check if tracer is available
-        if not tracer:
-            return wrapped(*args, **kwargs)
-
         # Extract function information for span naming
         function_name = getattr(instance, "name", None) or getattr(
             instance, "__name__", "unknown_function"
@@ -644,10 +608,6 @@ def function_execute_wrap(
     def wrapper(wrapped, instance, args, kwargs):
         # CRITICAL: Suppression check to prevent recursive instrumentation
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        # Check if tracer is available
-        if not tracer:
             return wrapped(*args, **kwargs)
 
         # Extract function information
@@ -779,10 +739,6 @@ def reasoning_tool_wrap(
     def wrapper(wrapped, instance, args, kwargs):
         # CRITICAL: Suppression check to prevent recursive instrumentation
         if context_api.get_value(context_api._SUPPRESS_INSTRUMENTATION_KEY):
-            return wrapped(*args, **kwargs)
-
-        # Check if tracer is available
-        if not tracer:
             return wrapped(*args, **kwargs)
 
         # Extract tool name from endpoint

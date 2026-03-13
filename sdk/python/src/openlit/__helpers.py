@@ -174,6 +174,12 @@ def handle_exception(span, e):
 
     span.record_exception(e)
     span.set_status(Status(StatusCode.ERROR))
+    # OTel gen-ai: conditionally required error.type (low-cardinality identifier)
+    try:
+        error_type = type(e).__name__ or "_OTHER"
+    except Exception:
+        error_type = "_OTHER"
+    span.set_attribute(SemanticConvention.ERROR_TYPE, error_type)
 
 
 def calculate_ttft(timestamps: List[float], start_time: float) -> float:
@@ -208,22 +214,37 @@ def create_metrics_attributes(
     server_address: str,
     server_port: int,
     response_model: str,
+    token_type: str = None,
+    error_type: str = None,
 ) -> Dict[Any, Any]:
     """
-    Returns OTel metrics attributes
+    Returns OTel metrics attributes.
+
+    Args:
+        token_type: For gen_ai.client.token.usage metric only "input" and "output"
+            are allowed per OTel GenAI semconv; do not use "reasoning" or "total".
+        error_type: Optional error type for failed operations
     """
 
-    return {
+    attributes = {
         TELEMETRY_SDK_NAME: "openlit",
         SERVICE_NAME: service_name,
         DEPLOYMENT_ENVIRONMENT: deployment_environment,
         SemanticConvention.GEN_AI_OPERATION: operation,
-        SemanticConvention.GEN_AI_SYSTEM: system,
+        SemanticConvention.GEN_AI_PROVIDER_NAME: system,
         SemanticConvention.GEN_AI_REQUEST_MODEL: request_model,
         SemanticConvention.SERVER_ADDRESS: server_address,
         SemanticConvention.SERVER_PORT: server_port,
         SemanticConvention.GEN_AI_RESPONSE_MODEL: response_model,
     }
+
+    # Add optional attributes for OTel compliance
+    if token_type:
+        attributes[SemanticConvention.GEN_AI_TOKEN_TYPE] = token_type
+    if error_type:
+        attributes[SemanticConvention.ERROR_TYPE] = error_type
+
+    return attributes
 
 
 def create_db_metrics_attributes(
@@ -423,7 +444,7 @@ def format_and_concatenate(messages):
 def common_span_attributes(
     scope,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -441,7 +462,9 @@ def common_span_attributes(
 
     scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, gen_ai_operation)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, gen_ai_system)
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_PROVIDER_NAME, GEN_AI_PROVIDER_NAME
+    )
     scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
     scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
     if request_model:
@@ -463,7 +486,7 @@ def common_span_attributes(
 def record_completion_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -477,37 +500,98 @@ def record_completion_metrics(
     cost,
     tbt,
     ttft,
+    error_type=None,
+    is_stream=False,
+    time_per_chunk_observations=None,
 ):
     """
-    Record completion metrics for the operation.
+    Record completion metrics for the operation with proper OTel token type attributes.
+
+    For gen_ai.client.token.usage, only gen_ai.token.type "input" and "output" are
+    used per OTel GenAI semantic conventions; reasoning/total must not be recorded
+    on this metric.
+
+    When the operation ended in an error, pass error_type so that
+    gen_ai.client.operation.duration is recorded with error.type (OTel semconv
+    conditionally required).
+
+    When is_stream is True and ttft is set, records gen_ai.client.operation.time_to_first_chunk.
+    When time_per_chunk_observations is provided (list of inter-chunk durations in seconds),
+    records each on gen_ai.client.operation.time_per_output_chunk (streaming only).
     """
 
-    attributes = create_metrics_attributes(
+    # Base attributes without token type
+    base_attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
         response_model=response_model,
         service_name=application_name,
         deployment_environment=environment,
+        error_type=error_type,
     )
-    metrics["genai_client_usage_tokens"].record(
-        input_tokens + output_tokens, attributes
+
+    # Record token usage with proper token type (OTel compliant)
+    if input_tokens:
+        input_attributes = {
+            **base_attributes,
+            SemanticConvention.GEN_AI_TOKEN_TYPE: SemanticConvention.GEN_AI_TOKEN_TYPE_INPUT,
+        }
+        metrics["genai_client_usage_tokens"].record(input_tokens, input_attributes)
+
+    if output_tokens:
+        output_attributes = {
+            **base_attributes,
+            SemanticConvention.GEN_AI_TOKEN_TYPE: SemanticConvention.GEN_AI_TOKEN_TYPE_OUTPUT,
+        }
+        metrics["genai_client_usage_tokens"].record(output_tokens, output_attributes)
+
+    # Operation duration
+    metrics["genai_client_operation_duration"].record(
+        end_time - start_time, base_attributes
     )
-    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
-    metrics["genai_server_tbt"].record(tbt, attributes)
-    metrics["genai_server_ttft"].record(ttft, attributes)
-    metrics["genai_requests"].add(1, attributes)
-    metrics["genai_completion_tokens"].add(output_tokens, attributes)
-    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-    metrics["genai_cost"].record(cost, attributes)
+
+    # Client streaming metrics (OTel: only for streaming)
+    if is_stream and ttft and "genai_client_time_to_first_chunk" in metrics:
+        metrics["genai_client_time_to_first_chunk"].record(ttft, base_attributes)
+    if time_per_chunk_observations and "genai_client_time_per_output_chunk" in metrics:
+        for duration_sec in time_per_chunk_observations:
+            metrics["genai_client_time_per_output_chunk"].record(
+                duration_sec, base_attributes
+            )
+
+    # Server metrics
+    if tbt:
+        metrics["genai_server_tbt"].record(tbt, base_attributes)
+    if ttft:
+        metrics["genai_server_ttft"].record(ttft, base_attributes)
+
+    # gen_ai.server.request.duration: server-side processing time
+    if "genai_server_request_duration" in metrics:
+        if (
+            ttft is not None
+            and tbt
+            and output_tokens is not None
+            and output_tokens >= 1
+        ):
+            server_duration = ttft + tbt * (output_tokens - 1)
+        else:
+            server_duration = end_time - start_time
+        metrics["genai_server_request_duration"].record(
+            server_duration, base_attributes
+        )
+
+    # Cost (OpenLIT vendor extension; not in OTel GenAI semconv)
+    if "genai_cost" in metrics:
+        metrics["genai_cost"].record(cost, base_attributes)
 
 
 def record_embedding_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -518,32 +602,50 @@ def record_embedding_metrics(
     end_time,
     input_tokens,
     cost,
+    error_type=None,
 ):
     """
-    Record embedding-specific metrics for the operation.
+    Record embedding-specific metrics for the operation with proper OTel token type.
+
+    For gen_ai.client.token.usage, only gen_ai.token.type "input" and "output" are
+    used per OTel GenAI semantic conventions.
+
+    When the operation ended in an error, pass error_type for gen_ai.client.operation.duration.
     """
 
-    attributes = create_metrics_attributes(
+    base_attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
         response_model=response_model,
         service_name=application_name,
         deployment_environment=environment,
+        error_type=error_type,
     )
-    metrics["genai_client_usage_tokens"].record(input_tokens, attributes)
-    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
-    metrics["genai_requests"].add(1, attributes)
-    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-    metrics["genai_cost"].record(cost, attributes)
+
+    # Record token usage with proper token type (OTel compliant)
+    if input_tokens:
+        input_attributes = {
+            **base_attributes,
+            SemanticConvention.GEN_AI_TOKEN_TYPE: SemanticConvention.GEN_AI_TOKEN_TYPE_INPUT,
+        }
+        metrics["genai_client_usage_tokens"].record(input_tokens, input_attributes)
+
+    metrics["genai_client_operation_duration"].record(
+        end_time - start_time, base_attributes
+    )
+
+    # Cost (OpenLIT vendor extension; not in OTel GenAI semconv)
+    if "genai_cost" in metrics:
+        metrics["genai_cost"].record(cost, base_attributes)
 
 
 def record_audio_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -560,7 +662,7 @@ def record_audio_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
@@ -569,14 +671,14 @@ def record_audio_metrics(
         deployment_environment=environment,
     )
     metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
-    metrics["genai_requests"].add(1, attributes)
-    metrics["genai_cost"].record(cost, attributes)
+    if "genai_cost" in metrics:
+        metrics["genai_cost"].record(cost, attributes)
 
 
 def record_image_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -593,7 +695,7 @@ def record_image_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
@@ -602,8 +704,8 @@ def record_image_metrics(
         deployment_environment=environment,
     )
     metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
-    metrics["genai_requests"].add(1, attributes)
-    metrics["genai_cost"].record(cost, attributes)
+    if "genai_cost" in metrics:
+        metrics["genai_cost"].record(cost, attributes)
 
 
 def common_db_span_attributes(
@@ -649,7 +751,7 @@ def common_framework_span_attributes(
 
     scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     scope._span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, framework_system)
+    scope._span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, framework_system)
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, endpoint)
     scope._span.set_attribute(
         SemanticConvention.GEN_AI_REQUEST_MODEL,
@@ -813,7 +915,7 @@ def record_mcp_metrics(
 def record_framework_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     environment,
@@ -827,7 +929,7 @@ def record_framework_metrics(
 
     attributes = create_metrics_attributes(
         operation=gen_ai_operation,
-        system=gen_ai_system,
+        system=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model="unknown",
@@ -835,7 +937,6 @@ def record_framework_metrics(
         service_name=application_name,
         deployment_environment=environment,
     )
-    metrics["genai_requests"].add(1, attributes)
     metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
 
 

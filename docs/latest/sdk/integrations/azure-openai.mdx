@@ -9,17 +9,28 @@ OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applicat
 
 Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
 
-The integration is compatible with  
-- OpenAI Python SDK client `>=1.13.0` 
+The integration is compatible with:
+- OpenAI Python SDK client `>=1.13.0`
+- OpenAI TypeScript/JavaScript SDK client `>=3.1.0` (Azure OpenAI uses the same SDK) 
 
 ## Get started 
 
 <Steps>
   <Step title="Install OpenLIT">
     Open your command line or terminal and run:
-    ```shell
-    pip install openlit
-    ```
+    
+    <Tabs>
+      <Tab title="Python">
+        ```shell
+        pip install openlit
+        ```
+      </Tab>
+      <Tab title="TypeScript">
+        ```shell
+        npm install openlit
+        ```
+      </Tab>
+    </Tabs>
   </Step>
   <IntegrationMethods />
 </Steps>

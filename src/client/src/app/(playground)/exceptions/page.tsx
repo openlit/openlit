@@ -1,15 +1,15 @@
 "use client";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
 	RequestProvider,
 	useRequest,
+	useRequestNavigation,
 } from "@/components/(playground)/request/request-context";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { toast } from "sonner";
 import { getFilterDetails } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
-import { omit } from "lodash";
 import RequestDetails from "@/components/(playground)/request/request-details";
 import { normalizeTrace } from "@/helpers/client/trace";
 import DataTable from "@/components/data-table/table";
@@ -21,6 +21,7 @@ import ExceptionsGettingStarted from "@/components/(playground)/getting-started/
 function ExceptionPage() {
 	const filter = useRootStore(getFilterDetails);
 	const [, updateRequest] = useRequest();
+	const { setItems } = useRequestNavigation();
 
 	const onClick = (item: any) => {
 		!isLoading && updateRequest(item);
@@ -42,7 +43,7 @@ function ExceptionPage() {
 
 	const fetchData = useCallback(async () => {
 		fireRequest({
-			body: JSON.stringify(omit(filter, ["selectedConfig"])),
+			body: JSON.stringify(filter),
 			requestType: "POST",
 			url: "/api/metrics/exception",
 			failureCb: (err?: string) => {
@@ -63,7 +64,14 @@ function ExceptionPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [filter, pingStatus]);
 
-	const normalizedData = ((data as any)?.records || []).map(normalizeTrace);
+	const normalizedData = useMemo(
+		() => ((data as any)?.records || []).map(normalizeTrace),
+		[data]
+	);
+
+	useEffect(() => {
+		setItems(normalizedData);
+	}, [normalizedData, setItems]);
 
 
 	// Show getting started when there's no trace data AND initial fetch is complete
@@ -82,6 +90,7 @@ function ExceptionPage() {
 				includeOnlySorting={["Timestamp"]}
 				pageName={"exception"}
 				columns={columns}
+				supportDynamicFilters
 			/>
 			<DataTable
 				columns={columns}

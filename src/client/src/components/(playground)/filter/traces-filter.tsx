@@ -6,24 +6,203 @@ import {
 	getFilterDetails,
 	getUpdateFilter,
 	getUpdateConfig,
+	getAttributeKeys,
+	getUpdateAttributeKeys,
 } from "@/selectors/filter";
 import { useRootStore } from "@/store";
 import Sorting from "./sorting";
 import ComboDropdown from "./combo-dropdown";
 import SlideWithValue from "./slider-with-value";
 import { Button } from "@/components/ui/button";
-import { SlidersHorizontal } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, SlidersHorizontal, Trash2, ChevronDown } from "lucide-react";
 
 import { getPingStatus } from "@/selectors/database-config";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import { FilterConfig, FilterType } from "@/types/store/filter";
+import {
+	AttributeKeys,
+	CustomFilter,
+	CustomFilterAttributeType,
+	FilterConfig,
+	FilterType,
+} from "@/types/store/filter";
 import { usePostHog } from "posthog-js/react";
 import { CLIENT_EVENTS } from "@/constants/events";
 import VisibilityColumns from "./visibility-columns";
 import { PAGE } from "@/types/store/page";
 import { Columns } from "@/components/data-table/columns";
+import { useRouter, usePathname } from "next/navigation";
+
+// ─── Combobox (text input + inline dropdown, portal-rendered to escape overflow) ───
+
+const Combobox = ({
+	value,
+	onChange,
+	options,
+	placeholder,
+	className,
+}: {
+	value: string;
+	onChange: (val: string) => void;
+	options: string[];
+	placeholder?: string;
+	className?: string;
+}) => {
+	const [open, setOpen] = useState(false);
+	const [inputValue, setInputValue] = useState(value);
+	const inputRef = useRef<HTMLInputElement>(null);
+	const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+
+	useEffect(() => {
+		setInputValue(value);
+	}, [value]);
+
+	const updateDropdownPos = () => {
+		if (inputRef.current) {
+			const rect = inputRef.current.getBoundingClientRect();
+			setDropdownStyle({
+				position: "fixed",
+				top: rect.bottom + 2,
+				left: rect.left,
+				width: Math.max(rect.width, 224),
+			});
+		}
+	};
+
+	const filtered = inputValue
+		? options.filter((o) => o.toLowerCase().includes(inputValue.toLowerCase()))
+		: options;
+
+	const commit = (val: string) => {
+		onChange(val);
+		setInputValue(val);
+		setOpen(false);
+	};
+
+	return (
+		<div className={`relative ${className ?? "w-44"}`}>
+			<Input
+				ref={inputRef}
+				placeholder={placeholder ?? ""}
+				value={inputValue}
+				onChange={(e) => {
+					setInputValue(e.target.value);
+					onChange(e.target.value);
+					if (!open) { updateDropdownPos(); setOpen(true); }
+				}}
+				onFocus={() => { updateDropdownPos(); setOpen(true); }}
+				onBlur={() => setTimeout(() => setOpen(false), 120)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") {
+						e.preventDefault();
+						const exact = filtered.find(
+							(o) => o.toLowerCase() === inputValue.toLowerCase()
+						);
+						commit(exact ?? inputValue);
+					} else if (e.key === "Escape") {
+						setOpen(false);
+					} else if (e.key === "ArrowDown" && open && filtered.length > 0) {
+						e.preventDefault();
+					}
+				}}
+				className={`h-7 text-xs w-full ${options.length > 0 ? "pr-6" : ""}`}
+			/>
+			{options.length > 0 && (
+				<ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400 pointer-events-none" />
+			)}
+			{open && filtered.length > 0 && typeof window !== "undefined" && createPortal(
+				<div
+					style={dropdownStyle}
+					className="z-[9999] rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 shadow-md max-h-48 overflow-auto"
+				>
+					{filtered.map((opt) => (
+						<button
+							key={opt}
+							type="button"
+							className="w-full text-left text-xs px-2 py-1.5 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+							onMouseDown={(e) => {
+								e.preventDefault();
+								commit(opt);
+							}}
+						>
+							{opt}
+						</button>
+					))}
+				</div>,
+				document.body
+			)}
+		</div>
+	);
+};
+
+// ─── URL sync helpers ─────────────────────────────────────────────────────────
+
+// Separator used inside a single custom-filter param value: type|key|value
+const CF_SEP = "|";
+
+function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) {
+	params.delete("models");
+	params.delete("providers");
+	params.delete("traceTypes");
+	params.delete("appNames");
+	params.delete("envs");
+	params.delete("maxCost");
+	// remove all existing cf entries
+	params.delete("cf");
+
+	if (config.models?.length) params.set("models", config.models.join(","));
+	if (config.providers?.length) params.set("providers", config.providers.join(","));
+	if (config.traceTypes?.length) params.set("traceTypes", config.traceTypes.join(","));
+	if (config.applicationNames?.length) params.set("appNames", config.applicationNames.join(","));
+	if (config.environments?.length) params.set("envs", config.environments.join(","));
+	if (config.maxCost) params.set("maxCost", String(config.maxCost));
+	config.customFilters?.forEach(({ attributeType, key, value }) => {
+		if (key && value) {
+			params.append("cf", [attributeType, key, value].join(CF_SEP));
+		}
+	});
+}
+
+function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
+	const config: Partial<FilterConfig> = {};
+	const models = params.get("models");
+	if (models) config.models = models.split(",").filter(Boolean);
+	const providers = params.get("providers");
+	if (providers) config.providers = providers.split(",").filter(Boolean);
+	const traceTypes = params.get("traceTypes");
+	if (traceTypes) config.traceTypes = traceTypes.split(",").filter(Boolean);
+	const appNames = params.get("appNames");
+	if (appNames) config.applicationNames = appNames.split(",").filter(Boolean);
+	const envs = params.get("envs");
+	if (envs) config.environments = envs.split(",").filter(Boolean);
+	const maxCost = params.get("maxCost");
+	if (maxCost) config.maxCost = parseFloat(maxCost);
+	const cfValues = params.getAll("cf");
+	if (cfValues.length) {
+		config.customFilters = cfValues.map((raw) => {
+			const [attributeType, key, ...rest] = raw.split(CF_SEP);
+			return {
+				attributeType: (attributeType || "SpanAttributes") as CustomFilterAttributeType,
+				key: key || "",
+				value: rest.join(CF_SEP),
+			};
+		}).filter((f) => f.key && f.value);
+	}
+	return config;
+}
+
+function hasActiveConfig(config: Partial<FilterConfig>): boolean {
+	return Object.values(config).some((v) => {
+		if (Array.isArray(v)) return v.length > 0;
+		if (typeof v === "number") return v > 0;
+		return !!v;
+	});
+}
+
+// ─── DynamicFilters ───────────────────────────────────────────────────────────
 
 const DynamicFilters = ({
 	isVisibleFilters,
@@ -39,11 +218,24 @@ const DynamicFilters = ({
 	const pingStatus = useRootStore(getPingStatus);
 	const filterDetails = useRootStore(getFilterDetails);
 	const updateConfig = useRootStore(getUpdateConfig);
+	const attributeKeys = useRootStore(getAttributeKeys);
+	const updateAttributeKeys = useRootStore(getUpdateAttributeKeys);
 	const { fireRequest } = useFetchWrapper();
+	const { fireRequest: fireAttrKeysRequest } = useFetchWrapper();
 	const updateFilter = useRootStore(getUpdateFilter);
 	const [selectedFilterValues, setSelectedFilterValues] = useState<
 		Partial<FilterConfig>
 	>(filterDetails.selectedConfig || {});
+	const [customFilters, setCustomFilters] = useState<CustomFilter[]>(
+		filterDetails.selectedConfig?.customFilters || []
+	);
+
+	// Keep local UI state in sync when the store's selectedConfig changes externally
+	// (e.g. URL params applied on mount, or Clear Filters)
+	useEffect(() => {
+		setSelectedFilterValues(filterDetails.selectedConfig || {});
+		setCustomFilters(filterDetails.selectedConfig?.customFilters || []);
+	}, [filterDetails.selectedConfig]);
 
 	const clearFilter = (type: keyof FilterConfig) => {
 		setSelectedFilterValues((e) => ({ ...e, [type]: undefined }));
@@ -80,11 +272,39 @@ const DynamicFilters = ({
 		}
 	};
 
-	const fetchConfig = useCallback(async () => {
+	const addCustomFilter = () => {
+		setCustomFilters((prev) => [
+			...prev,
+			{ attributeType: "SpanAttributes", key: "", value: "" },
+		]);
+	};
+
+	const removeCustomFilter = (index: number) => {
+		setCustomFilters((prev) => prev.filter((_, i) => i !== index));
+	};
+
+	const updateCustomFilter = (
+		index: number,
+		field: "attributeType" | "key" | "value",
+		val: string
+	) => {
+		setCustomFilters((prev) =>
+			prev.map((f, i) =>
+				i === index
+					? {
+							...f,
+							[field]: val as CustomFilterAttributeType,
+							// Reset key when attribute type changes
+							...(field === "attributeType" ? { key: "" } : {}),
+					  }
+					: f
+			)
+		);
+	};
+
+	const fetchConfig = useCallback(async (timeLimit: FilterType["timeLimit"]) => {
 		fireRequest({
-			body: JSON.stringify({
-				timeLimit: filter.timeLimit,
-			}),
+			body: JSON.stringify({ timeLimit }),
 			requestType: "POST",
 			url: "/api/metrics/request/config",
 			successCb: (resp) => {
@@ -96,8 +316,10 @@ const DynamicFilters = ({
 				});
 			},
 		});
-	}, [filter]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
+	// Fetch filter config when time window changes or config is cleared after a range change.
 	useEffect(() => {
 		if (
 			filter.timeLimit.start &&
@@ -105,123 +327,328 @@ const DynamicFilters = ({
 			pingStatus === "success" &&
 			!filterConfig
 		) {
-			fetchConfig();
+			fetchConfig(filter.timeLimit);
 		}
-	}, [filter, pingStatus, filterConfig, fetchConfig]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, pingStatus, filterConfig]);
+
+	const fetchAttributeKeys = useCallback(async (timeLimit: FilterType["timeLimit"]) => {
+		fireAttrKeysRequest({
+			body: JSON.stringify({ timeLimit }),
+			requestType: "POST",
+			url: "/api/metrics/request/attribute-keys",
+			successCb: (resp) => {
+				if (resp?.spanAttributeKeys !== undefined) {
+					updateAttributeKeys({
+						spanAttributeKeys: resp.spanAttributeKeys,
+						resourceAttributeKeys: resp.resourceAttributeKeys,
+					} as AttributeKeys);
+				}
+			},
+			failureCb: () => {
+				// silently fail – attribute keys are a nice-to-have
+			},
+		});
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// Fetch attribute keys whenever the time window changes.
+	// Use leaf primitives as deps – lodash merge mutates timeLimit in-place
+	// so the object reference never changes between renders.
+	useEffect(() => {
+		if (
+			filter.timeLimit.start &&
+			filter.timeLimit.end &&
+			pingStatus === "success"
+		) {
+			fetchAttributeKeys(filter.timeLimit);
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, pingStatus]);
 
 	const updateFilterStore = () => {
-		updateFilter("selectedConfig", selectedFilterValues);
+		const validCustomFilters = customFilters.filter((f) => f.key && f.value);
+		updateFilter("selectedConfig", {
+			...selectedFilterValues,
+			customFilters:
+				validCustomFilters.length > 0 ? validCustomFilters : undefined,
+		});
 		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_APPLIED);
 	};
 
 	const clearFilterStore = () => {
 		setSelectedFilterValues({});
+		setCustomFilters([]);
 		posthog?.capture(CLIENT_EVENTS.TRACE_FILTER_CLEARED);
 		updateFilter("selectedConfig", {}, { clearFilter: true });
 	};
 
 	return (
 		<div
-			className={`flex w-full overflow-hidden transition-all gap-4 ${
+			className={`flex flex-col w-full overflow-hidden transition-all gap-3 ${
 				isVisibleFilters ? "h-auto mt-4" : "h-0 mt-0"
 			}`}
 		>
-			<div className="flex grow gap-3 overflow-auto">
-				{filterConfig?.traceTypes?.length ? (
-					<ComboDropdown
-						options={filterConfig?.traceTypes.map((p) => ({
-							label: p,
-							value: p,
-						}))}
-						title="Types"
-						type="traceTypes"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.traceTypes}
-						clearItem={clearFilter}
-					/>
-				) : null}
-				{filterConfig?.models?.length ? (
-					<ComboDropdown
-						options={filterConfig?.models.map((m) => ({ label: m, value: m }))}
-						title="Models"
-						type="models"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.models}
-						clearItem={clearFilter}
-					/>
-				) : null}
-				{filterConfig?.providers?.length ? (
-					<ComboDropdown
-						options={filterConfig?.providers.map((p) => ({
-							label: p,
-							value: p,
-						}))}
-						title="Providers"
-						type="providers"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.providers}
-						clearItem={clearFilter}
-					/>
-				) : null}
-				{filterConfig?.maxCost ? (
-					<SlideWithValue
-						label="Max Cost"
-						value={selectedFilterValues.maxCost || 0}
-						maxValue={filterConfig.maxCost}
-						onChange={updateSelectedValues}
-						type="maxCost"
-					/>
-				) : null}
-				{filterConfig?.applicationNames?.length ? (
-					<ComboDropdown
-						options={filterConfig?.applicationNames.map((a) => ({
-							label: a,
-							value: a,
-						}))}
-						title="Application Names"
-						type="applicationNames"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.applicationNames}
-						clearItem={clearFilter}
-					/>
-				) : null}
-				{filterConfig?.environments?.length ? (
-					<ComboDropdown
-						options={filterConfig?.environments.map((e) => ({
-							label: e,
-							value: e,
-						}))}
-						title="Environments"
-						type="environments"
-						updateSelectedValues={updateSelectedValues}
-						selectedValues={selectedFilterValues.environments}
-						clearItem={clearFilter}
-					/>
-				) : null}
+			{/* Predefined filter dropdowns + action buttons */}
+			<div className="flex w-full gap-4 items-start">
+				<div className="flex grow gap-3 overflow-auto flex-wrap">
+					{filterConfig?.traceTypes?.length ? (
+						<ComboDropdown
+							options={filterConfig?.traceTypes.map((p) => ({
+								label: p,
+								value: p,
+							}))}
+							title="Types"
+							type="traceTypes"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.traceTypes}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.models?.length ? (
+						<ComboDropdown
+							options={filterConfig?.models.map((m) => ({ label: m, value: m }))}
+							title="Models"
+							type="models"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.models}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.providers?.length ? (
+						<ComboDropdown
+							options={filterConfig?.providers.map((p) => ({
+								label: p,
+								value: p,
+							}))}
+							title="Providers"
+							type="providers"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.providers}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.maxCost ? (
+						<SlideWithValue
+							label="Max Cost"
+							value={selectedFilterValues.maxCost || 0}
+							maxValue={filterConfig.maxCost}
+							onChange={updateSelectedValues}
+							type="maxCost"
+						/>
+					) : null}
+					{filterConfig?.applicationNames?.length ? (
+						<ComboDropdown
+							options={filterConfig?.applicationNames.map((a) => ({
+								label: a,
+								value: a,
+							}))}
+							title="Application Names"
+							type="applicationNames"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.applicationNames}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.environments?.length ? (
+						<ComboDropdown
+							options={filterConfig?.environments.map((e) => ({
+								label: e,
+								value: e,
+							}))}
+							title="Environments"
+							type="environments"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.environments}
+							clearItem={clearFilter}
+						/>
+					) : null}
+				</div>
+				<div className="flex shrink-0 gap-3">
+					{areFiltersApplied && (
+						<Button
+							variant="ghost"
+							size="default"
+							className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 py-1.5 px-2 relative h-auto text-xs"
+							onClick={clearFilterStore}
+						>
+							Clear Filters
+						</Button>
+					)}
+					<Button
+						variant="outline"
+						size="default"
+						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 py-1.5 px-2 relative h-auto text-xs"
+						onClick={updateFilterStore}
+					>
+						Apply Filters
+					</Button>
+				</div>
 			</div>
-			<div className="flex shrink-0 gap-3">
-				{areFiltersApplied && (
+
+			{/* Custom attribute key-value filters */}
+			<div className="flex flex-col gap-2">
+				<div className="flex items-center gap-3">
+					<span className="text-xs text-stone-500 dark:text-stone-400 shrink-0">
+						Custom Attributes
+					</span>
 					<Button
 						variant="ghost"
 						size="default"
-						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 py-1.5 px-2 relative h-auto text-xs"
-						onClick={clearFilterStore}
+						className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 py-1 px-2 h-auto text-xs gap-1"
+						onClick={addCustomFilter}
 					>
-						Clear Filters
+						<Plus className="w-3 h-3" />
+						Add
 					</Button>
+				</div>
+				{customFilters.length > 0 && (
+					<div className="flex flex-wrap gap-2 max-h-[120px] overflow-auto">
+						{customFilters.map((cf, index) => (
+							<div key={index} className="flex items-center gap-1.5">
+								<select
+									value={cf.attributeType}
+									onChange={(e) =>
+										updateCustomFilter(index, "attributeType", e.target.value)
+									}
+									className="h-7 rounded-md border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 text-stone-900 dark:text-stone-100 text-xs px-1.5 focus-visible:outline-none"
+								>
+									<option value="SpanAttributes">Span Attributes</option>
+									<option value="ResourceAttributes">Resource Attributes</option>
+									<option value="Field">Field</option>
+								</select>
+
+								{cf.attributeType === "Field" ? (
+									<Input
+										placeholder="e.g. SpanName"
+										value={cf.key}
+										onChange={(e) =>
+											updateCustomFilter(index, "key", e.target.value)
+										}
+										className="h-7 text-xs w-44"
+									/>
+								) : (
+									<Combobox
+										value={cf.key}
+										onChange={(val) => updateCustomFilter(index, "key", val)}
+										options={
+											cf.attributeType === "SpanAttributes"
+												? (attributeKeys?.spanAttributeKeys ?? [])
+												: (attributeKeys?.resourceAttributeKeys ?? [])
+										}
+										placeholder="e.g. gen_ai.system"
+									/>
+								)}
+
+								<Input
+									placeholder="Value"
+									value={cf.value}
+									onChange={(e) =>
+										updateCustomFilter(index, "value", e.target.value)
+									}
+									className="h-7 text-xs w-32"
+								/>
+								<Button
+									variant="ghost"
+									size="default"
+									className="h-7 w-7 p-0 shrink-0 text-stone-400 hover:text-red-500"
+									onClick={() => removeCustomFilter(index)}
+								>
+									<Trash2 className="w-3.5 h-3.5" />
+								</Button>
+							</div>
+						))}
+					</div>
 				)}
-				<Button
-					variant="outline"
-					size="default"
-					className="text-stone-500 hover:text-stone-600 dark:text-stone-400 dark:hover:text-stone-300 dark:bg-stone-800 dark:hover:bg-stone-900 py-1.5 px-2 relative h-auto text-xs"
-					onClick={updateFilterStore}
-				>
-					Apply Filters
-				</Button>
 			</div>
 		</div>
 	);
 };
+
+// ─── URL filter sync hook ─────────────────────────────────────────────────────
+
+const VALID_TIME_RANGES = new Set(["24H", "7D", "1M", "3M", "CUSTOM"]);
+
+function useFilterUrlSync(filter: FilterType, updateFilter: (key: string, value: any, extraParams?: any) => void) {
+	const router = useRouter();
+	const pathname = usePathname();
+	// Tracks whether the initial URL read has been applied to the store
+	const initializedFromUrl = useRef(false);
+
+	// On mount: read URL params and apply to the store (client-side only)
+	useEffect(() => {
+		if (initializedFromUrl.current) return;
+		initializedFromUrl.current = true;
+
+		const params = new URLSearchParams(window.location.search);
+
+		// Time limit
+		const tr = params.get("tr");
+		if (tr && VALID_TIME_RANGES.has(tr)) {
+			if (tr === "CUSTOM") {
+				const ts = params.get("ts");
+				const te = params.get("te");
+				if (ts && te) {
+					updateFilter("timeLimit.type", "CUSTOM", {
+						start: new Date(ts),
+						end: new Date(te),
+					});
+				}
+			} else {
+				updateFilter("timeLimit.type", tr);
+			}
+		}
+
+		// Page size
+		const limitParam = params.get("limit");
+		if (limitParam) {
+			const parsed = parseInt(limitParam, 10);
+			if (!isNaN(parsed) && parsed > 0) updateFilter("limit", parsed);
+		}
+
+		// Selected config (filters)
+		const config = paramsToConfig(params);
+		if (hasActiveConfig(config)) {
+			updateFilter("selectedConfig", config);
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
+	// When filter state changes: write all serialisable parts to the URL
+	const prevSerializedRef = useRef<string>("");
+	useEffect(() => {
+		if (!initializedFromUrl.current) return;
+
+		const params = new URLSearchParams(window.location.search);
+
+		// Time limit
+		params.set("tr", filter.timeLimit.type);
+		if (filter.timeLimit.type === "CUSTOM") {
+			if (filter.timeLimit.start)
+				params.set("ts", new Date(filter.timeLimit.start).toISOString());
+			if (filter.timeLimit.end)
+				params.set("te", new Date(filter.timeLimit.end).toISOString());
+		} else {
+			params.delete("ts");
+			params.delete("te");
+		}
+
+		// Page size
+		params.set("limit", String(filter.limit));
+
+		// Selected config
+		configToParams(filter.selectedConfig, params);
+
+		const qs = params.toString();
+		if (qs === prevSerializedRef.current) return;
+		prevSerializedRef.current = qs;
+
+		router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [filter.timeLimit.type, filter.timeLimit.start, filter.timeLimit.end, filter.limit, filter.selectedConfig]);
+}
+
+// ─── TracesFilter (exported) ──────────────────────────────────────────────────
 
 export default function TracesFilter({
 	total,
@@ -240,6 +667,9 @@ export default function TracesFilter({
 	const filter = useRootStore(getFilterDetails);
 	const filterConfig = useRootStore(getFilterConfig);
 	const updateFilter = useRootStore(getUpdateFilter);
+
+	useFilterUrlSync(filter, updateFilter);
+
 	const onClickPageAction = (dir: -1 | 1) => {
 		updateFilter("offset", filter.offset + dir * filter.limit);
 	};
@@ -249,24 +679,19 @@ export default function TracesFilter({
 	};
 
 	const toggleIsVisibleFilters = () => setIsVisibileFilters((e) => !e);
-	const showDynamicFilters =
-		filterConfig &&
-		Object.keys(filterConfig).filter((k) => {
-			const key = k as keyof FilterConfig;
-			if (typeof filterConfig[key] === "number") {
-				return (filterConfig[key] as number) > 0;
-			} else if (
-				typeof filterConfig[key] === "object" &&
-				(filterConfig[key] as string[]).length
-			) {
-				return true;
-			}
-			return false;
-		}).length > 0;
 
 	const areFiltersApplied =
 		Object.keys(filter.selectedConfig).filter((k) => {
 			const key = k as keyof FilterConfig;
+			if (key === "customFilters") {
+				return (
+					(
+						filter.selectedConfig.customFilters?.filter(
+							(f) => f.key && f.value
+						) || []
+					).length > 0
+				);
+			}
 			if (typeof filter.selectedConfig[key] === "number") {
 				return (filter.selectedConfig[key] as number) > 0;
 			} else if (
@@ -304,7 +729,7 @@ export default function TracesFilter({
 						includeOnlySorting={includeOnlySorting}
 					/>
 				)}
-				{showDynamicFilters && supportDynamicFilters && (
+				{supportDynamicFilters && (
 					<Button
 						variant="outline"
 						size="default"
@@ -313,7 +738,7 @@ export default function TracesFilter({
 					>
 						<SlidersHorizontal className="w-3 h-3" />
 						{areFiltersApplied && (
-							<span className="w-1 h-1 bg-primary absolute top-1 right-1 rounded-full" />
+							<span className="w-2 h-2 bg-primary absolute top-1 right-1 rounded-full animate-ping" />
 						)}
 					</Button>
 				)}

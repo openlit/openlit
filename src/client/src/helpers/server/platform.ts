@@ -242,6 +242,27 @@ export const getFilterWhereCondition = (
 						.join(", ")})`
 				);
 			}
+
+			if (filter.selectedConfig.customFilters?.length) {
+				filter.selectedConfig.customFilters.forEach(({ attributeType, key, value }) => {
+					if (key && value) {
+						const safeValue = value.replace(/'/g, "''");
+						if (attributeType === "SpanAttributes") {
+							const safeKey = key.replace(/'/g, "''");
+							whereArray.push(`SpanAttributes['${safeKey}'] = '${safeValue}'`);
+						} else if (attributeType === "ResourceAttributes") {
+							const safeKey = key.replace(/'/g, "''");
+							whereArray.push(`ResourceAttributes['${safeKey}'] = '${safeValue}'`);
+						} else if (attributeType === "Field") {
+							// Direct column — key must be an identifier, strip anything non-alphanumeric/underscore
+							const safeKey = key.replace(/[^A-Za-z0-9_.]/g, "");
+							if (safeKey) {
+								whereArray.push(`${safeKey} = '${safeValue}'`);
+							}
+						}
+					}
+				});
+			}
 		}
 
 		if (filter.notOrEmpty && filter.notOrEmpty?.length > 0) {

@@ -17,6 +17,11 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry.trace import set_span_in_context
 from wrapt import wrap_function_wrapper
 
+from openlit.instrumentation.langchain.utils import (
+    build_input_messages,
+    common_chat_logic,
+)
+
 # Initialize logger
 logger = logging.getLogger(__name__)
 
@@ -40,6 +45,11 @@ class SpanHolder:
         "model_name",
         "model_parameters",
         "prompt_content",
+        "input_messages",
+        "cache_read_input_tokens",
+        "cache_creation_input_tokens",
+        "input_messages_raw",
+        "prompts",
     )
 
     def __init__(self, span, token=None, start_time=None):
@@ -56,6 +66,11 @@ class SpanHolder:
         self.model_name = "unknown"
         self.model_parameters: Dict[str, Any] = {}
         self.prompt_content = ""
+        self.input_messages: List[Dict[str, Any]] = []
+        self.cache_read_input_tokens = 0
+        self.cache_creation_input_tokens = 0
+        self.input_messages_raw: Any = None
+        self.prompts: List[Any] = []
 
     def get_duration(self) -> float:
         """Calculate duration from start time to now."""
@@ -339,6 +354,7 @@ def _create_callback_handler_class(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Create and return an OpenLITCallbackHandler class configured with the given parameters.
@@ -353,8 +369,6 @@ def _create_callback_handler_class(
 
     from openlit.__helpers import (
         general_tokens,
-        get_chat_model_cost,
-        record_completion_metrics,
         record_framework_metrics,
         calculate_ttft,
         calculate_tbt,
@@ -376,6 +390,7 @@ def _create_callback_handler_class(
             self._capture_message_content = capture_message_content
             self._metrics = metrics
             self._disable_metrics = disable_metrics
+            self._event_provider = event_provider
             self.spans: Dict[UUID, SpanHolder] = {}
             self.run_inline = True
 
@@ -465,6 +480,7 @@ def _create_callback_handler_class(
 
         def _extract_from_generations(
             self,
+            holder,
             response,
             input_tokens: int,
             output_tokens: int,
@@ -487,9 +503,9 @@ def _create_callback_handler_class(
                     ):
                         completion_content = gen_content
 
-                    # Extract usage from message
+                    # Extract usage from message (pass holder for cache tokens)
                     tokens = self._extract_message_usage(
-                        gen, input_tokens, output_tokens
+                        gen, input_tokens, output_tokens, holder=holder
                     )
                     input_tokens, output_tokens = tokens
 
@@ -547,7 +563,7 @@ def _create_callback_handler_class(
             return result
 
         def _extract_message_usage(
-            self, gen, input_tokens: int, output_tokens: int
+            self, gen, input_tokens: int, output_tokens: int, holder: Any = None
         ) -> tuple:
             """
             Extract token usage from message metadata.
@@ -555,13 +571,15 @@ def _create_callback_handler_class(
             - usage_metadata (standard LangChain)
             - response_metadata.usage (Bedrock-Anthropic)
             - response_metadata.amazon-bedrock-invocationMetrics (Bedrock-Titan)
+            When holder is provided, also sets holder.cache_read_input_tokens and
+            holder.cache_creation_input_tokens from usage when present.
             """
             if not hasattr(gen, "message") or not gen.message:
                 return input_tokens, output_tokens
 
             msg = gen.message
 
-            # Check usage_metadata (standard LangChain, Ollama)
+            # Handle token usage including reasoning tokens and cached tokens
             if hasattr(msg, "usage_metadata") and msg.usage_metadata:
                 usage = msg.usage_metadata
                 input_tokens = (
@@ -574,12 +592,61 @@ def _create_callback_handler_class(
                     or usage.get("completion_tokens")
                     or output_tokens
                 )
+                if holder is not None:
+                    # OpenAI-style: prompt_tokens_details.cached_tokens / input_tokens_details.cache_creation_tokens
+                    prompt_details = (
+                        usage.get("prompt_tokens_details")
+                        or usage.get("input_tokens_details")
+                        or {}
+                    )
+                    cached = prompt_details.get("cached_tokens", 0) or 0
+                    input_details = usage.get("input_tokens_details") or {}
+                    creation = input_details.get("cache_creation_tokens", 0) or 0
+                    # LangChain usage_metadata: input_token_details.cache_read / cache_creation
+                    langchain_input = usage.get("input_token_details") or {}
+                    if cached == 0:
+                        cached = langchain_input.get("cache_read", 0) or 0
+                    if creation == 0:
+                        creation = langchain_input.get("cache_creation", 0) or 0
+                    holder.cache_read_input_tokens = cached
+                    holder.cache_creation_input_tokens = creation
 
-            # Check response_metadata (Bedrock, etc.)
+            # Check response_metadata (Bedrock, OpenAI via LangChain, etc.)
             if hasattr(msg, "response_metadata") and msg.response_metadata:
                 metadata = msg.response_metadata
                 if isinstance(metadata, dict):
-                    # Bedrock-Anthropic style
+                    # OpenAI-style (e.g. LangChain OpenAI): token_usage with prompt_tokens_details
+                    token_usage = metadata.get("token_usage")
+                    if token_usage:
+                        input_tokens = (
+                            token_usage.get("prompt_tokens")
+                            or token_usage.get("input_tokens")
+                            or input_tokens
+                        )
+                        output_tokens = (
+                            token_usage.get("completion_tokens")
+                            or token_usage.get("output_tokens")
+                            or output_tokens
+                        )
+                        if holder is not None:
+                            prompt_details = (
+                                token_usage.get("prompt_tokens_details")
+                                or token_usage.get("input_tokens_details")
+                                or {}
+                            )
+                            if holder.cache_read_input_tokens == 0:
+                                holder.cache_read_input_tokens = (
+                                    prompt_details.get("cached_tokens", 0) or 0
+                                )
+                            input_details = (
+                                token_usage.get("input_tokens_details") or {}
+                            )
+                            if holder.cache_creation_input_tokens == 0:
+                                holder.cache_creation_input_tokens = (
+                                    input_details.get("cache_creation_tokens", 0) or 0
+                                )
+
+                    # Bedrock-Anthropic style: usage with inputTokens/outputTokens
                     if "usage" in metadata:
                         usage = metadata["usage"]
                         input_tokens = usage.get(
@@ -661,7 +728,7 @@ def _create_callback_handler_class(
                 span = self._create_span(run_id, parent_run_id, span_name)
 
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(span, operation_type)
@@ -715,7 +782,7 @@ def _create_callback_handler_class(
                         record_framework_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_FRAMEWORK,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             environment=self._environment,
@@ -777,7 +844,7 @@ def _create_callback_handler_class(
                     run_id, parent_run_id, span_name, SpanKind.CLIENT
                 )
 
-                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, provider)
+                span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
                 )
@@ -787,13 +854,23 @@ def _create_callback_handler_class(
                 # Store model info for later
                 self.spans[run_id].model_name = model_name
                 self.spans[run_id].model_parameters = model_params
+                self.spans[run_id].prompts = prompts if prompts else []
 
                 if self._capture_message_content and prompts:
                     prompt_str = "\n".join(prompts)[:5000]
                     span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_str
+                        SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_str
                     )
                     self.spans[run_id].input_tokens = general_tokens(prompt_str)
+
+                    # Store structured prompts for event emission
+                    try:
+                        structured_prompts = build_input_messages(prompts)
+                        self.spans[run_id].input_messages = structured_prompts
+                    except Exception as prompt_err:
+                        logger.debug(
+                            "Error building structured prompts: %s", prompt_err
+                        )
 
             except Exception as e:
                 logger.debug("Error in on_llm_start: %s", e)
@@ -820,7 +897,7 @@ def _create_callback_handler_class(
                     run_id, parent_run_id, span_name, SpanKind.CLIENT
                 )
 
-                span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, provider)
+                span.set_attribute(SemanticConvention.GEN_AI_PROVIDER_NAME, provider)
                 self._set_common_attributes(
                     span, SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT
                 )
@@ -841,15 +918,23 @@ def _create_callback_handler_class(
                             formatted.append(f"{role}: {content}")
                     prompt_str = "\n".join(formatted)[:5000]
 
-                    # Store prompt for token estimation
+                    # Store prompt for token estimation and raw messages for common_chat_logic
                     self.spans[run_id].prompt_content = prompt_str
                     self.spans[run_id].input_tokens = general_tokens(prompt_str)
+                    self.spans[run_id].input_messages_raw = messages
 
                     # Set prompt attribute if capturing content
                     if self._capture_message_content:
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt_str
+                            SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt_str
                         )
+
+                    # Store structured messages for event emission
+                    try:
+                        structured_msgs = build_input_messages(messages)
+                        self.spans[run_id].input_messages = structured_msgs
+                    except Exception as msg_err:
+                        logger.debug("Error building structured messages: %s", msg_err)
 
             except Exception as e:
                 logger.debug("Error in on_chat_model_start: %s", e)
@@ -951,35 +1036,26 @@ def _create_callback_handler_class(
                 if is_streaming:
                     ttft = calculate_ttft(holder.token_timestamps, holder.start_time)
                     tbt = calculate_tbt(holder.token_timestamps)
-                    span.set_attribute(SemanticConvention.GEN_AI_SERVER_TTFT, ttft)
-                    span.set_attribute(SemanticConvention.GEN_AI_SERVER_TBT, tbt)
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True
-                    )
-                else:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_REQUEST_IS_STREAM, False
-                    )
 
-                # Extract response content
+                # Extract response content and token usage
                 input_tokens = holder.input_tokens
                 output_tokens = 0
-                completion_content = ""
-                model_name = holder.model_name
-
-                # Get completion from streaming content first
                 completion_content = self._join_streaming_content(
                     holder.streaming_content
                 )
+                model_name = holder.model_name
 
-                # Extract from response.generations (works for streaming and non-streaming)
                 input_tokens, output_tokens, completion_content = (
                     self._extract_from_generations(
-                        response, input_tokens, output_tokens, completion_content
+                        holder,
+                        response,
+                        input_tokens,
+                        output_tokens,
+                        completion_content,
                     )
                 )
 
-                # Try to get token usage from llm_output as another fallback
+                # Handle token usage including reasoning tokens and cached tokens
                 if response.llm_output:
                     token_usage = response.llm_output.get(
                         "token_usage"
@@ -995,16 +1071,30 @@ def _create_callback_handler_class(
                             or token_usage.get("output_tokens")
                             or output_tokens
                         )
+                        # OpenAI-style: prompt_tokens_details / input_tokens_details
+                        prompt_details = (
+                            token_usage.get("prompt_tokens_details")
+                            or token_usage.get("input_tokens_details")
+                            or {}
+                        )
+                        cached = prompt_details.get("cached_tokens", 0) or 0
+                        input_details = token_usage.get("input_tokens_details") or {}
+                        creation = input_details.get("cache_creation_tokens", 0) or 0
+                        # LangChain streaming: usage often in llm_output with input_token_details
+                        langchain_input = token_usage.get("input_token_details") or {}
+                        if cached == 0:
+                            cached = langchain_input.get("cache_read", 0) or 0
+                        if creation == 0:
+                            creation = langchain_input.get("cache_creation", 0) or 0
+                        holder.cache_read_input_tokens = cached
+                        holder.cache_creation_input_tokens = creation
 
-                # Calculate tokens from content if not available from metadata
-                # (Similar to OpenAI instrumentation approach)
                 try:
                     if output_tokens == 0 and completion_content:
                         output_tokens = general_tokens(completion_content)
                 except Exception as token_err:
                     logger.debug("Error calculating output tokens: %s", token_err)
 
-                # If we still don't have input tokens, estimate from prompt
                 try:
                     if (
                         input_tokens == 0
@@ -1015,64 +1105,53 @@ def _create_callback_handler_class(
                 except Exception as input_err:
                     logger.debug("Error calculating input tokens: %s", input_err)
 
-                # Set completion content attribute
-                if completion_content and self._capture_message_content:
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
-                        completion_content[:5000],
-                    )
-
-                # Always set token attributes
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS, input_tokens
-                )
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS, output_tokens
-                )
-                span.set_attribute(
-                    SemanticConvention.GEN_AI_USAGE_TOTAL_TOKENS,
-                    input_tokens + output_tokens,
-                )
-
-                # Calculate cost
-                cost = get_chat_model_cost(
-                    model_name, self._pricing_info, input_tokens, output_tokens
-                )
-                span.set_attribute(SemanticConvention.GEN_AI_USAGE_COST, cost)
-
-                # Set response model
                 response_model = model_name
                 if response.llm_output:
                     response_model = response.llm_output.get(
                         "model_name"
                     ) or response.llm_output.get("model", model_name)
-                    span.set_attribute(
-                        SemanticConvention.GEN_AI_RESPONSE_MODEL, response_model
-                    )
 
-                # Record metrics (like OpenAI instrumentation)
-                if not self._disable_metrics and self._metrics:
-                    try:
-                        record_completion_metrics(
-                            metrics=self._metrics,
-                            gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
-                            server_address="localhost",
-                            server_port=8080,
-                            request_model=model_name,
-                            response_model=response_model,
-                            environment=self._environment,
-                            application_name=self._application_name,
-                            start_time=holder.start_time,
-                            end_time=end_time,
-                            input_tokens=input_tokens,
-                            output_tokens=output_tokens,
-                            cost=cost,
-                            tbt=tbt,
-                            ttft=ttft,
-                        )
-                    except Exception as e:
-                        logger.debug("Error recording LLM metrics: %s", e)
+                # Build scope and run common_chat_logic (OTel span/event/metrics)
+                scope = type("Scope", (), {})()
+                scope._span = span
+                scope._kwargs = holder.model_parameters or {}
+                scope._model_parameters = holder.model_parameters or {}
+                scope._start_time = holder.start_time
+                scope._end_time = end_time
+                scope._server_address = "localhost"
+                scope._server_port = 8080
+                scope._response_model = response_model
+                scope._response_id = (response.llm_output or {}).get("id") or None
+                scope._llmresponse = completion_content or ""
+                scope._finish_reason = "stop"
+                scope._tools = None
+                scope._input_tokens = input_tokens
+                scope._output_tokens = output_tokens
+                scope._cache_read_input_tokens = getattr(
+                    holder, "cache_read_input_tokens", 0
+                )
+                scope._cache_creation_input_tokens = getattr(
+                    holder, "cache_creation_input_tokens", 0
+                )
+                scope._timestamps = holder.token_timestamps
+                scope._tbt = tbt
+                scope._ttft = ttft
+                scope._request_model = model_name
+                scope._input_messages_raw = getattr(holder, "input_messages_raw", None)
+                scope._prompts = getattr(holder, "prompts", [])
+
+                common_chat_logic(
+                    scope,
+                    self._pricing_info,
+                    self._environment,
+                    self._application_name,
+                    self._metrics,
+                    self._capture_message_content,
+                    self._disable_metrics,
+                    self._version,
+                    is_streaming,
+                    self._event_provider,
+                )
 
                 self._end_span(run_id)
 
@@ -1122,7 +1201,7 @@ def _create_callback_handler_class(
                 span = self._create_span(run_id, parent_run_id, span_name)
 
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(
@@ -1170,7 +1249,7 @@ def _create_callback_handler_class(
                         record_framework_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_TOOLS,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             environment=self._environment,
@@ -1229,7 +1308,7 @@ def _create_callback_handler_class(
                 span = self._create_span(run_id, parent_run_id, span_name)
 
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                 )
                 self._set_common_attributes(
@@ -1285,7 +1364,7 @@ def _create_callback_handler_class(
                         record_framework_metrics(
                             metrics=self._metrics,
                             gen_ai_operation=SemanticConvention.GEN_AI_OPERATION_TYPE_RETRIEVE,
-                            gen_ai_system=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
+                            GEN_AI_PROVIDER_NAME=SemanticConvention.GEN_AI_SYSTEM_LANGCHAIN,
                             server_address="localhost",
                             server_port=8080,
                             environment=self._environment,
@@ -1460,6 +1539,7 @@ class LangChainInstrumentor(BaseInstrumentor):
         capture_message_content = kwargs.get("capture_message_content", False)
         metrics = kwargs.get("metrics_dict")
         disable_metrics = kwargs.get("disable_metrics", False)
+        event_provider = kwargs.get("event_provider")
 
         handler_class = _create_callback_handler_class(
             tracer,
@@ -1470,6 +1550,7 @@ class LangChainInstrumentor(BaseInstrumentor):
             capture_message_content,
             metrics,
             disable_metrics,
+            event_provider,
         )
 
         if handler_class is None:
