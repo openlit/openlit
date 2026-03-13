@@ -17,7 +17,7 @@ from opentelemetry.sdk.resources import (
     DEPLOYMENT_ENVIRONMENT,
 )
 from opentelemetry.trace import Status, StatusCode
-from opentelemetry._events import Event
+from opentelemetry._logs import LogRecord
 from openlit.semcov import SemanticConvention
 
 # Set up logging
@@ -325,13 +325,14 @@ def set_server_address_and_port(
 
 def otel_event(name, attributes, body):
     """
-    Returns an OpenTelemetry Event object
+    Returns an OpenTelemetry LogRecord representing an event.
     """
 
-    return Event(
-        name=name,
-        attributes=attributes,
+    base_attrs = attributes or {}
+    return LogRecord(
+        attributes=base_attrs,
         body=body,
+        event_name=name,
     )
 
 
