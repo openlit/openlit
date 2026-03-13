@@ -3,6 +3,7 @@
 This module has functions to calculate model costs based on tokens and to fetch pricing information.
 """
 
+import asyncio
 import os
 import json
 import logging
@@ -46,6 +47,9 @@ def response_as_dict(response):
     """
 
     # pylint: disable=no-else-return
+    if asyncio.iscoroutine(response):
+        logger.warning("response_as_dict received an unawaited coroutine")
+        return {}
     if isinstance(response, dict):
         return response
     if hasattr(response, "model_dump"):

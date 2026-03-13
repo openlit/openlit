@@ -85,9 +85,9 @@ def async_chat(
         def __aiter__(self):
             return self
 
-        async def __getattr__(self, name):
+        def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
-            return getattr(await self.__wrapped__, name)
+            return getattr(self.__wrapped__, name)
 
         async def __anext__(self):
             try:
@@ -260,9 +260,9 @@ def async_generate(
         def __aiter__(self):
             return self
 
-        async def __getattr__(self, name):
+        def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
-            return getattr(await self.__wrapped__, name)
+            return getattr(self.__wrapped__, name)
 
         async def __anext__(self):
             try:
