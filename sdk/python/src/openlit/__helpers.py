@@ -23,21 +23,21 @@ from openlit.semcov import SemanticConvention
 logger = logging.getLogger(__name__)
 
 
-# Default per-field truncation limits (kept for backward compatibility when
-# ``max_content_length`` is not configured).
+# Default per-field truncation limits matching the original hardcoded values.
+# Used for backward compatibility when ``max_content_length`` is not configured.
 _DEFAULT_LIMITS = {
-    "prompt": 1000,
-    "completion": 2000,
-    "tool_output": 1000,
-    "tool_error": 500,
-    "tool_parameters": 1000,
+    "prompt": 5000,
+    "completion": 5000,
+    "tool_output": 5000,
+    "tool_error": 1000,
+    "tool_parameters": 5000,
     "tool_description": 500,
     "agent_instructions": 500,
     "agent_description": 500,
     "agent_introduction": 500,
     "memory_input": 1000,
     "memory_metadata": 500,
-    "search_query": 500,
+    "search_query": 5000,
     "workflow_description": 300,
 }
 
@@ -51,20 +51,32 @@ def truncate_content(text, category="prompt"):
 
     ``category`` selects the default limit when no global override exists.
     Valid categories are the keys of ``_DEFAULT_LIMITS``.
+
+    When content is actually truncated, an ellipsis (``...``) is appended to
+    signal that the value was cut.
     """
     # Lazy import to avoid circular dependency
     from openlit import OpenlitConfig  # noqa: E402
 
     s = str(text) if text is not None else ""
 
-    limit = getattr(OpenlitConfig, "max_content_length", None)
-    if limit is not None:
-        if limit <= 0:
+    raw_limit = getattr(OpenlitConfig, "max_content_length", None)
+    if raw_limit is not None:
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            limit = None
+        if limit is not None:
+            if limit <= 0:
+                return s
+            if len(s) > limit:
+                return s[:limit] + "..."
             return s
-        return s[:limit]
 
-    default = _DEFAULT_LIMITS.get(category, 1000)
-    return s[:default]
+    default = _DEFAULT_LIMITS.get(category, 5000)
+    if len(s) > default:
+        return s[:default] + "..."
+    return s
 
 
 def parse_exporters(env_var_name):
