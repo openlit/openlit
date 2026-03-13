@@ -19,6 +19,7 @@ from opentelemetry.sdk.resources import (
 from opentelemetry.trace import Status, StatusCode
 from opentelemetry._logs import LogRecord
 from openlit.semcov import SemanticConvention
+from openlit._config import OpenlitConfig
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -32,8 +33,6 @@ def truncate_content(text):
     the string is truncated to that many characters with ``...`` appended.
     A value of ``0`` or ``-1`` explicitly disables truncation (same as None).
     """
-    # Lazy import to avoid circular dependency
-    from openlit import OpenlitConfig  # noqa: E402
 
     s = str(text) if text is not None else ""
 
