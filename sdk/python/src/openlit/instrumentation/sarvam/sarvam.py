@@ -7,6 +7,7 @@ from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
     set_server_address_and_port,
+    record_completion_metrics,
 )
 from openlit.semcov import SemanticConvention
 from openlit.instrumentation.sarvam.utils import (
@@ -31,6 +32,7 @@ def chat_completions(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for Sarvam AI Chat completions calls.
@@ -49,6 +51,7 @@ def chat_completions(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -68,6 +71,9 @@ def chat_completions(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
+            self._event_provider = event_provider
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -100,6 +106,7 @@ def chat_completions(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -128,7 +135,13 @@ def chat_completions(
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
             return TracedSyncStream(
-                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                event_provider=event_provider,
             )
 
         else:
@@ -151,11 +164,32 @@ def chat_completions(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+                            server_address,
+                            server_port,
+                            request_model,
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
 
             return response
 
@@ -218,6 +252,26 @@ def text_translate(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_TRANSLATE,
+                        SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
         return response
 
@@ -280,6 +334,26 @@ def speech_to_text_transcribe(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT,
+                        SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
         return response
 
@@ -342,6 +416,26 @@ def text_to_speech_convert(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_TO_SPEECH,
+                        SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
         return response
 
@@ -404,6 +498,26 @@ def text_transliterate(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_TRANSLITERATE,
+                        SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
         return response
 
@@ -466,6 +580,26 @@ def text_identify_language(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_LANGUAGE_IDENTIFICATION,
+                        SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
         return response
 
@@ -526,6 +660,26 @@ def speech_to_text_translate(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_SPEECH_TO_TEXT_TRANSLATE,
+                        SemanticConvention.GEN_AI_SYSTEM_SARVAM,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
         return response
 

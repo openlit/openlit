@@ -22,6 +22,7 @@ def transcribe(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider,
 ):
     """
     Generates a telemetry wrapper for AssemblyAI transcribe function call
@@ -47,7 +48,6 @@ def transcribe(
 
                 response = process_audio_response(
                     response=response,
-                    gen_ai_endpoint="assemblyai.transcribe",
                     pricing_info=pricing_info,
                     server_port=server_port,
                     server_address=server_address,
@@ -59,6 +59,7 @@ def transcribe(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 

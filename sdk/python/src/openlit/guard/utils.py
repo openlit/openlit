@@ -98,13 +98,13 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     if base_url is None:
         base_url = "https://api.openai.com/v1"
 
-    response = client.beta.chat.completions.parse(
+    response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "user", "content": prompt},
         ],
         temperature=0.0,
-        response_format=JsonOutput,
+        response_format={"type": "json_object"},
     )
     return response.choices[0].message.content
 

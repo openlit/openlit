@@ -4,7 +4,12 @@ Module for monitoring Ollama API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.__helpers import (
+    handle_exception,
+    set_server_address_and_port,
+    record_completion_metrics,
+    record_embedding_metrics,
+)
 from openlit.instrumentation.ollama.utils import (
     process_chunk,
     process_chat_response,
@@ -55,6 +60,8 @@ def async_chat(
             self._tools = []
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_role = ""
             self._span_name = span_name
             self._args = args
@@ -146,7 +153,6 @@ def async_chat(
                 try:
                     response = process_chat_response(
                         response=response,
-                        gen_ai_endpoint="ollama.chat",
                         pricing_info=pricing_info,
                         server_port=server_port,
                         server_address=server_address,
@@ -164,6 +170,26 @@ def async_chat(
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+                            server_address,
+                            server_port,
+                            request_model or "unknown",
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.monotonic(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
 
             return response
 
@@ -209,6 +235,8 @@ def async_generate(
             self._tools = []
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_role = ""
             self._span_name = span_name
             self._args = args
@@ -300,7 +328,6 @@ def async_generate(
                 try:
                     response = process_generate_response(
                         response=response,
-                        gen_ai_endpoint="ollama.generate",
                         pricing_info=pricing_info,
                         server_port=server_port,
                         server_address=server_address,
@@ -318,6 +345,26 @@ def async_generate(
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION,
+                            SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+                            server_address,
+                            server_port,
+                            request_model or "unknown",
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.monotonic(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
 
             return response
 
@@ -379,6 +426,23 @@ def async_embeddings(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_embedding_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+                        server_address,
+                        server_port,
+                        request_model or "unknown",
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.monotonic(),
+                        0,
+                        0,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
         return response
 

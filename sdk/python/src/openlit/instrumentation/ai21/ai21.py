@@ -7,6 +7,7 @@ from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
     set_server_address_and_port,
+    record_completion_metrics,
 )
 from openlit.instrumentation.ai21.utils import (
     process_chunk,
@@ -26,6 +27,7 @@ def chat(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for GenAI function call
@@ -55,6 +57,8 @@ def chat(
             self._tools = None
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._args = args
             self._kwargs = kwargs
             self._start_time = time.time()
@@ -98,6 +102,7 @@ def chat(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=event_provider,
                         )
 
                 except Exception as e:
@@ -146,11 +151,32 @@ def chat(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_AI21,
+                            server_address,
+                            server_port,
+                            request_model,
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
 
                 return response
 
@@ -206,6 +232,26 @@ def chat_rag(
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_completion_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                        SemanticConvention.GEN_AI_SYSTEM_AI21,
+                        server_address,
+                        server_port,
+                        request_model,
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.time(),
+                        0,
+                        0,
+                        0,
+                        None,
+                        None,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
             return response
 

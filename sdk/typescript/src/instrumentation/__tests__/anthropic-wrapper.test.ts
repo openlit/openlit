@@ -47,6 +47,8 @@ describe('AnthropicWrapper', () => {
           user: 'test-user',
           cost: 0.5,
           aiSystem: 'anthropic',
+          serverAddress: 'api.anthropic.com',
+          serverPort: 443,
         };
       });
 
@@ -63,6 +65,8 @@ describe('AnthropicWrapper', () => {
         cost: 0.5,
         aiSystem: 'anthropic',
         genAIEndpoint: 'anthropic.endpoint',
+        serverAddress: 'api.anthropic.com',
+        serverPort: 443,
       });
     });
   });
@@ -104,7 +108,7 @@ describe('AnthropicWrapper', () => {
       );
       expect(setAttributeSpy).toHaveBeenCalledWith(
         SemanticConvention.GEN_AI_RESPONSE_FINISH_REASON,
-        'stop'
+        ['stop']
       );
     });
   });

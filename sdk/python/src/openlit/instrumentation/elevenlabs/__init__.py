@@ -27,6 +27,7 @@ class ElevenLabsInstrumentor(BaseInstrumentor):
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
+        event_provider = kwargs.get("event_provider")
         version = importlib.metadata.version("elevenlabs")
 
         # sync text_to_speech.convert
@@ -43,6 +44,7 @@ class ElevenLabsInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 
@@ -60,6 +62,7 @@ class ElevenLabsInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider,
             ),
         )
 

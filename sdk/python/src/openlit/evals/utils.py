@@ -6,8 +6,6 @@ import os
 import logging
 from typing import Optional, Tuple, List
 from pydantic import BaseModel
-from opentelemetry.metrics import get_meter
-from opentelemetry.sdk.resources import TELEMETRY_SDK_NAME
 from anthropic import Anthropic
 from openai import OpenAI
 from openlit.semcov import SemanticConvention
@@ -147,13 +145,13 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     if base_url is None:
         base_url = "https://api.openai.com/v1"
 
-    response = client.beta.chat.completions.parse(
+    response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "user", "content": prompt},
         ],
         temperature=0.0,
-        response_format=JsonOutput,
+        response_format={"type": "json_object"},
     )
     return response.choices[0].message.content
 
@@ -252,99 +250,125 @@ def parse_llm_response(response) -> JsonOutput:
         )
 
 
-def eval_metrics():
+def get_event_provider():
     """
-    Initializes OpenTelemetry meter and counter.
+    Safely retrieve the event provider from OpenLIT's global configuration.
+
+    This function enables evaluators to auto-wire event emission without storing
+    references that cause cyclic imports. The provider is retrieved at call time,
+    allowing OpenLIT initialization to complete before evaluation measure() calls.
 
     Returns:
-        counter: The initialized telemetry counter.
+        The event provider if OpenLIT has been initialized with telemetry, else None.
     """
+    try:
+        # pylint: disable=cyclic-import
+        # (Import is inside function body, executed only after openlit.init())
+        from openlit import OpenlitConfig
 
-    meter = get_meter(
-        __name__,
-        "0.1.0",
-        schema_url="https://opentelemetry.io/schemas/1.11.0",
-    )
-
-    guard_requests = meter.create_counter(
-        name=SemanticConvention.EVAL_REQUESTS,
-        description="Counter for evaluation requests",
-        unit="1",
-    )
-
-    return guard_requests
+        return OpenlitConfig.event_provider
+    except (ImportError, AttributeError):
+        return None
 
 
-def eval_metric_attributes(verdict, score, validator, classification, explanation):
+def get_evals_logs_export_config():
     """
-    Initializes OpenTelemetry attributes for metrics.
-
-    Args:
-        score (float): The name of the attribute for eval Score.
-        validator (str): The name of the attribute for eval.
-        classification (str): The name of the attribute for eval classification.
-        explaination (str): The name of the attribute for eval explanation.
+    Safely retrieve the evals_logs_export flag from OpenLIT's global configuration.
 
     Returns:
-        counter: The initialized telemetry counter.
+        True if OTEL Log Records should be used instead of Events, else False.
     """
+    try:
+        # pylint: disable=cyclic-import
+        from openlit import OpenlitConfig
 
-    return {
-        TELEMETRY_SDK_NAME: "openlit",
-        SemanticConvention.EVAL_VERDICT: verdict,
-        SemanticConvention.EVAL_SCORE: score,
-        SemanticConvention.EVAL_VALIDATOR: validator,
-        SemanticConvention.EVAL_CLASSIFICATION: classification,
-        SemanticConvention.EVAL_EXPLANATION: explanation,
-    }
+        return getattr(OpenlitConfig, "evals_logs_export", True)
+    except (ImportError, AttributeError):
+        return True
 
 
 def emit_evaluation_event(
     event_provider,
     evaluation_name,
-    score_value,
-    score_label,
-    explanation,
+    score_value=None,
+    score_label=None,
+    explanation=None,
     response_id=None,
+    error_type=None,
 ):
     """
-    Emit gen_ai.evaluation.result event.
+    Emit gen_ai.evaluation.result as an OTel Event or OTel Log Record.
+
+    By default, emits as an OTel Log Record. When ``evals_logs_export=False``
+    is set in ``openlit.init()``, emits as an OTel Event instead (useful for
+    backends that support events natively).
+
+    Both paths carry the same keys and value types; the only difference is
+    the transport (event attributes vs JSON string in the log body).
 
     Args:
         event_provider: The OTel event provider
         evaluation_name: Name of evaluation (hallucination, bias_detection, toxicity_detection)
-        score_value: Numerical score 0.0-1.0
-        score_label: Human-readable label (yes/no or pass/fail)
-        explanation: Brief explanation of evaluation result
-        response_id: Optional response ID for correlation
+        score_value: Numerical score 0.0-1.0 (conditionally required)
+        score_label: Human-readable label (yes/no or pass/fail) (conditionally required)
+        explanation: Brief explanation of evaluation result (recommended)
+        response_id: Optional response ID for correlation (recommended when available)
+        error_type: Error type if evaluation failed (conditionally required if error occurs)
     """
     try:
         if not event_provider:
             return
 
-        from openlit.__helpers import otel_event
-
-        # Build event attributes per OTel spec
         attributes = {
             SemanticConvention.GEN_AI_EVALUATION_NAME: evaluation_name,
-            SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE: float(score_value),
-            SemanticConvention.GEN_AI_EVALUATION_SCORE_LABEL: score_label,
         }
 
-        # Add recommended attributes
+        if error_type:
+            attributes[SemanticConvention.ERROR_TYPE] = error_type
+        else:
+            if score_value is not None:
+                attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_VALUE] = float(
+                    score_value
+                )
+            if score_label:
+                attributes[SemanticConvention.GEN_AI_EVALUATION_SCORE_LABEL] = (
+                    score_label
+                )
+
         if explanation:
             attributes[SemanticConvention.GEN_AI_EVALUATION_EXPLANATION] = explanation
         if response_id:
             attributes[SemanticConvention.GEN_AI_RESPONSE_ID] = response_id
 
-        # Create and emit event
-        event = otel_event(
-            name=SemanticConvention.GEN_AI_EVALUATION_RESULT,
-            attributes=attributes,
-            body="",  # Per spec, all data in attributes
-        )
-
-        event_provider.emit(event)
+        if get_evals_logs_export_config():
+            _emit_as_log_record(json.dumps(attributes))
+        else:
+            _emit_as_event(event_provider, attributes)
 
     except Exception as e:
         logger.warning("Failed to emit evaluation event: %s", e, exc_info=True)
+
+
+def _emit_as_event(event_provider, attributes):
+    """Emit evaluation result as an OTel Event (default path)."""
+    from openlit.__helpers import otel_event
+
+    event = otel_event(
+        name=SemanticConvention.GEN_AI_EVALUATION_RESULT,
+        attributes=attributes,
+        body="",
+    )
+    event_provider.emit(event)
+
+
+def _emit_as_log_record(body):
+    """Emit evaluation result as an OTel Log Record via the Logger API directly."""
+    from opentelemetry._logs import get_logger_provider, LogRecord, SeverityNumber
+
+    otel_logger = get_logger_provider().get_logger("openlit.evals")
+    otel_logger.emit(
+        LogRecord(
+            body=body,
+            severity_number=SeverityNumber.INFO,
+        )
+    )

@@ -1,5 +1,5 @@
 import OpenlitConfig from '../config';
-import { SDK_NAME, TELEMETRY_SDK_NAME } from '../constant';
+import { SDK_NAME, SDK_VERSION } from '../constant';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import SemanticConvention from '../semantic-convention';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
@@ -11,16 +11,18 @@ export type BaseSpanAttributes = {
   user?: unknown;
   cost?: number | string;
   aiSystem: string;
+  serverAddress?: string;
+  serverPort?: number;
 };
 
 export default class BaseWrapper {
   static setBaseSpanAttributes(
     span: Span,
-    { genAIEndpoint, model, user, cost, aiSystem }: BaseSpanAttributes
+    { genAIEndpoint, model, user, cost, aiSystem, serverAddress, serverPort }: BaseSpanAttributes
   ) {
     const applicationName = OpenlitConfig.applicationName;
     const environment = OpenlitConfig.environment;
-    
+
     if (!applicationName) {
       throw new Error("[Openlit] OpenlitConfig.applicationName is not set. Please check your configuration.");
     }
@@ -28,16 +30,20 @@ export default class BaseWrapper {
       throw new Error("[Openlit] OpenlitConfig.environment is not set. Please check your configuration.");
     }
 
-    span.setAttributes({
-      [TELEMETRY_SDK_NAME]: SDK_NAME,
-    });
 
-    span.setAttribute(TELEMETRY_SDK_NAME, SDK_NAME);
     span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME, aiSystem);
+    span.setAttribute(SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL, aiSystem);
     span.setAttribute(SemanticConvention.GEN_AI_ENDPOINT, genAIEndpoint);
     span.setAttribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment);
     span.setAttribute(SemanticConvention.GEN_AI_APPLICATION_NAME, applicationName);
     span.setAttribute(SemanticConvention.GEN_AI_REQUEST_MODEL, model);
+    span.setAttribute(SemanticConvention.GEN_AI_SDK_VERSION, SDK_VERSION);
+    if (serverAddress) {
+      span.setAttribute(SemanticConvention.SERVER_ADDRESS, serverAddress);
+    }
+    if (serverPort !== undefined) {
+      span.setAttribute(SemanticConvention.SERVER_PORT, serverPort);
+    }
     if (typeof user === 'string' || typeof user === 'number') {
       span.setAttribute(SemanticConvention.GEN_AI_REQUEST_USER, user);
     }
@@ -54,10 +60,11 @@ export default class BaseWrapper {
 
     const inputTokens = BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_USAGE_INPUT_TOKENS);
     const outputTokens = BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_USAGE_OUTPUT_TOKENS);
-    const duration = BaseWrapper.getSpanAttribute(span, 'duration') ?? BaseWrapper.getSpanAttribute(span, 'gen_ai.duration');
+    const duration = BaseWrapper.getSpanAttribute(span, 'duration') ?? BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_DURATION_LEGACY);
     const attributes = {
       [ATTR_SERVICE_NAME]: applicationName,
       [SemanticConvention.GEN_AI_PROVIDER_NAME]: aiSystem,
+      [SemanticConvention.GEN_AI_PROVIDER_NAME_OTEL]: aiSystem,
       [SemanticConvention.GEN_AI_ENDPOINT]: genAIEndpoint,
       [SemanticConvention.ATTR_DEPLOYMENT_ENVIRONMENT]: environment,
       [SemanticConvention.GEN_AI_REQUEST_MODEL]: model,
@@ -77,6 +84,17 @@ export default class BaseWrapper {
     if (Number.isFinite(tbt)) Metrics.genaiServerTbt?.record(tbt as number, attributes);
     const ttft = BaseWrapper.getSpanAttribute(span, SemanticConvention.GEN_AI_SERVER_TTFT);
     if (Number.isFinite(ttft)) Metrics.genaiServerTtft?.record(ttft as number, attributes);
+    // Client-perspective streaming metrics (OTel semconv v1.29+)
+    if (Number.isFinite(ttft) && (ttft as number) > 0) {
+      Metrics.genaiClientTimeToFirstChunk?.record(ttft as number, attributes);
+    }
+    if (Number.isFinite(tbt) && (tbt as number) > 0) {
+      Metrics.genaiClientTimePerOutputChunk?.record(tbt as number, attributes);
+      // Server request duration = TTFT + TBT * max(output_tokens - 1, 0)
+      const outputTokensVal = Number.isFinite(outputTokens) ? (outputTokens as number) : 0;
+      const serverRequestDuration = (ttft as number) + (tbt as number) * Math.max(outputTokensVal - 1, 0);
+      Metrics.genaiServerRequestDuration?.record(serverRequestDuration, attributes);
+    }
     if (cost !== undefined) {
       const numericCost = typeof cost === 'number' ? cost : Number(cost);
       if (Number.isFinite(numericCost)) {

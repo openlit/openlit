@@ -35,6 +35,9 @@ export default class Metrics {
   >;
   static genaiServerTbt: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
   static genaiServerTtft: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+  static genaiClientTimeToFirstChunk: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+  static genaiClientTimePerOutputChunk: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
+  static genaiServerRequestDuration: ReturnType<ReturnType<typeof metrics.getMeter>['createHistogram']>;
   static dbClientOperationDuration: ReturnType<
     ReturnType<typeof metrics.getMeter>['createHistogram']
   >;
@@ -80,6 +83,36 @@ export default class Metrics {
         explicitBucketBoundaries: GEN_AI_SERVER_TFTT,
       },
     });
+    this.genaiClientTimeToFirstChunk = this.meter.createHistogram(
+      SemanticConvention.GEN_AI_CLIENT_OPERATION_TIME_TO_FIRST_CHUNK,
+      {
+        description: 'Time from client request to first response chunk',
+        unit: 's',
+        advice: {
+          explicitBucketBoundaries: GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS,
+        },
+      }
+    );
+    this.genaiClientTimePerOutputChunk = this.meter.createHistogram(
+      SemanticConvention.GEN_AI_CLIENT_OPERATION_TIME_PER_OUTPUT_CHUNK,
+      {
+        description: 'Time between consecutive response chunks from client perspective',
+        unit: 's',
+        advice: {
+          explicitBucketBoundaries: GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS,
+        },
+      }
+    );
+    this.genaiServerRequestDuration = this.meter.createHistogram(
+      SemanticConvention.GEN_AI_SERVER_REQUEST_DURATION,
+      {
+        description: 'Total server-side processing time from request receipt to response transmission',
+        unit: 's',
+        advice: {
+          explicitBucketBoundaries: GEN_AI_CLIENT_OPERATION_DURATION_BUCKETS,
+        },
+      }
+    );
     this.dbClientOperationDuration = this.meter.createHistogram(
       SemanticConvention.DB_CLIENT_OPERATION_DURATION,
       {
