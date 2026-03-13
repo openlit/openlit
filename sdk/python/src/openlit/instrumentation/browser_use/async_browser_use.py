@@ -11,7 +11,7 @@ from typing import Any, List
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
 
-from openlit.__helpers import handle_exception, common_framework_span_attributes
+from openlit.__helpers import handle_exception, common_framework_span_attributes, truncate_content
 from openlit.instrumentation.browser_use.utils import (
     BrowserUseInstrumentationContext,
     get_operation_name,
@@ -474,13 +474,13 @@ async def _create_detailed_step_span(
                 if hasattr(model_output, "thinking") and model_output.thinking:
                     step_span.set_attribute(
                         SemanticConvention.GEN_AI_AGENT_THINKING,
-                        str(model_output.thinking)[:500],
+                        truncate_content(model_output.thinking, "completion"),
                     )
 
                 if hasattr(model_output, "memory") and model_output.memory:
                     step_span.set_attribute(
                         SemanticConvention.GEN_AI_AGENT_MEMORY,
-                        str(model_output.memory)[:500],
+                        truncate_content(model_output.memory, "memory_metadata"),
                     )
 
                 if hasattr(model_output, "next_goal") and model_output.next_goal:
@@ -806,7 +806,7 @@ def _process_enhanced_response(
             if final_result and capture_message_content:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_AGENT_FINAL_RESULT,
-                    str(final_result)[:1000],
+                    truncate_content(final_result, "completion"),
                 )
 
             # Usage summary if available

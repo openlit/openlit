@@ -11,6 +11,7 @@ from openlit.__helpers import (
     common_framework_span_attributes,
     handle_exception,
     get_chat_model_cost,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -315,7 +316,7 @@ class OpenLITTracingProcessor(TracingProcessor):
         if hasattr(agent_span, "instructions"):
             span.set_attribute(
                 SemanticConvention.GEN_AI_AGENT_DESCRIPTION,
-                str(agent_span.instructions)[:500],
+                truncate_content(agent_span.instructions, "agent_instructions"),
             )
 
         if hasattr(agent_span, "model"):
@@ -328,13 +329,13 @@ class OpenLITTracingProcessor(TracingProcessor):
         # Set generation-specific attributes
         if hasattr(generation_span, "prompt"):
             span.set_attribute(
-                SemanticConvention.GEN_AI_PROMPT, str(generation_span.prompt)[:1000]
+                SemanticConvention.GEN_AI_PROMPT, truncate_content(generation_span.prompt, "prompt")
             )
 
         if hasattr(generation_span, "completion"):
             span.set_attribute(
                 SemanticConvention.GEN_AI_COMPLETION,
-                str(generation_span.completion)[:1000],
+                truncate_content(generation_span.completion, "completion"),
             )
 
         if hasattr(generation_span, "usage"):
@@ -358,11 +359,11 @@ class OpenLITTracingProcessor(TracingProcessor):
 
         if hasattr(function_span, "arguments"):
             span.set_attribute(
-                "gen_ai.tool.arguments", str(function_span.arguments)[:500]
+                "gen_ai.tool.arguments", truncate_content(function_span.arguments, "tool_parameters")
             )
 
         if hasattr(function_span, "result"):
-            span.set_attribute("gen_ai.tool.result", str(function_span.result)[:500])
+            span.set_attribute("gen_ai.tool.result", truncate_content(function_span.result, "tool_output"))
 
     def _process_handoff_span(self, span, handoff_span):
         """Process handoff span data."""

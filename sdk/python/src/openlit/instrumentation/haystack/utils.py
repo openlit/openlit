@@ -6,7 +6,7 @@ import time
 import json
 from typing import Dict, Any
 from opentelemetry.trace import Status, StatusCode
-from openlit.__helpers import common_framework_span_attributes, record_framework_metrics
+from openlit.__helpers import common_framework_span_attributes, record_framework_metrics, truncate_content
 from openlit.semcov import SemanticConvention
 
 # Optimized operation mapping - minimal and fast
@@ -396,7 +396,7 @@ def process_haystack_response(
                 if replies and capture_message_content:
                     span.set_attribute(
                         SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-                        str(replies[0])[:500],
+                        truncate_content(replies[0], "completion"),
                     )
                 break
 
@@ -435,7 +435,7 @@ def process_haystack_response(
             )
 
         if args and capture_message_content:
-            span.set_attribute(SemanticConvention.GEN_AI_PROMPT, str(args[0])[:500])
+            span.set_attribute(SemanticConvention.GEN_AI_PROMPT, truncate_content(args[0], "prompt"))
 
         if isinstance(response, dict) and "replies" in response:
             replies = response["replies"]

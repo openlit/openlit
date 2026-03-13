@@ -83,6 +83,7 @@ class OpenlitConfig:
         cls.capture_parameters = False
         cls.enable_sqlcommenter = False
         cls.evals_logs_export = True
+        cls.max_content_length = None  # None = use per-field defaults
 
     @classmethod
     def update_config(
@@ -102,6 +103,7 @@ class OpenlitConfig:
         capture_parameters=False,
         enable_sqlcommenter=False,
         evals_logs_export=True,
+        max_content_length=None,
     ):
         """
         Updates the configuration based on provided parameters.
@@ -139,6 +141,7 @@ class OpenlitConfig:
         cls.capture_parameters = capture_parameters
         cls.enable_sqlcommenter = enable_sqlcommenter
         cls.evals_logs_export = evals_logs_export
+        cls.max_content_length = max_content_length
 
 
 def module_exists(module_name):
@@ -234,6 +237,7 @@ def init(
     capture_parameters=False,
     enable_sqlcommenter=False,
     evals_logs_export=True,
+    max_content_length=None,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -257,6 +261,9 @@ def init(
         collect_gpu_stats (bool): Flag to enable or disable GPU metrics collection.
         detailed_tracing (bool): Enable detailed component-level tracing for debugging and optimization.
                                 Defaults to False to use workflow-level tracing with minimal storage overhead.
+        max_content_length (int): Maximum character length for captured content attributes (prompts,
+                                 completions, tool output, etc.). None uses per-field defaults.
+                                 Set to 0 or -1 to disable truncation entirely.
     """
     disabled_instrumentors = disabled_instrumentors if disabled_instrumentors else []
     logger.info("Starting openLIT initialization...")
@@ -315,6 +322,8 @@ def init(
             enable_sqlcommenter = env_config["enable_sqlcommenter"]
         if evals_logs_export is True and "evals_logs_export" in env_config:
             evals_logs_export = env_config["evals_logs_export"]
+        if max_content_length is None and "max_content_length" in env_config:
+            max_content_length = env_config["max_content_length"]
 
     except ImportError:
         # Fallback if config module is not available - continue without env var support
@@ -400,6 +409,7 @@ def init(
             capture_parameters,
             enable_sqlcommenter,
             evals_logs_export,
+            max_content_length,
         )
 
         # Create instrumentor instances dynamically

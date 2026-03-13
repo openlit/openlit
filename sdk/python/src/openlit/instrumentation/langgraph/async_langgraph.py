@@ -6,7 +6,7 @@ import time
 import json
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from opentelemetry import context as context_api
-from openlit.__helpers import handle_exception
+from openlit.__helpers import handle_exception, truncate_content
 from openlit.instrumentation.langgraph.utils import (
     process_langgraph_response,
     OPERATION_MAP,
@@ -216,7 +216,7 @@ async def _create_async_stream_wrapper(
                     content = get_message_content(msg)
                     role = get_message_role(msg)
                     if content:
-                        span.set_attribute(f"gen_ai.prompt.{i}.content", content[:500])
+                        span.set_attribute(f"gen_ai.prompt.{i}.content", truncate_content(content, "prompt"))
                         span.set_attribute(f"gen_ai.prompt.{i}.role", role)
 
         # Extract config information
@@ -364,11 +364,11 @@ def _finalize_async_stream_span(
     if execution_state["final_response"] and capture_message_content:
         span.set_attribute(
             SemanticConvention.LANGGRAPH_FINAL_RESPONSE,
-            execution_state["final_response"][:500],
+            truncate_content(execution_state["final_response"], "completion"),
         )
         span.set_attribute(
             SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
-            execution_state["final_response"][:1000],
+            truncate_content(execution_state["final_response"], "completion"),
         )
 
     span.set_attribute(SemanticConvention.LANGGRAPH_GRAPH_STATUS, "success")

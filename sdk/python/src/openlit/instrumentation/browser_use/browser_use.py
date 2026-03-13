@@ -10,7 +10,7 @@ from typing import Any
 from opentelemetry.trace import SpanKind
 from opentelemetry import context as context_api
 
-from openlit.__helpers import handle_exception, common_framework_span_attributes
+from openlit.__helpers import handle_exception, common_framework_span_attributes, truncate_content
 from openlit.instrumentation.browser_use.utils import (
     BrowserUseInstrumentationContext,
     get_operation_name,
@@ -353,7 +353,7 @@ def _process_enhanced_response(
             if final_result and capture_message_content:
                 span.set_attribute(
                     SemanticConvention.GEN_AI_AGENT_FINAL_RESULT,
-                    str(final_result)[:1000],
+                    truncate_content(final_result, "completion"),
                 )
 
             # Usage summary if available

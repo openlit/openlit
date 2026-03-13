@@ -5,7 +5,7 @@ Utilities for Browser-Use instrumentation with proper OpenLIT semantic conventio
 import json
 import logging
 from typing import Any, Dict, Optional
-from openlit.__helpers import get_chat_model_cost
+from openlit.__helpers import get_chat_model_cost, truncate_content
 from openlit.semcov import SemanticConvention
 
 logger = logging.getLogger(__name__)
@@ -369,11 +369,11 @@ def process_response(
         if capture_message_content:
             if isinstance(response, str):
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, response[:1000]
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, truncate_content(response, "completion")
                 )
             elif hasattr(response, "__dict__"):
                 try:
-                    content = json.dumps(response.__dict__, default=str)[:1000]
+                    content = truncate_content(json.dumps(response.__dict__, default=str), "completion")
                     span.set_attribute(
                         SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content
                     )
@@ -391,12 +391,12 @@ def capture_agent_thoughts_and_state(span: Any, agent_output: Any) -> None:
         if hasattr(agent_output, "thinking") and agent_output.thinking:
             span.set_attribute(
                 SemanticConvention.GEN_AI_AGENT_THINKING,
-                str(agent_output.thinking)[:500],
+                truncate_content(agent_output.thinking, "completion"),
             )
 
         if hasattr(agent_output, "memory") and agent_output.memory:
             span.set_attribute(
-                SemanticConvention.GEN_AI_AGENT_MEMORY, str(agent_output.memory)[:500]
+                SemanticConvention.GEN_AI_AGENT_MEMORY, truncate_content(agent_output.memory, "memory_metadata")
             )
 
         if hasattr(agent_output, "next_goal") and agent_output.next_goal:

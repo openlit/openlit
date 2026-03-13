@@ -5,7 +5,7 @@ LangGraph utilities for comprehensive telemetry processing and business intellig
 import time
 import json
 from opentelemetry.trace import Status, StatusCode
-from openlit.__helpers import common_framework_span_attributes
+from openlit.__helpers import common_framework_span_attributes, truncate_content
 from openlit.semcov import SemanticConvention
 
 
@@ -206,7 +206,7 @@ def extract_llm_info_from_result(span, state, result):
                 content = get_message_content(msg)
                 role = get_message_role(msg)
                 if content:
-                    span.set_attribute(f"gen_ai.prompt.{i}.content", content[:500])
+                    span.set_attribute(f"gen_ai.prompt.{i}.content", truncate_content(content, "prompt"))
                     span.set_attribute(f"gen_ai.prompt.{i}.role", role)
 
         # Extract from result
@@ -271,7 +271,7 @@ def extract_llm_info_from_result(span, state, result):
                     content = get_message_content(last_msg)
                     if content:
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content[:1000]
+                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, truncate_content(content, "completion")
                         )
 
                 # Extract usage_metadata (alternative location)
@@ -310,7 +310,7 @@ def extract_llm_info_from_result(span, state, result):
                                 else str(tool_call.args)
                             )
                             span.set_attribute(
-                                f"gen_ai.tool_call.{j}.arguments", args_str[:500]
+                                f"gen_ai.tool_call.{j}.arguments", truncate_content(args_str, "tool_parameters")
                             )
                         if hasattr(tool_call, "id"):
                             span.set_attribute(f"gen_ai.tool_call.{j}.id", tool_call.id)
@@ -576,10 +576,10 @@ def _process_invoke_response(span, response, capture_message_content):
                     content = get_message_content(last_msg)
                     if content and capture_message_content:
                         span.set_attribute(
-                            SemanticConvention.LANGGRAPH_FINAL_RESPONSE, content[:500]
+                            SemanticConvention.LANGGRAPH_FINAL_RESPONSE, truncate_content(content, "completion")
                         )
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content[:1000]
+                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, truncate_content(content, "completion")
                         )
 
             # Try to extract LLM info
