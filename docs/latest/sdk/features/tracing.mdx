@@ -60,6 +60,25 @@ Example:
 openlit.init(capture_message_content=False)
 ```
 
+## Limit Content Length
+
+By default, OpenLIT captures full prompt and completion content without any truncation. If you want to limit the size of captured content (for example, to reduce trace storage costs or avoid excessively large spans), set `max_content_length` to a positive integer. Content exceeding the limit will be truncated with `...` appended.
+
+A value of `None` (the default), `0`, or `-1` disables truncation entirely.
+
+Example:
+
+```python
+# Truncate all captured content to 500 characters
+openlit.init(max_content_length=500)
+```
+
+You can also set this via the environment variable:
+
+```bash
+export OPENLIT_MAX_CONTENT_LENGTH=500
+```
+
 ## Disable Batch
 
 By default, the SDK batches spans using the OpenTelemetry batch span processor. When working locally, sometimes you may wish to disable this behavior. You can do that with this flag.
