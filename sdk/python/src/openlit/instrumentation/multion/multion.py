@@ -73,7 +73,7 @@ def multion_wrap(
                 # Set base span attribues
                 span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_SYSTEM,
+                    SemanticConvention.GEN_AI_PROVIDER_NAME,
                     SemanticConvention.GEN_AI_SYSTEM_MULTION,
                 )
                 span.set_attribute(
@@ -102,7 +102,7 @@ def multion_wrap(
                         span.add_event(
                             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvention.GEN_AI_CONTENT_PROMPT: kwargs.get(
+                                SemanticConvention.GEN_AI_INPUT_MESSAGES: kwargs.get(
                                     "cmd", ""
                                 ),
                             },
@@ -110,7 +110,7 @@ def multion_wrap(
                         span.add_event(
                             name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: response.message,
+                                SemanticConvention.GEN_AI_OUTPUT_MESSAGES: response.message,
                             },
                         )
                 elif gen_ai_endpoint == "multion.retrieve":
@@ -123,7 +123,7 @@ def multion_wrap(
                         span.add_event(
                             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                             attributes={
-                                SemanticConvention.GEN_AI_CONTENT_PROMPT: kwargs.get(
+                                SemanticConvention.GEN_AI_INPUT_MESSAGES: kwargs.get(
                                     "cmd", ""
                                 ),
                             },
@@ -131,7 +131,7 @@ def multion_wrap(
                         span.add_event(
                             name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: response.message,
+                                SemanticConvention.GEN_AI_OUTPUT_MESSAGES: response.message,
                             },
                         )
 
@@ -145,7 +145,7 @@ def multion_wrap(
                         span.add_event(
                             name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                             attributes={
-                                SemanticConvention.GEN_AI_CONTENT_COMPLETION: response.message,
+                                SemanticConvention.GEN_AI_OUTPUT_MESSAGES: response.message,
                             },
                         )
 

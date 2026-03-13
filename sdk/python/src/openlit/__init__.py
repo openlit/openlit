@@ -17,8 +17,6 @@ import requests
 from opentelemetry import trace as t
 from opentelemetry.trace import SpanKind, Status, StatusCode, Span
 from opentelemetry.sdk.resources import SERVICE_NAME, DEPLOYMENT_ENVIRONMENT
-
-
 from openlit.semcov import SemanticConvention
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
@@ -35,9 +33,6 @@ import openlit.evals
 
 # Set up logging for error and information messages.
 logger = logging.getLogger(__name__)
-
-tracer = t.get_tracer(__name__)
-
 
 
 class OpenlitConfig:
@@ -87,13 +82,14 @@ class OpenlitConfig:
         # Database instrumentation options
         cls.capture_parameters = False
         cls.enable_sqlcommenter = False
+        cls.evals_logs_export = True
 
     @classmethod
     def update_config(
         cls,
         environment,
         application_name,
-        otel_tracer,
+        tracer,
         event_provider,
         otlp_endpoint,
         otlp_headers,
@@ -105,6 +101,7 @@ class OpenlitConfig:
         detailed_tracing,
         capture_parameters=False,
         enable_sqlcommenter=False,
+        evals_logs_export=True,
     ):
         """
         Updates the configuration based on provided parameters.
@@ -112,7 +109,7 @@ class OpenlitConfig:
         Args:
             environment (str): Deployment environment.
             application_name (str): Application name.
-            otel_tracer: Tracer instance.
+            tracer: Tracer instance.
             event_provider: Event logger provider instance.
             meter: Metric Instance
             otlp_endpoint (str): OTLP endpoint.
@@ -125,11 +122,12 @@ class OpenlitConfig:
             detailed_tracing (bool): Flag to enable detailed component-level tracing.
             capture_parameters (bool): Capture database query parameters (security risk).
             enable_sqlcommenter (bool): Inject trace context as SQL comments.
+            evals_logs_export (bool): Emit evaluation results as OTEL Log Records instead of OTEL Events.
         """
         cls.environment = environment
         cls.application_name = application_name
         cls.pricing_info = fetch_pricing_info(pricing_json)
-        cls.tracer = otel_tracer
+        cls.tracer = tracer
         cls.event_provider = event_provider
         cls.metrics_dict = metrics_dict
         cls.otlp_endpoint = otlp_endpoint
@@ -140,6 +138,7 @@ class OpenlitConfig:
         cls.detailed_tracing = detailed_tracing
         cls.capture_parameters = capture_parameters
         cls.enable_sqlcommenter = enable_sqlcommenter
+        cls.evals_logs_export = evals_logs_export
 
 
 def module_exists(module_name):
@@ -219,7 +218,7 @@ def init(
     environment="default",
     application_name="default",
     service_name="default",
-    otel_tracer=None,
+    tracer=None,
     event_logger=None,
     otlp_endpoint=None,
     otlp_headers=None,
@@ -234,6 +233,7 @@ def init(
     collect_system_metrics=False,
     capture_parameters=False,
     enable_sqlcommenter=False,
+    evals_logs_export=True,
 ):
     """
     Initializes the openLIT configuration and setups tracing.
@@ -244,7 +244,7 @@ def init(
     Args:
         environment (str): Deployment environment.
         application_name (str): Application name.
-        otel_tracer: Tracer instance (Optional).
+        tracer: Tracer instance (Optional).
         event_logger: EventLoggerProvider instance (Optional).
         meter: OpenTelemetry Metrics Instance (Optional).
         otlp_endpoint (str): OTLP endpoint for exporter (Optional).
@@ -313,6 +313,8 @@ def init(
             capture_parameters = env_config["capture_parameters"]
         if enable_sqlcommenter is False and "enable_sqlcommenter" in env_config:
             enable_sqlcommenter = env_config["enable_sqlcommenter"]
+        if evals_logs_export is True and "evals_logs_export" in env_config:
+            evals_logs_export = env_config["evals_logs_export"]
 
     except ImportError:
         # Fallback if config module is not available - continue without env var support
@@ -332,16 +334,16 @@ def init(
         config = OpenlitConfig()
 
         # Setup tracing based on the provided or default configuration.
-        configured_tracer = setup_tracing(
+        tracer = setup_tracing(
             application_name=final_service_name,
             environment=environment,
-            tracer=otel_tracer,
+            tracer=tracer,
             otlp_endpoint=otlp_endpoint,
             otlp_headers=otlp_headers,
             disable_batch=disable_batch,
         )
 
-        if not configured_tracer:
+        if not tracer:
             logger.error("OpenLIT tracing setup failed. Tracing will not be available.")
             return
 
@@ -385,7 +387,7 @@ def init(
         config.update_config(
             environment,
             final_service_name,
-            otel_tracer,
+            tracer,
             event_provider,
             otlp_endpoint,
             otlp_headers,
@@ -397,6 +399,7 @@ def init(
             detailed_tracing,
             capture_parameters,
             enable_sqlcommenter,
+            evals_logs_export,
         )
 
         # Create instrumentor instances dynamically
@@ -538,37 +541,25 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
     # Prepare headers
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
-    with tracer.start_as_current_span("promptflow.request") as span:
-        span.set_attribute("http.method", "POST")
-        span.set_attribute("http.url", endpoint)
+    try:
+        # Make the POST request to the API with headers
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=120)
 
-        try:
-            response = requests.post(
-                endpoint,
-                json=payload,
-                headers=headers,
-                timeout=120
-            )
+        # Check if the response is successful
+        response.raise_for_status()
 
-            span.set_attribute("http.status_code", response.status_code)
+        # Return the JSON response
+        vault_response = response.json()
 
-            response.raise_for_status()
-            vault_response = response.json()
+        res = vault_response.get("res", [])
 
-            res = vault_response.get("res", [])
-
-            if should_set_env is True:
-                for token, value in res.items():
-                    os.environ[token] = str(value)
-
-            return vault_response
-
-        except requests.RequestException as error:
-            span.record_exception(error)
-            span.set_status(Status(StatusCode.ERROR))
-            logger.error("Error fetching secrets: '%s'", error)
-            return None
-
+        if should_set_env is True:
+            for token, value in res.items():
+                os.environ[token] = str(value)
+        return vault_response
+    except requests.RequestException as error:
+        logger.error("Error fetching secrets: '%s'", error)
+        return None
 
 
 def trace(wrapped):
@@ -582,7 +573,7 @@ def trace(wrapped):
 
     try:
         __trace = t.get_tracer_provider()
-        otel_tracer = __trace.get_tracer(__name__)
+        tracer = __trace.get_tracer(__name__)
     except Exception as tracer_exception:
         logging.error(
             "Failed to initialize tracer: %s", tracer_exception, exc_info=True
@@ -591,7 +582,7 @@ def trace(wrapped):
 
     @wraps(wrapped)
     def wrapper(*args, **kwargs):
-        with otel_tracer.start_as_current_span(
+        with tracer.start_as_current_span(
             name=wrapped.__name__,
             kind=SpanKind.CLIENT,
         ) as span:
@@ -599,7 +590,7 @@ def trace(wrapped):
             try:
                 response = wrapped(*args, **kwargs)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, response or ""
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, response or ""
                 )
                 span.set_status(Status(StatusCode.OK))
             except Exception as e:
@@ -656,7 +647,7 @@ class TracedSpan:
             result: The result to be set as an attribute on the span.
         """
 
-        self._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_COMPLETION, result)
+        self._span.set_attribute(SemanticConvention.GEN_AI_OUTPUT_MESSAGES, result)
 
     def set_metadata(self, metadata: Dict):
         """

@@ -4,7 +4,11 @@ Module for monitoring Anthropic API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.__helpers import (
+    handle_exception,
+    set_server_address_and_port,
+    record_completion_metrics,
+)
 from openlit.instrumentation.anthropic.utils import (
     process_chunk,
     process_chat_response,
@@ -22,6 +26,7 @@ def messages(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for Anthropic Messages.create calls.
@@ -40,6 +45,7 @@ def messages(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -50,6 +56,8 @@ def messages(
             self._finish_reason = ""
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._tool_arguments = ""
             self._tool_id = ""
             self._tool_name = ""
@@ -63,6 +71,7 @@ def messages(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -95,6 +104,7 @@ def messages(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -119,7 +129,13 @@ def messages(
             span = tracer.start_span(span_name, kind=SpanKind.CLIENT)
 
             return TracedSyncStream(
-                awaited_wrapped, span, span_name, kwargs, server_address, server_port
+                awaited_wrapped,
+                span,
+                span_name,
+                kwargs,
+                server_address,
+                server_port,
+                event_provider,
             )
 
         else:
@@ -142,11 +158,32 @@ def messages(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_ANTHROPIC,
+                            server_address,
+                            server_port,
+                            request_model,
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
 
             return response
 

@@ -1,0 +1,36 @@
+name: Go SDK Tests
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'sdk/go/**'
+    tags:
+      - 'go-*.*.*'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'sdk/go/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test-go-sdk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/go
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: sdk/go/go.mod
+      - name: Install dependencies
+        run: go mod download
+      - name: Build
+        run: go build ./...
+      - name: Run tests
+        run: go test ./...

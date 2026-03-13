@@ -4,7 +4,12 @@ Module for monitoring Ollama API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.__helpers import (
+    handle_exception,
+    set_server_address_and_port,
+    record_completion_metrics,
+    record_embedding_metrics,
+)
 from openlit.instrumentation.ollama.utils import (
     process_chunk,
     process_chat_response,
@@ -25,6 +30,7 @@ def chat(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for Ollama chat function call
@@ -44,6 +50,7 @@ def chat(
             server_address,
             server_port,
             args,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -53,6 +60,8 @@ def chat(
             self._tools = []
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_role = ""
             self._span_name = span_name
             self._args = args
@@ -64,6 +73,7 @@ def chat(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -98,6 +108,7 @@ def chat(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -130,6 +141,7 @@ def chat(
                 server_address,
                 server_port,
                 args,
+                event_provider,
             )
 
         else:
@@ -141,7 +153,6 @@ def chat(
                 try:
                     response = process_chat_response(
                         response=response,
-                        gen_ai_endpoint="ollama.chat",
                         pricing_info=pricing_info,
                         server_port=server_port,
                         server_address=server_address,
@@ -153,11 +164,32 @@ def chat(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+                            server_address,
+                            server_port,
+                            request_model or "unknown",
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.monotonic(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
 
             return response
 
@@ -173,6 +205,7 @@ def generate(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for Ollama generate function call
@@ -192,6 +225,7 @@ def generate(
             server_address,
             server_port,
             args,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -201,6 +235,8 @@ def generate(
             self._tools = []
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_role = ""
             self._span_name = span_name
             self._args = args
@@ -212,6 +248,7 @@ def generate(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         def __enter__(self):
             self.__wrapped__.__enter__()
@@ -246,6 +283,7 @@ def generate(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -278,6 +316,7 @@ def generate(
                 server_address,
                 server_port,
                 args,
+                event_provider,
             )
 
         else:
@@ -289,7 +328,6 @@ def generate(
                 try:
                     response = process_generate_response(
                         response=response,
-                        gen_ai_endpoint="ollama.generate",
                         pricing_info=pricing_info,
                         server_port=server_port,
                         server_address=server_address,
@@ -301,11 +339,32 @@ def generate(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_TEXT_COMPLETION,
+                            SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+                            server_address,
+                            server_port,
+                            request_model or "unknown",
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.monotonic(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
 
             return response
 
@@ -321,6 +380,7 @@ def embeddings(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for Ollama embeddings function call
@@ -360,11 +420,29 @@ def embeddings(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 
             except Exception as e:
                 handle_exception(span, e)
+                if not disable_metrics and metrics:
+                    record_embedding_metrics(
+                        metrics,
+                        SemanticConvention.GEN_AI_OPERATION_TYPE_EMBEDDING,
+                        SemanticConvention.GEN_AI_SYSTEM_OLLAMA,
+                        server_address,
+                        server_port,
+                        request_model or "unknown",
+                        "unknown",
+                        environment,
+                        application_name,
+                        start_time,
+                        time.monotonic(),
+                        0,
+                        0,
+                        error_type=type(e).__name__ or "_OTHER",
+                    )
 
         return response
 

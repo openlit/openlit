@@ -171,6 +171,105 @@ Just head over to OpenLIT at `127.0.0.1:3000` on your browser to start exploring
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-1.png?raw=true)
 ![](https://github.com/openlit/.github/blob/main/profile/assets/openlit-client-2.png?raw=true)
 
+## 📦 Supported Integrations
+
+OpenLIT auto-instruments **44+ LLM providers, AI frameworks, and vector databases** with a single line of code. Each integration produces [OpenTelemetry-native](https://opentelemetry.io/) traces and metrics. Click any card to view the integration docs.
+
+<sub>
+<img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="16"> Python SDK &nbsp;&nbsp;
+<img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="16"> TypeScript SDK
+</sub>
+
+### LLM Providers
+
+<table>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/openai"><b>OpenAI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/anthropic"><b>Anthropic</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/cohere"><b>Cohere</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/mistral"><b>Mistral AI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/groq"><b>Groq</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/google-ai-studio"><b>Google AI Studio</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/together"><b>Together AI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/ollama"><b>Ollama</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/bedrock"><b>AWS Bedrock</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/azure-ai-inference"><b>Azure AI Inference</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/vertexai"><b>Vertex AI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/vllm"><b>vLLM</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/reka"><b>Reka</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/litellm"><b>LiteLLM</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/huggingface"><b>Hugging Face</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/ai21"><b>AI21</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/gpt4all"><b>GPT4All</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/premai"><b>PremAI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/sarvam"><b>Sarvam AI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/julep-ai"><b>Julep</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/multion"><b>MultiOn</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+</table>
+
+### AI Frameworks
+
+<table>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/langchain"><b>LangChain</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/llama-index"><b>LlamaIndex</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/crewai"><b>CrewAI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/pydantic"><b>Pydantic AI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/phidata"><b>Agno</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/browser-use"><b>Browser Use</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/haystack"><b>Haystack</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/letta"><b>Letta</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/mem0"><b>Mem0</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/ag2"><b>AG2 (AutoGen)</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/controlflow"><b>Controlflow</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/crawl4ai"><b>Crawl4AI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/dynamiq"><b>Dynamiq</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/openai-agents"><b>OpenAI Agents</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/firecrawl"><b>Firecrawl</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+</table>
+
+### Vector Databases
+
+<table>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/pinecone"><b>Pinecone</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"> <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/chromadb"><b>ChromaDB</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/qdrant"><b>Qdrant</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/milvus"><b>Milvus</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/astradb"><b>Astra DB</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/psycopg"><b>PostgreSQL</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+</table>
+
+### Specialized Tools
+
+<table>
+<tr>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/elevenlabs"><b>ElevenLabs</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+<td align="center" width="160"><a href="https://docs.openlit.io/latest/sdk/integrations/assemblyai"><b>AssemblyAI</b></a><br/><img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white&style=flat-square" height="18"></td>
+</tr>
+</table>
+
 ## 🛣️ Roadmap
 
 We are dedicated to continuously improving OpenLIT. Here's a look at what's been accomplished and what's on the horizon:
@@ -223,10 +322,10 @@ OpenLIT is available under the [Apache-2.0 license](LICENSE).
 
 <p>This project is proudly supported by:</p>
 <p>
-    <a href="https://www.lambdatest.com/?utm_source=openlit&utm_medium=sponsor" target="_blank">
-					<img src="https://www.lambdatest.com/blue-logo.png" style={{ verticalAlign: 'middle' }} width="250" />
-				</a>
+    <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=openlit" target="_blank">
+					<img src="docs/images/testmu-logo.png" style={{ verticalAlign: 'middle' }} height="80" />
+				</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://www.digitalocean.com/">
-    <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" width="201px">
+    <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg" height="80px" width="200px">
   </a>
 </p>

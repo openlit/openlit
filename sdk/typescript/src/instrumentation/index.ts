@@ -5,12 +5,42 @@ import { TracerProvider } from '@opentelemetry/api';
 import OpenAIInstrumentation from './openai';
 import AnthropicInstrumentation from './anthropic';
 import CohereInstrumentation from './cohere';
+import GroqInstrumentation from './groq';
+import MistralInstrumentation from './mistral';
+import GoogleAIInstrumentation from './google-ai';
+import TogetherInstrumentation from './together';
+import OllamaInstrumentation from './ollama';
+import VercelAIInstrumentation from './vercel-ai';
+import LangChainInstrumentation from './langchain';
+import PineconeInstrumentation from './pinecone';
+import BedrockInstrumentation from './bedrock';
+import LlamaIndexInstrumentation from './llamaindex';
+import HuggingFaceInstrumentation from './huggingface';
+import ReplicateInstrumentation from './replicate';
+import ChromaInstrumentation from './chroma';
+import QdrantInstrumentation from './qdrant';
+import MilvusInstrumentation from './milvus';
 
 export default class Instrumentations {
   static availableInstrumentations: OpenlitInstrumentations = {
     openai: new OpenAIInstrumentation(),
     anthropic: new AnthropicInstrumentation(),
     cohere: new CohereInstrumentation(),
+    groq: new GroqInstrumentation(),
+    mistral: new MistralInstrumentation(),
+    'google-ai': new GoogleAIInstrumentation(),
+    together: new TogetherInstrumentation(),
+    ollama: new OllamaInstrumentation(),
+    'vercel-ai': new VercelAIInstrumentation(),
+    langchain: new LangChainInstrumentation(),
+    pinecone: new PineconeInstrumentation(),
+    bedrock: new BedrockInstrumentation(),
+    llamaindex: new LlamaIndexInstrumentation(),
+    huggingface: new HuggingFaceInstrumentation(),
+    replicate: new ReplicateInstrumentation(),
+    chroma: new ChromaInstrumentation(),
+    qdrant: new QdrantInstrumentation(),
+    milvus: new MilvusInstrumentation(),
   };
 
   static setup(

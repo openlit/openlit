@@ -15,10 +15,30 @@ import {
 
 const prisma = new PrismaClient();
 
+// Create a custom adapter that normalizes emails
+function createNormalizedEmailAdapter(p: PrismaClient) {
+	const baseAdapter = PrismaAdapter(p);
+	return {
+		...baseAdapter,
+		async createUser(user: any) {
+			// Normalize email before creating user
+			if (user.email) {
+				user.email = user.email.toLowerCase().trim();
+			}
+			return baseAdapter.createUser!(user);
+		},
+		async getUserByEmail(email: string) {
+			// Normalize email before lookup
+			const normalizedEmail = email.toLowerCase().trim();
+			return baseAdapter.getUserByEmail!(normalizedEmail);
+		},
+	};
+}
+
 export const authOptions = {
-	adapter: PrismaAdapter(prisma),
+	adapter: createNormalizedEmailAdapter(prisma),
 	callbacks: {
-		async jwt({ token, account, user }) {
+		async jwt({ token, account, user, trigger }) {
 			// Persist the OAuth access_token and or the user id to the token right after signin
 			if (account) {
 				token.accessToken = account.access_token;
@@ -28,25 +48,68 @@ export const authOptions = {
 				token.id = user.id;
 			}
 
-			// Validate that the user still exists in the database for existing tokens
-			// This prevents issues when starting with a fresh database but stale cookies
-			if (token?.id && !user) {
+			// Handle explicit session update requests (e.g., after completing onboarding)
+			if (trigger === "update" && token?.id) {
 				try {
 					const [, existingUser] = await asaw(
 						getUserById({ id: token.id as string })
 					);
 
-					// If user doesn't exist in database, invalidate the token
 					if (!existingUser) {
 						return null;
 					}
+
+					// Update hasCompletedOnboarding status from database
+					token.hasCompletedOnboarding = existingUser.hasCompletedOnboarding;
 				} catch (error) {
-					// If there's a database connection error during startup,
-					// allow the token to pass through to avoid blocking the app
-					// The error will be handled at the application level
-					console.error("Database error during JWT validation:", error);
+					console.error("Database error during JWT update:", error);
 				}
 			}
+
+		// Validate that the user still exists in the database for existing tokens
+		// This prevents issues when starting with a fresh database but stale cookies
+		if (token?.id && !user && trigger !== "update") {
+			try {
+				const [, existingUser] = await asaw(
+					getUserById({ id: token.id as string })
+				);
+
+				// If user doesn't exist in database, invalidate the token
+				if (!existingUser) {
+					return null;
+				}
+
+				// Update hasCompletedOnboarding status on every token refresh
+				token.hasCompletedOnboarding = existingUser.hasCompletedOnboarding;
+			} catch (error) {
+				// If there's a database connection error during startup,
+				// allow the token to pass through to avoid blocking the app
+				// The error will be handled at the application level
+				console.error("Database error during JWT validation:", error);
+			}
+		}
+
+		// Set initial hasCompletedOnboarding for new users or OAuth logins
+		// For OAuth logins, the user object doesn't include custom fields, so fetch from database
+		if (user && token?.id) {
+			try {
+				const [, existingUser] = await asaw(
+					getUserById({ id: token.id as string })
+				);
+				
+				if (existingUser) {
+					// Use the value from database (handles OAuth logins correctly)
+					token.hasCompletedOnboarding = existingUser.hasCompletedOnboarding;
+				} else {
+					// Fallback for brand new users (credentials provider during registration)
+					token.hasCompletedOnboarding = (user as any).hasCompletedOnboarding ?? false;
+				}
+			} catch (error) {
+				// Fallback to user object value if database query fails
+				console.error("Database error during JWT user setup:", error);
+				token.hasCompletedOnboarding = (user as any).hasCompletedOnboarding ?? false;
+			}
+		}
 
 			return token;
 		},
@@ -143,10 +206,16 @@ export const authOptions = {
 			// Run custom setup for new users
 			if (user.email && user.id) {
 				try {
+					// Normalize email for consistency
+					const normalizedEmail = user.email.toLowerCase().trim();
+					
 					const { moveSharedDBConfigToDBUser } = await import("@/lib/db-config");
-					await moveSharedDBConfigToDBUser(user.email, user.id);
+					await moveSharedDBConfigToDBUser(normalizedEmail, user.id);
+
+					const { moveInvitationsToMembership } = await import("@/lib/organisation");
+					await moveInvitationsToMembership(normalizedEmail, user.id);
 				} catch (error) {
-					console.error("Error moving shared db configs to new user:", error);
+					console.error("Error during new user setup:", error);
 				}
 			}
 		}

@@ -3,7 +3,7 @@ import { Resource } from '@opentelemetry/resources';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { metrics } from '@opentelemetry/api';
 
-export type InstrumentationType = 'openai' | 'anthropic' | 'cohere';
+export type InstrumentationType = 'openai' | 'anthropic' | 'cohere' | 'groq' | 'mistral' | 'google-ai' | 'together' | 'ollama' | 'vercel-ai' | 'langchain' | 'pinecone' | 'bedrock' | 'llamaindex' | 'huggingface' | 'replicate' | 'chroma' | 'qdrant' | 'milvus';
 
 export type OpenlitInstrumentations = Partial<Record<InstrumentationType, any>>;
 

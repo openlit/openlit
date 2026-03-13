@@ -265,7 +265,7 @@ def process_response(
                     f"Processed {len(response)} URLs, {success_count} successful"
                 )
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion_summary
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completion_summary
                 )
             span.set_status(Status(StatusCode.OK))
         elif hasattr(response, "__dict__") or hasattr(response, "success"):
@@ -440,26 +440,26 @@ def _capture_content_summary(
     """Capture content summary (not full content) for tracing."""
     try:
         # Input: URL as prompt
-        span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, ctx.url)
+        span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, ctx.url)
 
         # Output: Content summary (NOT full content)
         if "markdown" in response and response["markdown"]:
             # Just show first 500 chars of markdown as sample
             formatted_content = format_content(response["markdown"], max_length=500)
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION, formatted_content
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES, formatted_content
             )
         elif "html" in response and response["html"]:
             # Show first 300 chars of HTML as sample
             formatted_content = format_content(response["html"], max_length=300)
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION, formatted_content
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES, formatted_content
             )
         elif "text" in response and response["text"]:
             # Show first 500 chars of text as sample
             formatted_content = format_content(response["text"], max_length=500)
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION, formatted_content
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES, formatted_content
             )
         else:
             # Fallback: show what was scraped
@@ -467,11 +467,11 @@ def _capture_content_summary(
             title = metadata.get("title", "")
             if title:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, f"Scraped: {title}"
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, f"Scraped: {title}"
                 )
             else:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
                     "Content scraped successfully",
                 )
 

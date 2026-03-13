@@ -3,27 +3,38 @@ import {
 	BookKey,
 	Boxes,
 	Braces,
+	Brain,
 	CircleDollarSign,
 	CircleGauge,
 	ClipboardType,
+	Code2,
 	Combine,
 	Container,
 	Crop,
+	Database,
 	DoorClosed,
 	Factory,
 	FileAudio2,
 	FileCog,
 	FileStack,
 	Fingerprint,
+	Hammer,
+	Hash,
 	ImageIcon,
+	Layers,
+	MessageSquare,
 	MessageSquareWarning,
 	PyramidIcon,
+	Radio,
 	ScanSearch,
 	ShieldCheck,
+	Sliders,
 	SquareCode,
 	SquareRadical,
 	TicketCheck,
 	TicketPlus,
+	Timer,
+	User,
 } from "lucide-react";
 import { objectKeys } from "@/utils/object";
 import { isArray } from "lodash";
@@ -153,8 +164,9 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 		temperature: {
 			label: "Temperature",
 			type: "float",
-			path: "temperature",
+			path: "request.temperature",
 			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
 		},
 
 		// Tokens & Cost
@@ -299,7 +311,7 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 		embeddingFormat: {
 			label: "Embedding Format",
 			type: "string",
-			path: "request.embedding_format",
+			path: "request.encoding_formats",
 			prefix: SpanAttributesGenAIPrefix,
 		},
 		embeddingDimension: {
@@ -441,6 +453,237 @@ export const TraceMapping: Record<TraceMappingKeyType, TraceMappingValueType> =
 			type: "string",
 			path: "retrieval.source",
 			prefix: SpanAttributesGenAIPrefix,
+			icon: SquareCode,
+		},
+
+		// ── Request sampling / generation params ────────────────────────
+		requestTopP: {
+			label: "Top P",
+			type: "float",
+			path: "request.top_p",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
+		},
+		requestTopK: {
+			label: "Top K",
+			type: "float",
+			path: "request.top_k",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
+		},
+		requestFrequencyPenalty: {
+			label: "Frequency Penalty",
+			type: "float",
+			path: "request.frequency_penalty",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
+		},
+		requestPresencePenalty: {
+			label: "Presence Penalty",
+			type: "float",
+			path: "request.presence_penalty",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Sliders,
+		},
+		requestIsStream: {
+			label: "Streaming",
+			type: "string",
+			path: "request.is_stream",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Radio,
+		},
+		requestUser: {
+			label: "User",
+			type: "string",
+			path: "request.user",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: User,
+		},
+		requestChoiceCount: {
+			label: "Choice Count",
+			type: "integer",
+			path: "request.choice.count",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hash,
+		},
+		requestStopSequences: {
+			label: "Stop Sequences",
+			type: "string",
+			path: "request.stop_sequences",
+			prefix: SpanAttributesGenAIPrefix,
+		},
+		requestToolChoice: {
+			label: "Tool Choice",
+			type: "string",
+			path: "request.tool_choice",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hammer,
+		},
+
+		// ── Response attributes ──────────────────────────────────────────
+		responseId: {
+			label: "Response ID",
+			type: "string",
+			path: "response.id",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hash,
+		},
+		responseModel: {
+			label: "Response Model",
+			type: "string",
+			path: "response.model",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Boxes,
+		},
+		outputType: {
+			label: "Output Type",
+			type: "string",
+			path: "output.type",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Code2,
+		},
+
+		// ── Tool calling ─────────────────────────────────────────────────
+		toolName: {
+			label: "Tool Name",
+			type: "string",
+			path: "tool.name",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hammer,
+		},
+		toolCallId: {
+			label: "Tool Call ID",
+			type: "string",
+			path: "tool.call.id",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Hash,
+		},
+		toolArgs: {
+			label: "Tool Arguments",
+			type: "string",
+			path: "tool.args",
+			prefix: SpanAttributesGenAIPrefix,
+		},
+
+		// ── Token details ────────────────────────────────────────────────
+		cacheReadTokens: {
+			label: "Cache Read Tokens",
+			type: "integer",
+			path: "usage.cache_read.input_tokens",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Database,
+			defaultValue: "-",
+		},
+		cacheCreationTokens: {
+			label: "Cache Creation Tokens",
+			type: "integer",
+			path: "usage.cache_creation.input_tokens",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Database,
+			defaultValue: "-",
+		},
+		reasoningTokens: {
+			label: "Reasoning Tokens",
+			type: "integer",
+			path: "usage.completion_tokens_details.reasoning_tokens",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Brain,
+			defaultValue: "-",
+		},
+
+		// ── Streaming latency ────────────────────────────────────────────
+		ttft: {
+			label: "Time to First Token",
+			type: "float",
+			path: "server.time_to_first_token",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Timer,
+			valueSuffix: "s",
+		},
+		tbt: {
+			label: "Time Per Output Token",
+			type: "float",
+			path: "server.time_per_output_token",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Timer,
+			valueSuffix: "s",
+		},
+
+		// ── Content ──────────────────────────────────────────────────────
+		systemInstructions: {
+			label: "System Instructions",
+			type: "string",
+			path: "system_instructions",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: MessageSquare,
+		},
+		contentReasoning: {
+			label: "Reasoning Content",
+			type: "string",
+			path: "content.reasoning",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Brain,
+		},
+
+		// ── Reasoning / effort ───────────────────────────────────────────
+		reasoningEffort: {
+			label: "Reasoning Effort",
+			type: "string",
+			path: "request.reasoning_effort",
+			prefix: SpanAttributesGenAIPrefix,
+			icon: Brain,
+		},
+
+		// ── OpenAI-specific ──────────────────────────────────────────────
+		openaiApiType: {
+			label: "API Type",
+			type: "string",
+			path: "api.type",
+			prefix: "openai",
+			icon: Code2,
+		},
+		openaiRequestServiceTier: {
+			label: "Service Tier (Req)",
+			type: "string",
+			path: "request.service_tier",
+			prefix: "openai",
+			icon: Layers,
+		},
+		openaiResponseServiceTier: {
+			label: "Service Tier (Res)",
+			type: "string",
+			path: "response.service_tier",
+			prefix: "openai",
+			icon: Layers,
+		},
+		openaiSystemFingerprint: {
+			label: "System Fingerprint",
+			type: "string",
+			path: "response.system_fingerprint",
+			prefix: "openai",
+			icon: Fingerprint,
+		},
+
+		// ── DB (new OTel paths) ──────────────────────────────────────────
+		dbSystemName: {
+			label: "DB System",
+			type: "string",
+			path: "system.name",
+			prefix: SpanAttributesDBPrefix,
+			icon: Database,
+		},
+		dbOperationName: {
+			label: "DB Operation",
+			type: "string",
+			path: "operation.name",
+			prefix: SpanAttributesDBPrefix,
+			icon: SquareRadical,
+		},
+		dbQueryText: {
+			label: "Query",
+			type: "string",
+			path: "query.text",
+			prefix: SpanAttributesDBPrefix,
 			icon: SquareCode,
 		},
 	};

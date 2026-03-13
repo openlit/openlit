@@ -4,7 +4,11 @@ Module for monitoring Amazon Bedrock API calls.
 
 import time
 from opentelemetry.trace import SpanKind
-from openlit.__helpers import handle_exception, set_server_address_and_port
+from openlit.__helpers import (
+    handle_exception,
+    set_server_address_and_port,
+    record_completion_metrics,
+)
 from openlit.instrumentation.bedrock.utils import (
     process_chunk,
     process_chat_response,
@@ -22,6 +26,7 @@ def converse(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for AWS Bedrock converse calls.
@@ -67,11 +72,32 @@ def converse(
                         disable_metrics=disable_metrics,
                         version=version,
                         llm_config=llm_config,
+                        event_provider=event_provider,
                         **method_kwargs,
                     )
 
                 except Exception as e:
                     handle_exception(span, e)
+                    if not disable_metrics and metrics:
+                        record_completion_metrics(
+                            metrics,
+                            SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
+                            SemanticConvention.GEN_AI_SYSTEM_AWS_BEDROCK,
+                            server_address,
+                            server_port,
+                            request_model,
+                            "unknown",
+                            environment,
+                            application_name,
+                            start_time,
+                            time.time(),
+                            0,
+                            0,
+                            0,
+                            None,
+                            None,
+                            error_type=type(e).__name__ or "_OTHER",
+                        )
 
                 return response
 
@@ -99,6 +125,7 @@ def converse_stream(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for AWS Bedrock converse_stream calls.
@@ -117,6 +144,7 @@ def converse_stream(
             kwargs,
             server_address,
             server_port,
+            event_provider=None,
             **args,
         ):
             self.__wrapped_response = wrapped_response
@@ -135,6 +163,9 @@ def converse_stream(
             self._tools = None
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
+            self._llm_config = kwargs.get("inferenceConfig", {})
 
             self._args = args
             self._kwargs = kwargs
@@ -145,6 +176,7 @@ def converse_stream(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         def __enter__(self):
             if hasattr(self.__wrapped_stream, "__enter__"):
@@ -181,7 +213,6 @@ def converse_stream(
                 return chunk
             except StopIteration:
                 try:
-                    llm_config = self._kwargs.get("inferenceConfig", {})
                     with tracer.start_as_current_span(
                         self._span_name, kind=SpanKind.CLIENT
                     ) as self._span:
@@ -194,7 +225,7 @@ def converse_stream(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
-                            llm_config=llm_config,
+                            event_provider=self._event_provider,
                         )
 
                 except Exception as e:
@@ -232,6 +263,7 @@ def converse_stream(
                 method_kwargs,
                 server_address,
                 server_port,
+                event_provider=event_provider,
             )
 
         # Get the original client instance from the wrapper

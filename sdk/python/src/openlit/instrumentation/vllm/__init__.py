@@ -26,6 +26,7 @@ class VLLMInstrumentor(BaseInstrumentor):
         pricing_info = kwargs.get("pricing_info", {})
         capture_message_content = kwargs.get("capture_message_content", False)
         disable_metrics = kwargs.get("disable_metrics")
+        event_provider = kwargs.get("event_provider")
         version = importlib.metadata.version("vllm")
 
         # Chat completions
@@ -41,6 +42,7 @@ class VLLMInstrumentor(BaseInstrumentor):
                 capture_message_content,
                 metrics,
                 disable_metrics,
+                event_provider=event_provider,
             ),
         )
 

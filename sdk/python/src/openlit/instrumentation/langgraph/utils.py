@@ -271,7 +271,7 @@ def extract_llm_info_from_result(span, state, result):
                     content = get_message_content(last_msg)
                     if content:
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_CONTENT_COMPLETION, content[:1000]
+                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content[:1000]
                         )
 
                 # Extract usage_metadata (alternative location)
@@ -579,7 +579,7 @@ def _process_invoke_response(span, response, capture_message_content):
                             SemanticConvention.LANGGRAPH_FINAL_RESPONSE, content[:500]
                         )
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_CONTENT_COMPLETION, content[:1000]
+                            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, content[:1000]
                         )
 
             # Try to extract LLM info
@@ -658,10 +658,6 @@ def _record_langgraph_metrics(
         # Record operation duration
         if "genai_client_operation_duration" in metrics:
             metrics["genai_client_operation_duration"].record(duration, attributes)
-
-        # Record operation count
-        if "genai_requests" in metrics:
-            metrics["genai_requests"].add(1, attributes)
 
     except Exception:
         pass

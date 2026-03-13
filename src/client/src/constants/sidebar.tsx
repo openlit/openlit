@@ -13,10 +13,22 @@ import {
 } from "lucide-react";
 import DatabaseConfigSwitch from "@/components/(playground)/sidebar/database-config-switch";
 import OpenTelemetrySvg from "@/components/svg/opentelemetry";
+import OrganisationSwitch from "@/components/(playground)/sidebar/organisation-switch";
 
 export const ICON_CLASSES = "flex-shrink-0 size-5";
 
 export const SIDEBAR_ITEMS: SidebarItemProps[] = [
+	{
+		title: "Organisation",
+		type: "section",
+		children: [
+			{
+				text: "Organisation Switch",
+				component: <OrganisationSwitch />,
+				type: "action",
+			},
+		]
+	},
 	{
 		icon: <Home className={ICON_CLASSES} />,
 		text: "Home",

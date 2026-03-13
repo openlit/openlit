@@ -375,13 +375,13 @@ def _set_content_attributes(span, kwargs, response):
         # Input content
         if "messages" in kwargs:
             messages_str = json.dumps(str(kwargs["messages"]))
-            span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, messages_str)
+            span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, messages_str)
 
         # Output content
         if response and hasattr(response, "messages"):
             completion_str = str(response.messages)
             span.set_attribute(
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion_str
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completion_str
             )
     except Exception:
         pass
@@ -627,11 +627,11 @@ class TracedLettaStream:
             if self._capture_content and self._response_messages:
                 completion_content = str(self._response_messages)
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion_content
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completion_content
                 )
             elif self._capture_content and self._response_content:
                 span.set_attribute(
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION, self._response_content
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES, self._response_content
                 )
 
         except Exception:
@@ -662,14 +662,14 @@ class TracedLettaStream:
                 # Set content if enabled
                 if self._capture_content and self._response_content:
                     self._span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
                         self._response_content,
                     )
                 elif self._capture_content and self._response_messages:
                     # Fallback: Use response messages if no direct content
                     completion_content = str(self._response_messages)
                     self._span.set_attribute(
-                        SemanticConvention.GEN_AI_CONTENT_COMPLETION, completion_content
+                        SemanticConvention.GEN_AI_OUTPUT_MESSAGES, completion_content
                     )
 
                 # Set response messages if available

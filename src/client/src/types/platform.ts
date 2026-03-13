@@ -15,6 +15,7 @@ export type FilterWhereConditionType = {
 		traceTypes: string[];
 		applicationNames: string[];
 		environments: string[];
+		customFilters: { attributeType: string; key: string; value: string }[];
 	}>;
 	notOrEmpty?: { key: string }[];
 	notEmpty?: { key: string }[];

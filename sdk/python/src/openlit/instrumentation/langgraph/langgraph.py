@@ -69,31 +69,31 @@ def general_wrap(
             operation_type, gen_ai_endpoint, instance, args, kwargs
         )
 
+        # Stream operations manage their own span lifetime inside the generator
+        if gen_ai_endpoint == "graph_stream":
+            return _handle_stream(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                span_name,
+                tracer,
+                operation_type,
+                server_address,
+                server_port,
+                environment,
+                application_name,
+                metrics,
+                capture_message_content,
+                disable_metrics,
+                version,
+                gen_ai_endpoint,
+            )
+
         with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
             start_time = time.time()
 
             try:
-                # Handle stream operations specially
-                if gen_ai_endpoint == "graph_stream":
-                    return _handle_stream(
-                        wrapped,
-                        instance,
-                        args,
-                        kwargs,
-                        span,
-                        start_time,
-                        operation_type,
-                        server_address,
-                        server_port,
-                        environment,
-                        application_name,
-                        metrics,
-                        capture_message_content,
-                        disable_metrics,
-                        version,
-                        gen_ai_endpoint,
-                    )
-
                 # Execute the wrapped function
                 response = wrapped(*args, **kwargs)
 
@@ -131,8 +131,8 @@ def _handle_stream(
     instance,
     args,
     kwargs,
-    span,
-    start_time,
+    span_name,
+    tracer,
     operation_type,
     server_address,
     server_port,
@@ -147,57 +147,60 @@ def _handle_stream(
     """
     Handle streaming responses with proper telemetry.
 
-    Returns a generator that wraps the stream and captures telemetry.
+    Returns a generator that owns the span lifetime — the span stays open
+    for the entire iteration and is closed only after the last chunk.
     """
-    # Set basic attributes directly without using common_framework_span_attributes
-    # (since we don't have _end_time for streaming until it completes)
-    span.set_attribute("telemetry.sdk.name", "openlit")
-    span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
-    span.set_attribute(
-        SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH
-    )
-    span.set_attribute(SemanticConvention.GEN_AI_OPERATION, endpoint)
-    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, "unknown")
-    span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
-    span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
-    span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
-    span.set_attribute(SemanticConvention.GEN_AI_APPLICATION_NAME, application_name)
 
-    span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
-    span.set_attribute(SemanticConvention.LANGGRAPH_EXECUTION_MODE, "stream")
-    span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True)
+    def stream_wrapper():
+        with tracer.start_as_current_span(span_name, kind=SpanKind.CLIENT) as span:
+            start_time = time.time()
 
-    # Track execution state
-    execution_state = {
-        "executed_nodes": [],
-        "message_count": 0,
-        "chunk_count": 0,
-        "final_response": None,
-    }
+            span.set_attribute("telemetry.sdk.name", "openlit")
+            span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_PROVIDER_NAME,
+                SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, "unknown")
+            span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
+            span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
+            span.set_attribute(SemanticConvention.GEN_AI_ENVIRONMENT, environment)
+            span.set_attribute(
+                SemanticConvention.GEN_AI_APPLICATION_NAME, application_name
+            )
+            span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
+            span.set_attribute(SemanticConvention.LANGGRAPH_EXECUTION_MODE, "stream")
+            span.set_attribute(SemanticConvention.GEN_AI_REQUEST_IS_STREAM, True)
 
-    # Capture input messages
-    input_data = args[0] if args else kwargs.get("input", {})
-    messages = extract_messages_from_input(input_data)
-    if messages:
-        execution_state["message_count"] = len(messages)
-        if capture_message_content:
-            for i, msg in enumerate(messages[:3]):
-                content = get_message_content(msg)
-                role = get_message_role(msg)
-                if content:
-                    span.set_attribute(f"gen_ai.prompt.{i}.content", content[:500])
-                    span.set_attribute(f"gen_ai.prompt.{i}.role", role)
+            # Track execution state
+            execution_state = {
+                "executed_nodes": [],
+                "message_count": 0,
+                "chunk_count": 0,
+                "final_response": None,
+            }
 
-    try:
-        # Get the stream
-        stream_gen = wrapped(*args, **kwargs)
+            # Capture input messages
+            input_data = args[0] if args else kwargs.get("input", {})
+            messages = extract_messages_from_input(input_data)
+            if messages:
+                execution_state["message_count"] = len(messages)
+                if capture_message_content:
+                    for i, msg in enumerate(messages[:3]):
+                        content = get_message_content(msg)
+                        role = get_message_role(msg)
+                        if content:
+                            span.set_attribute(
+                                f"gen_ai.prompt.{i}.content", content[:500]
+                            )
+                            span.set_attribute(f"gen_ai.prompt.{i}.role", role)
 
-        def stream_wrapper():
             try:
+                stream_gen = wrapped(*args, **kwargs)
+
                 for chunk in stream_gen:
                     execution_state["chunk_count"] += 1
 
-                    # Process chunk
                     if isinstance(chunk, dict):
                         for key in chunk:
                             # Track node executions
@@ -217,11 +220,59 @@ def _handle_stream(
                                     for msg in msg_list:
                                         content = get_message_content(msg)
                                         if content:
-                                            execution_state["final_response"] = content
+                                            execution_state["final_response"] = (
+                                                execution_state["final_response"] or ""
+                                            ) + content
+
+                    # Handle tuple format for some stream modes:
+                    # - (node_name_str, value_dict) for stream_mode="updates" etc.
+                    # - (message_object, metadata_dict) for stream_mode="messages"
+                    elif isinstance(chunk, tuple) and len(chunk) >= 2:
+                        if isinstance(chunk[0], str):
+                            # Format: (node_name, value) — node_name is a plain string
+                            node_name, value = chunk[0], chunk[1]
+                            if node_name not in (
+                                "__start__",
+                                "__end__",
+                                "__interrupt__",
+                            ):
+                                if node_name not in execution_state["executed_nodes"]:
+                                    execution_state["executed_nodes"].append(node_name)
+                            if isinstance(value, dict) and "messages" in value:
+                                msg_list = value["messages"]
+                                if isinstance(msg_list, list):
+                                    execution_state["message_count"] += len(msg_list)
+                                    for msg in msg_list:
+                                        content = get_message_content(msg)
+                                        if content:
+                                            execution_state["final_response"] = (
+                                                execution_state["final_response"] or ""
+                                            ) + content
+                        else:
+                            # Format: (message_object, metadata_dict) for stream_mode="messages"
+                            # chunk[0] is a LangChain message (AIMessage, HumanMessage, etc.)
+                            # chunk[1] is a metadata dict containing "langgraph_node"
+                            message_obj, metadata = chunk[0], chunk[1]
+                            if isinstance(metadata, dict):
+                                node_name = metadata.get("langgraph_node", "")
+                                if (
+                                    node_name
+                                    and isinstance(node_name, str)
+                                    and node_name
+                                    not in ("__start__", "__end__", "__interrupt__")
+                                    and node_name
+                                    not in execution_state["executed_nodes"]
+                                ):
+                                    execution_state["executed_nodes"].append(node_name)
+                            execution_state["message_count"] += 1
+                            content = get_message_content(message_obj)
+                            if content:
+                                execution_state["final_response"] = (
+                                    execution_state["final_response"] or ""
+                                ) + content
 
                     yield chunk
 
-                # Set final attributes
                 _finalize_stream_span(
                     span, execution_state, capture_message_content, start_time
                 )
@@ -230,11 +281,7 @@ def _handle_stream(
                 handle_exception(span, e)
                 raise
 
-        return stream_wrapper()
-
-    except Exception as e:
-        handle_exception(span, e)
-        raise
+    return stream_wrapper()
 
 
 def _finalize_stream_span(span, execution_state, capture_message_content, start_time):
@@ -266,7 +313,7 @@ def _finalize_stream_span(span, execution_state, capture_message_content, start_
             execution_state["final_response"][:500],
         )
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             execution_state["final_response"][:1000],
         )
 
@@ -415,7 +462,7 @@ def wrap_add_node(
                     ) as span:
                         start_time = time.time()
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_SYSTEM,
+                            SemanticConvention.GEN_AI_PROVIDER_NAME,
                             SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
                         )
                         span.set_attribute(
@@ -471,7 +518,7 @@ def wrap_add_node(
                     ) as span:
                         start_time = time.time()
                         span.set_attribute(
-                            SemanticConvention.GEN_AI_SYSTEM,
+                            SemanticConvention.GEN_AI_PROVIDER_NAME,
                             SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
                         )
                         span.set_attribute(

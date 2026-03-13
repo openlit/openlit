@@ -1,0 +1,204 @@
+---
+title: 'Monitor OpenAI using OpenTelemetry (Go)'
+sidebarTitle: 'OpenAI (Go)'
+---
+
+OpenLIT uses OpenTelemetry instrumentation to help you monitor Go applications built with OpenAI models. This includes tracking performance, token usage, costs, and how users interact with the application.
+
+The Go SDK wraps your OpenAI client with an `InstrumentedClient` that automatically emits traces and metrics for every API call — with zero changes to your application logic.
+
+The integration supports:
+- Chat completions (standard and streaming)
+- Embeddings
+- Image generation (`dall-e-2`, `dall-e-3`)
+
+## Get started
+
+<Steps>
+  <Step title="Install the Go SDK">
+    Open your terminal and run:
+
+    <Tabs>
+      <Tab title="Latest Version">
+        ```shell
+        go get github.com/openlit/openlit/sdk/go
+        ```
+      </Tab>
+      <Tab title="Specific Version">
+        ```shell
+        go get github.com/openlit/openlit/sdk/go@v1.2.3
+        ```
+        Replace `v1.2.3` with the version you want to install.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Initialize OpenLIT">
+    Add this once at the start of your application (e.g. in `main()`):
+
+    <Tabs>
+      <Tab title="Via Config Struct">
+        ```go
+        import (
+            "context"
+            openlit "github.com/openlit/openlit/sdk/go"
+        )
+
+        if err := openlit.Init(openlit.Config{
+            OtlpEndpoint:    "YOUR_OTEL_ENDPOINT",
+            ApplicationName: "my-ai-app",
+            Environment:     "production",
+        }); err != nil {
+            log.Fatal(err)
+        }
+        defer openlit.Shutdown(context.Background())
+        ```
+      </Tab>
+      <Tab title="Via Environment Variable">
+        ```go
+        import (
+            "context"
+            openlit "github.com/openlit/openlit/sdk/go"
+        )
+
+        if err := openlit.Init(openlit.Config{
+            ApplicationName: "my-ai-app",
+        }); err != nil {
+            log.Fatal(err)
+        }
+        defer openlit.Shutdown(context.Background())
+        ```
+
+        Then set your OTLP endpoint via environment variable:
+        ```shell
+        export OTEL_EXPORTER_OTLP_ENDPOINT=YOUR_OTEL_ENDPOINT
+        ```
+      </Tab>
+    </Tabs>
+
+    **Replace** `YOUR_OTEL_ENDPOINT` with the URL of your OpenTelemetry backend, such as `http://127.0.0.1:4318` for a local OpenLIT deployment.
+  </Step>
+
+  <Step title="Create an instrumented client">
+    Replace your existing OpenAI client creation with the OpenLIT instrumented client:
+
+    ```go
+    import "github.com/openlit/openlit/sdk/go/instrumentation/openai"
+
+    client := openai.NewClient("your-openai-api-key")
+    ```
+
+    Optional configuration:
+    ```go
+    // Custom base URL (e.g. for Azure OpenAI or local models)
+    client := openai.NewClient("your-api-key",
+        openai.WithBaseURL("https://your-custom-endpoint/v1"),
+    )
+    ```
+  </Step>
+
+  <Step title="Use the client">
+    Use the instrumented client exactly as you would a normal OpenAI client:
+
+    **Chat completion:**
+    ```go
+    resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+        Model: "gpt-4o",
+        Messages: []openai.Message{
+            {Role: "system", Content: "You are a helpful assistant."},
+            {Role: "user", Content: "What is OpenTelemetry?"},
+        },
+        MaxTokens:   256,
+        Temperature: 0.7,
+    })
+    if err != nil {
+        return err
+    }
+    fmt.Println(resp.Choices[0].Message.Content)
+    ```
+
+    **Streaming:**
+    ```go
+    stream, err := client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+        Model: "gpt-4o",
+        Messages: []openai.Message{
+            {Role: "user", Content: "Tell me a story."},
+        },
+    })
+    if err != nil {
+        return err
+    }
+    defer stream.Close()
+
+    for {
+        chunk, err := stream.Recv()
+        if err == io.EOF {
+            break
+        }
+        if err != nil {
+            return err
+        }
+        if len(chunk.Choices) > 0 {
+            fmt.Print(chunk.Choices[0].Delta.Content)
+        }
+    }
+    ```
+
+    **Embeddings:**
+    ```go
+    resp, err := client.CreateEmbedding(ctx, openai.EmbeddingRequest{
+        Model: "text-embedding-3-small",
+        Input: "The quick brown fox",
+    })
+    ```
+
+    **Image generation:**
+    ```go
+    resp, err := client.CreateImage(ctx, openai.ImageRequest{
+        Model:  "dall-e-3",
+        Prompt: "A futuristic city skyline at sunset",
+        N:      1,
+        Size:   "1024x1024",
+    })
+    ```
+  </Step>
+</Steps>
+
+## What gets collected
+
+Every call to the instrumented client automatically records:
+
+| Data | Attribute |
+|------|-----------|
+| Operation name | `gen_ai.operation.name` |
+| Model requested | `gen_ai.request.model` |
+| Model used | `gen_ai.response.model` |
+| Input tokens | `gen_ai.usage.input_tokens` |
+| Output tokens | `gen_ai.usage.output_tokens` |
+| Estimated cost | `gen_ai.usage.cost` |
+| Finish reason | `gen_ai.response.finish_reasons` |
+| Tool calls | `gen_ai.tool.name`, `gen_ai.tool.call.id` |
+| Time to first token | `gen_ai.server.time_to_first_token` (streaming) |
+| Time per output token | `gen_ai.server.time_per_output_token` (streaming) |
+
+Metrics emitted:
+- `gen_ai.client.token.usage` — token usage histogram (input/output)
+- `gen_ai.client.operation.duration` — total operation duration
+- `gen_ai.server.time_to_first_token` — TTFT for streaming
+- `gen_ai.client.operation.time_to_first_chunk` — client-side TTFT
+- `gen_ai.client.operation.time_per_output_chunk` — per-chunk latency
+- `gen_ai.server.request.duration` — estimated server processing time
+
+---
+
+<CardGroup cols={3}>
+  <Card title="Go SDK Overview" href="/latest/sdk/go-overview" icon="golang">
+    Full configuration reference and setup guide
+  </Card>
+  <Card title="Configuration" href="/latest/sdk/configuration" icon="bolt">
+    Configure the OpenLIT SDK according to your requirements
+  </Card>
+  <Card title="Destinations" href="/latest/sdk/destinations/overview" icon="link">
+    Send telemetry to Datadog, Grafana, New Relic, and other observability stacks
+  </Card>
+</CardGroup>

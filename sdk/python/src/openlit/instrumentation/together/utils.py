@@ -17,7 +17,7 @@ from openlit.__helpers import (
     calculate_tbt,
     get_chat_model_cost,
     get_image_model_cost,
-    create_metrics_attributes,
+    record_completion_metrics,
 )
 from openlit.semcov import SemanticConvention
 
@@ -81,7 +81,7 @@ def process_chunk(scope, chunk):
 def common_span_attributes(
     scope,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -99,7 +99,9 @@ def common_span_attributes(
 
     scope._span.set_attribute(TELEMETRY_SDK_NAME, "openlit")
     scope._span.set_attribute(SemanticConvention.GEN_AI_OPERATION, gen_ai_operation)
-    scope._span.set_attribute(SemanticConvention.GEN_AI_SYSTEM, gen_ai_system)
+    scope._span.set_attribute(
+        SemanticConvention.GEN_AI_PROVIDER_NAME, GEN_AI_PROVIDER_NAME
+    )
     scope._span.set_attribute(SemanticConvention.SERVER_ADDRESS, server_address)
     scope._span.set_attribute(SemanticConvention.SERVER_PORT, server_port)
     scope._span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, request_model)
@@ -115,7 +117,7 @@ def common_span_attributes(
 def record_common_metrics(
     metrics,
     gen_ai_operation,
-    gen_ai_system,
+    GEN_AI_PROVIDER_NAME,
     server_address,
     server_port,
     request_model,
@@ -129,33 +131,33 @@ def record_common_metrics(
     cost,
     tbt=None,
     ttft=None,
+    is_stream=False,
+    time_per_chunk_observations=None,
 ):
     """
     Record common metrics for the operation.
+    Delegates to the OTel-compliant helper function.
     """
-
-    attributes = create_metrics_attributes(
-        operation=gen_ai_operation,
-        system=gen_ai_system,
+    record_completion_metrics(
+        metrics=metrics,
+        gen_ai_operation=gen_ai_operation,
+        GEN_AI_PROVIDER_NAME=GEN_AI_PROVIDER_NAME,
         server_address=server_address,
         server_port=server_port,
         request_model=request_model,
         response_model=response_model,
-        service_name=application_name,
-        deployment_environment=environment,
+        environment=environment,
+        application_name=application_name,
+        start_time=start_time,
+        end_time=end_time,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cost=cost,
+        tbt=tbt,
+        ttft=ttft,
+        is_stream=is_stream,
+        time_per_chunk_observations=time_per_chunk_observations,
     )
-    metrics["genai_client_operation_duration"].record(end_time - start_time, attributes)
-    metrics["genai_requests"].add(1, attributes)
-    metrics["genai_prompt_tokens"].add(input_tokens, attributes)
-    metrics["genai_completion_tokens"].add(output_tokens, attributes)
-    metrics["genai_client_usage_tokens"].record(
-        input_tokens + output_tokens, attributes
-    )
-    metrics["genai_cost"].record(cost, attributes)
-    if tbt is not None:
-        metrics["genai_server_tbt"].record(tbt, attributes)
-    if ttft is not None:
-        metrics["genai_server_ttft"].record(ttft, attributes)
 
 
 def common_chat_logic(
@@ -263,22 +265,22 @@ def common_chat_logic(
 
     # Span Attributes for Content
     if capture_message_content:
-        scope._span.set_attribute(SemanticConvention.GEN_AI_CONTENT_PROMPT, prompt)
+        scope._span.set_attribute(SemanticConvention.GEN_AI_INPUT_MESSAGES, prompt)
         scope._span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION, scope._llmresponse
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES, scope._llmresponse
         )
 
         # To be removed one the change to span_attributes (from span events) is complete
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: prompt,
+                SemanticConvention.GEN_AI_INPUT_MESSAGES: prompt,
             },
         )
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_COMPLETION: scope._llmresponse,
+                SemanticConvention.GEN_AI_OUTPUT_MESSAGES: scope._llmresponse,
             },
         )
 
@@ -286,6 +288,12 @@ def common_chat_logic(
 
     # Metrics
     if not disable_metrics:
+        inter_chunk_durations = None
+        if getattr(scope, "_timestamps", None) and len(scope._timestamps) > 1:
+            inter_chunk_durations = [
+                scope._timestamps[i] - scope._timestamps[i - 1]
+                for i in range(1, len(scope._timestamps))
+            ]
         record_common_metrics(
             metrics,
             SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT,
@@ -303,6 +311,8 @@ def common_chat_logic(
             cost,
             scope._tbt,
             scope._ttft,
+            is_stream=is_stream,
+            time_per_chunk_observations=inter_chunk_durations,
         )
 
 
@@ -460,7 +470,7 @@ def common_image_logic(
         scope._span.add_event(
             name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
             attributes={
-                SemanticConvention.GEN_AI_CONTENT_PROMPT: scope._kwargs.get(
+                SemanticConvention.GEN_AI_INPUT_MESSAGES: scope._kwargs.get(
                     "prompt", ""
                 ),
             },
@@ -473,7 +483,7 @@ def common_image_logic(
             scope._span.add_event(
                 name=attribute_name,
                 attributes={
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION: getattr(
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES: getattr(
                         item, image_format
                     ),
                 },

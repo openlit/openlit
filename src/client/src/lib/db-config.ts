@@ -6,17 +6,56 @@ import migrations from "@/clickhouse/migrations";
 import getMessage from "@/constants/messages";
 import { throwIfError } from "@/utils/error";
 import { consoleLog } from "@/utils/log";
+import { getCurrentOrganisation } from "./organisation";
 
 export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const user = await getCurrentUser();
 
 	if (!user) throw new Error(getMessage().UNAUTHORIZED_USER);
 
+	// Get current organisation
+	const currentOrg = await getCurrentOrganisation();
+
+	// Auto-migrate orphaned configs: If user has a current org, move any orphaned configs
+	// they have access to into that org. This handles edge cases where migration didn't run
+	// or new orphaned configs were created.
+	if (currentOrg?.id) {
+		const userOrphanedLinks = await prisma.databaseConfigUser.findMany({
+			where: {
+				userId: user.id,
+				databaseConfig: {
+					organisationId: null,
+				},
+			},
+			select: { databaseConfigId: true },
+		});
+
+		if (userOrphanedLinks.length > 0) {
+			const orphanedConfigIds = userOrphanedLinks.map(
+				(link) => link.databaseConfigId
+			);
+
+			await prisma.databaseConfig.updateMany({
+				where: { id: { in: orphanedConfigIds } },
+				data: { organisationId: currentOrg.id },
+			});
+
+			consoleLog(
+				`Auto-migrated ${orphanedConfigIds.length} orphaned configs for user ${user.id} to org ${currentOrg.id}`
+			);
+		}
+	}
+
 	if (currentOnly) {
 		const dbConfig = await prisma.databaseConfigUser.findFirst({
 			where: {
 				userId: user.id,
 				isCurrent: true,
+				// Always filter by current organisation to maintain data isolation
+				// If no current org, only return orphaned configs (organisationId: null)
+				databaseConfig: {
+					organisationId: currentOrg?.id ?? null,
+				},
 			},
 			select: {
 				databaseConfig: true,
@@ -29,6 +68,11 @@ export const getDBConfigByUser = async (currentOnly?: boolean) => {
 	const dbUserConfigs = await prisma.databaseConfigUser.findMany({
 		where: {
 			userId: user.id,
+			// Always filter by current organisation to maintain data isolation
+			// If no current org, only return orphaned configs (organisationId: null)
+			databaseConfig: {
+				organisationId: currentOrg?.id ?? null,
+			},
 		},
 		select: {
 			databaseConfigId: true,
@@ -82,9 +126,13 @@ export const upsertDBConfig = async (
 
 	throwIfError(!user, getMessage().UNAUTHORIZED_USER);
 
-	const existingDBName = await prisma.databaseConfig.findUnique({
+	// Get current organisation
+	const currentOrg = await getCurrentOrganisation();
+
+	const existingDBName = await prisma.databaseConfig.findFirst({
 		where: {
 			name: dbConfig.name,
+			organisationId: currentOrg?.id || null,
 			NOT: {
 				id,
 			},
@@ -93,26 +141,85 @@ export const upsertDBConfig = async (
 
 	if (existingDBName?.id) throw new Error("DB config Name already exists");
 
-	const whereObject: any = {};
-	if (id) whereObject.id = id;
-	else whereObject.name = dbConfig.name;
-
 	if (id) {
 		await checkPermissionForDbAction(user!.id, id, "EDIT");
 	}
 
-	const [err, createddbConfig] = await asaw(
-		prisma.databaseConfig.upsert({
-			where: whereObject,
-			create: {
-				...(dbConfig as any),
-				createdByUserId: user!.id,
+	let createddbConfig: DatabaseConfig;
+	
+	// When updating by id, use upsert with id
+	if (id) {
+		const whereObject = { id };
+		const [err, result] = await asaw(
+			prisma.databaseConfig.upsert({
+				where: whereObject,
+				create: {
+					...(dbConfig as any),
+					createdByUserId: user!.id,
+					organisationId: currentOrg?.id,
+				},
+				update: {
+					...dbConfig,
+				},
+			})
+		);
+		if (err) throw err;
+		createddbConfig = result;
+	}
+	// When creating with an organisation, use compound unique constraint
+	else if (currentOrg?.id) {
+		const whereObject = {
+			name_organisationId: {
+				name: dbConfig.name,
+				organisationId: currentOrg.id,
 			},
-			update: {
-				...dbConfig,
+		};
+		const [err, result] = await asaw(
+			prisma.databaseConfig.upsert({
+				where: whereObject,
+				create: {
+					...(dbConfig as any),
+					createdByUserId: user!.id,
+					organisationId: currentOrg.id,
+				},
+				update: {
+					...dbConfig,
+				},
+			})
+		);
+		if (err) throw err;
+		createddbConfig = result;
+	}
+	// When creating without organisation (null organisationId), 
+	// Prisma doesn't support null in compound unique constraints, 
+	// so we use findFirst + create/update pattern
+	else {
+		const existing = await prisma.databaseConfig.findFirst({
+			where: {
+				name: dbConfig.name,
+				organisationId: null,
 			},
-		})
-	);
+		});
+		
+		if (existing) {
+			// Update existing config
+			createddbConfig = await prisma.databaseConfig.update({
+				where: { id: existing.id },
+				data: {
+					...dbConfig,
+				},
+			});
+		} else {
+			// Create new config
+			createddbConfig = await prisma.databaseConfig.create({
+				data: {
+					...(dbConfig as any),
+					createdByUserId: user!.id,
+					organisationId: null,
+				},
+			});
+		}
+	}
 
 	if (!id) {
 		await addDatabaseConfigUserEntry(user!.id, createddbConfig.id, {
@@ -223,10 +330,13 @@ export async function shareDBConfig({
 					canShare: false,
 				},
 			}) => {
+				// Normalize email to lowercase for case-insensitive comparison
+				const normalizedEmail = email.toLowerCase().trim();
+				
 				const [, user] = await asaw(
 					prisma.user.findUnique({
 						where: {
-							email,
+							email: normalizedEmail,
 						},
 					})
 				);
@@ -246,12 +356,12 @@ export async function shareDBConfig({
 						return [, { success: true }];
 					}
 
-					return [`Already shared to ${email}`, { success: false }];
+					return [`Already shared to ${normalizedEmail}`, { success: false }];
 				} else {
 					const [createErr] = await asaw(
 						prisma.databaseConfigInvitedUser.create({
 							data: {
-								email,
+								email: normalizedEmail,
 								databaseConfigId: id,
 								canEdit: dbUserConfig.canEdit && permissions.canEdit,
 								canDelete: dbUserConfig.canDelete && permissions.canDelete,
@@ -342,16 +452,28 @@ async function addDatabaseConfigUserEntry(
 		canShare: boolean;
 	}
 ) {
-	const ifFirstDBConfigCreated = await prisma.databaseConfigUser.count({
+	// Get the database config to find its organisation
+	const dbConfig = await prisma.databaseConfig.findUnique({
+		where: { id: databaseConfigId },
+		select: { organisationId: true },
+	});
+
+	// Check if user has any current database config in the SAME organisation
+	const existingCurrentConfigInOrg = await prisma.databaseConfigUser.findFirst({
 		where: {
 			userId: userId,
+			isCurrent: true,
+			databaseConfig: {
+				organisationId: dbConfig?.organisationId || null,
+			},
 		},
 	});
+
 	await prisma.databaseConfigUser.create({
 		data: {
 			userId,
 			databaseConfigId,
-			isCurrent: !ifFirstDBConfigCreated,
+			isCurrent: !existingCurrentConfigInOrg,
 			...permissions,
 		},
 	});

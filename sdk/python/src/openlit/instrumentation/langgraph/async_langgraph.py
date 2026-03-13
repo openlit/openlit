@@ -181,7 +181,8 @@ async def _create_async_stream_wrapper(
         span.set_attribute("telemetry.sdk.name", "openlit")
         span.set_attribute(SemanticConvention.GEN_AI_SDK_VERSION, version)
         span.set_attribute(
-            SemanticConvention.GEN_AI_SYSTEM, SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH
+            SemanticConvention.GEN_AI_PROVIDER_NAME,
+            SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
         )
         span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
         span.set_attribute(SemanticConvention.GEN_AI_REQUEST_MODEL, "unknown")
@@ -279,30 +280,59 @@ def _process_stream_chunk(chunk, execution_state, stream_mode):
                         for msg in msg_list:
                             content = get_message_content(msg)
                             if content:
-                                execution_state["final_response"] = content
+                                execution_state["final_response"] = (
+                                    execution_state["final_response"] or ""
+                                ) + content
                 elif key == "messages" and isinstance(chunk_value, list):
                     # Direct messages in chunk
                     execution_state["message_count"] += len(chunk_value)
                     for msg in chunk_value:
                         content = get_message_content(msg)
                         if content:
-                            execution_state["final_response"] = content
+                            execution_state["final_response"] = (
+                                execution_state["final_response"] or ""
+                            ) + content
 
-        # Handle tuple format (node_name, value) for some stream modes
+        # Handle tuple format for some stream modes:
+        # - (node_name_str, value_dict) for stream_mode="updates" etc.
+        # - (message_object, metadata_dict) for stream_mode="messages"
         elif isinstance(chunk, tuple) and len(chunk) >= 2:
-            node_name, value = chunk[0], chunk[1]
-            if node_name not in ("__start__", "__end__", "__interrupt__"):
-                if node_name not in execution_state["executed_nodes"]:
-                    execution_state["executed_nodes"].append(node_name)
-
-            if isinstance(value, dict) and "messages" in value:
-                msg_list = value["messages"]
-                if isinstance(msg_list, list):
-                    execution_state["message_count"] += len(msg_list)
-                    for msg in msg_list:
-                        content = get_message_content(msg)
-                        if content:
-                            execution_state["final_response"] = content
+            if isinstance(chunk[0], str):
+                # Format: (node_name, value) — node_name is a plain string
+                node_name, value = chunk[0], chunk[1]
+                if node_name not in ("__start__", "__end__", "__interrupt__"):
+                    if node_name not in execution_state["executed_nodes"]:
+                        execution_state["executed_nodes"].append(node_name)
+                if isinstance(value, dict) and "messages" in value:
+                    msg_list = value["messages"]
+                    if isinstance(msg_list, list):
+                        execution_state["message_count"] += len(msg_list)
+                        for msg in msg_list:
+                            content = get_message_content(msg)
+                            if content:
+                                execution_state["final_response"] = (
+                                    execution_state["final_response"] or ""
+                                ) + content
+            else:
+                # Format: (message_object, metadata_dict) for stream_mode="messages"
+                # chunk[0] is a LangChain message (AIMessage, HumanMessage, etc.)
+                # chunk[1] is a metadata dict containing "langgraph_node"
+                message_obj, metadata = chunk[0], chunk[1]
+                if isinstance(metadata, dict):
+                    node_name = metadata.get("langgraph_node", "")
+                    if (
+                        node_name
+                        and isinstance(node_name, str)
+                        and node_name not in ("__start__", "__end__", "__interrupt__")
+                        and node_name not in execution_state["executed_nodes"]
+                    ):
+                        execution_state["executed_nodes"].append(node_name)
+                execution_state["message_count"] += 1
+                content = get_message_content(message_obj)
+                if content:
+                    execution_state["final_response"] = (
+                        execution_state["final_response"] or ""
+                    ) + content
 
     except Exception:
         # Don't fail on chunk processing errors
@@ -337,7 +367,7 @@ def _finalize_async_stream_span(
             execution_state["final_response"][:500],
         )
         span.set_attribute(
-            SemanticConvention.GEN_AI_CONTENT_COMPLETION,
+            SemanticConvention.GEN_AI_OUTPUT_MESSAGES,
             execution_state["final_response"][:1000],
         )
 
@@ -396,7 +426,7 @@ def async_checkpoint_wrap(
 
             # Set basic attributes
             span.set_attribute(
-                SemanticConvention.GEN_AI_SYSTEM,
+                SemanticConvention.GEN_AI_PROVIDER_NAME,
                 SemanticConvention.GEN_AI_SYSTEM_LANGGRAPH,
             )
             span.set_attribute(SemanticConvention.GEN_AI_OPERATION, operation_type)
@@ -483,9 +513,6 @@ def _record_checkpoint_metrics(
 
         if "genai_client_operation_duration" in metrics:
             metrics["genai_client_operation_duration"].record(duration, attributes)
-
-        if "genai_requests" in metrics:
-            metrics["genai_requests"].add(1, attributes)
 
     except Exception:
         pass

@@ -519,7 +519,7 @@ def _capture_content(span, instance, response, endpoint):
             span.add_event(
                 name=SemanticConvention.GEN_AI_CONTENT_COMPLETION_EVENT,
                 attributes={
-                    SemanticConvention.GEN_AI_CONTENT_COMPLETION: str(response)[
+                    SemanticConvention.GEN_AI_OUTPUT_MESSAGES: str(response)[
                         :1000
                     ],  # Limit size
                 },
@@ -532,7 +532,7 @@ def _capture_content(span, instance, response, endpoint):
                 span.add_event(
                     name=SemanticConvention.GEN_AI_CONTENT_PROMPT_EVENT,
                     attributes={
-                        SemanticConvention.GEN_AI_CONTENT_PROMPT: task_description[
+                        SemanticConvention.GEN_AI_INPUT_MESSAGES: task_description[
                             :1000
                         ],
                     },
@@ -587,10 +587,6 @@ def _record_crewai_metrics(
             metrics["genai_client_operation_duration"].record(
                 duration_ms / 1000, attributes
             )
-
-        # Record operation count
-        if "genai_requests" in metrics:
-            metrics["genai_requests"].add(1, attributes)
 
     except Exception:
         # Graceful degradation
