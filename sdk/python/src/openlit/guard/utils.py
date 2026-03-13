@@ -90,13 +90,23 @@ def llm_response(provider: str, prompt: str, model: str, base_url: str) -> str:
 
 def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
     """Function to make LLM call to OpenAI"""
-    client = OpenAI(base_url=base_url)
-
-    if model is None:
-        model = "gpt-4o"
+    forge_api_key = os.getenv("FORGE_API_KEY")
+    base_url_is_forge = base_url and "forge.tensorblock.co" in base_url
+    use_forge = base_url_is_forge or (forge_api_key and base_url is None)
 
     if base_url is None:
-        base_url = "https://api.openai.com/v1"
+        if use_forge:
+            base_url = os.getenv("FORGE_API_BASE") or "https://api.forge.tensorblock.co/v1"
+        else:
+            base_url = "https://api.openai.com/v1"
+
+    if model is None:
+        model = "OpenAI/gpt-4o-mini" if use_forge else "gpt-4o"
+
+    client_kwargs = {"base_url": base_url}
+    if use_forge and forge_api_key:
+        client_kwargs["api_key"] = forge_api_key
+    client = OpenAI(**client_kwargs)
 
     response = client.chat.completions.create(
         model=model,
