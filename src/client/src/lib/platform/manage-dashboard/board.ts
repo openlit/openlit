@@ -1,4 +1,4 @@
-import { Board, Widget } from "@/types/manage-dashboard";
+import { Board, Widget, GridPosition } from "@/types/manage-dashboard";
 import { dataCollector } from "../common";
 import {
 	OPENLIT_BOARD_TABLE_NAME,
@@ -9,6 +9,32 @@ import Sanitizer from "@/utils/sanitizer";
 import { createWidget, getWidgets } from "./widget";
 import { pluck } from "lodash/fp";
 import { jsonParse, jsonStringify } from "@/utils/json";
+
+interface ImportLayout {
+	i: string;
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+	minW?: number;
+	minH?: number;
+}
+
+interface ImportBoardLayoutData {
+	title: string;
+	description: string;
+	isPinned: boolean;
+	isMainDashboard: boolean;
+	tags?: string;
+	layouts: {
+		lg: ImportLayout[];
+	};
+	/**
+	 * Widgets keyed by their identifier. If a widget lacks an 'id' property,
+	 * the Record key is used as the canonical identifier for layout.i mapping.
+	 */
+	widgets: Record<string, Omit<Widget, 'id'> & { id?: string }>;
+}
 
 export function getBoardById(id: string) {
 	const query = `
@@ -426,8 +452,7 @@ export async function getMainDashboard(layout?: boolean, databaseConfigId?: stri
 	return { data: (mainDashboardData as any[])[0], err: null };
 }
 
-// TODO: fix the type of data
-export async function importBoardLayout(data: any, databaseConfigId?: string) {
+export async function importBoardLayout(data: ImportBoardLayoutData, databaseConfigId?: string) {
 	const mainDashboard = await getMainDashboard(false, databaseConfigId);
 
 	const boardData: Partial<Board> = {
@@ -453,11 +478,13 @@ export async function importBoardLayout(data: any, databaseConfigId?: string) {
 		widgets: data.widgets
 	};
 
-	const widgetIdMap = new Map();
+	const widgetIdMap = new Map<string, string>();
 
-	const updatedWidgets = Object.values(layoutConfig.widgets).map((widget: any) => {
+	const updatedWidgets = Object.entries(layoutConfig.widgets).map(([recordKey, widget]) => {
+		// Use the Record key as oldId when widget.id is missing to ensure layout.i references resolve correctly
+		const oldId = widget.id || recordKey;
 		const newWidgetId = crypto.randomUUID();
-		widgetIdMap.set(widget.id, newWidgetId);
+		widgetIdMap.set(oldId, newWidgetId);
 
 		return {
 			...widget,
@@ -465,14 +492,15 @@ export async function importBoardLayout(data: any, databaseConfigId?: string) {
 		};
 	});
 
-	const updatedLayouts = layoutConfig.layouts.lg.map((layout: any) => {
+	const updatedLayouts = layoutConfig.layouts.lg.map((layout) => {
+		const newId = widgetIdMap.get(layout.i);
 		return {
 			...layout,
-			i: widgetIdMap.get(layout.i)
-		}
+			i: newId || layout.i,
+		};
 	});
 
-	await Promise.all(updatedWidgets.map(async (widget: any) => {
+	await Promise.all(updatedWidgets.map(async (widget) => {
 		return await createWidget(widget, databaseConfigId);
 	}));
 
@@ -480,10 +508,10 @@ export async function importBoardLayout(data: any, databaseConfigId?: string) {
 		layouts: {
 			lg: updatedLayouts
 		},
-		widgets: updatedWidgets.reduce((acc: any, widget: any) => {
+		widgets: updatedWidgets.reduce((acc, widget) => {
 			acc[widget.id] = widget;
 			return acc;
-		}, {}),
+		}, {} as Record<string, typeof updatedWidgets[0]>),
 	}
 
 
