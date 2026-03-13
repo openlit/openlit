@@ -8,6 +8,8 @@ Tests cover:
 - record_agent_duration helper
 - record_agent_invocation helper
 - log_agent_invocation public API
+- record_agent_tool_error helper
+- log_agent_tool_error public API
 - Automatic agent-to-agent invocation detection (nested contexts)
 
 These tests do not require any external API keys or services.
@@ -24,6 +26,7 @@ from openlit.__helpers import (
     get_agent_name,
     record_agent_duration,
     record_agent_invocation,
+    record_agent_tool_error,
 )
 from openlit.semcov import SemanticConvention
 
@@ -489,6 +492,111 @@ class TestNestedAgentDetection:
         asyncio.run(run_test())
 
         assert not interference_detected, "Concurrent agents interfered with each other's context"
+
+
+# ---------------------------------------------------------------------------
+# 7. record_agent_tool_error
+# ---------------------------------------------------------------------------
+
+class TestRecordAgentToolError:
+    """Tests for record_agent_tool_error helper."""
+
+    def test_records_with_correct_attributes(self):
+        """Tool error is recorded with agent name and tool name."""
+        fake_counter = MagicMock()
+        metrics = {"genai_agent_tool_errors": fake_counter}
+        record_agent_tool_error(metrics, "cart_agent", "add_to_cart")
+
+        fake_counter.add.assert_called_once()
+        value, attrs = fake_counter.add.call_args[0]
+        assert value == 1
+        assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "cart_agent"
+        assert attrs["gen_ai.tool.name"] == "add_to_cart"
+        assert SemanticConvention.GEN_AI_PROVIDER_NAME not in attrs
+        assert SemanticConvention.GEN_AI_REQUEST_MODEL not in attrs
+
+    def test_records_with_system_and_model(self):
+        """System and model attributes are included when provided."""
+        fake_counter = MagicMock()
+        metrics = {"genai_agent_tool_errors": fake_counter}
+        record_agent_tool_error(
+            metrics, "cart_agent", "add_to_cart",
+            system="anthropic", model="claude-haiku-4-5",
+        )
+
+        _, attrs = fake_counter.add.call_args[0]
+        assert attrs[SemanticConvention.GEN_AI_PROVIDER_NAME] == "anthropic"
+        assert attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "claude-haiku-4-5"
+
+    def test_records_with_system_only(self):
+        """Works with system but no model."""
+        fake_counter = MagicMock()
+        metrics = {"genai_agent_tool_errors": fake_counter}
+        record_agent_tool_error(
+            metrics, "product_agent", "search_products", system="openai",
+        )
+
+        _, attrs = fake_counter.add.call_args[0]
+        assert attrs[SemanticConvention.GEN_AI_PROVIDER_NAME] == "openai"
+        assert SemanticConvention.GEN_AI_REQUEST_MODEL not in attrs
+
+    def test_noop_when_metrics_none(self):
+        """Gracefully no-ops when metrics dict is None."""
+        record_agent_tool_error(None, "cart_agent", "add_to_cart")
+
+    def test_noop_when_metrics_empty(self):
+        """Gracefully no-ops when metrics dict is empty."""
+        record_agent_tool_error({}, "cart_agent", "add_to_cart")
+
+
+# ---------------------------------------------------------------------------
+# 8. log_agent_tool_error public API
+# ---------------------------------------------------------------------------
+
+class TestLogAgentToolError:
+    """Tests for the public openlit.log_agent_tool_error() wrapper."""
+
+    def test_delegates_to_counter(self):
+        """Public API records to the genai_agent_tool_errors counter."""
+        fake_counter = MagicMock()
+        original = openlit.OpenlitConfig.metrics_dict
+        openlit.OpenlitConfig.metrics_dict = {"genai_agent_tool_errors": fake_counter}
+        try:
+            openlit.log_agent_tool_error("cart_agent", "add_to_cart")
+
+            fake_counter.add.assert_called_once()
+            value, attrs = fake_counter.add.call_args[0]
+            assert value == 1
+            assert attrs[SemanticConvention.GEN_AI_AGENT_NAME] == "cart_agent"
+            assert attrs["gen_ai.tool.name"] == "add_to_cart"
+        finally:
+            openlit.OpenlitConfig.metrics_dict = original
+
+    def test_delegates_with_system_and_model(self):
+        """Public API passes system and model through to the counter."""
+        fake_counter = MagicMock()
+        original = openlit.OpenlitConfig.metrics_dict
+        openlit.OpenlitConfig.metrics_dict = {"genai_agent_tool_errors": fake_counter}
+        try:
+            openlit.log_agent_tool_error(
+                "cart_agent", "get_cart",
+                system="anthropic", model="claude-haiku-4-5",
+            )
+
+            _, attrs = fake_counter.add.call_args[0]
+            assert attrs[SemanticConvention.GEN_AI_PROVIDER_NAME] == "anthropic"
+            assert attrs[SemanticConvention.GEN_AI_REQUEST_MODEL] == "claude-haiku-4-5"
+        finally:
+            openlit.OpenlitConfig.metrics_dict = original
+
+    def test_noop_when_no_metrics(self):
+        """Does not raise when metrics are not initialized."""
+        original = openlit.OpenlitConfig.metrics_dict
+        openlit.OpenlitConfig.metrics_dict = {}
+        try:
+            openlit.log_agent_tool_error("cart_agent", "add_to_cart")
+        finally:
+            openlit.OpenlitConfig.metrics_dict = original
 
 
 # ---------------------------------------------------------------------------

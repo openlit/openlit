@@ -358,6 +358,11 @@ def setup_meter(application_name, environment, meter, otlp_endpoint, otlp_header
                 description="Number of times one agent invokes another agent",
                 unit="1",
             ),
+            "genai_agent_tool_errors": meter.create_counter(
+                name=SemanticConvention.GEN_AI_AGENT_TOOL_ERRORS,
+                description="Number of tool execution errors encountered by an agent",
+                unit="1",
+            ),
         }
 
         return metrics_dict, None

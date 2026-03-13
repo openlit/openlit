@@ -671,6 +671,25 @@ def record_agent_invocation(metrics, source_agent, target_agent, system=None):
     metrics["genai_agent_invocations"].add(1, attributes)
 
 
+def record_agent_tool_error(metrics, agent_name, tool_name, system=None, model=None):
+    """
+    Record gen_ai.agent.tool.errors when a tool execution fails.
+    """
+    if not metrics or "genai_agent_tool_errors" not in metrics:
+        return
+
+    attributes = {
+        SemanticConvention.GEN_AI_AGENT_NAME: agent_name,
+        "gen_ai.tool.name": tool_name,
+    }
+    if system:
+        attributes[SemanticConvention.GEN_AI_PROVIDER_NAME] = system
+    if model:
+        attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = model
+
+    metrics["genai_agent_tool_errors"].add(1, attributes)
+
+
 def record_embedding_metrics(
     metrics,
     gen_ai_operation,

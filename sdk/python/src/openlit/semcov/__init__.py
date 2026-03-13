@@ -678,6 +678,7 @@ class SemanticConvention:
     # Agent Metrics (OpenLIT vendor extension; not part of OTel GenAI semconv)
     GEN_AI_AGENT_OPERATION_DURATION = "gen_ai.agent.operation.duration"
     GEN_AI_AGENT_INVOCATIONS = "gen_ai.agent.invocations"
+    GEN_AI_AGENT_TOOL_ERRORS = "gen_ai.agent.tool.errors"
     GEN_AI_AGENT_SOURCE = "gen_ai.agent.source"
     GEN_AI_AGENT_TARGET = "gen_ai.agent.target"
 

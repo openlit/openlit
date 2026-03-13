@@ -27,6 +27,7 @@ from openlit.__helpers import (
     set_agent_name,
     reset_agent_name,
     record_agent_invocation,
+    record_agent_tool_error,
 )
 from openlit._instrumentors import MODULE_NAME_MAP, get_all_instrumentors
 
@@ -581,6 +582,23 @@ def log_agent_invocation(source, target, system=None):
             record_agent_invocation(metrics, source, target, system)
     except Exception as e:
         logger.debug("Failed to record agent invocation: %s", e)
+
+
+def log_agent_tool_error(agent_name, tool_name, system=None, model=None):
+    """
+    Record that a tool execution failed for an agent.
+
+    Usage:
+        openlit.log_agent_tool_error("cart_agent", "add_to_cart",
+                                      system="anthropic", model="claude-haiku-4-5")
+    """
+    try:
+        metrics = OpenlitConfig.metrics_dict
+        if metrics:
+            record_agent_tool_error(metrics, agent_name, tool_name,
+                                    system=system, model=model)
+    except Exception as e:
+        logger.debug("Failed to record agent tool error: %s", e)
 
 
 @contextmanager
