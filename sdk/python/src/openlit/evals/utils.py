@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from anthropic import Anthropic
 from openai import OpenAI
 from openlit.semcov import SemanticConvention
+from openlit._config import OpenlitConfig
 
 # Initialize logger for logging potential issues and operations
 logger = logging.getLogger(__name__)
@@ -272,12 +273,8 @@ def get_event_provider():
         The event provider if OpenLIT has been initialized with telemetry, else None.
     """
     try:
-        # pylint: disable=cyclic-import
-        # (Import is inside function body, executed only after openlit.init())
-        from openlit import OpenlitConfig
-
         return OpenlitConfig.event_provider
-    except (ImportError, AttributeError):
+    except AttributeError:
         return None
 
 
@@ -289,11 +286,8 @@ def get_evals_logs_export_config():
         True if OTEL Log Records should be used instead of Events, else False.
     """
     try:
-        # pylint: disable=cyclic-import
-        from openlit import OpenlitConfig
-
         return getattr(OpenlitConfig, "evals_logs_export", True)
-    except (ImportError, AttributeError):
+    except AttributeError:
         return True
 
 

@@ -43,6 +43,7 @@ Customize OpenLIT SDK behavior for your specific instrumentation needs:
 | `capture_message_content` | `--capture_message_content` | `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | Enable LLM prompt and response content tracing for debugging | `True` | No |
 | `disabled_instrumentors` | `--disabled_instrumentors` | `OPENLIT_DISABLED_INSTRUMENTORS` | Disable specific AI service instrumentations (comma-separated) | `None` | No |
 | `disable_metrics` | `--disable_metrics` | `OPENLIT_DISABLE_METRICS` | Disable cost tracking and performance metrics collection | `False` | No |
+| `max_content_length` | `--max_content_length` | `OPENLIT_MAX_CONTENT_LENGTH` | Maximum character length for captured prompt/completion content. `None` (default) means no truncation. Set to a positive integer to truncate content exceeding that length. `0` or `-1` also disable truncation. | `None` | No |
 | `pricing_json` | `--pricing_json` | `OPENLIT_PRICING_JSON` | Custom pricing configuration for accurate LLM cost tracking | `None` | No |
 | `detailed_tracing` | `--detailed_tracing` | `OPENLIT_DETAILED_TRACING` | Enable detailed AI framework and component-level tracing | `True` | No |
 | `collect_system_metrics` | `--collect_system_metrics` | `OPENLIT_COLLECT_SYSTEM_METRICS` | Comprehensive system monitoring (CPU, memory, disk, network, GPU) for AI workloads | `False` | No |

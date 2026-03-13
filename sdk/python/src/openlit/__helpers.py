@@ -3,6 +3,7 @@
 This module has functions to calculate model costs based on tokens and to fetch pricing information.
 """
 
+import asyncio
 import os
 import json
 import logging
@@ -16,11 +17,59 @@ from opentelemetry.sdk.resources import (
     DEPLOYMENT_ENVIRONMENT,
 )
 from opentelemetry.trace import Status, StatusCode
-from opentelemetry._events import Event
+from opentelemetry._logs import LogRecord
 from openlit.semcov import SemanticConvention
+from openlit._config import OpenlitConfig
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+def truncate_content(text):
+    """Return *text* as a string, optionally truncated to ``max_content_length``.
+
+    By default (``max_content_length is None``), no truncation is applied.
+    When ``OpenlitConfig.max_content_length`` is set to a positive integer,
+    the string is truncated to that many characters with ``...`` appended.
+    A value of ``0`` or ``-1`` explicitly disables truncation (same as None).
+    """
+
+    s = str(text) if text is not None else ""
+
+    raw_limit = getattr(OpenlitConfig, "max_content_length", None)
+    if raw_limit is not None:
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            return s
+        if limit <= 0:
+            return s
+        if len(s) > limit:
+            return s[:limit] + "..."
+    return s
+
+
+def truncate_message_content(messages):
+    """Apply truncation to text content fields within OTel message structures.
+
+    Walks the standard ``[{"role": ..., "parts": [{"type": "text", "content": ...}]}]``
+    structure produced by ``build_input_messages`` / ``build_output_messages`` and
+    applies ``truncate_content`` to every text ``content`` and tool-call ``response``
+    field.  Operates in-place and returns *messages* for convenience.
+    """
+    if not isinstance(messages, list):
+        return messages
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        for part in msg.get("parts", []):
+            if not isinstance(part, dict):
+                continue
+            if "content" in part and isinstance(part["content"], str):
+                part["content"] = truncate_content(part["content"])
+            if "response" in part and isinstance(part["response"], str):
+                part["response"] = truncate_content(part["response"])
+    return messages
 
 
 def parse_exporters(env_var_name):
@@ -46,6 +95,9 @@ def response_as_dict(response):
     """
 
     # pylint: disable=no-else-return
+    if asyncio.iscoroutine(response):
+        logger.warning("response_as_dict received an unawaited coroutine")
+        return {}
     if isinstance(response, dict):
         return response
     if hasattr(response, "model_dump"):
@@ -321,13 +373,14 @@ def set_server_address_and_port(
 
 def otel_event(name, attributes, body):
     """
-    Returns an OpenTelemetry Event object
+    Returns an OpenTelemetry LogRecord representing an event.
     """
 
-    return Event(
-        name=name,
-        attributes=attributes,
+    base_attrs = attributes or {}
+    return LogRecord(
+        attributes=base_attrs,
         body=body,
+        event_name=name,
     )
 
 
