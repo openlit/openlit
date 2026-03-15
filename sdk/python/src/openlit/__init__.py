@@ -21,7 +21,14 @@ from openlit.semcov import SemanticConvention
 from openlit.otel.tracing import setup_tracing
 from openlit.otel.metrics import setup_meter
 from openlit.otel.events import setup_events
-from openlit.__helpers import fetch_pricing_info, get_env_variable
+from openlit.__helpers import (
+    fetch_pricing_info,
+    get_env_variable,
+    set_agent_name,
+    reset_agent_name,
+    record_agent_invocation,
+    record_agent_tool_error,
+)
 from openlit._config import OpenlitConfig  # noqa: F401 — re-exported for public API
 from openlit._instrumentors import MODULE_NAME_MAP, get_all_instrumentors
 
@@ -462,6 +469,58 @@ def get_secrets(url=None, api_key=None, key=None, tags=None, should_set_env=None
     except requests.RequestException as error:
         logger.error("Error fetching secrets: '%s'", error)
         return None
+
+
+def log_agent_invocation(source, target, system=None):
+    """
+    Record that one agent invoked another.
+
+    Usage:
+        openlit.log_agent_invocation("orchestrator", "product_agent")
+    """
+    try:
+        metrics = OpenlitConfig.metrics_dict
+        if metrics:
+            record_agent_invocation(metrics, source, target, system)
+    except Exception as e:
+        logger.debug("Failed to record agent invocation: %s", e)
+
+
+def log_agent_tool_error(agent_name, tool_name, system=None, model=None):
+    """
+    Record that a tool execution failed for an agent.
+
+    Usage:
+        openlit.log_agent_tool_error("cart_agent", "add_to_cart",
+                                      system="anthropic", model="claude-haiku-4-5")
+    """
+    try:
+        metrics = OpenlitConfig.metrics_dict
+        if metrics:
+            record_agent_tool_error(metrics, agent_name, tool_name,
+                                    system=system, model=model)
+    except Exception as e:
+        logger.debug("Failed to record agent tool error: %s", e)
+
+
+@contextmanager
+def agent_context(name):
+    """
+    Context manager that sets the current agent name for metric attribution.
+
+    Any LLM calls made within this context will have their metrics tagged
+    with gen_ai.agent.name=<name>.
+
+    Usage:
+        with openlit.agent_context("product_agent"):
+            # LLM calls here will be attributed to product_agent
+            client.messages.create(...)
+    """
+    token = set_agent_name(name)
+    try:
+        yield
+    finally:
+        reset_agent_name(token)
 
 
 def trace(wrapped):

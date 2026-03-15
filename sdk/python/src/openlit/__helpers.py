@@ -7,8 +7,9 @@ import asyncio
 import os
 import json
 import logging
+from contextvars import ContextVar
 from urllib.parse import urlparse
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import math
 import requests
 from opentelemetry.sdk.resources import (
@@ -20,6 +21,14 @@ from opentelemetry.trace import Status, StatusCode
 from opentelemetry._logs import LogRecord
 from openlit.semcov import SemanticConvention
 from openlit._config import OpenlitConfig
+
+# ContextVar for propagating agent name from agent frameworks to LLM instrumentors.
+# Set by framework instrumentors (CrewAI, PydanticAI, etc.) or via the public
+# openlit.set_agent_name() API so that downstream LLM call metrics are tagged
+# with gen_ai.agent.name without requiring changes to every LLM instrumentor.
+_current_agent_name: ContextVar[Optional[str]] = ContextVar(
+    "openlit_agent_name", default=None
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -268,6 +277,7 @@ def create_metrics_attributes(
     response_model: str,
     token_type: str = None,
     error_type: str = None,
+    include_agent_name: bool = False,
 ) -> Dict[Any, Any]:
     """
     Returns OTel metrics attributes.
@@ -276,6 +286,9 @@ def create_metrics_attributes(
         token_type: For gen_ai.client.token.usage metric only "input" and "output"
             are allowed per OTel GenAI semconv; do not use "reasoning" or "total".
         error_type: Optional error type for failed operations
+        include_agent_name: When True, reads gen_ai.agent.name from the current
+            context and adds it to the attributes. Only use for LLM completion
+            metrics — not for embeddings, audio, or DB metrics.
     """
 
     attributes = {
@@ -289,6 +302,14 @@ def create_metrics_attributes(
         SemanticConvention.SERVER_PORT: server_port,
         SemanticConvention.GEN_AI_RESPONSE_MODEL: response_model,
     }
+
+    # Propagate agent name from context if an agent framework set it.
+    # Gated behind include_agent_name to avoid leaking onto embedding,
+    # audio, or DB metrics that also call this function.
+    if include_agent_name:
+        agent_name = _current_agent_name.get()
+        if agent_name:
+            attributes[SemanticConvention.GEN_AI_AGENT_NAME] = agent_name
 
     # Add optional attributes for OTel compliance
     if token_type:
@@ -573,7 +594,9 @@ def record_completion_metrics(
     records each on gen_ai.client.operation.time_per_output_chunk (streaming only).
     """
 
-    # Base attributes without token type
+    # Base attributes without token type.
+    # include_agent_name=True so that LLM completion metrics are tagged
+    # with gen_ai.agent.name when called within an agent context.
     base_attributes = create_metrics_attributes(
         operation=gen_ai_operation,
         system=GEN_AI_PROVIDER_NAME,
@@ -584,6 +607,7 @@ def record_completion_metrics(
         service_name=application_name,
         deployment_environment=environment,
         error_type=error_type,
+        include_agent_name=True,
     )
 
     # Record token usage with proper token type (OTel compliant)
@@ -639,6 +663,84 @@ def record_completion_metrics(
     # Cost (OpenLIT vendor extension; not in OTel GenAI semconv)
     if "genai_cost" in metrics:
         metrics["genai_cost"].record(cost, base_attributes)
+
+
+def set_agent_name(name: Optional[str]):
+    """
+    Set the current agent name in context so that downstream LLM call metrics
+    are automatically tagged with gen_ai.agent.name.
+
+    Returns a token that MUST be passed to reset_agent_name() when done,
+    typically in a finally block. For simpler usage, prefer
+    openlit.agent_context() which handles this automatically.
+    """
+    return _current_agent_name.set(name)
+
+
+def reset_agent_name(token):
+    """Reset the agent name context to its previous value."""
+    _current_agent_name.reset(token)
+
+
+def get_agent_name() -> Optional[str]:
+    """Get the current agent name from context, or None."""
+    return _current_agent_name.get()
+
+
+def record_agent_duration(metrics, agent_name, duration, operation="chat",
+                          system=None, error_type=None):
+    """
+    Record gen_ai.agent.operation.duration for an agent request.
+    """
+    if not metrics or "genai_agent_operation_duration" not in metrics:
+        return
+
+    attributes = {
+        SemanticConvention.GEN_AI_AGENT_NAME: agent_name,
+        SemanticConvention.GEN_AI_OPERATION: operation,
+    }
+    if system:
+        attributes[SemanticConvention.GEN_AI_PROVIDER_NAME] = system
+    if error_type:
+        attributes[SemanticConvention.ERROR_TYPE] = error_type
+
+    metrics["genai_agent_operation_duration"].record(duration, attributes)
+
+
+def record_agent_invocation(metrics, source_agent, target_agent, system=None):
+    """
+    Record gen_ai.agent.invocations when one agent invokes another.
+    """
+    if not metrics or "genai_agent_invocations" not in metrics:
+        return
+
+    attributes = {
+        SemanticConvention.GEN_AI_AGENT_SOURCE: source_agent,
+        SemanticConvention.GEN_AI_AGENT_TARGET: target_agent,
+    }
+    if system:
+        attributes[SemanticConvention.GEN_AI_PROVIDER_NAME] = system
+
+    metrics["genai_agent_invocations"].add(1, attributes)
+
+
+def record_agent_tool_error(metrics, agent_name, tool_name, system=None, model=None):
+    """
+    Record gen_ai.agent.tool.errors when a tool execution fails.
+    """
+    if not metrics or "genai_agent_tool_errors" not in metrics:
+        return
+
+    attributes = {
+        SemanticConvention.GEN_AI_AGENT_NAME: agent_name,
+        "gen_ai.tool.name": tool_name,
+    }
+    if system:
+        attributes[SemanticConvention.GEN_AI_PROVIDER_NAME] = system
+    if model:
+        attributes[SemanticConvention.GEN_AI_REQUEST_MODEL] = model
+
+    metrics["genai_agent_tool_errors"].add(1, attributes)
 
 
 def record_embedding_metrics(
