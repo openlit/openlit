@@ -46,7 +46,7 @@ jobs:
 
       - name: Extract operator metadata
         id: operator-meta
-        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/openlit/openlit-operator
           tags: |
@@ -115,7 +115,7 @@ jobs:
 
       - name: Extract base provider metadata
         id: base-provider-meta
-        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/openlit/base-ai-instrumentation
           tags: |
@@ -184,7 +184,7 @@ jobs:
 
       - name: Extract OpenLIT provider metadata
         id: openlit-provider-meta
-        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/openlit/openlit-ai-instrumentation
           tags: |
@@ -253,7 +253,7 @@ jobs:
 
       - name: Extract OpenInference provider metadata
         id: openinference-provider-meta
-        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/openlit/openinference-ai-instrumentation
           tags: |
@@ -322,7 +322,7 @@ jobs:
 
       - name: Extract OpenLLMetry provider metadata
         id: openllmetry-provider-meta
-        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/openlit/openllmetry-ai-instrumentation
           tags: |
