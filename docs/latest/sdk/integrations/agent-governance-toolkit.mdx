@@ -1,0 +1,116 @@
+---
+title: 'Monitor AI Agent Governance using OpenTelemetry'
+sidebarTitle: 'Agent Governance Toolkit'
+---
+
+Monitor your AI agent governance pipeline with [Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit) and OpenLIT.
+Surface policy evaluations, trust score changes, capability violations, and audit integrity alongside your existing AI observability metrics.
+
+## Overview
+
+Agent Governance Toolkit emits OpenTelemetry signals for every governance decision in your AI agent system:
+
+| Signal | Description | OTel Type |
+|---|---|---|
+| `governance.policy.evaluation` | Policy check result (allow/deny/warn) with latency | Span |
+| `governance.trust.score_change` | Agent trust score movement with reason | Span |
+| `governance.capability.request` | Tool/capability access attempt (granted/denied) | Span |
+| `governance.violation` | Policy violation event with severity | Span + Event |
+| `governance.policy.eval_count` | Total policy evaluations | Counter |
+| `governance.policy.violation_count` | Total violations by severity | Counter |
+| `governance.policy.eval_latency_ms` | Policy evaluation latency | Histogram |
+| `governance.trust.score` | Current agent trust scores | Gauge |
+
+## Get Started
+
+<Steps>
+  <Step title="Install packages">
+    ```shell
+    pip install openlit ai-agent-compliance
+    ```
+  </Step>
+  <Step title="Initialize OpenLIT and the governance tracer">
+    Add both initializations at your application entry point:
+
+    ```python
+    import openlit
+    from agent_os.telemetry import GovernanceTracer
+
+    # Initialize OpenLIT (sends to OpenLIT platform by default)
+    openlit.init()
+
+    # Initialize governance tracing (uses the same OTEL exporter)
+    tracer = GovernanceTracer(service_name="my-agent-system")
+    ```
+  </Step>
+  <Step title="Instrument governance decisions">
+    The toolkit automatically traces policy evaluations. You can also emit custom governance spans:
+
+    ```python
+    from agent_os.policies import PolicyEvaluator
+
+    evaluator = PolicyEvaluator()
+    evaluator.load_yaml("""
+    name: production-safety
+    rules:
+      - name: block-dangerous-tools
+        condition: "tool_name in ['rm_rf', 'drop_database', 'send_email_all']"
+        action: deny
+        description: "Block dangerous tool access"
+    """)
+
+    # Every evaluate() call emits a governance.policy.evaluation span
+    decision = evaluator.evaluate({"tool_name": "read_file", "agent_id": "agent-1"})
+    ```
+  </Step>
+  <Step title="View in OpenLIT">
+    Governance signals appear in OpenLIT alongside your LLM traces:
+
+    - **Traces** → Filter by `governance.*` span names to see policy decisions
+    - **Metrics** → `governance.policy.eval_count`, `governance.policy.violation_count`
+    - **Dashboards** → Create custom panels for governance health (see below)
+  </Step>
+</Steps>
+
+## Custom Dashboard: Governance Health
+
+Create a governance-specific dashboard in OpenLIT to monitor:
+
+1. **Policy evaluation rate** — How many governance checks per minute
+2. **Violation trend** — Spikes in policy violations over time
+3. **Evaluation latency** — Are governance checks meeting the &lt;5ms SLA
+4. **Trust score distribution** — Current trust scores across your agent fleet
+
+Use the [Dashboard Builder](/latest/openlit/dashboards/create-dashboard) with these metric names:
+
+| Widget | Metric | Type |
+|---|---|---|
+| Eval rate | `governance.policy.eval_count` | Stat |
+| Violations over time | `governance.policy.violation_count` | Line chart |
+| P99 eval latency | `governance.policy.eval_latency_ms` | Area chart |
+| Trust scores | `governance.trust.score` | Bar chart |
+
+## Prometheus Metrics
+
+If you use Prometheus + Grafana instead of (or alongside) OpenLIT, the toolkit also exposes a Prometheus endpoint:
+
+```python
+from agent_os.telemetry import GovernanceMetrics
+
+metrics = GovernanceMetrics(port=9090)
+metrics.start()
+
+# Metrics auto-update as governance decisions flow
+# Scrape http://localhost:9090/metrics
+```
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Agent Governance Toolkit" href="https://github.com/microsoft/agent-governance-toolkit" icon="shield-halved">
+    Policy enforcement, trust verification, audit trails, and capability governance for AI agents
+  </Card>
+  <Card title="OpenLIT Dashboards" href="/latest/openlit/dashboards/overview" icon="chart-line">
+    Build custom dashboards for governance health metrics
+  </Card>
+</CardGroup>
