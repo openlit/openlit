@@ -59,12 +59,15 @@ def format_content(messages):
 
     for message in messages:
         try:
-            role = message.get("role", "user") or message.role
-            content = message.get("content", "") or message.content
-
-        except:
+            if isinstance(message, dict):
+                role = message.get("role") or "user"
+                content = message.get("content") or ""
+            else:
+                role = getattr(message, "role", "user")
+                content = getattr(message, "content", "")
+        except Exception:
             role = "user"
-            content = str(messages)
+            content = str(message)
 
         if isinstance(content, list):
             content_str_list = []
