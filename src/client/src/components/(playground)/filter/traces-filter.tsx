@@ -148,6 +148,7 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	params.delete("providers");
 	params.delete("traceTypes");
 	params.delete("appNames");
+	params.delete("spanNames");
 	params.delete("envs");
 	params.delete("maxCost");
 	// remove all existing cf entries
@@ -157,6 +158,7 @@ function configToParams(config: Partial<FilterConfig>, params: URLSearchParams) 
 	if (config.providers?.length) params.set("providers", config.providers.join(","));
 	if (config.traceTypes?.length) params.set("traceTypes", config.traceTypes.join(","));
 	if (config.applicationNames?.length) params.set("appNames", config.applicationNames.join(","));
+	if (config.spanNames?.length) params.set("spanNames", config.spanNames.join(","));
 	if (config.environments?.length) params.set("envs", config.environments.join(","));
 	if (config.maxCost) params.set("maxCost", String(config.maxCost));
 	config.customFilters?.forEach(({ attributeType, key, value }) => {
@@ -176,6 +178,8 @@ function paramsToConfig(params: URLSearchParams): Partial<FilterConfig> {
 	if (traceTypes) config.traceTypes = traceTypes.split(",").filter(Boolean);
 	const appNames = params.get("appNames");
 	if (appNames) config.applicationNames = appNames.split(",").filter(Boolean);
+	const spanNames = params.get("spanNames");
+	if (spanNames) config.spanNames = spanNames.split(",").filter(Boolean);
 	const envs = params.get("envs");
 	if (envs) config.environments = envs.split(",").filter(Boolean);
 	const maxCost = params.get("maxCost");
@@ -250,8 +254,7 @@ const DynamicFilters = ({
 			case "models":
 			case "providers":
 			case "traceTypes":
-			case "applicationNames":
-			case "environments":
+			case "applicationNames":		case "spanNames":			case "environments":
 				if (operationType === "add") {
 					setSelectedFilterValues((s) => {
 						const typeArray = s[type] || [];
@@ -447,6 +450,19 @@ const DynamicFilters = ({
 							type="applicationNames"
 							updateSelectedValues={updateSelectedValues}
 							selectedValues={selectedFilterValues.applicationNames}
+							clearItem={clearFilter}
+						/>
+					) : null}
+					{filterConfig?.spanNames?.length ? (
+						<ComboDropdown
+							options={filterConfig?.spanNames.map((s) => ({
+								label: s,
+								value: s,
+							}))}
+							title="Span Names"
+							type="spanNames"
+							updateSelectedValues={updateSelectedValues}
+							selectedValues={selectedFilterValues.spanNames}
 							clearItem={clearFilter}
 						/>
 					) : null}
