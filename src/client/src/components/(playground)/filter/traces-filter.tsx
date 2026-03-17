@@ -254,7 +254,9 @@ const DynamicFilters = ({
 			case "models":
 			case "providers":
 			case "traceTypes":
-			case "applicationNames":		case "spanNames":			case "environments":
+			case "applicationNames":
+			case "spanNames":
+			case "environments":
 				if (operationType === "add") {
 					setSelectedFilterValues((s) => {
 						const typeArray = s[type] || [];
