@@ -1,4 +1,4 @@
-# pylint: disable=missing-class-docstring, missing-function-docstring, duplicate-code
+# pylint: disable=missing-class-docstring, missing-function-docstring, duplicate-code, too-few-public-methods
 """Compatibility tests for LangChain instrumentation."""
 
 import pytest
