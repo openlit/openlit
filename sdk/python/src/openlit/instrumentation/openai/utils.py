@@ -23,6 +23,7 @@ from openlit.__helpers import (
     record_image_metrics,
     common_span_attributes,
     otel_event,
+    truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -58,12 +59,26 @@ def format_content(messages):
 
     for message in messages:
         try:
-            role = message.get("role", "user") or message.role
-            content = message.get("content", "") or message.content
-
-        except:
+            if isinstance(message, dict):
+                role = message.get("role", "user") or "user"
+                content = message.get("content")
+                if content is None:
+                    # content=None is normal for tool-call assistant turns;
+                    # fall back to tool_calls summary or empty string
+                    tool_calls = message.get("tool_calls")
+                    if tool_calls:
+                        content = f"[{len(tool_calls)} tool call(s)]"
+                    else:
+                        content = ""
+            else:
+                # Handle message objects (e.g., Pydantic models)
+                role = getattr(message, "role", "user") or "user"
+                content = getattr(message, "content", None)
+                if content is None:
+                    content = ""
+        except Exception:
             role = "user"
-            content = str(messages)
+            content = str(message)
 
         if isinstance(content, list):
             content_str_list = []
@@ -422,6 +437,8 @@ def build_system_instructions_from_messages(messages):
 def _set_span_messages_as_array(span, input_messages, output_messages):
     """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
     try:
+        truncate_message_content(input_messages)
+        truncate_message_content(output_messages)
         if input_messages is not None:
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,

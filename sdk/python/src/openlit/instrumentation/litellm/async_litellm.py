@@ -7,11 +7,11 @@ import asyncio
 from opentelemetry.trace import SpanKind
 from openlit.__helpers import (
     handle_exception,
-    set_server_address_and_port,
     record_completion_metrics,
     record_embedding_metrics,
 )
 from openlit.instrumentation.litellm.utils import (
+    get_litellm_server_address,
     process_chunk,
     process_streaming_chat_response,
     process_chat_response,
@@ -85,9 +85,9 @@ def acompletion(
         def __aiter__(self):
             return self
 
-        async def __getattr__(self, name):
+        def __getattr__(self, name):
             """Delegate attribute access to the wrapped object."""
-            return getattr(await self.__wrapped__, name)
+            return getattr(self.__wrapped__, name)
 
         async def __anext__(self):
             try:
@@ -145,9 +145,7 @@ def acompletion(
         """
         # Check if streaming is enabled for the API call
         streaming = kwargs.get("stream", False)
-        server_address, server_port = set_server_address_and_port(
-            instance, "NOT_FOUND", "NOT_FOUND"
-        )
+        server_address, server_port = get_litellm_server_address(instance, kwargs)
         request_model = kwargs.get("model", "openai/gpt-4o")
 
         span_name = f"{SemanticConvention.GEN_AI_OPERATION_TYPE_CHAT} {request_model}"
@@ -237,9 +235,7 @@ def aembedding(
         """
         Wraps the GenAI embedding function call.
         """
-        server_address, server_port = set_server_address_and_port(
-            instance, "NOT_FOUND", "NOT_FOUND"
-        )
+        server_address, server_port = get_litellm_server_address(instance, kwargs)
         request_model = kwargs.get("model", "text-embedding-ada-002")
 
         span_name = (

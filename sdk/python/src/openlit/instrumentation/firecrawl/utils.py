@@ -9,6 +9,7 @@ from opentelemetry.trace import Status, StatusCode
 
 from openlit.__helpers import (
     common_framework_span_attributes,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -497,7 +498,7 @@ def handle_firecrawl_error(span, error):
                 span.set_attribute("http.status_code", response.status_code)
             if hasattr(response, "text"):
                 span.set_attribute(
-                    "error.response_text", response.text[:500]
+                    "error.response_text", truncate_content(response.text)
                 )  # Limit error text
 
         # Additional error categorization using standard patterns
