@@ -8,6 +8,7 @@ from opentelemetry.trace import Status, StatusCode
 from openlit.__helpers import (
     common_db_span_attributes,
     record_db_metrics,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -234,7 +235,7 @@ def common_milvus_logic(
         scope._span.set_attribute(
             SemanticConvention.DB_QUERY_SUMMARY,
             f"{scope._db_operation} {collection_name} "
-            f"data={str(data)[:100]}... "
+            f"data={truncate_content(data)} "
             f"limit={scope._kwargs.get('limit', 'None')}",
         )
 

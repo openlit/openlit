@@ -9,6 +9,7 @@ from opentelemetry.trace import Status, StatusCode, get_current_span
 from openlit.__helpers import (
     common_db_span_attributes,
     record_db_metrics,
+    truncate_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -478,10 +479,7 @@ def common_psycopg_logic(
 
     # Set query text if capture is enabled
     if capture_message_content and scope._query:
-        query_str = str(scope._query)
-        # Truncate very long queries
-        if len(query_str) > 4096:
-            query_str = query_str[:4096] + "..."
+        query_str = truncate_content(scope._query)
         scope._span.set_attribute(SemanticConvention.DB_QUERY_TEXT, query_str)
 
     # Set query parameters if capture is enabled

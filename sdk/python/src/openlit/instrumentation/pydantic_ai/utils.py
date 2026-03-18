@@ -13,7 +13,7 @@ from opentelemetry.sdk.resources import (
 )
 from opentelemetry.trace import Status, StatusCode, SpanKind
 from opentelemetry import context as context_api
-from openlit.__helpers import handle_exception
+from openlit.__helpers import handle_exception, truncate_content
 from openlit.semcov import SemanticConvention
 
 # Try to import enhanced helpers for business intelligence
@@ -366,7 +366,7 @@ def extract_context_info(args, kwargs) -> Dict[str, Any]:
 
             # Extract user input
             if hasattr(context, "user_input"):
-                info["user_input"] = str(context.user_input)[:50]
+                info["user_input"] = truncate_content(context.user_input)
 
             # Extract tool information
             if hasattr(context, "tool_calls") and context.tool_calls:
