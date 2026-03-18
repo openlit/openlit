@@ -59,12 +59,26 @@ def format_content(messages):
 
     for message in messages:
         try:
-            role = message.get("role", "user") or message.role
-            content = message.get("content", "") or message.content
-
-        except:
+            if isinstance(message, dict):
+                role = message.get("role", "user") or "user"
+                content = message.get("content")
+                if content is None:
+                    # content=None is normal for tool-call assistant turns;
+                    # fall back to tool_calls summary or empty string
+                    tool_calls = message.get("tool_calls")
+                    if tool_calls:
+                        content = f"[{len(tool_calls)} tool call(s)]"
+                    else:
+                        content = ""
+            else:
+                # Handle message objects (e.g., Pydantic models)
+                role = getattr(message, "role", "user") or "user"
+                content = getattr(message, "content", None)
+                if content is None:
+                    content = ""
+        except Exception:
             role = "user"
-            content = str(messages)
+            content = str(message)
 
         if isinstance(content, list):
             content_str_list = []

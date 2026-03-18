@@ -46,7 +46,6 @@ opentelemetry-instrumentation-system-metrics = {version = ">=0.52b0,<1.0.0", opt
 openai = "^1.1.1"
 anthropic = ">=0.42.0,<1.0.0"
 openai-agents = ">=0.0.3"
-langchain = "^0.3.15"
 
 [tool.poetry.scripts]
 openlit-instrument = "openlit.cli.main:run"
