@@ -497,8 +497,9 @@ def log_agent_tool_error(agent_name, tool_name, system=None, model=None):
     try:
         metrics = OpenlitConfig.metrics_dict
         if metrics:
-            record_agent_tool_error(metrics, agent_name, tool_name,
-                                    system=system, model=model)
+            record_agent_tool_error(
+                metrics, agent_name, tool_name, system=system, model=model
+            )
     except Exception as e:
         logger.debug("Failed to record agent tool error: %s", e)
 

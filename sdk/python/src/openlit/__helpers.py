@@ -687,8 +687,9 @@ def get_agent_name() -> Optional[str]:
     return _current_agent_name.get()
 
 
-def record_agent_duration(metrics, agent_name, duration, operation="chat",
-                          system=None, error_type=None):
+def record_agent_duration(
+    metrics, agent_name, duration, operation="chat", system=None, error_type=None
+):
     """
     Record gen_ai.agent.operation.duration for an agent request.
     """
