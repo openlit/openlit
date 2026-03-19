@@ -257,7 +257,6 @@
                   "latest/sdk/integrations/pydantic",
                   "latest/sdk/integrations/dspy",
                   "latest/sdk/integrations/ag2",
-                  "latest/sdk/integrations/agent-governance-toolkit",
                   "latest/sdk/integrations/haystack",
                   "latest/sdk/integrations/mem0",
                   "latest/sdk/integrations/guardrails",
@@ -270,6 +269,13 @@
                   "latest/sdk/integrations/dynamiq",
                   "latest/sdk/integrations/controlflow",
                   "latest/sdk/integrations/swarmzero"
+                ]
+              },
+              {
+                "group": "Security Tools",
+                "icon": "shield-halved",
+                "pages": [
+                  "latest/sdk/integrations/agent-governance-toolkit"
                 ]
               },
               {

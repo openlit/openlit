@@ -104,6 +104,24 @@ metrics.start()
 # Scrape http://localhost:9090/metrics
 ```
 
+## OpenLIT Dashboard
+
+A pre-built **Governance Health** dashboard is available for import into OpenLIT. It provides:
+
+- **Total Policy Evaluations** — count with trend
+- **Total Violations** — count with severity breakdown
+- **Violations Over Time** — time-series chart
+- **Policy Eval Latency** — p50/p99 latency
+- **Violations by Agent** — which agents trigger the most violations
+- **Recent Violations** — audit table with agent, tool, policy, verdict
+
+Import the dashboard from:
+```
+src/client/src/clickhouse/seed-data/openlit-dashboard-Governance-Health-layout.json
+```
+
+Or create it manually via **OpenLIT → Dashboards → Import**.
+
 ## Resources
 
 <CardGroup cols={2}>
