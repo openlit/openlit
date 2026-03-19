@@ -9,8 +9,18 @@ OpenLIT uses OpenTelemetry Auto-Instrumentation to help you monitor LLM applicat
 
 Auto-instrumentation means you don't have to set up monitoring manually for different LLMs, frameworks, or databases. By simply adding OpenLIT in your application, all the necessary monitoring configurations are automatically set up.
 
-The integration is compatible with  
-- LangChain Python SDK client `>= 0.1.20` 
+The integration is compatible with:
+- `langchain-core >= 0.1.20`
+- modern `langchain` releases that expose `langchain_core`
+- modern `langgraph` releases when installed alongside LangChain
+
+Minimal requirement:
+- `langchain-core`
+
+Common installation patterns:
+- LangChain applications: `pip install langchain`
+- LangChain Core only: `pip install langchain-core`
+- LangGraph applications: `pip install langgraph`
 
 ## Get started 
 
@@ -19,6 +29,16 @@ The integration is compatible with
     Open your command line or terminal and run:
     ```shell
     pip install openlit
+    ```
+  </Step>
+  <Step title="Install LangChain or LangChain Core">
+    Install the framework package your application uses:
+    ```shell
+    pip install langchain
+    # or
+    pip install langchain-core
+    # or
+    pip install langgraph
     ```
   </Step>
   <IntegrationMethods />
