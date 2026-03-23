@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { CLIENT_EVENTS } from "@/constants/events";
+import getMessage from "@/constants/messages";
 import { usePageHeader } from "@/selectors/page";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
 import { ArrowLeftIcon, PlusIcon, XIcon } from "lucide-react";
@@ -16,6 +17,8 @@ import { usePostHog } from "posthog-js/react";
 import { KeyboardEvent, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+
+const m = getMessage();
 
 const getVersions = (startingVersion: string) => {
 	const v = startingVersion.split(".").map(Number);
@@ -30,27 +33,27 @@ const getVersions = (startingVersion: string) => {
 const VERSION_OPTIONS = (versions: ReturnType<typeof getVersions>) => [
 	{
 		value: versions.draft,
-		title: "Draft",
-		subText: "No version assigned",
-		description: "Save as a draft — not yet published",
+		title: m.PROMPT_HUB_DRAFT,
+		subText: m.PROMPT_HUB_NO_VERSION,
+		description: m.PROMPT_HUB_DRAFT_DESCRIPTION,
 	},
 	{
 		value: versions.major,
-		title: "Major",
+		title: m.PROMPT_HUB_MAJOR,
 		subText: `v${versions.major}`,
-		description: "Significant changes, not backwards compatible",
+		description: m.PROMPT_HUB_MAJOR_DESCRIPTION,
 	},
 	{
 		value: versions.minor,
-		title: "Minor",
+		title: m.PROMPT_HUB_MINOR,
 		subText: `v${versions.minor}`,
-		description: "New features, backwards compatible",
+		description: m.PROMPT_HUB_MINOR_DESCRIPTION,
 	},
 	{
 		value: versions.patch,
-		title: "Patch",
+		title: m.PROMPT_HUB_PATCH,
 		subText: `v${versions.patch}`,
-		description: "Bug fixes and minor updates",
+		description: m.PROMPT_HUB_PATCH_DESCRIPTION,
 	},
 ];
 
@@ -72,8 +75,8 @@ export default function NewPromptPage() {
 
 	useEffect(() => {
 		setHeader({
-			title: "Create Prompt",
-			breadcrumbs: [{ title: "Prompt Hub", href: "/prompt-hub" }],
+			title: m.PROMPT_HUB_CREATE_PROMPT,
+			breadcrumbs: [{ title: m.PROMPT_HUB, href: "/prompt-hub" }],
 		});
 	}, []);
 
@@ -95,14 +98,14 @@ export default function NewPromptPage() {
 
 	const handleSubmit = useCallback(() => {
 		if (!name.trim()) {
-			toast.error("Prompt name is required", { id: "prompt-new" });
+			toast.error(m.PROMPT_HUB_NAME_REQUIRED, { id: "prompt-new" });
 			return;
 		}
 		if (!promptText.trim()) {
-			toast.error("Prompt content is required", { id: "prompt-new" });
+			toast.error(m.PROMPT_HUB_CONTENT_REQUIRED, { id: "prompt-new" });
 			return;
 		}
-		toast.loading("Creating prompt...", { id: "prompt-new" });
+		toast.loading(m.PROMPT_HUB_CREATING, { id: "prompt-new" });
 
 		const metaProperties = metaProps.reduce(
 			(acc: Record<string, string>, { key, value }) => {
@@ -126,7 +129,7 @@ export default function NewPromptPage() {
 			requestType: "POST",
 			url: "/api/prompt",
 			successCb: (response: any) => {
-				toast.success("Prompt created successfully!", { id: "prompt-new" });
+				toast.success(m.PROMPT_HUB_CREATED_SUCCESS, { id: "prompt-new" });
 				posthog?.capture(CLIENT_EVENTS.PROMPT_ADD_SUCCESS);
 				if (response?.data?.promptId) {
 					router.push(`/prompt-hub/${response.data.promptId}`);
@@ -135,7 +138,7 @@ export default function NewPromptPage() {
 				}
 			},
 			failureCb: (err?: string) => {
-				toast.error(err || "Failed to create prompt", { id: "prompt-new" });
+				toast.error(err || m.PROMPT_HUB_CREATE_FAILED_TOAST, { id: "prompt-new" });
 				posthog?.capture(CLIENT_EVENTS.PROMPT_ADD_FAILURE);
 			},
 		});
@@ -150,14 +153,14 @@ export default function NewPromptPage() {
 					className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
 				>
 					<ArrowLeftIcon className="w-4 h-4" />
-					Back to Prompt Hub
+					{m.PROMPT_HUB_BACK}
 				</Link>
 				<Button
 					onClick={handleSubmit}
 					disabled={isLoading}
 					className={isLoading ? "animate-pulse" : ""}
 				>
-					Save Prompt
+					{m.PROMPT_HUB_SAVE}
 				</Button>
 			</div>
 
@@ -169,9 +172,9 @@ export default function NewPromptPage() {
 						{/* Name */}
 						<div className="flex flex-col gap-1.5 flex-shrink-0">
 							<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Name
+								{m.NAME}
 								<span className="text-stone-400 dark:text-stone-500 font-normal ml-1 text-xs">
-									(lowercase letters and _ only)
+									{m.PROMPT_HUB_NAME_HINT}
 								</span>
 							</Label>
 							<Input
@@ -180,7 +183,7 @@ export default function NewPromptPage() {
 									let v = e.target.value.toLowerCase().replace(/ /g, "_").replace(/[^a-z_]/g, "");
 									setName(v);
 								}}
-								placeholder="my_prompt"
+								placeholder={m.PROMPT_HUB_NAME_PLACEHOLDER}
 								className="border-stone-300 dark:border-stone-600"
 							/>
 						</div>
@@ -189,10 +192,10 @@ export default function NewPromptPage() {
 						<div className="flex flex-col gap-2 flex-1 overflow-hidden">
 							<div className="flex items-center justify-between">
 								<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-									Prompt
+									{m.PROMPT}
 								</Label>
 								<span className="text-xs text-stone-400 dark:text-stone-500">
-									Use {`{{variableName}}`} for dynamic variables
+									{m.PROMPT_HUB_VARIABLE_HINT}
 								</span>
 							</div>
 							<Tabs defaultValue="write" className="flex flex-col flex-1 overflow-hidden">
@@ -201,20 +204,20 @@ export default function NewPromptPage() {
 										value="write"
 										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-700 dark:text-stone-300 text-xs"
 									>
-										Write
+										{m.WRITE}
 									</TabsTrigger>
 									<TabsTrigger
 										value="preview"
 										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-700 dark:text-stone-300 text-xs"
 									>
-										Preview
+										{m.PREVIEW}
 									</TabsTrigger>
 								</TabsList>
 								<TabsContent value="write" className="flex-1 overflow-hidden mt-2">
 									<Textarea
 										value={promptText}
 										onChange={(e) => setPromptText(e.target.value)}
-										placeholder="Write your prompt here. Use {{variable}} for dynamic content."
+										placeholder={m.PROMPT_HUB_CONTENT_PLACEHOLDER}
 										className="h-full min-h-[300px] resize-none font-mono text-sm bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
 									/>
 								</TabsContent>
@@ -226,7 +229,7 @@ export default function NewPromptPage() {
 											</div>
 										) : (
 											<p className="text-sm text-stone-400 dark:text-stone-600 italic">
-												Nothing to preview yet.
+												{m.PROMPT_HUB_NOTHING_TO_PREVIEW}
 											</p>
 										)}
 									</div>
@@ -242,7 +245,7 @@ export default function NewPromptPage() {
 					<Card className="border border-stone-200 dark:border-stone-800 flex-shrink-0">
 						<CardHeader className="p-4 pb-2">
 							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Version
+								{m.PROMPT_HUB_VERSION}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-4 pt-0 flex flex-col gap-2">
@@ -277,7 +280,7 @@ export default function NewPromptPage() {
 					<Card className="border border-stone-200 dark:border-stone-800 flex-shrink-0">
 						<CardHeader className="p-4 pb-2">
 							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Tags
+								{m.TAGS}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-4 pt-0 flex flex-col gap-2">
@@ -291,7 +294,7 @@ export default function NewPromptPage() {
 											addTag();
 										}
 									}}
-									placeholder="Add a tag, press Enter"
+									placeholder={m.CONTEXT_TAGS_ENTER_PLACEHOLDER}
 									className="h-8 text-sm border-stone-300 dark:border-stone-600"
 								/>
 								<Button
@@ -327,7 +330,7 @@ export default function NewPromptPage() {
 					<Card className="border border-stone-200 dark:border-stone-800 flex-shrink-0">
 						<CardHeader className="p-4 pb-2">
 							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Meta Properties
+								{m.META_PROPERTIES}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-4 pt-0 flex flex-col gap-2">
@@ -336,13 +339,13 @@ export default function NewPromptPage() {
 									<Input
 										value={prop.key}
 										onChange={(e) => updateMetaProp(idx, "key", e.target.value)}
-										placeholder="Key"
+										placeholder={m.KEY}
 										className="h-8 text-sm border-stone-300 dark:border-stone-600"
 									/>
 									<Input
 										value={prop.value}
 										onChange={(e) => updateMetaProp(idx, "value", e.target.value)}
-										placeholder="Value"
+										placeholder={m.VALUE}
 										className="h-8 text-sm border-stone-300 dark:border-stone-600"
 									/>
 									<Button
@@ -364,7 +367,7 @@ export default function NewPromptPage() {
 								className="border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 mt-1"
 							>
 								<PlusIcon className="w-3.5 h-3.5 mr-1" />
-								Add property
+								{m.ADD_PROPERTY}
 							</Button>
 						</CardContent>
 					</Card>

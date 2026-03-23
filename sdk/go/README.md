@@ -270,6 +270,41 @@ See the [examples/](examples/) directory for complete working examples:
 - [Anthropic Messages](examples/anthropic/messages/)
 - [Anthropic Streaming](examples/anthropic/streaming/)
 
+## Rule Engine - `openlit.EvaluateRule()`
+
+Evaluate trace attributes against the OpenLIT Rule Engine to retrieve matching rules and associated entities (contexts, prompts, evaluation configurations). This function does **not** require `openlit.Init()` — it is a standalone HTTP call.
+
+### Parameters (`EvaluateRuleOptions`)
+
+| Field              | Type                    | Description                                                                 |
+|--------------------|-------------------------|-----------------------------------------------------------------------------|
+| `URL`              | `string`                | OpenLIT dashboard URL. Falls back to `OPENLIT_URL` env, then `http://127.0.0.1:3000`. |
+| `APIKey`           | `string`                | Bearer token. Falls back to `OPENLIT_API_KEY` env.                          |
+| `EntityType`       | `RuleEntityType`        | `RuleEntityContext`, `RuleEntityPrompt`, or `RuleEntityEvaluation`.         |
+| `Fields`           | `map[string]interface{}`| Trace attributes to evaluate against rules.                                 |
+| `IncludeEntityData`| `bool`                  | If true, include full entity data in response.                              |
+| `EntityInputs`     | `map[string]interface{}`| Optional inputs for entity resolution (e.g. prompt variables).              |
+| `Timeout`          | `time.Duration`         | HTTP timeout. Default: 30s.                                                 |
+
+### Example
+
+```go
+result, err := openlit.EvaluateRule(ctx, openlit.EvaluateRuleOptions{
+    EntityType: openlit.RuleEntityContext,
+    Fields: map[string]interface{}{
+        "gen_ai.system":        "openai",
+        "gen_ai.request.model": "gpt-4",
+        "service.name":         "my-app",
+    },
+    IncludeEntityData: true,
+})
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println("Matching rules:", result.MatchingRuleIDs)
+fmt.Println("Entities:", result.Entities)
+```
+
 ## Requirements
 
 - Go 1.21 or higher

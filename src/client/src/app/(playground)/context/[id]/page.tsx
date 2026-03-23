@@ -31,6 +31,7 @@ import ReactMarkdown from "react-markdown";
 import { usePageHeader } from "@/selectors/page";
 import RuleForm from "@/components/(playground)/rule-engine/form";
 import Link from "next/link";
+import getMessage from "@/constants/messages";
 
 function parseTags(raw: any): string[] {
 	if (Array.isArray(raw)) return raw.map(String);
@@ -56,6 +57,7 @@ export default function ContextDetailPage() {
 	const params = useParams();
 	const contextId = params.id as string;
 	const { setHeader } = usePageHeader();
+	const m = getMessage();
 
 	const [isEditing, setIsEditing] = useState(false);
 	const [editName, setEditName] = useState("");
@@ -105,12 +107,12 @@ export default function ContextDetailPage() {
 					loadContextIntoState(ctx);
 					setHeader({
 						title: ctx.name,
-						breadcrumbs: [{ title: "Contexts", href: "/context" }],
+						breadcrumbs: [{ title: m.CONTEXT_TITLE, href: "/context" }],
 					});
 				}
 			},
 			failureCb: (err?: string) => {
-				toast.error(err || "Failed to load context", { id: "context-detail" });
+				toast.error(err || m.CONTEXT_NOT_FOUND, { id: "context-detail" });
 			},
 		});
 	}, [contextId]);
@@ -176,19 +178,19 @@ export default function ContextDetailPage() {
 			requestType: "PUT",
 			url: `/api/context/${contextId}`,
 			successCb: () => {
-				toast.success("Context updated successfully!", { id: "context-detail" });
+				toast.success(m.CONTEXT_UPDATED_SUCCESS, { id: "context-detail" });
 				setIsEditing(false);
 				fetchContext();
 			},
 			failureCb: (err?: string) => {
-				toast.error(err || "Failed to update context", { id: "context-detail" });
+				toast.error(err || m.CONTEXT_UPDATE_FAILED, { id: "context-detail" });
 			},
 		});
 	}, [contextId, editName, editDescription, editContent, editStatus, editTags, editMetaProps]);
 
 	const linkExistingRule = useCallback(() => {
 		if (!selectedRuleId) {
-			toast.error("Please select a rule", { id: "context-link" });
+			toast.error(m.CONTEXT_SELECT_RULE, { id: "context-link" });
 			return;
 		}
 		fireLinkRule({
@@ -200,13 +202,13 @@ export default function ContextDetailPage() {
 			requestType: "POST",
 			url: "/api/rule-engine/entities",
 			successCb: () => {
-				toast.success("Rule linked to context!", { id: "context-link" });
+				toast.success(m.RULE_ENTITY_ASSOCIATED, { id: "context-link" });
 				setSelectedRuleId("");
 				setIsLinking(false);
 				fetchLinkedRules();
 			},
 			failureCb: (err?: string) => {
-				toast.error(err || "Failed to link rule", { id: "context-link" });
+				toast.error(err || m.RULE_ENTITY_ASSOCIATE_FAILED, { id: "context-link" });
 			},
 		});
 	}, [selectedRuleId, contextId]);
@@ -266,7 +268,7 @@ export default function ContextDetailPage() {
 										className="h-8 text-stone-600 dark:text-stone-400 border-stone-300 dark:border-stone-600"
 									>
 										<XIcon className="w-4 h-4 mr-1" />
-										Cancel
+										{m.CANCEL}
 									</Button>
 									<Button
 										size="sm"
@@ -275,7 +277,7 @@ export default function ContextDetailPage() {
 										className={`h-8 ${isUpdating ? "animate-pulse" : ""}`}
 									>
 										<CheckIcon className="w-4 h-4 mr-1" />
-										Save
+										{m.SAVE}
 									</Button>
 								</>
 							) : (
@@ -286,14 +288,14 @@ export default function ContextDetailPage() {
 									className="h-8 text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200"
 								>
 									<PencilIcon className="w-4 h-4 mr-1" />
-									Edit
+									{m.EDIT}
 								</Button>
 							)}
 						</div>
 					</div>
 					{!isEditing && ctx.created_by && (
 						<p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
-							Created by {ctx.created_by}
+							{m.CREATED_BY} {ctx.created_by}
 							{ctx.created_at && <> · {format(ctx.created_at, "MMM do, y")}</>}
 						</p>
 					)}
@@ -304,12 +306,12 @@ export default function ContextDetailPage() {
 					{isEditing ? (
 						<div className="flex flex-col gap-1">
 							<label className="text-xs font-medium text-stone-500 dark:text-stone-400">
-								Description
+								{m.DESCRIPTION}
 							</label>
 							<Input
 								value={editDescription}
 								onChange={(e) => setEditDescription(e.target.value)}
-								placeholder="Optional description"
+								placeholder={m.CONTEXT_DESCRIPTION_PLACEHOLDER}
 								className="border-stone-300 dark:border-stone-600"
 							/>
 						</div>
@@ -321,7 +323,7 @@ export default function ContextDetailPage() {
 					{isEditing && (
 						<div className="flex flex-col gap-1">
 							<label className="text-xs font-medium text-stone-500 dark:text-stone-400">
-								Status
+								{m.STATUS}
 							</label>
 							<Select
 								value={editStatus}
@@ -331,8 +333,8 @@ export default function ContextDetailPage() {
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="ACTIVE">Active</SelectItem>
-									<SelectItem value="INACTIVE">Inactive</SelectItem>
+									<SelectItem value="ACTIVE">{m.ACTIVE}</SelectItem>
+									<SelectItem value="INACTIVE">{m.INACTIVE}</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
@@ -341,7 +343,7 @@ export default function ContextDetailPage() {
 					{/* Tags */}
 					<div className="flex flex-col gap-1.5">
 						<label className="text-xs font-medium text-stone-500 dark:text-stone-400">
-							Tags
+							{m.TAGS}
 						</label>
 						{isEditing ? (
 							<>
@@ -355,7 +357,7 @@ export default function ContextDetailPage() {
 												addTag();
 											}
 										}}
-										placeholder="Add a tag, press Enter"
+										placeholder={m.CONTEXT_TAGS_ENTER_PLACEHOLDER}
 										className="h-8 text-sm border-stone-300 dark:border-stone-600"
 									/>
 									<Button
@@ -402,14 +404,14 @@ export default function ContextDetailPage() {
 								))}
 							</div>
 						) : (
-							<span className="text-xs text-stone-400 dark:text-stone-500 italic">None</span>
+							<span className="text-xs text-stone-400 dark:text-stone-500 italic">{m.CONTEXT_NONE}</span>
 						)}
 					</div>
 
 					{/* Meta Properties */}
 					<div className="flex flex-col gap-1.5">
 						<label className="text-xs font-medium text-stone-500 dark:text-stone-400">
-							Meta Properties
+							{m.META_PROPERTIES}
 						</label>
 						{isEditing ? (
 							<>
@@ -418,13 +420,13 @@ export default function ContextDetailPage() {
 										<Input
 											value={prop.key}
 											onChange={(e) => updateMetaProp(idx, "key", e.target.value)}
-											placeholder="Key"
+											placeholder={m.KEY}
 											className="h-8 text-sm border-stone-300 dark:border-stone-600"
 										/>
 										<Input
 											value={prop.value}
 											onChange={(e) => updateMetaProp(idx, "value", e.target.value)}
-											placeholder="Value"
+											placeholder={m.VALUE}
 											className="h-8 text-sm border-stone-300 dark:border-stone-600"
 										/>
 										<Button
@@ -446,7 +448,7 @@ export default function ContextDetailPage() {
 									className="border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 self-start"
 								>
 									<PlusIcon className="w-3.5 h-3.5 mr-1" />
-									Add property
+									{m.ADD_PROPERTY}
 								</Button>
 							</>
 						) : Object.keys(displayMeta).length > 0 ? (
@@ -456,7 +458,7 @@ export default function ContextDetailPage() {
 										<span className="font-mono text-xs text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-1.5 py-0.5 rounded">
 											{key}
 										</span>
-										<span className="text-stone-400 dark:text-stone-500 text-xs">→</span>
+										<span className="text-stone-400 dark:text-stone-500 text-xs">{"\u2192"}</span>
 										<span className="text-stone-700 dark:text-stone-300 text-sm">
 											{value}
 										</span>
@@ -464,14 +466,14 @@ export default function ContextDetailPage() {
 								))}
 							</div>
 						) : (
-							<span className="text-xs text-stone-400 dark:text-stone-500 italic">None</span>
+							<span className="text-xs text-stone-400 dark:text-stone-500 italic">{m.CONTEXT_NONE}</span>
 						)}
 					</div>
 
 					{/* Content — Write/Preview tabs */}
 					<div className="flex flex-col gap-2 flex-1">
 						<label className="text-xs font-medium text-stone-500 dark:text-stone-400">
-							Content
+							{m.CONTEXT_CONTENT}
 						</label>
 						{isEditing ? (
 							<Tabs defaultValue="write" className="flex flex-col flex-1">
@@ -480,20 +482,20 @@ export default function ContextDetailPage() {
 										value="write"
 										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-700 dark:text-stone-300 text-xs"
 									>
-										Write
+										{m.WRITE}
 									</TabsTrigger>
 									<TabsTrigger
 										value="preview"
 										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-700 dark:text-stone-300 text-xs"
 									>
-										Preview
+										{m.PREVIEW}
 									</TabsTrigger>
 								</TabsList>
 								<TabsContent value="write" className="flex-1 mt-2">
 									<Textarea
 										value={editContent}
 										onChange={(e) => setEditContent(e.target.value)}
-										placeholder="Write your context content in markdown..."
+										placeholder={m.CONTEXT_CONTENT_MARKDOWN_HINT}
 										className="min-h-[280px] h-full font-mono text-sm resize-none bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 dark:text-stone-100 dark:placeholder:text-stone-500"
 									/>
 								</TabsContent>
@@ -505,7 +507,7 @@ export default function ContextDetailPage() {
 											</div>
 										) : (
 											<p className="text-sm text-stone-400 dark:text-stone-600 italic">
-												Nothing to preview yet.
+												{m.CONTEXT_NOTHING_TO_PREVIEW}
 											</p>
 										)}
 									</div>
@@ -519,7 +521,7 @@ export default function ContextDetailPage() {
 									</div>
 								) : (
 									<p className="text-sm text-stone-400 dark:text-stone-600 italic">
-										No content yet. Click Edit to add content.
+										{m.CONTEXT_NO_CONTENT}
 									</p>
 								)}
 							</div>
@@ -533,7 +535,7 @@ export default function ContextDetailPage() {
 				<CardHeader className="p-4 pb-3 border-b border-stone-100 dark:border-stone-800 flex-shrink-0">
 					<div className="flex items-center justify-between">
 						<CardTitle className="text-base text-stone-800 dark:text-stone-200">
-							Rules
+							{m.RULES}
 						</CardTitle>
 						<RuleForm
 							entityId={contextId}
@@ -546,7 +548,7 @@ export default function ContextDetailPage() {
 								className="h-7 text-xs border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
 							>
 								<PlusIcon className="w-3 h-3 mr-1" />
-								New Rule
+								{m.NEW_RULE}
 							</Button>
 						</RuleForm>
 					</div>
@@ -556,7 +558,7 @@ export default function ContextDetailPage() {
 						<div className="flex flex-col items-center justify-center py-6 gap-2">
 							<SlidersHorizontal className="w-7 h-7 text-stone-300 dark:text-stone-600" />
 							<p className="text-sm text-stone-400 dark:text-stone-500 text-center">
-								No rules linked yet.
+								{m.CONTEXT_NO_RULES}
 							</p>
 						</div>
 					) : (
@@ -597,18 +599,18 @@ export default function ContextDetailPage() {
 							className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors self-start"
 						>
 							<LinkIcon className="w-3 h-3" />
-							{isLinking ? "Cancel" : "Link existing rule"}
+							{isLinking ? m.CANCEL : m.LINK_EXISTING_RULE}
 						</button>
 						{isLinking && (
 							<div className="flex flex-col gap-2">
 								<Select value={selectedRuleId} onValueChange={setSelectedRuleId}>
 									<SelectTrigger className="h-8 text-sm border-stone-300 dark:border-stone-600">
-										<SelectValue placeholder="Select a rule..." />
+										<SelectValue placeholder={m.CONTEXT_SELECT_RULE} />
 									</SelectTrigger>
 									<SelectContent>
 										{unlinkdRules.length === 0 ? (
 											<div className="px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
-												All rules already linked
+												{m.CONTEXT_ALL_RULES_LINKED}
 											</div>
 										) : (
 											unlinkdRules.map((rule: any) => (
@@ -635,7 +637,7 @@ export default function ContextDetailPage() {
 									className={`border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 ${isLinkingRule ? "animate-pulse" : ""}`}
 								>
 									<LinkIcon className="w-3 h-3 mr-1" />
-									Associate
+									{m.ASSOCIATE}
 								</Button>
 							</div>
 						)}

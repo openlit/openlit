@@ -27,6 +27,10 @@ The evaluate API receives a flat key-value map of input fields and an `entity_ty
 
 <Steps>
   <Step title="List rules">
+    <Frame>
+      <img src="/images/rule-engine-list.png" />
+    </Frame>
+
     1. Navigate to **Rule Engine** in the OpenLIT sidebar.
     2. Browse existing rules with their name, status, and group operator.
   </Step>
@@ -39,6 +43,10 @@ The evaluate API receives a flat key-value map of input fields and an `entity_ty
   </Step>
   <Step title="Add condition groups">
     After creating a rule, open its detail page to add conditions.
+
+    <Frame>
+      <img src="/images/rule-engine-conditions.png" />
+    </Frame>
     1. Click **Add Condition Group**.
     2. Choose the group's **Condition Operator** (AND / OR).
     3. Add one or more conditions:
@@ -73,7 +81,7 @@ The evaluate API receives a flat key-value map of input fields and an `entity_ty
         - Click **Create API Key**, enter a name, and save the key securely.
       </Step>
       <Step title="Call the evaluate endpoint">
-        Send a `POST` to `/api/rule-engine/evaluate`.
+        Send a `POST` to `/api/rule-engine/evaluate` using curl or one of the OpenLIT SDKs.
 
         **Required fields:**
         - `entity_type` — Filter results to a specific entity type: `context`, `prompt`, `dataset`, or `meta_config`.
@@ -84,8 +92,76 @@ The evaluate API receives a flat key-value map of input fields and an `entity_ty
         - `entity_inputs` — Extra parameters specific to the entity type (e.g. `variables` and `shouldCompile` for `prompt`).
 
         <Tabs>
-          <Tab title="Context">
+          <Tab title="Python">
+            ```python
+            import openlit
+
+            # Retrieve contexts
+            result = openlit.evaluate_rule(
+                entity_type="context",
+                fields={"model": "gpt-4", "user_tier": "premium"},
+                include_entity_data=True,
+            )
+
+            # Retrieve compiled prompts
+            result = openlit.evaluate_rule(
+                entity_type="prompt",
+                fields={"model": "gpt-4", "user_tier": "premium"},
+                include_entity_data=True,
+                entity_inputs={
+                    "variables": {"user_name": "Alice", "product": "OpenLIT"},
+                    "shouldCompile": True,
+                },
+            )
+            ```
+          </Tab>
+          <Tab title="TypeScript">
+            ```typescript
+            import Openlit from 'openlit';
+
+            // Retrieve contexts
+            const result = await Openlit.evaluateRule({
+              entityType: 'context',
+              fields: { model: 'gpt-4', user_tier: 'premium' },
+              includeEntityData: true,
+            });
+
+            // Retrieve compiled prompts
+            const promptResult = await Openlit.evaluateRule({
+              entityType: 'prompt',
+              fields: { model: 'gpt-4', user_tier: 'premium' },
+              includeEntityData: true,
+              entityInputs: {
+                variables: { user_name: 'Alice', product: 'OpenLIT' },
+                shouldCompile: true,
+              },
+            });
+            ```
+          </Tab>
+          <Tab title="Go">
+            ```go
+            // Retrieve contexts
+            result, err := openlit.EvaluateRule(ctx, openlit.EvaluateRuleOptions{
+                EntityType:        openlit.RuleEntityContext,
+                Fields:            map[string]interface{}{"model": "gpt-4", "user_tier": "premium"},
+                IncludeEntityData: true,
+            })
+
+            // Retrieve compiled prompts
+            result, err = openlit.EvaluateRule(ctx, openlit.EvaluateRuleOptions{
+                EntityType:        openlit.RuleEntityPrompt,
+                Fields:            map[string]interface{}{"model": "gpt-4", "user_tier": "premium"},
+                IncludeEntityData: true,
+                EntityInputs: map[string]interface{}{
+                    "variables":     map[string]string{"user_name": "Alice", "product": "OpenLIT"},
+                    "shouldCompile": true,
+                },
+            })
+            ```
+          </Tab>
+          <Tab title="curl">
             ```bash
+            # Retrieve contexts
             curl -X POST https://your-openlit-instance/api/rule-engine/evaluate \
               -H "Authorization: Bearer YOUR_API_KEY" \
               -H "Content-Type: application/json" \
@@ -97,29 +173,8 @@ The evaluate API receives a flat key-value map of input fields and an `entity_ty
                 },
                 "include_entity_data": true
               }'
-            ```
 
-            ```json Response
-            {
-              "matchingRuleIds": ["rule-uuid-1"],
-              "entities": [
-                { "rule_id": "rule-uuid-1", "entity_type": "context", "entity_id": "ctx-uuid-1" }
-              ],
-              "entity_data": {
-                "context:ctx-uuid-1": {
-                  "id": "ctx-uuid-1",
-                  "name": "Premium System Prompt",
-                  "content": "You are a helpful AI assistant...",
-                  "status": "ACTIVE"
-                }
-              }
-            }
-            ```
-          </Tab>
-          <Tab title="Prompt">
-            Use `entity_inputs` to compile the prompt with variables at evaluation time.
-
-            ```bash
+            # Retrieve compiled prompts
             curl -X POST https://your-openlit-instance/api/rule-engine/evaluate \
               -H "Authorization: Bearer YOUR_API_KEY" \
               -H "Content-Type: application/json" \
@@ -136,28 +191,47 @@ The evaluate API receives a flat key-value map of input fields and an `entity_ty
                 }
               }'
             ```
-
-            ```json Response
-            {
-              "matchingRuleIds": ["rule-uuid-1"],
-              "entities": [
-                { "rule_id": "rule-uuid-1", "entity_type": "prompt", "entity_id": "prompt-uuid-1" }
-              ],
-              "entity_data": {
-                "prompt:prompt-uuid-1": {
-                  "promptId": "prompt-uuid-1",
-                  "name": "Onboarding Prompt",
-                  "prompt": "Hello {{user_name}}, welcome to {{product}}!",
-                  "compiledPrompt": "Hello Alice, welcome to OpenLIT!",
-                  "version": "1.0.0",
-                  "tags": ["onboarding"],
-                  "metaProperties": {}
-                }
-              }
-            }
-            ```
           </Tab>
         </Tabs>
+
+        ```json Example Response (Context)
+        {
+          "matchingRuleIds": ["rule-uuid-1"],
+          "entities": [
+            { "rule_id": "rule-uuid-1", "entity_type": "context", "entity_id": "ctx-uuid-1" }
+          ],
+          "entity_data": {
+            "context:ctx-uuid-1": {
+              "id": "ctx-uuid-1",
+              "name": "Premium System Prompt",
+              "content": "You are a helpful AI assistant...",
+              "status": "ACTIVE"
+            }
+          }
+        }
+        ```
+
+        ```json Example Response (Prompt)
+        {
+          "matchingRuleIds": ["rule-uuid-1"],
+          "entities": [
+            { "rule_id": "rule-uuid-1", "entity_type": "prompt", "entity_id": "prompt-uuid-1" }
+          ],
+          "entity_data": {
+            "prompt:prompt-uuid-1": {
+              "promptId": "prompt-uuid-1",
+              "name": "Onboarding Prompt",
+              "prompt": "Hello {{user_name}}, welcome to {{product}}!",
+              "compiledPrompt": "Hello Alice, welcome to OpenLIT!",
+              "version": "1.0.0",
+              "tags": ["onboarding"],
+              "metaProperties": {}
+            }
+          }
+        }
+        ```
+
+        <Info>For detailed SDK parameters and error handling, see the [SDK Rule Engine feature doc](/latest/sdk/features/rule-engine).</Info>
       </Step>
     </Steps>
   </Step>
@@ -199,12 +273,15 @@ The evaluate API receives a flat key-value map of input fields and an `entity_ty
 
 ---
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card title="Context" href="/latest/openlit/prompts-experiments/context" icon='file-text'>
     Store reusable knowledge and system instructions that can be retrieved when rules match
   </Card>
   <Card title="Prompt Hub" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
     Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+  <Card title="SDK Rule Engine" href="/latest/sdk/features/rule-engine" icon='puzzle-piece'>
+    Use evaluate_rule() from Python, TypeScript, or Go with full parameter reference and examples
   </Card>
   <Card title="API Reference: Evaluate" href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate" icon='code'>
     Full reference for the Rule Engine evaluate endpoint with request and response schemas

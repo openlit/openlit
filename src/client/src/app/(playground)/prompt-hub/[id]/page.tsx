@@ -1,6 +1,7 @@
 "use client";
 import PromptHubHeader from "@/components/(playground)/prompt-hub/header";
 import RuleForm from "@/components/(playground)/rule-engine/form";
+import getMessage from "@/constants/messages";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +40,8 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+const m = getMessage();
+
 export default function PromptHub() {
 	const pingStatus = useRootStore(getPingStatus);
 	const params = useParams();
@@ -62,7 +65,7 @@ export default function PromptHub() {
 			url: `/api/prompt/get/${params.id}${version ? "?version=" + version : ""}`,
 			responseDataKey: "data.[0]",
 			failureCb: (err?: string) => {
-				toast.error(err || `Cannot connect to server!`, {
+				toast.error(err || m.CANNOT_CONNECT_TO_SERVER, {
 					id: "prompt-hub",
 				});
 			},
@@ -141,7 +144,7 @@ export default function PromptHub() {
 	if (!data || !(data as any)?.promptId) {
 		return (
 			<div className="flex w-full h-full overflow-hidden items-center justify-center text-stone-600 dark:text-stone-400">
-				No such prompt exists!
+				{m.PROMPT_HUB_NO_PROMPT_EXISTS}
 			</div>
 		);
 	}
@@ -154,12 +157,12 @@ export default function PromptHub() {
 	) {
 		return (
 			<div className="flex w-full h-full overflow-hidden items-center justify-center text-stone-600 dark:text-stone-400">
-				No such version of the prompt{" "}
+				{m.PROMPT_HUB_NO_VERSION_EXISTS}{" "}
 				<span className="bg-secondary text-primary px-2 text-sm mx-3">
 					{" "}
 					{(data as any).name}{" "}
 				</span>{" "}
-				exists!
+				{m.PROMPT_HUB_EXISTS}
 			</div>
 		);
 	}
@@ -195,7 +198,7 @@ export default function PromptHub() {
 												variant="default"
 												className="transition-none py-0 text-xs"
 											>
-												Draft
+												{m.PROMPT_HUB_DRAFT}
 											</Badge>
 										)}
 									</div>
@@ -209,7 +212,7 @@ export default function PromptHub() {
 										<div className="flex items-center">
 											<CalendarDays className="mr-2 h-4 w-4" />
 											<span className="text-xs">
-												Published on {format((data as any).updatedAt, "MMM do, y")}
+												{m.PROMPT_HUB_PUBLISHED_ON} {format((data as any).updatedAt, "MMM do, y")}
 											</span>
 										</div>
 									</div>
@@ -222,7 +225,7 @@ export default function PromptHub() {
 											className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-9 py-1 rounded-sm"
 										>
 											<Link href={`/prompt-hub/${params.id}/edit`}>
-												Publish Version
+												{m.PROMPT_HUB_PUBLISH}
 											</Link>
 										</Button>
 									) : null}
@@ -234,7 +237,7 @@ export default function PromptHub() {
 											className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-9 py-1 rounded-sm"
 										>
 											<Link href={`/prompt-hub/${params.id}/edit`}>
-												Create New Version
+												{m.PROMPT_HUB_CREATE_VERSION}
 											</Link>
 										</Button>
 									) : null}
@@ -259,7 +262,7 @@ export default function PromptHub() {
 						{/* Prompt with Write / Preview tabs */}
 						<div className="flex flex-col gap-2 flex-1">
 							<h3 className="text-sm font-medium text-stone-500 dark:text-stone-400">
-								Prompt
+								{m.PROMPT}
 							</h3>
 							<div className="min-h-[200px] h-full bg-stone-50 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-md p-4 overflow-auto scrollbar-hidden">
 								{promptText ? (
@@ -268,7 +271,7 @@ export default function PromptHub() {
 									</div>
 								) : (
 									<p className="text-sm text-stone-400 dark:text-stone-600 italic">
-										No prompt content.
+										{m.PROMPT_HUB_NO_CONTENT}
 									</p>
 								)}
 							</div>
@@ -277,14 +280,14 @@ export default function PromptHub() {
 						{metaPropertiesMap.length > 0 ? (
 							<div className="flex flex-col gap-2">
 								<h3 className="text-sm font-medium text-stone-500 dark:text-stone-400">
-									Meta Properties
+									{m.META_PROPERTIES}
 								</h3>
 								<div className="rounded-sm border border-stone-200 dark:border-stone-800">
 									<Table>
 										<TableHeader className="bg-stone-100 dark:bg-stone-800">
 											<TableRow>
-												<TableHead className="h-8 text-stone-400">Key</TableHead>
-												<TableHead className="h-8 text-stone-400">Value</TableHead>
+												<TableHead className="h-8 text-stone-400">{m.KEY}</TableHead>
+												<TableHead className="h-8 text-stone-400">{m.VALUE}</TableHead>
 											</TableRow>
 										</TableHeader>
 										<TableBody>
@@ -318,13 +321,13 @@ export default function PromptHub() {
 									value="versions"
 									className="flex-1 rounded-none h-full data-[state=active]:bg-white dark:data-[state=active]:bg-stone-950 data-[state=active]:border-b-2 data-[state=active]:border-primary text-stone-600 dark:text-stone-400 data-[state=active]:text-stone-900 dark:data-[state=active]:text-stone-100 text-sm"
 								>
-									Versions
+									{m.PROMPT_HUB_VERSIONS}
 								</TabsTrigger>
 								<TabsTrigger
 									value="rules"
 									className="flex-1 rounded-none h-full data-[state=active]:bg-white dark:data-[state=active]:bg-stone-950 data-[state=active]:border-b-2 data-[state=active]:border-primary text-stone-600 dark:text-stone-400 data-[state=active]:text-stone-900 dark:data-[state=active]:text-stone-100 text-sm"
 								>
-									Rules
+									{m.RULES}
 									{linkedRules.length > 0 && (
 										<span className="ml-1.5 text-xs bg-primary text-white rounded-full px-1.5 py-0.5 leading-none">
 											{linkedRules.length}
@@ -354,7 +357,7 @@ export default function PromptHub() {
 														variant="outline"
 														className="rounded-pill text-xs text-stone-500 dark:text-stone-300 dark:border-stone-600 font-light transition-none"
 													>
-														latest
+														{m.PROMPT_HUB_LATEST}
 													</Badge>
 												) : null}
 												{versionItem.versionId === draftVersion?.versionId ? (
@@ -362,7 +365,7 @@ export default function PromptHub() {
 														variant="outline"
 														className="rounded-pill text-xs text-stone-500 dark:text-stone-300 dark:border-stone-600 font-light transition-none"
 													>
-														Draft
+														{m.PROMPT_HUB_DRAFT}
 													</Badge>
 												) : null}
 											</div>
@@ -390,7 +393,7 @@ export default function PromptHub() {
 							<CardHeader className="p-4 pb-3 border-b border-stone-200 dark:border-stone-800 flex-shrink-0">
 								<div className="flex items-center justify-between">
 									<CardTitle className="text-base text-stone-800 dark:text-stone-200">
-										Linked Rules
+										{m.PROMPT_HUB_LINKED_RULES}
 									</CardTitle>
 									<RuleForm
 										entityId={params.id as string}
@@ -403,7 +406,7 @@ export default function PromptHub() {
 											className="h-7 text-xs border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100"
 										>
 											<PlusIcon className="w-3 h-3 mr-1" />
-											New Rule
+											{m.NEW_RULE}
 										</Button>
 									</RuleForm>
 								</div>
@@ -413,7 +416,7 @@ export default function PromptHub() {
 									<div className="flex flex-col items-center justify-center py-6 gap-2">
 										<SlidersHorizontal className="w-7 h-7 text-stone-300 dark:text-stone-600" />
 										<p className="text-sm text-stone-400 dark:text-stone-500 text-center">
-											No rules linked yet.
+											{m.PROMPT_HUB_NO_RULES}
 										</p>
 									</div>
 								) : (
@@ -454,7 +457,7 @@ export default function PromptHub() {
 										className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition-colors self-start"
 									>
 										<LinkIcon className="w-3 h-3" />
-										{isLinkingOpen ? "Cancel" : "Link existing rule"}
+										{isLinkingOpen ? m.CANCEL : m.LINK_EXISTING_RULE}
 									</button>
 									{isLinkingOpen && (
 										<div className="flex flex-col gap-2">
@@ -463,12 +466,12 @@ export default function PromptHub() {
 												onValueChange={setSelectedRuleId}
 											>
 												<SelectTrigger className="h-8 text-sm border-stone-300 dark:border-stone-600">
-													<SelectValue placeholder="Select a rule..." />
+													<SelectValue placeholder={m.PROMPT_HUB_SELECT_RULE} />
 												</SelectTrigger>
 												<SelectContent>
 													{unlinkedRules.length === 0 ? (
 														<div className="px-3 py-2 text-xs text-stone-400 dark:text-stone-500">
-															All rules already linked
+															{m.PROMPT_HUB_ALL_RULES_LINKED}
 														</div>
 													) : (
 														unlinkedRules.map((rule: any) => (
@@ -495,7 +498,7 @@ export default function PromptHub() {
 												className={`border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 ${isLinkingRule ? "animate-pulse" : ""}`}
 											>
 												<LinkIcon className="w-3 h-3 mr-1" />
-												Associate
+												{m.ASSOCIATE}
 											</Button>
 										</div>
 									)}

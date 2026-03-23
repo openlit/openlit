@@ -8,8 +8,8 @@ describe("EVALUATION_TYPES", () => {
 		expect(Array.isArray(EVALUATION_TYPES)).toBe(true);
 	});
 
-	it("has at least one type", () => {
-		expect(EVALUATION_TYPES.length).toBeGreaterThan(0);
+	it("has exactly 11 types", () => {
+		expect(EVALUATION_TYPES).toHaveLength(11);
 	});
 
 	it("contains all expected evaluation type ids", () => {
@@ -20,6 +20,11 @@ describe("EVALUATION_TYPES", () => {
 		expect(ids).toContain("relevance");
 		expect(ids).toContain("coherence");
 		expect(ids).toContain("faithfulness");
+		expect(ids).toContain("safety");
+		expect(ids).toContain("instruction_following");
+		expect(ids).toContain("completeness");
+		expect(ids).toContain("conciseness");
+		expect(ids).toContain("sensitivity");
 	});
 
 	it("each type has required fields", () => {
@@ -41,15 +46,21 @@ describe("EVALUATION_TYPES", () => {
 		expect(defaultEnabled).toContain("hallucination");
 		expect(defaultEnabled).toContain("bias");
 		expect(defaultEnabled).toContain("toxicity");
+		expect(defaultEnabled).toHaveLength(3);
 	});
 
-	it("relevance, coherence, and faithfulness are disabled by default", () => {
+	it("new types are disabled by default", () => {
 		const defaultDisabled = EVALUATION_TYPES.filter(
 			(t) => !t.enabledByDefault
 		).map((t) => t.id);
 		expect(defaultDisabled).toContain("relevance");
 		expect(defaultDisabled).toContain("coherence");
 		expect(defaultDisabled).toContain("faithfulness");
+		expect(defaultDisabled).toContain("safety");
+		expect(defaultDisabled).toContain("instruction_following");
+		expect(defaultDisabled).toContain("completeness");
+		expect(defaultDisabled).toContain("conciseness");
+		expect(defaultDisabled).toContain("sensitivity");
 	});
 
 	it("all type ids are unique", () => {
@@ -68,7 +79,12 @@ describe("EvaluationTypeId type", () => {
 			"relevance",
 			"coherence",
 			"faithfulness",
+			"safety",
+			"instruction_following",
+			"completeness",
+			"conciseness",
+			"sensitivity",
 		];
-		expect(ids).toHaveLength(6);
+		expect(ids).toHaveLength(11);
 	});
 });

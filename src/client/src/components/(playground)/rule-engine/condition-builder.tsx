@@ -395,8 +395,8 @@ export default function ConditionBuilder({
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="AND">AND</SelectItem>
-										<SelectItem value="OR">OR</SelectItem>
+										<SelectItem value="AND">{messages.AND}</SelectItem>
+										<SelectItem value="OR">{messages.OR}</SelectItem>
 									</SelectContent>
 								</Select>
 								<span className="text-[10px] text-stone-400 dark:text-stone-500">

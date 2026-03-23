@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { CLIENT_EVENTS } from "@/constants/events";
+import getMessage from "@/constants/messages";
 import { usePageHeader } from "@/selectors/page";
 import { Prompt, PromptVersion, PromptVersionStatus } from "@/types/prompt";
 import useFetchWrapper from "@/utils/hooks/useFetchWrapper";
@@ -30,6 +31,8 @@ const getVersions = (startingVersion: string) => {
 		patch: [v[0], v[1], v[2] + 1].join("."),
 	};
 };
+
+const m = getMessage();
 
 export default function EditPromptPage() {
 	const router = useRouter();
@@ -58,7 +61,7 @@ export default function EditPromptPage() {
 			url: `/api/prompt/get/${params.id}`,
 			responseDataKey: "data.[0]",
 			failureCb: (err?: string) => {
-				toast.error(err || "Failed to load prompt", { id: "prompt-edit" });
+				toast.error(err || m.CANNOT_CONNECT_TO_SERVER, { id: "prompt-edit" });
 			},
 		});
 	}, [params.id]);
@@ -93,27 +96,27 @@ export default function EditPromptPage() {
 		const opts = [
 			{
 				value: versions.draft,
-				title: "Draft",
-				subText: "No version change",
-				description: "Keep as draft — not published",
+				title: m.PROMPT_HUB_DRAFT,
+				subText: m.PROMPT_HUB_NO_VERSION_CHANGE,
+				description: m.PROMPT_HUB_KEEP_DRAFT,
 			},
 			{
 				value: versions.major,
-				title: "Major",
+				title: m.PROMPT_HUB_MAJOR,
 				subText: `v${versions.major}`,
-				description: "Significant changes, not backwards compatible",
+				description: m.PROMPT_HUB_MAJOR_DESCRIPTION,
 			},
 			{
 				value: versions.minor,
-				title: "Minor",
+				title: m.PROMPT_HUB_MINOR,
 				subText: `v${versions.minor}`,
-				description: "New features, backwards compatible",
+				description: m.PROMPT_HUB_MINOR_DESCRIPTION,
 			},
 			{
 				value: versions.patch,
-				title: "Patch",
+				title: m.PROMPT_HUB_PATCH,
 				subText: `v${versions.patch}`,
-				description: "Bug fixes and minor updates",
+				description: m.PROMPT_HUB_PATCH_DESCRIPTION,
 			},
 		];
 		setVersionOptions(opts);
@@ -122,7 +125,7 @@ export default function EditPromptPage() {
 		setHeader({
 			title: d.name,
 			breadcrumbs: [
-				{ title: "Prompt Hub", href: "/prompt-hub" },
+				{ title: m.PROMPT_HUB, href: "/prompt-hub" },
 				{ title: d.name, href: `/prompt-hub/${params.id}` },
 			],
 		});
@@ -147,12 +150,12 @@ export default function EditPromptPage() {
 
 	const handleSubmit = useCallback(() => {
 		if (!promptText.trim()) {
-			toast.error("Prompt content is required", { id: "prompt-edit" });
+			toast.error(m.PROMPT_HUB_CONTENT_REQUIRED, { id: "prompt-edit" });
 			return;
 		}
 		if (!versionData) return;
 
-		toast.loading("Saving...", { id: "prompt-edit" });
+		toast.loading(m.PROMPT_HUB_SAVING, { id: "prompt-edit" });
 
 		const metaProperties = metaProps.reduce(
 			(acc: Record<string, string>, { key, value }) => {
@@ -183,7 +186,7 @@ export default function EditPromptPage() {
 			requestType: "POST",
 			url: "/api/prompt/version",
 			successCb: (response: any) => {
-				toast.success("Prompt saved!", { id: "prompt-edit" });
+				toast.success(m.PROMPT_HUB_SAVED_SUCCESS, { id: "prompt-edit" });
 				posthog?.capture(CLIENT_EVENTS.PROMPT_VERSION_ADD_SUCCESS);
 				const promptId = response?.data?.promptId;
 				const version = payload.version;
@@ -196,7 +199,7 @@ export default function EditPromptPage() {
 				}
 			},
 			failureCb: (err?: string) => {
-				toast.error(err || "Failed to save prompt", { id: "prompt-edit" });
+				toast.error(err || m.PROMPT_HUB_SAVE_FAILED, { id: "prompt-edit" });
 				posthog?.capture(CLIENT_EVENTS.PROMPT_VERSION_ADD_FAILURE);
 			},
 		});
@@ -226,14 +229,14 @@ export default function EditPromptPage() {
 					className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
 				>
 					<ArrowLeftIcon className="w-4 h-4" />
-					Back to {promptName}
+					{m.PROMPT_HUB_BACK_TO} {promptName}
 				</Link>
 				<Button
 					onClick={handleSubmit}
 					disabled={isSaving || isFetching}
 					className={isSaving ? "animate-pulse" : ""}
 				>
-					{isSaving ? "Saving..." : "Save"}
+					{isSaving ? m.SAVING : m.SAVE}
 				</Button>
 			</div>
 
@@ -248,23 +251,23 @@ export default function EditPromptPage() {
 							</CardTitle>
 							{isDraft && (
 								<Badge variant="secondary" className="text-xs">
-									Draft
+									{m.PROMPT_HUB_DRAFT}
 								</Badge>
 							)}
 						</div>
 						<p className="text-xs text-stone-400 dark:text-stone-500 mt-1">
 							{isDraft
-								? "Editing draft — publish when ready"
-								: "Creating a new version from the latest published"}
+								? m.PROMPT_HUB_EDITING_DRAFT
+								: m.PROMPT_HUB_CREATING_VERSION}
 						</p>
 					</CardHeader>
 					<CardContent className="flex flex-col gap-3 p-4 flex-1 overflow-hidden">
 						<div className="flex items-center justify-between flex-shrink-0">
 							<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Prompt
+								{m.PROMPT}
 							</Label>
 							<span className="text-xs text-stone-400 dark:text-stone-500">
-								Use {`{{variableName}}`} for dynamic variables
+								{m.PROMPT_HUB_VARIABLE_HINT}
 							</span>
 						</div>
 						<Tabs defaultValue="write" className="flex flex-col flex-1 overflow-hidden">
@@ -273,20 +276,20 @@ export default function EditPromptPage() {
 									value="write"
 									className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-700 dark:text-stone-300 text-xs"
 								>
-									Write
+									{m.WRITE}
 								</TabsTrigger>
 								<TabsTrigger
 									value="preview"
 									className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-700 dark:text-stone-300 text-xs"
 								>
-									Preview
+									{m.PREVIEW}
 								</TabsTrigger>
 							</TabsList>
 							<TabsContent value="write" className="flex-1 overflow-hidden mt-2">
 								<Textarea
 									value={promptText}
 									onChange={(e) => setPromptText(e.target.value)}
-									placeholder="Write your prompt here. Use {{variable}} for dynamic content."
+									placeholder={m.PROMPT_HUB_CONTENT_PLACEHOLDER}
 									className="h-full min-h-[300px] resize-none font-mono text-sm bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
 								/>
 							</TabsContent>
@@ -298,7 +301,7 @@ export default function EditPromptPage() {
 										</div>
 									) : (
 										<p className="text-sm text-stone-400 dark:text-stone-600 italic">
-											Nothing to preview yet.
+											{m.PROMPT_HUB_NOTHING_TO_PREVIEW}
 										</p>
 									)}
 								</div>
@@ -313,7 +316,7 @@ export default function EditPromptPage() {
 					<Card className="border border-stone-200 dark:border-stone-800 flex-shrink-0">
 						<CardHeader className="p-4 pb-2">
 							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Version
+								{m.PROMPT_HUB_VERSION}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-4 pt-0 flex flex-col gap-2">
@@ -350,7 +353,7 @@ export default function EditPromptPage() {
 					<Card className="border border-stone-200 dark:border-stone-800 flex-shrink-0">
 						<CardHeader className="p-4 pb-2">
 							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Tags
+								{m.TAGS}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-4 pt-0 flex flex-col gap-2">
@@ -364,7 +367,7 @@ export default function EditPromptPage() {
 											addTag();
 										}
 									}}
-									placeholder="Add a tag, press Enter"
+									placeholder={m.CONTEXT_TAGS_ENTER_PLACEHOLDER}
 									className="h-8 text-sm border-stone-300 dark:border-stone-600"
 								/>
 								<Button
@@ -404,7 +407,7 @@ export default function EditPromptPage() {
 					<Card className="border border-stone-200 dark:border-stone-800 flex-shrink-0">
 						<CardHeader className="p-4 pb-2">
 							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Meta Properties
+								{m.META_PROPERTIES}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-4 pt-0 flex flex-col gap-2">
@@ -413,13 +416,13 @@ export default function EditPromptPage() {
 									<Input
 										value={prop.key}
 										onChange={(e) => updateMetaProp(idx, "key", e.target.value)}
-										placeholder="Key"
+										placeholder={m.KEY}
 										className="h-8 text-sm border-stone-300 dark:border-stone-600"
 									/>
 									<Input
 										value={prop.value}
 										onChange={(e) => updateMetaProp(idx, "value", e.target.value)}
-										placeholder="Value"
+										placeholder={m.VALUE}
 										className="h-8 text-sm border-stone-300 dark:border-stone-600"
 									/>
 									<Button
@@ -441,7 +444,7 @@ export default function EditPromptPage() {
 								className="border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 mt-1"
 							>
 								<PlusIcon className="w-3.5 h-3.5 mr-1" />
-								Add property
+								{m.ADD_PROPERTY}
 							</Button>
 						</CardContent>
 					</Card>

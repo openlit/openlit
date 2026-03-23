@@ -21,11 +21,13 @@ import { useRouter } from "next/navigation";
 import { KeyboardEvent, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import getMessage from "@/constants/messages";
 
 export default function NewContextPage() {
 	const router = useRouter();
 	const { setHeader } = usePageHeader();
 	const { fireRequest, isLoading } = useFetchWrapper();
+	const m = getMessage();
 
 	const [name, setName] = useState("");
 	const [content, setContent] = useState("");
@@ -37,8 +39,8 @@ export default function NewContextPage() {
 
 	useEffect(() => {
 		setHeader({
-			title: "Create Context",
-			breadcrumbs: [{ title: "Contexts", href: "/context" }],
+			title: m.CONTEXT_CREATE,
+			breadcrumbs: [{ title: m.CONTEXT_TITLE, href: "/context" }],
 		});
 	}, []);
 
@@ -60,14 +62,14 @@ export default function NewContextPage() {
 
 	const handleSubmit = useCallback(() => {
 		if (!name.trim()) {
-			toast.error("Context name is required", { id: "context-new" });
+			toast.error(m.CONTEXT_NAME_REQUIRED, { id: "context-new" });
 			return;
 		}
 		if (!content.trim()) {
-			toast.error("Context content is required", { id: "context-new" });
+			toast.error(m.CONTEXT_CONTENT_REQUIRED, { id: "context-new" });
 			return;
 		}
-		toast.loading("Creating context...", { id: "context-new" });
+		toast.loading(m.CONTEXT_CREATING, { id: "context-new" });
 
 		const metaProperties = metaProps.reduce(
 			(acc: Record<string, string>, { key, value }) => {
@@ -91,7 +93,7 @@ export default function NewContextPage() {
 			requestType: "POST",
 			url: "/api/context",
 			successCb: (response: any) => {
-				toast.success("Context created successfully!", { id: "context-new" });
+				toast.success(m.CONTEXT_CREATED_SUCCESS, { id: "context-new" });
 				if (response?.id) {
 					router.push(`/context/${response.id}`);
 				} else {
@@ -99,7 +101,7 @@ export default function NewContextPage() {
 				}
 			},
 			failureCb: (err?: string) => {
-				toast.error(err || "Failed to create context", { id: "context-new" });
+				toast.error(err || m.CONTEXT_CREATE_FAILED, { id: "context-new" });
 			},
 		});
 	}, [name, content, description, status, tags, metaProps]);
@@ -113,14 +115,14 @@ export default function NewContextPage() {
 					className="flex items-center gap-1.5 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors"
 				>
 					<ArrowLeftIcon className="w-4 h-4" />
-					Back to Contexts
+					{m.CONTEXT_BACK_TO_LIST}
 				</Link>
 				<Button
 					onClick={handleSubmit}
 					disabled={isLoading}
 					className={isLoading ? "animate-pulse" : ""}
 				>
-					Save Context
+					{m.CONTEXT_SAVE}
 				</Button>
 			</div>
 
@@ -132,12 +134,12 @@ export default function NewContextPage() {
 						{/* Name */}
 						<div className="flex flex-col gap-1.5 flex-shrink-0">
 							<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Name
+								{m.NAME}
 							</Label>
 							<Input
 								value={name}
 								onChange={(e) => setName(e.target.value)}
-								placeholder="My Context"
+								placeholder={m.CONTEXT_NAME_PLACEHOLDER}
 								className="border-stone-300 dark:border-stone-600"
 							/>
 						</div>
@@ -145,15 +147,15 @@ export default function NewContextPage() {
 						{/* Description */}
 						<div className="flex flex-col gap-1.5 flex-shrink-0">
 							<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Description
+								{m.DESCRIPTION}
 								<span className="text-stone-400 dark:text-stone-500 font-normal ml-1 text-xs">
-									(optional)
+									{m.CONTEXT_DESCRIPTION_OPTIONAL}
 								</span>
 							</Label>
 							<Input
 								value={description}
 								onChange={(e) => setDescription(e.target.value)}
-								placeholder="Optional description"
+								placeholder={m.CONTEXT_DESCRIPTION_PLACEHOLDER}
 								className="border-stone-300 dark:border-stone-600"
 							/>
 						</div>
@@ -161,7 +163,7 @@ export default function NewContextPage() {
 						{/* Markdown editor */}
 						<div className="flex flex-col gap-2 flex-1 overflow-hidden">
 							<Label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Content
+								{m.CONTEXT_CONTENT}
 							</Label>
 							<Tabs defaultValue="write" className="flex flex-col flex-1 overflow-hidden">
 								<TabsList className="grid w-48 grid-cols-2 bg-stone-100 dark:bg-stone-900 self-start flex-shrink-0">
@@ -169,20 +171,20 @@ export default function NewContextPage() {
 										value="write"
 										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-700 dark:text-stone-300 text-xs"
 									>
-										Write
+										{m.WRITE}
 									</TabsTrigger>
 									<TabsTrigger
 										value="preview"
 										className="data-[state=active]:bg-primary data-[state=active]:text-stone-50 text-stone-700 dark:text-stone-300 text-xs"
 									>
-										Preview
+										{m.PREVIEW}
 									</TabsTrigger>
 								</TabsList>
 								<TabsContent value="write" className="flex-1 overflow-hidden mt-2">
 									<Textarea
 										value={content}
 										onChange={(e) => setContent(e.target.value)}
-										placeholder="Write your context content here. Markdown is supported."
+										placeholder={m.CONTEXT_CONTENT_MARKDOWN_HINT}
 										className="h-full min-h-[300px] resize-none font-mono text-sm bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500"
 									/>
 								</TabsContent>
@@ -194,7 +196,7 @@ export default function NewContextPage() {
 											</div>
 										) : (
 											<p className="text-sm text-stone-400 dark:text-stone-600 italic">
-												Nothing to preview yet.
+												{m.CONTEXT_NOTHING_TO_PREVIEW}
 											</p>
 										)}
 									</div>
@@ -210,7 +212,7 @@ export default function NewContextPage() {
 					<Card className="border border-stone-200 dark:border-stone-800 flex-shrink-0">
 						<CardHeader className="p-4 pb-2">
 							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Status
+								{m.STATUS}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-4 pt-0">
@@ -222,8 +224,8 @@ export default function NewContextPage() {
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="ACTIVE">Active</SelectItem>
-									<SelectItem value="INACTIVE">Inactive</SelectItem>
+									<SelectItem value="ACTIVE">{m.ACTIVE}</SelectItem>
+									<SelectItem value="INACTIVE">{m.INACTIVE}</SelectItem>
 								</SelectContent>
 							</Select>
 						</CardContent>
@@ -233,7 +235,7 @@ export default function NewContextPage() {
 					<Card className="border border-stone-200 dark:border-stone-800 flex-shrink-0">
 						<CardHeader className="p-4 pb-2">
 							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Tags
+								{m.TAGS}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-4 pt-0 flex flex-col gap-2">
@@ -247,7 +249,7 @@ export default function NewContextPage() {
 											addTag();
 										}
 									}}
-									placeholder="Add a tag, press Enter"
+									placeholder={m.CONTEXT_TAGS_ENTER_PLACEHOLDER}
 									className="h-8 text-sm border-stone-300 dark:border-stone-600"
 								/>
 								<Button
@@ -287,7 +289,7 @@ export default function NewContextPage() {
 					<Card className="border border-stone-200 dark:border-stone-800 flex-shrink-0">
 						<CardHeader className="p-4 pb-2">
 							<CardTitle className="text-sm font-medium text-stone-700 dark:text-stone-300">
-								Meta Properties
+								{m.META_PROPERTIES}
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="p-4 pt-0 flex flex-col gap-2">
@@ -296,13 +298,13 @@ export default function NewContextPage() {
 									<Input
 										value={prop.key}
 										onChange={(e) => updateMetaProp(idx, "key", e.target.value)}
-										placeholder="Key"
+										placeholder={m.KEY}
 										className="h-8 text-sm border-stone-300 dark:border-stone-600"
 									/>
 									<Input
 										value={prop.value}
 										onChange={(e) => updateMetaProp(idx, "value", e.target.value)}
-										placeholder="Value"
+										placeholder={m.VALUE}
 										className="h-8 text-sm border-stone-300 dark:border-stone-600"
 									/>
 									<Button
@@ -324,7 +326,7 @@ export default function NewContextPage() {
 								className="border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400 mt-1"
 							>
 								<PlusIcon className="w-3.5 h-3.5 mr-1" />
-								Add property
+								{m.ADD_PROPERTY}
 							</Button>
 						</CardContent>
 					</Card>

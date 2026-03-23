@@ -13,10 +13,13 @@ import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
+import getMessage from "@/constants/messages";
+
+const m = getMessage();
 
 const columns: Columns<string, Context> = {
 	name: {
-		header: () => "Name",
+		header: () => m.NAME,
 		cell: ({ row }) => (
 			<span className="font-medium text-stone-800 dark:text-stone-200">
 				{row.name}
@@ -24,15 +27,15 @@ const columns: Columns<string, Context> = {
 		),
 	},
 	description: {
-		header: () => "Description",
+		header: () => m.DESCRIPTION,
 		cell: ({ row }) => (
 			<span className="text-stone-500 dark:text-stone-400 text-sm truncate block max-w-xs">
-				{row.description || "-"}
+				{row.description || m.NO_DASH}
 			</span>
 		),
 	},
 	status: {
-		header: () => "Status",
+		header: () => m.STATUS,
 		cell: ({ row }) => (
 			<Badge variant={row.status === "ACTIVE" ? "default" : "secondary"}>
 				{row.status}
@@ -40,7 +43,7 @@ const columns: Columns<string, Context> = {
 		),
 	},
 	createdBy: {
-		header: () => "Created By",
+		header: () => m.CREATED_BY,
 		cell: ({ row }) => (
 			<span className="text-stone-600 dark:text-stone-400 text-sm">
 				{row.created_by}
@@ -48,15 +51,15 @@ const columns: Columns<string, Context> = {
 		),
 	},
 	createdAt: {
-		header: () => "Created At",
+		header: () => m.CREATED_AT,
 		cell: ({ row }) => (
 			<span className="text-stone-500 dark:text-stone-400 text-sm">
-				{row.created_at ? format(row.created_at, "MMM do, y") : "-"}
+				{row.created_at ? format(row.created_at, "MMM do, y") : m.NO_DASH}
 			</span>
 		),
 	},
 	actions: {
-		header: () => "Actions",
+		header: () => m.ACTIONS,
 		cell: ({ row, extraFunctions }) => (
 			<div
 				className="flex justify-start items-center gap-4"
@@ -64,8 +67,8 @@ const columns: Columns<string, Context> = {
 			>
 				<ConfirmationModal
 					handleYes={extraFunctions?.handleDelete}
-					title="Are you sure you want to delete this context?"
-					subtitle="Deleting context might break applications using it. Please confirm before deleting it."
+					title={m.CONTEXT_DELETE_CONFIRM}
+					subtitle={m.CONTEXT_DELETE_WARNING}
 					params={{ id: row.id }}
 				>
 					<TrashIcon className="w-4 cursor-pointer text-stone-400 hover:text-red-500 dark:text-stone-500 dark:hover:text-red-400 transition-colors" />
@@ -88,7 +91,7 @@ export default function ContextPage() {
 			requestType: "GET",
 			url: `/api/context`,
 			failureCb: (err?: string) => {
-				toast.error(err || `Cannot connect to server!`, {
+				toast.error(err || m.CANNOT_CONNECT_TO_SERVER, {
 					id: "context",
 				});
 			},
@@ -105,7 +108,7 @@ export default function ContextPage() {
 					fetchData();
 				},
 				failureCb: (err?: string) => {
-					toast.error(err || `Cannot connect to server!`, {
+					toast.error(err || m.CANNOT_CONNECT_TO_SERVER, {
 						id: "context",
 					});
 				},

@@ -199,7 +199,8 @@
               "latest/sdk/features/gpu",
               "latest/sdk/features/pricing",
               "latest/sdk/features/evaluations",
-              "latest/sdk/features/guardrails"
+              "latest/sdk/features/guardrails",
+              "latest/sdk/features/rule-engine"
             ]
           },
           {

@@ -13,10 +13,11 @@ import { Columns } from "@/components/data-table/columns";
 import DataTable from "@/components/data-table/table";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
+import getMessage from "@/constants/messages";
 
 const columns: Columns<string, Rule> = {
 	name: {
-		header: () => "Name",
+		header: () => getMessage().RULE_ENGINE_NAME,
 		cell: ({ row }) => (
 			<span className="font-medium text-stone-800 dark:text-stone-200">
 				{row.name}
@@ -24,7 +25,7 @@ const columns: Columns<string, Rule> = {
 		),
 	},
 	description: {
-		header: () => "Description",
+		header: () => getMessage().RULE_ENGINE_DESCRIPTION,
 		cell: ({ row }) => (
 			<span className="text-stone-500 dark:text-stone-400 text-sm truncate block max-w-xs">
 				{row.description || "-"}
@@ -32,7 +33,7 @@ const columns: Columns<string, Rule> = {
 		),
 	},
 	groupOperator: {
-		header: () => "Group Operator",
+		header: () => getMessage().RULE_ENGINE_GROUP_OPERATOR,
 		cell: ({ row }) => (
 			<Badge variant="outline"
 				className="border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400">
@@ -41,7 +42,7 @@ const columns: Columns<string, Rule> = {
 		),
 	},
 	status: {
-		header: () => "Status",
+		header: () => getMessage().RULE_ENGINE_STATUS,
 		cell: ({ row }) => (
 			<Badge variant={row.status === "ACTIVE" ? "default" : "secondary"}>
 				{row.status}
@@ -49,7 +50,7 @@ const columns: Columns<string, Rule> = {
 		),
 	},
 	createdBy: {
-		header: () => "Created By",
+		header: () => getMessage().RULE_ENGINE_CREATED_BY,
 		cell: ({ row }) => (
 			<span className="text-stone-600 dark:text-stone-400 text-sm">
 				{row.created_by}
@@ -57,7 +58,7 @@ const columns: Columns<string, Rule> = {
 		),
 	},
 	createdAt: {
-		header: () => "Created At",
+		header: () => getMessage().CREATED_AT,
 		cell: ({ row }) => (
 			<span className="text-stone-500 dark:text-stone-400 text-sm">
 				{row.created_at ? format(row.created_at, "MMM do, y") : "-"}
@@ -65,7 +66,7 @@ const columns: Columns<string, Rule> = {
 		),
 	},
 	actions: {
-		header: () => "Actions",
+		header: () => getMessage().ACTIONS,
 		cell: ({ row, extraFunctions }) => (
 			<div
 				className="flex justify-start items-center gap-4"
@@ -73,8 +74,8 @@ const columns: Columns<string, Rule> = {
 			>
 				<ConfirmationModal
 					handleYes={extraFunctions?.handleDelete}
-					title="Are you sure you want to delete this rule?"
-					subtitle="Deleting this rule will also remove all its conditions and entity associations."
+					title={getMessage().RULE_ENGINE_DELETE_CONFIRM}
+					subtitle={getMessage().RULE_ENGINE_DELETE_WARNING}
 					params={{ id: row.id }}
 				>
 					<TrashIcon className="w-4 cursor-pointer text-stone-400 hover:text-red-500 dark:text-stone-500 dark:hover:text-red-400 transition-colors" />
@@ -97,7 +98,7 @@ export default function RuleEnginePage() {
 			requestType: "GET",
 			url: `/api/rule-engine/rules`,
 			failureCb: (err?: string) => {
-				toast.error(err || `Cannot connect to server!`, {
+				toast.error(err || getMessage().CANNOT_CONNECT_TO_SERVER, {
 					id: "rule-engine",
 				});
 			},
@@ -114,7 +115,7 @@ export default function RuleEnginePage() {
 					fetchData();
 				},
 				failureCb: (err?: string) => {
-					toast.error(err || `Cannot connect to server!`, {
+					toast.error(err || getMessage().CANNOT_CONNECT_TO_SERVER, {
 						id: "rule-engine",
 					});
 				},

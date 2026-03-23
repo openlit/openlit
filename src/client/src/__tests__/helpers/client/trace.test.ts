@@ -255,6 +255,59 @@ describe('normalizeTrace', () => {
     expect(result.cost).toBe('-');
     expect(result.promptTokens).toBe('-');
   });
+
+  it('falls back to gen_ai.client.token.usage for totalTokens', () => {
+    const trace = {
+      SpanId: 'span-fb-1',
+      Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: {
+        'gen_ai.client.token.usage': '250',
+      },
+    } as any;
+
+    const result = normalizeTrace(trace);
+    expect(result.totalTokens).toBe(250);
+  });
+
+  it('falls back to gen_ai.client.token.usage.input for promptTokens', () => {
+    const trace = {
+      SpanId: 'span-fb-2',
+      Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: {
+        'gen_ai.client.token.usage.input': '100',
+      },
+    } as any;
+
+    const result = normalizeTrace(trace);
+    expect(result.promptTokens).toBe(100);
+  });
+
+  it('falls back to gen_ai.client.token.usage.output for completionTokens', () => {
+    const trace = {
+      SpanId: 'span-fb-3',
+      Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: {
+        'gen_ai.client.token.usage.output': '50',
+      },
+    } as any;
+
+    const result = normalizeTrace(trace);
+    expect(result.completionTokens).toBe(50);
+  });
+
+  it('prefers primary token attrs over fallback', () => {
+    const trace = {
+      SpanId: 'span-fb-4',
+      Timestamp: '2024-01-15T10:30:00.000Z',
+      SpanAttributes: {
+        'gen_ai.usage.total_tokens': '300',
+        'gen_ai.client.token.usage': '999',
+      },
+    } as any;
+
+    const result = normalizeTrace(trace);
+    expect(result.totalTokens).toBe(300);
+  });
 });
 
 describe('getSpanDurationDisplay', () => {

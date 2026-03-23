@@ -13,6 +13,12 @@ describe("EVALUATION_TYPE_CONTEXTS", () => {
 		});
 	});
 
+	it("has exactly as many entries as EVALUATION_TYPES", () => {
+		expect(Object.keys(EVALUATION_TYPE_CONTEXTS).length).toBe(
+			EVALUATION_TYPES.length
+		);
+	});
+
 	it("each context has enabled boolean and non-empty content string", () => {
 		Object.values(EVALUATION_TYPE_CONTEXTS).forEach((ctx) => {
 			expect(typeof ctx.enabled).toBe("boolean");
@@ -27,10 +33,18 @@ describe("EVALUATION_TYPE_CONTEXTS", () => {
 		});
 	});
 
+	it("each context starts with the correct [Label evaluation context] header", () => {
+		EVALUATION_TYPES.forEach((type) => {
+			const ctx = EVALUATION_TYPE_CONTEXTS[type.id];
+			expect(ctx.content).toMatch(
+				new RegExp(`^\\[${type.label} evaluation context\\]`)
+			);
+		});
+	});
+
+	// Original 6 types
 	it("hallucination context mentions factual accuracy", () => {
-		expect(EVALUATION_TYPE_CONTEXTS.hallucination.content).toMatch(
-			/factual accuracy/i
-		);
+		expect(EVALUATION_TYPE_CONTEXTS.hallucination.content).toMatch(/factual accuracy/i);
 	});
 
 	it("bias context mentions gender", () => {
@@ -49,13 +63,35 @@ describe("EVALUATION_TYPE_CONTEXTS", () => {
 		expect(EVALUATION_TYPE_CONTEXTS.coherence.content).toMatch(/logical flow/i);
 	});
 
-	it("faithfulness context mentions alignment", () => {
-		expect(EVALUATION_TYPE_CONTEXTS.faithfulness.content).toMatch(/alignment/i);
+	it("faithfulness context mentions source of truth", () => {
+		expect(EVALUATION_TYPE_CONTEXTS.faithfulness.content).toMatch(/source of truth/i);
 	});
 
-	it("has exactly as many entries as EVALUATION_TYPES", () => {
-		expect(Object.keys(EVALUATION_TYPE_CONTEXTS).length).toBe(
-			EVALUATION_TYPES.length
-		);
+	// New 5 types
+	it("safety context mentions jailbreak", () => {
+		expect(EVALUATION_TYPE_CONTEXTS.safety.content).toMatch(/jailbreak/i);
+	});
+
+	it("instruction_following context mentions instructions", () => {
+		expect(EVALUATION_TYPE_CONTEXTS.instruction_following.content).toMatch(/instructions/i);
+	});
+
+	it("completeness context mentions all parts", () => {
+		expect(EVALUATION_TYPE_CONTEXTS.completeness.content).toMatch(/all parts/i);
+	});
+
+	it("conciseness context mentions repetition", () => {
+		expect(EVALUATION_TYPE_CONTEXTS.conciseness.content).toMatch(/repetition/i);
+	});
+
+	it("sensitivity context mentions PII", () => {
+		expect(EVALUATION_TYPE_CONTEXTS.sensitivity.content).toMatch(/PII/i);
+	});
+
+	it("context-as-truth types reference provided context", () => {
+		const contextTruthTypes = ["hallucination", "relevance", "coherence", "faithfulness"] as const;
+		contextTruthTypes.forEach((id) => {
+			expect(EVALUATION_TYPE_CONTEXTS[id].content).toMatch(/provided context/i);
+		});
 	});
 });

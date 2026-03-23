@@ -17,6 +17,10 @@ Context lets you store rich, reusable content — such as system prompts, knowle
 
 <Steps>
   <Step title="List contexts">
+    <Frame>
+      <img src="/images/context-list.png" />
+    </Frame>
+
     Get an overview of all contexts created.
     1. Navigate to **Context** in the OpenLIT sidebar.
     2. Browse the list of existing contexts with their status and description.
@@ -32,6 +36,10 @@ Context lets you store rich, reusable content — such as system prompts, knowle
     5. Click **Save Context**. You will be redirected to the context detail page.
   </Step>
   <Step title="Edit a context">
+    <Frame>
+      <img src="/images/context-detail.png" />
+    </Frame>
+
     1. Click on any context in the list to open its detail page.
     2. Click **Edit** to switch to edit mode.
     3. Modify any fields — name, description, content, status, tags, or meta properties.
@@ -54,23 +62,81 @@ Context lets you store rich, reusable content — such as system prompts, knowle
         - Click **Create API Key**, enter a name, and save the key securely.
       </Step>
       <Step title="Call the evaluate API">
-        Send a `POST` request to `/api/rule-engine/evaluate` with your input fields and `entity_type: "context"`.
+        Send a `POST` request to `/api/rule-engine/evaluate` with your input fields and `entity_type: "context"` using the SDK or curl.
 
-        ```bash
-        curl -X POST https://your-openlit-instance/api/rule-engine/evaluate \
-          -H "Authorization: Bearer YOUR_API_KEY" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "entity_type": "context",
-            "fields": {
-              "model": "gpt-4",
-              "user_tier": "premium"
-            },
-            "include_entity_data": true
-          }'
-        ```
+        <Tabs>
+          <Tab title="Python">
+            ```python
+            import openlit
 
-        ```json Response
+            result = openlit.evaluate_rule(
+                entity_type="context",
+                fields={"model": "gpt-4", "user_tier": "premium"},
+                include_entity_data=True,
+            )
+
+            if result:
+                for entity in result.get("entities", []):
+                    key = f"context:{entity['entity_id']}"
+                    data = result.get("entity_data", {}).get(key, {})
+                    print(f"Context: {data.get('name')}")
+                    print(f"Content: {data.get('content')}")
+            ```
+          </Tab>
+          <Tab title="TypeScript">
+            ```typescript
+            import Openlit from 'openlit';
+
+            const result = await Openlit.evaluateRule({
+              entityType: 'context',
+              fields: { model: 'gpt-4', user_tier: 'premium' },
+              includeEntityData: true,
+            });
+
+            if (!('err' in result)) {
+              for (const entity of result.entities) {
+                const key = `context:${entity.entity_id}`;
+                const data = result.entity_data?.[key];
+                console.log('Context:', data?.name);
+                console.log('Content:', data?.content);
+              }
+            }
+            ```
+          </Tab>
+          <Tab title="Go">
+            ```go
+            result, err := openlit.EvaluateRule(ctx, openlit.EvaluateRuleOptions{
+                EntityType:        openlit.RuleEntityContext,
+                Fields:            map[string]interface{}{"model": "gpt-4", "user_tier": "premium"},
+                IncludeEntityData: true,
+            })
+            if err != nil {
+                log.Fatal(err)
+            }
+            for _, entity := range result.Entities {
+                key := fmt.Sprintf("context:%s", entity.EntityID)
+                fmt.Printf("Context data: %v\n", result.EntityData[key])
+            }
+            ```
+          </Tab>
+          <Tab title="curl">
+            ```bash
+            curl -X POST https://your-openlit-instance/api/rule-engine/evaluate \
+              -H "Authorization: Bearer YOUR_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "entity_type": "context",
+                "fields": {
+                  "model": "gpt-4",
+                  "user_tier": "premium"
+                },
+                "include_entity_data": true
+              }'
+            ```
+          </Tab>
+        </Tabs>
+
+        ```json Example Response
         {
           "matchingRuleIds": ["rule-uuid-1"],
           "entities": [
@@ -93,6 +159,8 @@ Context lets you store rich, reusable content — such as system prompts, knowle
         ```
 
         Set `include_entity_data: true` to receive the full context record. When omitted, only matching rule IDs and entity references are returned.
+
+        <Info>For detailed SDK parameters and error handling, see the [SDK Rule Engine docs](/latest/sdk/features/rule-engine).</Info>
       </Step>
     </Steps>
   </Step>
@@ -105,12 +173,15 @@ Context lets you store rich, reusable content — such as system prompts, knowle
 
 ---
 
-<CardGroup cols={3}>
+<CardGroup cols={2}>
   <Card title="Rule Engine" href="/latest/openlit/prompts-experiments/rule-engine" icon='sliders'>
     Create conditional rules to match inputs and retrieve linked contexts, prompts, and other resources
   </Card>
   <Card title="Prompt Hub" href="/latest/openlit/prompts-experiments/prompt-hub" icon='message'>
     Version, deploy, and collaborate on prompts with centralized management and tracking
+  </Card>
+  <Card title="SDK Rule Engine" href="/latest/sdk/features/rule-engine" icon='puzzle-piece'>
+    Use evaluate_rule() from Python, TypeScript, or Go with full parameter reference
   </Card>
   <Card title="API Reference: Evaluate" href="/latest/openlit/developer-resources/api-reference/endpoint/rule-engine/evaluate" icon='code'>
     Full reference for the Rule Engine evaluate endpoint with request and response schemas

@@ -1,5 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
+import getMessage from "@/constants/messages";
 import { useRootStore } from "@/store";
 import { getPingStatus } from "@/selectors/database-config";
 import PromptUsage from "./usage";
@@ -12,6 +13,7 @@ export default function PromptHubHeader({
 	createNew?: boolean;
 	className?: string;
 }) {
+	const m = getMessage();
 	const pingStatus = useRootStore(getPingStatus);
 
 	return (
@@ -23,7 +25,7 @@ export default function PromptHubHeader({
 					variant="secondary"
 					className="bg-primary hover:bg-primary dark:bg-primary dark:hover:bg-primary text-stone-100 dark:text-stone-100 px-8 h-9 py-1"
 				>
-					<Link href="/prompt-hub/new">Create new</Link>
+					<Link href="/prompt-hub/new">{m.PROMPT_HUB_CREATE}</Link>
 				</Button>
 			)}
 		</div>
