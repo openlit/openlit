@@ -4,7 +4,8 @@
  *
  * To add a new evaluation type:
  * 1. Add entry here with id, label, description, enabledByDefault
- * 2. Add prebuilt default prompt in create-evaluation-type-defaults-migration.ts (DEFAULT_PROMPTS)
+ * 2. Add prebuilt default prompt in evaluation-type-contexts.ts
+ *    (migration picks it up automatically)
  */
 export const EVALUATION_TYPES = [
 	{
@@ -44,6 +45,41 @@ export const EVALUATION_TYPES = [
 		id: "faithfulness",
 		label: "Faithfulness",
 		description: "Measures alignment with provided context or source material.",
+		enabledByDefault: false,
+	},
+	{
+		id: "safety",
+		label: "Safety",
+		description:
+			"Detects jailbreak attempts, unsafe instructions, and harmful content generation.",
+		enabledByDefault: false,
+	},
+	{
+		id: "instruction_following",
+		label: "Instruction Following",
+		description:
+			"Evaluates whether the response follows the user's instructions and constraints precisely.",
+		enabledByDefault: false,
+	},
+	{
+		id: "completeness",
+		label: "Completeness",
+		description:
+			"Assesses whether the response fully addresses all parts of the query.",
+		enabledByDefault: false,
+	},
+	{
+		id: "conciseness",
+		label: "Conciseness",
+		description:
+			"Evaluates whether the response is appropriately concise without unnecessary filler or repetition.",
+		enabledByDefault: false,
+	},
+	{
+		id: "sensitivity",
+		label: "Sensitivity",
+		description:
+			"Detects PII leakage, confidential data exposure, and privacy-related concerns.",
 		enabledByDefault: false,
 	},
 ] as const;

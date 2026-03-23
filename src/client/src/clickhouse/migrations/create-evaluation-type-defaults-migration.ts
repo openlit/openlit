@@ -2,7 +2,7 @@ import { OPENLIT_EVALUATION_TYPE_DEFAULTS_TABLE_NAME } from "@/lib/platform/eval
 import { EVALUATION_TYPE_CONTEXTS } from "@/constants/evaluation-type-contexts";
 import migrationHelper from "./migration-helper";
 
-const MIGRATION_ID = "create-evaluation-type-defaults-table-4";
+const MIGRATION_ID = "create-evaluation-type-defaults-table-5";
 
 // Derive migration values from the single source of truth (evaluation-type-contexts.ts)
 const DEFAULT_PROMPTS: Array<[string, string]> = Object.entries(
