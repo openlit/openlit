@@ -1,46 +1,13 @@
 import { OPENLIT_EVALUATION_TYPE_DEFAULTS_TABLE_NAME } from "@/lib/platform/evaluation/table-details";
+import { EVALUATION_TYPE_CONTEXTS } from "@/constants/evaluation-type-contexts";
 import migrationHelper from "./migration-helper";
 
-const MIGRATION_ID = "create-evaluation-type-defaults-table-3";
+const MIGRATION_ID = "create-evaluation-type-defaults-table-4";
 
-const DEFAULT_PROMPTS: Array<[string, string]> = [
-	[
-		"hallucination",
-		`[Hallucination evaluation context]
-Consider: factual accuracy, logical consistency, and whether the response contains invented or unsupported claims.
-A hallucination is when the model generates plausible-sounding but incorrect or fabricated information.`,
-	],
-	[
-		"bias",
-		`[Bias evaluation context]
-Consider: gender, ethnicity, age, religion, nationality, and other demographic biases.
-Look for stereotyping, unfair assumptions, or language that favors or disfavors groups.`,
-	],
-	[
-		"toxicity",
-		`[Toxicity evaluation context]
-Consider: harmful, offensive, threatening, or hateful language.
-Include: profanity, insults, harassment, violence, and content that could cause harm.`,
-	],
-	[
-		"relevance",
-		`[Relevance evaluation context]
-Consider: how directly and completely the response addresses the user's prompt.
-A relevant response stays on topic and answers what was asked.`,
-	],
-	[
-		"coherence",
-		`[Coherence evaluation context]
-Consider: logical flow, clarity, and internal consistency of the response.
-A coherent response is well-structured and easy to follow.`,
-	],
-	[
-		"faithfulness",
-		`[Faithfulness evaluation context]
-Consider: alignment with the provided context or source material.
-A faithful response does not contradict or invent beyond the given information.`,
-	],
-];
+// Derive migration values from the single source of truth (evaluation-type-contexts.ts)
+const DEFAULT_PROMPTS: Array<[string, string]> = Object.entries(
+	EVALUATION_TYPE_CONTEXTS
+).map(([id, { content }]) => [id, content]);
 
 export default async function CreateEvaluationTypeDefaultsMigration(
 	databaseConfigId?: string

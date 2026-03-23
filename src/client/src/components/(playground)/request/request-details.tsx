@@ -25,7 +25,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HeirarchyDisplay from "./heirarchy-display";
 import { TraceRow, TransformedTraceRow } from "@/types/trace";
 import InfoPill from "./components/info-pill";
-import CodeItem from "./components/code-item";
 import TabsContentData from "./components/tabs-content";
 import ExtraTabs from "./components/extra-tabs";
 import ResourceAttributesTab from "./components/resource-attributes-tab";

@@ -49,7 +49,8 @@ const EVALUATION_TOAST_ID = "evaluation-config";
 export default function EvaluationSettingsPage() {
 	const [provider, setProvider] = useState("");
 	const [model, setModel] = useState("");
-	const [engine, setEngine] = useState<string>(EVALUATION_ENGINES[0].id);
+	// Engine is always "vercel" — kept in state for saving to meta (future-proofing)
+	const [engine] = useState<string>(EVALUATION_ENGINES[0].id);
 	const [autoEvaluation, setAutoEvaluation] = useState(false);
 	const [recurringTime, setRecurringTime] = useState("");
 	const [vaultId, setVaultId] = useState("");
@@ -98,9 +99,6 @@ export default function EvaluationSettingsPage() {
 			setAutoEvaluation(config.auto || false);
 			setRecurringTime(config.recurringTime || "");
 			setVaultId(config.vaultId || "");
-			const meta = JSON.parse(config.meta || "{}");
-			const engineId = meta.engine || EVALUATION_ENGINES[0].id;
-			setEngine(engineId === "litellm" ? "vercel" : engineId);
 		}
 	}, [config]);
 
@@ -112,12 +110,6 @@ export default function EvaluationSettingsPage() {
 		() => selectedProviderMeta?.supportedModels || [],
 		[selectedProviderMeta]
 	);
-
-	const currentEngine = EVALUATION_ENGINES.find((e) => e.id === engine);
-	const showModelSelect =
-		!!currentEngine?.requiresModel !== false &&
-		engine === "vercel" ||
-		engine === "litellm";
 
 	const handleSave = () => {
 		if (!provider || !model || !vaultId) {
@@ -206,7 +198,7 @@ export default function EvaluationSettingsPage() {
 			</Card>
 			<div className="grid grid-cols-3 gap-4">
 				<div className="col-span-2 grid gap-4">
-					{/* Engine Selection Card */}
+					{/* Configuration Card */}
 					<Card className="border-stone-200 dark:border-stone-800 shadow-sm">
 						<CardHeader className="pb-4">
 							<CardTitle className="text-base flex items-center gap-2">
@@ -218,98 +210,78 @@ export default function EvaluationSettingsPage() {
 							</p>
 						</CardHeader>
 						<CardContent className="space-y-4">
+							<div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 rounded-md px-3 py-2">
+								<Info className="size-3.5 shrink-0" />
+								<span>Powered by <span className="font-medium text-stone-700 dark:text-stone-300">Vercel AI SDK</span></span>
+							</div>
+
 							<div className="grid gap-3">
-								<Label>{getMessage().EVALUATION_ENGINE_LABEL}</Label>
-								<Select value={engine} onValueChange={setEngine}>
-									<SelectTrigger className="h-auto">
-										<SelectValue />
+								<div className="flex items-center justify-between">
+									<Label>{getMessage().EVALUATION_PROVIDER_LABEL}</Label>
+									<Link href="/settings/manage-models">
+										<Button variant="ghost" size="sm" className="h-7 text-xs px-2">
+											<SettingsIcon className="h-3 w-3 mr-1" />
+											{getMessage().OPENGROUND_MANAGE_MODELS}
+										</Button>
+									</Link>
+								</div>
+								<Select
+									value={provider}
+									onValueChange={(v) => {
+										setProvider(v);
+										setModel("");
+									}}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder={getMessage().EVALUATION_SELECT_PROVIDER} />
 									</SelectTrigger>
 									<SelectContent>
-										{EVALUATION_ENGINES.map((e) => (
-											<SelectItem key={e.id} value={e.id}>
-												<div className="flex text-left flex-col">
-													<span className="font-medium">{e.label}</span>
-													<span className="text-stone-500 dark:text-stone-400 text-xs block">
-														{e.description}
-													</span>
-												</div>
+										{(providers || []).map((p) => (
+											<SelectItem key={p.providerId} value={p.providerId}>
+												{p.displayName}
 											</SelectItem>
 										))}
 									</SelectContent>
 								</Select>
 							</div>
-
-							{showModelSelect && (
-								<>
-									<div className="grid gap-3">
-										<div className="flex items-center justify-between">
-											<Label>{getMessage().EVALUATION_PROVIDER_LABEL}</Label>
-											<Link href="/settings/manage-models">
-												<Button variant="ghost" size="sm" className="h-7 text-xs px-2">
-													<SettingsIcon className="h-3 w-3 mr-1" />
-													{getMessage().OPENGROUND_MANAGE_MODELS}
-												</Button>
-											</Link>
-										</div>
-										<Select
-											value={provider}
-											onValueChange={(v) => {
-												setProvider(v);
-												setModel("");
-											}}
-										>
-											<SelectTrigger>
-												<SelectValue placeholder={getMessage().EVALUATION_SELECT_PROVIDER} />
-											</SelectTrigger>
-											<SelectContent>
-												{(providers || []).map((p) => (
-													<SelectItem key={p.providerId} value={p.providerId}>
-														{p.displayName}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									</div>
-									<div className="grid gap-3">
-										<Label>{getMessage().EVALUATION_MODEL_LABEL}</Label>
-										<Select
-											value={model}
-											onValueChange={setModel}
-											disabled={!provider}
-										>
-											<SelectTrigger className="h-auto">
-												<SelectValue
-													placeholder={
-														provider
-															? getMessage().EVALUATION_MODEL_PLACEHOLDER
-															: getMessage().EVALUATION_SELECT_PROVIDER_FIRST
-													}
-												/>
-											</SelectTrigger>
-											<SelectContent>
-												{modelOptions.map((m) => (
-													<SelectItem key={m.id} value={m.id}>
-														<div className="flex flex-col items-start gap-0.5">
-															<span className="text-sm">{m.displayName}</span>
-															<div className="flex gap-1.5 text-xs text-stone-500">
-																<Badge variant="secondary" className="text-xs h-4 px-1">
-																	{m.contextWindow.toLocaleString()}
-																</Badge>
-																<Badge variant="outline" className="text-xs h-4 px-1">
-																	${m.inputPricePerMToken}/M
-																</Badge>
-															</div>
-														</div>
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-										<p className="text-xs text-stone-500 dark:text-stone-400">
-											{getMessage().EVALUATION_MODEL_CUSTOM_HINT}
-										</p>
-									</div>
-								</>
-							)}
+							<div className="grid gap-3">
+								<Label>{getMessage().EVALUATION_MODEL_LABEL}</Label>
+								<Select
+									value={model}
+									onValueChange={setModel}
+									disabled={!provider}
+								>
+									<SelectTrigger className="h-auto">
+										<SelectValue
+											placeholder={
+												provider
+													? getMessage().EVALUATION_MODEL_PLACEHOLDER
+													: getMessage().EVALUATION_SELECT_PROVIDER_FIRST
+											}
+										/>
+									</SelectTrigger>
+									<SelectContent>
+										{modelOptions.map((m) => (
+											<SelectItem key={m.id} value={m.id}>
+												<div className="flex flex-col items-start gap-0.5">
+													<span className="text-sm">{m.displayName}</span>
+													<div className="flex gap-1.5 text-xs text-stone-500">
+														<Badge variant="secondary" className="text-xs h-4 px-1">
+															{m.contextWindow.toLocaleString()}
+														</Badge>
+														<Badge variant="outline" className="text-xs h-4 px-1">
+															${m.inputPricePerMToken}/M
+														</Badge>
+													</div>
+												</div>
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								<p className="text-xs text-stone-500 dark:text-stone-400">
+									{getMessage().EVALUATION_MODEL_CUSTOM_HINT}
+								</p>
+							</div>
 
 							<div className="grid gap-3">
 								<Label>{getMessage().EVALUATION_API_KEY_VAULT}</Label>

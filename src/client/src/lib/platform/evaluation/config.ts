@@ -199,6 +199,49 @@ export async function setEvaluationConfig(
 	return data;
 }
 
+/**
+ * Restore cron jobs for all evaluation configs that have auto=true.
+ * Called on server startup to ensure cron entries survive container restarts / new image deployments.
+ */
+export async function restoreEvaluationCronJobs(apiURL: string) {
+	try {
+		const configs = await prisma.evaluationConfigs.findMany({
+			where: { auto: true },
+		});
+
+		if (!configs?.length) {
+			console.log("No auto-evaluation configs to restore");
+			return;
+		}
+
+		const cronObject = new Cron();
+
+		for (const config of configs) {
+			try {
+				const meta = jsonParse(config.meta || "{}") as Record<string, any>;
+				const cronJobId = meta?.cronJobId;
+				if (!cronJobId || !config.recurringTime) continue;
+
+				cronObject.updateCrontab({
+					cronId: cronJobId,
+					cronSchedule: config.recurringTime,
+					cronEnvVars: {
+						EVALUATION_CONFIG_ID: config.id,
+						API_URL: apiURL,
+					},
+					cronScriptPath: path.join(process.cwd(), "scripts/evaluation/auto.js"),
+					cronLogPath: path.join(process.cwd(), "logs/evaluation/auto.log"),
+				});
+				console.log(`Restored cron job for evaluation config ${config.id}`);
+			} catch (e) {
+				console.error(`Failed to restore cron job for config ${config.id}:`, e);
+			}
+		}
+	} catch (e) {
+		console.error("Failed to restore evaluation cron jobs:", e);
+	}
+}
+
 export async function getEvaluationConfigById(
 	id: string,
 	excludeVaultValue: boolean = true

@@ -122,6 +122,14 @@ export const normalizeTrace = (item: TraceRow): TransformedTraceRow => {
 				}
 			} else {
 				value = get(spanAttrs, getTraceMappingKeyFullPath(traceKey));
+				// Backward compatibility: new OTel convention for token usage
+				if (value == null && traceKey === "totalTokens") {
+					value = spanAttrs["gen_ai.client.token.usage"];
+				} else if (value == null && traceKey === "promptTokens") {
+					value = spanAttrs["gen_ai.client.token.usage.input"];
+				} else if (value == null && traceKey === "completionTokens") {
+					value = spanAttrs["gen_ai.client.token.usage.output"];
+				}
 			}
 
 			acc[traceKey] = getNormalizedTraceAttribute(traceKey, value);
