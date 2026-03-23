@@ -19,6 +19,7 @@ from openlit.__helpers import (
     otel_event,
     get_audio_model_cost,
     record_audio_metrics,
+    truncate_message_content,
 )
 from openlit.semcov import SemanticConvention
 
@@ -96,6 +97,8 @@ def build_output_messages(response_text, finish_reason, tool_calls=None):
 def _set_span_messages_as_array(span, input_messages, output_messages):
     """Set gen_ai.input.messages and gen_ai.output.messages on span as JSON array strings (OTel)."""
     try:
+        truncate_message_content(input_messages)
+        truncate_message_content(output_messages)
         if input_messages is not None:
             span.set_attribute(
                 SemanticConvention.GEN_AI_INPUT_MESSAGES,

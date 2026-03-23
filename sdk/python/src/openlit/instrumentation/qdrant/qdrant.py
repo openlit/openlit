@@ -28,6 +28,7 @@ def general_wrap(
     """
     Generates a telemetry wrapper for Pinecone function calls.
     """
+    # pylint: disable=too-many-arguments, too-many-positional-arguments, protected-access
 
     def wrapper(wrapped, instance, args, kwargs):
         """
