@@ -28,7 +28,7 @@ afterAll(() => {
   process.env = originalEnv;
 });
 
-describe('RuleEngine.evaluate', () => {
+describe('RuleEngine.evaluateRule', () => {
   it('sends correct request to rule-engine evaluate endpoint', async () => {
     const mockResponse = {
       matchingRuleIds: ['rule-1'],
@@ -40,7 +40,7 @@ describe('RuleEngine.evaluate', () => {
       json: () => Promise.resolve(mockResponse),
     });
 
-    const result = await RuleEngine.evaluate({
+    const result = await RuleEngine.evaluateRule({
       url: 'http://localhost:3000',
       apiKey: 'test-key',
       entityType: 'context',
@@ -67,7 +67,7 @@ describe('RuleEngine.evaluate', () => {
       status: 401,
     });
 
-    const result = await RuleEngine.evaluate({
+    const result = await RuleEngine.evaluateRule({
       url: 'http://localhost:3000',
       apiKey: 'bad-key',
       entityType: 'context',
@@ -81,7 +81,7 @@ describe('RuleEngine.evaluate', () => {
   it('returns error object on network failure', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
 
-    const result = await RuleEngine.evaluate({
+    const result = await RuleEngine.evaluateRule({
       url: 'http://localhost:3000',
       apiKey: 'test-key',
       entityType: 'context',
@@ -100,7 +100,7 @@ describe('RuleEngine.evaluate', () => {
       json: () => Promise.resolve({ matchingRuleIds: [] }),
     });
 
-    await RuleEngine.evaluate({
+    await RuleEngine.evaluateRule({
       apiKey: 'key',
       entityType: 'context',
       fields: {},
@@ -118,7 +118,7 @@ describe('RuleEngine.evaluate', () => {
       json: () => Promise.resolve({ matchingRuleIds: [] }),
     });
 
-    await RuleEngine.evaluate({
+    await RuleEngine.evaluateRule({
       url: 'http://localhost:3000',
       entityType: 'context',
       fields: {},
@@ -134,7 +134,7 @@ describe('RuleEngine.evaluate', () => {
       json: () => Promise.resolve({ matchingRuleIds: [], entity_data: {} }),
     });
 
-    await RuleEngine.evaluate({
+    await RuleEngine.evaluateRule({
       url: 'http://localhost:3000',
       apiKey: 'key',
       entityType: 'prompt',
@@ -155,7 +155,7 @@ describe('RuleEngine.evaluate', () => {
       json: () => Promise.resolve({ matchingRuleIds: [] }),
     });
 
-    await RuleEngine.evaluate({
+    await RuleEngine.evaluateRule({
       url: 'http://localhost:3000',
       apiKey: 'key',
       entityType: 'context',

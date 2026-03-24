@@ -3,7 +3,7 @@ import { OPENLIT_URL } from '../constant';
 import { RuleEngineOptions, RuleEngineResult } from '../types';
 
 export default class RuleEngine {
-  static async evaluate(
+  static async evaluateRule(
     options: RuleEngineOptions
   ): Promise<RuleEngineResult | { err: string }> {
     const url = process.env.OPENLIT_URL || options.url || OPENLIT_URL;

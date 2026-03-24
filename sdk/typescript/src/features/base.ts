@@ -5,5 +5,5 @@ import Vault from './vault';
 export default class BaseOpenlit {
   static getPrompts = PromptHub.getPrompts;
   static getSecrets = Vault.getSecrets;
-  static evaluateRule = RuleEngine.evaluate;
+  static evaluateRule = RuleEngine.evaluateRule;
 }
