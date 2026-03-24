@@ -34,6 +34,7 @@ export interface FilterConfig {
 	totalRows: number;
 	traceTypes: string[];
 	applicationNames: string[];
+	spanNames: string[];
 	environments: string[];
 	customFilters?: CustomFilter[];
 }
