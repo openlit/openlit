@@ -14,6 +14,7 @@ export type FilterWhereConditionType = {
 		models: string[];
 		traceTypes: string[];
 		applicationNames: string[];
+		spanNames: string[];
 		environments: string[];
 		customFilters: { attributeType: string; key: string; value: string }[];
 	}>;
