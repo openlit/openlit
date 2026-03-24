@@ -132,6 +132,10 @@ export async function getRequestsConfig(params: MetricParams) {
 	);
 
 	select.push(
+		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT SpanName)) AS spanNames`
+	);
+
+	select.push(
 		`arrayFilter(x -> x != '', ARRAY_AGG(DISTINCT ResourceAttributes['${getTraceMappingKeyFullPath(
 			"environment"
 		)}'])) AS environments`

@@ -151,7 +151,6 @@ def llm_response_openai(prompt: str, model: str, base_url: str) -> str:
         messages=[
             {"role": "user", "content": prompt},
         ],
-        temperature=0.0,
         response_format={"type": "json_object"},
     )
     return response.choices[0].message.content
@@ -207,7 +206,6 @@ def llm_response_anthropic(prompt: str, model: str) -> str:
         model=model,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=2000,
-        temperature=0.0,
         tools=tools,
         stream=False,
     )
